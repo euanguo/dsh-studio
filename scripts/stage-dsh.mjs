@@ -711,6 +711,7 @@ mkdirSync(stage, { recursive: true })
   const pnpm = resolvePinnedPnpm(dshSource)
   run(process.execPath, [
     pnpm.cliEntry,
+    '--pm-on-fail=ignore',
     '--ignore-scripts',
   '--filter', '@deepseek-ai/dsh',
   'deploy', '--prod', '--legacy', runtime,
