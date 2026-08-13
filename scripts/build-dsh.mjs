@@ -17,7 +17,10 @@ function run(args) {
     ...args,
   ], {
     cwd: dshSource,
-    env: process.env,
+    env: {
+      ...process.env,
+      npm_config_manage_package_manager_versions: 'false',
+    },
     stdio: 'inherit',
   })
   if (result.error !== undefined) throw result.error

@@ -714,7 +714,13 @@ mkdirSync(stage, { recursive: true })
     '--ignore-scripts',
   '--filter', '@deepseek-ai/dsh',
   'deploy', '--prod', '--legacy', runtime,
-], { cwd: dshSource, env: process.env })
+  ], {
+    cwd: dshSource,
+    env: {
+      ...process.env,
+      npm_config_manage_package_manager_versions: 'false',
+    },
+  })
 
 rewriteWorkspaceLinks()
 relinkInstallationWorkspacePackages()
