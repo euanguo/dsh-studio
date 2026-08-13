@@ -1,10 +1,21 @@
 import { spawnSync } from 'node:child_process'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { resolveDshSource } from './dsh-source.mjs'
 
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dshSource = resolveDshSource()
+const pnpmCli = join(root, 'node_modules', 'pnpm', 'bin', 'pnpm.mjs')
 
 function run(args) {
-  const result = spawnSync('corepack', ['pnpm', ...args], {
+  // The pinned source declares `packageManager`, which would make pnpm swap
+  // to a native build not present in its frozen lockfile; the harness is
+  // installed with this repo's pinned pnpm instead.
+  const result = spawnSync(process.execPath, [
+    pnpmCli,
+    '--config.manage-package-manager-versions=false',
+    ...args,
+  ], {
     cwd: dshSource,
     env: process.env,
     stdio: 'inherit',
@@ -14,5 +25,4 @@ function run(args) {
 }
 
 run(['install', '--frozen-lockfile'])
-run(['run', 'build:lib'])
-run(['--filter', '@deepseek-ai/dsh-web-frontend', 'run', 'build'])
+run(['run', 'build'])
