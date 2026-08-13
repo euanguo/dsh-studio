@@ -3,6 +3,8 @@
   "productName": "Oh-DSH-Desktop",
   "version": "0.1.2",
   "description": "An extensible DeepSeek Harness plugin collection and Electron desktop distribution",
+  "author": "dsh-external",
+  "desktopName": "oh-dsh-desktop.desktop",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
@@ -45,6 +47,7 @@
     "check:sidebar-source": "node scripts/check-sidebar-source.mjs",
     "smoke:runtime": "node scripts/smoke-runtime.mjs",
     "smoke:app": "node scripts/smoke-runtime.mjs \"release/mac-arm64/Oh-DSH-Desktop.app/Contents/Resources\"",
+    "smoke:app:linux": "node scripts/smoke-runtime.mjs \"release/linux-unpacked/resources\"",
     "install:mac": "node scripts/install-mac.mjs",
     "start": "pnpm run build && pnpm run stage:dsh && electron .",
     "dev": "node scripts/dev.mjs",
@@ -53,6 +56,8 @@
     "typecheck": "tsc --noEmit && tsc --noEmit -p plugins/better-sidebar-runtime/tsconfig.json",
     "dist:mac": "pnpm run build && pnpm run build:dsh && pnpm run stage:dsh && node scripts/build-mac.mjs",
     "dist:mac:quick": "pnpm run build && pnpm run stage:dsh && node scripts/build-mac.mjs",
+    "dist:linux": "pnpm run build && pnpm run build:dsh && pnpm run stage:dsh && node scripts/build-linux.mjs",
+    "dist:linux:quick": "pnpm run build && pnpm run stage:dsh && node scripts/build-linux.mjs",
     "check:skins": "node scripts/verify-skin-tokens.mjs"
   },
   "devDependencies": {
@@ -119,6 +124,28 @@
         "NSDocumentsFolderUsageDescription": "Oh-DSH-Desktop needs access to workspaces you select in Documents.",
         "NSDownloadsFolderUsageDescription": "Oh-DSH-Desktop needs access to workspaces you select in Downloads."
       }
+    },
+    "linux": {
+      "category": "Development",
+      "icon": "assets/icon.png",
+      "maintainer": "dsh-external",
+      "executableName": "oh-dsh-desktop",
+      "syncDesktopName": true,
+      "synopsis": "An extensible DeepSeek Harness desktop workbench",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "dmg": {
       "title": "Oh-DSH-Desktop ${version}",

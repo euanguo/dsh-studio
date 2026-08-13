@@ -7,6 +7,11 @@ const timeoutMs = 20_000
 if (runtimeUrl === undefined) throw new Error('runtime URL is required')
 
 app.disableHardwareAcceleration()
+// Keep requestAnimationFrame ticking in the hidden smoke window: the plugin
+// marketplace places its sidebar nav entry from a rAF callback, and hidden
+// renderers are backgrounded by default (no frames, no placement).
+app.commandLine.appendSwitch('disable-renderer-backgrounding')
+app.commandLine.appendSwitch('disable-background-timer-throttling')
 
 function finish(window, error) {
   if (error === undefined) {
@@ -21,8 +26,12 @@ function finish(window, error) {
 void app.whenReady().then(async () => {
   const window = new BrowserWindow({
     height: 800,
-    show: false,
+    // The plugin marketplace places its nav entry from a requestAnimationFrame
+    // callback; never-shown windows receive no frames, so the smoke window is
+    // visible (rc.5 behavior).
+    show: true,
     webPreferences: {
+      backgroundThrottling: false,
       contextIsolation: true,
       nodeIntegration: false,
       preload: join(__dirname, 'smoke-client-preload.cjs'),
@@ -51,16 +60,31 @@ void app.whenReady().then(async () => {
   const poll = async () => {
     if (settled) return
     try {
-      const state = await window.webContents.executeJavaScript(`(() => ({
+      const state = await window.webContents.executeJavaScript(`(() => {
+        // rc.5+ gates first launch behind onboarding dialogs (welcome notice,
+        // then API-key setup). Dismiss both so the shell navigation is visible.
+        const onboardingButton = [...document.querySelectorAll('button')]
+          .find(button => /^(继续|continue|start using|开始使用|稍后配置|configure later|skip|later)$/i.test((button.textContent ?? '').trim()))
+        if (onboardingButton !== undefined) onboardingButton.click()
+        return {
         body: document.body?.innerText ?? '',
         navigation: (() => {
           const pluginsIcon = document.querySelector('.oh-marketplace-nav svg')
-          const settings = [...document.querySelectorAll('button[aria-haspopup="dialog"]')]
-            .find(button => /settings|设置/i.test([
+          const slotted = [...document.querySelectorAll('button')]
+            .find(button => button.querySelector('[data-slot="settings.trigger"]') !== null
+              && button.closest('[data-slot="sidebar"]') !== null)
+          const labeled = [...document.querySelectorAll('button')]
+            .filter(button => /settings|设置/i.test([
               button.textContent,
               button.getAttribute('aria-label'),
               button.getAttribute('title'),
             ].filter(Boolean).join(' ')))
+          const settings = slotted
+            ?? (labeled.length > 0
+              ? labeled[labeled.length - 1]
+              : [...document.querySelectorAll('button[aria-haspopup="dialog"]')]
+                .filter(button => button.closest('[data-slot="sidebar"]') !== null)
+                .sort((left, right) => right.getBoundingClientRect().bottom - left.getBoundingClientRect().bottom)[0])
           const settingsIcon = settings?.querySelector('svg')
           if (!(pluginsIcon instanceof SVGElement)
             || !(settingsIcon instanceof SVGElement)) return null
@@ -99,7 +123,8 @@ void app.whenReady().then(async () => {
           }
         })(),
         ready: document.documentElement.dataset.ohDshDesktop === 'true',
-      }))()`)
+      }
+    })()`)
       if (state.ready === true && state.navigation !== null) {
         if (state.navigation.pluginsTop < 0
           || state.navigation.pluginsBottom > state.navigation.viewportHeight

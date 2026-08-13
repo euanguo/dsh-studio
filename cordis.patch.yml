@@ -9,10 +9,9 @@
 
 - id: web-runtime
   config:
-    mode: production
     printUrl: true
     surfaceContext: false
-    lanAddresses: []
+    trustedHosts: []
 
 - insert:
     - id: oh-desktop

@@ -10,7 +10,7 @@ import {
 test('desktop client replaces the hero title and keeps the Preview badge', () => {
   const client = readFileSync(new URL('../src/client.ts', import.meta.url), 'utf8')
   assert.match(client, /element\.textContent = 'Oh-DSH-Desktop'/)
-  assert.match(client, /\['Into the Unknown', '探索未知之境'\]/)
+  assert.match(client, /\['Into the Unknown', '探索未知之境', '探索未至之境'\]/)
   assert.doesNotMatch(client, /data-oh-dsh-hero-preview/)
 })
 

@@ -582,12 +582,16 @@ function buildMenu(): void {
         { role: 'about' },
         { type: 'separator' },
         { label: text.settings, accelerator: 'CmdOrCtrl+,', click: () => { sendCommand({ type: 'show-settings' }) } },
-        { type: 'separator' },
-        { role: 'services' },
-        { type: 'separator' },
-        { role: 'hide' },
-        { role: 'hideOthers' },
-        { role: 'unhide' },
+        ...(process.platform === 'darwin'
+          ? [
+            { type: 'separator' as const },
+            { role: 'services' as const },
+            { type: 'separator' as const },
+            { role: 'hide' as const },
+            { role: 'hideOthers' as const },
+            { role: 'unhide' as const },
+          ]
+          : []),
         { type: 'separator' },
         { role: 'quit' },
       ],

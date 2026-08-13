@@ -197,7 +197,7 @@ function installDesktopChrome(): () => void {
 }
 
 function installHeroBranding(): () => void {
-  const headlineCopy = new Set(['Into the Unknown', '探索未知之境'])
+  const headlineCopy = new Set(['Into the Unknown', '探索未知之境', '探索未至之境'])
   const originalHeadlines = new Map<HTMLElement, string>()
   const synchronize = (): void => {
     for (const element of document.querySelectorAll<HTMLElement>('span')) {
@@ -224,8 +224,28 @@ function focusComposer(): void {
   document.querySelector<HTMLTextAreaElement>('textarea')?.focus()
 }
 
+function findSettingsButton(): HTMLButtonElement | undefined {
+  // rc.5 wraps the settings trigger content in a stable slot marker; the rail
+  // trigger is the one inside the sidebar (the settings panel may render one).
+  const slotted = [...document.querySelectorAll<HTMLButtonElement>('button')]
+    .find(button => button.querySelector('[data-slot="settings.trigger"]') !== null
+      && button.closest('[data-slot="sidebar"]') !== null)
+  if (slotted !== undefined) return slotted
+  const labeled = [...document.querySelectorAll<HTMLButtonElement>('button')]
+    .find(button => /settings|设置/i.test([
+      button.textContent,
+      button.getAttribute('aria-label'),
+      button.getAttribute('title'),
+    ].filter(Boolean).join(' ')))
+  if (labeled !== undefined) return labeled
+  // rc.5 collapsed rail: the settings trigger is an icon-only dialog opener.
+  return [...document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')]
+    .filter(button => button.closest('[data-slot="sidebar"]') !== null)
+    .sort((left, right) => right.getBoundingClientRect().bottom - left.getBoundingClientRect().bottom)[0]
+}
+
 function showSettings(): void {
-  document.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')?.click()
+  findSettingsButton()?.click()
 }
 
 async function openPaths(workspaces: WorkspacesService, paths: readonly string[]): Promise<void> {

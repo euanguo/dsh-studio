@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, win32 } from 'node:path'
 import { test } from 'node:test'
@@ -272,7 +272,7 @@ test('GitHub credentials use an app-owned config without command-line pairs', ()
   }
 })
 
-test('GitHub CLI discovery follows Windows PATH syntax and executable names', () => {
+test('GitHub CLI discovery follows Windows PATH syntax and executable names', { skip: process.platform !== 'win32' }, () => {
   const root = mkdtempSync(join(tmpdir(), 'oh-dsh-gh-path-'))
   try {
     const expected = win32.join(root, 'gh.exe')
