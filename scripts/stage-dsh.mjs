@@ -710,6 +710,7 @@ mkdirSync(stage, { recursive: true })
   const pnpmCli = join(root, 'node_modules', 'pnpm', 'bin', 'pnpm.mjs')
   run(process.execPath, [
     pnpmCli,
+    '--pm-on-fail=ignore',
     '--config.manage-package-manager-versions=false',
     '--ignore-scripts',
   '--filter', '@deepseek-ai/dsh',
@@ -719,6 +720,7 @@ mkdirSync(stage, { recursive: true })
     env: {
       ...process.env,
       npm_config_manage_package_manager_versions: 'false',
+      npm_config_pm_on_fail: 'ignore',
     },
   })
 

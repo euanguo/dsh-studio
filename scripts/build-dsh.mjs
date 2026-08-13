@@ -13,6 +13,7 @@ function run(args) {
   // installed with this repo's pinned pnpm instead.
   const result = spawnSync(process.execPath, [
     pnpmCli,
+    '--pm-on-fail=ignore',
     '--config.manage-package-manager-versions=false',
     ...args,
   ], {
@@ -20,6 +21,7 @@ function run(args) {
     env: {
       ...process.env,
       npm_config_manage_package_manager_versions: 'false',
+      npm_config_pm_on_fail: 'ignore',
     },
     stdio: 'inherit',
   })
