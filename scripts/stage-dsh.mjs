@@ -25,7 +25,7 @@ import {
   sep,
 } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { resolveDshSource } from './dsh-source.mjs'
+import { resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dshSource = resolveDshSource()
@@ -707,21 +707,15 @@ for (const required of [
 
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
-  const pnpmCli = join(root, 'node_modules', 'pnpm', 'bin', 'pnpm.mjs')
+  const pnpmCli = resolvePinnedPnpm(dshSource)
   run(process.execPath, [
     pnpmCli,
-    '--pm-on-fail=ignore',
-    '--config.manage-package-manager-versions=false',
     '--ignore-scripts',
   '--filter', '@deepseek-ai/dsh',
   'deploy', '--prod', '--legacy', runtime,
   ], {
     cwd: dshSource,
-    env: {
-      ...process.env,
-      npm_config_manage_package_manager_versions: 'false',
-      npm_config_pm_on_fail: 'ignore',
-    },
+    env: process.env,
   })
 
 rewriteWorkspaceLinks()

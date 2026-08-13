@@ -44,6 +44,46 @@ function capture(command, args, cwd) {
   return result.stdout.trim()
 }
 
+/**
+ * Resolve a pnpm CLI that matches the pinned source's declared
+ * `packageManager`. pnpm's own version-switch downloads a native build and
+ * verifies it against a lockfile entry that the pinned source does not
+ * record, which fails on some runners; running the declared JS bundle
+ * directly keeps the frozen install and legacy deploy on the exact version
+ * the lockfile was generated with.
+ */
+export function resolvePinnedPnpm(source) {
+  const manifest = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'))
+  const reference = typeof manifest.packageManager === 'string' ? manifest.packageManager : ''
+  const separator = reference.lastIndexOf('@')
+  const name = reference.slice(0, separator)
+  const version = reference.slice(separator + 1)
+  if (name !== 'pnpm' || version === '') {
+    throw new Error(`pinned DSH source declares an unsupported packageManager: ${reference}`)
+  }
+  const cache = join(root, '.cache', 'pnpm-cli')
+  const cliRoot = join(cache, `pnpm-${version}`, 'package')
+  const cliEntry = join(cliRoot, 'bin', 'pnpm.cjs')
+  if (!existsSync(cliEntry)) {
+    mkdirSync(cache, { recursive: true })
+    const archive = join(cache, `pnpm-${version}.tgz`)
+    rmSync(archive, { force: true })
+    run('npm', ['pack', `pnpm@${version}`, '--pack-destination', cache])
+    const extraction = join(cache, `.pnpm-extract-${String(process.pid)}`)
+    rmSync(extraction, { recursive: true, force: true })
+    mkdirSync(extraction, { recursive: true })
+    run('tar', ['-xzf', archive, '-C', extraction])
+    rmSync(join(cliRoot, '..'), { recursive: true, force: true })
+    mkdirSync(dirname(cliRoot), { recursive: true })
+    renameSync(join(extraction, 'package'), cliRoot)
+    rmSync(extraction, { recursive: true, force: true })
+  }
+  if (!existsSync(cliEntry)) {
+    throw new Error(`pnpm ${version} CLI did not unpack to ${cliEntry}`)
+  }
+  return cliEntry
+}
+
 function validateSource(source, expectedRevision) {
   const manifestPath = join(source, 'package.json')
   if (!existsSync(join(source, 'apps', 'cli', 'package.json')) || !existsSync(manifestPath)) {
