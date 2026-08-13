@@ -14,6 +14,7 @@ export type MarketplaceMessage =
   | 'all-categories'
   | 'mechanism.repository'
   | 'mechanism.bundle'
+  | 'mechanism.discover'
   | 'mechanism.unsupported'
   | 'details'
   | 'category'
@@ -97,7 +98,7 @@ export type MarketplaceMessage =
 export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
   en: {
     plugins: 'Plugins',
-    subtitle: 'dsh-external · isolated preview before every change',
+    subtitle: 'Public DSH catalog · isolated preview before every change',
     installed: 'Installed',
     enabled: 'Enabled',
     disabled: 'Disabled',
@@ -109,6 +110,7 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'all-categories': 'All categories',
     'mechanism.repository': 'Repository',
     'mechanism.bundle': 'Bundle',
+    'mechanism.discover': 'Auto-detect',
     'mechanism.unsupported': 'Browse only',
     details: '{plugin} details',
     category: 'Category',
@@ -117,7 +119,7 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     unknown: 'Unknown',
     repository: 'Repository',
     trust: 'Source trust',
-    'trust.organization': 'Verified organization · dsh-external',
+    'trust.organization': 'Registry reviewed source',
     'trust.community': 'Community source',
     'trust.untrusted': 'Untrusted source',
     'runtime-boundary': 'Runtime boundary',
@@ -177,13 +179,13 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'installation-status': 'Installation status',
     'plugin-category': 'Plugin category',
     'plugin-count': '{count} plugins',
-    'loading-catalog': 'Loading the organization catalog…',
+    'loading-catalog': 'Loading the plugin catalog…',
     'github-auth-required': 'GitHub authentication required',
     'no-match': 'No plugins match this view.',
     'auth.install-gh': 'Install GitHub CLI and run `gh auth login` to browse private organization plugins.',
     'auth.ready': 'Authenticated with GitHub CLI.',
     'auth.not-refreshed': 'Plugin catalog has not been refreshed yet.',
-    'notice.loaded': 'Loaded {count} organization plugins.',
+    'notice.loaded': 'Loaded {count} catalog plugins.',
     'notice.preview-ready': 'Isolated {action} preview is ready for {plugin}.',
     'notice.discarded': 'Discarded the {plugin} preview without changing the desktop profile.',
     'notice.applied': 'Applied {plugin}; the previous profile remains available for Undo.',
@@ -191,7 +193,7 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
   },
   zh: {
     plugins: '插件',
-    subtitle: 'dsh-external · 每次变更前均进行隔离预览',
+    subtitle: '公开 DSH 目录 · 每次变更前均进行隔离预览',
     installed: '已安装',
     enabled: '已启用',
     disabled: '已停用',
@@ -203,6 +205,7 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'all-categories': '全部分类',
     'mechanism.repository': '仓库插件',
     'mechanism.bundle': '插件包',
+    'mechanism.discover': '自动检测',
     'mechanism.unsupported': '仅浏览',
     details: '{plugin} 详情',
     category: '分类',
@@ -211,7 +214,7 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     unknown: '未知',
     repository: '仓库',
     trust: '来源信任',
-    'trust.organization': '已验证组织 · dsh-external',
+    'trust.organization': 'Registry 已审核来源',
     'trust.community': '社区来源',
     'trust.untrusted': '不受信任来源',
     'runtime-boundary': '运行边界',
@@ -277,7 +280,7 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'auth.install-gh': '请安装 GitHub CLI 并运行 `gh auth login`，以浏览组织的私有插件。',
     'auth.ready': '已通过 GitHub CLI 完成身份验证。',
     'auth.not-refreshed': '插件目录尚未刷新。',
-    'notice.loaded': '已加载 {count} 个组织插件。',
+    'notice.loaded': '已加载 {count} 个目录插件。',
     'notice.preview-ready': '{plugin} 的隔离{action}预览已就绪。',
     'notice.discarded': '已放弃 {plugin} 的预览，桌面端配置未发生更改。',
     'notice.applied': '已应用 {plugin}；之前的配置仍可撤销恢复。',

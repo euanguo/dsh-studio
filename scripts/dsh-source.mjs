@@ -69,24 +69,33 @@ function validateSource(source, expectedRevision) {
 
 function acquirePinnedSource(target) {
   const temporary = `${target}.clone-${String(process.pid)}`
-  rmSync(target, { recursive: true, force: true })
   rmSync(temporary, { recursive: true, force: true })
   try {
+    run('git', ['init', temporary])
+    run('git', ['-C', temporary, 'remote', 'add', 'origin', DSH_SOURCE_SPEC.repository])
     run('git', [
-      'clone',
+      '-C', temporary,
+      'fetch',
+      '--depth=1',
       '--filter=blob:none',
       '--no-tags',
-      '--branch', DSH_SOURCE_SPEC.ref,
-      DSH_SOURCE_SPEC.repository,
-      temporary,
+      'origin',
+      DSH_SOURCE_SPEC.revision,
     ])
+    run('git', ['-C', temporary, 'checkout', '--detach', DSH_SOURCE_SPEC.revision])
     const actual = capture('git', ['rev-parse', 'HEAD'], temporary)
     if (actual !== DSH_SOURCE_SPEC.revision) {
       throw new Error(
         `DSH ref moved: expected ${DSH_SOURCE_SPEC.revision}, received ${actual}`,
       )
     }
-    renameSync(temporary, target)
+    try {
+      renameSync(temporary, target)
+    } catch (error) {
+      if (!existsSync(join(target, '.git'))) throw error
+      validateSource(target, DSH_SOURCE_SPEC.revision)
+      rmSync(temporary, { recursive: true, force: true })
+    }
   } catch (error) {
     rmSync(temporary, { recursive: true, force: true })
     throw error

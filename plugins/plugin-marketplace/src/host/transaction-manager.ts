@@ -27,7 +27,6 @@ import type {
 } from '../protocol.ts'
 import {
   isProtectedMarketplacePlugin,
-  MARKETPLACE_ORGANIZATION,
 } from '../protocol.ts'
 import type { MarketplacePlatform } from './platform.ts'
 
@@ -179,21 +178,21 @@ function manifestHash(text: string): string {
   return createHash('sha256').update(text).digest('hex')
 }
 
-function canonicalSource(pluginId: string): string {
-  return `github:${MARKETPLACE_ORGANIZATION}/${pluginId}`
+function canonicalSource(repository: string): string {
+  return `github:${repository}`
 }
 
 function sourceReview(
   lock: MarketplaceSourceLock | undefined,
   input: Pick<MarketplacePlan,
-    'manifestHash' | 'mechanism' | 'packageName' | 'pluginId' | 'resolvedCommit'>,
+    'manifestHash' | 'mechanism' | 'packageName' | 'pluginId' | 'repository' | 'resolvedCommit'>,
 ): MarketplaceSourceReview {
   if (lock === undefined) return 'first-use'
   if (lock.resolvedCommit === input.resolvedCommit
     && lock.manifestHash !== input.manifestHash) {
     throw new Error(`${input.pluginId} changed content at pinned commit ${input.resolvedCommit}`)
   }
-  return lock.canonicalSource === canonicalSource(input.pluginId)
+  return lock.canonicalSource === canonicalSource(input.repository)
     && lock.mechanism === input.mechanism
     && lock.packageName === input.packageName
     ? 'matched'
@@ -248,7 +247,7 @@ function sourceLockFromPlan(
 ): MarketplaceSourceLock {
   if (plan.packageName === null) throw new Error('source lock requires a package name')
   return {
-    canonicalSource: canonicalSource(plan.pluginId),
+    canonicalSource: canonicalSource(plan.repository),
     firstSeenCommit: previous?.firstSeenCommit ?? plan.resolvedCommit,
     manifestHash: plan.manifestHash,
     mechanism: plan.mechanism,
@@ -342,8 +341,8 @@ function repositorySources(text: string): string[] {
   return [...result]
 }
 
-function repositoryPluginId(source: string): string | null {
-  const match = /^github:dsh-external\/([A-Za-z0-9_.-]+)#/.exec(source)
+function repositoryFromSource(source: string): string | null {
+  const match = /^github:([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)#/.exec(source)
   return match?.[1] ?? null
 }
 
@@ -353,8 +352,7 @@ function repositoryEnabled(
 ): boolean {
   const path = join(profileDir, 'cordis.patch.yml')
   const patch = existsSync(path) ? readFileSync(path, 'utf8') : ''
-  return repositorySources(patch)
-    .some(source => repositoryPluginId(source) === entry.pluginId)
+  return repositorySources(patch).includes(entry.source)
 }
 
 function installedEntryEnabled(
@@ -388,12 +386,11 @@ function updateRepositoryPatch(
   const path = join(profileDir, 'cordis.patch.yml')
   const original = existsSync(path) ? readFileSync(path, 'utf8') : '[]\n'
   const withoutManaged = removeMarkedBlock(original, PATCH_BEGIN, PATCH_END)
-  const enabledPluginIds = new Set(repositorySources(original)
-    .flatMap(source => repositoryPluginId(source) ?? []))
+  const enabledSources = new Set(repositorySources(original))
   const marketplaceSources = entries
     .filter(entry => entry.mechanism === 'repository')
     .filter(entry => enabledOverrides.get(entry.pluginId)
-      ?? enabledPluginIds.has(entry.pluginId))
+      ?? enabledSources.has(entry.source))
     .map(entry => entry.source)
   if (marketplaceSources.length === 0) {
     writeFileSync(path, patchWithRootList(withoutManaged, false), { mode: 0o600 })
@@ -643,22 +640,22 @@ export class PluginMarketplaceManager {
     this.#catalog = catalog.plugins
     this.#catalogGeneratedAt = catalog.generatedAt
     this.#latestCommits.clear()
-    const available = new Set(catalog.plugins
+    const available = new Map(catalog.plugins
       .filter(plugin => plugin.mechanism !== 'unsupported')
-      .map(plugin => plugin.id))
+      .map(plugin => [plugin.id, plugin.repository]))
     await Promise.all(installed
       .filter(entry => available.has(entry.pluginId))
       .map(async entry => {
         try {
           this.#latestCommits.set(
             entry.pluginId,
-            await this.#options.platform.resolveCommit(entry.pluginId),
+            await this.#options.platform.resolveCommit(available.get(entry.pluginId) as string),
           )
         } catch {
           // A failed update check must not hide the installed plugin catalog.
         }
       }))
-    this.#lastAction = `Loaded ${String(catalog.plugins.length)} organization plugins.`
+    this.#lastAction = `Loaded ${String(catalog.plugins.length)} catalog plugins.`
   }
 
   private async prepare(action: MarketplaceAction, pluginId: string): Promise<void> {
@@ -702,6 +699,8 @@ export class PluginMarketplaceManager {
         pluginId,
         manifestHash: state.locks.find(lock => lock.pluginId === pluginId)?.manifestHash ?? '',
         requirements: risk.requirements,
+        repository: catalogPlugin?.repository ?? repositoryFromSource(current.source)
+          ?? (() => { throw new Error(`${pluginId} has an invalid repository source`) })(),
         resolvedCommit: current.resolvedCommit,
         riskLevel: risk.riskLevel,
         riskReasons: risk.riskReasons,
@@ -720,34 +719,72 @@ export class PluginMarketplaceManager {
     if (catalogPlugin.mechanism === 'unsupported') {
       throw new Error(`${pluginId} does not use a preview-safe bundle or repository package`)
     }
-    const commit = await this.#options.platform.resolveCommit(pluginId)
+    const commit = await this.#options.platform.resolveCommit(catalogPlugin.repository)
     this.#latestCommits.set(pluginId, commit)
     if (action === 'update' && current?.resolvedCommit === commit) {
       throw new Error(`${pluginId} is already at the latest commit`)
     }
-    const manifestPath = catalogPlugin.mechanism === 'repository'
+    let resolvedMechanism: MarketplacePlan['mechanism'] | null =
+      catalogPlugin.mechanism === 'bundle' || catalogPlugin.mechanism === 'repository'
+        ? catalogPlugin.mechanism
+        : null
+    let manifestPath = resolvedMechanism === 'repository'
       ? '.dsh-plugin/package.json'
       : 'package.json'
-    const manifestText = await this.#options.platform.readRepositoryFile(pluginId, manifestPath, commit)
+    let manifestText = await this.#options.platform.readRepositoryFile(
+      catalogPlugin.repository,
+      manifestPath,
+      commit,
+    )
+    if (catalogPlugin.mechanism === 'discover') {
+      const bundleText = manifestText
+      if (bundleText !== null) {
+        const bundleManifest = parsePackageManifest(bundleText, `${pluginId}/package.json`)
+        if (isRecord(bundleManifest.dsh) && isRecord(bundleManifest.dsh.bundle)
+          && typeof bundleManifest.dsh.bundle.patch === 'string') {
+          resolvedMechanism = 'bundle'
+        } else {
+          manifestPath = '.dsh-plugin/package.json'
+          manifestText = await this.#options.platform.readRepositoryFile(
+            catalogPlugin.repository,
+            manifestPath,
+            commit,
+          )
+          resolvedMechanism = manifestText === null ? null : 'repository'
+        }
+      } else {
+        manifestPath = '.dsh-plugin/package.json'
+        manifestText = await this.#options.platform.readRepositoryFile(
+          catalogPlugin.repository,
+          manifestPath,
+          commit,
+        )
+        resolvedMechanism = manifestText === null ? null : 'repository'
+      }
+    }
+    if (resolvedMechanism === null) {
+      throw new Error(`${pluginId} has no DSH bundle or .dsh-plugin manifest at ${commit}`)
+    }
     if (manifestText === null) throw new Error(`${pluginId} is missing ${manifestPath} at ${commit}`)
     const manifest = parsePackageManifest(manifestText, `${pluginId}/${manifestPath}`)
     const resolvedPackage = packageName(manifest, manifestPath)
-    if (catalogPlugin.mechanism === 'bundle'
+    if (resolvedMechanism === 'bundle'
       && (!isRecord(manifest.dsh) || !isRecord(manifest.dsh.bundle)
         || typeof manifest.dsh.bundle.patch !== 'string')) {
       throw new Error(`${pluginId} does not declare dsh.bundle.patch`)
     }
-    const source = catalogPlugin.mechanism === 'repository'
-      ? `github:${MARKETPLACE_ORGANIZATION}/${pluginId}#${commit}&path:/.dsh-plugin`
-      : `github:${MARKETPLACE_ORGANIZATION}/${pluginId}#${commit}`
+    const source = resolvedMechanism === 'repository'
+      ? `github:${catalogPlugin.repository}#${commit}&path:/.dsh-plugin`
+      : `github:${catalogPlugin.repository}#${commit}`
     const hash = manifestHash(manifestText)
     const review = sourceReview(
       state.locks.find(lock => lock.pluginId === pluginId),
       {
         manifestHash: hash,
-        mechanism: catalogPlugin.mechanism,
+        mechanism: resolvedMechanism,
         packageName: resolvedPackage,
         pluginId,
+        repository: catalogPlugin.repository,
         resolvedCommit: commit,
       },
     )
@@ -755,7 +792,7 @@ export class PluginMarketplaceManager {
     const risk = assessRisk({
       action,
       buildScripts: scripts,
-      mechanism: catalogPlugin.mechanism,
+      mechanism: resolvedMechanism,
       protectedPlugin: catalogPlugin.protected,
       sourceReview: review,
     })
@@ -764,10 +801,11 @@ export class PluginMarketplaceManager {
       buildScripts: scripts,
       description: catalogPlugin.description,
       manifestHash: hash,
-      mechanism: catalogPlugin.mechanism,
+      mechanism: resolvedMechanism,
       packageName: resolvedPackage,
       pluginId,
       requirements: risk.requirements,
+      repository: catalogPlugin.repository,
       resolvedCommit: commit,
       riskLevel: risk.riskLevel,
       riskReasons: risk.riskReasons,
@@ -826,7 +864,7 @@ export class PluginMarketplaceManager {
             }
           }
           const checkout = join(sources, `${plan.pluginId}-${plan.resolvedCommit.slice(0, 12)}`)
-          await this.#options.platform.cloneRepository(plan.pluginId, plan.resolvedCommit, checkout)
+          await this.#options.platform.cloneRepository(plan.repository, plan.resolvedCommit, checkout)
           if (Object.keys(plan.buildScripts).length > 0) allowBuild(candidateProfile, plan.packageName)
           await this.#options.platform.runDsh({
             args: ['plugin', '--profile', this.#options.profile, 'add', checkout],

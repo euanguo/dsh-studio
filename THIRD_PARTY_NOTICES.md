@@ -11,8 +11,7 @@ Upstream releases and features are reviewed regularly.
 
 ## dsh-web-panel
 
-- Project: <https://github.com/dsh-external/dsh-web-panel>
-- Declared license: BSD 3-Clause
+- Historical project: dsh-web-panel (its previous public locator is no longer available)
 - Oh-DSH component: `@oh-dsh/panel-controls`
 
 Oh-DSH adapts the Terminal dock for its desktop layout, session model, themes,
@@ -45,9 +44,10 @@ capability belongs upstream rather than in a wrapper:
 
 ## plugin-registry and dsh-hub
 
-- Projects: <https://github.com/dsh-external/plugin-registry> and
-  <https://github.com/dsh-external/dsh-hub>
-- Declared licenses: BSD 3-Clause and MIT
+- Projects: <https://github.com/vlln/plugin-registry>,
+  <https://github.com/omdsh-dev/dsh-hub>, and
+  <https://github.com/whyihaveyou/dsh-suite>
+- Declared licenses: MIT
 - Oh-DSH component: `@oh-dsh/plugin-marketplace`
 
 Oh-DSH distills source locking, trust review, installed/enabled state,
@@ -57,8 +57,7 @@ repository.
 
 ## dsh-skins
 
-- Project: <https://github.com/dsh-external/dsh-skins>
-- Declared license: MIT
+- Historical project: dsh-skins (its previous public locator is no longer available)
 - Oh-DSH component: `@oh-dsh/desktop-skins`
 
 Oh-DSH follows the ThemeService extension model while providing original

@@ -647,7 +647,7 @@ function localizedHostMessage(
   message: string,
   t: Translate<MarketplaceMessage>,
 ): string {
-  let match = /^Loaded (\d+) organization plugins\.$/.exec(message)
+  let match = /^Loaded (\d+) catalog plugins\.$/.exec(message)
   if (match !== null) return t('notice.loaded', { count: match[1] })
   match = /^Isolated (install|update|enable|disable|uninstall) preview is ready for (.+)\.$/.exec(message)
   if (match !== null) {

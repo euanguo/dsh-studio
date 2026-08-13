@@ -2,7 +2,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { apply } from '../src/plugin.ts'
-import { mountMarketplaceAgentTools } from '../src/marketplace-tools.ts'
+import {
+  mountMarketplaceAgentTools,
+  requireHealthyMarketplaceSnapshot,
+} from '../src/marketplace-tools.ts'
 
 test('desktop client replaces the hero title and keeps the Preview badge', () => {
   const client = readFileSync(new URL('../src/client.ts', import.meta.url), 'utf8')
@@ -212,4 +215,25 @@ test('desktop Agent tools share the guarded marketplace transaction owner', asyn
     await policy({ name: 'desktop_plugin_search' }, async () => ({ kind: 'allow' })),
     { kind: 'allow' },
   )
+})
+
+test('desktop Agent tools reject marketplace failures instead of reporting an empty catalog', () => {
+  assert.throws(() => requireHealthyMarketplaceSnapshot({
+    auth: { detail: 'catalog unavailable', status: 'error' },
+    busy: false,
+    catalog: [],
+    catalogGeneratedAt: null,
+    error: 'GitHub returned 404 for the configured catalog',
+    installed: [],
+    lastAction: null,
+    lifecycle: {
+      candidate: null,
+      current: { profile: 'desktop', state: 'live' },
+      previous: null,
+    },
+    plan: null,
+    preview: null,
+    sourceLocks: [],
+    undoAvailable: false,
+  }), /404/)
 })

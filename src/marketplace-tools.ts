@@ -102,6 +102,7 @@ function pluginView(plugin: MarketplacePlugin): Record<string, unknown> {
     installed: plugin.installed,
     mechanism: plugin.mechanism,
     protected: plugin.protected,
+    repository: plugin.repository,
     risk: plugin.runtimeRisk,
     trust: plugin.trust,
     updateAvailable: plugin.updateAvailable,
@@ -153,8 +154,15 @@ async function snapshot(
     ? { type: 'snapshot' }
     : { type: 'dispatch', command })
   if (response.snapshot === undefined) throw new Error('marketplace gateway omitted its snapshot')
-  if (response.snapshot.error !== null) throw new Error(response.snapshot.error)
-  return response.snapshot
+  return requireHealthyMarketplaceSnapshot(response.snapshot)
+}
+
+/** Preserve the distinction between an unavailable catalog and a valid empty search. */
+export function requireHealthyMarketplaceSnapshot(
+  value: MarketplaceSnapshot,
+): MarketplaceSnapshot {
+  if (value.error !== null) throw new Error(value.error)
+  return value
 }
 
 function marketplaceTool(
@@ -206,7 +214,7 @@ export function mountMarketplaceAgentTools(
 
   ctx.tools.register(marketplaceTool({
     name: 'desktop_plugin_search',
-    description: 'Search dsh-external plugins visible to Oh-DSH-Desktop. Filter by install state or category. This is read-only.',
+    description: 'Search public DSH plugins visible to Oh-DSH-Desktop. Filter by install state or category. This is read-only.',
     parameters: {
       query: { type: 'string', description: 'Case-insensitive plugin name, description, category, or tag query.' },
       status: {
@@ -239,7 +247,7 @@ export function mountMarketplaceAgentTools(
     name: 'desktop_plugin_status',
     description: 'Inspect installed, enabled, update, preview, source-lock, and recovery state for desktop plugins. This is read-only.',
     parameters: {
-      pluginId: { type: 'string', description: 'Optional exact dsh-external repository id.' },
+      pluginId: { type: 'string', description: 'Optional exact marketplace plugin id.' },
     },
     async execute(args) {
       const info = await snapshot(credentials)
@@ -267,7 +275,7 @@ export function mountMarketplaceAgentTools(
         required: true,
         enum: ['install', 'update', 'enable', 'disable', 'uninstall'],
       },
-      pluginId: { type: 'string', required: true, description: 'Exact dsh-external repository id.' },
+      pluginId: { type: 'string', required: true, description: 'Exact marketplace plugin id.' },
     },
     async execute(args) {
       const pluginId = requireString(args, 'pluginId')

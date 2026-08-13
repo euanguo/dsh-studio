@@ -1,7 +1,7 @@
 {
   "name": "@oh-dsh/plugin-marketplace",
   "version": "0.1.2",
-  "description": "Transactional dsh-external plugin marketplace for Oh-DSH-Desktop",
+  "description": "Transactional public DSH plugin marketplace for Oh-DSH-Desktop",
   "private": true,
   "type": "module",
   "main": "dist/index.js",

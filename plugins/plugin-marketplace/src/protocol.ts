@@ -1,8 +1,9 @@
-export const MARKETPLACE_ORGANIZATION = 'dsh-external'
-export const MARKETPLACE_CATALOG_REPOSITORY = 'hub'
+export const MARKETPLACE_CATALOG_REPOSITORY = 'whyihaveyou/dsh-suite'
+export const MARKETPLACE_CATALOG_PATH = 'data/plugins.json'
 
 export type MarketplaceAuthStatus = 'ready' | 'missing-cli' | 'signed-out' | 'error'
-export type MarketplaceMechanism = 'bundle' | 'repository' | 'unsupported'
+export type MarketplaceMechanism = 'bundle' | 'repository' | 'discover' | 'unsupported'
+export type MarketplaceInstallMechanism = 'bundle' | 'repository'
 export type MarketplaceAction = 'install' | 'update' | 'enable' | 'disable' | 'uninstall'
 export type MarketplaceRuntimeRisk = 'profile-bundle' | 'trusted-host' | 'guided'
 export type MarketplaceTrust = 'organization' | 'community' | 'untrusted'
@@ -45,6 +46,7 @@ export interface MarketplacePlugin {
   mechanism: MarketplaceMechanism
   protected: boolean
   pushedAt: string | null
+  repository: string
   runtimeRisk: MarketplaceRuntimeRisk
   tags: string[]
   title: string
@@ -55,7 +57,7 @@ export interface MarketplacePlugin {
 
 export interface MarketplaceInstalledPlugin {
   installedAt: string
-  mechanism: Exclude<MarketplaceMechanism, 'unsupported'>
+  mechanism: MarketplaceInstallMechanism
   packageName: string | null
   pluginId: string
   resolvedCommit: string
@@ -66,7 +68,7 @@ export interface MarketplaceSourceLock {
   canonicalSource: string
   firstSeenCommit: string
   manifestHash: string
-  mechanism: Exclude<MarketplaceMechanism, 'unsupported'>
+  mechanism: MarketplaceInstallMechanism
   packageName: string
   pluginId: string
   recordedAt: string
@@ -77,11 +79,12 @@ export interface MarketplacePlan {
   action: MarketplaceAction
   buildScripts: Record<string, string>
   description: string
-  mechanism: Exclude<MarketplaceMechanism, 'unsupported'>
+  mechanism: MarketplaceInstallMechanism
   packageName: string | null
   pluginId: string
   manifestHash: string
   requirements: MarketplaceConfirmation[]
+  repository: string
   resolvedCommit: string
   riskLevel: MarketplaceRiskLevel
   riskReasons: MarketplaceRiskReason[]

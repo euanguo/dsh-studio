@@ -11,8 +11,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join, posix, win32 } from 'node:path'
 import type { MarketplaceAuthStatus } from '../protocol.ts'
 import {
+  MARKETPLACE_CATALOG_PATH,
   MARKETPLACE_CATALOG_REPOSITORY,
-  MARKETPLACE_ORGANIZATION,
 } from '../protocol.ts'
 
 export interface MarketplaceAuthResult {
@@ -29,10 +29,10 @@ export interface DshCommandInput {
 /** Privileged operations consumed by the marketplace transaction module. */
 export interface MarketplacePlatform {
   authStatus(): Promise<MarketplaceAuthResult>
-  cloneRepository(pluginId: string, commit: string, target: string): Promise<void>
+  cloneRepository(repository: string, commit: string, target: string): Promise<void>
   loadCatalog(): Promise<unknown>
-  readRepositoryFile(pluginId: string, path: string, commit: string): Promise<string | null>
-  resolveCommit(pluginId: string): Promise<string>
+  readRepositoryFile(repository: string, path: string, commit: string): Promise<string | null>
+  resolveCommit(repository: string): Promise<string>
   runDsh(input: DshCommandInput): Promise<void>
 }
 
@@ -52,19 +52,19 @@ interface CommandOptions {
 
 const MAX_OUTPUT_BYTES = 4 * 1024 * 1024
 
-function validatePluginId(pluginId: string): void {
-  if (!/^[A-Za-z0-9_.-]{1,100}$/.test(pluginId)) {
-    throw new Error(`invalid marketplace plugin id: ${JSON.stringify(pluginId)}`)
+function validateRepository(repository: string): void {
+  if (!/^[A-Za-z0-9_.-]{1,100}\/[A-Za-z0-9_.-]{1,100}$/.test(repository)) {
+    throw new Error(`invalid marketplace repository: ${JSON.stringify(repository)}`)
   }
 }
 
-function repositoryContentPath(pluginId: string, path: string): string {
-  validatePluginId(pluginId)
+function repositoryContentPath(repository: string, path: string): string {
+  validateRepository(repository)
   const segments = path.split('/').filter(Boolean)
   if (segments.length === 0 || segments.some(segment => segment === '.' || segment === '..')) {
     throw new Error(`invalid repository file path: ${JSON.stringify(path)}`)
   }
-  return `repos/${MARKETPLACE_ORGANIZATION}/${pluginId}/contents/${segments.map(encodeURIComponent).join('/')}`
+  return `repos/${repository}/contents/${segments.map(encodeURIComponent).join('/')}`
 }
 
 function commandError(command: string, args: readonly string[], stderr: string, stdout: string): Error {
@@ -133,9 +133,10 @@ function executable(path: string): boolean {
 export function findGitHubCli(
   environment: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
+  isExecutable: (path: string) => boolean = executable,
 ): string | null {
   const explicit = environment.DSH_DESKTOP_GH_PATH
-  if (explicit !== undefined && executable(explicit)) return explicit
+  if (explicit !== undefined && isExecutable(explicit)) return explicit
   const paths = platform === 'win32' ? win32 : posix
   const executableNames = platform === 'win32' ? ['gh.exe', 'gh.cmd', 'gh'] : ['gh']
   const candidates = [
@@ -146,7 +147,7 @@ export function findGitHubCli(
     ...(platform === 'darwin' ? ['/opt/homebrew/bin/gh', '/usr/local/bin/gh'] : []),
     ...(platform === 'linux' ? ['/usr/local/bin/gh', '/usr/bin/gh'] : []),
   ]
-  return candidates.find((candidate, index) => candidates.indexOf(candidate) === index && executable(candidate)) ?? null
+  return candidates.find((candidate, index) => candidates.indexOf(candidate) === index && isExecutable(candidate)) ?? null
 }
 
 function withoutCommandLineGitConfig(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
@@ -239,36 +240,45 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
 
   async loadCatalog(): Promise<unknown> {
     const gh = this.requireGitHubCli()
+    const locator = this.#options.env.OH_DSH_MARKETPLACE_CATALOG
+      ?? `${MARKETPLACE_CATALOG_REPOSITORY}/${MARKETPLACE_CATALOG_PATH}`
+    const match = /^([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\/(.+)$/.exec(locator)
+    if (match === null) {
+      throw new Error('OH_DSH_MARKETPLACE_CATALOG must be owner/repository/path')
+    }
+    validateRepository(match[1] ?? '')
+    const path = match[2] ?? ''
+    const contentPath = repositoryContentPath(match[1] ?? '', path)
     const result = await runCommand(gh, [
       'api',
-      `repos/${MARKETPLACE_ORGANIZATION}/${MARKETPLACE_CATALOG_REPOSITORY}/contents/catalog.json`,
+      contentPath,
       '--jq',
       '.content',
     ], { env: this.#options.env, timeoutMs: 30_000 })
     return JSON.parse(Buffer.from(result.stdout.replaceAll(/\s/g, ''), 'base64').toString('utf8')) as unknown
   }
 
-  async resolveCommit(pluginId: string): Promise<string> {
-    validatePluginId(pluginId)
+  async resolveCommit(repository: string): Promise<string> {
+    validateRepository(repository)
     const gh = this.requireGitHubCli()
     const result = await runCommand(gh, [
       'api',
-      `repos/${MARKETPLACE_ORGANIZATION}/${pluginId}/commits/HEAD`,
+      `repos/${repository}/commits/HEAD`,
       '--jq',
       '.sha',
     ], { env: this.#options.env, timeoutMs: 30_000 })
     const commit = result.stdout.trim()
-    if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error(`GitHub returned an invalid commit for ${pluginId}`)
+    if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error(`GitHub returned an invalid commit for ${repository}`)
     return commit
   }
 
-  async readRepositoryFile(pluginId: string, path: string, commit: string): Promise<string | null> {
+  async readRepositoryFile(repository: string, path: string, commit: string): Promise<string | null> {
     if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error('repository commit must be a full SHA')
     const gh = this.requireGitHubCli()
     try {
       const result = await runCommand(gh, [
         'api',
-        `${repositoryContentPath(pluginId, path)}?ref=${commit}`,
+        `${repositoryContentPath(repository, path)}?ref=${commit}`,
         '--jq',
         '.content',
       ], { env: this.#options.env, timeoutMs: 30_000 })
@@ -279,15 +289,15 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
     }
   }
 
-  async cloneRepository(pluginId: string, commit: string, target: string): Promise<void> {
-    validatePluginId(pluginId)
+  async cloneRepository(repository: string, commit: string, target: string): Promise<void> {
+    validateRepository(repository)
     if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error('repository commit must be a full SHA')
     const gh = this.requireGitHubCli()
     mkdirSync(dirname(target), { recursive: true, mode: 0o700 })
     await runCommand(gh, [
       'repo',
       'clone',
-      `${MARKETPLACE_ORGANIZATION}/${pluginId}`,
+      repository,
       target,
       '--',
       '--filter=blob:none',

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, win32 } from 'node:path'
 import { test } from 'node:test'
@@ -16,10 +16,6 @@ import {
   type MarketplaceRuntime,
 } from '../plugins/plugin-marketplace/src/host/transaction-manager.ts'
 import { startMarketplaceAgentGateway } from '../plugins/plugin-marketplace/src/host/agent-gateway.ts'
-import {
-  initialSessionNavigationState,
-  transitionSessionNavigation,
-} from '../plugins/plugin-marketplace/src/client/session-navigation.ts'
 
 const COMMIT = '0123456789abcdef0123456789abcdef01234567'
 const UPDATED_COMMIT = 'fedcba9876543210fedcba9876543210fedcba98'
@@ -31,6 +27,7 @@ function catalogDocument(): unknown {
     repos: [
       {
         name: 'bundle-demo',
+        repo: 'dsh-external/bundle-demo',
         category: 'plugin',
         description: 'Bundle demo',
         bundle: true,
@@ -40,6 +37,7 @@ function catalogDocument(): unknown {
       },
       {
         name: 'safe-demo',
+        repo: 'omdsh-dev/safe-demo',
         category: 'plugin',
         description: 'Safe bundle demo',
         bundle: true,
@@ -48,6 +46,7 @@ function catalogDocument(): unknown {
       },
       {
         name: 'repository-demo',
+        repo: 'vlln/repository-demo',
         category: 'skill',
         note: 'Repository demo',
         bundle: false,
@@ -77,7 +76,7 @@ class FakePlatform implements MarketplacePlatform {
     return { detail: 'test auth', status: 'ready' }
   }
 
-  async cloneRepository(_pluginId: string, _commit: string, target: string): Promise<void> {
+  async cloneRepository(_repository: string, _commit: string, target: string): Promise<void> {
     mkdirSync(target, { recursive: true })
   }
 
@@ -85,7 +84,8 @@ class FakePlatform implements MarketplacePlatform {
     return catalogDocument()
   }
 
-  async readRepositoryFile(pluginId: string, path: string): Promise<string | null> {
+  async readRepositoryFile(repository: string, path: string): Promise<string | null> {
+    const pluginId = repository.split('/').at(-1) ?? repository
     if (pluginId === 'bundle-demo' && path === 'package.json') {
       return JSON.stringify({
         name: this.bundleName,
@@ -112,7 +112,7 @@ class FakePlatform implements MarketplacePlatform {
     return null
   }
 
-  async resolveCommit(): Promise<string> {
+  async resolveCommit(_repository: string): Promise<string> {
     return this.latestCommit
   }
 
@@ -207,7 +207,40 @@ test('catalog parser keeps safe entries and labels unsupported managers', () => 
     catalog.plugins.find(plugin => plugin.id === 'repository-demo')?.description,
     'Repository demo',
   )
+  assert.equal(
+    catalog.plugins.find(plugin => plugin.id === 'repository-demo')?.repository,
+    'vlln/repository-demo',
+  )
   assert.equal(catalog.plugins[0]?.url, 'https://github.com/dsh-external/bundle-demo')
+})
+
+test('community and registry catalogs preserve repositories across owners', () => {
+  const community = parseMarketplaceCatalog({
+    _meta: { schema_version: '1.0', generated_at: '2026-08-14T00:00:00Z' },
+    plugins: [
+      { id: 'alpha-plugin', name: 'Alpha', repo: 'omdsh-dev/alpha-plugin', category: 'plugin', description: { en: 'Alpha plugin' } },
+      { id: 'beta-plugin', name: 'Beta', repo: 'vlln/beta-plugin', category: 'skill', description: { en: 'Beta plugin' } },
+    ],
+  })
+  assert.deepEqual(community.plugins.map(plugin => [plugin.id, plugin.repository, plugin.mechanism]), [
+    ['alpha-plugin', 'omdsh-dev/alpha-plugin', 'discover'],
+    ['beta-plugin', 'vlln/beta-plugin', 'discover'],
+  ])
+
+  const registry = parseMarketplaceCatalog({
+    schema: 'omdsh-registry/v1',
+    entries: [{
+      id: 'registry-plugin',
+      displayName: 'Registry plugin',
+      description: 'Registry plugin',
+      kind: 'plugin',
+      source: { repository: 'whyihaveyou/registry-plugin' },
+      install: { mode: 'repository-plugin' },
+      listing: { state: 'reviewed' },
+    }],
+  })
+  assert.equal(registry.plugins[0]?.repository, 'whyihaveyou/registry-plugin')
+  assert.equal(registry.plugins[0]?.mechanism, 'repository')
 })
 
 test('GitHub credentials use an app-owned config without command-line pairs', () => {
@@ -238,16 +271,10 @@ test('GitHub credentials use an app-owned config without command-line pairs', ()
 test('GitHub CLI discovery follows Windows PATH syntax and executable names', () => {
   const root = mkdtempSync(join(tmpdir(), 'oh-dsh-gh-path-'))
   try {
-    const binary = join(root, 'gh.exe')
-    writeFileSync(binary, '')
-    chmodSync(binary, 0o755)
-    const discovered = findGitHubCli({
+    const expected = win32.join(root, 'gh.exe')
+    assert.equal(findGitHubCli({
       Path: `${root};C:\\Program Files\\GitHub CLI`,
-    }, 'win32')
-    // win32.join(root, ...) is the real fixture path on Windows hosts; on
-    // POSIX hosts backslashes are literal filename characters, so the win32
-    // candidate cannot exist on disk and discovery legitimately returns null.
-    assert.equal(discovered, process.platform === 'win32' ? win32.join(root, 'gh.exe') : null)
+    }, 'win32', candidate => candidate === expected), expected)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -320,7 +347,7 @@ test('Agent gateway authenticates and defers runtime-restarting applies', async 
   }
 })
 
-test('marketplace navigation leaves the Settings button untouched', () => {
+test('marketplace navigation reserves room for Settings in short windows', () => {
   const client = readFileSync(new URL(
     '../plugins/plugin-marketplace/src/client/plugin.tsx',
     import.meta.url,
@@ -333,21 +360,14 @@ test('marketplace navigation leaves the Settings button untouched', () => {
     '../plugins/plugin-marketplace/src/client/i18n.ts',
     import.meta.url,
   ), 'utf8')
-  // The old sidebar squeeze (--oh-marketplace-sidebar-height on the settings
-  // area) collapsed the foot of the DSH 0.1.x rail to 0px and pushed the
-  // Settings button out of the viewport — it must not come back.
-  assert.doesNotMatch(client, /--oh-marketplace-sidebar-height/)
-  assert.doesNotMatch(client, /SIDEBAR_BOTTOM_INSET/)
-  assert.doesNotMatch(css, /marketplace-sidebar-root/)
-  // The nav entry rides the DSH Settings button's shared chrome classes;
-  // the plugin CSS must not override the shared shape (radius/padding).
-  assert.doesNotMatch(css, /\.oh-marketplace-nav\s*\{[^}]*border-radius/)
-  assert.doesNotMatch(css, /\.oh-marketplace-nav\s*\{[^}]*padding: 6px 2px 6px 10px/)
+  assert.match(client, /window\.innerHeight - top/)
+  assert.match(client, /SIDEBAR_BOTTOM_INSET = 8/)
+  assert.match(client, /--oh-marketplace-sidebar-height/)
+  assert.match(css, /height: var\(--oh-marketplace-sidebar-height, 100%\) !important/)
+  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*gap: 8px;/)
+  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*padding: 6px 2px 6px 10px;/)
   assert.match(css, /\.oh-marketplace-nav svg \{[\s\S]*width: 16px;[\s\S]*height: 16px;/)
-  assert.match(client, /export const inject = \['locale', 'sessions'\]/)
-  assert.match(client, /ctx\.get\('sessions'\) as SessionsService/)
-  assert.match(client, /this\.#sessions\.list\.subscribe\(syncSessionNavigation\)/)
-  assert.match(client, /this\.#unsubscribeSessions\?\.\(\)/)
+  assert.match(client, /export const inject = \['locale'\]/)
   assert.match(client, /locale\.register\('oh-dsh\.plugin-marketplace'/)
   assert.match(client, /\['installed', t\('installed'\)\]/)
   assert.match(client, /\['available', t\('not-installed'\)\]/)
@@ -367,61 +387,6 @@ test('marketplace navigation leaves the Settings button untouched', () => {
   assert.match(client, /document\.addEventListener\('click', this\.#handleDocumentClick, true\)/)
   assert.match(client, /button === settingsButton\(\)/)
   assert.match(client, /if \(disposed \|\| info\.preview !== null\) return/)
-})
-
-test('marketplace closes after ready session navigation, not during startup', () => {
-  let state = initialSessionNavigationState()
-  let transition = transitionSessionNavigation(state, {
-    current: undefined,
-    phase: 'pending',
-  })
-  assert.equal(transition.close, false)
-  assert.deepEqual(transition.state, { current: undefined, ready: false })
-
-  state = transition.state
-  transition = transitionSessionNavigation(state, {
-    current: 'session-a',
-    phase: 'ready',
-  })
-  assert.equal(transition.close, false)
-  assert.deepEqual(transition.state, { current: 'session-a', ready: true })
-
-  state = transition.state
-  transition = transitionSessionNavigation(state, {
-    current: 'session-b',
-    phase: 'pending',
-  })
-  assert.equal(transition.close, false)
-  assert.deepEqual(transition.state, { current: 'session-a', ready: true })
-
-  state = transition.state
-  transition = transitionSessionNavigation(state, {
-    current: 'session-b',
-    phase: 'ready',
-  })
-  assert.equal(transition.close, true)
-  assert.deepEqual(transition.state, { current: 'session-b', ready: true })
-
-  state = transition.state
-  transition = transitionSessionNavigation(state, {
-    current: 'session-b',
-    phase: 'ready',
-  })
-  assert.equal(transition.close, false)
-})
-
-test('marketplace closes when an empty baseline activates a new session', () => {
-  let state = initialSessionNavigationState()
-  state = transitionSessionNavigation(state, {
-    current: undefined,
-    phase: 'ready',
-  }).state
-  const transition = transitionSessionNavigation(state, {
-    current: 'new-session',
-    phase: 'ready',
-  })
-  assert.equal(transition.close, true)
-  assert.deepEqual(transition.state, { current: 'new-session', ready: true })
 })
 
 test('bundle preview remains isolated until apply and supports undo', async () => {
@@ -773,7 +738,7 @@ test('repository plugins can be disabled without losing their install receipt', 
     assert.equal(plugin?.enabled, false)
     assert.doesNotMatch(
       readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'),
-      /github:dsh-external\/repository-demo/,
+      /github:vlln\/repository-demo/,
     )
 
     await setup.manager.dispatch({
@@ -790,8 +755,51 @@ test('repository plugins can be disabled without losing their install receipt', 
     assert.equal(plugin?.enabled, true)
     assert.match(
       readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'),
-      /github:dsh-external\/repository-demo/,
+      /github:vlln\/repository-demo/,
     )
+  } finally {
+    setup.cleanup()
+  }
+})
+
+test('legacy dsh-external repository receipts remain manageable', async () => {
+  const setup = fixture()
+  try {
+    const source = `github:dsh-external/legacy-plugin#${COMMIT}&path:/.dsh-plugin`
+    mkdirSync(join(setup.profileDir, '.oh-dsh'), { recursive: true })
+    writeFileSync(join(setup.profileDir, '.oh-dsh', 'marketplace.json'), JSON.stringify({
+      version: 1,
+      entries: [{
+        installedAt: '2026-08-12T00:00:00Z',
+        mechanism: 'repository',
+        packageName: '@legacy/plugin',
+        pluginId: 'legacy-plugin',
+        resolvedCommit: COMMIT,
+        source,
+      }],
+    }))
+    writeFileSync(join(setup.profileDir, 'cordis.patch.yml'), [
+      '# >>> Oh-DSH-Desktop plugin marketplace',
+      '- id: repository-plugins',
+      '  config:',
+      '    repositories:',
+      `      - '${source}'`,
+      '# <<< Oh-DSH-Desktop plugin marketplace',
+      '',
+    ].join('\n'))
+
+    let snapshot = setup.manager.getSnapshot()
+    assert.equal(snapshot.installed[0]?.pluginId, 'legacy-plugin')
+    assert.equal(snapshot.installed[0]?.source, source)
+    snapshot = await setup.manager.dispatch({ type: 'prepare', action: 'disable', pluginId: 'legacy-plugin' })
+    assert.equal(snapshot.preview?.pluginId, 'legacy-plugin')
+    snapshot = await setup.manager.dispatch({ type: 'apply' })
+    assert.doesNotMatch(readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'), /legacy-plugin/)
+    snapshot = await setup.manager.dispatch({ type: 'prepare', action: 'enable', pluginId: 'legacy-plugin' })
+    assert.equal(snapshot.preview, null)
+    assert.ok(snapshot.plan?.requirements.includes('accept-high-risk'))
+    snapshot = await setup.manager.dispatch({ type: 'preview', confirmations: ['accept-high-risk'] })
+    assert.equal(snapshot.preview?.pluginId, 'legacy-plugin')
   } finally {
     setup.cleanup()
   }
