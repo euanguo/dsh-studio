@@ -29,6 +29,7 @@ import {
 } from '../plugins/plugin-marketplace/src/host/platform.ts'
 import { parseMarketplaceCommand } from '../plugins/plugin-marketplace/src/protocol.ts'
 import type { DesktopCommand, DesktopInfo, DesktopRuntimeSnapshot } from './contracts.ts'
+import { allowsRuntimeClipboardWrite, originOf } from './permissions.ts'
 import { BUNDLED_DESKTOP_PLUGINS, DESKTOP_PROFILE, ensureDesktopProfile } from './profile.ts'
 import { DshRuntimeSupervisor, runDshCommand, type DshRuntimeOptions, type RuntimeExit } from './runtime.ts'
 import { bundledRuntimePaths, runtimeSearchPath, type BundledRuntimePaths } from './runtime-paths.ts'
@@ -726,8 +727,28 @@ async function bootstrap(): Promise<void> {
     onError: error => { appendLog('desktop', `[marketplace-agent] ${String(error)}`) },
   })
   installIpc()
-  session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) => { callback(false) })
-  session.defaultSession.setPermissionCheckHandler(() => false)
+  session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {
+    callback(allowsRuntimeClipboardWrite({
+      isMainFrame: details.isMainFrame,
+      permission,
+      requestingOrigin: details.requestingUrl === undefined
+        ? originOf(webContents.getURL())
+        : originOf(details.requestingUrl),
+      ...(details.requestingUrl === undefined ? {} : { requestingUrl: details.requestingUrl }),
+      runtimeOrigin,
+      webContentsIsMainWindow: webContents === mainWindow?.webContents,
+    }))
+  })
+  session.defaultSession.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
+    return allowsRuntimeClipboardWrite({
+      isMainFrame: details.isMainFrame,
+      permission,
+      requestingOrigin,
+      ...(details.requestingUrl === undefined ? {} : { requestingUrl: details.requestingUrl }),
+      runtimeOrigin,
+      webContentsIsMainWindow: webContents === mainWindow?.webContents,
+    })
+  })
   const browserSession = session.fromPartition('persist:oh-dsh-browser')
   browserSession.setPermissionRequestHandler((_webContents, _permission, callback) => { callback(false) })
   browserSession.setPermissionCheckHandler(() => false)
