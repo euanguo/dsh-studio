@@ -8,7 +8,6 @@ const pnpm = resolvePinnedPnpm(dshSource)
 function run(args) {
   const result = spawnSync(process.execPath, [
     pnpm.cliEntry,
-    '--pm-on-fail=ignore',
     ...args,
   ], {
     cwd: dshSource,

@@ -89,11 +89,11 @@ export function resolvePinnedPnpm(source) {
   mkdirSync(binDir, { recursive: true })
   if (process.platform === 'win32') {
     writeFileSync(join(binDir, 'pnpm.cmd'),
-      `@"${process.execPath}" "${cliEntry}" --pm-on-fail=ignore %*\r\n`)
+      `@"${process.execPath}" "${cliEntry}" %*\r\n`)
   } else {
     const launcher = join(binDir, 'pnpm')
     writeFileSync(launcher,
-      `#!/bin/sh\nexec "${process.execPath}" "${cliEntry}" --pm-on-fail=ignore "$@"\n`)
+      `#!/bin/sh\nexec "${process.execPath}" "${cliEntry}" "$@"\n`)
     chmodSync(launcher, 0o755)
   }
   return { binDir, cliEntry }
