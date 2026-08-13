@@ -709,8 +709,10 @@ for (const required of [
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
   const pnpm = resolvePinnedPnpm(dshSource)
+  console.log('Deploying pinned DSH runtime (copy import mode)')
   run(process.execPath, [
     pnpm.cliEntry,
+    '--config.package-import-method=copy',
     '--ignore-scripts',
   '--filter', '@deepseek-ai/dsh',
   'deploy', '--prod', '--legacy', runtime,
@@ -722,11 +724,14 @@ mkdirSync(stage, { recursive: true })
     },
   })
 
+console.log('Relinking workspace packages')
 rewriteWorkspaceLinks()
 relinkInstallationWorkspacePackages()
+console.log('Installing desktop packages')
 installDesktopPackages()
 copyFileSync(join(dshSource, 'THIRD_PARTY_NOTICES.md'), join(runtime, 'THIRD_PARTY_NOTICES.md'))
 restoreExecutableHelpers()
+console.log('Normalizing runtime links')
 normalizeRuntimeLinks()
 assertSelfContained(runtime, 'DSH runtime')
 ensureNodeRuntime()
