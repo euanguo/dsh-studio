@@ -40,6 +40,7 @@ export interface ProductionMarketplacePlatformOptions {
   cliEntry: string
   cwd: string
   env: NodeJS.ProcessEnv
+  fetch?: typeof globalThis.fetch
   nodeBinary: string
   onLog?: (message: string) => void
 }
@@ -239,7 +240,6 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
   }
 
   async loadCatalog(): Promise<unknown> {
-    const gh = this.requireGitHubCli()
     const locator = this.#options.env.OH_DSH_MARKETPLACE_CATALOG
       ?? `${MARKETPLACE_CATALOG_REPOSITORY}/${MARKETPLACE_CATALOG_PATH}`
     const match = /^([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\/(.+)$/.exec(locator)
@@ -249,13 +249,37 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
     validateRepository(match[1] ?? '')
     const path = match[2] ?? ''
     const contentPath = repositoryContentPath(match[1] ?? '', path)
-    const result = await runCommand(gh, [
-      'api',
-      contentPath,
-      '--jq',
-      '.content',
-    ], { env: this.#options.env, timeoutMs: 30_000 })
-    return JSON.parse(Buffer.from(result.stdout.replaceAll(/\s/g, ''), 'base64').toString('utf8')) as unknown
+    const request = this.#options.fetch ?? globalThis.fetch
+    let publicError: unknown
+    try {
+      const response = await request(`https://api.github.com/${contentPath}`, {
+        headers: {
+          accept: 'application/vnd.github.raw+json',
+          'user-agent': 'oh-dsh-desktop',
+        },
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (!response.ok) throw new Error(`GitHub public catalog request failed with HTTP ${String(response.status)}`)
+      return JSON.parse(await response.text()) as unknown
+    } catch (error) {
+      publicError = error
+    }
+    if (this.#ghPath !== null) {
+      try {
+        const result = await runCommand(this.#ghPath, [
+          'api',
+          contentPath,
+          '--jq',
+          '.content',
+        ], { env: this.#options.env, timeoutMs: 30_000 })
+        return JSON.parse(Buffer.from(result.stdout.replaceAll(/\s/g, ''), 'base64').toString('utf8')) as unknown
+      } catch (authenticatedError) {
+        throw new Error(
+          `failed to load marketplace catalog anonymously (${String(publicError)}) or with GitHub CLI (${String(authenticatedError)})`,
+        )
+      }
+    }
+    throw new Error(`failed to load public marketplace catalog: ${String(publicError)}`)
   }
 
   async resolveCommit(repository: string): Promise<string> {

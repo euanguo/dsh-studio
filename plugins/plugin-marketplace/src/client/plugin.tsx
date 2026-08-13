@@ -850,7 +850,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
             </div>
             {snapshot === null || pending && snapshot.catalog.length === 0 ? (
               <div className="oh-marketplace-empty">{t('loading-catalog')}</div>
-            ) : snapshot.auth.status !== 'ready' ? (
+            ) : snapshot.auth.status !== 'ready' && snapshot.catalog.length === 0 ? (
               <div className="oh-marketplace-empty">
                 <div>
                   <strong>{t('github-auth-required')}</strong><br />

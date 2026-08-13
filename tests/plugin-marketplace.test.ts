@@ -9,7 +9,11 @@ import type {
   MarketplaceAuthResult,
   MarketplacePlatform,
 } from '../plugins/plugin-marketplace/src/host/platform.ts'
-import { findGitHubCli, withGitHubCredentials } from '../plugins/plugin-marketplace/src/host/platform.ts'
+import {
+  findGitHubCli,
+  ProductionMarketplacePlatform,
+  withGitHubCredentials,
+} from '../plugins/plugin-marketplace/src/host/platform.ts'
 import {
   PluginMarketplaceManager,
   type MarketplacePreviewRuntimeInput,
@@ -280,6 +284,49 @@ test('GitHub CLI discovery follows Windows PATH syntax and executable names', ()
   }
 })
 
+test('public catalogs load anonymously without GitHub CLI', async () => {
+  let requested = ''
+  const platform = new ProductionMarketplacePlatform({
+    cliEntry: '/unused/dsh.mjs',
+    cwd: tmpdir(),
+    env: {
+      OH_DSH_MARKETPLACE_CATALOG: 'public-owner/public-catalog/data/plugins.json',
+      PATH: '',
+    },
+    fetch: async (input): Promise<Response> => {
+      requested = String(input)
+      return new Response(JSON.stringify(catalogDocument()), {
+        headers: { 'content-type': 'application/json' },
+        status: 200,
+      })
+    },
+    nodeBinary: process.execPath,
+  })
+
+  assert.notEqual((await platform.authStatus()).status, 'ready')
+  assert.deepEqual(await platform.loadCatalog(), catalogDocument())
+  assert.equal(
+    requested,
+    'https://api.github.com/repos/public-owner/public-catalog/contents/data/plugins.json',
+  )
+})
+
+test('refresh keeps public catalogs available when GitHub CLI is unavailable', async () => {
+  const setup = fixture()
+  try {
+    setup.platform.authStatus = async (): Promise<MarketplaceAuthResult> => ({
+      detail: 'GitHub CLI is unavailable',
+      status: 'missing-cli',
+    })
+    const snapshot = await setup.manager.dispatch({ type: 'refresh' })
+    assert.equal(snapshot.auth.status, 'missing-cli')
+    assert.equal(snapshot.catalog.length, 6)
+    assert.equal(snapshot.error, null)
+  } finally {
+    setup.cleanup()
+  }
+})
+
 test('a client reconnect during apply does not leave a sticky busy error', async () => {
   const setup = fixture()
   try {
@@ -375,6 +422,7 @@ test('marketplace navigation reserves room for Settings in short windows', () =>
   assert.match(client, /\['disabled', t\('disabled'\)\]/)
   assert.match(client, /type: 'prepare'/)
   assert.match(client, /confirmations\.includes\(requirement\)/)
+  assert.match(client, /snapshot\.auth\.status !== 'ready' && snapshot\.catalog\.length === 0/)
   assert.match(client, /source-review\.\$\{plan\.sourceReview\}/)
   assert.match(client, /risk-level\.\$\{plan\.riskLevel\}/)
   assert.match(messages, /installed: '已安装'/)
@@ -800,6 +848,127 @@ test('legacy dsh-external repository receipts remain manageable', async () => {
     assert.ok(snapshot.plan?.requirements.includes('accept-high-risk'))
     snapshot = await setup.manager.dispatch({ type: 'preview', confirmations: ['accept-high-risk'] })
     assert.equal(snapshot.preview?.pluginId, 'legacy-plugin')
+  } finally {
+    setup.cleanup()
+  }
+})
+
+test('legacy receipts require confirmation before changing repository identity', async () => {
+  const setup = fixture()
+  try {
+    const source = `github:dsh-external/legacy-plugin#${COMMIT}&path:/.dsh-plugin`
+    mkdirSync(join(setup.profileDir, '.oh-dsh'), { recursive: true })
+    writeFileSync(join(setup.profileDir, '.oh-dsh', 'marketplace.json'), JSON.stringify({
+      version: 1,
+      entries: [{
+        installedAt: '2026-08-12T00:00:00Z',
+        mechanism: 'repository',
+        packageName: '@legacy/plugin',
+        pluginId: 'legacy-plugin',
+        resolvedCommit: COMMIT,
+        source,
+      }],
+    }))
+    writeFileSync(join(setup.profileDir, 'cordis.patch.yml'), [
+      '# >>> Oh-DSH-Desktop plugin marketplace',
+      '- id: repository-plugins',
+      '  config:',
+      '    repositories:',
+      `      - '${source}'`,
+      '# <<< Oh-DSH-Desktop plugin marketplace',
+      '',
+    ].join('\n'))
+    setup.platform.latestCommit = UPDATED_COMMIT
+    setup.platform.readRepositoryFile = async (_repository, path): Promise<string | null> =>
+      path === '.dsh-plugin/package.json'
+        ? JSON.stringify({ name: '@legacy/plugin' })
+        : null
+    const repositoryCatalog = (repository: string): unknown => ({
+      schema: 'omdsh-registry/v1',
+      entries: [{
+        id: 'legacy-plugin',
+        displayName: 'Legacy plugin',
+        description: 'Legacy plugin',
+        kind: 'plugin',
+        source: { repository },
+        install: { mode: 'repository-plugin' },
+        listing: { state: 'reviewed' },
+      }],
+    })
+
+    setup.platform.loadCatalog = async (): Promise<unknown> => repositoryCatalog('dsh-external/legacy-plugin')
+    await setup.manager.dispatch({ type: 'refresh' })
+    let snapshot = await setup.manager.dispatch({ type: 'inspect', action: 'update', pluginId: 'legacy-plugin' })
+    assert.equal(snapshot.plan?.sourceReview, 'matched')
+    assert.ok(!snapshot.plan?.requirements.includes('accept-source-change'))
+
+    setup.platform.loadCatalog = async (): Promise<unknown> => repositoryCatalog('vlln/legacy-plugin')
+    await setup.manager.dispatch({ type: 'refresh' })
+    snapshot = await setup.manager.dispatch({ type: 'inspect', action: 'update', pluginId: 'legacy-plugin' })
+    assert.equal(snapshot.plan?.sourceReview, 'changed')
+    assert.ok(snapshot.plan?.requirements.includes('accept-source-change'))
+  } finally {
+    setup.cleanup()
+  }
+})
+
+test('discover updates remove an old bundle before switching to a repository plugin', async () => {
+  const setup = fixture()
+  try {
+    let repositoryMode = false
+    setup.platform.bundleName = '@example/changing-plugin'
+    setup.platform.loadCatalog = async (): Promise<unknown> => ({
+      _meta: { schema_version: '1.0', generated_at: '2026-08-14T00:00:00Z' },
+      plugins: [{
+        id: 'changing-plugin',
+        name: 'Changing plugin',
+        repo: 'omdsh-dev/changing-plugin',
+        category: 'plugin',
+        description: { en: 'Changing plugin' },
+      }],
+    })
+    setup.platform.readRepositoryFile = async (_repository, path): Promise<string | null> => {
+      if (!repositoryMode && path === 'package.json') {
+        return JSON.stringify({
+          name: '@example/changing-plugin',
+          dsh: { bundle: { patch: './cordis.patch.yml' } },
+        })
+      }
+      if (repositoryMode && path === '.dsh-plugin/package.json') {
+        return JSON.stringify({ name: '@example/changing-plugin' })
+      }
+      return null
+    }
+
+    await setup.manager.dispatch({ type: 'refresh' })
+    await setup.manager.dispatch({ type: 'prepare', action: 'install', pluginId: 'changing-plugin' })
+    let snapshot = await setup.manager.dispatch({ type: 'apply' })
+    assert.equal(snapshot.installed[0]?.mechanism, 'bundle')
+    let manifest = JSON.parse(readFileSync(join(setup.profileDir, 'package.json'), 'utf8'))
+    assert.equal(typeof manifest.dependencies['@example/changing-plugin'], 'string')
+
+    repositoryMode = true
+    setup.platform.latestCommit = UPDATED_COMMIT
+    await setup.manager.dispatch({ type: 'refresh' })
+    snapshot = await setup.manager.dispatch({ type: 'inspect', action: 'update', pluginId: 'changing-plugin' })
+    assert.equal(snapshot.plan?.mechanism, 'repository')
+    assert.ok(snapshot.plan?.requirements.includes('accept-source-change'))
+    await setup.manager.dispatch({
+      type: 'preview',
+      confirmations: ['accept-high-risk', 'accept-source-change'],
+    })
+    snapshot = await setup.manager.dispatch({ type: 'apply' })
+
+    assert.equal(snapshot.installed[0]?.mechanism, 'repository')
+    manifest = JSON.parse(readFileSync(join(setup.profileDir, 'package.json'), 'utf8'))
+    assert.equal(manifest.dependencies['@example/changing-plugin'], undefined)
+    assert.ok(!manifest.dsh.profile.bundles.includes('@example/changing-plugin'))
+    assert.match(
+      readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'),
+      /github:omdsh-dev\/changing-plugin/,
+    )
+    assert.ok(setup.platform.commands.some(command =>
+      command.args.join(' ') === 'plugin --profile desktop remove @example/changing-plugin'))
   } finally {
     setup.cleanup()
   }

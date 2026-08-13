@@ -186,8 +186,16 @@ function sourceReview(
   lock: MarketplaceSourceLock | undefined,
   input: Pick<MarketplacePlan,
     'manifestHash' | 'mechanism' | 'packageName' | 'pluginId' | 'repository' | 'resolvedCommit'>,
+  installed?: MarketplaceInstalledPlugin,
 ): MarketplaceSourceReview {
-  if (lock === undefined) return 'first-use'
+  if (lock === undefined) {
+    if (installed === undefined) return 'first-use'
+    return repositoryFromSource(installed.source) === input.repository
+      && installed.mechanism === input.mechanism
+      && installed.packageName === input.packageName
+      ? 'matched'
+      : 'changed'
+  }
   if (lock.resolvedCommit === input.resolvedCommit
     && lock.manifestHash !== input.manifestHash) {
     throw new Error(`${input.pluginId} changed content at pinned commit ${input.resolvedCommit}`)
@@ -630,11 +638,6 @@ export class PluginMarketplaceManager {
 
   private async refresh(): Promise<void> {
     this.#auth = await this.#options.platform.authStatus()
-    if (this.#auth.status !== 'ready') {
-      this.#catalog = []
-      this.#catalogGeneratedAt = null
-      return
-    }
     const installed = readMarketplaceState(this.#profileDir).entries
     const catalog = parseMarketplaceCatalog(await this.#options.platform.loadCatalog(), installed)
     this.#catalog = catalog.plugins
@@ -787,6 +790,7 @@ export class PluginMarketplaceManager {
         repository: catalogPlugin.repository,
         resolvedCommit: commit,
       },
+      current,
     )
     const scripts = buildScripts(manifest)
     const risk = assessRisk({
@@ -844,17 +848,12 @@ export class PluginMarketplaceManager {
           resolvedCommit: plan.resolvedCommit,
           source: plan.source,
         }
+        if (existing?.mechanism === 'bundle'
+          && (plan.mechanism !== 'bundle' || existing.packageName !== plan.packageName)) {
+          await this.removeBundle(candidateHome, candidateProfile, root, existing)
+        }
         if (plan.mechanism === 'bundle') {
           if (plan.packageName === null) throw new Error('bundle plan is missing its package name')
-          if (existing?.mechanism === 'bundle'
-            && existing.packageName !== null
-            && existing.packageName !== plan.packageName) {
-            await this.#options.platform.runDsh({
-              args: ['plugin', '--profile', this.#options.profile, 'remove', existing.packageName],
-              dshHome: candidateHome,
-              sandboxRoot: root,
-            })
-          }
           const sources = join(candidateProfile, MANAGED_DIRECTORY, 'sources')
           if (existsSync(sources)) {
             for (const entry of readdirSync(sources)) {
@@ -905,18 +904,7 @@ export class PluginMarketplaceManager {
         const installed = existing
         if (installed === undefined) throw new Error(`${plan.pluginId} is no longer installed`)
         if (installed.mechanism === 'bundle') {
-          if (installed.packageName === null) throw new Error('installed bundle is missing its package name')
-          await this.#options.platform.runDsh({
-            args: ['plugin', '--profile', this.#options.profile, 'remove', installed.packageName],
-            dshHome: candidateHome,
-            sandboxRoot: root,
-          })
-          const sources = join(candidateProfile, MANAGED_DIRECTORY, 'sources')
-          if (existsSync(sources)) {
-            for (const entry of readdirSync(sources)) {
-              if (entry.startsWith(`${plan.pluginId}-`)) removeWithin(sources, join(sources, entry))
-            }
-          }
+          await this.removeBundle(candidateHome, candidateProfile, root, installed)
         }
         updateRepositoryPatch(candidateProfile, remaining)
         writeMarketplaceState(candidateProfile, {
@@ -966,6 +954,25 @@ export class PluginMarketplaceManager {
       await this.#options.runtime.stopPreview().catch(() => {})
       removeWithin(this.#previewsRoot, root)
       throw error
+    }
+  }
+
+  private async removeBundle(
+    candidateHome: string,
+    candidateProfile: string,
+    sandboxRoot: string,
+    installed: MarketplaceInstalledPlugin,
+  ): Promise<void> {
+    if (installed.packageName === null) throw new Error('installed bundle is missing its package name')
+    await this.#options.platform.runDsh({
+      args: ['plugin', '--profile', this.#options.profile, 'remove', installed.packageName],
+      dshHome: candidateHome,
+      sandboxRoot,
+    })
+    const sources = join(candidateProfile, MANAGED_DIRECTORY, 'sources')
+    if (!existsSync(sources)) return
+    for (const entry of readdirSync(sources)) {
+      if (entry.startsWith(`${installed.pluginId}-`)) removeWithin(sources, join(sources, entry))
     }
   }
 
