@@ -151,6 +151,12 @@
         }
       ]
     },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icons/512x512.png"
+    },
     "dmg": {
       "title": "Oh-DSH-Desktop ${version}",
       "artifactName": "Oh-DSH-Desktop-${version}-${arch}.${ext}",
