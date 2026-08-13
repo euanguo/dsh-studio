@@ -18,6 +18,7 @@ import {
 } from 'node:fs'
 import {
   basename,
+  delimiter,
   dirname,
   join,
   relative,
@@ -707,15 +708,18 @@ for (const required of [
 
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
-  const pnpmCli = resolvePinnedPnpm(dshSource)
+  const pnpm = resolvePinnedPnpm(dshSource)
   run(process.execPath, [
-    pnpmCli,
+    pnpm.cliEntry,
     '--ignore-scripts',
   '--filter', '@deepseek-ai/dsh',
   'deploy', '--prod', '--legacy', runtime,
   ], {
     cwd: dshSource,
-    env: process.env,
+    env: {
+      ...process.env,
+      PATH: `${pnpm.binDir}${delimiter}${process.env.PATH ?? ''}`,
+    },
   })
 
 rewriteWorkspaceLinks()

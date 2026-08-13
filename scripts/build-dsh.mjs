@@ -1,16 +1,20 @@
 import { spawnSync } from 'node:child_process'
+import { delimiter } from 'node:path'
 import { resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
 
 const dshSource = resolveDshSource()
-const pnpmCli = resolvePinnedPnpm(dshSource)
+const pnpm = resolvePinnedPnpm(dshSource)
 
 function run(args) {
   const result = spawnSync(process.execPath, [
-    pnpmCli,
+    pnpm.cliEntry,
     ...args,
   ], {
     cwd: dshSource,
-    env: process.env,
+    env: {
+      ...process.env,
+      PATH: `${pnpm.binDir}${delimiter}${process.env.PATH ?? ''}`,
+    },
     stdio: 'inherit',
   })
   if (result.error !== undefined) throw result.error

@@ -1,10 +1,12 @@
 import { spawnSync } from 'node:child_process'
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
   renameSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -62,18 +64,20 @@ export function resolvePinnedPnpm(source) {
     throw new Error(`pinned DSH source declares an unsupported packageManager: ${reference}`)
   }
   const cache = join(root, '.cache', 'pnpm-cli')
-  const cliRoot = join(cache, `pnpm-${version}`, 'package')
+  const installRoot = join(cache, `pnpm-${version}`)
+  const cliRoot = join(installRoot, 'package')
   const cliEntry = join(cliRoot, 'bin', 'pnpm.cjs')
   if (!existsSync(cliEntry)) {
     mkdirSync(cache, { recursive: true })
     const archive = join(cache, `pnpm-${version}.tgz`)
     rmSync(archive, { force: true })
-    run('npm', ['pack', `pnpm@${version}`, '--pack-destination', cache])
+    run('curl', ['--fail', '--location', '--silent', '--show-error', '--output', archive,
+      `https://registry.npmjs.org/pnpm/-/pnpm-${version}.tgz`])
     const extraction = join(cache, `.pnpm-extract-${String(process.pid)}`)
     rmSync(extraction, { recursive: true, force: true })
     mkdirSync(extraction, { recursive: true })
     run('tar', ['-xzf', archive, '-C', extraction])
-    rmSync(join(cliRoot, '..'), { recursive: true, force: true })
+    rmSync(installRoot, { recursive: true, force: true })
     mkdirSync(dirname(cliRoot), { recursive: true })
     renameSync(join(extraction, 'package'), cliRoot)
     rmSync(extraction, { recursive: true, force: true })
@@ -81,7 +85,17 @@ export function resolvePinnedPnpm(source) {
   if (!existsSync(cliEntry)) {
     throw new Error(`pnpm ${version} CLI did not unpack to ${cliEntry}`)
   }
-  return cliEntry
+  const binDir = join(installRoot, 'bin')
+  mkdirSync(binDir, { recursive: true })
+  if (process.platform === 'win32') {
+    writeFileSync(join(binDir, 'pnpm.cmd'),
+      `@"${process.execPath}" "${cliEntry}" %*\r\n`)
+  } else {
+    const launcher = join(binDir, 'pnpm')
+    writeFileSync(launcher, `#!/bin/sh\nexec "${process.execPath}" "${cliEntry}" "$@"\n`)
+    chmodSync(launcher, 0o755)
+  }
+  return { binDir, cliEntry }
 }
 
 function validateSource(source, expectedRevision) {
