@@ -15,8 +15,8 @@ if (!existsSync(electronBinary)) {
   if (installResult.status !== 0) process.exit(installResult.status ?? 1)
 }
 
-const icon = join(root, 'assets', 'icon.png')
-if (!existsSync(icon)) {
+const iconSet = join(root, 'assets', 'icons', '512x512.png')
+if (!existsSync(iconSet)) {
   const iconResult = spawnSync('sh', [join(root, 'scripts', 'generate-icon-linux.sh')], {
     cwd: root,
     stdio: 'inherit',

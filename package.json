@@ -96,6 +96,10 @@
           "dsh-runtime/**/*",
           "node-runtime/**/*"
         ]
+      },
+      {
+        "from": "assets/icons/512x512.png",
+        "to": "oh-dsh-desktop.png"
       }
     ],
     "mac": {
@@ -127,7 +131,7 @@
     },
     "linux": {
       "category": "Development",
-      "icon": "assets/icon.png",
+      "icon": "assets/icons",
       "maintainer": "dsh-external",
       "executableName": "oh-dsh-desktop",
       "syncDesktopName": true,
