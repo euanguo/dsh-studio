@@ -330,8 +330,20 @@ test('production bundle build runs prepare inside the preview sandbox', {
     : false,
 }, async () => {
   const sandboxRoot = mkdtempSync(join(tmpdir(), 'oh-dsh-bundle-build-'))
-  const checkout = join(sandboxRoot, 'checkout')
+  const candidateProfile = join(sandboxRoot, 'dsh-home', 'profiles', 'desktop')
+  const checkout = join(candidateProfile, '.oh-dsh', 'sources', 'prepare-fixture')
   mkdirSync(checkout, { recursive: true })
+  writeFileSync(join(candidateProfile, 'pnpm-workspace.yaml'), 'packages:\n  - .\n')
+  writeFileSync(join(candidateProfile, 'package.json'), JSON.stringify({
+    name: 'candidate-profile',
+    private: true,
+    scripts: { prepare: 'node profile-build.mjs' },
+  }))
+  writeFileSync(join(candidateProfile, 'profile-build.mjs'), [
+    "import { writeFileSync } from 'node:fs'",
+    "writeFileSync(new URL('./profile-built', import.meta.url), 'wrong project\\n')",
+    '',
+  ].join('\n'))
   writeFileSync(join(checkout, 'package.json'), JSON.stringify({
     name: '@example/prepare-fixture',
     scripts: { prepare: 'node build.mjs' },
@@ -358,6 +370,7 @@ test('production bundle build runs prepare inside the preview sandbox', {
       scripts: ['prepare'],
     })
     assert.equal(readFileSync(join(checkout, 'lib/index.js'), 'utf8'), 'built\n')
+    assert.equal(existsSync(join(candidateProfile, 'profile-built')), false)
   } finally {
     rmSync(sandboxRoot, { recursive: true, force: true })
   }

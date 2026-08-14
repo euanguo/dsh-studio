@@ -323,6 +323,7 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
     const pnpmArguments = [
       this.#options.pnpmEntry,
       'install',
+      '--ignore-workspace',
       existsSync(join(input.checkout, 'pnpm-lock.yaml'))
         ? '--frozen-lockfile'
         : '--no-frozen-lockfile',
