@@ -570,8 +570,8 @@ function installDesktopPackages() {
       ],
     },
     ...[
-      'skins',
-      'sidebar',
+      'desktop-skins',
+      'desktop-sidebar',
       'panel-controls',
       'pinned-summary',
       'plugin-marketplace',
@@ -583,15 +583,6 @@ function installDesktopPackages() {
         [join(root, 'dist', 'plugins', directory, 'client.js.map'), 'dist/client.js.map'],
       ],
     })),
-    {
-      manifest: join(root, 'web', 'package.json'),
-      files: [
-        [join(root, 'dist', 'web', 'index.js'), 'dist/index.js'],
-        [join(root, 'dist', 'web', 'client.js'), 'dist/client.js'],
-        [join(root, 'dist', 'web', 'client.js.map'), 'dist/client.js.map'],
-        [join(root, 'dist', 'web', 'cordis.patch.yml'), 'dist/cordis.patch.yml'],
-      ],
-    },
   ]
   const installedVersions = {}
   for (const spec of packages) {
@@ -685,15 +676,11 @@ for (const required of [
   'client.js',
   'client.js.map',
   'cordis.patch.yml',
-  'web/index.js',
-  'web/client.js',
-  'web/client.js.map',
-  'web/cordis.patch.yml',
   'plugins/better-sidebar-runtime/index.js',
-  'plugins/skins/index.js',
-  'plugins/skins/client.js',
-  'plugins/sidebar/index.js',
-  'plugins/sidebar/client.js',
+  'plugins/desktop-skins/index.js',
+  'plugins/desktop-skins/client.js',
+  'plugins/desktop-sidebar/index.js',
+  'plugins/desktop-sidebar/client.js',
   'plugins/panel-controls/index.js',
   'plugins/panel-controls/client.js',
   'plugins/pinned-summary/index.js',
