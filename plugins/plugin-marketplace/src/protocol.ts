@@ -23,6 +23,8 @@ const PROTECTED_PLUGIN_IDS = new Set([
   'better-sidebar-runtime',
   'desktop',
   'desktop-sidebar',
+  'dsh-better-sidebar',
+  'sidebar',
   'oh-dsh-desktop',
   'panel-controls',
   'pinned-summary',
@@ -30,9 +32,31 @@ const PROTECTED_PLUGIN_IDS = new Set([
   'workspace-tools',
 ])
 
+const PROTECTED_PLUGIN_PACKAGES = new Set([
+  '@oh-dsh/better-sidebar-runtime',
+  '@oh-dsh/desktop',
+  '@oh-dsh/desktop-sidebar',
+  '@oh-dsh/panel-controls',
+  '@oh-dsh/sidebar',
+  'dsh-better-sidebar',
+])
+
+const PROTECTED_PLUGIN_REPOSITORIES = new Set([
+  'dsh-external/dsh-better-sidebar',
+  'omdsh-dev/dsh-better-sidebar',
+])
+
 /** Marketplace code cannot replace the desktop or its transaction owner. */
-export function isProtectedMarketplacePlugin(pluginId: string): boolean {
-  return PROTECTED_PLUGIN_IDS.has(pluginId)
+export function isProtectedMarketplacePlugin(
+  pluginId: string,
+  repository?: string,
+  packageName?: string,
+): boolean {
+  return PROTECTED_PLUGIN_IDS.has(pluginId.toLowerCase())
+    || (repository !== undefined
+      && PROTECTED_PLUGIN_REPOSITORIES.has(repository.toLowerCase()))
+    || (packageName !== undefined
+      && PROTECTED_PLUGIN_PACKAGES.has(packageName.toLowerCase()))
 }
 
 export interface MarketplacePlugin {

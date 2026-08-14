@@ -6,6 +6,7 @@ export interface BundledRuntimePaths {
   nodeBinary: string
   nodeBinDirectory: string
   pnpmBinary: string
+  pnpmEntry: string
   runtimeRoot: string
 }
 
@@ -29,6 +30,13 @@ export function bundledRuntimePaths(
     nodeBinary: paths.join(nodeBinDirectory, platform === 'win32' ? 'node.exe' : 'node'),
     nodeBinDirectory,
     pnpmBinary: paths.join(nodeBinDirectory, platform === 'win32' ? 'pnpm.cmd' : 'pnpm'),
+    pnpmEntry: paths.join(
+      nodeRoot,
+      ...(platform === 'win32' ? ['node_modules'] : ['lib', 'node_modules']),
+      'pnpm',
+      'bin',
+      'pnpm.mjs',
+    ),
     runtimeRoot,
   }
 }

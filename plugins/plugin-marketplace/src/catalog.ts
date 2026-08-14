@@ -177,7 +177,7 @@ export function parseMarketplaceCatalog(
       installed: installedIds.has(row.id),
       latestCommit: null,
       mechanism: row.mechanism,
-      protected: isProtectedMarketplacePlugin(row.id),
+      protected: isProtectedMarketplacePlugin(row.id, row.repository),
       pushedAt: row.pushedAt,
       repository: row.repository,
       runtimeRisk: runtimeRisk(row.mechanism),

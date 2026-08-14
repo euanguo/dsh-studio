@@ -3,8 +3,10 @@ import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os'
 import { join, win32 } from 'node:path'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { parseMarketplaceCatalog } from '../plugins/plugin-marketplace/src/catalog.ts'
 import type {
+  BundleBuildInput,
   DshCommandInput,
   MarketplaceAuthResult,
   MarketplacePlatform,
@@ -71,7 +73,12 @@ function catalogDocument(): unknown {
 }
 
 class FakePlatform implements MarketplacePlatform {
+  readonly builds: Array<{
+    checkout: string
+    scripts: string[]
+  }> = []
   readonly commands: DshCommandInput[] = []
+  catalog: unknown = catalogDocument()
   latestCommit = COMMIT
   bundleName = '@example/bundle-demo'
   bundleDescription = 'Bundle demo manifest'
@@ -80,12 +87,16 @@ class FakePlatform implements MarketplacePlatform {
     return { detail: 'test auth', status: 'ready' }
   }
 
+  async buildBundle(input: BundleBuildInput): Promise<void> {
+    this.builds.push({ checkout: input.checkout, scripts: input.scripts })
+  }
+
   async cloneRepository(_repository: string, _commit: string, target: string): Promise<void> {
     mkdirSync(target, { recursive: true })
   }
 
   async loadCatalog(): Promise<unknown> {
-    return catalogDocument()
+    return this.catalog
   }
 
   async readRepositoryFile(repository: string, path: string): Promise<string | null> {
@@ -301,6 +312,7 @@ test('public catalogs load anonymously without GitHub CLI', async () => {
       })
     },
     nodeBinary: process.execPath,
+    pnpmEntry: '/unused/pnpm.mjs',
   })
 
   assert.notEqual((await platform.authStatus()).status, 'ready')
@@ -309,6 +321,41 @@ test('public catalogs load anonymously without GitHub CLI', async () => {
     requested,
     'https://api.github.com/repos/public-owner/public-catalog/contents/data/plugins.json',
   )
+})
+
+test('production bundle build runs prepare inside the preview sandbox', async () => {
+  const sandboxRoot = mkdtempSync(join(tmpdir(), 'oh-dsh-bundle-build-'))
+  const checkout = join(sandboxRoot, 'checkout')
+  mkdirSync(checkout, { recursive: true })
+  writeFileSync(join(checkout, 'package.json'), JSON.stringify({
+    name: '@example/prepare-fixture',
+    scripts: { prepare: 'node build.mjs' },
+    version: '1.0.0',
+  }))
+  writeFileSync(join(checkout, 'build.mjs'), [
+    "import { mkdirSync, writeFileSync } from 'node:fs'",
+    "mkdirSync(new URL('./lib/', import.meta.url), { recursive: true })",
+    "writeFileSync(new URL('./lib/index.js', import.meta.url), 'built\\n')",
+    '',
+  ].join('\n'))
+
+  try {
+    const platform = new ProductionMarketplacePlatform({
+      cliEntry: '/unused/dsh.mjs',
+      cwd: checkout,
+      env: process.env,
+      nodeBinary: process.execPath,
+      pnpmEntry: fileURLToPath(new URL('../node_modules/pnpm/bin/pnpm.mjs', import.meta.url)),
+    })
+    await platform.buildBundle({
+      checkout,
+      sandboxRoot,
+      scripts: ['prepare'],
+    })
+    assert.equal(readFileSync(join(checkout, 'lib/index.js'), 'utf8'), 'built\n')
+  } finally {
+    rmSync(sandboxRoot, { recursive: true, force: true })
+  }
 })
 
 test('refresh keeps public catalogs available when GitHub CLI is unavailable', async () => {
@@ -451,6 +498,9 @@ test('bundle preview remains isolated until apply and supports undo', async () =
     snapshot = await setup.manager.dispatch({ type: 'preview', allowBuildScripts: true })
     assert.equal(snapshot.error, null)
     assert.equal(snapshot.preview?.pluginId, 'bundle-demo')
+    assert.equal(setup.platform.builds.length, 1)
+    assert.deepEqual(setup.platform.builds[0]?.scripts, ['prepare'])
+    assert.match(setup.platform.builds[0]?.checkout ?? '', /bundle-demo-/)
     assert.equal(setup.runtime.previewStarts.length, 1)
     const liveBefore = JSON.parse(readFileSync(join(setup.profileDir, 'package.json'), 'utf8'))
     assert.deepEqual(liveBefore.dependencies, {})
@@ -653,6 +703,35 @@ test('the marketplace refuses to modify protected desktop plugins', async () => 
       snapshot.catalog.find(plugin => plugin.id === 'oh-dsh-desktop')?.protected,
       true,
     )
+  } finally {
+    setup.cleanup()
+  }
+})
+
+test('the marketplace protects the upstream Better Sidebar alias', async () => {
+  const setup = fixture()
+  try {
+    setup.platform.catalog = {
+      schema: 'dsh-external-hub/v0.1',
+      generated: '2026-08-14T00:00:00Z',
+      repos: [{
+        name: 'dsh-better-sidebar',
+        repo: 'dsh-external/DSH-better-sidebar',
+        category: 'plugin',
+        description: 'Upstream sidebar already bundled by the desktop',
+        bundle: true,
+      }],
+    }
+    await setup.manager.dispatch({ type: 'refresh' })
+    const snapshot = await setup.manager.dispatch({
+      type: 'prepare',
+      action: 'install',
+      pluginId: 'dsh-better-sidebar',
+    })
+    assert.match(snapshot.error ?? '', /protected by the desktop/)
+    assert.equal(snapshot.preview, null)
+    assert.equal(snapshot.catalog[0]?.protected, true)
+    assert.equal(setup.platform.commands.length, 0)
   } finally {
     setup.cleanup()
   }

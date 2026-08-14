@@ -521,6 +521,7 @@ function createPluginMarketplace(): PluginMarketplaceManager {
       cwd: workingDirectory,
       env: environment,
       nodeBinary: paths.nodeBinary,
+      pnpmEntry: paths.pnpmEntry,
       onLog: line => { appendLog('desktop', `[marketplace] ${line}`) },
     }),
     profile: DESKTOP_PROFILE,

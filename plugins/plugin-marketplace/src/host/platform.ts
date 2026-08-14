@@ -4,11 +4,21 @@ import {
   accessSync,
   existsSync,
   mkdirSync,
+  realpathSync,
   renameSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join, posix, win32 } from 'node:path'
+import {
+  dirname,
+  isAbsolute,
+  join,
+  posix,
+  relative,
+  resolve,
+  sep,
+  win32,
+} from 'node:path'
 import type { MarketplaceAuthStatus } from '../protocol.ts'
 import {
   MARKETPLACE_CATALOG_PATH,
@@ -26,9 +36,16 @@ export interface DshCommandInput {
   sandboxRoot: string
 }
 
+export interface BundleBuildInput {
+  checkout: string
+  sandboxRoot: string
+  scripts: string[]
+}
+
 /** Privileged operations consumed by the marketplace transaction module. */
 export interface MarketplacePlatform {
   authStatus(): Promise<MarketplaceAuthResult>
+  buildBundle(input: BundleBuildInput): Promise<void>
   cloneRepository(repository: string, commit: string, target: string): Promise<void>
   loadCatalog(): Promise<unknown>
   readRepositoryFile(repository: string, path: string, commit: string): Promise<string | null>
@@ -42,6 +59,7 @@ export interface ProductionMarketplacePlatformOptions {
   env: NodeJS.ProcessEnv
   fetch?: typeof globalThis.fetch
   nodeBinary: string
+  pnpmEntry: string
   onLog?: (message: string) => void
 }
 
@@ -130,6 +148,14 @@ function executable(path: string): boolean {
   }
 }
 
+function assertWithin(root: string, target: string): void {
+  const child = relative(resolve(root), resolve(target))
+  if (child === '' || (!isAbsolute(child) && child !== '..' && !child.startsWith(`..${sep}`))) {
+    return
+  }
+  throw new Error(`marketplace build path escapes its preview sandbox: ${target}`)
+}
+
 /** Resolve gh without invoking a shell or changing the user's Git config. */
 export function findGitHubCli(
   environment: NodeJS.ProcessEnv = process.env,
@@ -196,7 +222,12 @@ function seatbeltString(value: string): string {
 
 /** Deny writes outside the disposable preview tree while allowing DSH to run. */
 export function previewSandboxPolicy(root: string): string {
-  const temporary = join(root, '.tmp')
+  const writableRoots = new Set([resolve(root)])
+  if (existsSync(root)) writableRoots.add(realpathSync(root))
+  const writablePaths = [...writableRoots]
+    .flatMap(path => [path, join(path, '.tmp')])
+    .map(path => `(subpath "${seatbeltString(path)}")`)
+    .join(' ')
   return [
     '(version 1)',
     '(deny default)',
@@ -205,7 +236,7 @@ export function previewSandboxPolicy(root: string): string {
     '(allow network*)',
     '(allow mach-lookup)',
     '(allow sysctl-read)',
-    `(allow file-write* (literal "/dev/null") (subpath "${seatbeltString(root)}") (subpath "${seatbeltString(temporary)}"))`,
+    `(allow file-write* (literal "/dev/null") ${writablePaths})`,
   ].join('')
 }
 
@@ -237,6 +268,57 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
         status: 'signed-out',
       }
     }
+  }
+
+  async buildBundle(input: BundleBuildInput): Promise<void> {
+    assertWithin(input.sandboxRoot, input.checkout)
+    const allowed = new Set(['preinstall', 'install', 'postinstall', 'prepare', 'prepack'])
+    if (input.scripts.length === 0 || input.scripts.some(script => !allowed.has(script))) {
+      throw new Error('marketplace bundle build contains an unreviewed lifecycle script')
+    }
+    const temporary = join(input.sandboxRoot, '.tmp')
+    const store = join(input.sandboxRoot, '.pnpm-store')
+    mkdirSync(temporary, { recursive: true, mode: 0o700 })
+    mkdirSync(store, { recursive: true, mode: 0o700 })
+    const env = withGitHubCredentials({
+      ...this.#options.env,
+      CI: 'true',
+      DSH_DESKTOP_APP_DATA: input.sandboxRoot,
+      DSH_DESKTOP_PREVIEW: '1',
+      HOME: input.sandboxRoot,
+      TMPDIR: temporary,
+    }, this.#ghPath)
+    const pnpmArguments = [
+      this.#options.pnpmEntry,
+      'install',
+      existsSync(join(input.checkout, 'pnpm-lock.yaml'))
+        ? '--frozen-lockfile'
+        : '--no-frozen-lockfile',
+      '--store-dir',
+      store,
+    ]
+    const sandbox = '/usr/bin/sandbox-exec'
+    const command = process.platform === 'darwin' && existsSync(sandbox)
+      ? sandbox
+      : this.#options.nodeBinary
+    const args = command === sandbox
+      ? [
+          '-p',
+          previewSandboxPolicy(input.sandboxRoot),
+          this.#options.nodeBinary,
+          ...pnpmArguments,
+        ]
+      : pnpmArguments
+    this.#options.onLog?.(
+      `marketplace build: pnpm install (${input.scripts.join(', ')})`,
+    )
+    const result = await runCommand(command, args, {
+      cwd: input.checkout,
+      env,
+      timeoutMs: 300_000,
+    })
+    if (result.stdout.trim() !== '') this.#options.onLog?.(result.stdout.trim())
+    if (result.stderr.trim() !== '') this.#options.onLog?.(result.stderr.trim())
   }
 
   async loadCatalog(): Promise<unknown> {
