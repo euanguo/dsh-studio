@@ -12,6 +12,7 @@ export function desktopBuilds(root) {
     { directory: 'better-sidebar-runtime', hostOnly: true },
     { directory: 'desktop-skins', id: '@oh-dsh/desktop-skins' },
     { directory: 'desktop-sidebar', id: '@oh-dsh/desktop-sidebar' },
+    { directory: 'desktop-left-rail', id: '@oh-dsh/desktop-left-rail' },
     { directory: 'panel-controls', id: '@oh-dsh/panel-controls' },
     { directory: 'pinned-summary', id: '@oh-dsh/pinned-summary' },
     { directory: 'plugin-marketplace', id: '@oh-dsh/plugin-marketplace' },
@@ -67,9 +68,7 @@ export function desktopBuilds(root) {
   for (const plugin of pluginPackages) {
     const source = join(root, 'plugins', plugin.directory, 'src')
     const output = join(root, 'dist', 'plugins', plugin.directory)
-    const hostEntry = plugin.directory === 'better-sidebar-runtime'
-      ? join(root, '..', 'DSH-better-sidebar', 'src', 'index.ts')
-      : join(source, 'index.ts')
+    const hostEntry = join(source, 'index.ts')
     builds.push({
       ...shared,
       entryPoints: [hostEntry],
@@ -95,7 +94,7 @@ export function desktopBuilds(root) {
           'react',
           'react-dom/client',
           'react/jsx-runtime',
-          ...(['desktop-skins', 'desktop-sidebar'].includes(plugin.directory)
+          ...(['desktop-skins', 'desktop-sidebar', 'desktop-left-rail'].includes(plugin.directory)
             ? ['@deepseek-ai/dsh-client-runtime/client']
             : []),
         ],

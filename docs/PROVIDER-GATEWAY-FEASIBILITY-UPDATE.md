@@ -74,7 +74,7 @@ shared lifecycle reducer = **Conditional Go 且至今未实现**；46 的 F1-F6 
 | subagent-acp = ACP client 子进程 | ✅ 成立 | `packages/subagent/subagent-acp/README.md`（fresh subprocess + 自身 runtime/session/model/tools；`permission` 默认 `reject`） |
 | dsh-acp = ACP server（方向相反） | ✅ 成立 | `packages/acp/acp/README.md` |
 | llm-pi-ai 多供应商 | ✅ 成立且已在运行 | `packages/llm/llm-pi-ai`（@earendil-works/pi-ai providers/all 全目录）；`~/.dsh/settings.yaml` 已配置 `llm-pi-ai.providers.opencode-go` → deepseek-v4-flash，**当前评估会话即运行其上** |
-| 插件承载服务先例 | ✅ 成立 | oh-dsh `plugins/better-sidebar-runtime`（dist 构建，源码在 `../DSH-better-sidebar/src/`：agent-pty / fs-tree / git / pty-manager / trust-fence） |
+| 插件承载服务先例 | ✅ 成立 | oh-dsh `plugins/better-sidebar-runtime`（dist 构建，源码 vendor 在 `plugins/better-sidebar-runtime/src/`：agent-pty / fs-tree / git / pty-manager / trust-fence） |
 | 审批 seam | ✅ 存在（原计划未提） | harness `packages/interaction/user-approval`、`packages/interaction/permission-presets`、`packages/client/ui-permission-presets`——审批桥可直接挂官方服务 |
 | SQLite 兼容性 | ✅ **双端同构**（原计划未提） | DSH 自带 `dsh-session-query-sqlite` 用 **`node:sqlite` DatabaseSync**（`lib/index.js:49`）；Synara `NodeSqliteClient` 也是 `node:sqlite`（`apps/server/src/persistence/NodeSqliteClient.ts:2-7`）；DSH engines `node ^22.19`，Electron 42 = Node 22.x → **无原生模块编译负担** |
 

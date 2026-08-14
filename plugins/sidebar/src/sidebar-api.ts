@@ -1,11 +1,11 @@
 /**
  * Desktop-hosted sidebar JSON API: the git / fs / settings capabilities the
  * Oh-DSH client consumes. This is the single host the client talks to —
- * it never depends on the upstream DSH-better-sidebar /sidebar/api route
+ * it never depends on the upstream DSH-better-sidebar /sidebar/api route (vendored under plugins/better-sidebar-runtime)
  * directly. The git and fs implementations are REUSED from the upstream
- * clone's framework-agnostic modules (git.ts / fs-tree.ts / wire.ts /
- * prefs-shared.ts), so there is exactly one implementation, no forked
- * copies, and any upstream contract change fails the build instead of
+ * vendored framework-agnostic modules (plugins/better-sidebar-runtime/src:
+ * git.ts / fs-tree.ts / wire.ts / prefs-shared.ts), so there is exactly one
+ * implementation, and any contract change fails the build instead of
  * drifting silently.
  *
  * Wire contract (envelope, method payloads, DTO shapes) is shared with the
@@ -14,20 +14,20 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { open, stat } from 'node:fs/promises'
 import { isAbsolute, join } from 'node:path'
-import * as git from '../../../../DSH-better-sidebar/src/git.ts'
+import * as git from '../../better-sidebar-runtime/src/git.ts'
 import {
   isWithin,
   listDirectory,
   requireAbsolute,
-} from '../../../../DSH-better-sidebar/src/fs-tree.ts'
+} from '../../better-sidebar-runtime/src/fs-tree.ts'
 import {
   readJsonBody,
   requireString,
   SidebarError,
   writeError,
   writeOk,
-} from '../../../../DSH-better-sidebar/src/wire.ts'
-import { SIDEBAR_PREFS_NS } from '../../../../DSH-better-sidebar/src/prefs-shared.ts'
+} from '../../better-sidebar-runtime/src/wire.ts'
+import { SIDEBAR_PREFS_NS } from '../../better-sidebar-runtime/src/prefs-shared.ts'
 import type { SidebarScope } from '../../shared/sidebar-api.ts'
 
 /** Bound of one directory listing (upstream default listLimit). */
