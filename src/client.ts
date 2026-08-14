@@ -35,10 +35,13 @@ declare global {
   }
 }
 
-const DESKTOP_TITLEBAR_HEIGHT = 40
+const DESKTOP_TITLEBAR_HEIGHT = 0
 
 const DESKTOP_CHROME_CSS = `
 html[data-oh-dsh-desktop='true'] {
+  /* Titlebar inset token — the renderer equivalent of the reference
+     desktop distribution's --dsh-desktop-titlebar-inset. Plugins read this
+     to keep their surfaces flush with the top edge. */
   --oh-dsh-titlebar-height: ${DESKTOP_TITLEBAR_HEIGHT}px;
 }
 
@@ -47,7 +50,60 @@ html[data-oh-dsh-desktop='true'] body {
   padding-top: var(--oh-dsh-titlebar-height);
 }
 
+/* The unified top rail owns the top 42px (a drag region with no-drag
+   controls); the upstream titlebar bar below is kept but sized by
+   --oh-dsh-titlebar-height = 0, so it renders nothing and never
+   swallows clicks on the rail. */
 html[data-oh-dsh-desktop='true'] body::before {
+  content: '';
+  position: fixed;
+  z-index: 2147483647;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: var(--oh-dsh-titlebar-height);
+  background: var(--dsw-alias-bg-base);
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+/* No top drag strip: the DSH conversation header is the drag region. It
+   stays pinned at the top of the center column (it lives outside the
+   scrollable conversation body), so the window can always be dragged by it.
+   The header's interactive controls are re-enabled below. */
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header button,
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header a,
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header input,
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header select,
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header textarea,
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='button'],
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='link'],
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='tab'],
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [contenteditable='true'] {
+  -webkit-app-region: no-drag;
+  user-select: auto;
+}
+
+/* Electron drag regions ignore visual stacking: while a modal is mounted,
+   suspend every renderer-owned drag target so the mask and the modal's own
+   controls keep pointer input (same rule as the reference desktop
+   distribution). Restoring the final modal re-enables the regions. */
+html[data-oh-dsh-desktop='true']:has([aria-modal='true']) body * {
+  -webkit-app-region: no-drag;
+}
+
+/* The macOS traffic lights live in the window's top-left corner (~28px);
+   keep them clear of the sidebar rail's top button row. The strip itself
+   is not draggable (the header is), which is fine — the traffic lights
+   sit there anyway. */
+html[data-oh-dsh-desktop='true'] [data-slot='sidebar'] > div {
+  padding-top: 28px;
+}
   content: '';
   position: fixed;
   z-index: 2147483647;
