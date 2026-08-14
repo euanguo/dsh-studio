@@ -1,7 +1,7 @@
 # Third-Party Notices
 
-Oh-DSH-Desktop is distributed under the BSD 3-Clause License. The projects
-below informed independently implemented bundled plugins.
+Oh-DSH is distributed under the MIT License. The projects below informed
+independently implemented bundled plugins.
 
 Upstream UI, themes, and component styling are not bundled. Oh-DSH adapts
 compatible features to its own persistence, layout, localization, and theme

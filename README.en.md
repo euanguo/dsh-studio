@@ -20,7 +20,7 @@
   <img alt="Apple Silicon" src="https://img.shields.io/badge/arch-arm64-2f81f7">
   <img alt="DSH 0.0.1-rc.2" src="https://img.shields.io/badge/DSH-0.0.1--rc.2-2f81f7">
   <img alt="Electron 42" src="https://img.shields.io/badge/Electron-42-47848f?logo=electron&logoColor=white">
-  <img alt="BSD 3-Clause" src="https://img.shields.io/badge/license-BSD--3--Clause-34a853">
+  <img alt="MIT" src="https://img.shields.io/badge/license-MIT-34a853">
 </p>
 
 <p align="center">
@@ -262,4 +262,4 @@ gh release create v0.1.2 \
 
 ## License
 
-[BSD 3-Clause](./LICENSE)
+[MIT](./LICENSE)
