@@ -31,6 +31,7 @@ void app.whenReady().then(async () => {
     width: 1280,
   })
   const startedAt = Date.now()
+  let navigationReadyAt = null
   let settled = false
 
   const settle = error => {
@@ -87,14 +88,29 @@ void app.whenReady().then(async () => {
               - settingsRect.left - settingsRect.width / 2
             ),
             pluginsArtwork,
+            pluginsBottom: pluginsRect.bottom,
             pluginsCenter: pluginsRect.left + pluginsRect.width / 2,
+            pluginsTop: pluginsRect.top,
             settingsArtwork,
+            settingsBottom: settingsRect.bottom,
             settingsCenter: settingsRect.left + settingsRect.width / 2,
+            settingsTop: settingsRect.top,
+            viewportHeight: window.innerHeight,
           }
         })(),
         ready: document.documentElement.dataset.ohDshDesktop === 'true',
       }))()`)
       if (state.ready === true && state.navigation !== null) {
+        if (state.navigation.pluginsTop < 0
+          || state.navigation.pluginsBottom > state.navigation.viewportHeight
+          || state.navigation.settingsTop < 0
+          || state.navigation.settingsBottom > state.navigation.viewportHeight) {
+          settle(new Error(
+            'Plugins and Settings navigation is outside the viewport: '
+            + JSON.stringify(state.navigation),
+          ))
+          return
+        }
         if (state.navigation.delta > 0.5) {
           settle(new Error(
             'Plugins and Settings icons are not aligned: '
@@ -109,8 +125,11 @@ void app.whenReady().then(async () => {
           ))
           return
         }
-        settle()
-        return
+        navigationReadyAt ??= Date.now()
+        if (Date.now() - navigationReadyAt >= 750) {
+          settle()
+          return
+        }
       }
       if (state.body.includes('Failed to load plugins')) {
         settle(new Error(state.body.trim()))

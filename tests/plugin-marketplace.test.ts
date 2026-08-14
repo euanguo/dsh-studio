@@ -394,7 +394,7 @@ test('Agent gateway authenticates and defers runtime-restarting applies', async 
   }
 })
 
-test('marketplace navigation reserves room for Settings in short windows', () => {
+test('marketplace navigation preserves the intrinsic Settings footer height', () => {
   const client = readFileSync(new URL(
     '../plugins/plugin-marketplace/src/client/plugin.tsx',
     import.meta.url,
@@ -407,10 +407,9 @@ test('marketplace navigation reserves room for Settings in short windows', () =>
     '../plugins/plugin-marketplace/src/client/i18n.ts',
     import.meta.url,
   ), 'utf8')
-  assert.match(client, /window\.innerHeight - top/)
-  assert.match(client, /SIDEBAR_BOTTOM_INSET = 8/)
-  assert.match(client, /--oh-marketplace-sidebar-height/)
-  assert.match(css, /height: var\(--oh-marketplace-sidebar-height, 100%\) !important/)
+  assert.doesNotMatch(client, /--oh-marketplace-sidebar-height/)
+  assert.doesNotMatch(client, /SIDEBAR_BOTTOM_INSET/)
+  assert.doesNotMatch(css, /data-oh-dsh-marketplace-sidebar-root/)
   assert.match(css, /\.oh-marketplace-nav \{[\s\S]*gap: 8px;/)
   assert.match(css, /\.oh-marketplace-nav \{[\s\S]*padding: 6px 2px 6px 10px;/)
   assert.match(css, /\.oh-marketplace-nav svg \{[\s\S]*width: 16px;[\s\S]*height: 16px;/)
