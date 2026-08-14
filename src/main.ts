@@ -199,6 +199,7 @@ function isAllowedBrowserNavigation(target: string): boolean {
 }
 
 function createWindow(options: { preview?: boolean; title?: string } = {}): BrowserWindow {
+  const platform = process.platform
   const window = new BrowserWindow({
     width: options.preview === true ? 1160 : 1280,
     height: options.preview === true ? 760 : 840,
@@ -206,8 +207,34 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
     minHeight: 620,
     show: false,
     title: options.title ?? PRODUCT_NAME,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
+    // Platform chrome (mirrors the reference desktop distribution):
+    // macOS keeps the inset traffic lights and sidebar vibrancy; Windows
+    // uses an overlay caption row over a transparent acrylic body; other
+    // platforms run frameless-transparent so the renderer owns the chrome.
+    titleBarStyle: platform === 'darwin' ? 'hiddenInset' : 'hidden',
+    ...(platform === 'darwin'
+      ? {
+        trafficLightPosition: { x: 16, y: 18 },
+        vibrancy: 'sidebar' as const,
+        visualEffectState: 'followWindow' as const,
+      }
+      : {}),
+    ...(platform === 'win32'
+      ? {
+        titleBarOverlay: {
+          color: '#00000000',
+          symbolColor: '#7f858f',
+          height: 44,
+        },
+        backgroundMaterial: 'acrylic' as const,
+        hasShadow: true,
+        roundedCorners: true,
+        thickFrame: true,
+      }
+      : {}),
+    ...(platform === 'darwin' || platform === 'win32'
+      ? {}
+      : { transparent: true }),
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#202020' : '#f7f7f5',
     webPreferences: {
       preload: preloadPath,

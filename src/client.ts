@@ -42,6 +42,9 @@ const DESKTOP_TITLEBAR_HEIGHT = 0
 
 const DESKTOP_CHROME_CSS = `
 html[data-oh-dsh-desktop='true'] {
+  /* Titlebar inset token — the renderer equivalent of the reference
+     desktop distribution's --dsh-desktop-titlebar-inset. Plugins read this
+     to keep their surfaces flush with the top edge. */
   --oh-dsh-titlebar-height: ${DESKTOP_TITLEBAR_HEIGHT}px;
 }
 
@@ -63,9 +66,20 @@ html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header a,
 html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header input,
 html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header select,
 html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header textarea,
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='button'] {
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='button'],
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='link'],
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='tab'],
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [contenteditable='true'] {
   -webkit-app-region: no-drag;
   user-select: auto;
+}
+
+/* Electron drag regions ignore visual stacking: while a modal is mounted,
+   suspend every renderer-owned drag target so the mask and the modal's own
+   controls keep pointer input (same rule as the reference desktop
+   distribution). Restoring the final modal re-enables the regions. */
+html[data-oh-dsh-desktop='true']:has([aria-modal='true']) body * {
+  -webkit-app-region: no-drag;
 }
 
 /* Fallback: if no usable conversation header exists (empty state, other
