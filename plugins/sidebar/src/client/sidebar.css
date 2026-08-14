@@ -10,18 +10,13 @@ html {
    re-enables pointer-events when visible. */
 #oh-dsh-desktop-sidebar-root {
   position: fixed;
-  /* Top of the stacking ladder: DSH reserves a 28px window-drag strip as
-     body::before at the maximum z-index. The panel's own top row (tabs,
-     [+] menu, window controls) lives inside that 28px band, so the root
-     must match that z-index and paint after it — otherwise every real
-     click on the top row is swallowed by the drag strip. */
-  z-index: 2147483647;
-  /* Flush to the window's edges — the panel is a flush right column (the
+  z-index: 9000;
+  /* Flush to the window's top edge so the panel leaves no gap above it (the
      macOS traffic lights live in the top-left corner and are never covered
      by the right-side panel). */
   top: 0;
-  right: 0;
-  bottom: 0;
+  right: 12px;
+  bottom: 12px;
   width: var(--oh-dsh-desktop-sidebar-width);
   min-width: 0;
   overflow: hidden;
@@ -109,6 +104,55 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   touch-action: none;
 }
 
+.oh-dsh-workspace-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 58px;
+  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-3);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+.oh-dsh-workspace-header strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--oh-dsh-font-2xl);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-dsh-workspace-header > div {
+  flex: none;
+  display: flex;
+  gap: var(--oh-dsh-space-0);
+}
+
+.oh-dsh-workspace-header button,
+.oh-dsh-workspace-directory button {
+  display: grid;
+  place-items: center;
+  width: var(--oh-dsh-control-md);
+  height: var(--oh-dsh-control-md);
+  padding: 0;
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #57606a);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.oh-dsh-workspace-header button:hover,
+.oh-dsh-workspace-directory button:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
 .oh-dsh-workspace-content {
   position: relative;
   flex: 1;
@@ -119,11 +163,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 }
 
 .oh-dsh-workspace-content section {
-  /* Flush dividers: the border runs edge to edge across the content
-     column (negating the content padding), while inner padding keeps the
-     section content aligned with the rows. */
-  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-2);
-  margin: 0 calc(-1 * var(--oh-dsh-space-2));
+  padding: var(--oh-dsh-space-2) 0;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
@@ -161,17 +201,178 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 
 .oh-dsh-change-list { padding: 0; }
 
-/* Commit history rows ride the shared ListRow family (hover/selected
-   geometry lives in list-row.css); only the hash chip is Git-specific. */
 .oh-dsh-review-commit-list {
   display: grid;
   gap: var(--oh-dsh-space-0);
-  padding: 0 var(--oh-dsh-space-1) var(--oh-dsh-space-1);
+  padding: 0 var(--oh-dsh-space-1) var(--oh-dsh-space-2);
 }
 
-.oh-dsh-review-commit-hash {
+.oh-dsh-review-commit-row {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) auto;
+  align-items: center;
+  min-height: 32px;
+  gap: var(--oh-dsh-space-1-5);
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-3);
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+}
+
+.oh-dsh-review-commit-row:hover,
+.oh-dsh-review-commit-row[data-selected] {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+}
+
+.oh-dsh-review-commit-row:disabled { cursor: default; opacity: 0.65; }
+.oh-dsh-review-commit-row code {
   color: var(--dsw-alias-label-secondary, #57606a);
   font: var(--oh-dsh-font-xs)/1.4 var(--oh-dsh-font-mono);
+}
+.oh-dsh-review-commit-row > span {
+  overflow: hidden;
+  font-size: var(--oh-dsh-font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-dsh-review-commit-row small {
+  overflow: hidden;
+  max-width: 72px;
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-dsh-review-commit-detail {
+  margin: var(--oh-dsh-space-1) var(--oh-dsh-space-1) var(--oh-dsh-space-3) var(--oh-dsh-space-3);
+  overflow: hidden;
+  border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
+  border-radius: var(--oh-dsh-radius-md);
+  background: var(--dsw-alias-bg-layer-1, #fff);
+}
+
+.oh-dsh-review-commit-detail > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--oh-dsh-space-2);
+  padding: var(--oh-dsh-space-2);
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+.oh-dsh-review-commit-detail > header > div { display: grid; min-width: 0; gap: var(--oh-dsh-space-1); }
+.oh-dsh-review-commit-detail > header code,
+.oh-dsh-review-commit-detail > header small {
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+}
+.oh-dsh-review-commit-detail > header strong { font-size: var(--oh-dsh-font-sm); }
+.oh-dsh-review-commit-detail button {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.oh-dsh-review-commit-detail > header > button {
+  flex: none;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  font-size: var(--oh-dsh-font-xs);
+}
+
+.oh-dsh-review-commit-detail details {
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+.oh-dsh-review-commit-detail details:last-of-type { border-bottom: 0; }
+.oh-dsh-review-commit-detail summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--oh-dsh-space-2);
+  padding: 7px var(--oh-dsh-space-2);
+  cursor: pointer;
+  font: var(--oh-dsh-font-xs)/1.35 var(--oh-dsh-font-mono);
+}
+.oh-dsh-review-commit-detail summary > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-dsh-review-commit-detail summary small { color: var(--dsw-alias-state-error-primary, #cf222e); }
+.oh-dsh-review-commit-detail summary b { color: var(--dsw-alias-state-success-primary, #2da44e); font-weight: 500; }
+
+.oh-dsh-review-diff-lines {
+  max-height: 420px;
+  overflow: auto;
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+.oh-dsh-review-comments {
+  display: grid;
+  gap: var(--oh-dsh-space-1);
+  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-2);
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+.oh-dsh-review-comments > strong { font-size: var(--oh-dsh-font-xs); }
+.oh-dsh-review-comments > div {
+  position: relative;
+  padding: var(--oh-dsh-space-1-5) 28px var(--oh-dsh-space-1-5) var(--oh-dsh-space-2);
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+}
+.oh-dsh-review-comments span {
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+  font: var(--oh-dsh-font-xs)/1.4 var(--oh-dsh-font-mono);
+}
+.oh-dsh-review-comments p { margin: 3px 0 0; font-size: var(--oh-dsh-font-xs); line-height: 1.45; }
+.oh-dsh-review-comments button { position: absolute; top: 4px; right: 4px; }
+
+.oh-dsh-review-comment-form {
+  display: grid;
+  gap: var(--oh-dsh-space-1-5);
+  padding: var(--oh-dsh-space-2);
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+.oh-dsh-review-comment-form strong {
+  overflow: hidden;
+  font-size: var(--oh-dsh-font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-dsh-review-comment-form textarea {
+  min-height: 68px;
+  resize: vertical;
+  box-sizing: border-box;
+  padding: var(--oh-dsh-space-1-5);
+  border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
+  border-radius: var(--oh-dsh-radius-sm);
+  outline: 0;
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  color: inherit;
+  font: var(--oh-dsh-font-xs)/1.45 inherit;
+}
+.oh-dsh-review-comment-form textarea:focus {
+  border-color: var(--oh-dsh-accent);
+}
+.oh-dsh-review-comment-form > div { display: flex; justify-content: flex-end; gap: var(--oh-dsh-space-1-5); }
+.oh-dsh-review-comment-form button {
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  font-size: var(--oh-dsh-font-sm);
+}
+.oh-dsh-review-comment-form button:disabled { cursor: default; opacity: 0.45; }
+.oh-dsh-review-comment-notice {
+  margin: 0;
+  padding: 0 var(--oh-dsh-space-2) var(--oh-dsh-space-2);
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-xs);
 }
 
 .oh-dsh-workspace-facts { display: grid; gap: 1px; }
@@ -197,7 +398,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-new-branch {
   display: flex;
   gap: var(--oh-dsh-space-1-5);
-  padding: var(--oh-dsh-space-0) var(--oh-dsh-space-1-5) var(--oh-dsh-space-1) var(--oh-dsh-space-1-5);
+  padding: 3px 6px 5px 6px;
 }
 
 .oh-dsh-new-branch input,
@@ -250,7 +451,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-commit-box {
   display: grid;
   gap: var(--oh-dsh-space-1-5);
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1-5) var(--oh-dsh-space-2) var(--oh-dsh-space-1-5);
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1-5) var(--oh-dsh-space-2) 6px;
 }
 
 .oh-dsh-commit-box textarea {
@@ -271,7 +472,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   align-items: center;
   gap: var(--oh-dsh-space-1) var(--oh-dsh-space-3);
   min-height: 62px;
-  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-4) var(--oh-dsh-space-2) var(--oh-dsh-space-1-5) !important;
+  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-4) var(--oh-dsh-space-2) 6px !important;
 }
 
 .oh-dsh-workspace-directory > span { font-size: var(--oh-dsh-font-lg); }
@@ -283,22 +484,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.oh-dsh-workspace-directory button {
-  display: grid;
-  place-items: center;
-  width: var(--oh-dsh-control-md);
-  height: var(--oh-dsh-control-md);
-  padding: 0;
-  border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  cursor: pointer;
-}
-.oh-dsh-workspace-directory button:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
+.oh-dsh-workspace-directory button { position: absolute; right: 5px; }
 
 .oh-dsh-processes h3 {
   margin: 8px 6px 10px;

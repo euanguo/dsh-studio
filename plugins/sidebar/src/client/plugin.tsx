@@ -32,7 +32,6 @@ import centerSurfaceCss from './surfaces/center-surface.css'
 import diffViewerCss from './diff/diff-viewer.css'
 import listRowCss from '../../../shared/list-row.css'
 import filenameLabelCss from '../../../shared/filename-label.css'
-import surfaceTabCss from '../../../shared/surface-tab.css'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { useTranslate } from '../../../shared/use-i18n.ts'
 import themeCss from '../../../shared/theme.css'
@@ -44,7 +43,6 @@ import {
 } from './surfaces/center-surface-host.tsx'
 import {
   BrowserSurfaceView,
-  CommitDiffSurfaceView,
   DiffSurfaceView,
   FileSurfaceView,
 } from './surfaces/renderers.tsx'
@@ -229,7 +227,7 @@ class WorkspaceToolsService implements WorkspaceTools {
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
     this.style = document.createElement('style')
     this.style.dataset.ohDshDesktopSidebarStyles = 'true'
-    this.style.textContent = `${themeCss}\n${listRowCss}\n${filenameLabelCss}\n${surfaceTabCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
+    this.style.textContent = `${themeCss}\n${listRowCss}\n${filenameLabelCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
 ${centerSurfaceCss}
 ${diffViewerCss}`
     document.head.append(this.style)
@@ -317,13 +315,13 @@ ${diffViewerCss}`
       html.dataset.ohDshDesktopSidebarOpen = 'true'
       // The #root squeeze is owned by the desktopPanels right-panel
       // coordinator — claim the footprint instead of writing global state.
-      // The overlay container is flush with the window's right edge (no
-      // right inset anymore), so the squeeze equals the panel width: the
-      // app's center column ends exactly at the panel's left edge.
+      // The +12px accounts for the overlay container's right inset, so the
+      // app's center column (and the terminal dock attached to it) ends
+      // exactly at the panel's left edge instead of sliding underneath it.
       this.panels.claimRightPanel('desktop-sidebar', {
         paddingRight: fullWidth
           ? '100vw'
-          : `${String(this.state.width)}px`,
+          : `calc(${String(this.state.width)}px + 12px)`,
       })
     } else {
       delete html.dataset.ohDshDesktopSidebarOpen
@@ -567,10 +565,6 @@ function registerCenterSurfaceRenderers(t: Translate<WorkspaceMessage>): void {
     if (surface.kind !== 'diff') return null
     return <DiffSurfaceView surface={surface} t={t} />
   })
-  centerSurfaceRendererRegistry.register('commit', surface => {
-    if (surface.kind !== 'commit') return null
-    return <CommitDiffSurfaceView surface={surface} t={t} />
-  })
   centerSurfaceRendererRegistry.register('browser', surface => {
     if (surface.kind !== 'browser') return null
     return <BrowserSurfaceView surface={surface} t={t} />
@@ -722,7 +716,7 @@ export function apply(ctx: ClientContext): void {
     service.mount()
     // Center surface module: renderer registry + the middle-area tab host.
     registerCenterSurfaceRenderers(t)
-    const centerSurfaceHost = new CenterSurfaceHost({ sessions, t, sidebar: desktopSidebar })
+    const centerSurfaceHost = new CenterSurfaceHost({ sessions, t })
     centerSurfaceHost.mount()
     const removeSidebar = ctx.reflect.provide(
       'desktopSidebar',

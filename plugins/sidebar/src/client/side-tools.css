@@ -12,35 +12,31 @@
   box-shadow: none;
 }
 
-/* Top row of the panel: the shared SurfaceTab chips (pinned 文件 / Git,
-   then extra open tools) plus the flush-right window controls.
-   Height matches the center tab strip (41px) so the two rows and their
-   bottom borders line up on the same line.
-   `no-drag`: DSH reserves a 28px `-webkit-app-region: drag` strip at the
-   very top (body::before) that swallows every real mouse event in its
-   band — the top row lives inside it, so it must opt out to stay
-   clickable (the center strip and left rail still drag the window). */
+/* Top row of the panel: the tab strip (scrollable) plus the flush-right
+   window controls (expand/restore, terminal, side-panel toggle). */
 .oh-dsh-side-top {
-  -webkit-app-region: no-drag;
   display: flex;
   align-items: center;
   flex: none;
-  min-height: 41px;
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-3);
+  min-height: 37px;
+  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-3);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
-.oh-dsh-side-pinned {
+.oh-dsh-side-header > div {
   display: flex;
   align-items: center;
   gap: var(--oh-dsh-space-1);
-  flex: none;
-  padding-right: var(--oh-dsh-space-1);
+  min-width: 0;
 }
 
-/* Extra open tools (beyond the pinned entries), rendered as SurfaceTab
-   chips with the same geometry as the center strip. */
+.oh-dsh-side-header > div strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .oh-dsh-side-tabs {
   display: flex;
   flex: 1;
@@ -51,7 +47,11 @@
 }
 
 .oh-dsh-side-tabs::-webkit-scrollbar { display: none; }
-.oh-dsh-side-tabs .oh-dsh-surface-tab { max-width: 140px; }
+.oh-dsh-side-tabs > div { display: flex; align-items: center; flex: none; border-radius: var(--oh-dsh-radius-sm); color: var(--dsw-alias-label-secondary, #57606a); }
+.oh-dsh-side-tabs > div[data-active='true'] { background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)); color: var(--dsw-alias-label-primary, #1f2328); }
+.oh-dsh-side-tabs button { display: grid; place-items: center; height: var(--oh-dsh-control-md); padding: 0 7px; border: 0; background: transparent; color: inherit; cursor: pointer; font: var(--oh-dsh-font-sm) system-ui; }
+.oh-dsh-side-tabs > div > button:first-child { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oh-dsh-side-tabs > div > button:last-child { width: 23px; padding: 0; opacity: 0.55; }
 
 /* Flush-right window controls in the top row — plain icon buttons, no
    floating styling. */
@@ -209,7 +209,7 @@
 .oh-dsh-side-error { margin: var(--oh-dsh-space-2) var(--oh-dsh-space-3); padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-2); border-radius: var(--oh-dsh-radius-sm); background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 10%, transparent); color: var(--dsw-alias-state-error-primary, #cf222e); font-size: var(--oh-dsh-font-sm); }
 
 .oh-dsh-files-path span { flex: 1; min-width: 0; overflow: hidden; color: var(--dsw-alias-label-secondary, #57606a); font-size: var(--oh-dsh-font-sm); text-overflow: ellipsis; white-space: nowrap; }
-.oh-dsh-file-list { flex: 1; min-height: 0; overflow: auto; padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1) var(--oh-dsh-space-4) var(--oh-dsh-space-3); }
+.oh-dsh-file-list { flex: 1; min-height: 0; overflow: auto; padding: var(--oh-dsh-space-1) var(--oh-dsh-space-3) var(--oh-dsh-space-4) var(--oh-dsh-space-3); }
 .oh-dsh-file-list > button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: var(--oh-dsh-space-1-5); width: 100%; min-height: 32px; padding: 0 7px; border: 0; border-radius: var(--oh-dsh-radius-sm); background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
 .oh-dsh-file-list > button:hover { background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%)); }
 .oh-dsh-file-list > button span:nth-child(2) { overflow: hidden; font-size: var(--oh-dsh-font-md); text-overflow: ellipsis; white-space: nowrap; }
@@ -318,12 +318,36 @@
 .oh-dsh-side-pinned {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--oh-dsh-space-0);
   flex: none;
   padding-right: var(--oh-dsh-space-1);
 }
 
-.oh-dsh-side-pinned .oh-dsh-surface-tab-icon svg {
+.oh-dsh-side-pinned button {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  height: var(--oh-dsh-control-md);
+  padding: 0 var(--oh-dsh-space-2);
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font: var(--oh-dsh-font-sm) system-ui;
+  cursor: pointer;
+}
+
+.oh-dsh-side-pinned button:hover,
+.oh-dsh-side-pinned button[aria-selected='true'] {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.oh-dsh-side-pinned button[aria-selected='true'] {
+  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+}
+
+.oh-dsh-side-pinned svg {
   width: 15px;
   height: 15px;
   fill: none;
