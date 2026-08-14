@@ -1,25 +1,57 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
 import type { Translate } from '../../../shared/i18n.ts'
-import type { WorkspaceFilesResponse, WorkspaceFileKind } from '../protocol.ts'
+import type { DesktopPanels } from '../../../panel-controls/src/client.ts'
+import {
+  IconArrowLeft,
+  IconClose,
+  IconExpand,
+  IconMinus,
+  IconRefresh,
+  IconRestore,
+} from '../../../shared/icons.tsx'
+import {
+  IconChevronDown,
+  IconChevronRight,
+  IconExternalLink,
+  IconLayoutList,
+  IconList,
+  IconListTree,
+  IconPlus,
+  FileGlyph,
+} from '../../../shared/tabler-icons.tsx'
+import type { WorkspaceFilesResponse, WorkspaceFileEntry, WorkspaceFileKind } from '../protocol.ts'
 import {
   betterSidebarApi,
   mapBetterSidebarFile,
-  mapBetterSidebarTree,
   type BetterSidebarScope,
 } from './better-sidebar-api.ts'
+import { FILE_BROWSE_MODES, buildFileRows, type FileBrowseMode } from './file-tree-model.ts'
+import { DetachedPanel } from './detached-panel.tsx'
+import { ContentViewer } from './content-viewer.tsx'
 import type {
   DesktopSidebar,
   DesktopSidebarRenderProps,
   DesktopSidebarTabDescriptor,
 } from './sidebar-service.ts'
 import type { WorkspaceMessage } from './i18n.ts'
+
+/** Persisted display-mode key of the file browser. */
+const FILE_MODE_KEY = 'oh-dsh-desktop.files.mode'
+
+function modeIcon(mode: FileBrowseMode): JSX.Element {
+  if (mode === 'flat') return <IconLayoutList size={14} />
+  if (mode === 'nested') return <IconList size={14} />
+  return <IconListTree size={14} />
+}
 
 interface ElectronWebviewElement extends HTMLElement {
   canGoBack(): boolean
@@ -34,7 +66,10 @@ interface SideToolsPanelProps {
   maximized: boolean
   onClose(): void
   onResize(width: number): void
+  onToggleMaximized(): void
+  onToggleSide(): void
   open: boolean
+  panels: DesktopPanels
   sidebar: DesktopSidebar
   t: Translate<WorkspaceMessage>
   width: number
@@ -135,6 +170,12 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
         />
       ))}
       {error !== '' && <div className="oh-dsh-side-error" role="alert">{error}</div>}
+      <button
+        type="button"
+        className="oh-dsh-side-menu-close"
+        aria-label={props.t('side.close')}
+        onClick={props.onClose}
+      ><IconClose size={16} /></button>
     </div>
   )
 }
@@ -239,12 +280,12 @@ export function BrowserView({
           disabled={!canGoBack}
           aria-label={t('browser.back')}
           onClick={() => { webview.current?.goBack() }}
-        >‹</button>
+        ><IconArrowLeft size={16} /></button>
         <button
           type="button"
           aria-label={t('browser.reload')}
           onClick={() => { webview.current?.reload() }}
-        >↻</button>
+        ><IconRefresh size={16} /></button>
         <input
           value={address}
           placeholder={t('browser.enter-url')}
@@ -266,10 +307,6 @@ function formatSize(size: number | null): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
-function fileGlyph(kind: WorkspaceFileKind): string {
-  return kind === 'directory' ? '▱' : kind === 'symlink' ? '↗' : '▤'
-}
-
 export function FilesView({
   patch,
   scope,
@@ -282,24 +319,82 @@ export function FilesView({
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const cwd = scope?.cwd
+  const [mode, setMode] = useState<FileBrowseMode>(() => {
+    const stored = window.localStorage.getItem(FILE_MODE_KEY)
+    return stored === 'nested' || stored === 'tree' ? stored : 'flat'
+  })
   const [path, setPath] = useState(tab.resource ?? cwd)
-  const [snapshot, setSnapshot] = useState<WorkspaceFilesResponse | null>(null)
+  const [entriesByDir, setEntriesByDir] = useState<ReadonlyMap<string, readonly WorkspaceFileEntry[]>>(new Map())
+  const [expandedDirs, setExpandedDirs] = useState<ReadonlySet<string>>(new Set())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [preview, setPreview] = useState<{
+    title: string
+    content: string | null
+    binary: boolean
+    data?: string
+  } | null>(null)
+  const [previewError, setPreviewError] = useState('')
+  const [previewLoading, setPreviewLoading] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     const next = tab.resource ?? cwd
     setPath(next)
-    setSnapshot(null)
+    setSelectedPath(null)
+    setPreview(null)
   }, [cwd, tab.id, tab.resource])
+
+  // Reset the lazy cache whenever the workspace or the root path changes.
+  useEffect(() => {
+    setEntriesByDir(new Map())
+    setExpandedDirs(new Set())
+  }, [cwd, tab.id])
+
+  const ensureLoaded = useCallback(async (directory: string): Promise<boolean> => {
+    if (scope === undefined || cwd === undefined) return false
+    if (entriesByDir.has(directory)) return true
+    setLoading(true)
+    setError('')
+    try {
+      const listing = await betterSidebarApi.fsTree(scope, directory)
+      const loaded: WorkspaceFileEntry[] = listing.entries.map(entry => ({
+        kind: entry.isDir ? 'directory' : 'file',
+        name: entry.name,
+        path: entry.path,
+        size: null,
+      }))
+      setEntriesByDir(previous => new Map(previous).set(directory, loaded))
+      return true
+    } catch (next) {
+      setError(next instanceof Error ? next.message : String(next))
+      return false
+    } finally {
+      setLoading(false)
+    }
+  }, [cwd, entriesByDir, scope])
+
   useEffect(() => {
     if (cwd === undefined || path === undefined || scope === undefined) return
-    const controller = new AbortController()
+    // Always (re)load the current directory — refreshKey forces a reload.
+    setEntriesByDir(previous => new Map(previous).set(path, []))
     setLoading(true)
+    setError('')
+    const controller = new AbortController()
     void betterSidebarApi.fsTree(scope, path, controller.signal).then(
       listing => {
-        setSnapshot(mapBetterSidebarTree(cwd, listing))
+        const entries: WorkspaceFileEntry[] = listing.entries.map(entry => ({
+          kind: entry.isDir ? 'directory' : 'file',
+          name: entry.name,
+          path: entry.path,
+          size: null,
+        }))
+        setEntriesByDir(previous => {
+          const next = new Map(previous)
+          next.set(path, entries)
+          return next
+        })
         setError('')
       },
     ).catch((next: unknown) => {
@@ -312,62 +407,176 @@ export function FilesView({
     return () => { controller.abort() }
   }, [cwd, path, refreshKey, scope?.sessionId])
 
-  const browse = (next: string): void => {
-    setPath(next)
-    patch({ resource: next })
+  const toggleDirectory = async (directory: string): Promise<void> => {
+    if (mode !== 'tree') {
+      setPath(directory)
+      return
+    }
+    if (!entriesByDir.has(directory)) {
+      await ensureLoaded(directory)
+    }
+    setExpandedDirs(previous => {
+      const next = new Set(previous)
+      if (next.has(directory)) next.delete(directory)
+      else next.add(directory)
+      return next
+    })
   }
+
+  const rows = buildFileRows({
+    mode,
+    currentPath: path ?? cwd ?? '',
+    entriesByDir,
+    expandedDirs,
+    selectedPath,
+  })
+
+  const openPreview = async (filePath: string): Promise<void> => {
+    if (scope === undefined) return
+    setSelectedPath(filePath)
+    setPreviewLoading(true)
+    setPreviewError('')
+    setPreview(null)
+    try {
+      const result = await betterSidebarApi.fsRead(scope, filePath)
+      if (result.kind === 'binary') {
+        setPreview({ title: filePath, content: null, binary: true, ...(result.data === undefined ? {} : { data: result.data }) })
+      } else {
+        setPreview({ title: filePath, content: result.content, binary: false })
+      }
+    } catch (next) {
+      setPreviewError(next instanceof Error ? next.message : String(next))
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
+
+  const switchMode = (next: FileBrowseMode): void => {
+    setMode(next)
+    window.localStorage.setItem(FILE_MODE_KEY, next)
+  }
+
   if (cwd === undefined) {
     return <div className="oh-dsh-side-empty">{t('files.select-workspace')}</div>
   }
+  const current = path ?? cwd
   return (
     <div className="oh-dsh-files-view">
-      <div className="oh-dsh-files-path" title={snapshot?.path ?? cwd}>
+      <div className="oh-dsh-files-path" title={current}>
         <button
           type="button"
-          disabled={snapshot?.parent == null}
+          disabled={current === cwd}
+          aria-label={t('side.back')}
           onClick={() => {
-            if (snapshot?.parent !== undefined && snapshot.parent !== null) {
-              browse(snapshot.parent)
-            }
+            const parent = current.slice(0, current.lastIndexOf('/'))
+            if (parent.length >= cwd.length) setPath(parent)
           }}
-        >‹</button>
-        <span>{(snapshot?.path ?? cwd).slice(cwd.length) || '/'}</span>
+        ><IconArrowLeft size={16} /></button>
+        <span>{current.slice(cwd.length) || '/'}</span>
         <button
           type="button"
+          aria-label={t('files.refresh')}
           onClick={() => { setRefreshKey(value => value + 1) }}
-        >↻</button>
-      </div>
-      {loading && <div className="oh-dsh-side-muted">{t('files.loading')}</div>}
-      {error !== '' && <div className="oh-dsh-side-error" role="alert">{error}</div>}
-      {snapshot?.kind === 'directory' && (
-        <div className="oh-dsh-file-list">
-          {snapshot.entries.map(entry => (
+        ><IconRefresh size={16} /></button>
+        <div className="oh-dsh-files-modes" role="group" aria-label={t('files.modes')}>
+          {FILE_BROWSE_MODES.map(option => (
             <button
-              key={entry.path}
+              key={option}
               type="button"
+              aria-label={t(`files.mode.${option}`)}
+              title={t(`files.mode.${option}`)}
+              aria-pressed={mode === option}
+              onClick={() => { switchMode(option) }}
+            >{modeIcon(option)}</button>
+          ))}
+        </div>
+      </div>
+      {loading && !entriesByDir.has(current) && <div className="oh-dsh-side-muted">{t('files.loading')}</div>}
+      {error !== '' && <div className="oh-dsh-side-error" role="alert">{error}</div>}
+      <div className="oh-dsh-file-list">
+        {rows.map(row => (
+          <div
+            key={row.key}
+            className="oh-dsh-files-row"
+            data-selected={row.selected || undefined}
+            title={row.path}
+          >
+            <button
+              type="button"
+              className="oh-dsh-files-row-main"
+              style={{ '--tree-depth': row.depth } as CSSProperties}
+              aria-expanded={row.kind === 'directory' ? row.expanded : undefined}
               onClick={() => {
-                if (entry.kind === 'directory') browse(entry.path)
-                else {
+                if (row.kind === 'directory') void toggleDirectory(row.path)
+                else void openPreview(row.path)
+              }}
+              onDoubleClick={() => {
+                if (row.kind !== 'directory') {
                   sidebar.openTab({
-                    resource: entry.path,
-                    title: entry.name,
+                    resource: row.path,
+                    title: row.name,
                     type: 'file',
                   })
                 }
               }}
             >
-              <span>{fileGlyph(entry.kind)}</span>
-              <span title={entry.name}>{entry.name}</span>
-              <small>{formatSize(entry.size)}</small>
+              {row.kind === 'directory' && (
+                <span className="oh-dsh-files-chevron">
+                  {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                </span>
+              )}
+              <FileGlyph path={row.path} kind={row.kind} expanded={row.expanded} />
+              <span className="oh-dsh-files-name" title={row.name}>{row.name}</span>
             </button>
-          ))}
-          {snapshot.entries.length === 0 && (
-            <div className="oh-dsh-side-muted">{t('files.empty-directory')}</div>
+            {row.kind !== 'directory' && (
+              <span className="oh-dsh-files-size">{formatSize(row.size)}</span>
+            )}
+          </div>
+        ))}
+        {!loading && !error && rows.length === 0 && (
+          <div className="oh-dsh-side-muted">{t('files.empty-directory')}</div>
+        )}
+      </div>
+
+      {selectedPath !== null && (
+        <DetachedPanel
+          title={preview?.title ?? selectedPath}
+          closeLabel={t('overlay.close')}
+          onClose={() => {
+            setSelectedPath(null)
+            setPreview(null)
+            setPreviewError('')
+          }}
+          actions={
+            <button
+              type="button"
+              aria-label={t('overlay.open-in-editor')}
+              title={t('overlay.open-in-editor')}
+              onClick={() => {
+                const name = selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath
+                sidebar.openTab({ resource: selectedPath, title: name, type: 'file' })
+              }}
+            ><IconExternalLink size={14} /></button>
+          }
+        >
+          {previewLoading && <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>}
+          {!previewLoading && previewError !== '' && (
+            <div className="oh-dsh-side-error" role="alert">{previewError}</div>
           )}
-          {snapshot.truncated && (
-            <div className="oh-dsh-side-muted">{t('files.showing-first')}</div>
+          {!previewLoading && preview !== null && (
+            <ContentViewer
+              path={selectedPath}
+              content={preview.binary ? null : preview.content}
+              binary={preview.binary}
+              {...(preview.data === undefined ? {} : { data: preview.data })}
+              t={t}
+              onOpenExternal={() => {
+                const name = selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath
+                sidebar.openTab({ resource: selectedPath, title: name, type: 'file' })
+              }}
+            />
           )}
-        </div>
+        </DetachedPanel>
       )}
     </div>
   )
@@ -452,6 +661,96 @@ function OrphanedTab({ title, t }: {
   )
 }
 
+/* Pinned panel entries — 文件 (files) and Git (review) stay one click away,
+   everything else is added through the [+] menu. */
+function PinnedTabs({ sidebar, t }: {
+  sidebar: DesktopSidebar
+  t: Translate<WorkspaceMessage>
+}): JSX.Element {
+  const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
+  const activeType = snapshot.tabs.find(tab => tab.id === snapshot.activeId)?.type ?? null
+  const openType = (type: string): void => {
+    const existing = snapshot.tabs.find(tab => tab.type === type)
+    if (existing !== undefined) {
+      sidebar.activateTab(existing.id)
+      return
+    }
+    sidebar.openTab({ type })
+  }
+  return (
+    <div className="oh-dsh-side-pinned" role="tablist">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeType === 'files'}
+        onClick={() => { openType('files') }}
+      ><ToolIcon kind="files" />{t('files')}</button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeType === 'review'}
+        onClick={() => { openType('review') }}
+      ><ToolIcon kind="review" />{t('side.git')}</button>
+    </div>
+  )
+}
+
+/* [+] menu: every enabled tool that is not open yet, as a small popover. */
+function AddToolsMenu({ sidebar, t }: {
+  sidebar: DesktopSidebar
+  t: Translate<WorkspaceMessage>
+}): JSX.Element {
+  const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
+  const [open, setOpen] = useState(false)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  useEffect(() => {
+    if (!open) return
+    const close = (event: MouseEvent): void => {
+      if (menuRef.current?.contains(event.target as Node)) return
+      setOpen(false)
+    }
+    window.addEventListener('mousedown', close, true)
+    return () => { window.removeEventListener('mousedown', close, true) }
+  }, [open])
+  const descriptors = sidebar.getTabs().filter(descriptor =>
+    descriptor.hidden !== true
+    && sidebar.isTabEnabled(descriptor.id)
+    && !snapshot.tabs.some(tab => tab.type === descriptor.id)
+  )
+  return (
+    <div className="oh-dsh-add-tools" ref={menuRef}>
+      <button
+        type="button"
+        aria-label={t('side.add-tool')}
+        aria-expanded={open}
+        title={t('side.add-tool')}
+        onClick={() => { setOpen(value => !value) }}
+      ><IconPlus size={14} /></button>
+      {open && (
+        <div className="oh-dsh-add-tools-menu" role="menu">
+          {descriptors.map(descriptor => (
+            <button
+              type="button"
+              role="menuitem"
+              key={descriptor.id}
+              onClick={() => {
+                sidebar.openTab({ type: descriptor.id })
+                setOpen(false)
+              }}
+            >
+              <DescriptorIcon descriptor={descriptor} />
+              <span>{descriptorTitle(descriptor)}</span>
+            </button>
+          ))}
+          {descriptors.length === 0 && (
+            <div className="oh-dsh-side-muted">{t('side.no-more-tools')}</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TabStrip({ sidebar, t }: {
   sidebar: DesktopSidebar
   t: Translate<WorkspaceMessage>
@@ -473,9 +772,58 @@ function TabStrip({ sidebar, t }: {
             type="button"
             aria-label={t('side.close-named-tab', { title: tab.title })}
             onClick={() => { sidebar.closeTab(tab.id) }}
-          >×</button>
+          ><IconClose size={12} /></button>
         </div>
       ))}
+    </div>
+  )
+}
+
+/* The window-level panel controls (expand/restore, terminal, side-panel
+   toggle) live in the panel's top row, flush right — no floating toolbar. */
+function PanelActions({
+  maximized,
+  onToggleMaximized,
+  onToggleSide,
+  open,
+  panels,
+  t,
+}: {
+  maximized: boolean
+  onToggleMaximized(): void
+  onToggleSide(): void
+  open: boolean
+  panels: DesktopPanels
+  t: Translate<WorkspaceMessage>
+}): JSX.Element {
+  const terminalOpen = useSyncExternalStore(panels.subscribe, () => panels.isBottomPanelOpen())
+  return (
+    <div className="oh-dsh-side-tabs-actions" role="presentation">
+      <button
+        type="button"
+        aria-label={t('side.expand')}
+        aria-pressed={maximized}
+        title={maximized ? t('side.restore') : t('side.expand')}
+        onClick={onToggleMaximized}
+      >{maximized ? <IconRestore size={16} /> : <IconExpand size={16} />}</button>
+      <button
+        type="button"
+        aria-label={t('terminal.toggle')}
+        aria-pressed={terminalOpen}
+        title={`${t('terminal.title')} (⌘J)`}
+        onClick={() => { panels.toggleBottomPanel() }}
+      >
+        <svg viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2.5" /><path d="M3.5 13.5h13" /></svg>
+      </button>
+      <button
+        type="button"
+        aria-label={t('side.toggle')}
+        aria-pressed={open}
+        title={`${t('side.title')} (⌥⌘B)`}
+        onClick={onToggleSide}
+      >
+        <svg viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2.5" /><path d="M12.5 3.5v13" /></svg>
+      </button>
     </div>
   )
 }
@@ -535,7 +883,19 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
           aria-hidden="true"
         />
       )}
-      <TabStrip sidebar={props.sidebar} t={props.t} />
+      <div className="oh-dsh-side-top">
+        <PinnedTabs sidebar={props.sidebar} t={props.t} />
+        <TabStrip sidebar={props.sidebar} t={props.t} />
+        <AddToolsMenu sidebar={props.sidebar} t={props.t} />
+        <PanelActions
+          maximized={props.maximized}
+          onToggleMaximized={props.onToggleMaximized}
+          onToggleSide={props.onToggleSide}
+          open={props.open}
+          panels={props.panels}
+          t={props.t}
+        />
+      </div>
       {activeTab !== undefined && descriptor?.chrome !== 'custom' && (
         <header className="oh-dsh-workspace-header oh-dsh-side-header">
           <div>
@@ -543,7 +903,7 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
               type="button"
               aria-label={props.t('side.back')}
               onClick={() => { props.sidebar.activateTab(null) }}
-            >‹</button>
+            ><IconArrowLeft size={16} /></button>
             <strong>{title}</strong>
           </div>
           <div>
@@ -551,12 +911,19 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
               type="button"
               aria-label={props.t('side.close-tab')}
               onClick={() => { props.sidebar.closeTab(activeTab.id) }}
-            >−</button>
+            ><IconMinus size={16} /></button>
+            <button
+              type="button"
+              aria-label={props.maximized ? props.t('side.restore') : props.t('side.expand')}
+              title={props.maximized ? props.t('side.restore') : props.t('side.expand')}
+              aria-pressed={props.maximized}
+              onClick={props.onToggleMaximized}
+            >{props.maximized ? <IconRestore size={16} /> : <IconExpand size={16} />}</button>
             <button
               type="button"
               aria-label={props.t('side.close')}
               onClick={props.onClose}
-            >×</button>
+            ><IconClose size={16} /></button>
           </div>
         </header>
       )}

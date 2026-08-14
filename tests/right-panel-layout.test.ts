@@ -6,54 +6,64 @@ import { test } from 'node:test'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-test('embedded tools keep the application root inside the window row', () => {
+test('desktop sidebar is a fixed overlay that never restructures #root', () => {
   const css = readFileSync(
-    join(root, 'plugins/sidebar/src/client/sidebar.css'),
+    join(root, 'plugins/desktop-sidebar/src/client/desktop-sidebar.css'),
+    'utf8',
+  )
+  const workspace = readFileSync(
+    join(root, 'plugins/desktop-sidebar/src/client/plugin.tsx'),
     'utf8',
   )
 
-  assert.match(
-    css,
-    /#oh-dsh-embedded-layout\s*\{[^}]*grid-template-rows: minmax\(0, 1fr\);/s,
+  // No grid wrapper: the sidebar overlays the app, #root stays in place.
+  assert.doesNotMatch(css, /#oh-dsh-embedded-layout/)
+  assert.match(css, /#oh-dsh-desktop-sidebar-root\s*\{[^}]*position: fixed;[^}]*pointer-events: none;/s)
+  assert.doesNotMatch(workspace, /appRoot\.before\(layout\)/)
+  assert.match(workspace, /document\.body\.append\(this\.element\)/)
+
+  // The squeeze is claimed through the desktopPanels coordinator.
+  assert.match(workspace, /this\.panels\.claimRightPanel\('desktop-sidebar'/)
+  assert.match(workspace, /this\.panels\.releaseRightPanel\('desktop-sidebar'/)
+  assert.doesNotMatch(workspace, /ohDshRightPanelOwner = /)
+})
+
+test('right panel footprint is coordinated by the desktopPanels service', () => {
+  const panels = readFileSync(
+    join(root, 'plugins/panel-controls/src/terminal/plugin.tsx'),
+    'utf8',
   )
-  assert.match(
-    css,
-    /#oh-dsh-embedded-layout > #root\s*\{[^}]*min-height: 0;[^}]*overflow: hidden;/s,
-  )
+  const summary = readFileSync(join(root, 'plugins/pinned-summary/src/client.ts'), 'utf8')
+
+  assert.match(panels, /claimRightPanel\(ownerId: string, claim: RightPanelClaim\)/)
+  assert.match(panels, /releaseRightPanel\(ownerId: string\)/)
+  assert.match(panels, /html\.dataset\.ohDshRightPanelOwner = ownerId/)
+  assert.match(panels, /appRoot\?\.style\.setProperty\('padding-right', claim\.paddingRight\)/)
+  // Plugins must not write the owner flag or #root padding themselves.
+  assert.doesNotMatch(summary, /ohDshRightPanelOwner = /)
+  assert.doesNotMatch(summary, /getElementById\('root'\)\?\.style\.removeProperty\('padding-right'\)/)
 })
 
 test('review, pinned summary, and embedded side tools keep distinct layouts', () => {
   const summary = readFileSync(join(root, 'plugins/pinned-summary/src/client.ts'), 'utf8')
-  const workspace = readFileSync(join(root, 'plugins/sidebar/src/client/plugin.tsx'), 'utf8')
-  const workspaceCss = readFileSync(join(root, 'plugins/sidebar/src/client/sidebar.css'), 'utf8')
-  const sideTools = readFileSync(join(root, 'plugins/sidebar/src/client/SideToolsPanel.tsx'), 'utf8')
-  const sideToolsCss = readFileSync(join(root, 'plugins/sidebar/src/client/side-tools.css'), 'utf8')
+  const workspace = readFileSync(join(root, 'plugins/desktop-sidebar/src/client/plugin.tsx'), 'utf8')
+  const workspacePanel = readFileSync(join(root, 'plugins/desktop-sidebar/src/client/workspace-panel.tsx'), 'utf8')
+  const workspaceCss = readFileSync(join(root, 'plugins/desktop-sidebar/src/client/desktop-sidebar.css'), 'utf8')
+  const sideTools = readFileSync(join(root, 'plugins/desktop-sidebar/src/client/SideToolsPanel.tsx'), 'utf8')
+  const sideToolsCss = readFileSync(join(root, 'plugins/desktop-sidebar/src/client/side-tools.css'), 'utf8')
 
   assert.match(workspace, /if \(open\) this\.pinnedSummary\.setOpen\(false\)/)
   assert.match(workspace, /if \(this\.state\.open\) this\.pinnedSummary\.setOpen\(false\)/)
-  assert.match(workspace, /ohDshRightPanelOwner = 'sidebar'/)
-  assert.doesNotMatch(summary, /ohDshRightPanelOwner = 'pinned-summary'/)
-  assert.doesNotMatch(summary, /#root\s*\{[^}]*padding-right:/s)
-  assert.match(summary, /height: auto;/)
-  assert.match(summary, /max-height: min\(/)
-  assert.match(summary, /transform: translateY\(-8px\) scale\(0\.98\);/)
-  assert.match(
-    summary,
-    /\[data-oh-dsh-summary-body\]\s*\{[^}]*flex: 0 1 auto;[^}]*min-height: 0;[^}]*overflow: auto;/s,
-  )
-  assert.match(
-    summary,
-    /document\.addEventListener\('pointerdown', this\.#handleDocumentPointerDown\)/,
-  )
-  assert.match(workspace, /data-oh-dsh-summary-toggle=""/)
-  assert.match(summary, /closest\('\[data-oh-dsh-summary-toggle\]'\)/)
-  assert.doesNotMatch(summary, /closest\('\.oh-dsh-panel-toolbar'\)/)
-  assert.match(summary, /event\.key === 'Escape'/)
+  assert.match(summary, /this\.#panels\.claimRightPanel\('pinned-summary'/)
+  assert.match(summary, /calc\(var\(--oh-dsh-pinned-summary-width\) \+ 24px\)/)
+  assert.match(summary, /height: calc\(\(100vh - var\(--oh-dsh-titlebar-height, 40px\) - 24px\) \/ 2\);/)
+  assert.doesNotMatch(summary, /height: min\(360px/)
   assert.doesNotMatch(workspace, /aria-label="Toggle review panel"/)
-  assert.match(workspace, /className="oh-dsh-review-view"/)
-  assert.doesNotMatch(workspace, /oh-dsh-review-panel/)
-  assert.doesNotMatch(workspace, /const embeddedWidth/)
-  assert.match(workspace, /const track = this\.state\.open && !this\.narrowViewport\.matches \? this\.state\.width : 0/)
+  assert.match(workspacePanel, /className="oh-dsh-review-view"/)
+  assert.doesNotMatch(workspacePanel, /oh-dsh-review-panel/)
+  assert.doesNotMatch(workspacePanel, /const embeddedWidth/)
+  assert.match(workspace, /const fullWidth = this\.state\.maximized \|\| this\.narrowViewport\.matches/)
+  assert.match(workspace, /this\.element\.style\.width = this\.state\.open/)
   assert.match(workspaceCss, /\.oh-dsh-review-view\s*\{[^}]*display: flex;[^}]*flex: 1;[^}]*flex-direction: column;/s)
   assert.match(sideTools, /props\.sidebar\.getTabs\(\)/)
   assert.match(sideTools, /props\.sidebar\.getTab\(activeTab\.type\)/)
@@ -64,11 +74,17 @@ test('review, pinned summary, and embedded side tools keep distinct layouts', ()
   assert.match(workspace, /sidebar\.registerViewer\(\{[\s\S]*id: 'binary'/)
   assert.match(workspace, /desktopSidebar\.setSession\(sessions\.list\.getSnapshot\(\)\.current \?\? null\)/)
   assert.match(sideToolsCss, /\.oh-dsh-side-panel\s*\{[^}]*width: 100% !important;[^}]*border-radius: 0;[^}]*box-shadow: none;/s)
-  assert.match(workspace, /const sideOpen = workspaceState\.open/)
-  assert.match(workspace, /\{sideOpen\s*\?\s*\(/)
-  assert.doesNotMatch(workspace, /\{workspaceState\.open\s*\?\s*\(/)
-  assert.match(workspace, /service\.setOpen\(false\); pinnedSummary\.toggle\(\)/)
-  assert.match(workspace, /kind === 'summary'[\s\S]{0,200}M9 5h7M4 10h12/)
+  // The window controls live in the panel's top row, flush right — no
+  // floating toolbar, no summary button riding the window edge.
+  assert.doesNotMatch(workspace, /DesktopPanelToolbar/)
+  assert.doesNotMatch(workspace, /kind === 'summary'/)
+  assert.match(sideTools, /function PanelActions/)
+  assert.match(sideTools, /className="oh-dsh-side-tabs-actions"/)
+  assert.match(sideTools, /aria-pressed=\{open\}/)
+  assert.match(sideTools, /onToggleSide=\{props\.onToggleSide\}/)
+  assert.match(sideToolsCss, /\.oh-dsh-side-tabs-actions\s*\{[^}]*margin-left: auto;/s)
+  assert.doesNotMatch(sideToolsCss, /\.oh-dsh-side-tabs-actions\s*\{[^}]*position: fixed;/s)
+  assert.doesNotMatch(sideToolsCss, /\.oh-dsh-side-tabs-actions\s*\{[^}]*box-shadow:/s)
   assert.match(workspaceCss, /\.oh-dsh-workspace-panel\[data-open='true'\]/)
   assert.match(summary, /\[data-oh-dsh-pinned-summary\]\[data-open='true'\]/)
 })

@@ -1,7 +1,9 @@
-/** Floating pinned summary derived from the active DSH session. */
+/** Layout-reserving pinned summary derived from the active DSH session. */
 
 import type { LocaleService, Translate } from '../../shared/i18n.ts'
 import { localeTag } from '../../shared/i18n.ts'
+import themeCss from '../../shared/theme.css'
+import type { DesktopPanels } from '../../panel-controls/src/client.ts'
 import {
   PINNED_SUMMARY_MESSAGES,
   type PinnedSummaryMessage,
@@ -53,41 +55,32 @@ export interface PinnedSummary {
   toggle(): void
 }
 
-export const inject = ['locale', 'sessions']
+export const inject = ['desktopPanels', 'locale', 'sessions']
 
 const OPEN_KEY = 'oh-dsh-desktop.pinned-summary.open'
 
 const SUMMARY_CSS = `
 html {
-  --oh-dsh-pinned-summary-width: 304px;
+  --oh-dsh-pinned-summary-width: 288px;
 }
 
 [data-oh-dsh-pinned-summary] {
   position: fixed;
   z-index: 9000;
-  display: flex;
-  flex-direction: column;
-  top: calc(var(--oh-dsh-titlebar-height, 40px) + 8px);
-  right: 14px;
-  width: min(var(--oh-dsh-pinned-summary-width), calc(100vw - 28px));
-  height: auto;
-  max-height: min(
-    420px,
-    calc(100vh - var(--oh-dsh-titlebar-height, 40px) - 20px)
-  );
+  top: calc(var(--oh-dsh-titlebar-height, 40px) + 12px);
+  right: 12px;
+  height: calc((100vh - var(--oh-dsh-titlebar-height, 40px) - 24px) / 2);
+  width: var(--oh-dsh-pinned-summary-width);
   box-sizing: border-box;
   overflow: hidden;
   border: 1px solid var(--dsw-alias-border-l1);
-  border-radius: 16px;
+  border-radius: 22px;
   background: var(--dsw-alias-bg-base);
   color: var(--dsw-alias-label-primary);
-  box-shadow:
-    0 18px 48px rgb(0 0 0 / 14%),
-    0 2px 10px rgb(0 0 0 / 6%);
+  box-shadow: 0 14px 42px rgb(0 0 0 / 9%);
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-8px) scale(0.98);
-  transform-origin: top right;
+  transform: translateX(calc(100% + 24px));
   visibility: hidden;
   transition:
     opacity 140ms var(--ds-ease-in-out, ease),
@@ -99,16 +92,15 @@ html {
 [data-oh-dsh-pinned-summary][data-open='true'] {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0) scale(1);
+  transform: translateX(0);
   visibility: visible;
   transition-delay: 0s;
 }
 
 [data-oh-dsh-summary-header] {
   display: flex;
-  flex: 0 0 44px;
   align-items: center;
-  height: 44px;
+  height: 48px;
   padding: 0 10px 0 15px;
   border-bottom: 1px solid var(--dsw-alias-border-l2);
   box-sizing: border-box;
@@ -136,9 +128,8 @@ html {
 }
 
 [data-oh-dsh-summary-body] {
-  flex: 0 1 auto;
-  min-height: 0;
-  padding: 12px 15px 14px;
+  height: calc(100% - 48px);
+  padding: 14px 15px 16px;
   box-sizing: border-box;
   overflow: auto;
 }
@@ -178,10 +169,7 @@ html {
 }
 
 @media (max-width: 900px) {
-  [data-oh-dsh-pinned-summary] {
-    right: 8px;
-    width: min(var(--oh-dsh-pinned-summary-width), calc(100vw - 16px));
-  }
+  [data-oh-dsh-pinned-summary] { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -243,6 +231,7 @@ class PinnedSummaryService implements PinnedSummary {
   readonly #sessions: SessionsService
   readonly #locale: LocaleService
   readonly #t: Translate<PinnedSummaryMessage>
+  readonly #panels: DesktopPanels
   readonly #listeners = new Set<() => void>()
   #open = readOpen()
   #panel: HTMLElement | undefined
@@ -257,42 +246,34 @@ class PinnedSummaryService implements PinnedSummary {
   #unsubscribeList: (() => void) | undefined
   #unsubscribeSession: (() => void) | undefined
   #unsubscribeLocale: (() => void) | undefined
-  readonly #handleDocumentPointerDown = (event: PointerEvent): void => {
-    if (!this.#open || this.#panel === undefined) return
-    const target = event.target
-    if (!(target instanceof Node) || this.#panel.contains(target)) return
-    if (target instanceof Element
-      && target.closest('[data-oh-dsh-summary-toggle]') !== null) return
-    this.setOpen(false)
-  }
-  readonly #handleDocumentKeyDown = (event: KeyboardEvent): void => {
-    if (event.key === 'Escape' && this.#open) this.setOpen(false)
-  }
+  readonly #narrowViewport = window.matchMedia('(max-width: 900px)')
+  readonly #handleViewportChange = (): void => { this.applyState() }
 
   constructor(
     sessions: SessionsService,
     locale: LocaleService,
     t: Translate<PinnedSummaryMessage>,
+    panels: DesktopPanels,
   ) {
     this.#sessions = sessions
     this.#locale = locale
     this.#t = t
+    this.#panels = panels
   }
 
   mount(): void {
     this.#style = document.createElement('style')
     this.#style.dataset.ohDshPinnedSummaryStyles = 'true'
-    this.#style.textContent = SUMMARY_CSS
+    this.#style.textContent = `${themeCss}\n${SUMMARY_CSS}`
     document.head.append(this.#style)
 
     const panel = document.createElement('aside')
     panel.dataset.ohDshPinnedSummary = 'true'
-    panel.setAttribute('role', 'dialog')
     panel.setAttribute('aria-label', this.#t('summary.label'))
     panel.innerHTML = `
       <header data-oh-dsh-summary-header>
         <span></span>
-        <button data-oh-dsh-summary-close type="button">×</button>
+        <button data-oh-dsh-summary-close type="button"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
       </header>
       <div data-oh-dsh-summary-body>
         <h2 data-oh-dsh-summary-title></h2>
@@ -310,8 +291,7 @@ class PinnedSummaryService implements PinnedSummary {
     this.#source = required(panel, '[data-oh-dsh-summary-source]')
     this.#text = required(panel, '[data-oh-dsh-summary-text]')
     this.#close.addEventListener('click', () => { this.setOpen(false) })
-    document.addEventListener('pointerdown', this.#handleDocumentPointerDown)
-    document.addEventListener('keydown', this.#handleDocumentKeyDown)
+    this.#narrowViewport.addEventListener('change', this.#handleViewportChange)
     this.#unsubscribeList = this.#sessions.list.subscribe(() => { this.bindAndRender() })
     this.#unsubscribeLocale = this.#locale.subscribe(() => {
       this.renderChrome()
@@ -326,11 +306,11 @@ class PinnedSummaryService implements PinnedSummary {
     this.#unsubscribeList?.()
     this.#unsubscribeSession?.()
     this.#unsubscribeLocale?.()
-    document.removeEventListener('pointerdown', this.#handleDocumentPointerDown)
-    document.removeEventListener('keydown', this.#handleDocumentKeyDown)
+    this.#narrowViewport.removeEventListener('change', this.#handleViewportChange)
     this.#panel?.remove()
     this.#style?.remove()
     delete document.documentElement.dataset.ohDshSummaryPinned
+    this.#panels.releaseRightPanel('pinned-summary')
   }
 
   isOpen(): boolean {
@@ -362,8 +342,16 @@ class PinnedSummaryService implements PinnedSummary {
     }
     if (this.#open) {
       html.dataset.ohDshSummaryPinned = 'true'
+      // The #root squeeze is owned by the desktopPanels right-panel
+      // coordinator — claim the footprint instead of writing global state.
+      this.#panels.claimRightPanel('pinned-summary', {
+        paddingRight: this.#narrowViewport.matches
+          ? '0px'
+          : 'calc(var(--oh-dsh-pinned-summary-width) + 24px)',
+      })
     } else {
       delete html.dataset.ohDshSummaryPinned
+      this.#panels.releaseRightPanel('pinned-summary')
     }
   }
 
@@ -430,7 +418,7 @@ class PinnedSummaryService implements PinnedSummary {
   }
 }
 
-/** Provide the pinned-summary service and its floating DOM surface. */
+/** Provide the pinned-summary service and its layout-reserving DOM surface. */
 export function apply(ctx: ClientContext): void {
   const locale = ctx.get('locale') as LocaleService
   const t: Translate<PinnedSummaryMessage> = locale.bind('oh-dsh.pinned-summary')
@@ -442,6 +430,7 @@ export function apply(ctx: ClientContext): void {
     ctx.get('sessions') as SessionsService,
     locale,
     t,
+    ctx.get('desktopPanels') as DesktopPanels,
   )
   ctx.effect(() => {
     service.mount()

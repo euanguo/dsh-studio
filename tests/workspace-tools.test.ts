@@ -48,9 +48,9 @@ test('Better Sidebar status maps into the Oh-DSH workspace model', () => {
     { path: 'renamed.ts', xy: 'R ' },
     { path: 'loose.txt', xy: '??' },
   ]), [
-    { path: 'loose.txt', oldPath: null, status: 'untracked', staged: false },
-    { path: 'renamed.ts', oldPath: null, status: 'renamed', staged: true },
-    { path: 'staged.ts', oldPath: null, status: 'modified', staged: true },
+    { path: 'loose.txt', oldPath: null, status: 'untracked', staged: false, additions: 0, deletions: 0 },
+    { path: 'renamed.ts', oldPath: null, status: 'renamed', staged: true, additions: 0, deletions: 0 },
+    { path: 'staged.ts', oldPath: null, status: 'modified', staged: true, additions: 0, deletions: 0 },
   ])
 })
 

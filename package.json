@@ -51,6 +51,7 @@
     "build:dsh": "node scripts/build-dsh.mjs",
     "stage:dsh": "node scripts/stage-dsh.mjs",
     "check:plugins": "node scripts/smoke-runtime.mjs",
+    "check:sidebar-source": "node scripts/check-sidebar-source.mjs",
     "smoke:runtime": "node scripts/smoke-runtime.mjs",
     "smoke:app": "node scripts/smoke-runtime.mjs \"release/mac-arm64/Oh-DSH Desktop.app/Contents/Resources\"",
     "smoke:app:linux": "node scripts/smoke-runtime.mjs \"release/linux-unpacked/resources\"",
@@ -61,6 +62,7 @@
     "web": "pnpm run build && pnpm run stage:dsh && node dist/web.js",
     "tui": "pnpm run build && pnpm run stage:dsh && node dist/ohdsh.js tui",
     "start": "pnpm run build && pnpm run stage:dsh && electron .",
+    "dev": "node scripts/dev.mjs",
     "check:screenshot": "electron scripts/check-screenshot-corners.cjs assets/oh-dsh-desktop-ui.png",
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
@@ -74,11 +76,8 @@
     "dist:web": "pnpm run build && pnpm run build:dsh && pnpm run stage:dsh && node scripts/build-web.mjs",
     "dist:web:quick": "pnpm run build && pnpm run stage:dsh && node scripts/build-web.mjs",
     "dist:tui": "pnpm run build && pnpm run build:dsh && pnpm run stage:dsh && node scripts/build-tui.mjs",
-    "dist:tui:quick": "pnpm run build && pnpm run stage:dsh && node scripts/build-tui.mjs"
-  },
-  "dependencies": {
-    "electron-updater": "6.8.9",
-    "semver": "7.7.4"
+    "dist:tui:quick": "pnpm run build && pnpm run stage:dsh && node scripts/build-tui.mjs",
+    "check:skins": "node scripts/verify-skin-tokens.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

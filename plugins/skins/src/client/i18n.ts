@@ -6,6 +6,8 @@ export type DesktopSkinsMessage =
   | 'skins.name.jade-circuit'
   | 'skins.name.porcelain'
   | 'skins.name.ember-dusk'
+  | 'skins.name.synara-night'
+  | 'skins.name.synara-day'
   | 'skins.mode.system'
   | 'skins.mode.light'
   | 'skins.mode.dark'
@@ -20,6 +22,8 @@ export const DESKTOP_SKINS_MESSAGES: Record<'en' | 'zh', Record<DesktopSkinsMess
     'skins.name.jade-circuit': 'Jade Circuit',
     'skins.name.porcelain': 'Porcelain',
     'skins.name.ember-dusk': 'Ember Dusk',
+    'skins.name.synara-night': 'Synara Night',
+    'skins.name.synara-day': 'Synara Day',
     'skins.mode.system': 'Follow appearance',
     'skins.mode.light': 'Light',
     'skins.mode.dark': 'Dark',
@@ -33,6 +37,8 @@ export const DESKTOP_SKINS_MESSAGES: Record<'en' | 'zh', Record<DesktopSkinsMess
     'skins.name.jade-circuit': '翡翠回路',
     'skins.name.porcelain': '青白瓷',
     'skins.name.ember-dusk': '余烬暮色',
+    'skins.name.synara-night': 'Synara 夜色',
+    'skins.name.synara-day': 'Synara 晨曦',
     'skins.mode.system': '跟随外观设置',
     'skins.mode.light': '浅色',
     'skins.mode.dark': '深色',

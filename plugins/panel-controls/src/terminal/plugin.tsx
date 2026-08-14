@@ -2,6 +2,7 @@ import { Fragment } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import xtermCss from '@xterm/xterm/css/xterm.css'
 import terminalCss from './terminal.css'
+import themeCss from '../../../shared/theme.css'
 import { TerminalPanel, openOrToggleTerminal } from './TerminalPanel.tsx'
 import { createMountScheduler, mutationNeedsMount } from './mount-utils.ts'
 import { createDockStore, type DockStore } from './panel-store.ts'
@@ -49,8 +50,24 @@ interface ReactMount {
   root: Root | null
 }
 
+/**
+ * One right-panel owner's footprint claim. Only the most recently claimed
+ * owner applies: the coordinator owns `data-oh-dsh-right-panel-owner` and
+ * the `#root` squeeze, so plugins no longer race over global state.
+ */
+export interface RightPanelClaim {
+  /**
+   * CSS padding-right applied to #root while this claim is active, or null
+   * when the owner only wants the flag (no squeeze). `box-sizing: border-box`
+   * is applied together with a non-null squeeze and removed on release.
+   */
+  paddingRight: string | null
+}
+
 export interface DesktopPanels {
+  claimRightPanel(ownerId: string, claim: RightPanelClaim): void
   isBottomPanelOpen(): boolean
+  releaseRightPanel(ownerId: string): void
   setAutoOpenTerminal(enabled: boolean): void
   subscribe(listener: () => void): () => void
   toggleBottomPanel(): void
@@ -77,6 +94,8 @@ class DesktopPanelService implements DesktopPanels {
   private readonly layout: LayoutService
   private readonly sessions: SessionsService
   private readonly surfaces = new Map<string, SessionSurface>()
+  private readonly rightPanelClaims = new Map<string, RightPanelClaim>()
+  private readonly rightPanelOrder: string[] = []
   private active: SessionSurface | undefined
   private readonly dock: ReactMount = { element: null, root: null }
   private style: HTMLStyleElement | undefined
@@ -99,7 +118,7 @@ class DesktopPanelService implements DesktopPanels {
   mount(): void {
     this.style = document.createElement('style')
     this.style.dataset.ohDshTerminalStyles = 'true'
-    this.style.textContent = `${xtermCss}\n${terminalCss}`
+    this.style.textContent = `${themeCss}\n${xtermCss}\n${terminalCss}`
     document.head.append(this.style)
     this.scheduler = createMountScheduler(() => { this.mountAll() })
     this.syncActiveSession()
@@ -126,6 +145,9 @@ class DesktopPanelService implements DesktopPanels {
     this.style?.remove()
     this.surfaces.clear()
     this.active = undefined
+    this.rightPanelClaims.clear()
+    this.rightPanelOrder.length = 0
+    this.applyRightPanel()
   }
 
   isBottomPanelOpen(): boolean {
@@ -135,6 +157,49 @@ class DesktopPanelService implements DesktopPanels {
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
     return () => { this.listeners.delete(listener) }
+  }
+
+  /**
+   * Claim the right panel footprint for one owner. The most recently claimed
+   * owner wins; earlier claims stay registered so their release can never
+   * clear another owner's squeeze. Opening one panel while another is open is
+   * mutual-excluded by the callers, so a single active owner is the norm.
+   */
+  claimRightPanel(ownerId: string, claim: RightPanelClaim): void {
+    this.rightPanelClaims.set(ownerId, claim)
+    const index = this.rightPanelOrder.indexOf(ownerId)
+    if (index !== -1) this.rightPanelOrder.splice(index, 1)
+    this.rightPanelOrder.push(ownerId)
+    this.applyRightPanel()
+  }
+
+  /** Drop an owner's claim; releases the squeeze when it was the active one. */
+  releaseRightPanel(ownerId: string): void {
+    this.rightPanelClaims.delete(ownerId)
+    const index = this.rightPanelOrder.indexOf(ownerId)
+    if (index !== -1) this.rightPanelOrder.splice(index, 1)
+    this.applyRightPanel()
+  }
+
+  private applyRightPanel(): void {
+    const html = document.documentElement
+    const ownerId = this.rightPanelOrder[this.rightPanelOrder.length - 1]
+    const claim = ownerId === undefined ? undefined : this.rightPanelClaims.get(ownerId)
+    const appRoot = document.getElementById('root')
+    if (claim !== undefined && ownerId !== undefined) {
+      html.dataset.ohDshRightPanelOwner = ownerId
+      if (claim.paddingRight === null) {
+        appRoot?.style.removeProperty('padding-right')
+        appRoot?.style.removeProperty('box-sizing')
+      } else {
+        appRoot?.style.setProperty('box-sizing', 'border-box')
+        appRoot?.style.setProperty('padding-right', claim.paddingRight)
+      }
+    } else {
+      delete html.dataset.ohDshRightPanelOwner
+      appRoot?.style.removeProperty('padding-right')
+      appRoot?.style.removeProperty('box-sizing')
+    }
   }
 
   setAutoOpenTerminal(enabled: boolean): void {

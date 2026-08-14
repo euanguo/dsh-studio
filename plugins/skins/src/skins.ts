@@ -1,78 +1,16 @@
-import type { DesktopSkinsMessage } from './client/i18n.ts'
-import type { DesktopSkinId } from './preferences.ts'
+import type { DesktopSkinsMessage } from './i18n.ts'
+import type { DesktopSkinId } from '../preferences.ts'
 
 export type SkinColorScheme = 'light' | 'dark'
 
-/** Semantic colors consumed by the pinned terminal renderer. */
-export type TuiSkinColors = Readonly<Record<string, string>>
-
-/** One surface-neutral Oh-DSH skin with browser and terminal adapters. */
-export interface OhDshSkin {
+export interface DesktopSkin {
   id: DesktopSkinId
   colorScheme: SkinColorScheme
   tokens: Readonly<Record<string, string>>
-  tui: TuiSkinColors
-  displayName: string
   preview: string
   accent: string
   label: DesktopSkinsMessage
   css?: string
-}
-
-/** Compatibility name retained for the browser controller API. */
-export type DesktopSkin = OhDshSkin
-
-function tuiColors(
-  tokens: Readonly<Record<string, string>>,
-  merged: string,
-): TuiSkinColors {
-  const value = (key: string): string => {
-    const color = tokens[key]
-    if (color === undefined || !color.startsWith('#')) {
-      throw new Error(`skin token ${key} must be an opaque terminal color`)
-    }
-    return color
-  }
-  return Object.freeze({
-    autoAccept: merged,
-    bashBorder: value('--dsw-alias-brand-primary'),
-    claude: value('--dsw-alias-brand-primary'),
-    claudeShimmer: value('--dsw-alias-button-primary-hover'),
-    claudeBlue_FOR_SYSTEM_SPINNER: value('--dsw-alias-brand-primary'),
-    claudeBlueShimmer_FOR_SYSTEM_SPINNER: value('--dsw-alias-button-primary-hover'),
-    permission: value('--dsw-alias-brand-primary'),
-    permissionShimmer: value('--dsw-alias-button-primary-hover'),
-    planMode: value('--dsw-alias-state-success-primary'),
-    ide: value('--dsw-alias-brand-primary'),
-    promptBorder: value('--dsw-alias-scrollbar-bg-l1'),
-    promptBorderShimmer: value('--dsw-alias-brand-primary'),
-    text: value('--dsw-alias-label-primary'),
-    inverseText: value('--dsw-alias-brand-primary-invert'),
-    inactive: value('--dsw-alias-label-tertiary'),
-    inactiveShimmer: value('--dsw-alias-label-secondary'),
-    subtle: value('--dsw-alias-label-tertiary'),
-    suggestion: value('--dsw-alias-brand-primary'),
-    remember: value('--dsw-alias-brand-text'),
-    background: value('--dsw-alias-brand-primary'),
-    success: value('--dsw-alias-state-success-primary'),
-    error: value('--dsw-alias-state-error-primary'),
-    warning: value('--dsw-alias-state-warn-primary'),
-    merged,
-    warningShimmer: value('--dsw-alias-state-warn-primary'),
-    professionalBlue: value('--dsw-alias-brand-primary'),
-    userMessageBackground: value('--dsw-specific-bubble'),
-    userMessageBackgroundHover: value('--dsw-alias-bg-layer-3'),
-    messageActionsBackground: value('--dsw-specific-menu'),
-    selectionBg: value('--dsw-alias-scrollbar-bg-l1'),
-    bashMessageBackgroundColor: value('--dsw-specific-input-major'),
-    memoryBackgroundColor: value('--dsw-alias-bg-layer-2'),
-    rate_limit_fill: value('--dsw-alias-brand-primary'),
-    rate_limit_empty: value('--dsw-alias-bg-layer-3'),
-    fastMode: value('--dsw-alias-state-warn-primary'),
-    fastModeShimmer: value('--dsw-alias-button-primary-hover'),
-    briefLabelYou: value('--dsw-alias-brand-text'),
-    briefLabelClaude: value('--dsw-alias-brand-primary'),
-  })
 }
 
 const DEEP_CURRENT_TOKENS = {
@@ -215,13 +153,113 @@ const EMBER_DUSK_TOKENS = {
   '--dsw-specific-sidebar-nav-item-hover': '#301e2b',
 } as const
 
-export const OH_DSH_SKINS: readonly OhDshSkin[] = Object.freeze([
+/*
+ * Synara Night — faithful mapping of the Synara web-next design system (dark).
+ *
+ * Seed contract (theme-tokens.css): only --theme-surface / --theme-surface-under /
+ * --theme-ink / --theme-accent are swapped per theme; every semantic token derives
+ * from those four. Live dark seeds: surface #181818, surface-under #141414,
+ * ink #ffffff, accent #339cff.
+ *
+ * Key measured nodes:
+ *   surface #181818 · surface-under #141414 · popover rgb(45,45,45) ·
+ *   menu glass rgba(54,54,54,0.96) · border ladder 4.2% / 8.4% / 15.6% white ·
+ *   surface-hover 7.8% · surface-selected 5.2% · surface-active 15% · fog 2.5%
+ *   focus rgba(131,195,255,0.76) · input-fill rgba(45,45,45,0.96) ·
+ *   scrollbar thumb rgba(255,255,255,0.07) / hover 0.14 ·
+ *   primary CTA = ink reverse (white fill, ink text — not accent blue) ·
+ *   status: destructive #ff6764 · success #40c977 · warning #ff8549
+ */
+const SYNARA_NIGHT_TOKENS = {
+  '--dsw-alias-bg-base': '#141414',
+  '--dsw-alias-bg-layer-1': '#181818',
+  '--dsw-alias-bg-layer-2': '#1f1f1f',
+  '--dsw-alias-bg-layer-3': '#262626',
+  '--dsw-alias-bg-overlay': '#2d2d2d',
+  '--dsw-alias-bg-module-platform': '#181818',
+  '--dsw-alias-border-l1': 'rgba(255, 255, 255, 0.042)',
+  '--dsw-alias-border-l2': 'rgba(255, 255, 255, 0.084)',
+  '--dsw-alias-border-l3': 'rgba(255, 255, 255, 0.156)',
+  '--dsw-alias-brand-primary': '#339cff',
+  '--dsw-alias-brand-primary-invert': '#141414',
+  '--dsw-alias-brand-text': '#83c3ff',
+  '--dsw-alias-button-primary-fill': '#ffffff',
+  '--dsw-alias-button-primary-hover': '#e8e8e8',
+  '--dsw-alias-interactive-bg-active': 'rgba(255, 255, 255, 0.15)',
+  '--dsw-alias-interactive-bg-hover': 'rgba(255, 255, 255, 0.078)',
+  '--dsw-alias-label-primary': '#ffffff',
+  '--dsw-alias-label-secondary': 'rgba(255, 255, 255, 0.65)',
+  '--dsw-alias-label-tertiary': 'rgba(255, 255, 255, 0.5)',
+  '--dsw-alias-markdown-code-block': 'rgba(255, 255, 255, 0.025)',
+  '--dsw-alias-markdown-inline-code': '#1e1e1e',
+  '--dsw-alias-scrollbar-bg-l1': 'rgba(255, 255, 255, 0.07)',
+  '--dsw-alias-scrollbar-hover-l1': 'rgba(255, 255, 255, 0.14)',
+  '--dsw-alias-state-error-primary': '#ff6764',
+  '--dsw-alias-state-success-primary': '#40c977',
+  '--dsw-alias-state-warn-primary': '#ff8549',
+  '--dsw-specific-bubble': '#1f1f1f',
+  '--dsw-specific-input-major': 'rgba(45, 45, 45, 0.96)',
+  '--dsw-specific-menu': 'rgba(54, 54, 54, 0.96)',
+  '--dsw-specific-sidebar-fill': '#141414',
+  '--dsw-specific-sidebar-nav-item-active': '#202020',
+  '--dsw-specific-sidebar-nav-item-hover': '#262626',
+} as const
+
+/*
+ * Synara Day — faithful mapping of the Synara web-next design system (light).
+ *
+ * Light seeds: surface #ffffff, surface-under #f4f4f4, ink #141414,
+ * accent #0d6efd (light accent is deliberately deeper than dark's #339cff
+ * to keep contrast on white).
+ *
+ * Key measured nodes:
+ *   popover = surface 96% + ink ≈ #f6f6f6 · menu glass = popover 96% ·
+ *   border ladder 4.2% / 8.4% / 15.6% ink · hover 7.8% · selected 5.2% ·
+ *   active 15% · fog 2.5% · focus rgba(13,110,253,0.76) ·
+ *   input-fill ink 3.5% · primary CTA = ink (dark fill, white text) ·
+ *   scrollbar thumb rgba(0,0,0,0.1) / hover 0.18 ·
+ *   status: destructive #ba2623 · success #008635 · warning #d97706
+ */
+const SYNARA_DAY_TOKENS = {
+  '--dsw-alias-bg-base': '#f4f4f4',
+  '--dsw-alias-bg-layer-1': '#ffffff',
+  '--dsw-alias-bg-layer-2': '#fbfbfb',
+  '--dsw-alias-bg-layer-3': '#f8f8f8',
+  '--dsw-alias-bg-overlay': '#f4f4f4',
+  '--dsw-alias-bg-module-platform': '#ffffff',
+  '--dsw-alias-border-l1': 'rgba(20, 20, 20, 0.042)',
+  '--dsw-alias-border-l2': 'rgba(20, 20, 20, 0.084)',
+  '--dsw-alias-border-l3': 'rgba(20, 20, 20, 0.156)',
+  '--dsw-alias-brand-primary': '#0d6efd',
+  '--dsw-alias-brand-primary-invert': '#ffffff',
+  '--dsw-alias-brand-text': '#0d6efd',
+  '--dsw-alias-button-primary-fill': '#141414',
+  '--dsw-alias-button-primary-hover': '#2f2f2f',
+  '--dsw-alias-interactive-bg-active': 'rgba(20, 20, 20, 0.15)',
+  '--dsw-alias-interactive-bg-hover': 'rgba(20, 20, 20, 0.078)',
+  '--dsw-alias-label-primary': '#141414',
+  '--dsw-alias-label-secondary': 'rgba(20, 20, 20, 0.65)',
+  '--dsw-alias-label-tertiary': 'rgba(20, 20, 20, 0.5)',
+  '--dsw-alias-markdown-code-block': 'rgba(20, 20, 20, 0.025)',
+  '--dsw-alias-markdown-inline-code': '#f9f9f9',
+  '--dsw-alias-scrollbar-bg-l1': 'rgba(0, 0, 0, 0.1)',
+  '--dsw-alias-scrollbar-hover-l1': 'rgba(0, 0, 0, 0.18)',
+  '--dsw-alias-state-error-primary': '#ba2623',
+  '--dsw-alias-state-success-primary': '#008635',
+  '--dsw-alias-state-warn-primary': '#d97706',
+  '--dsw-specific-bubble': '#fbfbfb',
+  '--dsw-specific-input-major': 'rgba(20, 20, 20, 0.035)',
+  '--dsw-specific-menu': 'rgba(244, 244, 244, 0.96)',
+  '--dsw-specific-sidebar-fill': '#f4f4f4',
+  '--dsw-specific-sidebar-nav-item-active': '#e8e8e8',
+  '--dsw-specific-sidebar-nav-item-hover': '#e3e3e3',
+} as const
+
+export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
   Object.freeze({
     id: 'oh-dsh-skin-deep-current',
     colorScheme: 'dark',
     tokens: DEEP_CURRENT_TOKENS,
-    tui: tuiColors(DEEP_CURRENT_TOKENS, '#b995f5'),
-    displayName: 'Deep Current',
     preview: 'linear-gradient(135deg, #071923 0%, #143445 64%, #49c8eb 145%)',
     accent: '#49c8eb',
     label: 'skins.name.deep-current',
@@ -230,8 +268,6 @@ export const OH_DSH_SKINS: readonly OhDshSkin[] = Object.freeze([
     id: 'oh-dsh-skin-jade-circuit',
     colorScheme: 'dark',
     tokens: JADE_CIRCUIT_TOKENS,
-    tui: tuiColors(JADE_CIRCUIT_TOKENS, '#a78bfa'),
-    displayName: 'Jade Circuit',
     preview: 'linear-gradient(145deg, #071a16 0 42%, #154435 43% 62%, #52d6a0 150%)',
     accent: '#52d6a0',
     label: 'skins.name.jade-circuit',
@@ -240,8 +276,6 @@ export const OH_DSH_SKINS: readonly OhDshSkin[] = Object.freeze([
     id: 'oh-dsh-skin-porcelain',
     colorScheme: 'light',
     tokens: PORCELAIN_TOKENS,
-    tui: tuiColors(PORCELAIN_TOKENS, '#8a6faf'),
-    displayName: 'Porcelain',
     preview: 'radial-gradient(circle at 78% 22%, #b9dcd7 0%, transparent 38%), linear-gradient(145deg, #f8fbfa 0%, #e5efec 100%)',
     accent: '#2d7773',
     label: 'skins.name.porcelain',
@@ -250,21 +284,28 @@ export const OH_DSH_SKINS: readonly OhDshSkin[] = Object.freeze([
     id: 'oh-dsh-skin-ember-dusk',
     colorScheme: 'dark',
     tokens: EMBER_DUSK_TOKENS,
-    tui: tuiColors(EMBER_DUSK_TOKENS, '#c79cff'),
-    displayName: 'Ember Dusk',
     preview: 'radial-gradient(circle at 78% 24%, #ff9275 0%, transparent 38%), linear-gradient(145deg, #21161f 0%, #4b3042 100%)',
     accent: '#ff9275',
     label: 'skins.name.ember-dusk',
   }),
+  Object.freeze({
+    id: 'oh-dsh-skin-synara-night',
+    colorScheme: 'dark',
+    tokens: SYNARA_NIGHT_TOKENS,
+    preview: 'linear-gradient(145deg, #141414 0 38%, #2d2d2d 40% 62%, #339cff 150%)',
+    accent: '#339cff',
+    label: 'skins.name.synara-night',
+  }),
+  Object.freeze({
+    id: 'oh-dsh-skin-synara-day',
+    colorScheme: 'light',
+    tokens: SYNARA_DAY_TOKENS,
+    preview: 'linear-gradient(145deg, #f4f4f4 0 38%, #ffffff 40% 62%, #0d6efd 150%)',
+    accent: '#0d6efd',
+    label: 'skins.name.synara-day',
+  }),
 ])
 
-/** Compatibility alias used by the browser-facing controller. */
-export const DESKTOP_SKINS = OH_DSH_SKINS
-
-export function ohDshSkin(id: string): OhDshSkin | undefined {
-  return OH_DSH_SKINS.find(skin => skin.id === id)
-}
-
 export function desktopSkin(id: string): DesktopSkin | undefined {
-  return ohDshSkin(id)
+  return DESKTOP_SKINS.find(skin => skin.id === id)
 }
