@@ -35,3 +35,14 @@
 
     - id: oh-plugin-marketplace
       name: '@oh-dsh/plugin-marketplace'
+
+# Left rail: the forked ui-workspace replaces the official browser. The
+# official row is disabled (slot 'sidebar.workspaces' is single-owner), and
+# the fork registers into the same hole with the project→worktree→session
+# tree.
+- id: ui-workspace
+  disabled: true
+
+- insert:
+    - id: oh-desktop-left-rail
+      name: '@oh-dsh/desktop-left-rail'

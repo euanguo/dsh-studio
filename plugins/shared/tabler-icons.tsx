@@ -27,7 +27,15 @@ import {
   IconFileCode as TbFileCode,
   IconFileDiff as TbFileDiff,
   IconFileText as TbFileText,
+  IconAdjustments as TbAdjustments,
+  IconArchive as TbArchive,
+  IconCheck as TbCheck2,
+  IconDots as TbDots,
+  IconEdit as TbEdit,
   IconFiles as TbFiles,
+  IconFolderPlus as TbFolderPlus,
+  IconSearch as TbSearch,
+  IconTriangle as TbTriangle,
   IconFolder as TbFolder,
   IconFolderOpen as TbFolderOpen,
   IconGitBranch as TbGitBranch,
@@ -98,6 +106,13 @@ export const IconCircleX = tabler(TbCircleX)
 export const IconSquarePlus = tabler(TbSquarePlus)
 export const IconSquareMinus = tabler(TbSquareMinus)
 export const IconSquareX = tabler(TbSquareX)
+export const IconDots = tabler(TbDots)
+export const IconEdit = tabler(TbEdit)
+export const IconSearch = tabler(TbSearch)
+export const IconArchive = tabler(TbArchive)
+export const IconAdjustments = tabler(TbAdjustments)
+export const IconTriangle = tabler(TbTriangle)
+export const IconFolderPlus = tabler(TbFolderPlus)
 /** Close glyph (Tabler `X`), aliased for call sites that use IconClose. */
 export const IconClose = tabler(TbX)
 /** Text-file glyph (Tabler `FileText`). */

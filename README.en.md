@@ -85,14 +85,14 @@ Requirements: macOS 12+, Apple Silicon, Node.js 24+, pnpm 11+, and Xcode
 Command Line Tools.
 
 ```sh
-git clone https://github.com/omdsh-dev/DSH-better-sidebar.git ../DSH-better-sidebar
+(the Better Sidebar Host is vendored at `plugins/better-sidebar-runtime/src/` — no sibling clone needed)
 pnpm install
 pnpm run build:dsh
 pnpm start
 ```
 
 The Better Sidebar Host is compiled directly from the local clone in the
-sibling directory (`../DSH-better-sidebar`, default branch `main`, v0.10.2);
+vendored Host tree (`plugins/better-sidebar-runtime/src/`, baseline v0.10.2 `3d88752` + local extensions);
 neither SSH nor GitHub CLI authentication is required to clone it. The pinned
 DSH source is acquired separately and can also be provided through the
 `DSH_SOURCE` override described below.
@@ -168,7 +168,7 @@ Third-party plugins remain managed by the DSH Profile and Loader.
 | Plugin | Upstream relationship | Oh-DSH adaptation |
 | --- | --- | --- |
 | `@oh-dsh/desktop` | Original Oh-DSH component | Unified desktop entry, Electron bridge, native menus, windows, Agent capabilities, and bundled plugin order |
-| `@oh-dsh/better-sidebar-runtime` | Compiles the local clone of [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) in the sibling directory (`../DSH-better-sidebar`, v0.10.2) | Compiles the upstream Host only for PTY, Files, Git, history, and commit diff; the upstream UI is not loaded |
+| `@oh-dsh/better-sidebar-runtime` | Compiles the vendored [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) Host (`plugins/better-sidebar-runtime/src/`, baseline `3d88752` v0.10.2 + local extensions) | Compiles the upstream Host only for PTY, Files, Git, history, and commit diff; the upstream UI is not loaded |
 | `@oh-dsh/panel-controls` | Downstream adaptation of [`dsh-web-panel`](https://github.com/dsh-external/dsh-web-panel) | Keeps the Oh-DSH Terminal dock, themes, localization, and Session state on the shared PTY Host; no separate Web Terminal installation |
 | `@oh-dsh/pinned-summary` | Original Oh-DSH component | Active Session summary, half-height card, and conversation gutter |
 | `@oh-dsh/desktop-sidebar` | Oh-DSH UI downstream of [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) | Uses the shared Host for Session tabs, viewers, Files, Git Review, line comments, and Agent composer references while retaining the current layout, icons, and themes |

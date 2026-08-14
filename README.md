@@ -81,13 +81,13 @@ Developer ID 和 notarization，首次启动时可在 Finder 中右键应用并�
 Line Tools。
 
 ```sh
-git clone https://github.com/omdsh-dev/DSH-better-sidebar.git ../DSH-better-sidebar
+（Better Sidebar Host 已 vendor 在 `plugins/better-sidebar-runtime/src/`，无需外部克隆）
 pnpm install
 pnpm run build:dsh
 pnpm start
 ```
 
-Better Sidebar Host 直接使用项目同级目录的本地克隆（`../DSH-better-sidebar`），
+Better Sidebar Host 以 vendor 形式放在仓库内（`plugins/better-sidebar-runtime/src/`，基线见其 `VENDOR.md`），
 构建时编译其 `src/index.ts`；克隆默认取 `main`（v0.10.2）。固定的 DSH 源码
 单独获取，也可以通过下述 `DSH_SOURCE` 指向已有 checkout。
 
@@ -160,7 +160,7 @@ Profile 和 Loader 管理。
 | Plugin | 来源关系 | Oh-DSH 改造 |
 | --- | --- | --- |
 | `@oh-dsh/desktop` | Oh-DSH 自研 | 统一桌面入口、Electron bridge、原生菜单、窗口、Agent 能力与内置 plugin 注册顺序 |
-| `@oh-dsh/better-sidebar-runtime` | 编译同级目录本地克隆 [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar)（`../DSH-better-sidebar`，v0.10.2） | 仅编译上游 Host，提供 PTY、Files、Git、history 和 commit diff；不加载上游 UI |
+| `@oh-dsh/better-sidebar-runtime` | 编译仓库内 vendor 的 [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) Host（`plugins/better-sidebar-runtime/src/`，基线 `3d88752` v0.10.2 + 本地扩展） | 仅编译上游 Host，提供 PTY、Files、Git、history 和 commit diff；不加载上游 UI |
 | `@oh-dsh/panel-controls` | 基于 [`dsh-web-panel`](https://github.com/dsh-external/dsh-web-panel) 的下游改造 | 保留 Oh-DSH Terminal dock、主题、双语和 Session 状态，复用统一 PTY Host；不再安装独立 Web Terminal |
 | `@oh-dsh/pinned-summary` | Oh-DSH 自研 | 当前 Session 摘要、半高卡片和正文 gutter 管理 |
 | `@oh-dsh/desktop-sidebar` | [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) 的 Oh-DSH UI 下游 | 复用统一 Host，提供 Session tabs、viewer、Files、Git Review、逐行评论和 Agent composer 引用，保留现有布局、图标与主题 |

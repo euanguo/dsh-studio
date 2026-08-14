@@ -5,8 +5,8 @@ below informed independently implemented bundled plugins.
 
 Upstream UI, themes, and component styling are not bundled. Oh-DSH adapts
 compatible features to its own persistence, layout, localization, and theme
-contracts. The Better Sidebar Host source is compiled from a local clone of
-the upstream repository kept next to this project (`../DSH-better-sidebar`).
+contracts. The Better Sidebar Host source is vendored inside this repository
+(`plugins/better-sidebar-runtime/src/`, baseline recorded in its VENDOR.md).
 Upstream releases and features are reviewed regularly.
 
 ## dsh-web-panel
@@ -22,8 +22,8 @@ separate Web Terminal or shell plugin is required.
 ## DSH-better-sidebar
 
 - Project: <https://github.com/omdsh-dev/DSH-better-sidebar>
-- Local clone: `../DSH-better-sidebar` (main, `v0.10.2`, revision
-  `3d88752eb184d7d8b535d66a296fade474dd053f`)
+- Vendored tree: `plugins/better-sidebar-runtime/src/` (v0.10.2, baseline
+  revision `3d88752eb184d7d8b535d66a296fade474dd053f`)
 - Declared license: MIT
 - Oh-DSH components: `@oh-dsh/better-sidebar-runtime` and
   `@oh-dsh/desktop-sidebar`

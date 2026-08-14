@@ -23,5 +23,8 @@
     "src/**/*.ts",
     "tests/**/*.ts",
     "scripts/**/*.mjs"
+  ],
+  "exclude": [
+    "plugins/better-sidebar-runtime/src/**"
   ]
 }

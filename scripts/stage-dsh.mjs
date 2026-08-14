@@ -408,6 +408,7 @@ function installDesktopPackages() {
     ...[
       'desktop-skins',
       'desktop-sidebar',
+      'desktop-left-rail',
       'panel-controls',
       'pinned-summary',
       'plugin-marketplace',
@@ -474,6 +475,8 @@ for (const required of [
   'plugins/desktop-skins/client.js',
   'plugins/desktop-sidebar/index.js',
   'plugins/desktop-sidebar/client.js',
+  'plugins/desktop-left-rail/index.js',
+  'plugins/desktop-left-rail/client.js',
   'plugins/panel-controls/index.js',
   'plugins/panel-controls/client.js',
   'plugins/pinned-summary/index.js',
