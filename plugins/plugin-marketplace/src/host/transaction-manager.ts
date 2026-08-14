@@ -872,16 +872,26 @@ export class PluginMarketplaceManager {
               }
             }
           }
-          const checkout = join(sources, `${plan.pluginId}-${plan.resolvedCommit.slice(0, 12)}`)
-          await this.#options.platform.cloneRepository(plan.repository, plan.resolvedCommit, checkout)
+          mkdirSync(sources, { recursive: true, mode: 0o700 })
+          const sourceName = `${plan.pluginId}-${plan.resolvedCommit.slice(0, 12)}`
+          const checkout = join(sources, sourceName)
           const scriptNames = Object.keys(plan.buildScripts)
+          const cloneTarget = scriptNames.length > 0
+            ? join(root, 'bundle-builds', sourceName)
+            : checkout
+          await this.#options.platform.cloneRepository(
+            plan.repository,
+            plan.resolvedCommit,
+            cloneTarget,
+          )
           if (scriptNames.length > 0) {
             allowBuild(candidateProfile, plan.packageName)
             await this.#options.platform.buildBundle({
-              checkout,
+              checkout: cloneTarget,
               sandboxRoot: root,
               scripts: scriptNames,
             })
+            renameSync(cloneTarget, checkout)
           }
           await this.#options.platform.runDsh({
             args: ['plugin', '--profile', this.#options.profile, 'add', checkout],

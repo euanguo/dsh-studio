@@ -76,6 +76,7 @@ function catalogDocument(): unknown {
 class FakePlatform implements MarketplacePlatform {
   readonly builds: Array<{
     checkout: string
+    sandboxRoot: string
     scripts: string[]
   }> = []
   readonly commands: DshCommandInput[] = []
@@ -89,7 +90,11 @@ class FakePlatform implements MarketplacePlatform {
   }
 
   async buildBundle(input: BundleBuildInput): Promise<void> {
-    this.builds.push({ checkout: input.checkout, scripts: input.scripts })
+    this.builds.push({
+      checkout: input.checkout,
+      sandboxRoot: input.sandboxRoot,
+      scripts: input.scripts,
+    })
   }
 
   async cloneRepository(_repository: string, _commit: string, target: string): Promise<void> {
@@ -324,15 +329,17 @@ test('public catalogs load anonymously without GitHub CLI', async () => {
   )
 })
 
-test('production bundle build runs prepare inside the preview sandbox', {
+test('production bundle build runs approved hooks in its own workspace', {
   skip: process.platform !== 'darwin' || !existsSync('/usr/bin/sandbox-exec')
     ? 'requires macOS Seatbelt'
     : false,
 }, async () => {
   const sandboxRoot = mkdtempSync(join(tmpdir(), 'oh-dsh-bundle-build-'))
   const candidateProfile = join(sandboxRoot, 'dsh-home', 'profiles', 'desktop')
-  const checkout = join(candidateProfile, '.oh-dsh', 'sources', 'prepare-fixture')
-  mkdirSync(checkout, { recursive: true })
+  const checkout = join(sandboxRoot, 'bundle-builds', 'prepare-fixture')
+  const helper = join(checkout, 'packages', 'helper')
+  mkdirSync(helper, { recursive: true })
+  mkdirSync(candidateProfile, { recursive: true })
   writeFileSync(join(candidateProfile, 'pnpm-workspace.yaml'), 'packages:\n  - .\n')
   writeFileSync(join(candidateProfile, 'package.json'), JSON.stringify({
     name: 'candidate-profile',
@@ -344,15 +351,44 @@ test('production bundle build runs prepare inside the preview sandbox', {
     "writeFileSync(new URL('./profile-built', import.meta.url), 'wrong project\\n')",
     '',
   ].join('\n'))
+  writeFileSync(join(checkout, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n')
   writeFileSync(join(checkout, 'package.json'), JSON.stringify({
     name: '@example/prepare-fixture',
-    scripts: { prepare: 'node build.mjs' },
+    dependencies: { '@example/workspace-helper': 'workspace:*' },
+    scripts: {
+      prepare: 'node build.mjs',
+      prepack: 'node prepack.mjs',
+      preprepack: 'node unexpected-prepack.mjs',
+    },
     version: '1.0.0',
   }))
   writeFileSync(join(checkout, 'build.mjs'), [
+    "import value from '@example/workspace-helper'",
     "import { mkdirSync, writeFileSync } from 'node:fs'",
     "mkdirSync(new URL('./lib/', import.meta.url), { recursive: true })",
-    "writeFileSync(new URL('./lib/index.js', import.meta.url), 'built\\n')",
+    "writeFileSync(new URL('./lib/index.js', import.meta.url), `${value}\\n`)",
+    '',
+  ].join('\n'))
+  writeFileSync(join(checkout, 'prepack.mjs'), [
+    "import { writeFileSync } from 'node:fs'",
+    "writeFileSync(new URL('./prepacked', import.meta.url), 'prepacked\\n')",
+    '',
+  ].join('\n'))
+  writeFileSync(join(checkout, 'unexpected-prepack.mjs'), [
+    "import { writeFileSync } from 'node:fs'",
+    "writeFileSync(new URL('./unexpected-prepack', import.meta.url), 'unexpected\\n')",
+    '',
+  ].join('\n'))
+  writeFileSync(join(helper, 'package.json'), JSON.stringify({
+    name: '@example/workspace-helper',
+    exports: './index.mjs',
+    scripts: { prepare: 'node unexpected-prepare.mjs' },
+    version: '1.0.0',
+  }))
+  writeFileSync(join(helper, 'index.mjs'), "export default 'workspace-built'\n")
+  writeFileSync(join(helper, 'unexpected-prepare.mjs'), [
+    "import { writeFileSync } from 'node:fs'",
+    "writeFileSync(new URL('./unexpected-prepare', import.meta.url), 'unexpected\\n')",
     '',
   ].join('\n'))
 
@@ -367,9 +403,12 @@ test('production bundle build runs prepare inside the preview sandbox', {
     await platform.buildBundle({
       checkout,
       sandboxRoot,
-      scripts: ['prepare'],
+      scripts: ['prepare', 'prepack'],
     })
-    assert.equal(readFileSync(join(checkout, 'lib/index.js'), 'utf8'), 'built\n')
+    assert.equal(readFileSync(join(checkout, 'lib/index.js'), 'utf8'), 'workspace-built\n')
+    assert.equal(readFileSync(join(checkout, 'prepacked'), 'utf8'), 'prepacked\n')
+    assert.equal(existsSync(join(checkout, 'unexpected-prepack')), false)
+    assert.equal(existsSync(join(helper, 'unexpected-prepare')), false)
     assert.equal(existsSync(join(candidateProfile, 'profile-built')), false)
   } finally {
     rmSync(sandboxRoot, { recursive: true, force: true })
@@ -537,7 +576,15 @@ test('bundle preview remains isolated until apply and supports undo', async () =
     assert.equal(snapshot.preview?.pluginId, 'bundle-demo')
     assert.equal(setup.platform.builds.length, 1)
     assert.deepEqual(setup.platform.builds[0]?.scripts, ['prepare'])
-    assert.match(setup.platform.builds[0]?.checkout ?? '', /bundle-demo-/)
+    const build = setup.platform.builds[0]
+    assert.equal(
+      build?.checkout,
+      join(
+        build?.sandboxRoot ?? '',
+        'bundle-builds',
+        `bundle-demo-${COMMIT.slice(0, 12)}`,
+      ),
+    )
     assert.equal(setup.runtime.previewStarts.length, 1)
     const liveBefore = JSON.parse(readFileSync(join(setup.profileDir, 'package.json'), 'utf8'))
     assert.deepEqual(liveBefore.dependencies, {})

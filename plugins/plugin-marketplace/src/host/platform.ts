@@ -304,7 +304,8 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
 
   async buildBundle(input: BundleBuildInput): Promise<void> {
     assertWithin(input.sandboxRoot, input.checkout)
-    const allowed = new Set(['preinstall', 'install', 'postinstall', 'prepare', 'prepack'])
+    const lifecycle = ['preinstall', 'install', 'postinstall', 'prepare', 'prepack']
+    const allowed = new Set(lifecycle)
     if (input.scripts.length === 0 || input.scripts.some(script => !allowed.has(script))) {
       throw new Error('marketplace bundle build contains an unreviewed lifecycle script')
     }
@@ -320,31 +321,48 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
       HOME: input.sandboxRoot,
       TMPDIR: temporary,
     }, this.#ghPath)
-    const pnpmArguments = [
-      this.#options.pnpmEntry,
-      'install',
-      '--ignore-workspace',
-      existsSync(join(input.checkout, 'pnpm-lock.yaml'))
-        ? '--frozen-lockfile'
-        : '--no-frozen-lockfile',
-      '--store-dir',
-      store,
+    const requested = new Set(input.scripts)
+    const commands = [
+      {
+        args: [
+          this.#options.pnpmEntry,
+          'install',
+          '--ignore-scripts',
+          existsSync(join(input.checkout, 'pnpm-lock.yaml'))
+            ? '--frozen-lockfile'
+            : '--no-frozen-lockfile',
+          '--store-dir',
+          store,
+        ],
+        label: 'pnpm install --ignore-scripts',
+      },
+      ...lifecycle
+        .filter(script => requested.has(script))
+        .map(script => ({
+          args: [
+            this.#options.pnpmEntry,
+            '--config.enable-pre-post-scripts=false',
+            'run',
+            script,
+          ],
+          label: `pnpm run ${script}`,
+        })),
     ]
-    const launcher = previewScriptCommand({
-      nodeArguments: pnpmArguments,
-      nodeBinary: this.#options.nodeBinary,
-      root: input.sandboxRoot,
-    })
-    this.#options.onLog?.(
-      `marketplace build: pnpm install (${input.scripts.join(', ')})`,
-    )
-    const result = await runCommand(launcher.command, launcher.args, {
-      cwd: input.checkout,
-      env,
-      timeoutMs: 300_000,
-    })
-    if (result.stdout.trim() !== '') this.#options.onLog?.(result.stdout.trim())
-    if (result.stderr.trim() !== '') this.#options.onLog?.(result.stderr.trim())
+    for (const command of commands) {
+      const launcher = previewScriptCommand({
+        nodeArguments: command.args,
+        nodeBinary: this.#options.nodeBinary,
+        root: input.sandboxRoot,
+      })
+      this.#options.onLog?.(`marketplace build: ${command.label}`)
+      const result = await runCommand(launcher.command, launcher.args, {
+        cwd: input.checkout,
+        env,
+        timeoutMs: 300_000,
+      })
+      if (result.stdout.trim() !== '') this.#options.onLog?.(result.stdout.trim())
+      if (result.stderr.trim() !== '') this.#options.onLog?.(result.stderr.trim())
+    }
   }
 
   async loadCatalog(): Promise<unknown> {
