@@ -41,9 +41,9 @@
   --oh-dsh-control-lg: 36px;
 
   /* 列表行高基准（偶数：避免行内图标/徽章落在半像素上；镜像 DSH 紧凑行）
-     与树缩进步长（6px/级，紧凑） */
+     与树缩进步长（10px/级，保证父子层级肉眼可辨） */
   --oh-dsh-size-row: 28px;
-  --oh-dsh-tree-indent: 6px;
+  --oh-dsh-tree-indent: 10px;
 
   /* diff 语义色桥：从 DSW 官方状态色派生，暗色主题自动跟随
      （DSW 没有 diff 语义别名，这里只做桥接，不定义新色板） */
