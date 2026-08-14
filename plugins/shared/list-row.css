@@ -1,0 +1,191 @@
+/* ============================================================
+   Product list row — single geometry for navigators / sidebars /
+   trees. Ported from the reference project's list-row.module.css.
+   Consume the --oh-dsh-* ladder and --dsw-alias-* colors only.
+   No feature-local magic sizes.
+   ============================================================ */
+
+.oh-dsh-list-row {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  height: var(--oh-dsh-size-row);
+  min-height: var(--oh-dsh-size-row);
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.oh-dsh-list-row:hover,
+.oh-dsh-list-row:focus-within,
+/* Menu portals live outside the row, so :hover/:focus-within drop; the
+   in-row trigger keeps data-popup-open for the whole open lifetime. */
+.oh-dsh-list-row:has([data-popup-open]),
+.oh-dsh-list-row[data-active] {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+}
+
+.oh-dsh-list-row[data-selected] {
+  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+}
+
+.oh-dsh-list-row-main {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: var(--oh-dsh-space-2);
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  padding: 0 var(--oh-dsh-space-1-5);
+  font-size: var(--oh-dsh-font-sm);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.oh-dsh-list-row-main:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.oh-dsh-list-row-leading {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+}
+
+.oh-dsh-list-row-leading svg {
+  width: 14px;
+  height: 14px;
+}
+
+.oh-dsh-list-row-body {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--oh-dsh-space-1);
+}
+
+.oh-dsh-list-row-label {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  font-size: var(--oh-dsh-font-sm);
+  color: inherit;
+}
+
+/* Title text owns ellipsis; sibling marks (status/kind) stay full size. */
+.oh-dsh-list-row-label-text {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-dsh-list-row-meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--oh-dsh-font-xs);
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+}
+
+.oh-dsh-list-row-trailing {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  padding-right: var(--oh-dsh-space-1);
+}
+
+.oh-dsh-list-row-actions {
+  /* Overlay on top of the row's trailing area: revealed on hover (or while
+     an action menu is open) and absolutely positioned so the trailing
+     status stays flush right in the resting state — no reserved slot means
+     no dead space next to the status mark. The wash matches the row's
+     hover background so the covered trailing content reads as replaced. */
+  position: absolute;
+  top: 50%;
+  right: var(--oh-dsh-space-1);
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  padding: 0 var(--oh-dsh-space-0);
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Hover or open menu only — not row :focus-within (clicking main steals
+   focus and would pin the actions on a merely-selected row). Keyboard
+   focus inside the actions cluster still reveals them. */
+.oh-dsh-list-row:hover .oh-dsh-list-row-actions,
+.oh-dsh-list-row:has([data-popup-open]) .oh-dsh-list-row-actions,
+.oh-dsh-list-row-actions:focus-within,
+.oh-dsh-list-row-actions[data-always-visible] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Never stack a second wash on icon controls. */
+.oh-dsh-list-row-action-button {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent !important;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  cursor: pointer;
+}
+
+.oh-dsh-list-row-action-button:hover,
+.oh-dsh-list-row-action-button:focus-visible,
+.oh-dsh-list-row-action-button[data-popup-open],
+.oh-dsh-list-row-action-button[aria-expanded='true'] {
+  color: var(--dsw-alias-label-primary, #1f2328);
+  background: transparent !important;
+}
+
+/* Nested list under a disclosure row — full-width hover track. */
+.oh-dsh-list-row-nested {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oh-dsh-space-1);
+  padding: 0;
+  min-width: 0;
+}
+
+/* Nested rows with their own leading share the parent chevron column.
+   Only indent when the nested row has no leading slot. */
+.oh-dsh-list-row-nested > .oh-dsh-list-row .oh-dsh-list-row-main:not(:has([data-slot='list-row-leading'])) {
+  padding-left: calc(var(--oh-dsh-space-1-5) + 16px + var(--oh-dsh-space-2));
+}
+
+.oh-dsh-list-row-nested-status {
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1-5) var(--oh-dsh-space-1)
+    calc(var(--oh-dsh-space-1-5) + 16px + var(--oh-dsh-space-2));
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+  text-align: left;
+}
