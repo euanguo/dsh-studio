@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, win32 } from 'node:path'
 import { test } from 'node:test'
@@ -13,6 +13,7 @@ import type {
 } from '../plugins/plugin-marketplace/src/host/platform.ts'
 import {
   findGitHubCli,
+  previewScriptCommand,
   ProductionMarketplacePlatform,
   withGitHubCredentials,
 } from '../plugins/plugin-marketplace/src/host/platform.ts'
@@ -323,7 +324,11 @@ test('public catalogs load anonymously without GitHub CLI', async () => {
   )
 })
 
-test('production bundle build runs prepare inside the preview sandbox', async () => {
+test('production bundle build runs prepare inside the preview sandbox', {
+  skip: process.platform !== 'darwin' || !existsSync('/usr/bin/sandbox-exec')
+    ? 'requires macOS Seatbelt'
+    : false,
+}, async () => {
   const sandboxRoot = mkdtempSync(join(tmpdir(), 'oh-dsh-bundle-build-'))
   const checkout = join(sandboxRoot, 'checkout')
   mkdirSync(checkout, { recursive: true })
@@ -356,6 +361,25 @@ test('production bundle build runs prepare inside the preview sandbox', async ()
   } finally {
     rmSync(sandboxRoot, { recursive: true, force: true })
   }
+})
+
+test('scripted bundle previews fail closed without a write sandbox', () => {
+  for (const platform of ['linux', 'win32'] as const) {
+    assert.throws(() => previewScriptCommand({
+      nodeArguments: ['/preview/pnpm.mjs', 'install'],
+      nodeBinary: '/preview/node',
+      pathExists: () => false,
+      platform,
+      root: '/preview',
+    }), new RegExp(`unavailable on ${platform}`))
+  }
+  assert.throws(() => previewScriptCommand({
+    nodeArguments: ['/preview/pnpm.mjs', 'install'],
+    nodeBinary: '/preview/node',
+    pathExists: () => false,
+    platform: 'darwin',
+    root: '/preview',
+  }), /unavailable on darwin/)
 })
 
 test('refresh keeps public catalogs available when GitHub CLI is unavailable', async () => {

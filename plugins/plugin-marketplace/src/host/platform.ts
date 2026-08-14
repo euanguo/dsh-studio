@@ -240,6 +240,38 @@ export function previewSandboxPolicy(root: string): string {
   ].join('')
 }
 
+interface PreviewScriptCommandInput {
+  nodeArguments: string[]
+  nodeBinary: string
+  pathExists?: (path: string) => boolean
+  platform?: NodeJS.Platform
+  root: string
+  sandbox?: string
+}
+
+/** Select a write-restricted launcher or reject the scripted preview. */
+export function previewScriptCommand(
+  input: PreviewScriptCommandInput,
+): { args: string[]; command: string } {
+  const platform = input.platform ?? process.platform
+  const sandbox = input.sandbox ?? '/usr/bin/sandbox-exec'
+  const pathExists = input.pathExists ?? existsSync
+  if (platform !== 'darwin' || !pathExists(sandbox)) {
+    throw new Error(
+      `scripted marketplace previews require a write-restricted process sandbox, which is unavailable on ${platform}`,
+    )
+  }
+  return {
+    args: [
+      '-p',
+      previewSandboxPolicy(input.root),
+      input.nodeBinary,
+      ...input.nodeArguments,
+    ],
+    command: sandbox,
+  }
+}
+
 export class ProductionMarketplacePlatform implements MarketplacePlatform {
   readonly #ghPath: string | null
   readonly #options: ProductionMarketplacePlatformOptions
@@ -297,22 +329,15 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
       '--store-dir',
       store,
     ]
-    const sandbox = '/usr/bin/sandbox-exec'
-    const command = process.platform === 'darwin' && existsSync(sandbox)
-      ? sandbox
-      : this.#options.nodeBinary
-    const args = command === sandbox
-      ? [
-          '-p',
-          previewSandboxPolicy(input.sandboxRoot),
-          this.#options.nodeBinary,
-          ...pnpmArguments,
-        ]
-      : pnpmArguments
+    const launcher = previewScriptCommand({
+      nodeArguments: pnpmArguments,
+      nodeBinary: this.#options.nodeBinary,
+      root: input.sandboxRoot,
+    })
     this.#options.onLog?.(
       `marketplace build: pnpm install (${input.scripts.join(', ')})`,
     )
-    const result = await runCommand(command, args, {
+    const result = await runCommand(launcher.command, launcher.args, {
       cwd: input.checkout,
       env,
       timeoutMs: 300_000,
