@@ -1,0 +1,107 @@
+/* ============================================================
+   Unified diff viewer (DiffViewer): meta strip + Pierre surface
+   (or the structured RawDiff fallback / comment surface).
+   ============================================================ */
+
+.oh-dsh-diff-viewer {
+  min-width: 0;
+}
+
+.oh-dsh-diff-viewer-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-2);
+  min-height: 30px;
+  padding: 0 var(--oh-dsh-space-3);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 7%));
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.oh-dsh-pierre-surface {
+  min-width: 0;
+}
+
+.oh-dsh-pierre-surface-natural {
+  min-width: 0;
+}
+
+/* ---------- RawDiff (fallback / comment surface) ---------- */
+
+.oh-dsh-diff-raw-lines {
+  margin: 0;
+  padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
+  list-style: none;
+  font: var(--oh-dsh-font-sm) var(--oh-dsh-font-mono);
+}
+
+.oh-dsh-diff-raw-lines > li {
+  display: flex;
+  min-width: max-content;
+  line-height: 18px;
+}
+
+.oh-dsh-diff-raw-row {
+  display: flex;
+  flex: 1;
+  min-width: max-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+button.oh-dsh-diff-raw-row {
+  cursor: pointer;
+}
+
+.oh-dsh-diff-raw-row[data-line-kind='added'] {
+  background: var(--oh-dsh-diff-add-bg);
+}
+
+.oh-dsh-diff-raw-row[data-line-kind='added'] code {
+  color: var(--oh-dsh-diff-add-fg);
+}
+
+.oh-dsh-diff-raw-row[data-line-kind='removed'] {
+  background: var(--oh-dsh-diff-del-bg);
+}
+
+.oh-dsh-diff-raw-row[data-line-kind='removed'] code {
+  color: var(--oh-dsh-diff-del-fg);
+}
+
+.oh-dsh-diff-raw-row[data-line-kind='hunk'] {
+  background: var(--oh-dsh-diff-hunk-bg);
+  color: var(--dsw-alias-label-secondary, #57606a);
+}
+
+button.oh-dsh-diff-raw-row:hover {
+  box-shadow: inset 2px 0 var(--oh-dsh-accent, #0969da);
+}
+
+.oh-dsh-diff-raw-gutter {
+  flex: none;
+  width: 3ch;
+  padding: 0 var(--oh-dsh-space-1) 0 var(--oh-dsh-space-2);
+  text-align: right;
+  color: var(--oh-dsh-diff-muted);
+  font-size: var(--oh-dsh-font-xs);
+  user-select: none;
+}
+
+.oh-dsh-diff-raw-row code {
+  flex: 1;
+  padding: 0 var(--oh-dsh-space-2) 0 var(--oh-dsh-space-1);
+  white-space: pre;
+}
+
+.oh-dsh-diff-raw-lines[data-wrap='on'] .oh-dsh-diff-raw-row code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
