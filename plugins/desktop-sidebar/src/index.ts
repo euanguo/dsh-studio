@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { WorkspaceHostMutation } from './protocol.ts'
 import { WORKSPACE_API_PATH } from './protocol.ts'
 import { mutateWorkspace, readWorkspaceFacts } from './git-workspace.ts'
+import { registerSidebarApi } from './sidebar-api.ts'
 import {
   mountSidebarPreferences,
   type SidebarDesktopCapability,
@@ -15,6 +16,10 @@ interface HostContext {
       kind: 'exact'
       path: string
       handler: (request: IncomingMessage, response: ServerResponse) => void | Promise<void>
+    } | {
+      kind: 'prefix'
+      path: string
+      handler: (request: IncomingMessage, response: ServerResponse) => void | Promise<void>
     }): () => void
   }
   logger: {
@@ -23,7 +28,7 @@ interface HostContext {
 }
 
 export const name = 'oh-dsh-desktop-sidebar'
-export const inject = ['desktop', 'webServer']
+export const inject = ['desktop', 'settings', 'webServer']
 
 function sendJson(response: ServerResponse, status: number, payload: unknown): void {
   response.writeHead(status, {
@@ -70,6 +75,12 @@ export function apply(ctx: HostContext): void {
       ctx.get('desktop') as SidebarDesktopCapability,
     ),
     'oh-dsh-desktop: sidebar preferences',
+  )
+  ctx.effect(
+    () => registerSidebarApi(ctx.webServer.register.bind(ctx.webServer), {
+      settings: ctx.get('settings') as { describe(options?: { redactSecrets?: boolean }): Array<{ ns: string; value?: unknown; revision?: number }>; update(ns: string, patch: object, expectedRevision?: number): Promise<void> },
+    }),
+    'oh-dsh-desktop: sidebar JSON API',
   )
   ctx.effect(() => ctx.webServer.register({
     kind: 'exact',

@@ -2,89 +2,59 @@ html {
   --oh-dsh-desktop-sidebar-width: 300px;
 }
 
-#oh-dsh-embedded-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 0;
-  grid-template-rows: minmax(0, 1fr);
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
-  transition: grid-template-columns 180ms var(--ds-ease-in-out, ease);
-}
-
-#oh-dsh-embedded-layout > #root {
-  min-width: 0;
-  min-height: 0;
-  height: 100%;
-  overflow: hidden;
-}
-
+/* The desktop sidebar is a fixed overlay; #root is left untouched (the
+   squeeze is applied as inline padding-right by the workspace service,
+   coordinated through the desktopPanels right-panel claim). The container
+   only spans the panel footprint while open on wide viewports (width 0
+   otherwise) and never intercepts pointer events itself — the panel
+   re-enables pointer-events when visible. */
 #oh-dsh-desktop-sidebar-root {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: fixed;
+  z-index: 9000;
+  /* Flush to the window's top edge so the panel leaves no gap above it (the
+     macOS traffic lights live in the top-left corner and are never covered
+     by the right-side panel). */
+  top: 0;
+  right: 12px;
+  bottom: 12px;
+  width: var(--oh-dsh-desktop-sidebar-width);
   min-width: 0;
   overflow: hidden;
+  pointer-events: none;
 }
 
 html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   overflow: visible;
 }
 
-.oh-dsh-panel-toolbar {
-  position: fixed;
-  z-index: 2147483647;
-  top: 5px;
-  right: 14px;
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px;
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
-  box-shadow: 0 1px 5px rgb(0 0 0 / 5%);
-  -webkit-app-region: no-drag;
+/* Maximized: the panel covers the whole window and the app is squeezed out
+   (padding-right: 100vw). */
+html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
 }
 
-.oh-dsh-panel-toolbar button {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  cursor: pointer;
-}
-
-.oh-dsh-panel-toolbar button:hover,
-.oh-dsh-panel-toolbar button[aria-pressed='true'] {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
-.oh-dsh-panel-toolbar button[aria-pressed='true'] {
-  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
-}
-
-.oh-dsh-panel-toolbar svg {
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.7;
+/* Narrow viewports (< 900px): the sidebar opens as a full-width drawer
+   (edge to edge); the inline width still collapses to 0 while closed. */
+@media (max-width: 900px) {
+  #oh-dsh-desktop-sidebar-root {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100vw;
+  }
 }
 
 .oh-dsh-workspace-panel {
   position: absolute;
   z-index: 9100;
-  top: 12px;
+  /* The panel runs flush to the window's top edge (the macOS traffic lights
+     sit in the top-LEFT corner, so the right-side panel never covers them).
+     Its top row (tabs + window controls) is part of the panel itself — no
+     floating toolbar, so no safe-area strip is needed. */
+  top: 0;
   right: 12px;
   bottom: 12px;
   display: flex;
@@ -140,7 +110,7 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   align-items: center;
   justify-content: space-between;
   min-height: 58px;
-  padding: 10px 14px 10px 20px;
+  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-3);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
@@ -148,7 +118,7 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-workspace-header strong {
   min-width: 0;
   overflow: hidden;
-  font-size: 15px;
+  font-size: var(--oh-dsh-font-2xl);
   font-weight: 500;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -157,16 +127,18 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-workspace-header > div {
   flex: none;
   display: flex;
-  gap: 2px;
+  gap: var(--oh-dsh-space-0);
 }
 
 .oh-dsh-workspace-header button,
 .oh-dsh-workspace-directory button {
-  width: 28px;
-  height: 28px;
+  display: grid;
+  place-items: center;
+  width: var(--oh-dsh-control-md);
+  height: var(--oh-dsh-control-md);
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
   cursor: pointer;
@@ -182,15 +154,16 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 }
 
 .oh-dsh-workspace-content {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: 8px 16px 24px;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2) var(--oh-dsh-space-3);
   box-sizing: border-box;
 }
 
 .oh-dsh-workspace-content section {
-  padding: 8px 0;
+  padding: var(--oh-dsh-space-2) 0;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
@@ -200,10 +173,10 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   grid-template-columns: 26px minmax(0, 1fr) auto;
   align-items: center;
   min-height: 38px;
-  gap: 8px;
+  gap: var(--oh-dsh-space-2);
   padding: 0 6px;
   box-sizing: border-box;
-  font-size: 13px;
+  font-size: var(--oh-dsh-font-lg);
 }
 
 .oh-dsh-workspace-section-title strong { font-weight: 550; }
@@ -213,17 +186,17 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   display: grid;
   place-items: center;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: 15px;
+  font-size: var(--oh-dsh-font-2xl);
 }
 
 .oh-dsh-workspace-count {
   min-width: 20px;
-  padding: 2px 6px;
-  border-radius: 99px;
+  padding: var(--oh-dsh-space-0) var(--oh-dsh-space-1-5);
+  border-radius: var(--oh-dsh-radius-pill);
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-secondary, #57606a);
   text-align: center;
-  font-size: 10px;
+  font-size: var(--oh-dsh-font-xs);
 }
 
 .oh-dsh-change-list { padding: 0 2px 5px 30px; }
@@ -234,15 +207,15 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   align-items: center;
   width: 100%;
   min-height: 30px;
-  gap: 6px;
+  gap: var(--oh-dsh-space-1-5);
   padding: 3px 6px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-primary, #1f2328);
   cursor: pointer;
   text-align: left;
-  font: 11px/1.35 var(--ds-font-family-code, ui-monospace, monospace);
+  font: var(--oh-dsh-font-sm)/1.35 var(--oh-dsh-font-mono);
 }
 
 .oh-dsh-change-row:hover,
@@ -263,28 +236,28 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 
 .oh-dsh-change-status { font-weight: 700; }
 .oh-dsh-change-status.is-added,
-.oh-dsh-change-status.is-untracked { color: #2da44e; }
+.oh-dsh-change-status.is-untracked { color: var(--dsw-alias-state-success-primary, #2da44e); }
 .oh-dsh-change-status.is-deleted,
-.oh-dsh-change-status.is-conflicted { color: #cf222e; }
+.oh-dsh-change-status.is-conflicted { color: var(--dsw-alias-state-error-primary, #cf222e); }
 .oh-dsh-change-status.is-modified,
 .oh-dsh-change-status.is-renamed,
-.oh-dsh-change-status.is-copied { color: #9a6700; }
+.oh-dsh-change-status.is-copied { color: var(--dsw-alias-state-warn-label, #9a6700); }
 
 .oh-dsh-change-diff {
   max-height: 240px;
-  margin: 3px 0 7px;
-  padding: 9px;
+  margin: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-2);
+  padding: var(--oh-dsh-space-2);
   overflow: auto;
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: var(--dsw-alias-bg-layer-1, #f6f8fa);
   color: var(--dsw-alias-label-secondary, #57606a);
-  font: 10px/1.45 var(--ds-font-family-code, ui-monospace, monospace);
+  font: var(--oh-dsh-font-xs)/1.45 var(--oh-dsh-font-mono);
   white-space: pre;
 }
 
 .oh-dsh-review-commit-list {
   display: grid;
-  gap: 2px;
+  gap: var(--oh-dsh-space-0);
   padding: 0 2px 8px 30px;
 }
 
@@ -293,10 +266,10 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   grid-template-columns: 58px minmax(0, 1fr) auto;
   align-items: center;
   min-height: 32px;
-  gap: 7px;
-  padding: 4px 7px;
+  gap: var(--oh-dsh-space-1-5);
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-3);
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
   color: inherit;
   cursor: pointer;
@@ -312,11 +285,11 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-review-commit-row:disabled { cursor: default; opacity: 0.65; }
 .oh-dsh-review-commit-row code {
   color: var(--dsw-alias-label-secondary, #57606a);
-  font: 9px/1.3 var(--ds-font-family-code, ui-monospace, monospace);
+  font: 9px/1.3 var(--oh-dsh-font-mono);
 }
 .oh-dsh-review-commit-row > span {
   overflow: hidden;
-  font-size: 11px;
+  font-size: var(--oh-dsh-font-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -330,10 +303,10 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 }
 
 .oh-dsh-review-commit-detail {
-  margin: 2px 2px 10px 30px;
+  margin: var(--oh-dsh-space-1) var(--oh-dsh-space-1) var(--oh-dsh-space-3) var(--oh-dsh-space-3);
   overflow: hidden;
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: 8px;
+  border-radius: var(--oh-dsh-radius-md);
   background: var(--dsw-alias-bg-layer-1, #fff);
 }
 
@@ -341,17 +314,17 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
-  padding: 9px;
+  gap: var(--oh-dsh-space-2);
+  padding: var(--oh-dsh-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
-.oh-dsh-review-commit-detail > header > div { display: grid; min-width: 0; gap: 3px; }
+.oh-dsh-review-commit-detail > header > div { display: grid; min-width: 0; gap: var(--oh-dsh-space-1); }
 .oh-dsh-review-commit-detail > header code,
 .oh-dsh-review-commit-detail > header small {
   color: var(--dsw-alias-label-dimmed, #8c959f);
   font-size: 9px;
 }
-.oh-dsh-review-commit-detail > header strong { font-size: 11px; }
+.oh-dsh-review-commit-detail > header strong { font-size: var(--oh-dsh-font-sm); }
 .oh-dsh-review-commit-detail button {
   border: 0;
   background: transparent;
@@ -361,8 +334,8 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 }
 .oh-dsh-review-commit-detail > header > button {
   flex: none;
-  padding: 5px 7px;
-  border-radius: 6px;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
+  border-radius: var(--oh-dsh-radius-sm);
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   font-size: 9px;
 }
@@ -375,18 +348,18 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--oh-dsh-space-2);
   padding: 7px 9px;
   cursor: pointer;
-  font: 10px/1.35 var(--ds-font-family-code, ui-monospace, monospace);
+  font: var(--oh-dsh-font-xs)/1.35 var(--oh-dsh-font-mono);
 }
 .oh-dsh-review-commit-detail summary > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.oh-dsh-review-commit-detail summary small { color: #cf222e; }
-.oh-dsh-review-commit-detail summary b { color: #2da44e; font-weight: 500; }
+.oh-dsh-review-commit-detail summary small { color: var(--dsw-alias-state-error-primary, #cf222e); }
+.oh-dsh-review-commit-detail summary b { color: var(--dsw-alias-state-success-primary, #2da44e); font-weight: 500; }
 
 .oh-dsh-review-diff-lines {
   max-height: 420px;
@@ -400,16 +373,16 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   min-width: max-content;
   padding: 0;
   text-align: left;
-  font: 9px/1.55 var(--ds-font-family-code, ui-monospace, monospace);
+  font: 9px/1.55 var(--oh-dsh-font-mono);
 }
 .oh-dsh-review-diff-lines > button:hover {
-  box-shadow: inset 2px 0 var(--dsw-alias-accent, #0969da);
+  box-shadow: inset 2px 0 var(--oh-dsh-accent);
 }
 .oh-dsh-review-diff-lines > button[data-type='addition'] {
-  background: color-mix(in srgb, #2da44e 10%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #2da44e) 10%, transparent);
 }
 .oh-dsh-review-diff-lines > button[data-type='deletion'] {
-  background: color-mix(in srgb, #cf222e 9%, transparent);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 9%, transparent);
 }
 .oh-dsh-review-diff-lines > button > span {
   padding: 1px 5px;
@@ -425,33 +398,33 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 
 .oh-dsh-review-comments {
   display: grid;
-  gap: 5px;
-  padding: 8px 9px;
+  gap: var(--oh-dsh-space-1);
+  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
-.oh-dsh-review-comments > strong { font-size: 10px; }
+.oh-dsh-review-comments > strong { font-size: var(--oh-dsh-font-xs); }
 .oh-dsh-review-comments > div {
   position: relative;
-  padding: 7px 28px 7px 8px;
-  border-radius: 6px;
+  padding: var(--oh-dsh-space-1-5) 28px var(--oh-dsh-space-1-5) var(--oh-dsh-space-2);
+  border-radius: var(--oh-dsh-radius-sm);
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
 }
 .oh-dsh-review-comments span {
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font: 9px/1.3 var(--ds-font-family-code, ui-monospace, monospace);
+  font: 9px/1.3 var(--oh-dsh-font-mono);
 }
-.oh-dsh-review-comments p { margin: 3px 0 0; font-size: 10px; line-height: 1.45; }
+.oh-dsh-review-comments p { margin: 3px 0 0; font-size: var(--oh-dsh-font-xs); line-height: 1.45; }
 .oh-dsh-review-comments button { position: absolute; top: 4px; right: 4px; }
 
 .oh-dsh-review-comment-form {
   display: grid;
-  gap: 6px;
+  gap: var(--oh-dsh-space-1-5);
   padding: 9px;
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 .oh-dsh-review-comment-form strong {
   overflow: hidden;
-  font-size: 10px;
+  font-size: var(--oh-dsh-font-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -459,28 +432,28 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   min-height: 68px;
   resize: vertical;
   box-sizing: border-box;
-  padding: 7px;
+  padding: var(--oh-dsh-space-1-5);
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   outline: 0;
   background: var(--dsw-alias-bg-layer-1, #fff);
   color: inherit;
-  font: 10px/1.45 inherit;
+  font: var(--oh-dsh-font-xs)/1.45 inherit;
 }
 .oh-dsh-review-comment-form textarea:focus {
-  border-color: var(--dsw-alias-accent, #0969da);
+  border-color: var(--oh-dsh-accent);
 }
-.oh-dsh-review-comment-form > div { display: flex; justify-content: flex-end; gap: 6px; }
+.oh-dsh-review-comment-form > div { display: flex; justify-content: flex-end; gap: var(--oh-dsh-space-1-5); }
 .oh-dsh-review-comment-form button {
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   font-size: 9px;
 }
 .oh-dsh-review-comment-form button:disabled { cursor: default; opacity: 0.45; }
 .oh-dsh-review-comment-notice {
   margin: 0;
-  padding: 0 9px 9px;
+  padding: 0 var(--oh-dsh-space-2) var(--oh-dsh-space-2);
   color: var(--dsw-alias-label-secondary, #57606a);
   font-size: 9px;
 }
@@ -502,12 +475,12 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 
 .oh-dsh-workspace-chevron {
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: 13px;
+  font-size: var(--oh-dsh-font-lg);
 }
 
 .oh-dsh-new-branch {
   display: flex;
-  gap: 6px;
+  gap: var(--oh-dsh-space-1-5);
   padding: 3px 6px 5px 40px;
 }
 
@@ -516,7 +489,7 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   min-width: 0;
   box-sizing: border-box;
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: var(--dsw-alias-bg-layer-1, #fff);
   color: inherit;
   font: inherit;
@@ -524,21 +497,21 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 
 .oh-dsh-new-branch input {
   flex: 1;
-  height: 28px;
-  padding: 0 7px;
-  font-size: 11px;
+  height: var(--oh-dsh-control-md);
+  padding: 0 var(--oh-dsh-space-2);
+  font-size: var(--oh-dsh-font-sm);
 }
 
 .oh-dsh-new-branch button,
 .oh-dsh-commit-box button {
-  padding: 4px 9px;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
   color: inherit;
   cursor: pointer;
   font-family: inherit;
-  font-size: 11px;
+  font-size: var(--oh-dsh-font-sm);
   line-height: 1.2;
 }
 
@@ -548,7 +521,7 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-commit-toggle {
   width: 100%;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
   color: inherit;
   cursor: pointer;
@@ -561,7 +534,7 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-commit-box {
   display: grid;
   gap: 7px;
-  padding: 5px 6px 10px 40px;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1-5) var(--oh-dsh-space-2) 40px;
 }
 
 .oh-dsh-commit-box textarea {
@@ -569,23 +542,23 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   min-height: 64px;
   resize: vertical;
   padding: 7px;
-  font-size: 11px;
+  font-size: var(--oh-dsh-font-sm);
 }
 
-.oh-dsh-commit-box > div { display: flex; gap: 6px; }
-.oh-dsh-commit-box small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: 10px; }
+.oh-dsh-commit-box > div { display: flex; gap: var(--oh-dsh-space-1-5); }
+.oh-dsh-commit-box small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--oh-dsh-font-xs); }
 
 .oh-dsh-workspace-directory {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 3px 10px;
+  gap: var(--oh-dsh-space-1) var(--oh-dsh-space-3);
   min-height: 62px;
   padding: 9px 40px 9px 6px !important;
 }
 
-.oh-dsh-workspace-directory > span { font-size: 13px; }
+.oh-dsh-workspace-directory > span { font-size: var(--oh-dsh-font-lg); }
 .oh-dsh-workspace-directory > small {
   grid-column: 1;
   overflow: hidden;
@@ -599,7 +572,7 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-processes h3 {
   margin: 8px 6px 10px;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: 12px;
+  font-size: var(--oh-dsh-font-md);
   font-weight: 500;
 }
 
@@ -608,7 +581,7 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   grid-template-columns: 26px minmax(0, 1fr);
   align-items: center;
   min-height: 34px;
-  gap: 8px;
+  gap: var(--oh-dsh-space-2);
   padding: 0 6px;
 }
 
@@ -620,13 +593,13 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
   border: 1px solid currentColor;
   border-radius: 4px;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font: 10px/1 var(--ds-font-family-code, monospace);
+  font: var(--oh-dsh-font-xs)/1 var(--oh-dsh-font-mono);
 }
 
 .oh-dsh-process-row code {
   overflow: hidden;
   color: var(--dsw-alias-label-primary, #1f2328);
-  font: 11px/1.35 var(--ds-font-family-code, ui-monospace, monospace);
+  font: var(--oh-dsh-font-sm)/1.35 var(--oh-dsh-font-mono);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -635,19 +608,19 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-workspace-muted {
   padding: 18px 12px;
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: 11px;
+  font-size: var(--oh-dsh-font-sm);
   text-align: center;
 }
 
-.oh-dsh-workspace-empty { margin: auto; max-width: 220px; font-size: 12px; line-height: 1.5; }
+.oh-dsh-workspace-empty { margin: auto; max-width: 220px; font-size: var(--oh-dsh-font-md); line-height: 1.5; }
 
 .oh-dsh-workspace-error {
   margin: 4px 0 8px;
   padding: 8px 10px;
-  border-radius: 7px;
-  background: color-mix(in srgb, #cf222e 10%, transparent);
-  color: #cf222e;
-  font-size: 10px;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 10%, transparent);
+  color: var(--dsw-alias-state-error-primary, #cf222e);
+  font-size: var(--oh-dsh-font-xs);
   line-height: 1.45;
   overflow-wrap: anywhere;
 }
@@ -657,6 +630,6 @@ html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #oh-dsh-embedded-layout { transition: none; }
+  #oh-dsh-desktop-sidebar-root { transition: none; }
   .oh-dsh-workspace-panel { transition: none; }
 }

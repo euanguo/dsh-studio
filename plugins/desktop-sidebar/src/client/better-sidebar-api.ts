@@ -2,148 +2,65 @@ import type {
   WorkspaceChange,
   WorkspaceFilesResponse,
 } from '../protocol.ts'
+import {
+  callSidebarApi,
+  callSidebarGlobalApi,
+  type SidebarFsEntry,
+  type SidebarFsRead,
+  type SidebarFsTree,
+  type SidebarGitBranch,
+  type SidebarGitLogEntry,
+  type SidebarGitStat,
+  type SidebarGitStatus,
+  type SidebarGitStatusEntry,
+  type SidebarScope,
+  type SidebarSettingsView,
+} from '../../../shared/sidebar-api.ts'
 
-export interface BetterSidebarScope {
-  sessionId: string
-  cwd?: string
-}
-
-export interface BetterSidebarFsEntry {
-  hidden: boolean
-  isDir: boolean
-  name: string
-  path: string
-}
-
-export interface BetterSidebarFsTree {
-  entries: BetterSidebarFsEntry[]
-  path: string
-  truncated: boolean
-}
-
-export interface BetterSidebarGitStatusEntry {
-  path: string
-  xy: string
-}
-
-export interface BetterSidebarGitStatus {
-  isRepo: boolean
-  branch?: string
-  entries: BetterSidebarGitStatusEntry[]
-}
-
-export interface BetterSidebarGitBranch {
-  current: string
-  names: string[]
-}
-
-export interface BetterSidebarGitLogEntry {
-  hash: string
-  hashFull: string
-  subject: string
-  author: string
-  date: string
-  refs: string
-}
-
-export interface BetterSidebarSettingsView {
-  revision?: number
-  value?: unknown
-}
-
-export type BetterSidebarFsRead = {
-  kind: 'text'
-  content: string
-  truncated: boolean
-} | {
-  kind: 'binary'
-  head?: string
-  size: number
-  truncated: boolean
-}
-
-interface BetterSidebarEnvelope<T> {
-  error?: { code?: string; message?: string }
-  ok?: boolean
-  value?: T
-}
-
-function scopePayload(
-  scope: BetterSidebarScope,
-  extra: Record<string, unknown>,
-): Record<string, unknown> {
-  return {
-    sessionId: scope.sessionId,
-    ...(scope.cwd === undefined || scope.cwd === '' ? {} : { cwd: scope.cwd }),
-    ...extra,
-  }
-}
-
-async function call<T>(
-  method: string,
-  scope: BetterSidebarScope,
-  extra: Record<string, unknown>,
-  signal?: AbortSignal,
-): Promise<T> {
-  const response = await fetch(`/sidebar/api/${method}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(scopePayload(scope, extra)),
-    ...(signal === undefined ? {} : { signal }),
-  })
-  const envelope = await response.json() as BetterSidebarEnvelope<T>
-  if (!response.ok || envelope.ok !== true || envelope.value === undefined) {
-    throw new Error(envelope.error?.message ?? `HTTP ${String(response.status)}`)
-  }
-  return envelope.value
-}
-
-async function callGlobal<T>(
-  method: string,
-  extra: Record<string, unknown>,
-  signal?: AbortSignal,
-): Promise<T> {
-  const response = await fetch(`/sidebar/api/${method}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(extra),
-    ...(signal === undefined ? {} : { signal }),
-  })
-  const envelope = await response.json() as BetterSidebarEnvelope<T>
-  if (!response.ok || envelope.ok !== true || envelope.value === undefined) {
-    throw new Error(envelope.error?.message ?? `HTTP ${String(response.status)}`)
-  }
-  return envelope.value
-}
+/**
+ * The client face of the desktop sidebar API. All calls go to the desktop
+ * host's /oh-dsh-desktop/sidebar/api route (never the upstream /sidebar/api);
+ * the wire contract, DTOs, and call helpers are shared through
+ * @oh-dsh/shared so the two halves cannot drift.
+ */
+export type BetterSidebarScope = SidebarScope
+export type BetterSidebarFsEntry = SidebarFsEntry
+export type BetterSidebarFsTree = SidebarFsTree
+export type BetterSidebarGitStatusEntry = SidebarGitStatusEntry
+export type BetterSidebarGitStatus = SidebarGitStatus
+export type BetterSidebarGitBranch = SidebarGitBranch
+export type BetterSidebarGitLogEntry = SidebarGitLogEntry
+export type BetterSidebarSettingsView = SidebarSettingsView
+export type BetterSidebarFsRead = SidebarFsRead
 
 export const betterSidebarApi = {
   fsRead: (
     scope: BetterSidebarScope,
     path: string,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarFsRead> => call('fs.read', scope, { path }, signal),
+  ): Promise<BetterSidebarFsRead> => callSidebarApi('fs.read', scope, { path }, signal),
   fsTree: (
     scope: BetterSidebarScope,
     path: string,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarFsTree> => call('fs.tree', scope, { path }, signal),
+  ): Promise<BetterSidebarFsTree> => callSidebarApi('fs.tree', scope, { path }, signal),
   gitBranch: (
     scope: BetterSidebarScope,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarGitBranch> => call('git.branch', scope, {}, signal),
+  ): Promise<BetterSidebarGitBranch> => callSidebarApi('git.branch', scope, {}, signal),
   gitCheckout: (
     scope: BetterSidebarScope,
     branch: string,
-  ): Promise<{ ok: true }> => call('git.checkout', scope, { branch }),
+  ): Promise<{ ok: true }> => callSidebarApi('git.checkout', scope, { branch }),
   gitCommit: (
     scope: BetterSidebarScope,
     message: string,
-  ): Promise<{ ok: true }> => call('git.commit', scope, { message }),
+  ): Promise<{ ok: true }> => callSidebarApi('git.commit', scope, { message }),
   gitCommitDiff: (
     scope: BetterSidebarScope,
     hash: string,
     signal?: AbortSignal,
-  ): Promise<{ diff: string }> => call(
+  ): Promise<{ diff: string }> => callSidebarApi(
     'git.commit-diff',
     scope,
     { hash },
@@ -154,7 +71,7 @@ export const betterSidebarApi = {
     path: string | undefined,
     staged: boolean,
     signal?: AbortSignal,
-  ): Promise<{ diff: string }> => call('git.diff', scope, {
+  ): Promise<{ diff: string }> => callSidebarApi('git.diff', scope, {
     ...(path === undefined ? {} : { path }),
     staged,
   }, signal),
@@ -163,23 +80,35 @@ export const betterSidebarApi = {
     count = 30,
     skip = 0,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarGitLogEntry[]> => call('git.log', scope, {
+  ): Promise<BetterSidebarGitLogEntry[]> => callSidebarApi('git.log', scope, {
     count,
     skip,
   }, signal),
   gitStage: (
     scope: BetterSidebarScope,
     path?: string,
-  ): Promise<{ ok: true }> => call('git.stage', scope, {
+  ): Promise<{ ok: true }> => callSidebarApi('git.stage', scope, {
+    ...(path === undefined ? {} : { path }),
+  }),
+  gitUnstage: (
+    scope: BetterSidebarScope,
+    path?: string,
+  ): Promise<{ ok: true }> => callSidebarApi('git.unstage', scope, {
+    ...(path === undefined ? {} : { path }),
+  }),
+  gitDiscard: (
+    scope: BetterSidebarScope,
+    path?: string,
+  ): Promise<{ ok: true }> => callSidebarApi('git.discard', scope, {
     ...(path === undefined ? {} : { path }),
   }),
   gitStatus: (
     scope: BetterSidebarScope,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarGitStatus> => call('git.status', scope, {}, signal),
+  ): Promise<BetterSidebarGitStatus> => callSidebarApi('git.status', scope, {}, signal),
   settingsGet: (
     signal?: AbortSignal,
-  ): Promise<BetterSidebarSettingsView> => callGlobal(
+  ): Promise<BetterSidebarSettingsView> => callSidebarGlobalApi(
     'settings.get',
     {},
     signal,
@@ -187,7 +116,7 @@ export const betterSidebarApi = {
   settingsUpdate: (
     patch: Record<string, unknown>,
     expectedRevision?: number,
-  ): Promise<BetterSidebarSettingsView> => callGlobal('settings.update', {
+  ): Promise<BetterSidebarSettingsView> => callSidebarGlobalApi('settings.update', {
     patch,
     ...(expectedRevision === undefined ? {} : { expectedRevision }),
   }),
@@ -207,13 +136,22 @@ function statusFromCode(code: string): WorkspaceChange['status'] {
 
 export function workspaceChangesFromBetterSidebar(
   entries: readonly BetterSidebarGitStatusEntry[],
+  stats?: readonly SidebarGitStat[],
 ): WorkspaceChange[] {
-  return entries.map(entry => ({
-    path: entry.path,
-    oldPath: null,
-    status: statusFromCode(entry.xy),
-    staged: entry.xy[0] !== ' ' && entry.xy[0] !== '?',
-  })).sort((left, right) => left.path.localeCompare(right.path))
+  const statsByPath = new Map(
+    (stats ?? []).map(stat => [stat.path, stat] as const),
+  )
+  return entries.map(entry => {
+    const stat = statsByPath.get(entry.path)
+    return {
+      path: entry.path,
+      oldPath: null,
+      status: statusFromCode(entry.xy),
+      staged: entry.xy[0] !== ' ' && entry.xy[0] !== '?',
+      additions: stat?.additions ?? 0,
+      deletions: stat?.deletions ?? 0,
+    }
+  }).sort((left, right) => left.path.localeCompare(right.path))
 }
 
 function normalizedPath(path: string): string {

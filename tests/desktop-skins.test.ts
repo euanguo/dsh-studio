@@ -109,7 +109,7 @@ class FakeSkinDom implements SkinDomPort {
 }
 
 test('desktop skins are namespaced and keep every app surface on one opaque base', () => {
-  assert.equal(DESKTOP_SKINS.length, 4)
+  assert.equal(DESKTOP_SKINS.length, 6)
   assert.equal(new Set(DESKTOP_SKINS.map(skin => skin.id)).size, DESKTOP_SKINS.length)
   for (const skin of DESKTOP_SKINS) {
     assert.match(skin.id, /^oh-dsh-skin-/)

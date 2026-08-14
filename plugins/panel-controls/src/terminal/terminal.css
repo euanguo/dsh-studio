@@ -5,7 +5,10 @@
   flex-direction: column;
   min-width: 0;
   box-sizing: border-box;
-  border-top: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 10%));
+  /* The top separator is an inset shadow so it never adds height: the bar
+     (and its buttons) stay exactly centered between the dock's visible
+     edges. */
+  box-shadow: inset 0 1px 0 var(--dsw-alias-border-l2, rgb(0 0 0 / 10%));
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
   color: var(--dsw-alias-label-primary, #1f2328);
   -webkit-app-region: no-drag;
@@ -16,19 +19,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--oh-dsh-space-2);
   height: 34px;
-  padding: 0 8px;
+  padding: 0 var(--oh-dsh-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 7%));
   background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base, #fff));
-  font-size: 11px;
+  font-size: var(--oh-dsh-font-sm);
 }
 
 .oh-dsh-terminal-tabs {
   display: flex;
   align-items: center;
-  gap: 3px;
+  gap: var(--oh-dsh-space-1);
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -37,12 +40,12 @@
 .oh-dsh-terminal-tab {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--oh-dsh-space-1);
   max-width: 180px;
-  height: 24px;
-  padding: 0 6px;
+  height: var(--oh-dsh-control-sm);
+  padding: 0 var(--oh-dsh-space-1-5);
   box-sizing: border-box;
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   color: var(--dsw-alias-label-secondary, #57606a);
   cursor: default;
   user-select: none;
@@ -66,9 +69,9 @@
   background: var(--dsw-alias-label-dimmed, #8c959f);
 }
 
-.oh-dsh-terminal-status.is-ready { background: #2da44e; }
-.oh-dsh-terminal-status.is-error { background: #cf222e; }
-.oh-dsh-terminal-status.is-exited { background: #8c959f; }
+.oh-dsh-terminal-status.is-ready { background: var(--dsw-alias-state-success-primary, #2da44e); }
+.oh-dsh-terminal-status.is-error { background: var(--dsw-alias-state-error-primary, #cf222e); }
+.oh-dsh-terminal-status.is-exited { background: var(--dsw-alias-label-dimmed, #8c959f); }
 
 .oh-dsh-terminal-tab-label {
   min-width: 0;
@@ -107,17 +110,19 @@
 
 .oh-dsh-terminal-add {
   flex: none;
-  width: 22px;
-  height: 22px;
+  display: grid;
+  place-items: center;
+  width: var(--oh-dsh-control-sm);
+  height: var(--oh-dsh-control-sm);
   padding: 0;
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: 15px;
+  font-size: var(--oh-dsh-font-2xl);
 }
 
 .oh-dsh-terminal-hint {
-  padding-left: 2px;
+  padding-left: var(--oh-dsh-space-0);
   color: var(--dsw-alias-label-dimmed, #8c959f);
   user-select: none;
 }
@@ -129,16 +134,18 @@
   align-items: center;
 }
 
-.oh-dsh-terminal-actions { gap: 2px; }
+.oh-dsh-terminal-actions { gap: var(--oh-dsh-space-0); }
 
 .oh-dsh-terminal-action {
+  display: grid;
+  place-items: center;
   width: 27px;
-  height: 24px;
+  height: var(--oh-dsh-control-sm);
   padding: 0;
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: 11px;
+  font-size: var(--oh-dsh-font-sm);
 }
 
 .oh-dsh-terminal-settings {
@@ -147,15 +154,15 @@
   top: 46px;
   right: 8px;
   display: grid;
-  gap: 12px;
+  gap: var(--oh-dsh-space-3);
   width: min(360px, calc(100% - 16px));
-  padding: 14px;
+  padding: var(--oh-dsh-space-4);
   box-sizing: border-box;
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 12%));
-  border-radius: 9px;
+  border-radius: var(--oh-dsh-radius-md);
   background: var(--dsw-alias-bg-layer-2, #fff);
   box-shadow: 0 10px 28px rgb(0 0 0 / 16%);
-  font-size: 12px;
+  font-size: var(--oh-dsh-font-md);
 }
 
 .oh-dsh-terminal-dock[data-collapsed] .oh-dsh-terminal-settings {
@@ -166,11 +173,11 @@
 .oh-dsh-terminal-settings-header,
 .oh-dsh-terminal-settings-footer {
   justify-content: space-between;
-  gap: 10px;
+  gap: var(--oh-dsh-space-3);
 }
 
 .oh-dsh-terminal-settings-header button {
-  padding: 2px 5px;
+  padding: var(--oh-dsh-space-0) 5px;
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
   font-size: 16px;
@@ -180,17 +187,17 @@
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr);
   align-items: center;
-  gap: 10px;
+  gap: var(--oh-dsh-space-3);
   color: var(--dsw-alias-label-secondary, #57606a);
 }
 
 .oh-dsh-terminal-settings input {
   min-width: 0;
-  height: 28px;
-  padding: 0 8px;
+  height: var(--oh-dsh-control-md);
+  padding: 0 var(--oh-dsh-space-2);
   box-sizing: border-box;
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 14%));
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: var(--dsw-alias-bg-layer-1, #fff);
   color: var(--dsw-alias-label-primary, #1f2328);
   font: inherit;
@@ -202,19 +209,26 @@
 
 .oh-dsh-terminal-settings-footer button,
 .oh-dsh-terminal-empty button {
-  padding: 4px 9px;
+  padding: var(--oh-dsh-space-1) 9px;
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: 6px;
+  border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
+/* The resize handle floats over the dock's top edge (center strip only, so
+   it never intercepts the tab/action buttons): it does NOT occupy layout
+   space, which keeps the bar's buttons vertically centered between the
+   dock's visible edges in both expanded and collapsed states. */
 .oh-dsh-terminal-resize {
-  position: relative;
-  z-index: 1;
-  flex: none;
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;
   height: 8px;
-  background: var(--dsw-alias-bg-layer-1, #fff);
+  background: transparent;
   cursor: ns-resize;
   touch-action: none;
 }
@@ -223,12 +237,12 @@
   position: absolute;
   top: 2px;
   left: 50%;
-  width: 32px;
-  height: 3px;
-  border-radius: 99px;
-  background: var(--dsw-alias-label-dimmed, #8c959f);
+  width: 44px;
+  height: 4px;
+  border-radius: var(--oh-dsh-radius-pill);
+  background: var(--dsw-alias-label-secondary, #57606a);
   content: '';
-  opacity: 0.5;
+  opacity: 0.7;
   transform: translateX(-50%);
 }
 
@@ -267,7 +281,7 @@
 .oh-dsh-terminal-surface { flex-direction: column; }
 
 .oh-dsh-terminal-view {
-  padding: 9px 12px;
+  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-3);
   box-sizing: border-box;
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
 }
@@ -286,9 +300,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: var(--oh-dsh-space-3);
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: 12px;
+  font-size: var(--oh-dsh-font-md);
 }
 
 @media (prefers-reduced-motion: reduce) {

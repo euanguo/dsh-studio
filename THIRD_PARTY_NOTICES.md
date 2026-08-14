@@ -5,8 +5,9 @@ below informed independently implemented bundled plugins.
 
 Upstream UI, themes, and component styling are not bundled. Oh-DSH adapts
 compatible features to its own persistence, layout, localization, and theme
-contracts. The Better Sidebar Host source is tracked separately as a pinned
-submodule. Upstream releases and features are reviewed regularly.
+contracts. The Better Sidebar Host source is compiled from a local clone of
+the upstream repository kept next to this project (`../DSH-better-sidebar`).
+Upstream releases and features are reviewed regularly.
 
 ## dsh-web-panel
 
@@ -21,17 +22,26 @@ separate Web Terminal or shell plugin is required.
 ## DSH-better-sidebar
 
 - Project: <https://github.com/omdsh-dev/DSH-better-sidebar>
-- Pinned release: `v0.9.0`
-- Pinned revision: `2e9db44a71bb75c9fa1185330541dce2582deee3`
+- Local clone: `../DSH-better-sidebar` (main, `v0.10.2`, revision
+  `3d88752eb184d7d8b535d66a296fade474dd053f`)
 - Declared license: MIT
 - Oh-DSH components: `@oh-dsh/better-sidebar-runtime` and
   `@oh-dsh/desktop-sidebar`
 
-Oh-DSH compiles the pinned upstream Host for PTY, bounded Files, Git status,
-branch operations, history, and commit diffs. It does not load the upstream
-client UI. The Oh-DSH sidebar adapts those capabilities into its own tabs,
-viewers, Git Review, line comments, themes, and bilingual desktop layout. We
-thank the maintainers and review upstream features regularly.
+Oh-DSH compiles the upstream Host from that clone for PTY, bounded Files, Git
+status, branch operations, history, and commit diffs. It does not load the
+upstream client UI. The Oh-DSH sidebar adapts those capabilities into its own
+tabs, viewers, Git Review, line comments, themes, and bilingual desktop
+layout. We thank the maintainers and review upstream features regularly.
+
+### Local extensions on the upstream clone
+
+With the maintainer's consent, Oh-DSH extends the local clone directly when a
+capability belongs upstream rather than in a wrapper:
+
+- `src/git.ts` — `numstat()` / `parseNumstatZ()`: per-path `git diff
+  --numstat -z` parsing for the +N/−M file stats shown by the source-control
+  panel (added on top of revision `3d88752`).
 
 ## plugin-registry and dsh-hub
 

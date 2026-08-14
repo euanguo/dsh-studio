@@ -488,7 +488,7 @@ for (const required of [
 
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
-run('pnpm', [
+run('corepack', ['pnpm',
   '--ignore-scripts',
   '--filter', '@deepseek-ai/dsh',
   'deploy', '--prod', '--legacy', runtime,

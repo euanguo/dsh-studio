@@ -1,0 +1,88 @@
+/*
+ * Oh-DSH 共享设计 token 层（@oh-dsh/shared）
+ *
+ * 职责：为所有 @oh-dsh/* 桌面插件提供统一的「控件语言」——间距、圆角、
+ * 控件尺寸、字号，以及少量 DSW 没有语义别名的音调桥（tone bridge）。
+ *
+ * 原则：
+ * - 颜色一律使用 DSH 官方 token（--dsw-static-* / --dsw-alias-*），随
+ *   body[data-ds-dark-theme] 与桌面皮肤（body[data-oh-dsh-skin]）自适应；
+ *   本文件不定义颜色，只定义 DSW 缺失的桥接 token。
+ * - 间距采用 4px 网格 + 2px 半步（对齐 DSH 组件惯例：Button gap 4 /
+ *   padding 14、Modal radius 16 等），避免各插件各自为政的 3/5/7/9px。
+ * - 控件尺寸镜像 DSH Button 的 28px（small）/ 36px（default）。
+ *
+ * 注入方式：每个注入样式表的插件（desktop-sidebar / panel-controls /
+ * plugin-marketplace / pinned-summary）在自身 CSS 前拼接本文件；重复
+ * 定义同一组 :root 变量是幂等的。
+ */
+
+:root {
+  /* 间距（4px 网格 + 2px 半步） */
+  --oh-dsh-space-0: 2px;
+  --oh-dsh-space-1: 4px;
+  --oh-dsh-space-1-5: 6px;
+  --oh-dsh-space-2: 8px;
+  --oh-dsh-space-3: 12px;
+  --oh-dsh-space-4: 16px;
+  --oh-dsh-space-5: 20px;
+  --oh-dsh-space-6: 24px;
+
+  /* 圆角：紧凑控件 6-10px，弹层/卡片 14-16px */
+  --oh-dsh-radius-sm: 6px;
+  --oh-dsh-radius-md: 8px;
+  --oh-dsh-radius-lg: 10px;
+  --oh-dsh-radius-xl: 14px;
+  --oh-dsh-radius-pill: 999px;
+
+  /* 控件高度：镜像 DSH Button 28px（small）/ 36px（default） */
+  --oh-dsh-control-sm: 24px;
+  --oh-dsh-control-md: 28px;
+  --oh-dsh-control-lg: 36px;
+
+  /* 列表行高基准（偶数：避免行内图标/徽章落在半像素上；镜像 DSH 紧凑行）
+     与树缩进步长（6px/级，紧凑） */
+  --oh-dsh-size-row: 28px;
+  --oh-dsh-tree-indent: 6px;
+
+  /* diff 语义色桥：从 DSW 官方状态色派生，暗色主题自动跟随
+     （DSW 没有 diff 语义别名，这里只做桥接，不定义新色板） */
+  --oh-dsh-diff-add-bg: color-mix(in srgb, var(--dsw-alias-state-success-primary, #2da44e) 14%, transparent);
+  --oh-dsh-diff-add-fg: var(--dsw-alias-state-success-primary, #2da44e);
+  --oh-dsh-diff-del-bg: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 14%, transparent);
+  --oh-dsh-diff-del-fg: var(--dsw-alias-state-error-primary, #cf222e);
+  --oh-dsh-diff-hunk-bg: color-mix(in srgb, var(--oh-dsh-accent, #0969da) 8%, transparent);
+  --oh-dsh-diff-muted: var(--dsw-alias-label-tertiary, #8c959f);
+
+  /* 悬浮层（详情 overlay）表面 */
+  --oh-dsh-overlay-bg: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 97%, transparent);
+  --oh-dsh-overlay-border: var(--dsw-alias-border-l1, rgb(0 0 0 / 9%));
+  --oh-dsh-overlay-shadow: 0 14px 42px rgb(0 0 0 / 16%);
+  --oh-dsh-overlay-blur: 6px;
+
+  /* 字号 */
+  --oh-dsh-font-xs: 10px;
+  --oh-dsh-font-sm: 11px;
+  --oh-dsh-font-md: 12px;
+  --oh-dsh-font-lg: 13px;
+  --oh-dsh-font-xl: 14px;
+  --oh-dsh-font-2xl: 15px;
+
+  /* 等宽字体栈：跟随 DSH 的 --ds-font-family-code */
+  --oh-dsh-font-mono: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace);
+
+  /* 强调色桥：DSW 主蓝别名。旧代码误用的 --dsw-alias-accent /
+     --dsw-alias-interactive-primary 在 DSH token 目录中不存在，
+     统一收口到这里。 */
+  --oh-dsh-accent: var(--dsw-alias-brand-primary-new-colorprimary-new-color, #0969da);
+
+  /* 音调桥：DSW 调色板没有紫色语义别名（marketplace 的 protected 徽标），
+     在共享层定义亮色默认值并跟随 DSH 暗色主题，皮肤层亦可覆盖。 */
+  --oh-dsh-tone-protected-bg: #f1eaff;
+  --oh-dsh-tone-protected-fg: #6741a5;
+}
+
+body[data-ds-dark-theme] {
+  --oh-dsh-tone-protected-bg: #2c2340;
+  --oh-dsh-tone-protected-fg: #c4a6f5;
+}

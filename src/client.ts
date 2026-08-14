@@ -31,7 +31,14 @@ declare global {
   }
 }
 
-const DESKTOP_TITLEBAR_HEIGHT = 40
+/**
+ * Height of the window's top drag strip. 0: there is no strip — the DSH
+ * conversation header is the drag region (see the CSS below), so no white
+ * bar remains above the content. `--oh-dsh-titlebar-height` is kept as a 0px
+ * token so plugins that reference it (marketplace surface, pinned summary,
+ * panel toolbar) follow the removal automatically.
+ */
+const DESKTOP_TITLEBAR_HEIGHT = 0
 
 const DESKTOP_CHROME_CSS = `
 html[data-oh-dsh-desktop='true'] {
@@ -40,20 +47,49 @@ html[data-oh-dsh-desktop='true'] {
 
 html[data-oh-dsh-desktop='true'] body {
   box-sizing: border-box;
-  padding-top: var(--oh-dsh-titlebar-height);
 }
 
-html[data-oh-dsh-desktop='true'] body::before {
+/* No top drag strip: the DSH conversation header is the drag region. It
+   stays pinned at the top of the center column (it lives outside the
+   scrollable conversation body), so the window can always be dragged by it.
+   The header's interactive controls are re-enabled below. */
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header button,
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header a,
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header input,
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header select,
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header textarea,
+html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='button'] {
+  -webkit-app-region: no-drag;
+  user-select: auto;
+}
+
+/* Fallback: if no usable conversation header exists (empty state, other
+   views, or a session with no messages yet — DSH hides the header via the
+   headerHidden class and unloads its content), an invisible 28px strip keeps
+   the window draggable. Invisible on purpose — the visible white bar is
+   gone for good. A non-empty header (the normal session view) disables it. */
+html[data-oh-dsh-desktop='true'] body:not(:has([data-slot='conversation'] header:not(:empty)))::before {
   content: '';
   position: fixed;
   z-index: 2147483647;
   top: 0;
   right: 0;
   left: 0;
-  height: var(--oh-dsh-titlebar-height);
-  background: var(--dsw-alias-bg-base);
+  height: 28px;
   -webkit-app-region: drag;
-  user-select: none;
+}
+
+/* The macOS traffic lights live in the window's top-left corner (~28px);
+   keep them clear of the sidebar rail's top button row. The strip itself is
+   not draggable (the header is), which is fine — the traffic lights sit
+   there anyway. */
+html[data-oh-dsh-desktop='true'] [data-slot='sidebar'] > div {
+  padding-top: 28px;
 }
 
 html[data-oh-dsh-preview='true'] body::after {
@@ -96,13 +132,7 @@ html[data-oh-dsh-desktop='true'] #root [role='presentation']:has(
 
 html[data-oh-dsh-desktop='true']:has(
   #root [role='presentation'] > [role='dialog']
-) body::before,
-html[data-oh-dsh-desktop='true']:has(
-  #root [role='presentation'] > [role='dialog']
-) body::after,
-html[data-oh-dsh-desktop='true']:has(
-  #root [role='presentation'] > [role='dialog']
-) .oh-dsh-panel-toolbar {
+) body::after {
   z-index: 2147483646;
 }
 

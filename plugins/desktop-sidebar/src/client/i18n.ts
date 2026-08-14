@@ -37,8 +37,16 @@ export type WorkspaceMessage =
   | 'files.viewer.html'
   | 'files.viewer.markdown'
   | 'files.viewer.text'
+  | 'files.refresh'
+  | 'files.modes'
+  | 'files.mode.flat'
+  | 'files.mode.nested'
+  | 'files.mode.tree'
   | 'side.back'
   | 'side.close'
+  | 'side.git'
+  | 'side.add-tool'
+  | 'side.no-more-tools'
   | 'side.close-tab'
   | 'side.close-named-tab'
   | 'side.not-ready'
@@ -108,6 +116,37 @@ export type WorkspaceMessage =
   | 'workspace.pending-comments'
   | 'workspace.remove-comment'
   | 'workspace.diff-truncated'
+  | 'source-control.section.conflict'
+  | 'source-control.section.staged'
+  | 'source-control.section.unstaged'
+  | 'source-control.mode.flat'
+  | 'source-control.mode.tree'
+  | 'source-control.section.untracked'
+  | 'source-control.status.added'
+  | 'source-control.status.modified'
+  | 'source-control.status.deleted'
+  | 'source-control.status.renamed'
+  | 'source-control.status.copied'
+  | 'source-control.status.untracked'
+  | 'source-control.status.conflicted'
+  | 'source-control.stage'
+  | 'source-control.unstage'
+  | 'source-control.discard'
+  | 'source-control.stage-all'
+  | 'source-control.unstage-all'
+  | 'source-control.discard-all'
+  | 'source-control.copy-path'
+  | 'source-control.discard-confirm'
+  | 'source-control.op-pending'
+  | 'overlay.close'
+  | 'overlay.show-diff'
+  | 'overlay.show-file'
+  | 'overlay.open-in-editor'
+  | 'overlay.loading'
+  | 'overlay.no-content'
+  | 'diff.layout.unified'
+  | 'diff.layout.split'
+  | 'diff.wrap'
 
 export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
   en: {
@@ -147,8 +186,16 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.viewer.html': 'HTML preview',
     'files.viewer.markdown': 'Markdown preview',
     'files.viewer.text': 'Text preview',
+    'files.refresh': 'Refresh',
+    'files.modes': 'Display mode',
+    'files.mode.flat': 'Flat list',
+    'files.mode.nested': 'Nested list',
+    'files.mode.tree': 'Tree',
     'side.back': 'Back to side panel',
     'side.close': 'Close side panel',
+    'side.git': 'Git',
+    'side.add-tool': 'Add tool',
+    'side.no-more-tools': 'No more tools to add',
     'side.close-tab': 'Close active tab',
     'side.close-named-tab': 'Close {title}',
     'side.not-ready': 'The side panel is still starting.',
@@ -218,6 +265,37 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.pending-comments': 'Pending review comments',
     'workspace.remove-comment': 'Remove review comment',
     'workspace.diff-truncated': '{count} more lines are hidden',
+    'source-control.section.conflict': 'Conflicts',
+    'source-control.section.staged': 'Staged',
+    'source-control.section.unstaged': 'Unstaged',
+    'source-control.mode.flat': 'Flat list',
+    'source-control.mode.tree': 'Tree',
+    'source-control.section.untracked': 'Untracked',
+    'source-control.status.added': 'Added',
+    'source-control.status.modified': 'Modified',
+    'source-control.status.deleted': 'Deleted',
+    'source-control.status.renamed': 'Renamed',
+    'source-control.status.copied': 'Copied',
+    'source-control.status.untracked': 'Untracked',
+    'source-control.status.conflicted': 'Conflicted',
+    'source-control.stage': 'Stage',
+    'source-control.unstage': 'Unstage',
+    'source-control.discard': 'Discard changes',
+    'source-control.stage-all': 'Stage all',
+    'source-control.unstage-all': 'Unstage all',
+    'source-control.discard-all': 'Discard all',
+    'source-control.copy-path': 'Copy path',
+    'source-control.discard-confirm': 'Discard changes in "{paths}"? This cannot be undone.',
+    'source-control.op-pending': 'Operation in progress…',
+    'overlay.close': 'Close',
+    'overlay.show-diff': 'Show diff',
+    'overlay.show-file': 'Show file',
+    'overlay.open-in-editor': 'Open in editor',
+    'overlay.loading': 'Loading…',
+    'overlay.no-content': 'No preview available.',
+    'diff.layout.unified': 'Unified view',
+    'diff.layout.split': 'Side-by-side view',
+    'diff.wrap': 'Wrap long lines',
   },
   zh: {
     'panels.label': '桌面面板',
@@ -256,8 +334,16 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.viewer.html': 'HTML 预览',
     'files.viewer.markdown': 'Markdown 预览',
     'files.viewer.text': '文本预览',
+    'files.refresh': '刷新',
+    'files.modes': '显示模式',
+    'files.mode.flat': '平铺列表',
+    'files.mode.nested': '递进列表',
+    'files.mode.tree': '树形',
     'side.back': '返回侧边栏',
     'side.close': '关闭侧边栏',
+    'side.git': 'Git',
+    'side.add-tool': '添加工具',
+    'side.no-more-tools': '没有更多可添加的工具',
     'side.close-tab': '关闭当前标签页',
     'side.close-named-tab': '关闭 {title}',
     'side.not-ready': '侧边栏仍在启动。',
@@ -327,5 +413,36 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.pending-comments': '待发送的审查评论',
     'workspace.remove-comment': '移除审查评论',
     'workspace.diff-truncated': '另有 {count} 行已隐藏',
+    'source-control.section.conflict': '冲突',
+    'source-control.section.staged': '已暂存',
+    'source-control.section.unstaged': '未暂存',
+    'source-control.mode.flat': '平铺列表',
+    'source-control.mode.tree': '树形',
+    'source-control.section.untracked': '未跟踪',
+    'source-control.status.added': '新增',
+    'source-control.status.modified': '已修改',
+    'source-control.status.deleted': '已删除',
+    'source-control.status.renamed': '已重命名',
+    'source-control.status.copied': '已复制',
+    'source-control.status.untracked': '未跟踪',
+    'source-control.status.conflicted': '冲突',
+    'source-control.stage': '暂存',
+    'source-control.unstage': '取消暂存',
+    'source-control.discard': '丢弃更改',
+    'source-control.stage-all': '全部暂存',
+    'source-control.unstage-all': '全部取消暂存',
+    'source-control.discard-all': '全部丢弃',
+    'source-control.copy-path': '复制路径',
+    'source-control.discard-confirm': '确定丢弃 "{paths}" 中的更改？此操作无法撤销。',
+    'source-control.op-pending': '操作进行中…',
+    'overlay.close': '关闭',
+    'overlay.show-diff': '查看差异',
+    'overlay.show-file': '查看文件',
+    'overlay.open-in-editor': '在编辑器中打开',
+    'overlay.loading': '加载中…',
+    'overlay.no-content': '没有可预览的内容。',
+    'diff.layout.unified': '统一视图',
+    'diff.layout.split': '分栏视图',
+    'diff.wrap': '自动换行',
   },
 }

@@ -1,5 +1,5 @@
 export { apply, inject } from './client/plugin.tsx'
-export type { WorkspaceTools } from './client/plugin.tsx'
+export type { WorkspaceTools } from './client/client-types.ts'
 export { DesktopSidebarService } from './client/sidebar-service.ts'
 export type {
   DesktopSidebar,

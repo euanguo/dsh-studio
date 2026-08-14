@@ -2,7 +2,9 @@ node_modules/
 dist/
 .stage/
 .cache/
+.pnpm-store/
 release/
 tmp/
 *.log
 .DS_Store
+.workflow/

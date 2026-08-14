@@ -33,6 +33,9 @@ export interface WorkspaceChange {
   oldPath: string | null
   status: WorkspaceChangeStatus
   staged: boolean
+  /** Per-file `git diff --numstat` counts (0 when unavailable/binary). */
+  additions: number
+  deletions: number
 }
 
 export interface WorkspaceFacts {

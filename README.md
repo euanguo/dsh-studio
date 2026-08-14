@@ -44,7 +44,7 @@ Loader、locale、settings 和 ThemeService 契约。
 - Review 评论可汇总进消息输入框，直接交给 Agent 处理。
 - Pinned Summary、可展开 Side Panel 与原生窗口控制。
 - 支持隔离预览、放弃、应用和恢复的插件市场。
-- 中英文实时切换，以及四套 Oh-DSH 自有桌面皮肤。
+- 中英文实时切换，以及六套 Oh-DSH 自有桌面皮肤。
 - 人类 UI 与 Agent 共用同一套插件安装事务和审批边界。
 
 ## 界面预览
@@ -81,15 +81,15 @@ Developer ID 和 notarization，首次启动时可在 Finder 中右键应用并�
 Line Tools。
 
 ```sh
-git submodule update --init --recursive
+git clone https://github.com/omdsh-dev/DSH-better-sidebar.git ../DSH-better-sidebar
 pnpm install
 pnpm run build:dsh
 pnpm start
 ```
 
-Better Sidebar Host 以固定 Git submodule 跟踪，并通过公开 HTTPS 仓库获取；
-初始化该 submodule 不需要 SSH 或 GitHub CLI 认证。固定的 DSH 源码单独获取，
-也可以通过下述 `DSH_SOURCE` 指向已有 checkout。
+Better Sidebar Host 直接使用项目同级目录的本地克隆（`../DSH-better-sidebar`），
+构建时编译其 `src/index.ts`；克隆默认取 `main`（v0.10.2）。固定的 DSH 源码
+单独获取，也可以通过下述 `DSH_SOURCE` 指向已有 checkout。
 
 发行构建固定使用 DSH `0.0.1-rc.2`：
 
@@ -160,7 +160,7 @@ Profile 和 Loader 管理。
 | Plugin | 来源关系 | Oh-DSH 改造 |
 | --- | --- | --- |
 | `@oh-dsh/desktop` | Oh-DSH 自研 | 统一桌面入口、Electron bridge、原生菜单、窗口、Agent 能力与内置 plugin 注册顺序 |
-| `@oh-dsh/better-sidebar-runtime` | 固定跟踪 [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) submodule | 仅编译上游 Host，提供 PTY、Files、Git、history 和 commit diff；不加载上游 UI |
+| `@oh-dsh/better-sidebar-runtime` | 编译同级目录本地克隆 [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar)（`../DSH-better-sidebar`，v0.10.2） | 仅编译上游 Host，提供 PTY、Files、Git、history 和 commit diff；不加载上游 UI |
 | `@oh-dsh/panel-controls` | 基于 [`dsh-web-panel`](https://github.com/dsh-external/dsh-web-panel) 的下游改造 | 保留 Oh-DSH Terminal dock、主题、双语和 Session 状态，复用统一 PTY Host；不再安装独立 Web Terminal |
 | `@oh-dsh/pinned-summary` | Oh-DSH 自研 | 当前 Session 摘要、半高卡片和正文 gutter 管理 |
 | `@oh-dsh/desktop-sidebar` | [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) 的 Oh-DSH UI 下游 | 复用统一 Host，提供 Session tabs、viewer、Files、Git Review、逐行评论和 Agent composer 引用，保留现有布局、图标与主题 |

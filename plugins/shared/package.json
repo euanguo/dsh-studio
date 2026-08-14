@@ -7,5 +7,9 @@
   "devDependencies": {
     "@types/react": "~18.3.1",
     "react": "^18.2.0"
+  },
+  "dependencies": {
+    "@react-symbols/icons": "^1.4.1",
+    "@tabler/icons-react": "^3.46.0"
   }
 }

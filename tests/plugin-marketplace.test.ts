@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, win32 } from 'node:path'
 import { test } from 'node:test'
@@ -236,9 +236,14 @@ test('GitHub CLI discovery follows Windows PATH syntax and executable names', ()
   try {
     const binary = join(root, 'gh.exe')
     writeFileSync(binary, '')
-    assert.equal(findGitHubCli({
+    chmodSync(binary, 0o755)
+    const discovered = findGitHubCli({
       Path: `${root};C:\\Program Files\\GitHub CLI`,
-    }, 'win32'), win32.join(root, 'gh.exe'))
+    }, 'win32')
+    // win32.join(root, ...) is the real fixture path on Windows hosts; on
+    // POSIX hosts backslashes are literal filename characters, so the win32
+    // candidate cannot exist on disk and discovery legitimately returns null.
+    assert.equal(discovered, process.platform === 'win32' ? win32.join(root, 'gh.exe') : null)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -311,7 +316,7 @@ test('Agent gateway authenticates and defers runtime-restarting applies', async 
   }
 })
 
-test('marketplace navigation reserves room for Settings in short windows', () => {
+test('marketplace navigation leaves the Settings button untouched', () => {
   const client = readFileSync(new URL(
     '../plugins/plugin-marketplace/src/client/plugin.tsx',
     import.meta.url,
@@ -324,12 +329,16 @@ test('marketplace navigation reserves room for Settings in short windows', () =>
     '../plugins/plugin-marketplace/src/client/i18n.ts',
     import.meta.url,
   ), 'utf8')
-  assert.match(client, /window\.innerHeight - top/)
-  assert.match(client, /SIDEBAR_BOTTOM_INSET = 8/)
-  assert.match(client, /--oh-marketplace-sidebar-height/)
-  assert.match(css, /height: var\(--oh-marketplace-sidebar-height, 100%\) !important/)
-  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*gap: 8px;/)
-  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*padding: 6px 2px 6px 10px;/)
+  // The old sidebar squeeze (--oh-marketplace-sidebar-height on the settings
+  // area) collapsed the foot of the DSH 0.1.x rail to 0px and pushed the
+  // Settings button out of the viewport — it must not come back.
+  assert.doesNotMatch(client, /--oh-marketplace-sidebar-height/)
+  assert.doesNotMatch(client, /SIDEBAR_BOTTOM_INSET/)
+  assert.doesNotMatch(css, /marketplace-sidebar-root/)
+  // The nav entry rides the DSH Settings button's shared chrome classes;
+  // the plugin CSS must not override the shared shape (radius/padding).
+  assert.doesNotMatch(css, /\.oh-marketplace-nav\s*\{[^}]*border-radius/)
+  assert.doesNotMatch(css, /\.oh-marketplace-nav\s*\{[^}]*padding: 6px 2px 6px 10px/)
   assert.match(css, /\.oh-marketplace-nav svg \{[\s\S]*width: 16px;[\s\S]*height: 16px;/)
   assert.match(client, /export const inject = \['locale'\]/)
   assert.match(client, /locale\.register\('oh-dsh\.plugin-marketplace'/)

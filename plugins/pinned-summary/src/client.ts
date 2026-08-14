@@ -2,6 +2,8 @@
 
 import type { LocaleService, Translate } from '../../shared/i18n.ts'
 import { localeTag } from '../../shared/i18n.ts'
+import themeCss from '../../shared/theme.css'
+import type { DesktopPanels } from '../../panel-controls/src/client.ts'
 import {
   PINNED_SUMMARY_MESSAGES,
   type PinnedSummaryMessage,
@@ -53,18 +55,13 @@ export interface PinnedSummary {
   toggle(): void
 }
 
-export const inject = ['locale', 'sessions']
+export const inject = ['desktopPanels', 'locale', 'sessions']
 
 const OPEN_KEY = 'oh-dsh-desktop.pinned-summary.open'
 
 const SUMMARY_CSS = `
 html {
   --oh-dsh-pinned-summary-width: 288px;
-}
-
-html[data-oh-dsh-summary-pinned='true'] #root {
-  box-sizing: border-box;
-  padding-right: calc(var(--oh-dsh-pinned-summary-width) + 24px);
 }
 
 [data-oh-dsh-pinned-summary] {
@@ -172,7 +169,6 @@ html[data-oh-dsh-summary-pinned='true'] #root {
 }
 
 @media (max-width: 900px) {
-  html[data-oh-dsh-summary-pinned='true'] #root { padding-right: 0; }
   [data-oh-dsh-pinned-summary] { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }
 }
 
@@ -235,6 +231,7 @@ class PinnedSummaryService implements PinnedSummary {
   readonly #sessions: SessionsService
   readonly #locale: LocaleService
   readonly #t: Translate<PinnedSummaryMessage>
+  readonly #panels: DesktopPanels
   readonly #listeners = new Set<() => void>()
   #open = readOpen()
   #panel: HTMLElement | undefined
@@ -256,16 +253,18 @@ class PinnedSummaryService implements PinnedSummary {
     sessions: SessionsService,
     locale: LocaleService,
     t: Translate<PinnedSummaryMessage>,
+    panels: DesktopPanels,
   ) {
     this.#sessions = sessions
     this.#locale = locale
     this.#t = t
+    this.#panels = panels
   }
 
   mount(): void {
     this.#style = document.createElement('style')
     this.#style.dataset.ohDshPinnedSummaryStyles = 'true'
-    this.#style.textContent = SUMMARY_CSS
+    this.#style.textContent = `${themeCss}\n${SUMMARY_CSS}`
     document.head.append(this.#style)
 
     const panel = document.createElement('aside')
@@ -274,7 +273,7 @@ class PinnedSummaryService implements PinnedSummary {
     panel.innerHTML = `
       <header data-oh-dsh-summary-header>
         <span></span>
-        <button data-oh-dsh-summary-close type="button">×</button>
+        <button data-oh-dsh-summary-close type="button"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
       </header>
       <div data-oh-dsh-summary-body>
         <h2 data-oh-dsh-summary-title></h2>
@@ -311,10 +310,7 @@ class PinnedSummaryService implements PinnedSummary {
     this.#panel?.remove()
     this.#style?.remove()
     delete document.documentElement.dataset.ohDshSummaryPinned
-    if (document.documentElement.dataset.ohDshRightPanelOwner === 'pinned-summary') {
-      delete document.documentElement.dataset.ohDshRightPanelOwner
-      document.getElementById('root')?.style.removeProperty('padding-right')
-    }
+    this.#panels.releaseRightPanel('pinned-summary')
   }
 
   isOpen(): boolean {
@@ -346,19 +342,16 @@ class PinnedSummaryService implements PinnedSummary {
     }
     if (this.#open) {
       html.dataset.ohDshSummaryPinned = 'true'
-      html.dataset.ohDshRightPanelOwner = 'pinned-summary'
-      const appRoot = document.getElementById('root')
-      if (appRoot !== null) {
-        appRoot.style.paddingRight = this.#narrowViewport.matches
+      // The #root squeeze is owned by the desktopPanels right-panel
+      // coordinator — claim the footprint instead of writing global state.
+      this.#panels.claimRightPanel('pinned-summary', {
+        paddingRight: this.#narrowViewport.matches
           ? '0px'
-          : 'calc(var(--oh-dsh-pinned-summary-width) + 24px)'
-      }
+          : 'calc(var(--oh-dsh-pinned-summary-width) + 24px)',
+      })
     } else {
       delete html.dataset.ohDshSummaryPinned
-      if (html.dataset.ohDshRightPanelOwner === 'pinned-summary') {
-        delete html.dataset.ohDshRightPanelOwner
-        document.getElementById('root')?.style.removeProperty('padding-right')
-      }
+      this.#panels.releaseRightPanel('pinned-summary')
     }
   }
 
@@ -437,6 +430,7 @@ export function apply(ctx: ClientContext): void {
     ctx.get('sessions') as SessionsService,
     locale,
     t,
+    ctx.get('desktopPanels') as DesktopPanels,
   )
   ctx.effect(() => {
     service.mount()

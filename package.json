@@ -42,15 +42,18 @@
     "build:dsh": "node scripts/build-dsh.mjs",
     "stage:dsh": "node scripts/stage-dsh.mjs",
     "check:plugins": "node scripts/smoke-runtime.mjs",
+    "check:sidebar-source": "node scripts/check-sidebar-source.mjs",
     "smoke:runtime": "node scripts/smoke-runtime.mjs",
     "smoke:app": "node scripts/smoke-runtime.mjs \"release/mac-arm64/Oh-DSH-Desktop.app/Contents/Resources\"",
     "install:mac": "node scripts/install-mac.mjs",
     "start": "pnpm run build && pnpm run stage:dsh && electron .",
+    "dev": "node scripts/dev.mjs",
     "check:screenshot": "electron scripts/check-screenshot-corners.cjs assets/oh-dsh-desktop-ui.png",
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
     "dist:mac": "pnpm run build && pnpm run build:dsh && pnpm run stage:dsh && node scripts/build-mac.mjs",
-    "dist:mac:quick": "pnpm run build && pnpm run stage:dsh && node scripts/build-mac.mjs"
+    "dist:mac:quick": "pnpm run build && pnpm run stage:dsh && node scripts/build-mac.mjs",
+    "check:skins": "node scripts/verify-skin-tokens.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

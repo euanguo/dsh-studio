@@ -1,4 +1,0 @@
-[submodule "upstream/DSH-better-sidebar"]
-	path = upstream/DSH-better-sidebar
-	url = https://github.com/omdsh-dev/DSH-better-sidebar.git
-	branch = main

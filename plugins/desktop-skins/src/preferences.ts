@@ -3,6 +3,8 @@ export const DESKTOP_SKIN_IDS = [
   'oh-dsh-skin-jade-circuit',
   'oh-dsh-skin-porcelain',
   'oh-dsh-skin-ember-dusk',
+  'oh-dsh-skin-synara-night',
+  'oh-dsh-skin-synara-day',
 ] as const
 
 export type DesktopSkinId = typeof DESKTOP_SKIN_IDS[number]

@@ -153,6 +153,108 @@ const EMBER_DUSK_TOKENS = {
   '--dsw-specific-sidebar-nav-item-hover': '#301e2b',
 } as const
 
+/*
+ * Synara Night — faithful mapping of the Synara web-next design system (dark).
+ *
+ * Seed contract (theme-tokens.css): only --theme-surface / --theme-surface-under /
+ * --theme-ink / --theme-accent are swapped per theme; every semantic token derives
+ * from those four. Live dark seeds: surface #181818, surface-under #141414,
+ * ink #ffffff, accent #339cff.
+ *
+ * Key measured nodes:
+ *   surface #181818 · surface-under #141414 · popover rgb(45,45,45) ·
+ *   menu glass rgba(54,54,54,0.96) · border ladder 4.2% / 8.4% / 15.6% white ·
+ *   surface-hover 7.8% · surface-selected 5.2% · surface-active 15% · fog 2.5%
+ *   focus rgba(131,195,255,0.76) · input-fill rgba(45,45,45,0.96) ·
+ *   scrollbar thumb rgba(255,255,255,0.07) / hover 0.14 ·
+ *   primary CTA = ink reverse (white fill, ink text — not accent blue) ·
+ *   status: destructive #ff6764 · success #40c977 · warning #ff8549
+ */
+const SYNARA_NIGHT_TOKENS = {
+  '--dsw-alias-bg-base': '#141414',
+  '--dsw-alias-bg-layer-1': '#181818',
+  '--dsw-alias-bg-layer-2': '#1f1f1f',
+  '--dsw-alias-bg-layer-3': '#262626',
+  '--dsw-alias-bg-overlay': '#2d2d2d',
+  '--dsw-alias-bg-module-platform': '#181818',
+  '--dsw-alias-border-l1': 'rgba(255, 255, 255, 0.042)',
+  '--dsw-alias-border-l2': 'rgba(255, 255, 255, 0.084)',
+  '--dsw-alias-border-l3': 'rgba(255, 255, 255, 0.156)',
+  '--dsw-alias-brand-primary': '#339cff',
+  '--dsw-alias-brand-primary-invert': '#141414',
+  '--dsw-alias-brand-text': '#83c3ff',
+  '--dsw-alias-button-primary-fill': '#ffffff',
+  '--dsw-alias-button-primary-hover': '#e8e8e8',
+  '--dsw-alias-interactive-bg-active': 'rgba(255, 255, 255, 0.15)',
+  '--dsw-alias-interactive-bg-hover': 'rgba(255, 255, 255, 0.078)',
+  '--dsw-alias-label-primary': '#ffffff',
+  '--dsw-alias-label-secondary': 'rgba(255, 255, 255, 0.65)',
+  '--dsw-alias-label-tertiary': 'rgba(255, 255, 255, 0.5)',
+  '--dsw-alias-markdown-code-block': 'rgba(255, 255, 255, 0.025)',
+  '--dsw-alias-markdown-inline-code': '#1e1e1e',
+  '--dsw-alias-scrollbar-bg-l1': 'rgba(255, 255, 255, 0.07)',
+  '--dsw-alias-scrollbar-hover-l1': 'rgba(255, 255, 255, 0.14)',
+  '--dsw-alias-state-error-primary': '#ff6764',
+  '--dsw-alias-state-success-primary': '#40c977',
+  '--dsw-alias-state-warn-primary': '#ff8549',
+  '--dsw-specific-bubble': '#1f1f1f',
+  '--dsw-specific-input-major': 'rgba(45, 45, 45, 0.96)',
+  '--dsw-specific-menu': 'rgba(54, 54, 54, 0.96)',
+  '--dsw-specific-sidebar-fill': '#141414',
+  '--dsw-specific-sidebar-nav-item-active': '#202020',
+  '--dsw-specific-sidebar-nav-item-hover': '#262626',
+} as const
+
+/*
+ * Synara Day — faithful mapping of the Synara web-next design system (light).
+ *
+ * Light seeds: surface #ffffff, surface-under #f4f4f4, ink #141414,
+ * accent #0d6efd (light accent is deliberately deeper than dark's #339cff
+ * to keep contrast on white).
+ *
+ * Key measured nodes:
+ *   popover = surface 96% + ink ≈ #f6f6f6 · menu glass = popover 96% ·
+ *   border ladder 4.2% / 8.4% / 15.6% ink · hover 7.8% · selected 5.2% ·
+ *   active 15% · fog 2.5% · focus rgba(13,110,253,0.76) ·
+ *   input-fill ink 3.5% · primary CTA = ink (dark fill, white text) ·
+ *   scrollbar thumb rgba(0,0,0,0.1) / hover 0.18 ·
+ *   status: destructive #ba2623 · success #008635 · warning #d97706
+ */
+const SYNARA_DAY_TOKENS = {
+  '--dsw-alias-bg-base': '#f4f4f4',
+  '--dsw-alias-bg-layer-1': '#ffffff',
+  '--dsw-alias-bg-layer-2': '#fbfbfb',
+  '--dsw-alias-bg-layer-3': '#f8f8f8',
+  '--dsw-alias-bg-overlay': '#f4f4f4',
+  '--dsw-alias-bg-module-platform': '#ffffff',
+  '--dsw-alias-border-l1': 'rgba(20, 20, 20, 0.042)',
+  '--dsw-alias-border-l2': 'rgba(20, 20, 20, 0.084)',
+  '--dsw-alias-border-l3': 'rgba(20, 20, 20, 0.156)',
+  '--dsw-alias-brand-primary': '#0d6efd',
+  '--dsw-alias-brand-primary-invert': '#ffffff',
+  '--dsw-alias-brand-text': '#0d6efd',
+  '--dsw-alias-button-primary-fill': '#141414',
+  '--dsw-alias-button-primary-hover': '#2f2f2f',
+  '--dsw-alias-interactive-bg-active': 'rgba(20, 20, 20, 0.15)',
+  '--dsw-alias-interactive-bg-hover': 'rgba(20, 20, 20, 0.078)',
+  '--dsw-alias-label-primary': '#141414',
+  '--dsw-alias-label-secondary': 'rgba(20, 20, 20, 0.65)',
+  '--dsw-alias-label-tertiary': 'rgba(20, 20, 20, 0.5)',
+  '--dsw-alias-markdown-code-block': 'rgba(20, 20, 20, 0.025)',
+  '--dsw-alias-markdown-inline-code': '#f9f9f9',
+  '--dsw-alias-scrollbar-bg-l1': 'rgba(0, 0, 0, 0.1)',
+  '--dsw-alias-scrollbar-hover-l1': 'rgba(0, 0, 0, 0.18)',
+  '--dsw-alias-state-error-primary': '#ba2623',
+  '--dsw-alias-state-success-primary': '#008635',
+  '--dsw-alias-state-warn-primary': '#d97706',
+  '--dsw-specific-bubble': '#fbfbfb',
+  '--dsw-specific-input-major': 'rgba(20, 20, 20, 0.035)',
+  '--dsw-specific-menu': 'rgba(244, 244, 244, 0.96)',
+  '--dsw-specific-sidebar-fill': '#f4f4f4',
+  '--dsw-specific-sidebar-nav-item-active': '#e8e8e8',
+  '--dsw-specific-sidebar-nav-item-hover': '#e3e3e3',
+} as const
+
 export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
   Object.freeze({
     id: 'oh-dsh-skin-deep-current',
@@ -185,6 +287,22 @@ export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
     preview: 'radial-gradient(circle at 78% 24%, #ff9275 0%, transparent 38%), linear-gradient(145deg, #21161f 0%, #4b3042 100%)',
     accent: '#ff9275',
     label: 'skins.name.ember-dusk',
+  }),
+  Object.freeze({
+    id: 'oh-dsh-skin-synara-night',
+    colorScheme: 'dark',
+    tokens: SYNARA_NIGHT_TOKENS,
+    preview: 'linear-gradient(145deg, #141414 0 38%, #2d2d2d 40% 62%, #339cff 150%)',
+    accent: '#339cff',
+    label: 'skins.name.synara-night',
+  }),
+  Object.freeze({
+    id: 'oh-dsh-skin-synara-day',
+    colorScheme: 'light',
+    tokens: SYNARA_DAY_TOKENS,
+    preview: 'linear-gradient(145deg, #f4f4f4 0 38%, #ffffff 40% 62%, #0d6efd 150%)',
+    accent: '#0d6efd',
+    label: 'skins.name.synara-day',
   }),
 ])
 

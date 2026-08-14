@@ -10,6 +10,7 @@ import type { DesktopBridge } from '../../../../src/contracts.ts'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { localeTag } from '../../../shared/i18n.ts'
 import { useTranslate } from '../../../shared/use-i18n.ts'
+import themeCss from '../../../shared/theme.css'
 import type {
   MarketplaceCommand,
   MarketplaceConfirmation,
@@ -48,7 +49,6 @@ declare global {
 export const inject = ['locale']
 
 const OPEN_KEY = 'oh-dsh-desktop.plugin-marketplace.open'
-const SIDEBAR_BOTTOM_INSET = 8
 
 function readOpen(): boolean {
   try { return localStorage.getItem(OPEN_KEY) === 'true' } catch { return false }
@@ -59,6 +59,18 @@ function persistOpen(open: boolean): void {
 }
 
 function settingsButton(): HTMLButtonElement | null {
+  // Primary: the DSH Settings button is the sidebar foot's dialog trigger.
+  // In the collapsed rail it carries NO text/aria-label, so locate it
+  // structurally (inside the sidebar slot) instead of by label.
+  const inSidebar = [...document.querySelectorAll<HTMLButtonElement>(
+    '[data-slot="sidebar"] button[aria-haspopup="dialog"]',
+  )]
+    .filter(button => button.closest('#oh-dsh-plugin-marketplace-root') === null)
+    .sort((left, right) => {
+      return right.getBoundingClientRect().bottom - left.getBoundingClientRect().bottom
+    })
+  if (inSidebar.length > 0) return inSidebar[0] ?? null
+  // Fallback: label-based scan (older DOM shapes / non-sidebar hosts).
   const candidates = [...document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')]
     .filter(button => {
       if (button.closest('#oh-dsh-plugin-marketplace-root') !== null) return false
@@ -128,10 +140,13 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
   #style: HTMLStyleElement | null = null
   #root: Root | null = null
   #entry: HTMLButtonElement | null = null
+  /** Cached DSH Settings button: in the collapsed rail it carries no text or
+   *  aria-label, so the locator returns null — the cache keeps class/position
+   *  sync alive across rail expand/collapse cycles. */
+  #settingsButton: HTMLButtonElement | null = null
   #observer: MutationObserver | null = null
   #resizeObserver: ResizeObserver | null = null
   #placementFrame: number | null = null
-  #sidebarRoot: HTMLElement | null = null
   #unsubscribeLocale: (() => void) | null = null
   readonly #handleResize = (): void => { this.schedulePlacement() }
   readonly #handleDocumentClick = (event: MouseEvent): void => {
@@ -172,7 +187,7 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
   mount(): void {
     this.#style = document.createElement('style')
     this.#style.dataset.ohDshPluginMarketplaceStyles = 'true'
-    this.#style.textContent = marketplaceCss
+    this.#style.textContent = `${themeCss}\n${marketplaceCss}`
     document.head.append(this.#style)
 
     this.#element = document.createElement('div')
@@ -192,7 +207,7 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
       if (this.#state.open && settingsDialogOpen()) this.setOpen(false)
       this.schedulePlacement()
     })
-    this.#observer.observe(document.body, { childList: true, subtree: true })
+    this.#observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] })
     this.#resizeObserver = new ResizeObserver(() => { this.schedulePlacement() })
     document.addEventListener('click', this.#handleDocumentClick, true)
     window.addEventListener('resize', this.#handleResize)
@@ -215,9 +230,6 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
     this.#root?.unmount()
     this.#element?.remove()
     this.#style?.remove()
-    this.#sidebarRoot?.removeAttribute('data-oh-dsh-marketplace-sidebar-root')
-    this.#sidebarRoot?.style.removeProperty('--oh-marketplace-sidebar-top')
-    this.#sidebarRoot?.style.removeProperty('--oh-marketplace-sidebar-height')
     delete document.documentElement.dataset.ohDshMarketplaceOpen
     document.documentElement.style.removeProperty('--oh-marketplace-left')
   }
@@ -237,35 +249,48 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
   }
 
   private placeEntry(): void {
-    const settings = settingsButton()
+    const found = settingsButton()
+    const settings = found ?? this.#settingsButton
     if (settings === null || settings.parentElement === null) return
+    this.#settingsButton = settings
     const parent = settings.parentElement
+    // The entry rides the Settings button's OWN styles (shared DSH chrome
+    // classes, including the rail variant) — never a bespoke shape. Keep the
+    // class list in sync with the Settings button so rail expand/collapse
+    // (which toggles the round rail class) applies to the entry too.
+    const settingsClasses = settings.className.replace(/oh-marketplace-nav/g, '').trim()
     if (this.#entry === null) {
       const entry = document.createElement('button')
       entry.type = 'button'
-      entry.className = `${settings.className} oh-marketplace-nav`.trim()
+      entry.className = `${settingsClasses} oh-marketplace-nav`.trim()
       entry.dataset.active = String(this.#state.open)
       entry.addEventListener('click', () => { this.toggle() })
       this.#entry = entry
       this.renderEntryLabel()
+    } else if (this.#entry.className !== `${settingsClasses} oh-marketplace-nav`.trim()) {
+      this.#entry.className = `${settingsClasses} oh-marketplace-nav`.trim()
     }
-    if (this.#entry.parentElement !== parent || this.#entry.nextElementSibling !== settings) {
-      parent.insertBefore(this.#entry, settings)
+    // Insert the entry ABOVE the Settings area (the rail's foot stacks
+    // vertically: footer actions, then settings). Inserting it inside the
+    // settings area made it sit BESIDE the Settings button in the collapsed
+    // rail — two icons on one row with the entry overflowing the rail edge.
+    let settingsArea: HTMLElement | null = parent
+    while (settingsArea !== null && settingsArea !== document.body
+      && getComputedStyle(settingsArea).display === 'contents') {
+      settingsArea = settingsArea.parentElement
     }
-    const sidebarRoot = parent.parentElement
-    if (this.#sidebarRoot !== sidebarRoot) {
-      this.#sidebarRoot?.removeAttribute('data-oh-dsh-marketplace-sidebar-root')
-      this.#sidebarRoot?.style.removeProperty('--oh-marketplace-sidebar-top')
-      this.#sidebarRoot?.style.removeProperty('--oh-marketplace-sidebar-height')
-      this.#sidebarRoot = sidebarRoot
+    const foot = settingsArea?.parentElement ?? settingsArea
+    if (this.#entry.parentElement !== foot || this.#entry.nextElementSibling !== settingsArea) {
+      foot?.insertBefore(this.#entry, settingsArea)
     }
-    if (sidebarRoot !== null) {
-      const top = Math.max(0, Math.round(sidebarRoot.getBoundingClientRect().top))
-      const height = Math.max(0, window.innerHeight - top - SIDEBAR_BOTTOM_INSET)
-      sidebarRoot.dataset.ohDshMarketplaceSidebarRoot = 'true'
-      sidebarRoot.style.setProperty('--oh-marketplace-sidebar-top', `${String(top)}px`)
-      sidebarRoot.style.setProperty('--oh-marketplace-sidebar-height', `${String(height)}px`)
-    }
+    // NOTE: the entry is inserted next to the DSH Settings button in the
+    // sidebar foot. Older revisions also squeezed the settings area to
+    // "reserve room for Settings in short windows" by shrinking the
+    // settings button's container to `innerHeight − top − 8px`; on the DSH
+    // 0.1.x DOM that container sits at the bottom of the rail, so the
+    // computed height collapsed to 0 and pushed the Settings button out of
+    // the viewport. The squeeze is gone: the marketplace surface is a
+    // full-screen overlay, so shrinking the rail serves no purpose.
     const sidebar = sidebarFor(settings)
     if (sidebar === null) return
     this.#resizeObserver?.disconnect()
@@ -419,7 +444,7 @@ function PluginDetail({
       aria-label={t('details', { plugin: plugin.title })}
     >
       <div className="oh-marketplace-detail-inner">
-        <button className="oh-marketplace-icon-button oh-marketplace-detail-close" onClick={close} type="button">×</button>
+        <button className="oh-marketplace-icon-button oh-marketplace-detail-close" onClick={close} type="button"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
         <h2>{plugin.title}</h2>
         <span className="oh-marketplace-pill" data-installed={String(plugin.installed)}>
           {plugin.installed ? t('installed') : mechanismLabel(plugin, t)}
@@ -711,7 +736,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
                 onClick={() => { view.setOpen(false) }}
                 title={t('close')}
                 type="button"
-              >×</button>
+              ><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
             </div>
           </header>
           {snapshot?.preview !== null && snapshot?.preview !== undefined && (
@@ -756,7 +781,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
                   value={search}
                 />
                 {search !== '' && (
-                  <button aria-label={t('search.clear')} onClick={() => { setSearch('') }} type="button">×</button>
+                  <button aria-label={t('search.clear')} onClick={() => { setSearch('') }} type="button"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
                 )}
               </div>
               <div className="oh-marketplace-status-tabs" role="group" aria-label={t('installation-status')}>

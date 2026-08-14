@@ -4,7 +4,7 @@ import { resolveDshSource } from './dsh-source.mjs'
 const dshSource = resolveDshSource()
 
 function run(args) {
-  const result = spawnSync('pnpm', args, {
+  const result = spawnSync('corepack', ['pnpm', ...args], {
     cwd: dshSource,
     env: process.env,
     stdio: 'inherit',
@@ -14,4 +14,5 @@ function run(args) {
 }
 
 run(['install', '--frozen-lockfile'])
-run(['run', 'build'])
+run(['run', 'build:lib'])
+run(['--filter', '@deepseek-ai/dsh-web-frontend', 'run', 'build'])

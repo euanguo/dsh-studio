@@ -25,10 +25,6 @@ test('desktop Settings owns the full modal layer above desktop surfaces', () => 
     client,
     /\[role='presentation'\]:has\(\s*> \[role='dialog'\]\s*\)[^{]*\{[^}]*z-index: 2147483647 !important;[^}]*backdrop-filter: blur\(/s,
   )
-  assert.match(
-    client,
-    /:has\(\s*#root \[role='presentation'\] > \[role='dialog'\]\s*\) \.oh-dsh-panel-toolbar[^}]*\{[^}]*z-index: 2147483646;/s,
-  )
 })
 
 test('every bundled Oh-DSH client follows the native locale service', () => {

@@ -19,6 +19,12 @@ import {
 import { DEFAULT_TAB_LABEL } from './panel-store.ts'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { useTranslate } from '../../../shared/use-i18n.ts'
+import {
+  IconChevronDown,
+  IconChevronUp,
+  IconClose,
+  IconPlus,
+} from '../../../shared/icons.tsx'
 import type { TerminalMessage } from './i18n.ts'
 
 export interface TerminalPanelProps {
@@ -139,7 +145,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
                   event.stopPropagation()
                   store.dispatch({ type: 'remove-tab', id: tab.id })
                 }}
-              >×</button>
+              ><IconClose size={10} /></button>
             </span>
           ))}
           <button
@@ -148,7 +154,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
             onClick={addTab}
             title={t('terminal.new-shell')}
             aria-label={t('terminal.new-shell')}
-          >+</button>
+          ><IconPlus size={13} /></button>
           {state.tabs.length === 0 && <span className="oh-dsh-terminal-hint">{t('terminal')}</span>}
         </div>
         <div className="oh-dsh-terminal-actions">
@@ -166,7 +172,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
             onClick={() => { store.dispatch({ type: 'toggle-collapsed' }) }}
             title={state.collapsed ? t('terminal.expand') : t('terminal.collapse')}
             aria-label={state.collapsed ? t('terminal.expand') : t('terminal.collapse')}
-          >{state.collapsed ? '⌃' : '⌄'}</button>
+          >{state.collapsed ? <IconChevronUp size={13} /> : <IconChevronDown size={13} />}</button>
         </div>
       </div>
       {settingsOpen && (
