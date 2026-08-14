@@ -82,6 +82,92 @@ export interface TreeView {
   ungroupedOrder?: readonly string[]
 }
 
+/* ------------------------------------------------------------------------- *
+ * Project → WorkTree → Session derivation (the desktop three-level tree).
+ * ------------------------------------------------------------------------- */
+
+/** The fixed, non-removable catch-all tab id (non-git dirs + ungrouped). */
+export const DEFAULT_GROUP_ID = '__default__'
+
+/** One named group tab in the horizontal strip. */
+export interface GroupTab {
+  id: string
+  label: string
+  /** The built-in catch-all tab (cannot be renamed/removed). */
+  pinned: boolean
+}
+
+/** One worktree row: a linked worktree (or the sole dir of a non-git project). */
+export interface WorktreeNode {
+  key: string
+  /** Absolute path of the worktree. */
+  path: string
+  /** Directory basename. */
+  label: string
+  /** Short branch name; null when detached or a non-git directory. */
+  branch: string | null
+  /** The repository's main worktree (repo root). */
+  main: boolean
+  /** DSH workspace whose cwd lives inside this worktree (host identity). */
+  workspaceId: WorkspaceId | undefined
+  /** Visible sessions colonized under this worktree. */
+  sessions: readonly SessionNode[]
+  /** Total visible sessions before collapse. */
+  sessionCount: number
+  expanded: boolean
+  containsCurrent: boolean
+}
+
+/** One project row: a repository (or a bare non-git directory) grouping worktrees. */
+export interface ProjectNode {
+  key: string
+  /** Repo root for git projects, else the directory path itself. */
+  repoRoot: string
+  label: string
+  isGit: boolean
+  /** Short branch of the main worktree (null for non-git projects). */
+  mainBranch: string | null
+  worktrees: readonly WorktreeNode[]
+  worktreeCount: number
+  expanded: boolean
+  containsCurrent: boolean
+}
+
+/** The complete tabbed project tree. */
+export interface ProjectTree {
+  tabs: readonly GroupTab[]
+  activeTab: string
+  /** Projects filtered to the active tab. */
+  projects: readonly ProjectNode[]
+  /** Every project (unfiltered), for cross-tab lookups. */
+  allProjects: readonly ProjectNode[]
+}
+
+/** Worktree layout lookup result for one workspace cwd. */
+export interface WorktreeLayoutMap {
+  /** null = not a git work tree. */
+  get(cwd: string): GitWorktreeLayout | null | undefined
+}
+
+/** Placeholder — replaced by the concrete git module contract. */
+export interface GitWorktreeLayout {
+  repoRoot: string
+  worktrees: readonly { path: string; head: string | null; branch: string | null; main: boolean }[]
+}
+
+/** What the active-tab filter + group assignment need from the view store. */
+export interface ProjectTreeView {
+  expanded: readonly string[]
+  activeTab: string
+  /** repoRoot → group id (projects absent here live in the default tab). */
+  projectGroup: Readonly<Record<string, string>>
+  /** Ordered user group ids (the default tab is implicit). */
+  groupIds: readonly string[]
+  groupLabels: Readonly<Record<string, string>>
+  /** repoRoot → user alias (display name overriding the basename). */
+  projectAlias: Readonly<Record<string, string>>
+}
+
 interface Group {
   key: string
   workspaceId: WorkspaceId | undefined
@@ -270,6 +356,138 @@ export function deriveGroups(
     })
   }
   return groups
+}
+
+/**
+ * Derive the tabbed project → worktree → session tree.
+ *
+ * Each workspace carries a cwd; the worktree layouts (fetched per cwd) group
+ * git worktrees under their repo root (project) and turn every non-git cwd
+ * into a single-worktree project. Sessions trail under the worktree whose
+ * workspace owns them. The pinned default tab collects projects without an
+ * explicit group plus every non-git directory.
+ * @param list - sessions snapshot.
+ * @param workspaces - real workspaces in stable Host order.
+ * @param layouts - cwd → worktree layout (null for non-git).
+ * @param archivedSessionIds - registry-global archive set.
+ * @param view - tab/expanded/group-assignment view state.
+ */
+export function deriveProjectTree(
+  list: SessionListState,
+  workspaces: readonly WorkspaceView[],
+  layouts: WorktreeLayoutMap,
+  archivedSessionIds: readonly SessionId[],
+  view: ProjectTreeView,
+): ProjectTree {
+  const archived = new Set(archivedSessionIds)
+  const descendants = indexSubagentDescendants(list.byId)
+  const expanded = new Set(view.expanded)
+  const current = list.current
+  const layoutOf = (cwd: string): GitWorktreeLayout | null | undefined => layouts.get(cwd)
+
+  // Layout cache per repo root (any workspace of the repo carries the same set).
+  const layoutByRoot = new Map<string, GitWorktreeLayout>()
+  for (const workspace of workspaces) {
+    const layout = layoutOf(workspace.path)
+    if (layout !== null && layout !== undefined) layoutByRoot.set(layout.repoRoot, layout)
+  }
+
+  interface WT {
+    path: string
+    label: string
+    branch: string | null
+    main: boolean
+    workspaceId: WorkspaceId | undefined
+    members: SessionSummary[]
+  }
+
+  // Longest-prefix worktree match (a workspace may live in a worktree subdir).
+  const worktreeOf = (wts: readonly WT[], cwd: string): WT | undefined => {
+    let best: WT | undefined
+    for (const wt of wts) {
+      if (cwd === wt.path || cwd.startsWith(`${wt.path}/`)) {
+        if (best === undefined || wt.path.length > best.path.length) best = wt
+      }
+    }
+    return best
+  }
+
+  const join = (workspace: WorkspaceView): SessionSummary[] => {
+    const members: SessionSummary[] = []
+    for (const id of workspace.sessionIds) {
+      const summary = list.byId[id]
+      if (summary !== undefined && sessionVisible(summary, current, archived)) members.push(summary)
+    }
+    return members
+  }
+
+  // Project rows: git repos keyed by repoRoot, non-git by cwd (first-appearance order).
+  interface Proj { key: string; repoRoot: string; isGit: boolean; workspaceIds: WorkspaceId[] }
+  const projectsById = new Map<string, Proj>()
+  const order: string[] = []
+  for (const workspace of workspaces) {
+    const layout = layoutOf(workspace.path)
+    const isGit = layout !== null && layout !== undefined && layout.worktrees.length > 0
+    const key = isGit ? layout!.repoRoot : workspace.path
+    const entry = projectsById.get(key) ?? { key, repoRoot: isGit ? layout!.repoRoot : workspace.path, isGit, workspaceIds: [] }
+    if (entry.workspaceIds.length === 0) order.push(key)
+    entry.workspaceIds.push(workspace.workspaceId)
+    projectsById.set(key, entry)
+  }
+
+  const allProjects: ProjectNode[] = order.map((key) => {
+    const proj = projectsById.get(key)!
+    const layout = proj.isGit ? layoutByRoot.get(key) : undefined
+    let wts: WT[]
+    if (layout === undefined) {
+      // Non-git dir: a single synthetic worktree, members from its workspace.
+      const workspace = workspaces.find(w => w.path === key)
+      wts = [{
+        path: key, label: workspaceLabel(key), branch: null, main: true,
+        workspaceId: workspace?.workspaceId, members: workspace === undefined ? [] : join(workspace),
+      }]
+    } else {
+      wts = layout.worktrees.map(wt => ({ path: wt.path, label: workspaceLabel(wt.path), branch: wt.branch, main: wt.main, workspaceId: undefined, members: [] }))
+      for (const workspace of workspaces) {
+        const l = layoutOf(workspace.path)
+        if (l === null || l === undefined || l.repoRoot !== key) continue
+        const bucket = worktreeOf(wts, workspace.path)
+        if (bucket !== undefined) {
+          bucket.workspaceId = workspace.workspaceId
+          bucket.members.push(...join(workspace))
+        }
+      }
+    }
+    const containsCurrent = wts.some(wt => wt.members.some(m => m.id === current))
+    return {
+      key, repoRoot: proj.repoRoot, label: view.projectAlias[proj.repoRoot] ?? workspaceLabel(proj.repoRoot), isGit: proj.isGit,
+      mainBranch: wts[0]?.branch ?? null,
+      worktrees: wts.map(wt => ({
+        key: wt.path, path: wt.path, label: wt.label, branch: wt.branch, main: wt.main,
+        workspaceId: wt.workspaceId,
+        sessions: expanded.has(wt.path) ? wt.members.map(m => sessionNode(m, descendants)) : [],
+        sessionCount: wt.members.length,
+        expanded: expanded.has(wt.path),
+        containsCurrent: wt.members.some(m => m.id === current),
+      })),
+      worktreeCount: wts.length,
+      expanded: expanded.has(key),
+      containsCurrent,
+    }
+  })
+
+  // Tabs: pinned default first, then user groups in stored order.
+  const tabs: GroupTab[] = [{ id: DEFAULT_GROUP_ID, label: '默认', pinned: true }]
+  for (const id of view.groupIds) {
+    if (id === DEFAULT_GROUP_ID) continue
+    tabs.push({ id, label: view.groupLabels[id] ?? id, pinned: false })
+  }
+  const activeTab = tabs.some(tab => tab.id === view.activeTab) ? view.activeTab : DEFAULT_GROUP_ID
+
+  const groupOf = (repoRoot: string): string => view.projectGroup[repoRoot] ?? DEFAULT_GROUP_ID
+  const projects = allProjects.filter(p => groupOf(p.repoRoot) === activeTab)
+
+  return { tabs, activeTab, projects, allProjects }
 }
 
 /**

@@ -1,7 +1,6 @@
-// @ts-nocheck -- presentation layer of the forked official ui-workspace: its props
-// traverse the official ui-slots/runtime type graph beyond the local shim
-// (vendor.d.ts). Runtime behavior comes from the official modules.
-/**
+/** Fork of the official ui-workspace browser (see
+ * docs/official-plugin-migration.md): official source, official primitives,
+ * official types — only the CSS pipeline is ours.
  * The workspace/session browsing region filling the sidebar shell's
  * `sidebar.workspaces` hole: section header (title + view options + add
  * workspace), search, the grouped tree or flat list, and the workspace
@@ -16,11 +15,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from './shim/cn.ts'
 import {
   Button, HoverCard, Menu, Modal, StateDot, Tooltip,
-  IconArchiveOutline20, IconBranchOutline16, IconCloseFill14, IconEditOutline16,
+  IconArchiveOutline20, IconBranchOutline16, IconChevronDownOutline14, IconCloseFill14, IconEditOutline16,
   IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16, IconPersonalizationOutline16,
   IconPlusOutline16, IconProjectAddOutline16, IconSearchOutline16, IconTrashOutline16,
   IconTriangleRightFill14, type MenuEntry, type StateDotState,
-} from './shim/primitives.tsx'
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   SessionId, SessionListState, SessionSearchResultItem, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
@@ -30,7 +29,14 @@ import { deriveFlat, deriveGroups, deriveSearchResults, UNGROUPED_KEY } from './
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY } from './stores.ts'
 import { WorkspacePickFlow } from './WorkspacePicker.tsx'
-import css from './WorkspaceBrowser.module.css'
+import { ProjectTreeBody } from './WorkspaceBrowserProjectTree.tsx'
+import { createWorktree, useWorktreeLayouts, fetchBranches } from './worktree-api.ts'
+import { loadLeftRailSettings, saveLeftRailSettings } from './left-rail-settings.ts'
+import { copyText } from './copy.ts'
+// Identity class map + scoped stylesheet (build-time generated from the
+// forked CSS Modules — see scripts/left-rail-styles.mjs). The scope
+// attribute is mounted on the region root below.
+import { WorkspaceBrowserCss as css } from './styles.js'
 
 /**
  * Column slide length (--ds-transition-duration-slow): rail-search focus waits it out —
@@ -761,6 +767,7 @@ export function WorkspaceBrowser({
   archiveSession,
   insertSessionBefore,
   createWorkspace,
+  openPath,
   searchSessions,
   searchResultLimit,
   useDirectoryFlow,
@@ -778,14 +785,54 @@ export function WorkspaceBrowser({
   const groupExpansion = useStore(s => s.groupExpansion)
   const sessionOrderByAccount = useStore(s => s.sessionOrderByAccount)
   const sessionUpdatedAtByAccount = useStore(s => s.sessionUpdatedAtByAccount)
+  const activeTab = useStore(s => s.activeTab)
+  const projectGroup = useStore(s => s.projectGroup)
+  const groupIds = useStore(s => s.groupIds)
+  const groupLabels = useStore(s => s.groupLabels)
+  const projectAlias = useStore(s => s.projectAlias)
+  // Three-level tree worktree layouts (fetched per cwd, cached by roster).
+  const worktreeLayouts = useWorktreeLayouts(workspaces.map(workspace => workspace.path))
+  // Grouping persisted through the host settings service (not localStorage).
+  const settingsRevision = useRef<number>(0)
+  const settingsHydrated = useRef(false)
+  useEffect(() => {
+    let cancelled = false
+    loadLeftRailSettings().then((view) => {
+      if (cancelled) return
+      settingsRevision.current = view.revision
+      actions.hydrateGrouping(view.value)
+      settingsHydrated.current = true
+    }).catch(() => {
+      if (!cancelled) settingsHydrated.current = true
+    })
+    return () => { cancelled = true }
+  }, [actions.hydrateGrouping])
+  useEffect(() => {
+    if (!settingsHydrated.current) return
+    const timer = window.setTimeout(() => {
+      saveLeftRailSettings({ activeTab, projectGroup, groupIds, groupLabels, projectAlias }, settingsRevision.current)
+        .then((view) => { settingsRevision.current = view.revision })
+        .catch(() => { /* revision conflict: next save retries with the latest */ })
+    }, 300)
+    return () => { window.clearTimeout(timer) }
+  }, [activeTab, projectGroup, groupIds, groupLabels, projectAlias])
   useEffect(() => {
     if (workspacePhase !== 'ready') return
-    actions.retainAccountKeys([
-      UNGROUPED_KEY,
-      FLAT_SESSION_ORDER_KEY,
-      ...workspaces.map(workspace => workspace.workspaceId as string),
-    ])
-  }, [actions.retainAccountKeys, workspacePhase, workspaces])
+    // Retain the session-order accounts (workspace ids + ungrouped/flat) and
+    // the project/worktree expansion keys (repo roots + worktree paths).
+    const expansionKeys = new Set<string>([UNGROUPED_KEY, FLAT_SESSION_ORDER_KEY])
+    for (const workspace of workspaces) {
+      expansionKeys.add(workspace.workspaceId as string)
+      const layout = worktreeLayouts.layouts.get(workspace.path)
+      if (layout !== null && layout !== undefined) {
+        expansionKeys.add(layout.repoRoot)
+        for (const wt of layout.worktrees) expansionKeys.add(wt.path)
+      } else {
+        expansionKeys.add(workspace.path)
+      }
+    }
+    actions.retainAccountKeys([...expansionKeys])
+  }, [actions.retainAccountKeys, workspacePhase, workspaces, worktreeLayouts.layouts])
   // The query outlives the tree and the input (both wide-only) so collapsing
   // does not silently drop an in-progress filter.
   const [query, setQuery] = useState('')
@@ -978,6 +1025,142 @@ export function WorkspaceBrowser({
     })
   }
 
+  // ---- Three-level tree: worktree creation + group management. ----
+  const [newWtTarget, setNewWtTarget] = useState<{ repoRoot: string; label: string; currentBranch: string | null; existing: { label: string; branch: string | null }[] } | null>(null)
+  const [newWtBranchMenuOpen, setNewWtBranchMenuOpen] = useState(false)
+  const [newWtBranches, setNewWtBranches] = useState<string[]>([])
+  const [newWtPickBranch, setNewWtPickBranch] = useState('__new__')
+  const [newWtNewBranch, setNewWtNewBranch] = useState('')
+  const [newWtPath, setNewWtPath] = useState('')
+  const [newWtPending, setNewWtPending] = useState(false)
+  const [newWtError, setNewWtError] = useState<string | null>(null)
+  const [projectAliasTarget, setProjectAliasTarget] = useState<{ repoRoot: string } | null>(null)
+  const [projectAliasDraft, setProjectAliasDraft] = useState('')
+  const [groupModal, setGroupModal] = useState<{ mode: 'create' } | { mode: 'rename'; id: string } | null>(null)
+  const [groupDraft, setGroupDraft] = useState('')
+  const [removeProjectTarget, setRemoveProjectTarget] = useState<{ repoRoot: string; label: string; count: number } | null>(null)
+  const [removeProjectPending, setRemoveProjectPending] = useState(false)
+  const [removeProjectError, setRemoveProjectError] = useState<string | null>(null)
+  // Copy-path feedback toast.
+  const [toast, setToast] = useState<string | null>(null)
+  const toastTimer = useRef<number | undefined>(undefined)
+  const onCopy = (text: string): void => {
+    copyText(text).then((ok) => {
+      setToast(ok ? t('hover.copied') : t('copy.failed'))
+      window.clearTimeout(toastTimer.current)
+      toastTimer.current = window.setTimeout(() => { setToast(null) }, 1600)
+    })
+  }
+
+  const slug = (value: string): string => value.trim().replace(/[\\/:*?"<>|\s]+/g, '-')
+  const openNewWorktree = (repoRoot: string): void => {
+    const layout = worktreeLayouts.layouts.get(repoRoot)
+    const worktrees = layout?.worktrees ?? [{ path: repoRoot, head: null, branch: null, main: true }]
+    const base = repoRoot.replace(/[/\\]+$/, '')
+    setNewWtTarget({
+      repoRoot,
+      label: base.slice(base.lastIndexOf('/') + 1),
+      currentBranch: worktrees.find(w => w.main)?.branch ?? worktrees[0]?.branch ?? null,
+      existing: worktrees.map(wt => ({
+        label: wt.path.split(/[/\\]/).pop() ?? wt.path,
+        branch: wt.branch,
+      })),
+    })
+    setNewWtBranches([])
+    setNewWtPickBranch('__new__')
+    setNewWtNewBranch('')
+    setNewWtPath('')
+    setNewWtError(null)
+    fetchBranches(repoRoot).then(({ names }) => { setNewWtBranches(names) }).catch(() => { setNewWtBranches([]) })
+  }
+  const branchIsNew = newWtPickBranch === '__new__'
+  const effectiveBranch = branchIsNew ? newWtNewBranch.trim() : newWtPickBranch
+  const defaultWtPath = (repoRoot: string, branch: string): string => {
+    const base = repoRoot.replace(/[/\\]+$/, '')
+    const parent = base.slice(0, base.lastIndexOf('/'))
+    const name = base.slice(base.lastIndexOf('/') + 1)
+    return `${parent}/${name}-worktrees/${slug(branch) === '' ? 'new' : slug(branch)}`
+  }
+  const closeNewWorktree = (): void => {
+    if (newWtPending) return
+    setNewWtTarget(null)
+  }
+  const confirmNewWorktree = (): void => {
+    if (newWtPending || newWtTarget === null) return
+    if (effectiveBranch === '') { setNewWtError(t('wt.branch')); return }
+    const path = (newWtPath.trim() === '' ? defaultWtPath(newWtTarget.repoRoot, effectiveBranch) : newWtPath.trim())
+    setNewWtPending(true)
+    setNewWtError(null)
+    createWorktree(newWtTarget.repoRoot, path, effectiveBranch, branchIsNew).then(() => {
+      setNewWtPending(false)
+      setNewWtTarget(null)
+      worktreeLayouts.refresh()
+    }).catch((reason: unknown) => {
+      setNewWtPending(false)
+      setNewWtError(reason instanceof Error ? reason.message : String(reason))
+    })
+  }
+
+  const openRenameProject = (repoRoot: string, currentLabel: string): void => {
+    setProjectAliasTarget({ repoRoot })
+    setProjectAliasDraft(projectAlias[repoRoot] ?? currentLabel)
+  }
+  const closeRenameProject = (): void => { setProjectAliasTarget(null) }
+  const confirmRenameProject = (): void => {
+    if (projectAliasTarget === null) return
+    const alias = projectAliasDraft.trim()
+    actions.setProjectAlias(projectAliasTarget.repoRoot, alias === '' ? undefined : alias)
+    setProjectAliasTarget(null)
+  }
+
+  const openNewGroup = (): void => {
+    setGroupModal({ mode: 'create' })
+    setGroupDraft('')
+  }
+  const openRenameGroup = (id: string): void => {
+    setGroupModal({ mode: 'rename', id })
+    setGroupDraft(groupLabels[id] ?? id)
+  }
+  const closeGroupModal = (): void => { setGroupModal(null) }
+  const confirmGroupModal = (): void => {
+    const label = groupDraft.trim()
+    if (label === '' || groupModal === null) return
+    if (groupModal.mode === 'create') {
+      actions.createGroup(`group-${Date.now()}`, label)
+    } else {
+      actions.renameGroup(groupModal.id, label)
+    }
+    setGroupModal(null)
+  }
+
+  const onRemoveProjectRequest = (repoRoot: string, label: string): void => {
+    const layout = worktreeLayouts.layouts.get(repoRoot)
+    setRemoveProjectTarget({ repoRoot, label, count: layout?.worktrees.length ?? 1 })
+    setRemoveProjectError(null)
+  }
+  const closeRemoveProject = (): void => {
+    if (removeProjectPending) return
+    setRemoveProjectTarget(null)
+  }
+  const confirmRemoveProject = (): void => {
+    if (removeProjectPending || removeProjectTarget === null) return
+    setRemoveProjectPending(true)
+    setRemoveProjectError(null)
+    const workspaceIds = workspaces
+      .filter(w => {
+        const layout = worktreeLayouts.layouts.get(w.path)
+        return (layout !== null && layout !== undefined && layout.repoRoot === removeProjectTarget.repoRoot)
+          || w.path === removeProjectTarget.repoRoot
+      })
+      .map(w => w.workspaceId)
+    Promise.allSettled(workspaceIds.map(id => deleteWorkspace(id))).then((results) => {
+      setRemoveProjectPending(false)
+      const failed = results.some(r => r.status === 'rejected')
+      if (failed) setRemoveProjectError(t('project.remove.pending'))
+      else setRemoveProjectTarget(null)
+    })
+  }
+
   return (
     <div className={cn(css.root, !wide && css.rail)}>
       <div className={css.sectionHeader}>
@@ -1140,34 +1323,47 @@ export function WorkspaceBrowser({
               />
             )
             : (
-              <SessionTree
+              <ProjectTreeBody
                 useSessions={useSessions}
-                onSessionRename={onSessionRename}
-                onSessionArchive={onSessionArchive}
-                forkSession={forkSession}
-                workspaces={workspaces}
-                groupExpansion={groupExpansion}
-                setGroupExpanded={actions.setGroupExpanded}
-                sessionOrderByAccount={sessionOrderByAccount}
-                sessionUpdatedAtByAccount={sessionUpdatedAtByAccount}
-                syncSessionOrderAccount={actions.syncSessionOrderAccount}
-                setSessionOrder={actions.setSessionOrder}
-                archivedSessionIds={archivedSessionIds}
-                startSession={startSession}
                 open={open}
-                insertWorkspaceBefore={insertWorkspaceBefore}
-                insertSessionBefore={insertSessionBefore}
-                orderBy={orderBy}
-                t={t}
-                onRenameRequest={(workspaceId, currentTitle) => {
-                  setRenameTarget({ workspaceId, currentTitle })
-                  setRenameDraft(currentTitle)
+                forkSession={forkSession}
+                startSession={startSession}
+                workspaces={workspaces}
+                layouts={worktreeLayouts.layouts}
+                archivedSessionIds={archivedSessionIds}
+                view={{
+                  expanded: Object.entries(groupExpansion).filter(([, v]) => v).map(([k]) => k),
+                  activeTab,
+                  projectGroup,
+                  groupIds,
+                  groupLabels,
+                  projectAlias,
+                }}
+                onToggleProject={(key, expanded) => { actions.setGroupExpanded(key, expanded) }}
+                onToggleWorktree={(key, expanded) => { actions.setGroupExpanded(key, expanded) }}
+                onSetTab={actions.setActiveTab}
+                onNewWorktree={openNewWorktree}
+                onRemoveProject={onRemoveProjectRequest}
+                onMoveProject={actions.moveProjectToGroup}
+                onNewGroup={openNewGroup}
+                onRenameGroup={(tab) => { openRenameGroup(tab.id) }}
+                onRemoveGroup={(tab) => { actions.removeGroup(tab.id) }}
+                onRenameWorktree={(workspaceId, title) => {
+                  setRenameTarget({ workspaceId: workspaceId as WorkspaceId, currentTitle: title })
+                  setRenameDraft(title)
                   setRenameError(null)
                 }}
-                onDeleteRequest={(workspaceId, title) => {
-                  setDeleteTarget({ workspaceId, title })
+                onDeleteWorktree={(workspaceId, title) => {
+                  setDeleteTarget({ workspaceId: workspaceId as WorkspaceId, title })
                   setDeleteError(null)
                 }}
+                onSessionRename={onSessionRename}
+                onSessionArchive={onSessionArchive}
+                onRenameProject={openRenameProject}
+                onOpenPath={(path) => { void openPath(path) }}
+                onCopy={onCopy}
+                loading={worktreeLayouts.loading}
+                t={t}
               />
             ))}
       </div>
@@ -1263,6 +1459,211 @@ export function WorkspaceBrowser({
         {deleting && <div className={css.deleteStatus} role="status">{t('delete.pending')}</div>}
         {deleteError !== null && <div className={css.renameError} role="alert">{deleteError}</div>}
       </Modal>
+
+      {/* New WorkTree */}
+      <Modal
+        open={newWtTarget !== null}
+        onClose={closeNewWorktree}
+        closeLabel={t('close')}
+        title={t('wt.new.title')}
+        footer={(
+          <>
+            <Button variant="outline" disabled={newWtPending} onClick={closeNewWorktree}>{t('cancel')}</Button>
+            <Button variant="primary" disabled={newWtPending || effectiveBranch === ''} onClick={confirmNewWorktree}>
+              {newWtPending ? t('wt.pending') : t('wt.create')}
+            </Button>
+          </>
+        )}
+      >
+        {newWtTarget !== null && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* Context: which repo / current branch this worktree forks from. */}
+            <div style={{ fontSize: 13, lineHeight: '20px', color: 'var(--dsw-alias-label-secondary)' }}>
+              {t('wt.basedOn', { name: newWtTarget.label })}
+              {newWtTarget.currentBranch !== null && (
+                <span style={{ color: 'var(--dsw-alias-label-primary)', fontWeight: 500 }}>
+                  {' · '}{newWtTarget.currentBranch}
+                </span>
+              )}
+            </div>
+
+            {/* Existing worktrees (read-only inventory). */}
+            {newWtTarget.existing.length > 0 && (
+              <div>
+                <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)', marginBottom: 4 }}>{t('wt.existing')}</div>
+                {newWtTarget.existing.map(wt => (
+                  <div key={wt.label} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, lineHeight: '22px', color: 'var(--dsw-alias-label-secondary)' }}>
+                    <IconFolderClose16 size={14} />
+                    <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{wt.label}</span>
+                    {wt.branch !== null && <span style={{ fontSize: 11, opacity: 0.75 }}>{wt.branch}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Branch picker: existing branches via Menu, or a new name. */}
+            <div>
+              <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)', marginBottom: 4 }}>{t('wt.branch')}</div>
+              <Menu
+                open={newWtBranchMenuOpen}
+                onClose={() => { setNewWtBranchMenuOpen(false) }}
+                items={[
+                  ...newWtBranches.map(b => ({ id: b, label: b })),
+                  { type: 'separator' as const, id: 'wt-branch-sep' },
+                  { id: '__new__', label: t('wt.newBranch') },
+                ]}
+                selectedId={branchIsNew ? '__new__' : newWtPickBranch}
+                onSelect={(id) => {
+                  setNewWtBranchMenuOpen(false)
+                  setNewWtPickBranch(id)
+                  const branch = id === '__new__' ? newWtNewBranch : id
+                  if (newWtPath.trim() === '' && newWtTarget !== null) setNewWtPath(defaultWtPath(newWtTarget.repoRoot, branch))
+                }}
+                portal
+                anchor={(
+                  <button
+                    type="button"
+                    className={css.renameInput}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', height: 36, padding: '0 12px', cursor: 'pointer', textAlign: 'left', fontSize: 14 }}
+                    onClick={() => { setNewWtBranchMenuOpen(v => !v) }}
+                  >
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {branchIsNew ? (newWtNewBranch === '' ? t('wt.newBranch') : newWtNewBranch) : newWtPickBranch}
+                    </span>
+                    <IconChevronDownOutline14 />
+                  </button>
+                )}
+              />
+              {branchIsNew && (
+                <input
+                  className={css.renameInput}
+                  style={{ height: 36, marginTop: 6, fontSize: 14 }}
+                  value={newWtNewBranch}
+                  aria-label={t('wt.newBranch')}
+                  placeholder={t('wt.newBranch')}
+                  autoFocus
+                  disabled={newWtPending}
+                  onChange={(e) => {
+                    setNewWtNewBranch(e.target.value)
+                    if (newWtPath.trim() === '' && newWtTarget !== null) setNewWtPath(defaultWtPath(newWtTarget.repoRoot, e.target.value))
+                  }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') confirmNewWorktree() }}
+                />
+              )}
+            </div>
+
+            {/* Location (auto-generated, editable). */}
+            <div>
+              <div style={{ fontSize: 12, lineHeight: '16px', color: 'var(--dsw-alias-label-tertiary)', marginBottom: 4 }}>{t('wt.path')}</div>
+              <input
+                className={css.renameInput}
+                style={{ height: 36, fontSize: 13 }}
+                value={newWtPath}
+                aria-label={t('wt.path')}
+                disabled={newWtPending}
+                onChange={(e) => { setNewWtPath(e.target.value) }}
+                onKeyDown={(e) => { if (e.key === 'Enter') confirmNewWorktree() }}
+              />
+            </div>
+          </div>
+        )}
+        {newWtError !== null && <div className={css.renameError} role="alert">{newWtError}</div>}
+      </Modal>
+
+      {/* Rename project alias */}
+      <Modal
+        open={projectAliasTarget !== null}
+        onClose={closeRenameProject}
+        closeLabel={t('close')}
+        title={t('rename')}
+        footer={(
+          <>
+            <Button variant="outline" onClick={closeRenameProject}>{t('cancel')}</Button>
+            <Button variant="primary" onClick={confirmRenameProject}>{t('rename')}</Button>
+          </>
+        )}
+      >
+        <input
+          className={css.renameInput}
+          value={projectAliasDraft}
+          aria-label={t('field.workspaceName')}
+          autoFocus
+          onChange={(e) => { setProjectAliasDraft(e.target.value) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') confirmRenameProject() }}
+        />
+      </Modal>
+
+      {/* New / rename group */}
+      <Modal
+        open={groupModal !== null}
+        onClose={closeGroupModal}
+        closeLabel={t('close')}
+        title={groupModal?.mode === 'rename' ? t('tab.renameGroup.title') : t('tab.newGroup.title')}
+        footer={(
+          <>
+            <Button variant="outline" onClick={closeGroupModal}>{t('cancel')}</Button>
+            <Button variant="primary" disabled={groupDraft.trim() === ''} onClick={confirmGroupModal}>{t('rename')}</Button>
+          </>
+        )}
+      >
+        <input
+          className={css.renameInput}
+          value={groupDraft}
+          aria-label={t('tab.groupName')}
+          autoFocus
+          onChange={(e) => { setGroupDraft(e.target.value) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') confirmGroupModal() }}
+        />
+      </Modal>
+
+      {/* Remove project */}
+      <Modal
+        open={removeProjectTarget !== null}
+        onClose={closeRemoveProject}
+        closeLabel={t('close')}
+        title={t('project.remove.title')}
+        {...removeProjectTarget === null
+          ? {}
+          : { description: `${t('project.remove.desc', { name: removeProjectTarget.label })} ${t('project.remove.count', { n: removeProjectTarget.count })}` }}
+        footer={(
+          <>
+            <Button variant="outline" disabled={removeProjectPending} onClick={closeRemoveProject}>{t('cancel')}</Button>
+            <Button
+              variant="outline"
+              className={css.deleteAction}
+              disabled={removeProjectPending}
+              onClick={confirmRemoveProject}
+            >
+              {removeProjectPending ? t('project.remove.pending') : t('project.remove.confirm')}
+            </Button>
+          </>
+        )}
+      >
+        {removeProjectError !== null && <div className={css.renameError} role="alert">{removeProjectError}</div>}
+      </Modal>
+
+      {/* Copy feedback toast. */}
+      {toast !== null && (
+        <div
+          role="status"
+          style={{
+            position: 'absolute',
+            left: '50%',
+            bottom: 12,
+            transform: 'translateX(-50%)',
+            background: 'var(--dsw-alias-button-elevated-fill, #1f2328)',
+            color: 'var(--dsw-alias-label-primary, #f9fafb)',
+            borderRadius: 8,
+            padding: '6px 12px',
+            fontSize: 12,
+            lineHeight: '18px',
+            zIndex: 10,
+            boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+          }}
+        >
+          {toast}
+        </div>
+      )}
     </div>
   )
 }

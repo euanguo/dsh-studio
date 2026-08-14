@@ -16,6 +16,7 @@ import type { WorkspaceBrowserInjected, WorkspacePickerInjected } from './contra
 import { createWorkspaceViewStore } from './stores.ts'
 import { WorkspaceBrowser } from './WorkspaceBrowser.tsx'
 import { WorkspacePicker } from './WorkspacePicker.tsx'
+import { pluginCss } from './styles.ts'
 import { en, zh, type WorkspaceKey } from './locales.ts'
 
 export type {
@@ -44,6 +45,16 @@ const NS = 'workspace'
  */
 export const inject = ['slots', 'sessions', 'workspaces', 'locale']
 
+/** Idempotent mount of the scoped left-rail stylesheet (generated from the
+ *  forked CSS Modules; HMR-safe via the tag id). */
+function injectLeftRailStyles(): void {
+  if (document.getElementById('oh-dsh-left-rail-styles') !== null) return
+  const style = document.createElement('style')
+  style.id = 'oh-dsh-left-rail-styles'
+  style.textContent = pluginCss
+  document.head.append(style)
+}
+
 /**
  * Register the browser and picker once their slot declarations are on the
  * ledger. Inject factories return plain callbacks; data reads use the
@@ -51,6 +62,7 @@ export const inject = ['slots', 'sessions', 'workspaces', 'locale']
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
+  injectLeftRailStyles()
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-workspace: dictionaries')
 
   const searchSessions: WorkspaceBrowserInjected['searchSessions'] = async (query, signal) => {
@@ -99,6 +111,7 @@ export function apply(ctx: ClientContext): void {
       await ctx.workspaces.insertSessionBefore(workspaceId, sessionId, beforeSessionId)
     },
     createWorkspace: input => ctx.workspaces.create(input),
+    openPath: path => ctx.workspaces.openPath(path),
     hooks: { directoryFlow: browserFlowSource },
   })
   const pickerInjected = (): WorkspacePickerInjected => ({

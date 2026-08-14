@@ -25,6 +25,16 @@ type WorkspaceViewState = {
   sessionOrderByAccount: Record<string, string[]>
   /** Last observed update timestamps per order account for one-time promotion events. */
   sessionUpdatedAtByAccount: Record<string, Record<string, number>>
+  /** Selected tab id (persisted; falls back to the pinned default when absent). */
+  activeTab: string
+  /** repoRoot → named group id (absent = the pinned default tab). */
+  projectGroup: Record<string, string>
+  /** Ordered user group ids (the pinned default tab is implicit, not listed). */
+  groupIds: string[]
+  /** group id → display label. */
+  groupLabels: Record<string, string>
+  /** repoRoot → user alias (display name overriding the directory basename). */
+  projectAlias: Record<string, string>
 }
 
 /**
@@ -43,6 +53,13 @@ type WorkspaceViewActions = {
     updatedAt: Record<string, number>,
   ) => void
   setSessionOrder: (draft: WorkspaceViewState, accountKey: string, order: string[]) => void
+  setActiveTab: (draft: WorkspaceViewState, tab: string) => void
+  moveProjectToGroup: (draft: WorkspaceViewState, repoRoot: string, groupId: string | undefined) => void
+  createGroup: (draft: WorkspaceViewState, id: string, label: string) => void
+  renameGroup: (draft: WorkspaceViewState, id: string, label: string) => void
+  removeGroup: (draft: WorkspaceViewState, id: string) => void
+  setProjectAlias: (draft: WorkspaceViewState, repoRoot: string, alias: string | undefined) => void
+  hydrateGrouping: (draft: WorkspaceViewState, settings: { activeTab?: string; projectGroup?: Record<string, string>; groupIds?: string[]; groupLabels?: Record<string, string>; projectAlias?: Record<string, string> }) => void
 }
 
 /**
@@ -57,8 +74,12 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
       groupExpansion: {},
       sessionOrderByAccount: {},
       sessionUpdatedAtByAccount: {},
+      activeTab: '__default__',
+      projectGroup: {},
+      groupIds: [],
+      groupLabels: {},
+      projectAlias: {},
     }),
-    persist: 'dsh.workspace.view.v5',
     actions: {
       setGroupBy: (d, mode: SessionGroupBy) => { d.groupBy = mode },
       setOrderBy: (d, mode: SessionOrderBy) => { d.orderBy = mode },
@@ -81,6 +102,34 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
       },
       setSessionOrder: (d, accountKey: string, order: string[]) => {
         d.sessionOrderByAccount[accountKey] = order
+      },
+      setActiveTab: (d, tab: string) => { d.activeTab = tab },
+      moveProjectToGroup: (d, repoRoot: string, groupId: string | undefined) => {
+        if (groupId === undefined || groupId === '__default__') delete d.projectGroup[repoRoot]
+        else d.projectGroup[repoRoot] = groupId
+      },
+      createGroup: (d, id: string, label: string) => {
+        if (!d.groupIds.includes(id)) d.groupIds.push(id)
+        d.groupLabels[id] = label
+      },
+      renameGroup: (d, id: string, label: string) => { d.groupLabels[id] = label },
+      removeGroup: (d, id: string) => {
+        d.groupIds = d.groupIds.filter(g => g !== id)
+        delete d.groupLabels[id]
+        for (const [repoRoot, group] of Object.entries(d.projectGroup)) {
+          if (group === id) delete d.projectGroup[repoRoot]
+        }
+      },
+      setProjectAlias: (d, repoRoot: string, alias: string | undefined) => {
+        if (alias === undefined || alias.trim() === '') delete d.projectAlias[repoRoot]
+        else d.projectAlias[repoRoot] = alias.trim()
+      },
+      hydrateGrouping: (d, settings) => {
+        if (typeof settings.activeTab === 'string') d.activeTab = settings.activeTab
+        if (settings.projectGroup !== undefined) d.projectGroup = settings.projectGroup
+        if (Array.isArray(settings.groupIds)) d.groupIds = settings.groupIds
+        if (settings.groupLabels !== undefined) d.groupLabels = settings.groupLabels
+        if (settings.projectAlias !== undefined) d.projectAlias = settings.projectAlias
       },
     },
   })

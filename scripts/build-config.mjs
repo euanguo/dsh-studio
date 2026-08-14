@@ -97,6 +97,12 @@ export function desktopBuilds(root) {
           ...(['desktop-skins', 'desktop-sidebar', 'desktop-left-rail'].includes(plugin.directory)
             ? ['@deepseek-ai/dsh-client-runtime/client']
             : []),
+          ...(plugin.directory === 'desktop-left-rail'
+            // Platform seed (frozen module table): the runtime resolves the
+            // official ui-primitives bundle — icons/menus/dialogs stay 1:1
+            // with the official web app (see docs/official-plugin-migration.md).
+            ? ['@deepseek-ai/dsh-client-ui-primitives']
+            : []),
         ],
         banner: {
           js: `window.__ModuleLoader__.load({ id: "${plugin.id}", factory: (require) => { var module = { exports: {} }; var exports = module.exports;`,

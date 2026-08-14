@@ -171,8 +171,8 @@ export function apply(ctx: ClientContext): void {
     storage,
     new SkinDomPresenter(typeof document === 'undefined' ? undefined : document),
   )
-  const store = defineStore<SkinRowState>({
-    init: () => ({ activeId: '', ready: false, revision: -1 }),
+  const store = defineStore({
+    init: (): SkinRowState => ({ activeId: '', ready: false, revision: -1 }),
     actions: {
       sync: (draft, activeId: string, ready: boolean, revision: number) => {
         if (revision < draft.revision) return

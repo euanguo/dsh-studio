@@ -68,6 +68,15 @@ function scopeOf(payload: unknown): SidebarScope & { cwd: string } {
   return { sessionId, cwd: requireAbsolute(raw) }
 }
 
+/** Worktree-only scope: the workspace browser has no session binding, so the
+ *  worktree endpoints accept a bare absolute cwd (same same-origin POST fence). */
+function cwdScopeOf(payload: unknown): string {
+  const record = payload as { cwd?: unknown } | null
+  const raw = typeof record?.cwd === 'string' && record.cwd !== '' ? record.cwd : undefined
+  if (raw === undefined) throw new SidebarError('bad-request', 'cwd is required')
+  return requireAbsolute(raw)
+}
+
 /** Resolve a request path that must live under the session cwd (fs.read / fs.tree).
  *  Accepts repo-relative paths (git status reports them) and absolute ones. */
 function boundedPath(cwd: string, raw: string): string {
@@ -137,9 +146,9 @@ export function buildSidebarApi(ctx: SidebarApiContext): Record<string, ApiMetho
   // upstream host; this host reads and writes the SAME namespace through the
   // in-process settings service, so there is one preference store regardless
   // of which host serves the request.
-  const settingsView = (): { value?: unknown; revision?: number } => {
+  const settingsView = (ns: string): { value?: unknown; revision?: number } => {
     const descriptor = ctx.settings.describe({ redactSecrets: true })
-      .find(candidate => candidate.ns === SIDEBAR_PREFS_NS)
+      .find(candidate => candidate.ns === ns)
     if (descriptor === undefined) return {}
     return {
       ...(descriptor.value === undefined ? {} : { value: descriptor.value }),
@@ -183,7 +192,7 @@ export function buildSidebarApi(ctx: SidebarApiContext): Record<string, ApiMetho
       return { ...result, stats }
     },
     'git.branch': (payload) => {
-      const { cwd } = scopeOf(payload)
+      const cwd = cwdScopeOf(payload)
       return git.branches(cwd)
     },
     'git.log': (payload) => {
@@ -242,9 +251,27 @@ export function buildSidebarApi(ctx: SidebarApiContext): Record<string, ApiMetho
       const { cwd } = scopeOf(payload)
       return git.commit(cwd, requireString(payload, 'message'))
     },
-    'settings.get': () => settingsView(),
+    'git.worktree-list': (payload) => {
+      const cwd = cwdScopeOf(payload)
+      return git.worktreeList(cwd)
+    },
+    'git.worktree-add': (payload) => {
+      const cwd = cwdScopeOf(payload)
+      const path = requireAbsolute(requireString(payload, 'path'))
+      const branch = requireString(payload, 'branch')
+      const record = payload as { createBranch?: unknown } | null
+      const createBranch = record?.createBranch === true
+      return git.worktreeAdd(cwd, path, branch, createBranch)
+    },
+    'settings.get': (payload) => {
+      const ns = typeof (payload as { ns?: unknown } | null)?.ns === 'string'
+        ? (payload as { ns: string }).ns
+        : SIDEBAR_PREFS_NS
+      return settingsView(ns)
+    },
     'settings.update': async (payload) => {
-      const record = payload as { patch?: unknown; expectedRevision?: unknown } | null
+      const record = payload as { ns?: unknown; patch?: unknown; expectedRevision?: unknown } | null
+      const ns = typeof record?.ns === 'string' ? record.ns : SIDEBAR_PREFS_NS
       const patch = record?.patch
       if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
         throw new SidebarError('bad-request', 'patch must be a plain object')
@@ -253,7 +280,7 @@ export function buildSidebarApi(ctx: SidebarApiContext): Record<string, ApiMetho
         ? record.expectedRevision
         : undefined
       try {
-        await ctx.settings.update(SIDEBAR_PREFS_NS, patch as Record<string, unknown>, expectedRevision)
+        await ctx.settings.update(ns, patch as Record<string, unknown>, expectedRevision)
       } catch (error) {
         // SettingsConflictError is duck-typed by name to avoid importing the
         // @deepseek-ai/dsh-settings package into this bundle.
@@ -262,7 +289,7 @@ export function buildSidebarApi(ctx: SidebarApiContext): Record<string, ApiMetho
         }
         throw new SidebarError('settings-rejected', error instanceof Error ? error.message : String(error), 400)
       }
-      return settingsView()
+      return settingsView(ns)
     },
   }
 }

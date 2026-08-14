@@ -354,3 +354,68 @@
     transition: none;
   }
 }
+
+/* Three-level tree additions: worktree rows + branch/main badges. */
+.worktreeRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--dsw-alias-label-primary);
+}
+
+.worktreeRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.worktreeRow.menuOpen {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.worktreeText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.branchBadge {
+  flex: none;
+  font-size: 10px;
+  line-height: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border: 1px solid var(--dsw-alias-state-business-primary);
+  border-radius: 8px;
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.mainBadge {
+  flex: none;
+  font-size: 10px;
+  line-height: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Three-level tree: keep worktree text shrinkable and badges ellipsized so a
+   long branch name never pushes the row into horizontal overflow. */
+.worktreeText .title {
+  flex: 1;
+}
+
+.branchBadge,
+.mainBadge {
+  max-width: 96px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -4,6 +4,10 @@ import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { desktopBuilds } from './build-config.mjs'
 import './check-sidebar-source.mjs'
+import { generatePluginStyles } from './plugin-styles.mjs'
+
+// Plugin CSS Modules → scoped styles.ts (runs before the bundles below).
+generatePluginStyles('desktop-left-rail', '[data-oh-dsh-left-rail]')
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dist = join(root, 'dist')
