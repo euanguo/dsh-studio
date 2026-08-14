@@ -258,22 +258,8 @@ function stageDependencyTarget(sourceTarget) {
     if (equivalent !== undefined) return equivalent
     throw new Error(`deployed pnpm store is missing runtime dependency: ${sourceTarget}`)
   }
-  if (isWithin(dshSource, sourceTarget)) return stageWorkspaceDependency(sourceTarget)
+  if (isWithin(dshSource, sourceTarget)) return stageWorkspaceTarget(sourceTarget)
   throw new Error(`DSH package dependency points outside the source checkout: ${sourceTarget}`)
-}
-
-/**
- * Resolve a workspace dependency target. Windows junctions are followed
- * transparently, so linking workspace copies to each other creates cycles
- * (cordis <-> loader); route through the flat deployed store there, which
- * mirrors the dependency graph without recursive workspace nesting.
- */
-function stageWorkspaceDependency(source) {
-  if (process.platform === 'win32') {
-    const deployed = findDeployedPackage(source)
-    if (deployed !== undefined) return deployed
-  }
-  return stageWorkspaceTarget(source)
 }
 
 function mirrorPackageDependencies(sourcePackage, targetPackage) {
@@ -459,7 +445,7 @@ function relinkInstallationWorkspacePackages() {
     const stat = existsSync(link) ? lstatSync(link) : undefined
     if (stat !== undefined && !stat.isSymbolicLink()) continue
     if (stat === undefined && findDeployedPackage(source) === undefined) continue
-    const stagedTarget = stageWorkspaceDependency(source)
+    const stagedTarget = stageWorkspaceTarget(source)
     mkdirSync(dirname(link), { recursive: true })
     portableSymlink(relative(dirname(link), stagedTarget), link)
   }
@@ -556,7 +542,7 @@ function installCompiledPackageHostDependencies(sourceManifestPath, packageDir) 
     if (source === undefined) {
       throw new Error(`${manifest.name} cannot resolve DSH peer ${dependency}`)
     }
-    const target = stageWorkspaceDependency(source)
+    const target = stageWorkspaceTarget(source)
     const link = join(packageDir, 'node_modules', ...dependency.split('/'))
     mkdirSync(dirname(link), { recursive: true })
     portableSymlink(relative(dirname(link), target), link)
