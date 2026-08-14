@@ -143,11 +143,16 @@ export function workspaceChangesFromBetterSidebar(
   )
   return entries.map(entry => {
     const stat = statsByPath.get(entry.path)
+    // Porcelain v2 XY: X = index status, Y = worktree status. An unmodified
+    // index slot is '.', so only a letter in X means staged. (v1 used ' ' —
+    // keep accepting it for any legacy callers.)
+    const indexCode = entry.xy[0] ?? ''
+    const staged = indexCode !== '.' && indexCode !== '?' && indexCode !== ' '
     return {
       path: entry.path,
       oldPath: null,
       status: statusFromCode(entry.xy),
-      staged: entry.xy[0] !== ' ' && entry.xy[0] !== '?',
+      staged,
       additions: stat?.additions ?? 0,
       deletions: stat?.deletions ?? 0,
     }

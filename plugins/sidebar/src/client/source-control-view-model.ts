@@ -100,6 +100,11 @@ export function buildSourceControlRows(
     const changes = changesBySection.get(section) ?? []
     const expanded = !input.collapsedSections.has(section)
     const tree = buildSourceControlTree(changes)
+    // Both sections can contain identical directory paths (and therefore
+    // identical node keys). Prefix row keys with the section so React keys
+    // stay unique across the whole row stream — duplicate keys made React
+    // keep stale DOM rows around on every collapse/expand.
+    const keyFor = (key: string): string => `${section}:${key}`
     rows.push({
       kind: 'section',
       key: `section:${section}`,
@@ -119,7 +124,7 @@ export function buildSourceControlRows(
         const name = change.path.split('/').filter(Boolean).pop() ?? change.path
         rows.push({
           kind: 'file',
-          key: `file:${change.path}`,
+          key: keyFor(`file:${change.path}`),
           name,
           path: change.path,
           depth: 0,
@@ -133,11 +138,11 @@ export function buildSourceControlRows(
       continue
     }
 
-    for (const node of flattenSourceControlTree(tree, input.collapsedDirectories)) {
+    for (const node of flattenSourceControlTree(tree, input.collapsedDirectories, `${section}:`)) {
       if (node.kind === 'file') {
         rows.push({
           kind: 'file',
-          key: node.key,
+          key: keyFor(node.key),
           name: node.name,
           path: node.path,
           depth: node.depth,
@@ -150,12 +155,13 @@ export function buildSourceControlRows(
       } else {
         rows.push({
           kind: 'directory',
-          key: node.key,
+          key: keyFor(node.key),
           name: node.name,
           path: node.path,
           depth: node.depth,
           fileCount: node.fileCount,
-          expanded: !input.collapsedDirectories.has(node.key),
+          expanded: !input.collapsedDirectories.has(keyFor(node.key))
+            && !input.collapsedDirectories.has(node.key),
           stagePaths: collectStagePaths(node),
           unstagePaths: collectUnstagePaths(node),
           discardPaths: collectDiscardPaths(node),

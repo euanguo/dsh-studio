@@ -181,15 +181,26 @@ function compactNode(node: SourceControlDirectoryNode): SourceControlDirectoryNo
   }
 }
 
-/** Flatten the tree into a stable row stream, honoring collapsed directories. */
+/**
+ * Flatten the tree into a stable row stream, honoring collapsed directories.
+ *
+ * `keyPrefix` scopes directory keys per section (`staged:` / `unstaged:`):
+ * both sections can contain a `directory:plugins` node, and React row keys
+ * must stay unique across the whole list. Collapse lookups accept both the
+ * prefixed key (current storage format) and the bare key (legacy entries
+ * persisted before the section prefix existed).
+ */
 export function flattenSourceControlTree(
   nodes: readonly SourceControlTreeNode[],
   collapsedDirectoryKeys: ReadonlySet<string>,
+  keyPrefix = '',
 ): SourceControlTreeNode[] {
   const result: SourceControlTreeNode[] = []
   const visit = (node: SourceControlTreeNode): void => {
     result.push(node)
-    if (node.kind === 'directory' && !collapsedDirectoryKeys.has(node.key)) {
+    if (node.kind === 'directory'
+      && !collapsedDirectoryKeys.has(keyPrefix + node.key)
+      && !collapsedDirectoryKeys.has(node.key)) {
       node.children.forEach(visit)
     }
   }

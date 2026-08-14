@@ -54,6 +54,20 @@ test('Better Sidebar status maps into the Oh-DSH workspace model', () => {
   ])
 })
 
+test('porcelain v2 XY codes map staged/unstaged correctly', () => {
+  // v2 uses '.' for the unmodified index slot — `.M` is an UNSTAGED change,
+  // `M.` is staged. Both must land in the right section (and diff side).
+  assert.deepEqual(workspaceChangesFromBetterSidebar([
+    { path: 'unstaged.ts', xy: '.M' },
+    { path: 'staged.ts', xy: 'M.' },
+    { path: 'both.ts', xy: 'MM' },
+  ]).map(change => [change.path, change.staged]), [
+    ['both.ts', true],
+    ['staged.ts', true],
+    ['unstaged.ts', false],
+  ])
+})
+
 test('workspace files adapt Better Sidebar responses to the Oh-DSH UI', () => {
   const root = mapBetterSidebarTree('/workspace', {
     path: '/workspace/src',

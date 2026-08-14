@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { WorkspaceFileEntry } from '../plugins/desktop-sidebar/src/protocol.ts'
-import { buildFileRows, type FileBrowseMode } from '../plugins/desktop-sidebar/src/client/file-tree-model.ts'
+import { buildFileRows } from '../plugins/desktop-sidebar/src/client/file-tree-model.ts'
 
 function dir(path: string, name: string): WorkspaceFileEntry {
   return { kind: 'directory', name, path, size: null }
@@ -31,9 +31,8 @@ const cache = new Map<string, readonly WorkspaceFileEntry[]>([
   ['/w/src/nested', nestedEntries],
 ])
 
-function rows(mode: FileBrowseMode, expandedDirs: ReadonlySet<string> = new Set(), selected: string | null = null) {
+function rows(expandedDirs: ReadonlySet<string> = new Set(), selected: string | null = null) {
   return buildFileRows({
-    mode,
     currentPath: '/w',
     entriesByDir: cache,
     expandedDirs,
@@ -41,31 +40,16 @@ function rows(mode: FileBrowseMode, expandedDirs: ReadonlySet<string> = new Set(
   })
 }
 
-test('flat mode lists the current directory only', () => {
-  const out = rows('flat')
+test('collapsed tree lists the root level only', () => {
+  const out = rows()
   assert.deepEqual(
     out.map(row => [row.name, row.depth]),
     [['docs', 0], ['src', 0], ['a.ts', 0], ['b.ts', 0]],
   )
 })
 
-test('nested mode interleaves loaded children under directory rows', () => {
-  const out = rows('nested')
-  assert.deepEqual(
-    out.map(row => [row.name, row.depth]),
-    [
-      ['docs', 0],
-      ['src', 0],
-      ['nested', 1],
-      ['index.ts', 1],
-      ['a.ts', 0],
-      ['b.ts', 0],
-    ],
-  )
-})
-
-test('tree mode recurses into expanded directories', () => {
-  const out = rows('tree', new Set(['/w/src', '/w/src/nested']))
+test('expanded directories recurse at depth', () => {
+  const out = rows(new Set(['/w/src', '/w/src/nested']))
   assert.deepEqual(
     out.map(row => [row.name, row.depth]),
     [
@@ -80,19 +64,17 @@ test('tree mode recurses into expanded directories', () => {
   )
 })
 
-test('tree mode keeps collapsed directories at one row', () => {
-  const out = rows('tree', new Set())
-  assert.deepEqual(
-    out.map(row => [row.name, row.depth]),
-    [['docs', 0], ['src', 0], ['a.ts', 0], ['b.ts', 0]],
-  )
-})
-
 test('rows carry expanded/selected flags', () => {
-  const out = rows('tree', new Set(['/w/src']), '/w/a.ts')
+  const out = rows(new Set(['/w/src']), '/w/a.ts')
   const src = out.find(row => row.name === 'src')
   const a = out.find(row => row.name === 'a.ts')
   assert.equal(src?.expanded, true)
   assert.equal(a?.selected, true)
   assert.equal(out.find(row => row.name === 'docs')?.expanded, false)
+})
+
+test('unloaded directories render one row without children', () => {
+  const out = rows(new Set(['/w/docs'])) // docs has no cache entry yet
+  assert.equal(out.find(row => row.name === 'docs')?.expanded, true)
+  assert.equal(out.filter(row => row.depth > 0).length, 0)
 })

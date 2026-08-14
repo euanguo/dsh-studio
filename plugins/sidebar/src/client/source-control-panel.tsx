@@ -4,6 +4,9 @@
  * action layer (stage / unstage / discard) that never changes row layout.
  * Right-click opens a path context menu (copy path / stage / unstage /
  * discard). Pure presentation — the row stream comes from the view model.
+ *
+ * Rows are built on the shared ListRow primitives (plugins/shared/list-row)
+ * — the same row geometry as the file browser and every other list.
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import type { Translate } from '../../../shared/i18n.ts'
@@ -18,6 +21,16 @@ import {
   IconTrash,
   FileGlyph,
 } from '../../../shared/tabler-icons.tsx'
+import {
+  ListRow,
+  ListRowActions,
+  ListRowActionButton,
+  ListRowBody,
+  ListRowLeading,
+  ListRowMain,
+  ListRowTrailing,
+} from '../../../shared/list-row.tsx'
+import { FilenameLabel } from '../../../shared/filename-label.tsx'
 import type { WorkspaceMessage } from './i18n.ts'
 import type { WorkspaceChangeStatus } from '../protocol.ts'
 import {
@@ -231,46 +244,46 @@ function SectionRowView(props: {
 }): JSX.Element {
   const { row } = props
   return (
-    <div className="oh-dsh-sc-row oh-dsh-sc-section" data-section={row.id}>
-      <button
-        type="button"
-        className="oh-dsh-sc-main"
+    <ListRow className="oh-dsh-sc-section-row" data-section={row.id}>
+      <ListRowMain
+        className="oh-dsh-sc-depth-main"
         aria-expanded={row.expanded}
         onClick={() => { props.onToggleSection(row.id) }}
       >
-        {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-        <span className="oh-dsh-sc-section-title">{props.t(`source-control.section.${row.id}`)}</span>
-      </button>
-      <span className="oh-dsh-sc-trailing">
+        <ListRowLeading aria-hidden="true">
+          {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+        </ListRowLeading>
+        <ListRowBody>
+          <FilenameLabel name={props.t(`source-control.section.${row.id}`)} />
+        </ListRowBody>
+      </ListRowMain>
+      <ListRowTrailing>
         <span className="oh-dsh-sc-count">{row.count}</span>
-      </span>
-      <span className="oh-dsh-sc-actions">
+      </ListRowTrailing>
+      <ListRowActions>
         {row.stagePaths.length > 0 && (
-          <button
-            type="button"
+          <ListRowActionButton
             aria-label={props.t('source-control.stage-all')}
             title={props.t('source-control.stage-all')}
             onClick={() => { props.onStage(row.stagePaths) }}
-          ><IconPlus size={14} /></button>
+          ><IconPlus size={14} /></ListRowActionButton>
         )}
         {row.unstagePaths.length > 0 && (
-          <button
-            type="button"
+          <ListRowActionButton
             aria-label={props.t('source-control.unstage-all')}
             title={props.t('source-control.unstage-all')}
             onClick={() => { props.onUnstage(row.unstagePaths) }}
-          ><IconMinus size={14} /></button>
+          ><IconMinus size={14} /></ListRowActionButton>
         )}
         {row.discardPaths.length > 0 && (
-          <button
-            type="button"
+          <ListRowActionButton
             aria-label={props.t('source-control.discard-all')}
             title={props.t('source-control.discard-all')}
             onClick={() => { props.onDiscard(row.discardPaths, props.t(`source-control.section.${row.id}`)) }}
-          ><IconTrash size={14} /></button>
+          ><IconTrash size={14} /></ListRowActionButton>
         )}
-      </span>
-    </div>
+      </ListRowActions>
+    </ListRow>
   )
 }
 
@@ -284,48 +297,48 @@ function DirectoryRowView(props: {
 }): JSX.Element {
   const { row } = props
   return (
-    <div className="oh-dsh-sc-row oh-dsh-sc-directory" title={row.path}>
-      <button
-        type="button"
-        className="oh-dsh-sc-main"
+    <ListRow title={row.path} data-path={row.path}>
+      <ListRowMain
+        className="oh-dsh-sc-depth-main"
         style={{ '--tree-depth': row.depth } as CSSProperties}
         aria-expanded={row.expanded}
         onClick={() => { props.onToggleDirectory(row.key) }}
       >
-        {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+        <ListRowLeading aria-hidden="true">
+          {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+        </ListRowLeading>
         <FileGlyph path={row.path} kind="directory" expanded={row.expanded} />
-        <span className="oh-dsh-sc-name" title={row.path}>{row.name}</span>
-      </button>
-      <span className="oh-dsh-sc-trailing">
-        <span className="oh-dsh-sc-count">{row.fileCount}</span>
-      </span>
-      <span className="oh-dsh-sc-actions">
+        <ListRowBody>
+          <FilenameLabel name={row.name} title={row.path} />
+        </ListRowBody>
+        <ListRowTrailing>
+          <span className="oh-dsh-sc-count">{row.fileCount}</span>
+        </ListRowTrailing>
+      </ListRowMain>
+      <ListRowActions>
         {row.stagePaths.length > 0 && (
-          <button
-            type="button"
+          <ListRowActionButton
             aria-label={props.t('source-control.stage-all')}
             title={props.t('source-control.stage-all')}
             onClick={() => { props.onStage(row.stagePaths) }}
-          ><IconPlus size={14} /></button>
+          ><IconPlus size={14} /></ListRowActionButton>
         )}
         {row.unstagePaths.length > 0 && (
-          <button
-            type="button"
+          <ListRowActionButton
             aria-label={props.t('source-control.unstage-all')}
             title={props.t('source-control.unstage-all')}
             onClick={() => { props.onUnstage(row.unstagePaths) }}
-          ><IconMinus size={14} /></button>
+          ><IconMinus size={14} /></ListRowActionButton>
         )}
         {row.discardPaths.length > 0 && (
-          <button
-            type="button"
+          <ListRowActionButton
             aria-label={props.t('source-control.discard-all')}
             title={props.t('source-control.discard-all')}
             onClick={() => { props.onDiscard(row.discardPaths, row.path) }}
-          ><IconTrash size={14} /></button>
+          ><IconTrash size={14} /></ListRowActionButton>
         )}
-      </span>
-    </div>
+      </ListRowActions>
+    </ListRow>
   )
 }
 
@@ -357,65 +370,67 @@ function FileRowView(props: {
     })
   }
   return (
-    <div
-      className="oh-dsh-sc-row oh-dsh-sc-file"
-      data-selected={row.selected || undefined}
-      data-pending={props.pending ?? undefined}
+    <ListRow
+      className="oh-dsh-sc-file-row"
+      selected={row.selected}
       title={row.path}
+      data-path={row.path}
+      data-pending={props.pending ?? undefined}
       onContextMenu={openMenu}
     >
-      <button
-        type="button"
-        className="oh-dsh-sc-main"
+      <ListRowMain
+        className="oh-dsh-sc-depth-main"
         style={{ '--tree-depth': row.depth } as CSSProperties}
         aria-busy={props.pending !== null || undefined}
         onClick={() => { props.onSelectFile(row.path) }}
         onDoubleClick={() => { props.onOpenFile(row.path) }}
       >
+        <ListRowLeading aria-hidden="true" />
         <FileGlyph path={row.path} kind="file" />
-        <span className="oh-dsh-sc-name" title={row.path}>{row.name}</span>
-      </button>
-      <span className="oh-dsh-sc-trailing">
+        <ListRowBody>
+          <FilenameLabel name={row.name} title={row.path} />
+        </ListRowBody>
         {hasStat && (
-          <span className="oh-dsh-sc-stat" aria-hidden="true">
-            {change.additions > 0 && <em className="oh-dsh-sc-stat-add">+{change.additions}</em>}
-            {change.deletions > 0 && <em className="oh-dsh-sc-stat-del">−{change.deletions}</em>}
-          </span>
+          <ListRowTrailing className="oh-dsh-sc-stat-trailing">
+            <span className="oh-dsh-sc-stat" aria-hidden="true">
+              {change.additions > 0 && <em className="oh-dsh-sc-stat-add">+{change.additions}</em>}
+              {change.deletions > 0 && <em className="oh-dsh-sc-stat-del">−{change.deletions}</em>}
+            </span>
+          </ListRowTrailing>
         )}
+      </ListRowMain>
+      <ListRowTrailing>
         <span
           className={`oh-dsh-sc-mark is-${change.status}`}
           aria-label={props.t(`source-control.status.${change.status}`)}
         >{SECTION_SYMBOL[change.status]}</span>
-      </span>
-      <span className="oh-dsh-sc-actions">
+      </ListRowTrailing>
+      <ListRowActions>
         {row.canStage && (
-          <button
-            type="button"
+          <ListRowActionButton
             aria-label={props.t('source-control.stage')}
             title={props.t('source-control.stage')}
             disabled={props.pending !== null}
             onClick={() => { props.onStage([row.path]) }}
-          ><IconPlus size={14} /></button>
+          ><IconPlus size={14} /></ListRowActionButton>
         )}
         {row.canUnstage && (
-          <button
-            type="button"
+          <ListRowActionButton
             aria-label={props.t('source-control.unstage')}
             title={props.t('source-control.unstage')}
             disabled={props.pending !== null}
             onClick={() => { props.onUnstage([row.path]) }}
-          ><IconMinus size={14} /></button>
+          ><IconMinus size={14} /></ListRowActionButton>
         )}
         {row.canDiscard && (
-          <button
-            type="button"
+          <ListRowActionButton
             aria-label={props.t('source-control.discard')}
             title={props.t('source-control.discard')}
             disabled={props.pending !== null}
             onClick={() => { props.onDiscard([row.path], row.path) }}
-          ><IconTrash size={14} /></button>
+          ><IconTrash size={14} /></ListRowActionButton>
         )}
-      </span>
-    </div>
+      </ListRowActions>
+    </ListRow>
   )
 }
