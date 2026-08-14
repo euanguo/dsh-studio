@@ -199,66 +199,12 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   font-size: var(--oh-dsh-font-xs);
 }
 
-.oh-dsh-change-list { padding: 0 2px 5px 30px; }
-
-.oh-dsh-change-row {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) auto;
-  align-items: center;
-  width: 100%;
-  min-height: 30px;
-  gap: var(--oh-dsh-space-1-5);
-  padding: 3px 6px;
-  border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-primary, #1f2328);
-  cursor: pointer;
-  text-align: left;
-  font: var(--oh-dsh-font-sm)/1.35 var(--oh-dsh-font-mono);
-}
-
-.oh-dsh-change-row:hover,
-.oh-dsh-change-row[data-selected] {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-}
-
-.oh-dsh-change-row > span:nth-child(2) {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.oh-dsh-change-row small {
-  color: var(--dsw-alias-label-dimmed, #8c959f);
-  font: 9px/1 sans-serif;
-}
-
-.oh-dsh-change-status { font-weight: 700; }
-.oh-dsh-change-status.is-added,
-.oh-dsh-change-status.is-untracked { color: var(--dsw-alias-state-success-primary, #2da44e); }
-.oh-dsh-change-status.is-deleted,
-.oh-dsh-change-status.is-conflicted { color: var(--dsw-alias-state-error-primary, #cf222e); }
-.oh-dsh-change-status.is-modified,
-.oh-dsh-change-status.is-renamed,
-.oh-dsh-change-status.is-copied { color: var(--dsw-alias-state-warn-label, #9a6700); }
-
-.oh-dsh-change-diff {
-  max-height: 240px;
-  margin: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-2);
-  padding: var(--oh-dsh-space-2);
-  overflow: auto;
-  border-radius: var(--oh-dsh-radius-sm);
-  background: var(--dsw-alias-bg-layer-1, #f6f8fa);
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font: var(--oh-dsh-font-xs)/1.45 var(--oh-dsh-font-mono);
-  white-space: pre;
-}
+.oh-dsh-change-list { padding: 0; }
 
 .oh-dsh-review-commit-list {
   display: grid;
   gap: var(--oh-dsh-space-0);
-  padding: 0 2px 8px 30px;
+  padding: 0 var(--oh-dsh-space-1) var(--oh-dsh-space-2);
 }
 
 .oh-dsh-review-commit-row {
@@ -285,7 +231,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-review-commit-row:disabled { cursor: default; opacity: 0.65; }
 .oh-dsh-review-commit-row code {
   color: var(--dsw-alias-label-secondary, #57606a);
-  font: 9px/1.3 var(--oh-dsh-font-mono);
+  font: var(--oh-dsh-font-xs)/1.4 var(--oh-dsh-font-mono);
 }
 .oh-dsh-review-commit-row > span {
   overflow: hidden;
@@ -297,7 +243,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   overflow: hidden;
   max-width: 72px;
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: 9px;
+  font-size: var(--oh-dsh-font-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -322,7 +268,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-review-commit-detail > header code,
 .oh-dsh-review-commit-detail > header small {
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: 9px;
+  font-size: var(--oh-dsh-font-xs);
 }
 .oh-dsh-review-commit-detail > header strong { font-size: var(--oh-dsh-font-sm); }
 .oh-dsh-review-commit-detail button {
@@ -337,7 +283,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
   border-radius: var(--oh-dsh-radius-sm);
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  font-size: 9px;
+  font-size: var(--oh-dsh-font-xs);
 }
 
 .oh-dsh-review-commit-detail details {
@@ -349,7 +295,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   align-items: center;
   justify-content: space-between;
   gap: var(--oh-dsh-space-2);
-  padding: 7px 9px;
+  padding: 7px var(--oh-dsh-space-2);
   cursor: pointer;
   font: var(--oh-dsh-font-xs)/1.35 var(--oh-dsh-font-mono);
 }
@@ -373,7 +319,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   min-width: max-content;
   padding: 0;
   text-align: left;
-  font: 9px/1.55 var(--oh-dsh-font-mono);
+  font: var(--oh-dsh-font-xs)/1.5 var(--oh-dsh-font-mono);
 }
 .oh-dsh-review-diff-lines > button:hover {
   box-shadow: inset 2px 0 var(--oh-dsh-accent);
@@ -411,7 +357,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 }
 .oh-dsh-review-comments span {
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font: 9px/1.3 var(--oh-dsh-font-mono);
+  font: var(--oh-dsh-font-xs)/1.4 var(--oh-dsh-font-mono);
 }
 .oh-dsh-review-comments p { margin: 3px 0 0; font-size: var(--oh-dsh-font-xs); line-height: 1.45; }
 .oh-dsh-review-comments button { position: absolute; top: 4px; right: 4px; }
@@ -419,7 +365,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-review-comment-form {
   display: grid;
   gap: var(--oh-dsh-space-1-5);
-  padding: 9px;
+  padding: var(--oh-dsh-space-2);
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 .oh-dsh-review-comment-form strong {
@@ -445,17 +391,17 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 }
 .oh-dsh-review-comment-form > div { display: flex; justify-content: flex-end; gap: var(--oh-dsh-space-1-5); }
 .oh-dsh-review-comment-form button {
-  padding: 5px 8px;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
   border-radius: var(--oh-dsh-radius-sm);
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  font-size: 9px;
+  font-size: var(--oh-dsh-font-sm);
 }
 .oh-dsh-review-comment-form button:disabled { cursor: default; opacity: 0.45; }
 .oh-dsh-review-comment-notice {
   margin: 0;
   padding: 0 var(--oh-dsh-space-2) var(--oh-dsh-space-2);
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: 9px;
+  font-size: var(--oh-dsh-font-xs);
 }
 
 .oh-dsh-workspace-facts { display: grid; gap: 1px; }
@@ -481,7 +427,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 .oh-dsh-new-branch {
   display: flex;
   gap: var(--oh-dsh-space-1-5);
-  padding: 3px 6px 5px 40px;
+  padding: 3px 6px 5px 6px;
 }
 
 .oh-dsh-new-branch input,
@@ -533,15 +479,15 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 
 .oh-dsh-commit-box {
   display: grid;
-  gap: 7px;
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1-5) var(--oh-dsh-space-2) 40px;
+  gap: var(--oh-dsh-space-1-5);
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1-5) var(--oh-dsh-space-2) 6px;
 }
 
 .oh-dsh-commit-box textarea {
   width: 100%;
   min-height: 64px;
   resize: vertical;
-  padding: 7px;
+  padding: var(--oh-dsh-space-1-5);
   font-size: var(--oh-dsh-font-sm);
 }
 
@@ -555,7 +501,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   align-items: center;
   gap: var(--oh-dsh-space-1) var(--oh-dsh-space-3);
   min-height: 62px;
-  padding: 9px 40px 9px 6px !important;
+  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-4) var(--oh-dsh-space-2) 6px !important;
 }
 
 .oh-dsh-workspace-directory > span { font-size: var(--oh-dsh-font-lg); }
@@ -563,7 +509,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   grid-column: 1;
   overflow: hidden;
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: 9px;
+  font-size: var(--oh-dsh-font-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }

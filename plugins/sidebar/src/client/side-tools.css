@@ -95,13 +95,14 @@
 
 .oh-dsh-side-menu {
   display: grid;
-  align-content: center;
-  gap: 5px;
+  align-content: start;
+  gap: var(--oh-dsh-space-1);
   flex: 1;
   min-height: 0;
-  padding: var(--oh-dsh-space-3) var(--oh-dsh-space-4);
+  padding: var(--oh-dsh-space-3) var(--oh-dsh-space-2) var(--oh-dsh-space-4);
   box-sizing: border-box;
   position: relative;
+  overflow: auto;
 }
 
 /* Close button for the menu view: the menu has no tab row, so it keeps its
@@ -164,10 +165,10 @@
 .oh-dsh-files-path {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--oh-dsh-space-1);
   flex: none;
   min-height: 40px;
-  padding: 6px 10px;
+  padding: 0 var(--oh-dsh-space-3);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
@@ -205,7 +206,7 @@
 .oh-dsh-browser-host { flex: 1; min-height: 0; }
 .oh-dsh-browser-webview { display: flex; width: 100%; height: 100%; }
 .oh-dsh-browser-error,
-.oh-dsh-side-error { margin: var(--oh-dsh-space-2) var(--oh-dsh-space-3); padding: 7px 9px; border-radius: var(--oh-dsh-radius-sm); background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 10%, transparent); color: var(--dsw-alias-state-error-primary, #cf222e); font-size: var(--oh-dsh-font-sm); }
+.oh-dsh-side-error { margin: var(--oh-dsh-space-2) var(--oh-dsh-space-3); padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-2); border-radius: var(--oh-dsh-radius-sm); background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 10%, transparent); color: var(--dsw-alias-state-error-primary, #cf222e); font-size: var(--oh-dsh-font-sm); }
 
 .oh-dsh-files-path span { flex: 1; min-width: 0; overflow: hidden; color: var(--dsw-alias-label-secondary, #57606a); font-size: var(--oh-dsh-font-sm); text-overflow: ellipsis; white-space: nowrap; }
 .oh-dsh-file-list { flex: 1; min-height: 0; overflow: auto; padding: var(--oh-dsh-space-1) var(--oh-dsh-space-3) var(--oh-dsh-space-4); }
@@ -267,16 +268,6 @@
 
 /* ---------- File browser (flat / nested / tree modes) ---------- */
 
-.oh-dsh-files-path {
-  display: flex;
-  align-items: center;
-  gap: var(--oh-dsh-space-1);
-  min-height: 36px;
-  padding: 0 var(--oh-dsh-space-3);
-  box-sizing: border-box;
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-}
-
 .oh-dsh-files-path > span {
   flex: 1;
   min-width: 0;
@@ -322,7 +313,7 @@
 }
 
 .oh-dsh-file-list {
-  padding: var(--oh-dsh-space-1) 0;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1) var(--oh-dsh-space-4);
 }
 
 .oh-dsh-files-row {

@@ -7,7 +7,9 @@
 /* ---------- Row stream ---------- */
 
 .oh-dsh-sc-list {
-  padding: 0 0 var(--oh-dsh-space-1);
+  /* Horizontal inset so row hover backgrounds never touch the panel edge:
+     the list breathes inside the content padding instead of spanning it. */
+  padding: 0 var(--oh-dsh-space-1) var(--oh-dsh-space-1);
 }
 
 .oh-dsh-sc-row {
@@ -15,7 +17,7 @@
   display: flex;
   align-items: center;
   min-height: var(--oh-dsh-size-row);
-  padding-right: var(--oh-dsh-space-1);
+  padding-right: var(--oh-dsh-space-1-5);
   border-radius: var(--oh-dsh-radius-sm);
   color: var(--dsw-alias-label-primary, #1f2328);
 }
@@ -36,7 +38,7 @@
 .oh-dsh-sc-main {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--oh-dsh-space-1-5);
   flex: 1;
   min-width: 0;
   height: var(--oh-dsh-size-row);
@@ -73,7 +75,7 @@
 }
 
 .oh-dsh-sc-section {
-  padding-right: var(--oh-dsh-space-1);
+  padding-right: var(--oh-dsh-space-1-5);
 }
 
 .oh-dsh-sc-count {
@@ -86,7 +88,7 @@
 
 .oh-dsh-sc-trailing {
   position: absolute;
-  right: var(--oh-dsh-space-0);
+  right: var(--oh-dsh-space-1);
   top: 50%;
   transform: translateY(-50%);
   display: flex;
@@ -98,18 +100,19 @@
 
 .oh-dsh-sc-actions {
   position: absolute;
-  right: var(--oh-dsh-space-0);
+  right: var(--oh-dsh-space-1);
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   align-items: center;
   gap: var(--oh-dsh-space-0);
-  padding: 1px;
+  padding: 2px;
   border-radius: var(--oh-dsh-radius-sm);
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 88%, transparent);
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease;
+  backdrop-filter: blur(4px);
 }
 
 .oh-dsh-sc-row:hover .oh-dsh-sc-trailing {
@@ -147,12 +150,13 @@
 /* ---------- Status mark & diff stat ---------- */
 
 .oh-dsh-sc-mark {
-  display: inline-grid;
-  place-items: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 3px;
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 5px;
   font-size: var(--oh-dsh-font-xs);
   font-weight: 700;
   line-height: 1;
@@ -313,15 +317,19 @@
 }
 
 .oh-dsh-sc-toolbar-title em {
-  min-width: 16px;
-  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 var(--oh-dsh-space-1);
   border-radius: var(--oh-dsh-radius-pill);
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-tertiary, #8c959f);
   font-style: normal;
   font-size: var(--oh-dsh-font-xs);
   font-weight: 600;
-  line-height: 16px;
+  line-height: 1;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
