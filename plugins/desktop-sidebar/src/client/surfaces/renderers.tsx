@@ -13,11 +13,8 @@ import { ContentViewer } from '../content-viewer.tsx'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
-import { parseGitReviewDiff, reviewFileToDiffDocument } from '../review-diff.ts'
-import type { GitReviewFile } from '../review-types.ts'
 import type {
   BrowserCenterSurface,
-  CommitCenterSurface,
   DiffCenterSurface,
   FileCenterSurface,
 } from './types.ts'
@@ -121,63 +118,6 @@ export function DiffSurfaceView({
           hideMeta
           cacheBust={surface.staged ? 'staged' : 'unstaged'}
         />
-      </div>
-    </div>
-  )
-}
-
-/* ---------- commit diff ---------- */
-
-export function CommitDiffSurfaceView({
-  surface,
-  t,
-}: {
-  surface: CommitCenterSurface
-  t: Translate<WorkspaceMessage>
-}): JSX.Element {
-  const [files, setFiles] = useState<readonly GitReviewFile[] | null>(null)
-  const [error, setError] = useState('')
-  const theme = usePierreDiffTheme()
-  useEffect(() => {
-    let alive = true
-    setFiles(null)
-    setError('')
-    void betterSidebarApi.gitCommitDiff(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
-      surface.hash,
-    ).then(result => {
-      if (!alive) return
-      setFiles(parseGitReviewDiff(result.diff))
-    }).catch((cause: unknown) => {
-      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
-    })
-    return () => { alive = false }
-  }, [surface.hash, surface.sessionId, surface.cwd])
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
-  if (files === null) {
-    return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
-  }
-  return (
-    <div className="oh-dsh-commit-surface">
-      <div className="oh-dsh-commit-surface-header">
-        <span title={surface.hash}>{surface.title}</span>
-        <small>{surface.hash.slice(0, 7)}</small>
-      </div>
-      <div className="oh-dsh-commit-surface-body">
-        {files.map(file => (
-          <details key={`${file.oldPath ?? ''}:${file.path}`} open>
-            <summary>
-              <span title={file.path}>{file.path}</span>
-              <small><b>+{file.additions}</b> −{file.deletions}</small>
-            </summary>
-            <div className="oh-dsh-commit-surface-lines">
-              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} rawOnly hideMeta />
-            </div>
-          </details>
-        ))}
-        {files.length === 0 && (
-          <div className="oh-dsh-side-muted">{t('workspace.no-text-diff')}</div>
-        )}
       </div>
     </div>
   )

@@ -13,10 +13,9 @@
  */
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '../../../../shared/i18n.ts'
-import { IconExternalLink, IconFile, IconGitBranch, IconHistory } from '../../../../shared/tabler-icons.tsx'
+import { IconExternalLink, IconFile, IconGitBranch } from '../../../../shared/tabler-icons.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { SessionsService } from '../client-types.ts'
 import {
@@ -28,12 +27,11 @@ import {
   resolveActiveSurface,
   conversationSurfaceId,
   type CenterSurface,
-  type CenterSurfaceSlice,
 } from './types.ts'
 import {
   SurfaceTab,
   SurfaceTabStrip,
-} from '../../../../shared/surface-tab.tsx'
+} from './surface-tab.tsx'
 import {
   SurfaceRendererRegistry,
 } from './surface-renderer-registry.tsx'
@@ -49,7 +47,6 @@ function surfaceIcon(surface: CenterSurface): JSX.Element | null {
   if (surface.kind === 'conversation') return <IconFile size={13} />
   if (surface.kind === 'file') return <IconFile size={13} />
   if (surface.kind === 'diff') return <IconGitBranch size={13} />
-  if (surface.kind === 'commit') return <IconHistory size={13} />
   if (surface.kind === 'browser') return <IconExternalLink size={13} />
   return null
 }
@@ -58,19 +55,8 @@ function sessionShortId(sessionId: string): string {
   return `#${sessionId.replace(/[^a-z0-9]/gi, '').slice(-6).toUpperCase() || '?'}`
 }
 
-/** Human tab label for a conversation: the session title, then the project
- *  basename, then the raw id (matches the host's displayTitle projection). */
-function conversationTabTitle(
-  sessionId: string,
-  cwd: string | undefined,
-  summary?: { title?: string; displayTitle?: string },
-): string {
-  if (summary?.displayTitle !== undefined && summary.displayTitle !== '') {
-    return summary.displayTitle
-  }
-  if (summary?.title !== undefined && summary.title !== '') {
-    return summary.title
-  }
+/** Human tab label for a conversation: project basename beats the raw id. */
+function conversationTabTitle(sessionId: string, cwd: string | undefined): string {
   if (cwd !== undefined && cwd !== '') {
     const base = cwd.replaceAll('\\', '/').replace(/\/+$/, '').split('/').at(-1)
     if (base !== undefined && base !== '') return base
@@ -85,73 +71,66 @@ export function CenterSurfaceTabs({
   sessions: SessionsService
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
+  const slice = useCenterSurfaceStore(state => state.slice)
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
   const current = sessionList.current
-  // The active workspace: every project keeps its own tab queue, and
-  // switching workspaces swaps the whole queue (like Git/file lists).
-  const cwd = current === undefined ? undefined : sessionList.byId[current]?.cwd
-  const slice = useCenterSurfaceStore(state =>
-    cwd === undefined ? EMPTY_CENTER_SLICE : state.getSlice(cwd))
 
   // The current project's sessions (same cwd as the active session), the
   // current session included — it must show as the active tab, and the
   // "new conversation" blank placeholder is not a real tab.
   const conversationTabs = useMemo(() => {
+    const cwd = current === undefined ? undefined : sessionList.byId[current]?.cwd
     if (cwd === undefined) return []
     return Object.entries(sessionList.byId)
       .filter(([id, summary]) => summary.cwd === cwd && !summary.blank)
-      .map(([id, summary]) => ({ id, cwd: summary.cwd!, summary }))
-  }, [cwd, sessionList])
+      .map(([id, summary]) => ({ id, cwd: summary.cwd! }))
+  }, [current, sessionList])
+
+  const store = useCenterSurfaceStore.getState()
 
   // Keep the open set in sync with the session list: new sessions get a
   // tab (without stealing activation), removed sessions drop their tab,
   // and a dead/missing activeId falls back to the current conversation.
   useEffect(() => {
-    if (cwd === undefined) return
     const state = useCenterSurfaceStore.getState()
-    const workspaceSlice = state.getSlice(cwd)
     const validIds = new Set(conversationTabs.map(tab => conversationSurfaceId(tab.id)))
-    const dismissed = state.dismissedSessions[cwd] ?? []
     for (const tab of conversationTabs) {
       const id = conversationSurfaceId(tab.id)
-      const exists = workspaceSlice.open.some(surface => surface.id === id)
-      if (!exists && !dismissed.includes(tab.id)) {
+      const exists = state.slice.open.some(surface => surface.id === id)
+      if (!exists && !state.dismissedSessions.includes(tab.id)) {
         state.openConversation({
-          cwd,
           sessionId: tab.id,
-          title: conversationTabTitle(tab.id, tab.cwd, tab.summary),
+          cwd: tab.cwd,
+          title: conversationTabTitle(tab.id, tab.cwd),
           activate: false,
         })
       }
     }
-    for (const surface of workspaceSlice.open) {
+    for (const surface of state.slice.open) {
       if (surface.kind === 'conversation' && !validIds.has(surface.id)) {
-        state.close(cwd, surface.id)
+        state.close(surface.id)
       }
     }
-    const activeId = workspaceSlice.activeId
+    const activeId = state.slice.activeId
     const activeExists = activeId !== null
-      && workspaceSlice.open.some(surface => surface.id === activeId)
+      && state.slice.open.some(surface => surface.id === activeId)
     if (!activeExists && current !== undefined) {
-      state.activate(cwd, conversationSurfaceId(current))
+      state.activate(conversationSurfaceId(current))
     }
-  }, [conversationTabs, cwd, current])
+  }, [conversationTabs, current])
 
   // Reopening a session from elsewhere (left rail click) restores its tab.
   useEffect(() => {
-    if (current === undefined || cwd === undefined) return
-    useCenterSurfaceStore.getState().undismissSession(cwd, current)
-  }, [cwd, current])
+    if (current === undefined) return
+    useCenterSurfaceStore.getState().undismissSession(current)
+  }, [current])
 
   return (
     <SurfaceTabStrip aria-label={t('center.tablist')}>
       {slice.open.map(surface => {
         const isConversation = surface.kind === 'conversation'
-        const summary = isConversation
-          ? sessionList.byId[surface.sessionId]
-          : undefined
         const label = isConversation
-          ? conversationTabTitle(surface.sessionId, surface.cwd, summary)
+          ? conversationTabTitle(surface.sessionId, surface.cwd)
           : surface.title
         const active = slice.activeId === surface.id
         return (
@@ -166,25 +145,25 @@ export function CenterSurfaceTabs({
             onSelect={() => {
               if (isConversation) {
                 useCenterSurfaceStore.getState().openConversation({
-                  cwd: surface.cwd,
                   sessionId: surface.sessionId,
-                  title: conversationTabTitle(surface.sessionId, surface.cwd, summary),
+                  cwd: surface.cwd,
+                  title: conversationTabTitle(surface.sessionId, surface.cwd),
                 })
                 sessions.open(surface.sessionId)
               } else {
-                useCenterSurfaceStore.getState().activate(cwd!, surface.id)
+                useCenterSurfaceStore.getState().activate(surface.id)
               }
             }}
             {...(!isConversation && surface.kind !== 'terminal' && surface.isPreview
-              ? { onPin: () => { useCenterSurfaceStore.getState().pin(cwd!, surface.id) } }
+              ? { onPin: () => { store.pin(surface.id) } }
               : {})}
             onClose={() => {
               if (isConversation) {
-                // Closing the tab hides it for this workspace until the
+                // Closing the tab hides it for this project until the
                 // session is opened again — the session itself stays.
-                useCenterSurfaceStore.getState().dismissSession(cwd!, surface.sessionId)
+                useCenterSurfaceStore.getState().dismissSession(surface.sessionId)
               }
-              useCenterSurfaceStore.getState().close(cwd!, surface.id)
+              useCenterSurfaceStore.getState().close(surface.id)
             }}
           />
         )
@@ -193,138 +172,8 @@ export function CenterSurfaceTabs({
   )
 }
 
-/** Empty slice used while no workspace is active. */
-const EMPTY_CENTER_SLICE: CenterSurfaceSlice = { open: [], activeId: null }
-
-/**
- * Left/right rail controls, reference-shell style:
- * - the LEFT rail toggle sits right of the macOS traffic lights (fixed at
- *   the top-left); while the rail is expanded that spot is the rail's own
- *   header, and when it collapses the button stays put at the strip's
- *   left edge (the strip pads itself to make room);
- * - the RIGHT rail keeps its own controls in its top row; when the panel
- *   is closed a floating reopen button appears at the top-right edge.
- */
-function RailFloatControls({
-  sidebar,
-  leftRailOpen,
-  onToggleLeftRail,
-}: {
-  sidebar: DesktopSidebarServiceLike | undefined
-  leftRailOpen: boolean | null
-  onToggleLeftRail(): void
-}): JSX.Element {
-  const rightOpen = useSyncExternalStore(
-    useCallback((listener: () => void) => {
-      if (sidebar === undefined) return () => {}
-      return sidebar.subscribe(listener)
-    }, [sidebar]),
-    () => sidebar?.getSnapshot().open ?? false,
-  )
-
-  return createPortal(
-    <>
-      <button
-        type="button"
-        className="oh-dsh-left-rail-toggle"
-        aria-label={leftRailOpen ? '收起左栏' : '展开左栏'}
-        title={leftRailOpen ? '收起左栏' : '展开左栏'}
-        aria-pressed={leftRailOpen === true}
-        onClick={onToggleLeftRail}
-      >
-        {leftRailOpen ? <IconLeftRailClose /> : <IconLeftRailOpen />}
-      </button>
-      {sidebar !== undefined && !rightOpen && (
-        <button
-          type="button"
-          className="oh-dsh-right-rail-reopen"
-          aria-label="展开右栏"
-          title="展开右栏"
-          onClick={() => { sidebar.setOpen(true) }}
-        >
-          <IconRightRailOpen />
-        </button>
-      )}
-    </>,
-    document.body,
-  )
-}
-
-/** Left rail, expanded — clicking collapses it (arrow points left). */
-function IconLeftRailClose(): JSX.Element {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="3" y="3" width="14" height="14" rx="2.5" />
-      <path d="M7.5 3.5v13" />
-      <path d="M11.5 8l-3 2.5 3 2.5" />
-    </svg>
-  )
-}
-
-/** Left rail, collapsed — clicking expands it (arrow points right). */
-function IconLeftRailOpen(): JSX.Element {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="3" y="3" width="14" height="14" rx="2.5" />
-      <path d="M7.5 3.5v13" />
-      <path d="M11.5 8l3 2.5-3 2.5" />
-    </svg>
-  )
-}
-
-/** Right rail reopen (panel closed) — clicking slides it in (arrow left). */
-function IconRightRailOpen(): JSX.Element {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="3" y="3" width="14" height="14" rx="2.5" />
-      <path d="M12.5 3.5v13" />
-      <path d="M8.5 8l-3 2.5 3 2.5" />
-    </svg>
-  )
-}
-
-/** Track the DSH left rail open/closed state via its toggle button's
- *  aria-label (flips between 打开侧边栏 / 收起侧边栏). */
-function useLeftRailOpenState(): {
-  leftRailOpen: boolean | null
-  toggleLeftRail(): void
-} {
-  const [leftRailOpen, setLeftRailOpen] = useState<boolean | null>(null)
-  useEffect(() => {
-    const read = (): void => {
-      const button = document.querySelector<HTMLButtonElement>(
-        '[data-slot="sidebar"] button[aria-label*="侧边栏"]',
-      )
-      if (button === null) return
-      setLeftRailOpen(button.getAttribute('aria-label')?.includes('收起') ?? false)
-    }
-    read()
-    const observer = new MutationObserver(read)
-    if (document.body !== null) {
-      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'class'] })
-    }
-    return () => { observer.disconnect() }
-  }, [])
-  return {
-    leftRailOpen,
-    toggleLeftRail: () => {
-      document.querySelector<HTMLButtonElement>(
-        '[data-slot="sidebar"] button[aria-label*="侧边栏"]',
-      )?.click()
-    },
-  }
-}
-
-export function CenterSurfaceBody({
-  sessions,
-}: {
-  sessions: SessionsService
-}): JSX.Element {
-  const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
-  const current = sessionList.current
-  const cwd = current === undefined ? undefined : sessionList.byId[current]?.cwd
-  const slice = useCenterSurfaceStore(state =>
-    cwd === undefined ? EMPTY_CENTER_SLICE : state.getSlice(cwd))
+export function CenterSurfaceBody(): JSX.Element {
+  const slice = useCenterSurfaceStore(state => state.slice)
   const active = resolveActiveSurface(slice)
   const hidden = active === null || active.kind === 'conversation'
   let content: ReactNode = null
@@ -345,21 +194,11 @@ export function CenterSurfaceBody({
 export interface CenterSurfaceHostOptions {
   sessions: SessionsService
   t: Translate<WorkspaceMessage>
-  /** The desktop sidebar service (right rail) for the strip's rail toggles. */
-  sidebar?: DesktopSidebarServiceLike
-}
-
-/** The subset of the sidebar service the center strip drives. */
-export interface DesktopSidebarServiceLike {
-  getSnapshot(): { open: boolean }
-  subscribe(listener: () => void): () => void
-  setOpen(open: boolean): void
 }
 
 export class CenterSurfaceHost {
   private readonly sessions: SessionsService
   private readonly t: Translate<WorkspaceMessage>
-  private readonly sidebar: DesktopSidebarServiceLike | undefined
   private root: Root | null = null
   private element: HTMLDivElement | null = null
   private attachObserver: MutationObserver | null = null
@@ -368,7 +207,6 @@ export class CenterSurfaceHost {
   constructor(options: CenterSurfaceHostOptions) {
     this.sessions = options.sessions
     this.t = options.t
-    this.sidebar = options.sidebar
   }
 
   mount(): void {
@@ -377,7 +215,7 @@ export class CenterSurfaceHost {
     this.element.id = 'oh-dsh-center-tabs-root'
     this.root = createRoot(this.element)
     this.root.render(
-      <CenterSurfaceHostView sessions={this.sessions} t={this.t} sidebar={this.sidebar} />,
+      <CenterSurfaceHostView sessions={this.sessions} t={this.t} />,
     )
     this.stopPersist = persistCenterSurfaces()
     restoreCenterSurfaces()
@@ -450,26 +288,20 @@ function centerColumnElement(): HTMLElement | null {
 function CenterSurfaceHostView({
   sessions,
   t,
-  sidebar,
 }: {
   sessions: SessionsService
   t: Translate<WorkspaceMessage>
-  sidebar: DesktopSidebarServiceLike | undefined
 }): JSX.Element {
   const [mounted, setMounted] = useState(false)
-  const { leftRailOpen, toggleLeftRail } = useLeftRailOpenState()
   useEffect(() => { setMounted(true) }, [])
   if (!mounted) return <></>
   return (
     <DiffWorkerPoolProvider>
       <DiffThemeSync />
-      <RailFloatControls sidebar={sidebar} leftRailOpen={leftRailOpen} onToggleLeftRail={toggleLeftRail} />
-      <div
-        className={`oh-dsh-center-tabs-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}`}
-      >
+      <div className="oh-dsh-center-tabs-strip">
         <CenterSurfaceTabs sessions={sessions} t={t} />
       </div>
-      <CenterSurfaceBody sessions={sessions} />
+      <CenterSurfaceBody />
     </DiffWorkerPoolProvider>
   )
 }

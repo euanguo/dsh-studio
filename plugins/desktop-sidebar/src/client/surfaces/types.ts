@@ -11,7 +11,6 @@ export type CenterSurfaceKind =
   | 'conversation'
   | 'file'
   | 'diff'
-  | 'commit'
   | 'browser'
   | 'terminal'
 
@@ -48,23 +47,9 @@ export interface DiffCenterSurface {
   isPreview: boolean
 }
 
-export interface CommitCenterSurface {
-  id: string
-  kind: 'commit'
-  sessionId: string
-  cwd: string
-  /** The full commit hash this surface shows the diff of. */
-  hash: string
-  title: string
-  closable: true
-  isPreview: boolean
-}
-
 export interface BrowserCenterSurface {
   id: string
   kind: 'browser'
-  /** The workspace (cwd) this surface belongs to — tabs persist per cwd. */
-  cwd: string
   title: string
   resource?: string
   closable: true
@@ -74,8 +59,6 @@ export interface BrowserCenterSurface {
 export interface TerminalCenterSurface {
   id: string
   kind: 'terminal'
-  /** The workspace (cwd) this surface belongs to — tabs persist per cwd. */
-  cwd: string
   title: string
   closable: true
   isPreview: false
@@ -85,7 +68,6 @@ export type CenterSurface =
   | ConversationCenterSurface
   | FileCenterSurface
   | DiffCenterSurface
-  | CommitCenterSurface
   | BrowserCenterSurface
   | TerminalCenterSurface
 
@@ -108,10 +90,6 @@ export function diffSurfaceId(filePath: string, staged: boolean): string {
   return `diff:${staged ? 'staged' : 'unstaged'}:${filePath}`
 }
 
-export function commitSurfaceId(hash: string): string {
-  return `commit:${hash}`
-}
-
 export function browserSurfaceId(resource: string | undefined): string {
   return `browser:${resource ?? 'blank'}`
 }
@@ -123,7 +101,7 @@ export function terminalSurfaceId(): string {
 /* ---------- selectors ---------- */
 
 export function isPreviewSurface(surface: CenterSurface): boolean {
-  return (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'commit' || surface.kind === 'browser')
+  return (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'browser')
     && surface.isPreview
 }
 

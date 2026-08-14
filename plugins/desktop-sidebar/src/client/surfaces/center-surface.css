@@ -46,8 +46,8 @@
   display: flex;
   align-items: center;
   gap: var(--oh-dsh-space-1);
-  min-height: 41px;
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
+  min-height: 37px;
+  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
@@ -61,64 +61,91 @@
   display: none;
 }
 
-/* While the DSH left rail is collapsed, its fixed toggle (right of the
-   traffic lights) overlaps the strip's left edge — the strip pads itself
-   so the first tab never sits under the button. */
-.oh-dsh-center-tabs-strip.is-left-collapsed {
-  padding-left: 48px;
-}
+/* ---------- Surface tab chip ---------- */
 
-/* Floating rail controls (reference-shell pattern):
-   - left rail toggle: fixed right of the macOS traffic lights; while the
-     rail is expanded that spot is the rail header, collapsed it marks the
-     strip's left edge;
-   - right rail reopen: appears at the top-right edge while the right panel
-     is closed. Both must opt out of the 28px window-drag strip and sit at
-     its z-level to receive real clicks. */
-.oh-dsh-left-rail-toggle,
-.oh-dsh-right-rail-reopen {
+.oh-dsh-surface-tab {
   -webkit-app-region: no-drag;
-  position: fixed;
-  z-index: 2147483647;
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  flex: none;
+  height: 26px;
+  max-width: 180px;
+  padding: 0 var(--oh-dsh-space-1-5);
+  box-sizing: border-box;
   border-radius: var(--oh-dsh-radius-sm);
-  background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-sm);
   cursor: pointer;
+  user-select: none;
+  transition: background 120ms ease, color 120ms ease;
 }
 
-.oh-dsh-left-rail-toggle {
-  top: 7px;
-  left: 74px;
-}
-
-.oh-dsh-right-rail-reopen {
-  top: 7px;
-  right: 8px;
-  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 88%, transparent);
-}
-
-.oh-dsh-left-rail-toggle:hover,
-.oh-dsh-right-rail-reopen:hover,
-.oh-dsh-left-rail-toggle[aria-pressed='true'] {
+.oh-dsh-surface-tab:hover,
+.oh-dsh-surface-tab:focus-visible {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+  outline: none;
+}
+
+.oh-dsh-surface-tab.is-active {
+  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-left-rail-toggle svg,
-.oh-dsh-right-rail-reopen svg {
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 1.6;
+.oh-dsh-surface-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+}
+
+.oh-dsh-surface-tab-label {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+/* Preview tabs render italic to signal "temporary — double-click to pin". */
+.oh-dsh-surface-tab-label.is-preview {
+  font-style: italic;
+}
+
+.oh-dsh-surface-tab-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-dsh-surface-tab-action {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  flex: none;
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.oh-dsh-surface-tab:hover .oh-dsh-surface-tab-action,
+.oh-dsh-surface-tab:focus-within .oh-dsh-surface-tab-action,
+.oh-dsh-surface-tab.is-active .oh-dsh-surface-tab-action {
+  opacity: 1;
+}
+
+.oh-dsh-surface-tab-action:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 8%));
+  color: var(--dsw-alias-label-primary, #1f2328);
 }
 
 /* ---------- Surface body (file / diff / browser render area) ---------- */
@@ -189,75 +216,4 @@
   min-height: 0;
   overflow: auto;
   padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
-}
-
-/* ---------- Commit diff surface ---------- */
-
-.oh-dsh-commit-surface {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-}
-
-.oh-dsh-commit-surface-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--oh-dsh-space-2);
-  flex: none;
-  min-height: 34px;
-  padding: 0 var(--oh-dsh-space-3);
-  box-sizing: border-box;
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  font-size: var(--oh-dsh-font-sm);
-}
-
-.oh-dsh-commit-surface-header span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.oh-dsh-commit-surface-header small {
-  flex: none;
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-  font: var(--oh-dsh-font-xs) var(--oh-dsh-font-mono);
-}
-
-.oh-dsh-commit-surface-body {
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
-}
-
-.oh-dsh-commit-surface-body details {
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-}
-
-.oh-dsh-commit-surface-body summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--oh-dsh-space-2);
-  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-3);
-  cursor: pointer;
-  font: var(--oh-dsh-font-xs)/1.35 var(--oh-dsh-font-mono);
-}
-
-.oh-dsh-commit-surface-body summary > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.oh-dsh-commit-surface-body summary small { color: var(--dsw-alias-state-error-primary, #cf222e); }
-.oh-dsh-commit-surface-body summary b { color: var(--dsw-alias-state-success-primary, #2da44e); font-weight: 500; }
-
-.oh-dsh-commit-surface-lines {
-  max-height: 420px;
-  overflow: auto;
-  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
