@@ -1,0 +1,219 @@
+/* ============================================================
+   Center surface tabs + body (middle-area strip).
+   Mounted as a normal-flow flex child of the DSH center column
+   (`.aOBRAa_centerCol`), above the conversation slot — no fixed
+   overlay, no left-rail measurement. The strip sits at the very
+   top of the center area and doubles as the window drag region
+   (DSH reserves a 28px `body::before` drag strip with maximum
+   z-index; the strip matches that z-index and later paint order
+   so it replaces the reserved strip instead of leaving a gap).
+   An active surface body fills the column (pushing the
+   conversation out of view); with a conversation active the body
+   collapses so the conversation shows.
+   ============================================================ */
+
+#oh-dsh-center-tabs-root {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  /* Same z-index as the DSH window-drag pseudo-element and painted after
+     it (later DOM order) — the strip owns the top 28px of the center
+     column instead of the reserved transparent drag strip, so there is
+     no dead gap and the strip itself can drag the window. */
+  position: relative;
+  z-index: 2147483647;
+}
+
+/* When a non-conversation surface body is active it takes the whole
+   remaining column height; otherwise the root is only as tall as the
+   strip so the conversation below stays visible.
+   Note: the center column's own height is auto (its flex sizing happens
+   before the grid stretches it), so `flex: 1` on the root has no free
+   space to grow into — use the viewport height instead, and pin
+   `flex-shrink: 0` so the conversation (the column's other flex item)
+   cannot compress the strip back down. */
+#oh-dsh-center-tabs-root:has(.oh-dsh-center-surface-body:not([data-hidden='true'])) {
+  flex: 0 0 auto;
+  height: 100vh;
+}
+
+/* The tab strip itself is interactive — and draggable: blank strip space
+   drags the window (Electron), while every interactive chip opts out. */
+.oh-dsh-center-tabs-strip {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  min-height: 37px;
+  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-2);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
+  backdrop-filter: blur(6px);
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: none;
+}
+
+.oh-dsh-center-tabs-strip::-webkit-scrollbar {
+  display: none;
+}
+
+/* ---------- Surface tab chip ---------- */
+
+.oh-dsh-surface-tab {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  flex: none;
+  height: 26px;
+  max-width: 180px;
+  padding: 0 var(--oh-dsh-space-1-5);
+  box-sizing: border-box;
+  border-radius: var(--oh-dsh-radius-sm);
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.oh-dsh-surface-tab:hover,
+.oh-dsh-surface-tab:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+  outline: none;
+}
+
+.oh-dsh-surface-tab.is-active {
+  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.oh-dsh-surface-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+}
+
+.oh-dsh-surface-tab-label {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+/* Preview tabs render italic to signal "temporary — double-click to pin". */
+.oh-dsh-surface-tab-label.is-preview {
+  font-style: italic;
+}
+
+.oh-dsh-surface-tab-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-dsh-surface-tab-action {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  flex: none;
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.oh-dsh-surface-tab:hover .oh-dsh-surface-tab-action,
+.oh-dsh-surface-tab:focus-within .oh-dsh-surface-tab-action,
+.oh-dsh-surface-tab.is-active .oh-dsh-surface-tab-action {
+  opacity: 1;
+}
+
+.oh-dsh-surface-tab-action:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 8%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+/* ---------- Surface body (file / diff / browser render area) ---------- */
+
+.oh-dsh-center-surface-body {
+  pointer-events: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--dsw-alias-bg-base, #fff);
+  overflow: hidden;
+}
+
+.oh-dsh-center-surface-body[data-hidden='true'] {
+  display: none;
+}
+
+.oh-dsh-center-surface-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--oh-dsh-space-2);
+  min-height: 160px;
+  padding: var(--oh-dsh-space-4);
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  text-align: center;
+  font-size: var(--oh-dsh-font-sm);
+}
+
+/* ---------- Diff surface ---------- */
+
+.oh-dsh-diff-surface {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.oh-dsh-diff-surface-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--oh-dsh-space-2);
+  flex: none;
+  min-height: 34px;
+  padding: 0 var(--oh-dsh-space-3);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  font: var(--oh-dsh-font-sm) var(--oh-dsh-font-mono);
+}
+
+.oh-dsh-diff-surface-header span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-dsh-diff-surface-header small {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+}
+
+.oh-dsh-diff-surface-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
+}
