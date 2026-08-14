@@ -13,11 +13,11 @@ import {
   IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16, IconPersonalizationOutline16,
   IconPlusOutline16, IconProjectAddOutline16, IconSearchOutline16, IconTrashOutline16,
   IconTriangleRightFill14, type MenuEntry, type StateDotState,
-} from '../shim/primitives.tsx'
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
 import { relativeTime } from '../tree.ts'
-import css from './Rows.module.css'
+import { RowsCss as css } from '../styles.js'
 
 /** The standard locale seat, prop-passed from the browser root. */
 type RowTranslate = WorkspaceBrowserProps['t']

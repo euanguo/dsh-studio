@@ -1,0 +1,60 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { parseWorktreeList } from '../plugins/better-sidebar-runtime/src/git.ts'
+
+test('parseWorktreeList: main + linked worktrees', () => {
+  const out = [
+    'worktree /Users/me/repos/oh-dsh-desktop',
+    'HEAD 47f943859bef60e4160492346772ded9b24f765a',
+    'branch refs/heads/main',
+    '',
+    'worktree /Users/me/repos/oh-dsh-desktop-worktrees/feat-api',
+    'HEAD abc123def4567890abcdef1234567890abcdef12',
+    'branch refs/heads/feat/api',
+    '',
+  ].join('\n')
+  const entries = parseWorktreeList(out)
+  assert.equal(entries.length, 2)
+  assert.deepEqual(entries[0], {
+    path: '/Users/me/repos/oh-dsh-desktop',
+    head: '47f943859bef60e4160492346772ded9b24f765a',
+    branch: 'main',
+    main: true,
+  })
+  assert.deepEqual(entries[1], {
+    path: '/Users/me/repos/oh-dsh-desktop-worktrees/feat-api',
+    head: 'abc123def4567890abcdef1234567890abcdef12',
+    branch: 'feat/api',
+    main: false,
+  })
+})
+
+test('parseWorktreeList: detached linked worktree (no branch line)', () => {
+  const out = [
+    'worktree /repo/main',
+    'HEAD aaaa',
+    'branch refs/heads/main',
+    '',
+    'worktree /repo/detached',
+    'HEAD bbbb',
+    '',
+  ].join('\n')
+  const entries = parseWorktreeList(out)
+  assert.equal(entries.length, 2)
+  assert.equal(entries[1]!.branch, null)
+  assert.equal(entries[1]!.main, false)
+})
+
+test('parseWorktreeList: bare repository (no HEAD lines)', () => {
+  const out = ['worktree /srv/git/repo.git', ''].join('\n')
+  const entries = parseWorktreeList(out)
+  assert.equal(entries.length, 1)
+  assert.equal(entries[0]!.head, null)
+  assert.equal(entries[0]!.branch, null)
+  assert.equal(entries[0]!.main, true)
+})
+
+test('parseWorktreeList: empty output yields no entries', () => {
+  assert.deepEqual(parseWorktreeList(''), [])
+  assert.deepEqual(parseWorktreeList('\n\n'), [])
+})

@@ -611,8 +611,8 @@ export function apply(ctx: ClientContext): void {
     t,
     workspaces,
   })
-  const settingsStore = defineStore<SidebarSettingsState>({
-    init: () => ({
+  const settingsStore = defineStore({
+    init: (): SidebarSettingsState => ({
       openByDefault: false,
       revision: -1,
       tabsEnabled: {},

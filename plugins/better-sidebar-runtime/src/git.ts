@@ -41,12 +41,13 @@ export interface GitLogEntry {
 
 /** One git failure (stderr text as the message). */
 export class GitCommandError extends Error {
-  constructor(
-    message: string,
-    readonly code = 'git-error',
-    readonly command: string,
-  ) {
+  readonly code: string
+  readonly command: string
+
+  constructor(message: string, code = 'git-error', command: string) {
     super(message)
+    this.code = code
+    this.command = command
   }
 }
 
@@ -88,6 +89,78 @@ export function parseLogLines(output: string): GitLogEntry[] {
     })
   }
   return rows
+}
+
+/** One entry from `git worktree list --porcelain`. */
+export interface GitWorktreeEntry {
+  path: string
+  /** Commit the worktree's HEAD points at; null on bare repositories. */
+  head: string | null
+  /** Short branch name (refs/heads/ stripped); null when detached or bare. */
+  branch: string | null
+  /** The main worktree (the first `worktree` block). */
+  main: boolean
+}
+
+/** The worktree layout of one repository. */
+export interface GitWorktreeLayout {
+  /** The main worktree path — the project identity (repo root). */
+  repoRoot: string
+  worktrees: GitWorktreeEntry[]
+}
+
+/**
+ * Parse `git worktree list --porcelain` output: blank-line separated blocks
+ * with `worktree <path>`, `HEAD <sha>`, `branch refs/heads/<name>` lines
+ * (detached worktrees carry no branch line; bare repositories carry no HEAD).
+ */
+export function parseWorktreeList(output: string): GitWorktreeEntry[] {
+  const entries: GitWorktreeEntry[] = []
+  for (const block of output.split(/\n\n+/)) {
+    let path: string | undefined
+    let head: string | null = null
+    let branch: string | null = null
+    for (const line of block.split('\n')) {
+      if (line.startsWith('worktree ')) path = line.slice('worktree '.length)
+      else if (line.startsWith('HEAD ')) head = line.slice('HEAD '.length)
+      else if (line.startsWith('branch ')) {
+        branch = line.slice('branch '.length).replace(/^refs\/heads\//, '')
+      }
+    }
+    if (path !== undefined) {
+      entries.push({ path, head, branch, main: entries.length === 0 })
+    }
+  }
+  return entries
+}
+
+/** `git worktree list --porcelain`; null when cwd is not inside a work tree. */
+export async function worktreeList(cwd: string): Promise<GitWorktreeLayout | null> {
+  let out: string
+  try {
+    out = await runGit(cwd, ['worktree', 'list', '--porcelain'])
+  } catch {
+    return null
+  }
+  const worktrees = parseWorktreeList(out)
+  if (worktrees.length === 0) return null
+  return { repoRoot: worktrees[0]!.path, worktrees }
+}
+
+/**
+ * Create a linked worktree. `createBranch` true → `git worktree add -b
+ * <branch> <path>` (new branch); false → attach an existing branch.
+ * @param cwd - inside the target repository.
+ * @param path - absolute linked-worktree path (git rejects paths inside the
+ *   main worktree itself).
+ * @param branch - existing branch name (createBranch=false) or new name.
+ * @param createBranch - whether to create the branch.
+ */
+export async function worktreeAdd(cwd: string, path: string, branch: string, createBranch: boolean): Promise<void> {
+  const args = createBranch
+    ? ['worktree', 'add', '-b', branch, path]
+    : ['worktree', 'add', path, branch]
+  await runGit(cwd, args)
 }
 
 /** Run one git command; resolves with stdout, rejects with GitCommandError. */

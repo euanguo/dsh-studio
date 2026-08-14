@@ -1,6 +1,5 @@
-// @ts-nocheck -- presentation layer of the forked official ui-workspace; see
-// WorkspaceBrowser.tsx for the rationale.
-/**
+/** Fork of the official ui-workspace picker (see
+ * docs/official-plugin-migration.md).
  * Workspace pick/add flow. WorkspacePickFlow is the reusable core (menu +
  * path error dialog) consumed directly by WorkspaceBrowser (same package) and
  * wrapped by WorkspacePicker for the conversation empty-state slot
@@ -18,13 +17,16 @@ import {
   IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16, IconPersonalizationOutline16,
   IconPlusOutline16, IconProjectAddOutline16, IconSearchOutline16, IconTrashOutline16,
   IconTriangleRightFill14, type MenuEntry, type StateDotState,
-} from './shim/primitives.tsx'
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   WorkspaceId, WorkspaceListState, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots'
 import type { DirectoryFlowOwnerProps, WorkspacePickerProps } from './contract/slots.ts'
-import css from './WorkspacePicker.module.css'
+// Identity class map (scoped stylesheet is generated/injected — see
+// scripts/left-rail-styles.mjs). The picker's dialogs portal through the
+// shim, which mounts the scope attribute on the portal wrapper.
+import { WorkspacePickerCss as css } from './styles.js'
 
 const ADD_WORKSPACE = '::add-workspace'
 
