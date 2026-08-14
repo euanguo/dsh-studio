@@ -11,7 +11,7 @@ test('desktop client replaces the hero title and keeps the Preview badge', () =>
   assert.doesNotMatch(client, /data-oh-dsh-hero-preview/)
 })
 
-test('desktop Settings owns the full modal layer above desktop surfaces', () => {
+test('desktop Settings stays below portaled menus and above desktop surfaces', () => {
   const client = readFileSync(
     new URL('../src/client.ts', import.meta.url),
     'utf8',
@@ -19,11 +19,15 @@ test('desktop Settings owns the full modal layer above desktop surfaces', () => 
 
   assert.match(
     client,
-    /#root:has\(\s*\[role='presentation'\] > \[role='dialog'\]\s*\)[^{]*\{[^}]*z-index: 2147483647 !important;[^}]*overflow: visible !important;/s,
+    /#root:has\(\s*\[role='presentation'\] > \[role='dialog'\]\s*\)[^{]*\{[^}]*z-index: 1000 !important;[^}]*overflow: visible !important;/s,
   )
   assert.match(
     client,
-    /\[role='presentation'\]:has\(\s*> \[role='dialog'\]\s*\)[^{]*\{[^}]*z-index: 2147483647 !important;[^}]*backdrop-filter: blur\(/s,
+    /\[role='presentation'\]:has\(\s*> \[role='dialog'\]\s*\)[^{]*\{[^}]*z-index: 1000 !important;[^}]*backdrop-filter: blur\(/s,
+  )
+  assert.match(
+    client,
+    /:has\(\s*#root \[role='presentation'\] > \[role='dialog'\]\s*\) #oh-dsh-desktop-sidebar-root,[\s\S]*\[data-oh-dsh-pinned-summary\],[\s\S]*#oh-dsh-plugin-marketplace-root[^}]*\{[^}]*z-index: 999 !important;/s,
   )
 })
 

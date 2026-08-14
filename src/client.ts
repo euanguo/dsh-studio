@@ -131,14 +131,14 @@ html[data-oh-dsh-preview='true'] body::after {
 html[data-oh-dsh-desktop='true'] #root:has(
   [role='presentation'] > [role='dialog']
 ) {
-  z-index: 2147483647 !important;
+  z-index: 1000 !important;
   overflow: visible !important;
 }
 
 html[data-oh-dsh-desktop='true'] #root [role='presentation']:has(
   > [role='dialog']
 ) {
-  z-index: 2147483647 !important;
+  z-index: 1000 !important;
   background: rgb(0 0 0 / 22%) !important;
   -webkit-backdrop-filter: blur(6px) saturate(0.9);
   backdrop-filter: blur(6px) saturate(0.9);
@@ -146,8 +146,23 @@ html[data-oh-dsh-desktop='true'] #root [role='presentation']:has(
 
 html[data-oh-dsh-desktop='true']:has(
   #root [role='presentation'] > [role='dialog']
-) body::after {
-  z-index: 2147483646;
+) body::after,
+html[data-oh-dsh-desktop='true']:has(
+  #root [role='presentation'] > [role='dialog']
+) #oh-dsh-desktop-sidebar-root,
+html[data-oh-dsh-desktop='true']:has(
+  #root [role='presentation'] > [role='dialog']
+) [data-oh-dsh-pinned-summary],
+html[data-oh-dsh-desktop='true']:has(
+  #root [role='presentation'] > [role='dialog']
+) #oh-dsh-plugin-marketplace-root {
+  z-index: 999 !important;
+}
+
+html[data-oh-dsh-desktop='true']:has(
+  #root [role='presentation'] > [role='dialog']
+) #oh-dsh-plugin-marketplace-root {
+  position: relative;
 }
 
 `
