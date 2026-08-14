@@ -28,12 +28,24 @@ import {
 import sideToolsCss from './side-tools.css'
 import workspaceCss from './desktop-sidebar.css'
 import sourceControlCss from './source-control.css'
-import detachedPanelCss from './detached-panel.css'
+import centerSurfaceCss from './surfaces/center-surface.css'
+import diffViewerCss from './diff/diff-viewer.css'
+import listRowCss from '../../../shared/list-row.css'
+import filenameLabelCss from '../../../shared/filename-label.css'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { useTranslate } from '../../../shared/use-i18n.ts'
 import themeCss from '../../../shared/theme.css'
 import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'
 import ReactMarkdown from 'react-markdown'
+import {
+  CenterSurfaceHost,
+  centerSurfaceRendererRegistry,
+} from './surfaces/center-surface-host.tsx'
+import {
+  BrowserSurfaceView,
+  DiffSurfaceView,
+  FileSurfaceView,
+} from './surfaces/renderers.tsx'
 import {
   DesktopSidebarService,
   type DesktopSidebar,
@@ -65,6 +77,7 @@ import {
   TextFileViewer,
 } from './file-viewers.tsx'
 import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
+import { disposeSidebarRuntimes } from './runtimes/registry.ts'
 import {
   acquireOpenPathPatch,
   registerLinkHandler,
@@ -214,8 +227,9 @@ class WorkspaceToolsService implements WorkspaceTools {
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
     this.style = document.createElement('style')
     this.style.dataset.ohDshDesktopSidebarStyles = 'true'
-    this.style.textContent = `${themeCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
-${detachedPanelCss}`
+    this.style.textContent = `${themeCss}\n${listRowCss}\n${filenameLabelCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
+${centerSurfaceCss}
+${diffViewerCss}`
     document.head.append(this.style)
     this.element = document.createElement('div')
     this.element.id = 'oh-dsh-desktop-sidebar-root'
@@ -541,6 +555,22 @@ function registerBuiltinSidebarTools(options: {
   }
 }
 
+/** Register the built-in center surface renderers (file / diff / browser). */
+function registerCenterSurfaceRenderers(t: Translate<WorkspaceMessage>): void {
+  centerSurfaceRendererRegistry.register('file', surface => {
+    if (surface.kind !== 'file') return null
+    return <FileSurfaceView surface={surface} t={t} />
+  })
+  centerSurfaceRendererRegistry.register('diff', surface => {
+    if (surface.kind !== 'diff') return null
+    return <DiffSurfaceView surface={surface} t={t} />
+  })
+  centerSurfaceRendererRegistry.register('browser', surface => {
+    if (surface.kind !== 'browser') return null
+    return <BrowserSurfaceView surface={surface} t={t} />
+  })
+}
+
 export const inject = [
   'desktopPanels',
   'locale',
@@ -684,6 +714,10 @@ export function apply(ctx: ClientContext): void {
     void runtimeSettings.start()
     void desktopSidebar.start()
     service.mount()
+    // Center surface module: renderer registry + the middle-area tab host.
+    registerCenterSurfaceRenderers(t)
+    const centerSurfaceHost = new CenterSurfaceHost({ sessions, t })
+    centerSurfaceHost.mount()
     const removeSidebar = ctx.reflect.provide(
       'desktopSidebar',
       desktopSidebar,
@@ -698,11 +732,13 @@ export function apply(ctx: ClientContext): void {
       stopLink()
       stopLinkDom()
       releaseOpenPathPatch(workspaces)
+      centerSurfaceHost.dispose()
       service.dispose()
       unregisterBuiltins()
       reviewComments.dispose()
       desktopSidebar.dispose()
       runtimeSettings.dispose()
+      disposeSidebarRuntimes()
       void removeSidebar?.()
       void removeService?.()
     }

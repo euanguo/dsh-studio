@@ -1,10 +1,15 @@
 /* ============================================================
-   Source-control rows, diff view, and the floating detail overlay.
-   All colors come from --dsw-alias-* (with DSW-official fallbacks);
-   spacing/sizes come from the --oh-dsh-* ladder (theme.css).
+   Source-control panel: rows (built on the shared ListRow
+   primitives), diff view, and the path context menu.
+   Row geometry (height/hover/selected/actions) lives in
+   list-row.css; this file keeps only the Git-specific chrome:
+   status marks, diff stats, section emphasis, the context menu,
+   the flat/tree toolbar and the line-level diff view.
+   All colors come from --dsw-alias-* (with DSW-official
+   fallbacks); spacing/sizes come from the --oh-dsh-* ladder.
    ============================================================ */
 
-/* ---------- Row stream ---------- */
+/* ---------- Row stream container ---------- */
 
 .oh-dsh-sc-list {
   /* Horizontal inset so row hover backgrounds never touch the panel edge:
@@ -12,139 +17,27 @@
   padding: 0 var(--oh-dsh-space-1) var(--oh-dsh-space-1);
 }
 
-.oh-dsh-sc-row {
-  position: relative;
-  display: flex;
-  align-items: center;
-  min-height: var(--oh-dsh-size-row);
-  padding-right: var(--oh-dsh-space-1-5);
-  border-radius: var(--oh-dsh-radius-sm);
-  color: var(--dsw-alias-label-primary, #1f2328);
+/* Tree indentation for source-control rows (shared with the file browser). */
+.oh-dsh-sc-depth-main {
+  padding-left: calc(var(--oh-dsh-space-1-5) + var(--oh-dsh-tree-indent) * var(--tree-depth, 0));
 }
 
-.oh-dsh-sc-row:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-}
-
-.oh-dsh-sc-row[data-selected] {
-  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
-}
-
-.oh-dsh-sc-row[data-pending] {
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.oh-dsh-sc-main {
-  display: flex;
-  align-items: center;
-  gap: var(--oh-dsh-space-1-5);
-  flex: 1;
-  min-width: 0;
-  height: var(--oh-dsh-size-row);
-  padding: 0 var(--oh-dsh-space-1) 0
-    calc(var(--oh-dsh-space-2) + var(--oh-dsh-tree-indent) * var(--tree-depth, 0));
-  box-sizing: border-box;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: var(--oh-dsh-font-sm) system-ui;
-  text-align: left;
-  cursor: pointer;
-}
-
-.oh-dsh-sc-main svg,
-.oh-dsh-sc-main > span[data-icon-vendor] {
-  flex: none;
-  display: inline-flex;
-}
-
-.oh-dsh-sc-main svg {
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-}
-
-.oh-dsh-sc-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.oh-dsh-sc-section > .oh-dsh-sc-main {
+/* Section header rows get secondary emphasis. */
+.oh-dsh-sc-section-row .oh-dsh-list-row-label {
   color: var(--dsw-alias-label-secondary, #57606a);
   font-weight: 600;
 }
 
-.oh-dsh-sc-section {
-  padding-right: var(--oh-dsh-space-1-5);
+/* Pending (in-flight) file rows dim and stop accepting clicks. */
+.oh-dsh-list-row[data-pending] {
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .oh-dsh-sc-count {
   color: var(--dsw-alias-label-tertiary, #8c959f);
   font-size: var(--oh-dsh-font-xs);
   font-variant-numeric: tabular-nums;
-}
-
-/* ---------- Trailing status vs hover-overlay actions ---------- */
-
-.oh-dsh-sc-trailing {
-  position: absolute;
-  right: var(--oh-dsh-space-1);
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--oh-dsh-space-1-5);
-  pointer-events: none;
-  transition: opacity 120ms ease;
-}
-
-.oh-dsh-sc-actions {
-  position: absolute;
-  right: var(--oh-dsh-space-1);
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  gap: var(--oh-dsh-space-0);
-  padding: 2px;
-  border-radius: var(--oh-dsh-radius-sm);
-  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 88%, transparent);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 120ms ease;
-  backdrop-filter: blur(4px);
-}
-
-.oh-dsh-sc-row:hover .oh-dsh-sc-trailing {
-  opacity: 0;
-}
-
-.oh-dsh-sc-row:hover .oh-dsh-sc-actions {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.oh-dsh-sc-actions button {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-  cursor: pointer;
-}
-
-.oh-dsh-sc-actions button:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
-.oh-dsh-sc-actions button:disabled {
-  opacity: 0.4;
-  cursor: default;
 }
 
 /* ---------- Status mark & diff stat ---------- */
@@ -190,6 +83,11 @@
   gap: var(--oh-dsh-space-1);
   font-size: var(--oh-dsh-font-xs);
   font-variant-numeric: tabular-nums;
+}
+
+/* In-main trailing stat (inside the clickable area) keeps its own inset. */
+.oh-dsh-sc-stat-trailing {
+  padding-right: var(--oh-dsh-space-1);
 }
 
 .oh-dsh-sc-stat-add {

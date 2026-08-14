@@ -570,6 +570,7 @@ function installDesktopPackages() {
       ],
     },
     ...[
+      'desktop-left-rail',
       'desktop-skins',
       'desktop-sidebar',
       'panel-controls',

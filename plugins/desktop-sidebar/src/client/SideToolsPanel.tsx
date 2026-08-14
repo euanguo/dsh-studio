@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -21,10 +22,6 @@ import {
 import {
   IconChevronDown,
   IconChevronRight,
-  IconExternalLink,
-  IconLayoutList,
-  IconList,
-  IconListTree,
   IconPlus,
   FileGlyph,
 } from '../../../shared/tabler-icons.tsx'
@@ -34,9 +31,22 @@ import {
   mapBetterSidebarFile,
   type BetterSidebarScope,
 } from './better-sidebar-api.ts'
-import { FILE_BROWSE_MODES, buildFileRows, type FileBrowseMode } from './file-tree-model.ts'
-import { DetachedPanel } from './detached-panel.tsx'
-import { ContentViewer } from './content-viewer.tsx'
+import { buildFileRows } from './file-tree-model.ts'
+import {
+  ListRow,
+  ListRowBody,
+  ListRowLeading,
+  ListRowMain,
+  ListRowTrailing,
+} from '../../../shared/list-row.tsx'
+import { FilenameLabel } from '../../../shared/filename-label.tsx'
+import {
+  getExplorerRuntime,
+  resolveSidebarPath,
+  sidebarScopeKey,
+} from './runtimes/registry.ts'
+import { useSidebarChromeStore } from './runtimes/chrome-store.ts'
+import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
 import type {
   DesktopSidebar,
   DesktopSidebarRenderProps,
@@ -44,13 +54,13 @@ import type {
 } from './sidebar-service.ts'
 import type { WorkspaceMessage } from './i18n.ts'
 
-/** Persisted display-mode key of the file browser. */
-const FILE_MODE_KEY = 'oh-dsh-desktop.files.mode'
-
-function modeIcon(mode: FileBrowseMode): JSX.Element {
-  if (mode === 'flat') return <IconLayoutList size={14} />
-  if (mode === 'nested') return <IconList size={14} />
-  return <IconListTree size={14} />
+/** Absolute path → repo-relative path for the explorer runtime keys. */
+function relativePathOf(cwd: string, absolute: string): string {
+  const root = cwd.replace(/[/\\]+$/, '')
+  const value = absolute.replace(/\\/g, '/')
+  if (value === root) return ''
+  if (value.startsWith(`${root}/`)) return value.slice(root.length + 1)
+  return absolute.replace(/^[/\\]+/, '').replace(/\\/g, '/')
 }
 
 interface ElectronWebviewElement extends HTMLElement {
@@ -319,265 +329,158 @@ export function FilesView({
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const cwd = scope?.cwd
-  const [mode, setMode] = useState<FileBrowseMode>(() => {
-    const stored = window.localStorage.getItem(FILE_MODE_KEY)
-    return stored === 'nested' || stored === 'tree' ? stored : 'flat'
-  })
-  const [path, setPath] = useState(tab.resource ?? cwd)
-  const [entriesByDir, setEntriesByDir] = useState<ReadonlyMap<string, readonly WorkspaceFileEntry[]>>(new Map())
-  const [expandedDirs, setExpandedDirs] = useState<ReadonlySet<string>>(new Set())
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [selectedPath, setSelectedPath] = useState<string | null>(null)
-  const [preview, setPreview] = useState<{
-    title: string
-    content: string | null
-    binary: boolean
-    data?: string
-  } | null>(null)
-  const [previewError, setPreviewError] = useState('')
-  const [previewLoading, setPreviewLoading] = useState(false)
+  // Retained explorer runtime: switching tabs back hits the cached listings
+  // (zero network), because the registry keeps the instance alive.
+  const runtime = useMemo(
+    () => (scope === undefined || scope.cwd === undefined
+      ? null
+      : getExplorerRuntime({ sessionId: scope.sessionId, cwd: scope.cwd })),
+    [scope?.cwd, scope?.sessionId],
+  )
+  const listingsFingerprint = useSyncExternalStore(
+    useCallback((listener: () => void) => runtime?.subscribe(listener) ?? (() => {}), [runtime]),
+    useCallback(() => runtime?.listingsFingerprint() ?? 'none', [runtime]),
+  )
+  const scopeKey = scope === undefined || scope.cwd === undefined
+    ? null
+    : sidebarScopeKey({ sessionId: scope.sessionId, cwd: scope.cwd })
+  const chrome = useSidebarChromeStore(state =>
+    scopeKey === null ? null : state.getSlice(scopeKey))
+  const expandedDirs = useMemo(
+    () => new Set(chrome?.explorer.expandedPaths ?? []),
+    [chrome?.explorer.expandedPaths],
+  )
+  const selectedPath = chrome?.explorer.selectedPath ?? null
   const [refreshKey, setRefreshKey] = useState(0)
 
+  // Tree mode expands from the workspace root; ensureListing short-circuits
+  // on Ready/Empty — revisiting after a tab switch costs zero network.
   useEffect(() => {
-    const next = tab.resource ?? cwd
-    setPath(next)
-    setSelectedPath(null)
-    setPreview(null)
-  }, [cwd, tab.id, tab.resource])
-
-  // Reset the lazy cache whenever the workspace or the root path changes.
-  useEffect(() => {
-    setEntriesByDir(new Map())
-    setExpandedDirs(new Set())
-  }, [cwd, tab.id])
+    if (runtime === null || cwd === undefined) return
+    void runtime.ensureListing(null)
+  }, [cwd, refreshKey, runtime])
 
   const ensureLoaded = useCallback(async (directory: string): Promise<boolean> => {
-    if (scope === undefined || cwd === undefined) return false
-    if (entriesByDir.has(directory)) return true
-    setLoading(true)
-    setError('')
+    if (runtime === null || cwd === undefined) return false
+    const relative = directory === cwd ? '' : relativePathOf(cwd, directory)
+    const listing = runtime.getListing(relative)
+    if (listing !== undefined
+      && (listing.phase === 'ready' || listing.phase === 'empty')) {
+      return true
+    }
     try {
-      const listing = await betterSidebarApi.fsTree(scope, directory)
-      const loaded: WorkspaceFileEntry[] = listing.entries.map(entry => ({
-        kind: entry.isDir ? 'directory' : 'file',
+      await runtime.ensureListing(relative)
+      return true
+    } catch {
+      return false
+    }
+  }, [cwd, runtime])
+
+  const toggleDirectory = async (directory: string): Promise<void> => {
+    if (scopeKey === null) return
+    // Expand-on-click (no drill-down navigation): load the children lazily
+    // on first expansion, then toggle the chrome-store expansion state.
+    if (!expandedDirs.has(directory) && !entriesByDir.has(directory)) {
+      await ensureLoaded(directory)
+    }
+    useSidebarChromeStore.getState().toggleExplorerDirectory(scopeKey, directory)
+  }
+
+  // Directory listings derived from the runtime cache (the cache is the
+  // fact source; the view never fetches).
+  const entriesByDir: ReadonlyMap<string, readonly WorkspaceFileEntry[]> = useMemo(() => {
+    if (runtime === null || cwd === undefined) return new Map()
+    const map = new Map<string, readonly WorkspaceFileEntry[]>()
+    for (const [dir, listing] of runtime.getListingsSnapshot()) {
+      if (listing.phase !== 'ready' && listing.phase !== 'empty') continue
+      map.set(resolveSidebarPath(cwd, dir), listing.entries.map(entry => ({
+        kind: entry.isDirectory ? 'directory' : 'file',
         name: entry.name,
         path: entry.path,
         size: null,
-      }))
-      setEntriesByDir(previous => new Map(previous).set(directory, loaded))
-      return true
-    } catch (next) {
-      setError(next instanceof Error ? next.message : String(next))
-      return false
-    } finally {
-      setLoading(false)
+      })))
     }
-  }, [cwd, entriesByDir, scope])
+    return map
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fingerprint is the revision
+  }, [cwd, listingsFingerprint, runtime])
 
-  useEffect(() => {
-    if (cwd === undefined || path === undefined || scope === undefined) return
-    // Always (re)load the current directory — refreshKey forces a reload.
-    setEntriesByDir(previous => new Map(previous).set(path, []))
-    setLoading(true)
-    setError('')
-    const controller = new AbortController()
-    void betterSidebarApi.fsTree(scope, path, controller.signal).then(
-      listing => {
-        const entries: WorkspaceFileEntry[] = listing.entries.map(entry => ({
-          kind: entry.isDir ? 'directory' : 'file',
-          name: entry.name,
-          path: entry.path,
-          size: null,
-        }))
-        setEntriesByDir(previous => {
-          const next = new Map(previous)
-          next.set(path, entries)
-          return next
-        })
-        setError('')
-      },
-    ).catch((next: unknown) => {
-      if (!controller.signal.aborted) {
-        setError(next instanceof Error ? next.message : String(next))
-      }
-    }).finally(() => {
-      if (!controller.signal.aborted) setLoading(false)
-    })
-    return () => { controller.abort() }
-  }, [cwd, path, refreshKey, scope?.sessionId])
-
-  const toggleDirectory = async (directory: string): Promise<void> => {
-    if (mode !== 'tree') {
-      setPath(directory)
-      return
-    }
-    if (!entriesByDir.has(directory)) {
-      await ensureLoaded(directory)
-    }
-    setExpandedDirs(previous => {
-      const next = new Set(previous)
-      if (next.has(directory)) next.delete(directory)
-      else next.add(directory)
-      return next
-    })
-  }
+  const rootListing = runtime === null || cwd === undefined ? undefined : runtime.getListing('')
+  const loading = rootListing?.phase === 'loading'
+  const error = rootListing?.phase === 'error' ? (rootListing.message ?? '') : ''
 
   const rows = buildFileRows({
-    mode,
-    currentPath: path ?? cwd ?? '',
+    currentPath: cwd ?? '',
     entriesByDir,
     expandedDirs,
     selectedPath,
   })
 
-  const openPreview = async (filePath: string): Promise<void> => {
-    if (scope === undefined) return
-    setSelectedPath(filePath)
-    setPreviewLoading(true)
-    setPreviewError('')
-    setPreview(null)
-    try {
-      const result = await betterSidebarApi.fsRead(scope, filePath)
-      if (result.kind === 'binary') {
-        setPreview({ title: filePath, content: null, binary: true, ...(result.data === undefined ? {} : { data: result.data }) })
-      } else {
-        setPreview({ title: filePath, content: result.content, binary: false })
-      }
-    } catch (next) {
-      setPreviewError(next instanceof Error ? next.message : String(next))
-    } finally {
-      setPreviewLoading(false)
-    }
-  }
-
-  const switchMode = (next: FileBrowseMode): void => {
-    setMode(next)
-    window.localStorage.setItem(FILE_MODE_KEY, next)
+  const openFileInCenter = (filePath: string, name: string, preview: boolean): void => {
+    if (cwd === undefined) return
+    // Single click = preview tab (replaces the current preview); double
+    // click / explicit open = pinned tab.
+    useCenterSurfaceStore.getState().openFile({ sessionId: scope?.sessionId ?? '', cwd, filePath, title: name, preview })
   }
 
   if (cwd === undefined) {
     return <div className="oh-dsh-side-empty">{t('files.select-workspace')}</div>
   }
-  const current = path ?? cwd
   return (
     <div className="oh-dsh-files-view">
-      <div className="oh-dsh-files-path" title={current}>
-        <button
-          type="button"
-          disabled={current === cwd}
-          aria-label={t('side.back')}
-          onClick={() => {
-            const parent = current.slice(0, current.lastIndexOf('/'))
-            if (parent.length >= cwd.length) setPath(parent)
-          }}
-        ><IconArrowLeft size={16} /></button>
-        <span>{current.slice(cwd.length) || '/'}</span>
+      <div className="oh-dsh-files-path" title={cwd}>
+        <span>{cwd.split(/[\\/]/).filter(Boolean).pop() ?? cwd}</span>
         <button
           type="button"
           aria-label={t('files.refresh')}
+          title={t('files.refresh')}
           onClick={() => { setRefreshKey(value => value + 1) }}
         ><IconRefresh size={16} /></button>
-        <div className="oh-dsh-files-modes" role="group" aria-label={t('files.modes')}>
-          {FILE_BROWSE_MODES.map(option => (
-            <button
-              key={option}
-              type="button"
-              aria-label={t(`files.mode.${option}`)}
-              title={t(`files.mode.${option}`)}
-              aria-pressed={mode === option}
-              onClick={() => { switchMode(option) }}
-            >{modeIcon(option)}</button>
-          ))}
-        </div>
       </div>
-      {loading && !entriesByDir.has(current) && <div className="oh-dsh-side-muted">{t('files.loading')}</div>}
+      {loading && !entriesByDir.has(cwd) && <div className="oh-dsh-side-muted">{t('files.loading')}</div>}
       {error !== '' && <div className="oh-dsh-side-error" role="alert">{error}</div>}
       <div className="oh-dsh-file-list">
         {rows.map(row => (
-          <div
+          <ListRow
             key={row.key}
-            className="oh-dsh-files-row"
-            data-selected={row.selected || undefined}
+            selected={row.selected}
             title={row.path}
+            data-path={row.path}
           >
-            <button
-              type="button"
-              className="oh-dsh-files-row-main"
+            <ListRowMain
+              className="oh-dsh-files-depth-main"
               style={{ '--tree-depth': row.depth } as CSSProperties}
               aria-expanded={row.kind === 'directory' ? row.expanded : undefined}
               onClick={() => {
                 if (row.kind === 'directory') void toggleDirectory(row.path)
-                else void openPreview(row.path)
+                else openFileInCenter(row.path, row.name, true)
               }}
               onDoubleClick={() => {
                 if (row.kind !== 'directory') {
-                  sidebar.openTab({
-                    resource: row.path,
-                    title: row.name,
-                    type: 'file',
-                  })
+                  openFileInCenter(row.path, row.name, false)
                 }
               }}
             >
-              {row.kind === 'directory' && (
-                <span className="oh-dsh-files-chevron">
-                  {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-                </span>
-              )}
+              <ListRowLeading aria-hidden="true">
+                {row.kind === 'directory'
+                  ? row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />
+                  : null}
+              </ListRowLeading>
               <FileGlyph path={row.path} kind={row.kind} expanded={row.expanded} />
-              <span className="oh-dsh-files-name" title={row.name}>{row.name}</span>
-            </button>
+              <ListRowBody>
+                <FilenameLabel name={row.name} title={row.path} />
+              </ListRowBody>
+            </ListRowMain>
             {row.kind !== 'directory' && (
-              <span className="oh-dsh-files-size">{formatSize(row.size)}</span>
+              <ListRowTrailing>
+                <span className="oh-dsh-files-size">{formatSize(row.size)}</span>
+              </ListRowTrailing>
             )}
-          </div>
+          </ListRow>
         ))}
         {!loading && !error && rows.length === 0 && (
           <div className="oh-dsh-side-muted">{t('files.empty-directory')}</div>
         )}
       </div>
-
-      {selectedPath !== null && (
-        <DetachedPanel
-          title={preview?.title ?? selectedPath}
-          closeLabel={t('overlay.close')}
-          onClose={() => {
-            setSelectedPath(null)
-            setPreview(null)
-            setPreviewError('')
-          }}
-          actions={
-            <button
-              type="button"
-              aria-label={t('overlay.open-in-editor')}
-              title={t('overlay.open-in-editor')}
-              onClick={() => {
-                const name = selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath
-                sidebar.openTab({ resource: selectedPath, title: name, type: 'file' })
-              }}
-            ><IconExternalLink size={14} /></button>
-          }
-        >
-          {previewLoading && <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>}
-          {!previewLoading && previewError !== '' && (
-            <div className="oh-dsh-side-error" role="alert">{previewError}</div>
-          )}
-          {!previewLoading && preview !== null && (
-            <ContentViewer
-              path={selectedPath}
-              content={preview.binary ? null : preview.content}
-              binary={preview.binary}
-              {...(preview.data === undefined ? {} : { data: preview.data })}
-              t={t}
-              onOpenExternal={() => {
-                const name = selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath
-                sidebar.openTab({ resource: selectedPath, title: name, type: 'file' })
-              }}
-            />
-          )}
-        </DetachedPanel>
-      )}
     </div>
   )
 }

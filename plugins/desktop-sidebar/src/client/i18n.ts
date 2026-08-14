@@ -38,10 +38,6 @@ export type WorkspaceMessage =
   | 'files.viewer.markdown'
   | 'files.viewer.text'
   | 'files.refresh'
-  | 'files.modes'
-  | 'files.mode.flat'
-  | 'files.mode.nested'
-  | 'files.mode.tree'
   | 'side.back'
   | 'side.close'
   | 'side.git'
@@ -51,6 +47,8 @@ export type WorkspaceMessage =
   | 'side.close-named-tab'
   | 'side.not-ready'
   | 'side.orphaned-tab'
+  | 'center.tablist'
+  | 'center.close'
   | 'side.tab-limit'
   | 'side.tool-disabled'
   | 'side.tool-missing'
@@ -138,10 +136,6 @@ export type WorkspaceMessage =
   | 'source-control.copy-path'
   | 'source-control.discard-confirm'
   | 'source-control.op-pending'
-  | 'overlay.close'
-  | 'overlay.show-diff'
-  | 'overlay.show-file'
-  | 'overlay.open-in-editor'
   | 'overlay.loading'
   | 'overlay.no-content'
   | 'diff.layout.unified'
@@ -187,10 +181,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.viewer.markdown': 'Markdown preview',
     'files.viewer.text': 'Text preview',
     'files.refresh': 'Refresh',
-    'files.modes': 'Display mode',
-    'files.mode.flat': 'Flat list',
-    'files.mode.nested': 'Nested list',
-    'files.mode.tree': 'Tree',
     'side.back': 'Back to side panel',
     'side.close': 'Close side panel',
     'side.git': 'Git',
@@ -200,6 +190,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.close-named-tab': 'Close {title}',
     'side.not-ready': 'The side panel is still starting.',
     'side.orphaned-tab': 'Its provider is not currently available. You can close this tab without losing the rest of the session.',
+    'center.tablist': 'Center tabs',
+    'center.close': 'Close tab',
     'side.tab-limit': 'Close an existing tab before opening another.',
     'side.tool-disabled': 'This side panel tool is disabled.',
     'side.tool-missing': 'This side panel tool is no longer registered.',
@@ -287,10 +279,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'source-control.copy-path': 'Copy path',
     'source-control.discard-confirm': 'Discard changes in "{paths}"? This cannot be undone.',
     'source-control.op-pending': 'Operation in progress…',
-    'overlay.close': 'Close',
-    'overlay.show-diff': 'Show diff',
-    'overlay.show-file': 'Show file',
-    'overlay.open-in-editor': 'Open in editor',
     'overlay.loading': 'Loading…',
     'overlay.no-content': 'No preview available.',
     'diff.layout.unified': 'Unified view',
@@ -335,10 +323,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.viewer.markdown': 'Markdown 预览',
     'files.viewer.text': '文本预览',
     'files.refresh': '刷新',
-    'files.modes': '显示模式',
-    'files.mode.flat': '平铺列表',
-    'files.mode.nested': '递进列表',
-    'files.mode.tree': '树形',
     'side.back': '返回侧边栏',
     'side.close': '关闭侧边栏',
     'side.git': 'Git',
@@ -348,6 +332,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.close-named-tab': '关闭 {title}',
     'side.not-ready': '侧边栏仍在启动。',
     'side.orphaned-tab': '当前无法找到它的提供者。关闭此标签页不会影响会话中的其他内容。',
+    'center.tablist': '中间标签页',
+    'center.close': '关闭标签页',
     'side.tab-limit': '请先关闭一个已有标签页。',
     'side.tool-disabled': '此侧边栏工具已被禁用。',
     'side.tool-missing': '此侧边栏工具已不再注册。',
@@ -435,10 +421,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'source-control.copy-path': '复制路径',
     'source-control.discard-confirm': '确定丢弃 "{paths}" 中的更改？此操作无法撤销。',
     'source-control.op-pending': '操作进行中…',
-    'overlay.close': '关闭',
-    'overlay.show-diff': '查看差异',
-    'overlay.show-file': '查看文件',
-    'overlay.open-in-editor': '在编辑器中打开',
     'overlay.loading': '加载中…',
     'overlay.no-content': '没有可预览的内容。',
     'diff.layout.unified': '统一视图',

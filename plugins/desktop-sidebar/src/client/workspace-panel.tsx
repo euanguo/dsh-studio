@@ -38,7 +38,6 @@ import {
   betterSidebarApi,
   type BetterSidebarGitLogEntry,
   type BetterSidebarScope,
-  workspaceChangesFromBetterSidebar,
 } from './better-sidebar-api.ts'
 import {
   EMPTY_CONVERSATION,
@@ -56,10 +55,10 @@ import {
 import {
   reviewCommitFromBetterSidebar,
 } from './review-diff.ts'
-import type { GitReviewCommit } from './review-types.ts'
-import { DiffView, type DiffLayoutStyle } from './diff-view.tsx'
-import { isNoTextDiff, parseUnifiedDiff, type ParsedDiff } from './parse-unified-diff.ts'
-import { ContentViewer } from './content-viewer.tsx'
+import type { GitReviewCommit, GitReviewFile } from './review-types.ts'
+import { DiffViewer } from './diff/diff-viewer.tsx'
+import type { DiffDocument } from './diff/file-diff.ts'
+import { usePierreDiffTheme } from './diff/pierre-adapter.tsx'
 import {
   SourceControlPanel,
   type SourceControlPendingAction,
@@ -70,22 +69,16 @@ import {
   type SourceControlVisibleRow,
 } from './source-control-view-model.ts'
 import type { SourceControlSectionId } from './source-control-tree.ts'
-import { DetachedPanel } from './detached-panel.tsx'
 import {
-  IconExternalLink,
-  IconFileDiff,
-  IconFileText,
-} from '../../../shared/tabler-icons.tsx'
+  getSourceControlRuntime,
+  sidebarScopeKey,
+} from './runtimes/registry.ts'
+import { useSidebarChromeStore } from './runtimes/chrome-store.ts'
+import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
 
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
-
-/** Persisted display-mode key of the Git change list. */
-const GIT_LIST_MODE_KEY = 'oh-dsh-desktop.git.mode'
-
-/** Persisted diff layout (unified / split). */
-const DIFF_LAYOUT_KEY = 'oh-dsh-desktop.diff.layout'
 
 async function responseJson<T>(
   response: Response,
@@ -115,11 +108,31 @@ type ReviewCommentTarget = {
   side: Exclude<ReviewCommentSide, null>
 }
 
-function reviewLineNumber(
-  oldLine: number | null,
-  newLine: number | null,
-): number | null {
-  return newLine ?? oldLine
+/** GitReviewFile (commit review) → the unified DiffDocument shape. */
+function reviewFileToDiffDocument(file: GitReviewFile): DiffDocument {
+  return {
+    path: file.path,
+    change: file.status === 'added' ? 'added'
+      : file.status === 'deleted' ? 'deleted'
+      : file.status === 'renamed' ? 'renamed'
+      : 'modified',
+    additions: file.additions,
+    deletions: file.deletions,
+    lines: file.lines.slice(0, 400).map(line => {
+      const kind = line.type === 'addition' ? 'added'
+        : line.type === 'deletion' ? 'removed'
+        : 'context'
+      return {
+        kind,
+        text: line.content,
+        displayText: line.content === '' ? ' ' : line.content,
+        oldLine: line.oldLine,
+        newLine: line.newLine,
+        oldLineLabel: line.oldLine === null ? ' ' : String(line.oldLine),
+        newLineLabel: line.newLine === null ? ' ' : String(line.newLine),
+      }
+    }),
+  }
 }
 
 export function processTitle(call: RunningToolCall): string {
@@ -173,6 +186,7 @@ export function WorkspacePanel({
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const panelState = useSyncExternalStore(service.subscribe, service.getSnapshot)
+  const theme = usePierreDiffTheme()
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
   const sessionId = sessionList.current
   const cwd = sessionId === undefined ? undefined : sessionList.byId[sessionId]?.cwd
@@ -181,36 +195,44 @@ export function WorkspacePanel({
     () => flattenRunningCalls(conversation.runningCalls ?? []),
     [conversation.runningCalls],
   )
-  const [snapshot, setSnapshot] = useState<WorkspaceSnapshot | null>(null)
-  const [error, setError] = useState('')
+  // Retained source-control runtime: the git snapshot survives tab switches
+  // (registry keeps the instance; ready data renders instantly).
+  const runtime = useMemo(
+    () => (sessionId === undefined || cwd === undefined
+      ? null
+      : getSourceControlRuntime({ sessionId, cwd })),
+    [cwd, sessionId],
+  )
+  const runtimeFingerprint = useSyncExternalStore(
+    useCallback((listener: () => void) => runtime?.subscribe(listener) ?? (() => {}), [runtime]),
+    useCallback(() => runtime?.fingerprint() ?? 'none', [runtime]),
+  )
+  // The runtime snapshot is read during render; fingerprint changes re-render.
+  void runtimeFingerprint
+  const runtimeSnapshot = runtime?.getSnapshot() ?? null
+  const snapshot = runtimeSnapshot?.snapshot ?? null
+  const error = runtimeSnapshot?.phase === 'error' ? (runtimeSnapshot.message ?? '') : ''
+  const history = snapshot?.history ?? []
   const [busy, setBusy] = useState(false)
-  const [selectedPath, setSelectedPath] = useState<string | null>(null)
-  const [overlayMode, setOverlayMode] = useState<'diff' | 'file'>('diff')
-  const [rawDiff, setRawDiff] = useState('')
-  const [parsedDiff, setParsedDiff] = useState<ParsedDiff | null>(null)
-  const [diffLayout, setDiffLayout] = useState<DiffLayoutStyle>(() => {
-    const stored = window.localStorage.getItem(DIFF_LAYOUT_KEY)
-    return stored === 'split' ? 'split' : 'unified'
-  })
-  const [diffWrap, setDiffWrap] = useState(false)
-  const [diffError, setDiffError] = useState('')
-  const [filePreview, setFilePreview] = useState<{
-    content: string
-    binary: boolean
-    data?: string
-  } | null>(null)
-  const [overlayLoading, setOverlayLoading] = useState(false)
-  const [collapsedSections, setCollapsedSections] = useState<ReadonlySet<SourceControlSectionId>>(new Set())
-  const [collapsedDirectories, setCollapsedDirectories] = useState<ReadonlySet<string>>(new Set())
-  const [listMode, setListMode] = useState<SourceControlListMode>(() => {
-    const stored = window.localStorage.getItem(GIT_LIST_MODE_KEY)
-    return stored === 'flat' ? 'flat' : 'tree'
-  })
+  const scopeKey = sessionId === undefined || cwd === undefined
+    ? null
+    : sidebarScopeKey({ sessionId, cwd })
+  const chrome = useSidebarChromeStore(state =>
+    scopeKey === null ? null : state.getSlice(scopeKey))
+  const collapsedSections = useMemo(
+    () => new Set(chrome?.sourceControl.collapsedSections ?? []) as ReadonlySet<SourceControlSectionId>,
+    [chrome?.sourceControl.collapsedSections],
+  )
+  const collapsedDirectories = useMemo(
+    () => new Set(chrome?.sourceControl.collapsedDirectories ?? []),
+    [chrome?.sourceControl.collapsedDirectories],
+  )
+  const listMode: SourceControlListMode = chrome?.gitListMode ?? 'tree'
+  const selectedPath = chrome?.sourceControl.selectedPath ?? null
   const [pendingByPath, setPendingByPath] = useState<ReadonlyMap<string, SourceControlPendingAction>>(new Map())
   const [commitOpen, setCommitOpen] = useState(false)
   const [commitMessage, setCommitMessage] = useState('')
   const [newBranch, setNewBranch] = useState('')
-  const [history, setHistory] = useState<BetterSidebarGitLogEntry[]>([])
   const [selectedCommit, setSelectedCommit] = useState<GitReviewCommit | null>(null)
   const [reviewLoading, setReviewLoading] = useState(false)
   const [commentTarget, setCommentTarget] = useState<ReviewCommentTarget | null>(null)
@@ -252,65 +274,23 @@ export function WorkspacePanel({
   ])
 
   const refresh = useCallback(async (): Promise<void> => {
-    if (cwd === undefined || sessionId === undefined) {
-      setSnapshot(null)
-      return
-    }
-    try {
-      const nextScope = { sessionId, cwd }
-      const [facts, status] = await Promise.all([
-        responseJson<WorkspaceFacts>(await fetch(workspaceUrl(cwd)), t),
-        betterSidebarApi.gitStatus(nextScope),
-      ])
-      if (!status.isRepo) {
-        setHistory([])
-        setSelectedCommit(null)
-        setSnapshot({
-          ...facts,
-          kind: 'directory',
-          branch: null,
-          branches: [],
-          changes: [],
-        })
-      } else {
-        const [nextBranch, nextHistory] = await Promise.all([
-          betterSidebarApi.gitBranch(nextScope),
-          betterSidebarApi.gitLog(nextScope).catch(() => []),
-        ])
-        setHistory(nextHistory)
-        setSnapshot({
-          ...facts,
-          kind: 'repository',
-          branch: status.branch ?? nextBranch.current,
-          branches: nextBranch.names,
-          changes: workspaceChangesFromBetterSidebar(status.entries, status.stats),
-        })
-      }
-      setError('')
-    } catch (nextError) {
-      setError(errorMessage(nextError))
-    }
-  }, [cwd, sessionId, t])
+    if (runtime === null) return
+    await runtime.refresh()
+  }, [runtime])
 
   useEffect(() => {
-    if (!panelState.open || panelState.view !== 'review' || cwd === undefined) return
-    void refresh()
-    const timer = window.setInterval(() => { void refresh() }, 4_000)
-    const onFocus = (): void => { void refresh() }
+    if (!panelState.open || panelState.view !== 'review' || runtime === null) return
+    void runtime.ensureLoaded()
+    const timer = window.setInterval(() => { void runtime.refresh() }, 4_000)
+    const onFocus = (): void => { void runtime.refresh() }
     window.addEventListener('focus', onFocus)
     return () => {
       window.clearInterval(timer)
       window.removeEventListener('focus', onFocus)
     }
-  }, [cwd, panelState.open, panelState.view, refresh])
+  }, [panelState.open, panelState.view, runtime])
 
   useEffect(() => {
-    setSelectedPath(null)
-    setRawDiff('')
-    setParsedDiff(null)
-    setDiffError('')
-    setFilePreview(null)
-    setHistory([])
     setSelectedCommit(null)
     setCommentTarget(null)
     setCommentBody('')
@@ -341,81 +321,26 @@ export function WorkspacePanel({
         await responseJson<WorkspaceHostMutationResponse>(response, t)
       }
       await refresh()
-      setError('')
     } catch (nextError) {
-      setError(errorMessage(nextError))
+      runtime?.reportError(errorMessage(nextError))
     } finally {
       setBusy(false)
     }
   }
 
-  const loadOverlayDiff = async (path: string, staged: boolean): Promise<void> => {
-    if (scope === undefined) return
-    setOverlayMode('diff')
-    setOverlayLoading(true)
-    setDiffError('')
-    setRawDiff('')
-    setParsedDiff(null)
-    setFilePreview(null)
-    try {
-      const response = await betterSidebarApi.gitDiff(scope, path, staged)
-      if (isNoTextDiff(response.diff)) {
-        setDiffError(t('workspace.no-text-diff'))
-      } else {
-        setRawDiff(response.diff)
-        setParsedDiff(parseUnifiedDiff(response.diff))
-      }
-    } catch (nextError) {
-      setDiffError(errorMessage(nextError))
-    } finally {
-      setOverlayLoading(false)
-    }
-  }
-
-  const loadOverlayFile = async (path: string): Promise<void> => {
-    if (scope === undefined) return
-    setOverlayMode('file')
-    setOverlayLoading(true)
-    setDiffError('')
-    setFilePreview(null)
-    try {
-      const result = await betterSidebarApi.fsRead(scope, path)
-      if (result.kind === 'binary') {
-        setFilePreview({ content: '', binary: true, ...(result.data === undefined ? {} : { data: result.data }) })
-      } else {
-        setFilePreview({ content: result.content, binary: false })
-      }
-    } catch (nextError) {
-      setDiffError(errorMessage(nextError))
-    } finally {
-      setOverlayLoading(false)
-    }
-  }
-
-  const selectFile = async (path: string): Promise<void> => {
-    if (scope === undefined) return
+  const openDiffInCenter = (path: string, preview: boolean): void => {
+    if (cwd === undefined || scopeKey === null) return
+    const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
     const change = snapshot?.changes.find(candidate => candidate.path === path)
-    if (selectedPath === path) {
-      // Clicking the selected row again closes the overlay.
-      setSelectedPath(null)
-      setRawDiff('')
-      setParsedDiff(null)
-      setDiffError('')
-      setFilePreview(null)
+    useSidebarChromeStore.getState().setSourceControlSelectedPath(scopeKey, path)
+    // Single click = preview diff tab; double click = pinned diff tab.
+    // Untracked files have no diff baseline — show the file content
+    // instead of an empty "no diff" error.
+    if (change === undefined || change.status === 'untracked') {
+      useCenterSurfaceStore.getState().openFile({ sessionId: sessionId ?? '', cwd, filePath: path, title: name, preview })
       return
     }
-    setSelectedPath(path)
-    if (change === undefined) {
-      setOverlayMode('file')
-      await loadOverlayFile(path)
-    } else {
-      await loadOverlayDiff(path, change.staged)
-    }
-  }
-
-  const openFileTab = (path: string): void => {
-    const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
-    service.sidebar.openTab({ resource: path, title: name, type: 'file' })
+    useCenterSurfaceStore.getState().openDiff({ sessionId: sessionId ?? '', cwd, filePath: path, staged: change.staged, title: name, preview })
   }
 
   const runPaths = async (
@@ -432,7 +357,7 @@ export function WorkspacePanel({
       else await betterSidebarApi.gitDiscard(scope, paths.length === 1 ? paths[0] : undefined)
       await refresh()
     } catch (nextError) {
-      setError(errorMessage(nextError))
+      runtime?.reportError(errorMessage(nextError))
     } finally {
       setPendingByPath(new Map())
     }
@@ -464,9 +389,8 @@ export function WorkspacePanel({
         entry.hashFull,
       )
       setSelectedCommit(reviewCommitFromBetterSidebar(entry, result.diff))
-      setError('')
     } catch (nextError) {
-      setError(errorMessage(nextError))
+      runtime?.reportError(errorMessage(nextError))
     } finally {
       setReviewLoading(false)
     }
@@ -538,23 +462,22 @@ export function WorkspacePanel({
                   count={snapshot?.changes.length ?? 0}
                   t={t}
                   onModeChange={mode => {
-                    setListMode(mode)
-                    window.localStorage.setItem(GIT_LIST_MODE_KEY, mode)
+                    if (scopeKey !== null) {
+                      useSidebarChromeStore.getState().setGitListMode(scopeKey, mode)
+                    }
                   }}
                   onToggleSection={id => {
-                    const next = new Set(collapsedSections)
-                    if (next.has(id)) next.delete(id)
-                    else next.add(id)
-                    setCollapsedSections(next)
+                    if (scopeKey !== null) {
+                      useSidebarChromeStore.getState().toggleSourceControlSection(scopeKey, id)
+                    }
                   }}
                   onToggleDirectory={key => {
-                    const next = new Set(collapsedDirectories)
-                    if (next.has(key)) next.delete(key)
-                    else next.add(key)
-                    setCollapsedDirectories(next)
+                    if (scopeKey !== null) {
+                      useSidebarChromeStore.getState().toggleSourceControlDirectory(scopeKey, key)
+                    }
                   }}
-                  onSelectFile={path => { void selectFile(path) }}
-                  onOpenFile={openFileTab}
+                  onSelectFile={path => { openDiffInCenter(path, true) }}
+                  onOpenFile={path => { openDiffInCenter(path, false) }}
                   onStage={paths => { void runPaths('stage', paths) }}
                   onUnstage={paths => { void runPaths('unstage', paths) }}
                   onDiscard={requestDiscard}
@@ -575,101 +498,6 @@ export function WorkspacePanel({
                 )}
               </div>
             </section>
-
-            {selectedPath !== null && scope !== undefined && (
-              <DetachedPanel
-                title={selectedPath}
-                {...(snapshot?.name === undefined ? {} : { subtitle: snapshot.name })}
-                closeLabel={t('overlay.close')}
-                onClose={() => {
-                  setSelectedPath(null)
-                  setRawDiff('')
-                  setParsedDiff(null)
-                  setDiffError('')
-                  setFilePreview(null)
-                }}
-                actions={
-                  <>
-                    <button
-                      type="button"
-                      aria-label={t('overlay.show-diff')}
-                      title={t('overlay.show-diff')}
-                      data-active={overlayMode === 'diff' || undefined}
-                      onClick={() => { void loadOverlayDiff(
-                        selectedPath,
-                        snapshot?.changes.find(change => change.path === selectedPath)?.staged ?? false,
-                      ) }}
-                    ><IconFileDiff size={14} /></button>
-                    <button
-                      type="button"
-                      aria-label={t('overlay.show-file')}
-                      title={t('overlay.show-file')}
-                      data-active={overlayMode === 'file' || undefined}
-                      onClick={() => { void loadOverlayFile(selectedPath) }}
-                    ><IconFileText size={14} /></button>
-                    <button
-                      type="button"
-                      aria-label={t('overlay.open-in-editor')}
-                      title={t('overlay.open-in-editor')}
-                      onClick={() => { openFileTab(selectedPath) }}
-                    ><IconExternalLink size={14} /></button>
-                  </>
-                }
-              >
-                {overlayLoading && <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>}
-                {!overlayLoading && diffError !== '' && (
-                  <div className="oh-dsh-side-error" role="alert">{diffError}</div>
-                )}
-                {!overlayLoading && overlayMode === 'diff' && rawDiff !== '' && (
-                  <>
-                    <div className="oh-dsh-diff-toolbar">
-                      <button
-                        type="button"
-                        aria-pressed={diffLayout === 'unified'}
-                        onClick={() => {
-                          setDiffLayout('unified')
-                          window.localStorage.setItem(DIFF_LAYOUT_KEY, 'unified')
-                        }}
-                      >{t('diff.layout.unified')}</button>
-                      <button
-                        type="button"
-                        aria-pressed={diffLayout === 'split'}
-                        onClick={() => {
-                          setDiffLayout('split')
-                          window.localStorage.setItem(DIFF_LAYOUT_KEY, 'split')
-                        }}
-                      >{t('diff.layout.split')}</button>
-                      <button
-                        type="button"
-                        aria-pressed={diffWrap}
-                        onClick={() => { setDiffWrap(value => !value) }}
-                      >{t('diff.wrap')}</button>
-                    </div>
-                    {parsedDiff !== null && (
-                      <DiffView
-                        diff={parsedDiff}
-                        layout={diffLayout}
-                        wordWrap={diffWrap}
-                        className="oh-dsh-pierre-diff"
-                      />
-                    )}
-                  </>
-                )}
-                {!overlayLoading && overlayMode === 'file' && filePreview !== null && (
-                  <ContentViewer
-                    path={selectedPath}
-                    content={filePreview.binary ? null : filePreview.content}
-                    binary={filePreview.binary}
-                    {...(filePreview.data === undefined ? {} : { data: filePreview.data })}
-                    t={t}
-                    onOpenExternal={() => { openFileTab(selectedPath) }}
-                  />
-                )}
-                {!overlayLoading && overlayMode === 'file' && filePreview === null && diffError === '' && (
-                  <div className="oh-dsh-side-muted">{t('overlay.no-content')}</div>
-                )}
-              </DetachedPanel>
-            )}
 
             {snapshot?.kind === 'repository' && (
               <section className="oh-dsh-review-history">
@@ -750,35 +578,23 @@ export function WorkspacePanel({
                           </small>
                         </summary>
                         <div className="oh-dsh-review-diff-lines">
-                          {file.lines.slice(0, 400).map(line => {
-                            const lineNumber = reviewLineNumber(
-                              line.oldLine,
-                              line.newLine,
-                            )
-                            return (
-                              <button
-                                type="button"
-                                key={line.key}
-                                data-type={line.type}
-                                disabled={lineNumber === null}
-                                title={t('workspace.comment-line')}
-                                onClick={() => {
-                                  if (lineNumber === null) return
-                                  setCommentTarget({
-                                    kind: 'line',
-                                    filePath: file.path,
-                                    line: lineNumber,
-                                    side: line.type === 'deletion' ? 'old' : 'new',
-                                  })
-                                  setCommentNotice('')
-                                }}
-                              >
-                                <span>{line.oldLine ?? ''}</span>
-                                <span>{line.newLine ?? ''}</span>
-                                <code>{line.content || ' '}</code>
-                              </button>
-                            )
-                          })}
+                          <DiffViewer
+                            document={reviewFileToDiffDocument(file)}
+                            theme={theme}
+                            rawOnly
+                            hideMeta
+                            onLineClick={line => {
+                              const lineNumber = line.oldLine ?? line.newLine
+                              if (lineNumber === null) return
+                              setCommentTarget({
+                                kind: 'line',
+                                filePath: file.path,
+                                line: lineNumber,
+                                side: line.oldLine !== null && line.newLine === null ? 'old' : 'new',
+                              })
+                              setCommentNotice('')
+                            }}
+                          />
                           {file.lines.length > 400 && (
                             <div className="oh-dsh-workspace-muted">
                               {t('workspace.diff-truncated', {

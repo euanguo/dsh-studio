@@ -209,7 +209,7 @@
 .oh-dsh-side-error { margin: var(--oh-dsh-space-2) var(--oh-dsh-space-3); padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-2); border-radius: var(--oh-dsh-radius-sm); background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 10%, transparent); color: var(--dsw-alias-state-error-primary, #cf222e); font-size: var(--oh-dsh-font-sm); }
 
 .oh-dsh-files-path span { flex: 1; min-width: 0; overflow: hidden; color: var(--dsw-alias-label-secondary, #57606a); font-size: var(--oh-dsh-font-sm); text-overflow: ellipsis; white-space: nowrap; }
-.oh-dsh-file-list { flex: 1; min-height: 0; overflow: auto; padding: var(--oh-dsh-space-1) var(--oh-dsh-space-3) var(--oh-dsh-space-4); }
+.oh-dsh-file-list { flex: 1; min-height: 0; overflow: auto; padding: var(--oh-dsh-space-1) var(--oh-dsh-space-3) var(--oh-dsh-space-4) var(--oh-dsh-space-3); }
 .oh-dsh-file-list > button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: var(--oh-dsh-space-1-5); width: 100%; min-height: 32px; padding: 0 7px; border: 0; border-radius: var(--oh-dsh-radius-sm); background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
 .oh-dsh-file-list > button:hover { background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%)); }
 .oh-dsh-file-list > button span:nth-child(2) { overflow: hidden; font-size: var(--oh-dsh-font-md); text-overflow: ellipsis; white-space: nowrap; }
@@ -266,7 +266,7 @@
   .oh-dsh-sidebar-settings-size input[type='range'] { width: 100%; }
 }
 
-/* ---------- File browser (flat / nested / tree modes) ---------- */
+/* ---------- File browser (tree mode) ---------- */
 
 .oh-dsh-files-path > span {
   flex: 1;
@@ -278,8 +278,7 @@
   font-size: var(--oh-dsh-font-sm);
 }
 
-.oh-dsh-files-path > button,
-.oh-dsh-files-modes button {
+.oh-dsh-files-path > button {
   display: grid;
   place-items: center;
   width: 24px;
@@ -297,83 +296,14 @@
   cursor: default;
 }
 
-.oh-dsh-files-path > button:hover,
-.oh-dsh-files-modes button:hover,
-.oh-dsh-files-modes button[aria-pressed='true'] {
+.oh-dsh-files-path > button:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-files-modes {
-  display: flex;
-  align-items: center;
-  gap: var(--oh-dsh-space-0);
-  padding-left: var(--oh-dsh-space-1);
-  border-left: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-}
-
-.oh-dsh-file-list {
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1) var(--oh-dsh-space-4);
-}
-
-.oh-dsh-files-row {
-  display: flex;
-  align-items: center;
-  min-height: var(--oh-dsh-size-row);
-  padding-right: var(--oh-dsh-space-2);
-  border-radius: var(--oh-dsh-radius-sm);
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
-.oh-dsh-files-row:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-}
-
-.oh-dsh-files-row[data-selected] {
-  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
-}
-
-.oh-dsh-files-row-main {
-  display: flex;
-  align-items: center;
-  gap: var(--oh-dsh-space-1-5);
-  flex: 1;
-  min-width: 0;
-  height: var(--oh-dsh-size-row);
-  padding: 0 var(--oh-dsh-space-1) 0
-    calc(var(--oh-dsh-space-2) + var(--oh-dsh-tree-indent) * var(--tree-depth, 0));
-  box-sizing: border-box;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: var(--oh-dsh-font-sm) system-ui;
-  text-align: left;
-  cursor: pointer;
-}
-
-.oh-dsh-files-row-main svg,
-.oh-dsh-files-row-main > span[data-icon-vendor] {
-  flex: none;
-  display: inline-flex;
-}
-
-.oh-dsh-files-row-main svg {
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-}
-
-.oh-dsh-files-chevron {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 14px;
-  height: 14px;
-  margin-left: calc(-1 * var(--oh-dsh-space-1));
-}
-
-.oh-dsh-files-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* Tree indentation for file-browser rows (shared with source control). */
+.oh-dsh-files-depth-main {
+  padding-left: calc(var(--oh-dsh-space-1-5) + var(--oh-dsh-tree-indent) * var(--tree-depth, 0));
 }
 
 .oh-dsh-files-size {

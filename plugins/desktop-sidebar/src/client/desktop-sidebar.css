@@ -312,35 +312,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
   overflow: auto;
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
-.oh-dsh-review-diff-lines > button {
-  display: grid;
-  grid-template-columns: 30px 30px minmax(max-content, 1fr);
-  width: 100%;
-  min-width: max-content;
-  padding: 0;
-  text-align: left;
-  font: var(--oh-dsh-font-xs)/1.5 var(--oh-dsh-font-mono);
-}
-.oh-dsh-review-diff-lines > button:hover {
-  box-shadow: inset 2px 0 var(--oh-dsh-accent);
-}
-.oh-dsh-review-diff-lines > button[data-type='addition'] {
-  background: color-mix(in srgb, var(--dsw-alias-state-success-primary, #2da44e) 10%, transparent);
-}
-.oh-dsh-review-diff-lines > button[data-type='deletion'] {
-  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 9%, transparent);
-}
-.oh-dsh-review-diff-lines > button > span {
-  padding: 1px 5px;
-  color: var(--dsw-alias-label-dimmed, #8c959f);
-  text-align: right;
-  user-select: none;
-}
-.oh-dsh-review-diff-lines > button > code {
-  padding: 1px 8px;
-  color: var(--dsw-alias-label-primary, #1f2328);
-  white-space: pre;
-}
 
 .oh-dsh-review-comments {
   display: grid;
