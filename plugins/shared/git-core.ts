@@ -1,0 +1,529 @@
+/**
+ * Shared Git operations for the desktop plugins (source-control panel,
+ * workspace facts, left-rail worktree browser). Everything goes through
+ * the system `git` binary spawned per request (no library, no state), with
+ * porcelain-parseable output formats (`-z` NUL framing, unit separators)
+ * so parsing never depends on locale or color config.
+ *
+ * Upgraded from the vendored `better-sidebar-runtime/src/git.ts` (moved to
+ * plugins/shared so the desktop-sidebar and desktop-left-rail hosts share
+ * exactly one implementation):
+ * - `statusV2()`: `git status --porcelain=2 --branch` — branch, upstream,
+ *   ahead/behind and entries from ONE subprocess (the v1 path needed three).
+ * - `core.quotePath=false` on every command (non-ASCII/special paths stay
+ *   literal instead of C-escaped).
+ * - `maxOutputBytes` guard so a huge diff cannot blow up the process heap.
+ *
+ * Commits use the user's git global identity untouched (never sets
+ * user.name/user.email).
+ */
+import { spawn } from 'node:child_process'
+
+/** A parsed `git status --porcelain=v1 -z` entry. */
+export interface GitStatusEntry {
+  path: string
+  /** Two-letter index/worktree status (X Y), e.g. 'M ', ' M', 'A ', '??'. */
+  xy: string
+}
+
+/** The source-control panel snapshot (v1-compatible shape). */
+export interface GitStatusResult {
+  isRepo: boolean
+  branch?: string
+  entries: GitStatusEntry[]
+}
+
+/** The porcelain v2 snapshot — one `status --porcelain=2 --branch` subprocess. */
+export interface GitStatusV2Result {
+  isRepo: boolean
+  branch?: string | undefined
+  /** Upstream ref (`refs/remotes/...`) when the branch tracks one. */
+  upstream?: string | undefined
+  ahead: number
+  behind: number
+  entries: GitStatusEntry[]
+}
+
+/** One `git log` row. */
+export interface GitLogEntry {
+  /** Short hash (7+ chars, display). */
+  hash: string
+  /** Full 40-char hash (advanced operations: revert / cherry-pick). */
+  hashFull: string
+  subject: string
+  author: string
+  /** ISO 8601 author date (`%ai`), e.g. `2024-01-01 10:00:00 +0800`. */
+  date: string
+  /** Ref decorations (`%D` with --decorate=short), e.g. `HEAD -> main, origin/main`; '' when none. */
+  refs: string
+}
+
+/** One git failure (stderr text as the message). */
+export class GitCommandError extends Error {
+  readonly code: string
+  readonly command: string
+
+  constructor(message: string, code = 'git-error', command: string) {
+    super(message)
+    this.code = code
+    this.command = command
+  }
+}
+
+export interface RunGitOptions {
+  timeoutMs?: number
+  /** Kill the child and fail when stdout exceeds this many bytes. */
+  maxOutputBytes?: number
+  /** Let non-zero exits resolve to `{ code, stdout, stderr }` instead of rejecting. */
+  allowNonZeroExit?: boolean
+}
+
+export interface GitRunResult {
+  code: number
+  stdout: string
+  stderr: string
+}
+
+/** Run one git command; resolves with stdout, rejects with GitCommandError. */
+export function runGit(cwd: string, args: readonly string[], options: RunGitOptions = {}): Promise<string> {
+  return runGitResult(cwd, args, options).then(result => {
+    if (result.code !== 0) {
+      throw new GitCommandError(
+        result.stderr.trim() || `git exited with ${String(result.code)}`,
+        'git-error',
+        args.join(' '),
+      )
+    }
+    return result.stdout
+  })
+}
+
+/** Run one git command and always resolve with the raw exit envelope. */
+export function runGitResult(
+  cwd: string,
+  args: readonly string[],
+  options: RunGitOptions = {},
+): Promise<GitRunResult> {
+  const timeoutMs = options.timeoutMs ?? 30_000
+  const maxOutputBytes = options.maxOutputBytes ?? 64 * 1024 * 1024
+  // quotePath=false keeps non-ASCII / special paths literal in every
+  // machine-readable format (porcelain, numstat, log).
+  const full = ['-C', cwd, '--no-pager', '-c', 'color.ui=false', '-c', 'core.quotePath=false', ...args]
+  return new Promise<GitRunResult>((resolvePromise, reject) => {
+    const child = spawn('git', full, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+    })
+    let stdout = ''
+    let stderr = ''
+    let stdoutBytes = 0
+    let killedForLimit = false
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL')
+      reject(new GitCommandError(
+        `git ${args[0] ?? ''} timed out after ${timeoutMs}ms`,
+        'git-error',
+        args.join(' '),
+      ))
+    }, timeoutMs)
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdoutBytes += chunk.byteLength
+      if (stdoutBytes > maxOutputBytes) {
+        killedForLimit = true
+        child.kill('SIGKILL')
+        return
+      }
+      stdout += chunk.toString('utf8')
+    })
+    child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8') })
+    child.on('error', (error) => {
+      clearTimeout(timer)
+      reject(new GitCommandError(`cannot run git: ${error.message}`, 'git-error', args.join(' ')))
+    })
+    child.on('close', (code) => {
+      clearTimeout(timer)
+      if (killedForLimit) {
+        reject(new GitCommandError(
+          `git ${args[0] ?? ''} output exceeded ${maxOutputBytes} bytes`,
+          'git-output-limit',
+          args.join(' '),
+        ))
+        return
+      }
+      resolvePromise({ code: code ?? -1, stdout, stderr })
+    })
+  })
+}
+
+/* ---------- porcelain v1 (-z) ---------- */
+
+/** Parse porcelain v1 -z output into entries (rename/copy pairs collapse to one row). */
+export function parsePorcelainZ(output: string): GitStatusEntry[] {
+  const tokens = output.split('\0')
+  const entries: GitStatusEntry[] = []
+  let index = 0
+  while (index < tokens.length) {
+    const token = tokens[index]!
+    index += 1
+    if (token === '') continue
+    const xy = token.slice(0, 2)
+    const rest = token.slice(3)
+    entries.push({ path: rest, xy })
+    // Rename/copy entries carry the ORIGIN path as the next NUL field; the
+    // new path (the file as it exists now) is the display path.
+    if ((xy[0] === 'R' || xy[0] === 'C') && tokens[index] !== undefined && tokens[index] !== '') {
+      index += 1
+    }
+  }
+  return entries
+}
+
+/* ---------- porcelain v2 ---------- */
+
+function parseBranchAb(value: string): { ahead: number; behind: number } {
+  const match = /^\+(\d+)\s+-(\d+)$/.exec(value)
+  if (match === null) return { ahead: 0, behind: 0 }
+  return {
+    ahead: Number(match[1] ?? '0'),
+    behind: Number(match[2] ?? '0'),
+  }
+}
+
+/**
+ * Parse `git status --porcelain=2 --branch` output into the v1-compatible
+ * entry shape plus branch/upstream/ahead/behind.
+ *
+ * v2 line grammar (paths are literal because quotePath=false):
+ *   # branch.head <name>          | # branch.upstream <ref>
+ *   # branch.ab +<ahead> -<behind>
+ *   1 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <path>
+ *   2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <X><score> <path>\t<origPath>
+ *   u <XY> ...                    (unmerged — reported as 'UU' conflict)
+ *   ? <path>                      (untracked)
+ */
+export function parsePorcelainV2(output: string): GitStatusV2Result {
+  let branch: string | undefined
+  let upstream: string | undefined
+  let ahead = 0
+  let behind = 0
+  const entries: GitStatusEntry[] = []
+
+  for (const rawLine of output.split('\n')) {
+    const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine
+    if (line === '') continue
+    if (line.startsWith('# branch.head ')) {
+      const value = line.slice('# branch.head '.length).trim()
+      if (!value.startsWith('(')) branch = value
+      continue
+    }
+    if (line.startsWith('# branch.upstream ')) {
+      const value = line.slice('# branch.upstream '.length).trim()
+      if (value !== '') upstream = value
+      continue
+    }
+    if (line.startsWith('# branch.ab ')) {
+      const parsed = parseBranchAb(line.slice('# branch.ab '.length).trim())
+      ahead = parsed.ahead
+      behind = parsed.behind
+      continue
+    }
+    if (line.startsWith('? ')) {
+      const path = line.slice(2).trim()
+      if (path !== '') entries.push({ path, xy: '??' })
+      continue
+    }
+    if (line.startsWith('! ')) continue // ignored
+    if (line.startsWith('u ')) {
+      // u <XY> <sub> <m1> <m2> <m3> <mW> <h1> <h2> <h3> <path>
+      const parts = line.split(' ')
+      const path = parts.slice(10).join(' ').trim()
+      if (path !== '') entries.push({ path, xy: 'UU' })
+      continue
+    }
+    if (line.startsWith('1 ')) {
+      const parts = line.split(' ')
+      const xy = parts[1] ?? '..'
+      const path = parts.slice(8).join(' ').trim()
+      if (path !== '') entries.push({ path, xy })
+      continue
+    }
+    if (line.startsWith('2 ')) {
+      const parts = line.split(' ')
+      const xy = parts[1] ?? '..'
+      // Rename/copy rows carry `<path>\t<origPath>` in the tail.
+      const head = line.split('\t')[0] ?? ''
+      const path = head.split(' ').slice(9).join(' ').trim()
+      if (path !== '') entries.push({ path, xy })
+      continue
+    }
+    // Other `# ...` lines (branch.oid, rebase state) are ignored.
+  }
+
+  return { isRepo: true, branch, upstream, ahead, behind, entries }
+}
+
+/** Working-tree status via one porcelain v2 subprocess (non-repo → isRepo:false). */
+export async function statusV2(cwd: string): Promise<GitStatusV2Result> {
+  let result: GitRunResult
+  try {
+    result = await runGitResult(cwd, ['status', '--porcelain=2', '--branch'])
+  } catch (error) {
+    if (error instanceof GitCommandError) throw error
+    return { isRepo: false, ahead: 0, behind: 0, entries: [] }
+  }
+  if (result.code === 128 && result.stderr.includes('not a git repository')) {
+    return { isRepo: false, ahead: 0, behind: 0, entries: [] }
+  }
+  if (result.code !== 0) {
+    throw new GitCommandError(result.stderr.trim() || `git status failed: ${String(result.code)}`, 'git-error', 'status')
+  }
+  return parsePorcelainV2(result.stdout)
+}
+
+/* ---------- log / numstat / worktree ---------- */
+
+/** Parse `git log --pretty=format:%h%x1f%s%x1f%an%x1f%ai%x1f%H%x1f%D` rows. */
+export function parseLogLines(output: string): GitLogEntry[] {
+  const rows: GitLogEntry[] = []
+  for (const line of output.split('\n')) {
+    if (line === '') continue
+    const [hash, subject, author, date, hashFull, refs] = line.split('\x1f')
+    if (hash === undefined || subject === undefined) continue
+    rows.push({
+      hash,
+      subject,
+      author: author ?? '',
+      date: date ?? '',
+      hashFull: hashFull ?? hash,
+      refs: refs ?? '',
+    })
+  }
+  return rows
+}
+
+/** One `git diff --numstat -z` row. */
+export interface GitNumstatEntry {
+  path: string
+  additions: number
+  deletions: number
+}
+
+/**
+ * Parse `git diff --numstat -z` output. Paths may contain tabs (the -z frame
+ * keeps them literal); rename rows carry the origin path in a trailing NUL
+ * field which is skipped. Binary rows report `-` and are dropped (0/0).
+ */
+export function parseNumstatZ(output: string): GitNumstatEntry[] {
+  const rows: GitNumstatEntry[] = []
+  const tokens = output.split('\0')
+  let index = 0
+  while (index < tokens.length) {
+    const token = tokens[index]!
+    index += 1
+    if (token === '') continue
+    const first = token.indexOf('\t')
+    const second = first >= 0 ? token.indexOf('\t', first + 1) : -1
+    if (first < 0 || second < 0) continue
+    const additions = Number(token.slice(0, first))
+    const deletions = Number(token.slice(first + 1, second))
+    if (!Number.isFinite(additions) || !Number.isFinite(deletions)) continue
+    const path = token.slice(second + 1)
+    if (path !== '') rows.push({ path, additions, deletions })
+  }
+  return rows
+}
+
+/** One entry from `git worktree list --porcelain`. */
+export interface GitWorktreeEntry {
+  path: string
+  /** Commit the worktree's HEAD points at; null on bare repositories. */
+  head: string | null
+  /** Short branch name (refs/heads/ stripped); null when detached or bare. */
+  branch: string | null
+  /** The main worktree (the first `worktree` block). */
+  main: boolean
+}
+
+/** The worktree layout of one repository. */
+export interface GitWorktreeLayout {
+  /** The main worktree path — the project identity (repo root). */
+  repoRoot: string
+  worktrees: GitWorktreeEntry[]
+}
+
+/**
+ * Parse `git worktree list --porcelain` output: blank-line separated blocks
+ * with `worktree <path>`, `HEAD <sha>`, `branch refs/heads/<name>` lines
+ * (detached worktrees carry no branch line; bare repositories carry no HEAD).
+ */
+export function parseWorktreeList(output: string): GitWorktreeEntry[] {
+  const entries: GitWorktreeEntry[] = []
+  for (const block of output.split(/\n\n+/)) {
+    let path: string | undefined
+    let head: string | null = null
+    let branch: string | null = null
+    for (const line of block.split('\n')) {
+      if (line.startsWith('worktree ')) path = line.slice('worktree '.length)
+      else if (line.startsWith('HEAD ')) head = line.slice('HEAD '.length)
+      else if (line.startsWith('branch ')) {
+        branch = line.slice('branch '.length).replace(/^refs\/heads\//, '')
+      }
+    }
+    if (path !== undefined) {
+      entries.push({ path, head, branch, main: entries.length === 0 })
+    }
+  }
+  return entries
+}
+
+/* ---------- operations ---------- */
+
+/** Whether the directory is inside a git work tree (exit-0 `git rev-parse`). */
+export async function isGitRepo(cwd: string): Promise<boolean> {
+  try {
+    const out = await runGit(cwd, ['rev-parse', '--is-inside-work-tree'])
+    return out.trim() === 'true'
+  } catch {
+    return false
+  }
+}
+
+/** The repository top level containing `cwd` (`git rev-parse --show-toplevel`). */
+export async function repoRoot(cwd: string): Promise<string> {
+  const out = await runGit(cwd, ['rev-parse', '--show-toplevel'])
+  return out.trim()
+}
+
+/** The current branch name (`git rev-parse --abbrev-ref HEAD`; 'HEAD' when detached). */
+export async function currentBranch(cwd: string): Promise<string> {
+  const out = await runGit(cwd, ['rev-parse', '--abbrev-ref', 'HEAD'])
+  return out.trim()
+}
+
+/** Working-tree status (untracked included), v1 shape (three subprocesses). */
+export async function status(cwd: string): Promise<GitStatusResult> {
+  const repo = await isGitRepo(cwd)
+  if (!repo) return { isRepo: false, entries: [] }
+  const [branch, raw] = await Promise.all([
+    currentBranch(cwd).catch(() => 'HEAD'),
+    runGit(cwd, ['status', '--porcelain=v1', '-z', '--untracked-files=normal']),
+  ])
+  return { isRepo: true, branch, entries: parsePorcelainZ(raw) }
+}
+
+/** `git worktree list --porcelain`; null when cwd is not inside a work tree. */
+export async function worktreeList(cwd: string): Promise<GitWorktreeLayout | null> {
+  let out: string
+  try {
+    out = await runGit(cwd, ['worktree', 'list', '--porcelain'])
+  } catch {
+    return null
+  }
+  const worktrees = parseWorktreeList(out)
+  if (worktrees.length === 0) return null
+  return { repoRoot: worktrees[0]!.path, worktrees }
+}
+
+/**
+ * Create a linked worktree. `createBranch` true → `git worktree add -b
+ * <branch> <path>` (new branch); false → attach an existing branch.
+ * @param cwd - inside the target repository.
+ * @param path - absolute linked-worktree path (git rejects paths inside the
+ *   main worktree itself).
+ * @param branch - existing branch name (createBranch=false) or new name.
+ * @param createBranch - whether to create the branch.
+ */
+export async function worktreeAdd(cwd: string, path: string, branch: string, createBranch: boolean): Promise<void> {
+  const args = createBranch
+    ? ['worktree', 'add', '-b', branch, path]
+    : ['worktree', 'add', path, branch]
+  await runGit(cwd, args)
+}
+
+/** Diff text of the worktree (unstaged) or the index (staged). */
+export async function diff(cwd: string, path: string | undefined, staged: boolean): Promise<string> {
+  const args = ['diff', '--no-ext-diff', '--no-color', '-U3']
+  if (staged) args.push('--cached')
+  if (path !== undefined) args.push('--', path)
+  return runGit(cwd, args)
+}
+
+/** Per-path +N/−M counts of the worktree (staged=false) or the index (staged=true). */
+export async function numstat(cwd: string, staged: boolean): Promise<GitNumstatEntry[]> {
+  const args = ['diff', '--numstat', '-z', '-M']
+  if (staged) args.push('--cached')
+  return parseNumstatZ(await runGit(cwd, args))
+}
+
+/** Stage paths (all when path is undefined). */
+export async function stage(cwd: string, path: string | undefined): Promise<void> {
+  await runGit(cwd, ['add', '-A', ...(path !== undefined ? ['--', path] : [])])
+}
+
+/** Unstage paths (all when path is undefined). */
+export async function unstage(cwd: string, path: string | undefined): Promise<void> {
+  await runGit(cwd, ['reset', '-q', ...(path !== undefined ? ['--', path] : [])])
+}
+
+/** Commit the staged changes with a message (global identity untouched). */
+export async function commit(cwd: string, message: string): Promise<void> {
+  await runGit(cwd, ['commit', '-m', message])
+}
+
+/** Branch names (current first). */
+export async function branches(cwd: string): Promise<{ current: string; names: string[] }> {
+  const [current, raw] = await Promise.all([
+    currentBranch(cwd).catch(() => 'HEAD'),
+    runGit(cwd, ['for-each-ref', '--format=%(refname:short)', 'refs/heads']),
+  ])
+  const names = raw.split('\n').filter(line => line !== '')
+  return { current, names: names.includes(current) ? names : [current, ...names] }
+}
+
+/** Switch to an existing branch. */
+export async function checkout(cwd: string, branch: string): Promise<void> {
+  await runGit(cwd, ['checkout', branch])
+}
+
+/** Recent commit history (newest first), lazily pageable via skip/count. */
+export async function log(cwd: string, count = 30, skip = 0): Promise<GitLogEntry[]> {
+  const raw = await runGit(cwd, [
+    'log', '-n', String(count), '--skip', String(skip), '--decorate=short',
+    '--pretty=format:%h%x1f%s%x1f%an%x1f%ai%x1f%H%x1f%D',
+  ])
+  return parseLogLines(raw)
+}
+
+/**
+ * Content of a file at a revision (`git show <rev>:<path>`), or null when the
+ * revision has no such path (a new/untracked file has no HEAD side).
+ */
+export async function show(cwd: string, rev: string, path: string): Promise<string | null> {
+  try {
+    return await runGit(cwd, ['show', `${rev}:${path}`])
+  } catch {
+    return null
+  }
+}
+
+/** Full patch text of one commit (`git show` with the commit header suppressed).
+ *  Merge commits show their diff against the first parent (`-m --first-parent`
+ *  is a no-op for regular commits), so a history click always has content. */
+export async function commitDiff(cwd: string, hash: string): Promise<string> {
+  return runGit(cwd, ['show', '--no-ext-diff', '--no-color', '--format=', '-m', '--first-parent', hash])
+}
+
+/** Discard the worktree changes of one path (`git checkout -- <path>`; the index is untouched). */
+export async function discard(cwd: string, path: string): Promise<void> {
+  await runGit(cwd, ['checkout', '--', path])
+}
+
+/** Revert one commit onto the current branch with an auto-generated message. */
+export async function revert(cwd: string, hash: string): Promise<void> {
+  await runGit(cwd, ['revert', '--no-edit', hash])
+}
+
+/** Cherry-pick one commit onto the current branch. */
+export async function cherryPick(cwd: string, hash: string): Promise<void> {
+  await runGit(cwd, ['cherry-pick', hash])
+}

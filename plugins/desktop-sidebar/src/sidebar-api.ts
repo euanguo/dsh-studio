@@ -173,7 +173,9 @@ export function buildSidebarApi(ctx: SidebarApiContext): Record<string, ApiMetho
     },
     'git.status': async (payload) => {
       const { cwd } = scopeOf(payload)
-      const result = await git.status(cwd)
+      // One porcelain v2 subprocess yields isRepo + branch + entries (and
+      // upstream/ahead/behind for free) instead of three v1 subprocesses.
+      const result = await git.statusV2(cwd)
       // Attach per-entry +N/−M counts (staged entries use the index diff,
       // worktree entries use the unstaged diff). Failures degrade to 0/0 —
       // the counts are decoration, the status list is the contract.
@@ -189,7 +191,7 @@ export function buildSidebarApi(ctx: SidebarApiContext): Record<string, ApiMetho
         const found = statsByPath.get(entry.path)
         return found ?? { path: entry.path, additions: 0, deletions: 0 }
       })
-      return { ...result, stats }
+      return { isRepo: result.isRepo, branch: result.branch, entries: result.entries, stats }
     },
     'git.branch': (payload) => {
       const cwd = cwdScopeOf(payload)

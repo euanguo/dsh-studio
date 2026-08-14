@@ -1,15 +1,11 @@
-import { execFile } from 'node:child_process'
 import { existsSync, statSync } from 'node:fs'
 import { basename, isAbsolute } from 'node:path'
-import { promisify } from 'node:util'
+import { runGit } from '../../shared/git-core.ts'
 import type {
   WorkspaceFacts,
   WorkspaceHostMutation,
   WorkspaceHostMutationResponse,
 } from './protocol.ts'
-
-const execFileAsync = promisify(execFile)
-const MAX_GIT_OUTPUT = 8 * 1024 * 1024
 
 export function normalizeWorkspacePath(raw: string | undefined): string {
   const cwd = raw?.trim()
@@ -28,13 +24,9 @@ async function git(
   cwd: string,
   timeout = 20_000,
 ): Promise<string> {
-  const result = await execFileAsync('git', [...args], {
-    cwd,
-    encoding: 'utf8',
-    maxBuffer: MAX_GIT_OUTPUT,
-    timeout,
-  })
-  return result.stdout
+  // Shared runGit: -C <cwd>, --no-pager, color.ui=false, core.quotePath=false,
+  // GIT_OPTIONAL_LOCKS=0, timeout + output-limit guards.
+  return runGit(cwd, args, { timeoutMs: timeout, maxOutputBytes: 8 * 1024 * 1024 })
 }
 
 function parseAheadBehind(output: string): { ahead: number; behind: number } {
