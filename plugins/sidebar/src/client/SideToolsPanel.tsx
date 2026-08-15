@@ -369,6 +369,19 @@ export function FilesView({
     }
   }
 
+  const copyFsEntry = async (): Promise<void> => {
+    if (cwd === undefined || scope === undefined || selectedPath === null) return
+    const base = selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath
+    const target = window.prompt('Copy to', `${base}.copy`)
+    if (target === null || target.trim() === '') return
+    try {
+      await betterSidebarApi.fsCopy(scope, selectedPath, target.trim())
+      setRefreshKey(value => value + 1)
+    } catch (cause) {
+      window.alert(cause instanceof Error ? cause.message : String(cause))
+    }
+  }
+
   if (cwd === undefined) {
     return <div className="oh-dsh-side-empty">{t('files.select-workspace')}</div>
   }
@@ -379,6 +392,7 @@ export function FilesView({
         <button type="button" title="New file" onClick={() => { void createFsEntry(false) }}>+F</button>
         <button type="button" title="New folder" onClick={() => { void createFsEntry(true) }}>+D</button>
         <button type="button" title="Rename" disabled={selectedPath === null} onClick={() => { void renameFsEntry() }}>↳</button>
+        <button type="button" title="Copy" disabled={selectedPath === null} onClick={() => { void copyFsEntry() }}>⧉</button>
         <button type="button" title="Delete" disabled={selectedPath === null} onClick={() => { void deleteFsEntry() }}>✕</button>
         <button
           type="button"

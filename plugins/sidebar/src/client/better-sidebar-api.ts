@@ -73,6 +73,17 @@ export const betterSidebarApi = {
     { pattern, caseSensitive },
     signal,
   ),
+  fsTail: (
+    scope: BetterSidebarScope,
+    path: string,
+    maxBytes?: number,
+    signal?: AbortSignal,
+  ): Promise<{ content: string; truncated: boolean }> => callSidebarApi(
+    'fs.tail',
+    scope,
+    { path, ...(maxBytes === undefined ? {} : { maxBytes }) },
+    signal,
+  ),
   fsTree: (
     scope: BetterSidebarScope,
     path: string,

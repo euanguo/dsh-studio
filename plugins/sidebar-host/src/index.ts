@@ -375,6 +375,26 @@ function buildApi(
       const pattern = requireString(payload, 'pattern')
       return searchWorkspace(cwd, pattern, record.caseSensitive === true)
     },
+    'fs.tail': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      const path = await resolveGitPath(cwd, requireString(payload, 'path'))
+      const record = payload as { maxBytes?: unknown }
+      const maxBytes = typeof record.maxBytes === 'number' && Number.isInteger(record.maxBytes) && record.maxBytes > 0
+        ? Math.min(record.maxBytes, 512 * 1024)
+        : 128 * 1024
+      const info = await stat(path).catch((error: unknown) => {
+        throw new SidebarError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+      })
+      const handle = await open(path, 'r')
+      try {
+        const readSize = Math.min(info.size, maxBytes)
+        const buffer = Buffer.alloc(readSize)
+        const { bytesRead } = await handle.read(buffer, 0, readSize, Math.max(0, info.size - readSize))
+        return { content: buffer.subarray(0, bytesRead).toString('utf8'), truncated: info.size > maxBytes }
+      } finally {
+        await handle.close()
+      }
+    },
     'git.status': async (payload) => {
       const { cwd } = cwdOf(payload)
       // One porcelain v2 subprocess yields isRepo + branch + entries (and
