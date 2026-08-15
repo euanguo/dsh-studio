@@ -250,6 +250,19 @@
   padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
 }
 
+/* Commit / committed multi-file views: left path tree + right file stack
+   (the same tree+diff structure as the diff-all surface). */
+.oh-dsh-commit-tree-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.oh-dsh-commit-tree-body .oh-dsh-diff-tree {
+  flex: none;
+}
+
 .oh-dsh-commit-surface-body details {
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }

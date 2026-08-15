@@ -614,19 +614,50 @@ export function DiffAllSurfaceView({
     setSelectedPath(null)
     setCollapsedDirs(new Set())
     setExpanding(new Set())
-    void betterSidebarApi.gitDiff(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
-      undefined,
-      surface.staged,
-    ).then(result => {
+    const scope = { sessionId: surface.sessionId, cwd: surface.cwd }
+    void betterSidebarApi.gitDiff(scope, undefined, surface.staged).then(async result => {
+      const parsed = parseGitReviewDiff(result.diff)
+      // Untracked files produce no git diff output — synthesize added-file
+      // diffs from their contents so "view all" shows them too.
+      let untrackedFiles: GitReviewFile[] = []
+      if (!surface.staged) {
+        try {
+          const status = await betterSidebarApi.gitStatus(scope)
+          const untracked = status.entries
+            .filter(entry => entry.xy === '??')
+            .map(entry => entry.path)
+          const synthesized = await Promise.all(untracked.map(async (path): Promise<GitReviewFile | null> => {
+            const read = await betterSidebarApi.fsRead(scope, resolveSidebarPath(surface.cwd, path))
+            if (read.kind !== 'text') return null
+            const lines = read.content.split('\n')
+            return {
+              path,
+              oldPath: null,
+              status: 'added',
+              additions: lines.length,
+              deletions: 0,
+              lines: lines.map((content, index) => ({
+                key: `untracked:${path}:${index}`,
+                type: 'addition' as const,
+                content,
+                oldLine: null,
+                newLine: index + 1,
+              })),
+            }
+          }))
+          untrackedFiles = synthesized.filter((file): file is GitReviewFile => file !== null)
+        } catch {
+          untrackedFiles = []
+        }
+      }
       if (!alive) return
-      if (result.diff.trim() === '') {
+      const allFiles = [...parsed, ...untrackedFiles]
+      if (allFiles.length === 0) {
         setError(t('workspace.no-text-diff'))
         return
       }
-      const parsed = parseGitReviewDiff(result.diff)
-      setFiles(parsed)
-      setRenderedKeys(new Set(parsed.slice(0, 6).map(file => file.path)))
+      setFiles(allFiles)
+      setRenderedKeys(new Set(allFiles.slice(0, 6).map(file => file.path)))
     }).catch((cause: unknown) => {
       if (alive) setError(cause instanceof Error ? cause.message : String(cause))
     })
@@ -795,11 +826,15 @@ export function CommitDiffSurfaceView({
 }): JSX.Element {
   const [files, setFiles] = useState<readonly GitReviewFile[] | null>(null)
   const [error, setError] = useState('')
+  const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(new Set())
+  const bodyRef = useRef<HTMLDivElement | null>(null)
   const theme = usePierreDiffTheme()
   useEffect(() => {
     let alive = true
     setFiles(null)
     setError('')
+    setSelectedPath(null)
     void betterSidebarApi.gitCommitDiff(
       { sessionId: surface.sessionId, cwd: surface.cwd },
       surface.hash,
@@ -811,6 +846,7 @@ export function CommitDiffSurfaceView({
     })
     return () => { alive = false }
   }, [surface.hash, surface.sessionId, surface.cwd])
+  const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
   if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
   if (files === null) {
     return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
@@ -821,21 +857,40 @@ export function CommitDiffSurfaceView({
         <span title={surface.hash}>{surface.title}</span>
         <small>{surface.hash.slice(0, 7)}</small>
       </div>
-      <div className="oh-dsh-commit-surface-body">
-        {files.map(file => (
-          <details key={`${file.oldPath ?? ''}:${file.path}`} open>
-            <summary>
-              <span title={file.path}>{file.path}</span>
-              <small><b>+{file.additions}</b> −{file.deletions}</small>
-            </summary>
-            <div className="oh-dsh-commit-surface-lines">
-              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} t={t} virtualize={false} hideMeta />
-            </div>
-          </details>
-        ))}
-        {files.length === 0 && (
-          <div className="oh-dsh-side-muted">{t('workspace.no-text-diff')}</div>
-        )}
+      <div className="oh-dsh-commit-tree-body">
+        <DiffPathTreeNav
+          rows={rows}
+          onToggleDirectory={key => {
+            setCollapsedDirs(previous => {
+              const next = new Set(previous)
+              if (next.has(key)) next.delete(key)
+              else next.add(key)
+              return next
+            })
+          }}
+          onSelectFile={path => {
+            setSelectedPath(path)
+            requestAnimationFrame(() => {
+              bodyRef.current?.querySelector(`[data-path="${CSS.escape(path)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            })
+          }}
+        />
+        <div className="oh-dsh-commit-surface-body" ref={bodyRef}>
+          {files.map(file => (
+            <details key={`${file.oldPath ?? ''}:${file.path}`} open data-path={file.path}>
+              <summary>
+                <span title={file.path}>{file.path}</span>
+                <small><b>+{file.additions}</b> −{file.deletions}</small>
+              </summary>
+              <div className="oh-dsh-commit-surface-lines">
+                <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} t={t} virtualize={false} hideMeta />
+              </div>
+            </details>
+          ))}
+          {files.length === 0 && (
+            <div className="oh-dsh-side-muted">{t('workspace.no-text-diff')}</div>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -930,11 +985,15 @@ function CommittedAllDiffView({
 }): JSX.Element {
   const [files, setFiles] = useState<readonly GitReviewFile[] | null>(null)
   const [error, setError] = useState('')
+  const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(new Set())
+  const bodyRef = useRef<HTMLDivElement | null>(null)
   const theme = usePierreDiffTheme()
   useEffect(() => {
     let alive = true
     setFiles(null)
     setError('')
+    setSelectedPath(null)
     void betterSidebarApi.gitCommittedDiff(
       { sessionId: surface.sessionId, cwd: surface.cwd },
       surface.baseRef,
@@ -947,6 +1006,7 @@ function CommittedAllDiffView({
     })
     return () => { alive = false }
   }, [surface.baseRef, surface.sessionId, surface.cwd])
+  const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
   if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
   if (files === null) return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
   return (
@@ -955,21 +1015,40 @@ function CommittedAllDiffView({
         <span>{surface.title}</span>
         <small>{surface.baseRef}</small>
       </div>
-      <div className="oh-dsh-commit-surface-body">
-        {files.map(file => (
-          <details key={`${file.oldPath ?? ''}:${file.path}`} open>
-            <summary>
-              <span title={file.path}>{file.path}</span>
-              <small><b>+{file.additions}</b> −{file.deletions}</small>
-            </summary>
-            <div className="oh-dsh-commit-surface-lines">
-              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} t={t} virtualize={false} hideMeta />
-            </div>
-          </details>
-        ))}
-        {files.length === 0 && (
-          <div className="oh-dsh-side-muted">{t('workspace.no-text-diff')}</div>
-        )}
+      <div className="oh-dsh-commit-tree-body">
+        <DiffPathTreeNav
+          rows={rows}
+          onToggleDirectory={key => {
+            setCollapsedDirs(previous => {
+              const next = new Set(previous)
+              if (next.has(key)) next.delete(key)
+              else next.add(key)
+              return next
+            })
+          }}
+          onSelectFile={path => {
+            setSelectedPath(path)
+            requestAnimationFrame(() => {
+              bodyRef.current?.querySelector(`[data-path="${CSS.escape(path)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            })
+          }}
+        />
+        <div className="oh-dsh-commit-surface-body" ref={bodyRef}>
+          {files.map(file => (
+            <details key={`${file.oldPath ?? ''}:${file.path}`} open data-path={file.path}>
+              <summary>
+                <span title={file.path}>{file.path}</span>
+                <small><b>+{file.additions}</b> −{file.deletions}</small>
+              </summary>
+              <div className="oh-dsh-commit-surface-lines">
+                <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} t={t} virtualize={false} hideMeta />
+              </div>
+            </details>
+          ))}
+          {files.length === 0 && (
+            <div className="oh-dsh-side-muted">{t('workspace.no-text-diff')}</div>
+          )}
+        </div>
       </div>
     </div>
   )
