@@ -13,6 +13,7 @@
  */
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '../../../../shared/i18n.ts'
 import { IconExternalLink, IconFile, IconGitBranch } from '../../../../shared/tabler-icons.tsx'
@@ -32,7 +33,7 @@ import {
 import {
   SurfaceTab,
   SurfaceTabStrip,
-} from './surface-tab.tsx'
+} from '../../../../shared/surface-tab.tsx'
 import {
   SurfaceRendererRegistry,
 } from './surface-renderer-registry.tsx'
@@ -220,7 +221,7 @@ function RailFloatControls({
     () => sidebar?.getSnapshot().open ?? false,
   )
 
-  return (
+  return createPortal(
     <>
       <button
         type="button"
@@ -243,7 +244,8 @@ function RailFloatControls({
           <IconRailExpand />
         </button>
       )}
-    </>
+    </>,
+    document.body,
   )
 }
 

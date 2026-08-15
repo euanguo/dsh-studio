@@ -1,0 +1,91 @@
+/* ============================================================
+   Surface tab chip + strip — the ONE tab component for every
+   surface host: the center strip AND the right panel's top row.
+   Geometry/colors come from the --oh-dsh-* ladder and --dsw-alias-*
+   only (same tokens the row family uses).
+   ============================================================ */
+
+.oh-dsh-surface-tab {
+  -webkit-app-region: no-drag;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  flex: none;
+  height: 26px;
+  max-width: 180px;
+  padding: 0 var(--oh-dsh-space-1-5);
+  box-sizing: border-box;
+  border-radius: var(--oh-dsh-radius-sm);
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-sm);
+  cursor: pointer;
+  user-select: none;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.oh-dsh-surface-tab:hover,
+.oh-dsh-surface-tab:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+  outline: none;
+}
+
+.oh-dsh-surface-tab.is-active {
+  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.oh-dsh-surface-tab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+}
+
+.oh-dsh-surface-tab-label {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  text-align: left;
+}
+
+/* Preview tabs render italic to signal "temporary — double-click to pin". */
+.oh-dsh-surface-tab-label.is-preview {
+  font-style: italic;
+}
+
+.oh-dsh-surface-tab-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-dsh-surface-tab-action {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  flex: none;
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.oh-dsh-surface-tab:hover .oh-dsh-surface-tab-action,
+.oh-dsh-surface-tab:focus-within .oh-dsh-surface-tab-action,
+.oh-dsh-surface-tab.is-active .oh-dsh-surface-tab-action {
+  opacity: 1;
+}
+
+.oh-dsh-surface-tab-action:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 8%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
