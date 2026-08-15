@@ -199,8 +199,13 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--oh-dsh-space-2);
-  min-height: 26px;
-  padding: 0 var(--oh-dsh-space-1);
+  /* Flush divider: the toolbar spans the whole content column (negating
+     the sc-list 4px padding AND the section 8px padding) so its bottom
+     border runs edge to edge; the inner padding keeps the title/buttons
+     aligned with the rows. */
+  min-height: 34px;
+  margin: 0 calc(-1 * (var(--oh-dsh-space-1) + var(--oh-dsh-space-2)));
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 6%));
 }
