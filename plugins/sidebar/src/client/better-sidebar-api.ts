@@ -75,8 +75,19 @@ export const betterSidebarApi = {
     path: string | undefined,
     staged: boolean,
     signal?: AbortSignal,
+    context?: number,
   ): Promise<{ diff: string }> => callSidebarApi('git.diff', scope, {
     ...(path === undefined ? {} : { path }),
+    staged,
+    ...(context === undefined ? {} : { context }),
+  }, signal),
+  gitImageDiff: (
+    scope: BetterSidebarScope,
+    path: string,
+    staged: boolean,
+    signal?: AbortSignal,
+  ): Promise<{ oldData: string; newData: string }> => callSidebarApi('git.image-diff', scope, {
+    path,
     staged,
   }, signal),
   gitLog: (

@@ -105,3 +105,16 @@ button.oh-dsh-diff-raw-row:hover {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Split raw diff: two 50% panes sharing one row grid. */
+.oh-dsh-diff-raw-lines-split .oh-dsh-diff-raw-row {
+  display: grid;
+  grid-template-columns: 3ch 1fr 3ch 1fr;
+}
+
+.oh-dsh-diff-raw-lines-split .oh-dsh-diff-raw-row .oh-dsh-diff-raw-code {
+  min-width: 0;
+  border-left: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  overflow-wrap: anywhere;
+}
+

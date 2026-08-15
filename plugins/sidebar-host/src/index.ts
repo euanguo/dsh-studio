@@ -12,6 +12,7 @@
  * session's authoritative cwd comes from the session store, and terminal
  * processes are keyed by session.
  */
+import { execFile } from 'node:child_process'
 import { mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import type { IncomingMessage } from 'node:http'
@@ -135,6 +136,20 @@ const READ_HEAD_LIMIT = 4096
 
 /** Binary payloads up to this size ship inline (base64) for image/PDF previews. */
 const PREVIEW_LIMIT = 2 * 1024 * 1024
+
+/** Read a git blob (HEAD / index) as base64 for binary previews. */
+function gitBlobBase64(cwd: string, spec: string, relPath: string): Promise<string> {
+  const args = ['-C', cwd, 'show', `${spec}:${relPath}`]
+  return new Promise((resolvePromise, reject) => {
+    execFile('git', args, { encoding: 'buffer', timeout: 15_000 }, (error, stdout) => {
+      if (error !== null) {
+        reject(new SidebarError('git-error', error.message, 400))
+        return
+      }
+      resolvePromise(stdout.toString('base64'))
+    })
+  })
+}
 
 /** Text read of a file with the size cap; binary detection via NUL probe.
  *  Binary reads also return the first {@link READ_HEAD_LIMIT} bytes (base64)
@@ -297,9 +312,24 @@ function buildApi(
     },
     'git.diff': async (payload) => {
       const { cwd } = cwdOf(payload)
-      const record = payload as { path?: unknown; staged?: unknown }
+      const record = payload as { path?: unknown; staged?: unknown; context?: unknown }
       const path = record.path === undefined ? undefined : await resolveGitPath(cwd, requireString(payload, 'path'))
-      return { diff: await git.diff(cwd, path, record.staged === true) }
+      const context = typeof record.context === 'number' && Number.isInteger(record.context) && record.context >= 0 && record.context <= 200
+        ? record.context
+        : undefined
+      return { diff: await git.diff(cwd, path, record.staged === true, context) }
+    },
+    'git.image-diff': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      const record = payload as { path?: unknown; staged?: unknown }
+      const rel = requireString(payload, 'path')
+      const staged = record.staged === true
+      const abs = await resolveGitPath(cwd, rel)
+      const oldData = await gitBlobBase64(cwd, staged ? 'HEAD' : '', rel)
+      const newData = staged
+        ? await gitBlobBase64(cwd, '', rel)
+        : (await readFile(abs)).toString('base64')
+      return { oldData, newData }
     },
     'git.stage': async (payload) => {
       const { cwd } = cwdOf(payload)

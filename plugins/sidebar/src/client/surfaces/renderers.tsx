@@ -15,6 +15,12 @@ import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
 import { formatFileSelectionReference, getLineSelectionWithin } from '../files/file-selection-reference.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
+import { DiffToolbar } from '../diff/diff-toolbar.tsx'
+import { useDiffViewPreferences } from '../diff/diff-view-preferences.ts'
+import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx'
+import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
+import { MultiDiffFileStack } from '../diff/multi-diff-file-stack.tsx'
+import { ImageDiffViewer } from '../diff/image-diff-viewer.tsx'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { parseGitReviewDiff, reviewFileToDiffDocument } from '../review/review-diff.ts'
@@ -200,7 +206,14 @@ export function DiffSurfaceView({
 }): JSX.Element {
   const [diff, setDiff] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [context, setContext] = useState(3)
+  const [expanding, setExpanding] = useState(false)
+  const [imageDiff, setImageDiff] = useState<{ oldData: string; newData: string } | null>(null)
+  const isImagePath = /\.(png|jpe?g|gif|webp|bmp|ico|svg|avif)$/i.test(surface.filePath)
   const theme = usePierreDiffTheme()
+  const layout = useDiffViewPreferences(state => state.layout)
+  const wordWrap = useDiffViewPreferences(state => state.wordWrap)
+
   useEffect(() => {
     let alive = true
     setDiff(null)
@@ -209,6 +222,8 @@ export function DiffSurfaceView({
       { sessionId: surface.sessionId, cwd: surface.cwd },
       surface.filePath,
       surface.staged,
+      undefined,
+      context,
     ).then(response => {
       if (!alive) return
       if (response.diff.trim() === '') {
@@ -220,7 +235,8 @@ export function DiffSurfaceView({
       if (alive) setError(cause instanceof Error ? cause.message : String(cause))
     })
     return () => { alive = false }
-  }, [surface.filePath, surface.sessionId, surface.staged, t])
+  }, [surface.filePath, surface.sessionId, surface.staged, t, context])
+
   const document = useMemo(
     () => (diff === null ? null : buildDiffDocument({
       path: surface.filePath,
@@ -231,23 +247,88 @@ export function DiffSurfaceView({
     })),
     [diff, surface.filePath],
   )
+  useEffect(() => {
+    if (diff === null || !isImagePath || !(diff.includes('Binary files ') && diff.includes(' differ'))) {
+      setImageDiff(null)
+      return
+    }
+    let alive = true
+    setImageDiff(null)
+    void betterSidebarApi.gitImageDiff(
+      { sessionId: surface.sessionId, cwd: surface.cwd },
+      surface.filePath,
+      surface.staged,
+    ).then(result => {
+      if (alive) setImageDiff(result)
+    }).catch(() => {
+      if (alive) setImageDiff(null)
+    })
+    return () => { alive = false }
+  }, [diff, isImagePath, surface.cwd, surface.filePath, surface.sessionId, surface.staged])
   if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
   if (diff === null || document === null) {
     return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
   }
+  if (diff.includes('Binary files ') && diff.includes(' differ')) {
+    return (
+      <div className="oh-dsh-diff-surface">
+        <DiffToolbar t={t} />
+        {imageDiff !== null ? (
+          <div className="oh-dsh-diff-surface-body">
+            <ImageDiffViewer
+              oldData={imageDiff.oldData}
+              newData={imageDiff.newData}
+              oldLabel={`Original · ${surface.filePath}`}
+              newLabel={`Modified · ${surface.filePath}`}
+            />
+          </div>
+        ) : (
+          <div className="oh-dsh-side-muted">{t('workspace.loading-diff')}</div>
+        )}
+      </div>
+    )
+  }
+  if (document.lines.length > 120_000 || diff.length > 6_000_000) {
+    return (
+      <div className="oh-dsh-diff-surface">
+        <DiffToolbar t={t} />
+        <div className="oh-dsh-side-muted">Diff too large to render inline ({document.lines.length} lines).</div>
+      </div>
+    )
+  }
   return (
     <div className="oh-dsh-diff-surface">
-      <div className="oh-dsh-diff-surface-header">
-        <span title={surface.filePath}>{surface.filePath}</span>
-        <small>{surface.staged ? t('source-control.section.staged') : t('source-control.section.unstaged')}</small>
-      </div>
+      <DiffToolbar
+        leading={(
+          <span className="oh-dsh-diff-toolbar-title">
+            <span title={surface.filePath}>{surface.filePath}</span>
+            <small>{surface.staged ? t('source-control.section.staged') : t('source-control.section.unstaged')}</small>
+          </span>
+        )}
+        t={t}
+      />
       <div className="oh-dsh-diff-surface-body">
         <DiffViewer
           document={document}
           theme={theme}
+          layout={layout}
+          wordWrap={wordWrap}
           hideMeta
-          cacheBust={surface.staged ? 'staged' : 'unstaged'}
+          cacheBust={`${surface.staged ? 'staged' : 'unstaged'}:${context}`}
         />
+      </div>
+      <div className="oh-dsh-diff-context-bar">
+        <button
+          type="button"
+          disabled={expanding || context >= 200}
+          onClick={() => {
+            setExpanding(true)
+            setContext(value => Math.min(200, value + 20))
+            window.setTimeout(() => setExpanding(false), 1200)
+          }}
+        >
+          {expanding ? t('workspace.loading-diff') : `Expand context (${context} → ${Math.min(200, context + 20)})`}
+        </button>
       </div>
     </div>
   )
@@ -264,11 +345,23 @@ export function DiffAllSurfaceView({
 }): JSX.Element {
   const [files, setFiles] = useState<readonly GitReviewFile[] | null>(null)
   const [error, setError] = useState('')
+  const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [renderedKeys, setRenderedKeys] = useState<ReadonlySet<string>>(new Set())
+  const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(new Set())
+  const [expanding, setExpanding] = useState<ReadonlySet<string>>(new Set())
+  const listRef = useRef<HTMLDivElement | null>(null)
   const theme = usePierreDiffTheme()
+  const layout = useDiffViewPreferences(state => state.layout)
+  const wordWrap = useDiffViewPreferences(state => state.wordWrap)
+
   useEffect(() => {
     let alive = true
     setFiles(null)
     setError('')
+    setRenderedKeys(new Set())
+    setSelectedPath(null)
+    setCollapsedDirs(new Set())
+    setExpanding(new Set())
     void betterSidebarApi.gitDiff(
       { sessionId: surface.sessionId, cwd: surface.cwd },
       undefined,
@@ -279,37 +372,117 @@ export function DiffAllSurfaceView({
         setError(t('workspace.no-text-diff'))
         return
       }
-      setFiles(parseGitReviewDiff(result.diff))
+      const parsed = parseGitReviewDiff(result.diff)
+      setFiles(parsed)
+      setRenderedKeys(new Set(parsed.slice(0, 6).map(file => file.path)))
     }).catch((cause: unknown) => {
       if (alive) setError(cause instanceof Error ? cause.message : String(cause))
     })
     return () => { alive = false }
   }, [surface.sessionId, surface.cwd, surface.staged, t])
+
+  const requestRender = useCallback((path: string) => {
+    setRenderedKeys(previous => {
+      if (previous.has(path)) return previous
+      const next = new Set(previous)
+      next.add(path)
+      return next
+    })
+  }, [])
+
+  const collapseFile = useCallback((path: string) => {
+    setRenderedKeys(previous => {
+      if (!previous.has(path)) return previous
+      const next = new Set(previous)
+      next.delete(path)
+      return next
+    })
+  }, [])
+
+  const expandContext = useCallback((file: GitReviewFile) => {
+    setExpanding(previous => {
+      if (previous.has(file.path)) return previous
+      const next = new Set(previous)
+      next.add(file.path)
+      return next
+    })
+    void betterSidebarApi.gitDiff(
+      { sessionId: surface.sessionId, cwd: surface.cwd },
+      file.path,
+      surface.staged,
+      undefined,
+      20,
+    ).then(result => {
+      const reparsed = parseGitReviewDiff(result.diff)
+      const nextFile = reparsed.find(candidate => candidate.path === file.path) ?? reparsed[0]
+      setFiles(previous => {
+        if (previous === null) return previous
+        const next = previous.map(candidate => candidate.path === file.path && nextFile !== undefined ? nextFile : candidate)
+        return next
+      })
+    }).catch((cause: unknown) => {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    }).finally(() => {
+      setExpanding(previous => {
+        if (!previous.has(file.path)) return previous
+        const next = new Set(previous)
+        next.delete(file.path)
+        return next
+      })
+    })
+  }, [surface.sessionId, surface.cwd, surface.staged])
+
+  const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
+
   if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
   if (files === null) {
     return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
   }
   return (
-    <div className="oh-dsh-commit-surface">
-      <div className="oh-dsh-commit-surface-header">
-        <span>{surface.title}</span>
-        <small>{surface.staged ? t('source-control.section.staged') : t('source-control.section.unstaged')}</small>
-      </div>
-      <div className="oh-dsh-commit-surface-body">
-        {files.map(file => (
-          <details key={`${file.oldPath ?? ''}:${file.path}`} open>
-            <summary>
-              <span title={file.path}>{file.path}</span>
-              <small><b>+{file.additions}</b> −{file.deletions}</small>
-            </summary>
-            <div className="oh-dsh-commit-surface-lines">
-              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} rawOnly hideMeta />
-            </div>
-          </details>
-        ))}
-        {files.length === 0 && (
-          <div className="oh-dsh-side-muted">{t('workspace.no-text-diff')}</div>
+    <div className="oh-dsh-diff-all-surface">
+      <DiffToolbar
+        leading={(
+          <span className="oh-dsh-diff-toolbar-title">
+            {surface.title}
+            <small>{files.length} files</small>
+          </span>
         )}
+        t={t}
+      />
+      <div className="oh-dsh-diff-all-body">
+        <DiffPathTreeNav
+          rows={rows}
+          onToggleDirectory={key => {
+            setCollapsedDirs(previous => {
+              const next = new Set(previous)
+              if (next.has(key)) next.delete(key)
+              else next.add(key)
+              return next
+            })
+          }}
+          onSelectFile={path => {
+            setSelectedPath(path)
+            requestRender(path)
+            requestAnimationFrame(() => {
+              const block = listRef.current?.querySelector(`[data-path="${CSS.escape(path)}"]`)
+              block?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            })
+          }}
+        />
+        <div className="oh-dsh-diff-all-stack" ref={listRef}>
+          <MultiDiffFileStack
+            files={files}
+            renderedKeys={renderedKeys}
+            onRequestRender={requestRender}
+            onCollapse={collapseFile}
+            theme={theme}
+            t={t}
+            layout={layout}
+            wordWrap={wordWrap}
+            onExpandContext={expandContext}
+          />
+          {expanding.size > 0 ? <div className="oh-dsh-side-muted">{t('workspace.loading-diff')}</div> : null}
+        </div>
       </div>
     </div>
   )

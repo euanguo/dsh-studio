@@ -441,8 +441,8 @@ export async function worktreeAdd(cwd: string, path: string, branch: string, cre
 }
 
 /** Diff text of the worktree (unstaged) or the index (staged). */
-export async function diff(cwd: string, path: string | undefined, staged: boolean): Promise<string> {
-  const args = ['diff', '--no-ext-diff', '--no-color', '-U3']
+export async function diff(cwd: string, path: string | undefined, staged: boolean, context = 3): Promise<string> {
+  const args = ['diff', '--no-ext-diff', '--no-color', `-U${Math.max(0, Math.min(200, context))}`]
   if (staged) args.push('--cached')
   if (path !== undefined) args.push('--', path)
   return runGit(cwd, args)

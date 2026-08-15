@@ -68,6 +68,7 @@ export function DiffViewer({
         <RawDiff
           document={document}
           wordWrap={wordWrap}
+          layout={layout}
           {...(onLineClick === undefined ? {} : { onLineClick })}
         />
       </div>
@@ -92,7 +93,7 @@ export function DiffViewer({
             <span>{summary}</span>
           </div>
         )}
-        <RawDiff document={document} wordWrap={wordWrap} />
+        <RawDiff document={document} wordWrap={wordWrap} layout={layout} />
       </div>
     )
   }
@@ -118,12 +119,45 @@ export function DiffViewer({
 export function RawDiff({
   document,
   wordWrap,
+  layout = 'unified',
   onLineClick,
 }: {
   document: DiffDocument
   wordWrap: boolean
+  layout?: DiffLayoutStyle
   onLineClick?: (line: DiffLine) => void
 }): JSX.Element {
+  if (layout === 'split') {
+    return (
+      <ol className="oh-dsh-diff-raw-lines oh-dsh-diff-raw-lines-split" data-wrap={wordWrap ? 'on' : 'off'}>
+        {document.lines.map((line, index) => {
+          const leftText = line.kind === 'added' ? '' : line.displayText
+          const rightText = line.kind === 'removed' ? '' : line.displayText
+          const leftLabel = line.oldLineLabel
+          const rightLabel = line.newLineLabel
+          const row = (
+            <>
+              <span className="oh-dsh-diff-raw-gutter">{leftLabel}</span>
+              <code className="oh-dsh-diff-raw-code">{leftText}</code>
+              <span className="oh-dsh-diff-raw-gutter">{rightLabel}</span>
+              <code className="oh-dsh-diff-raw-code">{rightText}</code>
+            </>
+          )
+          return (
+            <li key={`${document.path}-${index + 1}`} data-line-kind={line.kind}>
+              {onLineClick !== undefined ? (
+                <button type="button" className="oh-dsh-diff-raw-row" onClick={() => { onLineClick(line) }}>
+                  {row}
+                </button>
+              ) : (
+                <div className="oh-dsh-diff-raw-row">{row}</div>
+              )}
+            </li>
+          )
+        })}
+      </ol>
+    )
+  }
   return (
     <ol className="oh-dsh-diff-raw-lines" data-wrap={wordWrap ? 'on' : 'off'}>
       {document.lines.map((line, index) => {
