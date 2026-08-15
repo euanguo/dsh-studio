@@ -664,7 +664,13 @@ export function DiffAllSurfaceView({
       ? rows.find(row => row.top > anchor)
       : [...rows].reverse().find(row => row.top < anchor)
     if (target === undefined) target = direction === 1 ? rows[0] : rows[rows.length - 1]
-    target?.el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    if (target === undefined) return
+    // Scroll only our own container: scrollIntoView would also scroll every
+    // scrollable ancestor — including the DSH center column (overflow
+    // hidden but still programmatically scrollable), which pushes the tab
+    // strip out of view. Instant positioning (no smooth animation) so
+    // rapid presses never race an in-flight animation.
+    root.scrollTop = root.scrollTop + (target.top - anchor)
   }, [])
 
   useEffect(() => {

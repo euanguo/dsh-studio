@@ -29,14 +29,28 @@
 /* When a non-conversation surface body is active it takes the whole
    remaining column height; otherwise the root is only as tall as the
    strip so the conversation below stays visible.
-   Note: the center column's own height is auto (its flex sizing happens
-   before the grid stretches it), so `flex: 1` on the root has no free
-   space to grow into — use the viewport height instead, and pin
-   `flex-shrink: 0` so the conversation (the column's other flex item)
-   cannot compress the strip back down. */
+   The column's own height is auto (its flex sizing happens before the
+   grid stretches it), so the root is sized from the measured column
+   height (--oh-dsh-center-col-height, maintained by a ResizeObserver in
+   center-surface-host.tsx) instead of a hardcoded viewport height —
+   100vh drifts whenever the column top/height differs from the window. */
 #oh-dsh-center-tabs-root:has(.oh-dsh-center-surface-body:not([data-hidden='true'])) {
   flex: 0 0 auto;
-  height: 100vh;
+  height: var(--oh-dsh-center-col-height, 100vh);
+}
+
+/* While a surface body is active, hide the conversation slot entirely
+   (display:none, not flex-collapse): a 0-height slot keeps its children
+   overflow-visible, so the DSH conversation paints below the body and
+   makes the center column scrollable — the strip then scrolls out of
+   view. With the slot gone the column's scrollHeight equals the root's
+   height and nothing can scroll it away.
+   !important is required: DSH sets `display: contents` inline on the
+   slot, and an author !important beats a plain inline declaration. */
+.aOBRAa_centerCol:has(
+  #oh-dsh-center-tabs-root .oh-dsh-center-surface-body:not([data-hidden='true'])
+) [data-slot='conversation'] {
+  display: none !important;
 }
 
 /* The tab strip itself is interactive — and draggable: blank strip space

@@ -459,6 +459,7 @@ function CenterSurfaceHostView({
   const [mounted, setMounted] = useState(false)
   const { leftRailOpen, toggleLeftRail } = useLeftRailOpenState()
   useEffect(() => { setMounted(true) }, [])
+  useCenterColumnHeight()
   if (!mounted) return <></>
   return (
     <DiffWorkerPoolProvider>
@@ -472,6 +473,50 @@ function CenterSurfaceHostView({
       <CenterSurfaceBody sessions={sessions} />
     </DiffWorkerPoolProvider>
   )
+}
+
+/**
+ * Keep `--oh-dsh-center-col-height` on the tabs root in sync with the DSH
+ * center column's real height (grid-stretched, not expressible as 100%):
+ * the surface body fills the column exactly — never drifting off the top
+ * (strip scrolled away) or overflowing past the bottom (conversation
+ * leaking below the body).
+ */
+function useCenterColumnHeight(): void {
+  useEffect(() => {
+    const rootElement = document.getElementById('oh-dsh-center-tabs-root')
+    if (rootElement === null) return
+    const apply = (): void => {
+      const column = centerColumnElement()
+      if (column === null) return
+      rootElement.style.setProperty('--oh-dsh-center-col-height', `${column.clientHeight}px`)
+    }
+    apply()
+    let observer: ResizeObserver | null = null
+    const column = centerColumnElement()
+    if (column !== null) {
+      observer = new ResizeObserver(apply)
+      observer.observe(column)
+    }
+    // The DSH layout mounts asynchronously; watch until the column exists.
+    const attachObserver = new MutationObserver(() => {
+      if (observer === null) {
+        const next = centerColumnElement()
+        if (next === null) return
+        apply()
+        observer = new ResizeObserver(apply)
+        observer.observe(next)
+        attachObserver.disconnect()
+      }
+    })
+    if (document.body !== null) {
+      attachObserver.observe(document.body, { childList: true, subtree: true })
+    }
+    return () => {
+      observer?.disconnect()
+      attachObserver.disconnect()
+    }
+  }, [])
 }
 
 // Re-exported for callers that need the store actions directly.
