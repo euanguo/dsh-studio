@@ -118,8 +118,11 @@
   /* Overlay on top of the row's trailing area: revealed on hover (or while
      an action menu is open) and absolutely positioned so the trailing
      status stays flush right in the resting state — no reserved slot means
-     no dead space next to the status mark. The wash matches the row's
-     hover background so the covered trailing content reads as replaced. */
+     no dead space next to the status mark. The wash is the SOLID row
+     surface (panel background + the hover tint fading in from the left
+     edge) so the action buttons fully cover the trailing stats/status
+     behind them instead of showing through; the left fade blends into the
+     row. */
   position: absolute;
   top: 50%;
   right: var(--oh-dsh-space-1);
@@ -129,7 +132,11 @@
   gap: var(--oh-dsh-space-1);
   padding: 0 var(--oh-dsh-space-0);
   border-radius: var(--oh-dsh-radius-sm);
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  background:
+    linear-gradient(to right,
+      transparent 0%,
+      var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) 18px),
+    var(--dsw-alias-bg-base, #fff);
   opacity: 0;
   pointer-events: none;
 }

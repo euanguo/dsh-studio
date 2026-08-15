@@ -50,6 +50,8 @@ export interface DiffCenterSurface {
 export interface BrowserCenterSurface {
   id: string
   kind: 'browser'
+  /** The workspace (cwd) this surface belongs to — tabs persist per cwd. */
+  cwd: string
   title: string
   resource?: string
   closable: true
@@ -59,6 +61,8 @@ export interface BrowserCenterSurface {
 export interface TerminalCenterSurface {
   id: string
   kind: 'terminal'
+  /** The workspace (cwd) this surface belongs to — tabs persist per cwd. */
+  cwd: string
   title: string
   closable: true
   isPreview: false

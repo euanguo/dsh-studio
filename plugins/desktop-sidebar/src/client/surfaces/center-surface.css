@@ -46,8 +46,8 @@
   display: flex;
   align-items: center;
   gap: var(--oh-dsh-space-1);
-  min-height: 37px;
-  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-2);
+  min-height: 41px;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
@@ -59,6 +59,52 @@
 
 .oh-dsh-center-tabs-strip::-webkit-scrollbar {
   display: none;
+}
+
+/* Left/right rail toggles at the strip ends — one top bar maintains all
+   three columns (reference-shell pattern). */
+.oh-dsh-center-tabs-rail-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-0);
+  flex: none;
+  padding-right: var(--oh-dsh-space-1);
+  -webkit-app-region: no-drag;
+}
+
+.oh-dsh-center-rail-toggle {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  cursor: pointer;
+}
+
+.oh-dsh-center-rail-toggle:hover,
+.oh-dsh-center-rail-toggle[aria-pressed='true'] {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.oh-dsh-center-rail-toggle svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+/* The tab strip keeps flexing; the rail controls stay fixed at the ends. */
+.oh-dsh-center-tabs-strip > .oh-dsh-surface-tab-strip {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ---------- Surface tab chip ---------- */

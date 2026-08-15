@@ -24,6 +24,10 @@ export interface ObservableSnapshot<T> {
 export interface SessionSummary {
   blank?: boolean
   cwd?: string
+  /** Latest durable log-backed title, absent until the host projects one. */
+  title?: string
+  /** Human-facing label: durable title, project basename, then session id. */
+  displayTitle?: string
 }
 
 export interface SessionListState {
