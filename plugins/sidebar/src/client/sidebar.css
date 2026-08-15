@@ -623,6 +623,75 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   overflow: auto;
 }
 
+/* ---------- text / markdown-source viewer (Pierre File + plain fallback) ---------- */
+
+.oh-dsh-content-root {
+  min-width: 0;
+}
+
+/* Fills the surface body so the Pierre Virtualizer host gets a definite
+   height (the window measures it; no height → no rows). */
+.oh-dsh-content-root-fill {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.oh-dsh-content-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-2);
+  height: 28px;
+  padding: 0 var(--oh-dsh-space-3);
+  box-sizing: border-box;
+  flex: none;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 7%));
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.oh-dsh-content-meta span:first-child {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.oh-dsh-pierre-file-host {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* Plain fallback (unknown language / oversized file). */
+.oh-dsh-content-plain {
+  margin: 0;
+  padding: var(--oh-dsh-space-2) 0 var(--oh-dsh-space-3);
+  overflow: auto;
+  font: var(--oh-dsh-font-sm) var(--oh-dsh-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  line-height: 18px;
+}
+
+.oh-dsh-content-plain .line {
+  display: flex;
+  min-width: max-content;
+}
+
+.oh-dsh-content-line-number {
+  flex: none;
+  width: 4ch;
+  padding: 0 var(--oh-dsh-space-2) 0 var(--oh-dsh-space-3);
+  box-sizing: border-box;
+  text-align: right;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+  user-select: none;
+}
+
 .oh-dsh-content-markdown {
   min-height: 0;
   overflow: auto;
@@ -642,6 +711,21 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 .oh-dsh-content-markdown code {
   font-family: var(--oh-dsh-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 12px;
+}
+
+/* Shiki-highlighted fenced blocks: the emitted pre carries its own theme
+   background/padding, so the wrapper only keeps the block framing. */
+.oh-dsh-content-markdown .oh-dsh-markdown-code-shiki {
+  margin: var(--oh-dsh-space-2) 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  overflow-x: auto;
+}
+
+.oh-dsh-content-markdown .oh-dsh-markdown-code-shiki pre {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
 }
 
 .oh-dsh-content-markdown table {

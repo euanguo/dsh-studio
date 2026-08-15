@@ -58,6 +58,12 @@ function lineNumberFromNode(container: HTMLElement, node: Node, offset: number):
   let el: Element | null =
     node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement
   while (el !== null && el !== container) {
+    // Pierre File rows carry `data-line` = 1-based line number.
+    const dataLine = el.getAttribute('data-line')
+    if (dataLine !== null) {
+      const parsed = Number.parseInt(dataLine, 10)
+      if (Number.isFinite(parsed)) return parsed
+    }
     if (el.classList.contains('line')) {
       const lines = Array.from(container.querySelectorAll('.line'))
       const index = lines.indexOf(el)

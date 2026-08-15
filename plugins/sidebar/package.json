@@ -40,9 +40,7 @@
   },
   "dependencies": {
     "@tanstack/react-virtual": "^3.14.9",
-    "@types/prismjs": "^1.26.6",
     "mermaid": "^11.16.1",
-    "prismjs": "^1.30.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   }

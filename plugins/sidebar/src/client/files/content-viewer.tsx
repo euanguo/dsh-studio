@@ -19,21 +19,12 @@ import {
 } from '../../../../shared/tabler-icons.tsx'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { highlightCode, languageForPath } from './syntax-highlight.ts'
+import { fileViewPolicy, isPlainLanguage, MAX_NUMBERED_LINES } from './language.ts'
+import { PierreFileView } from './pierre-file-view.tsx'
 import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
 import { MarkdownViewer } from './markdown-viewer.tsx'
 import { IpynbViewer } from './ipynb-viewer.tsx'
 import { MermaidViewer } from './mermaid-viewer.tsx'
-
-/** Highlight one source line (empty lines render as a single space). */
-function highlightLine(line: string, language: string): string {
-  return line === '' ? ' ' : highlightCode(line, language)
-}
-
-/** Above this many characters the per-line Prism path degrades to plain text. */
-export const MAX_HIGHLIGHT_CHARS = 250_000
-/** Above this many lines the line-number gutter is dropped (Synara policy). */
-export const MAX_NUMBERED_LINES = 20_000
 
 type ContentKind = 'text' | 'csv' | 'markdown' | 'html' | 'image' | 'pdf' | 'ipynb' | 'mermaid' | 'binary'
 
@@ -202,25 +193,27 @@ export function ContentViewer({
         />
       )
     }
-    const language = 'markdown'
     const lines = content.split('\n')
+    const policy = fileViewPolicy(path, content.length)
+    const showLineNumbers = lines.length <= MAX_NUMBERED_LINES
     return (
-      <div className="oh-dsh-content-root">
+      <div className="oh-dsh-content-root oh-dsh-content-root-fill">
         <div className="oh-dsh-content-meta">
           <span>{name}</span>
-          <span>{`${language} · ${lines.length} lines`}</span>
+          <span>{`markdown · ${lines.length} lines`}</span>
           {truncated ? <span>{t('files.preview-truncated')}</span> : null}
         </div>
-        <ol className={`oh-dsh-content-lines is-highlighted${lines.length > MAX_NUMBERED_LINES ? ' no-line-numbers' : ''}`}>
-          {lines.map((line, index) => (
-            <li key={index}>
-              {lines.length <= MAX_NUMBERED_LINES ? (
-                <span className="oh-dsh-content-line-number">{index + 1}</span>
-              ) : null}
-              <code dangerouslySetInnerHTML={{ __html: highlightLine(line, language) }} />
-            </li>
-          ))}
-        </ol>
+        {policy.pierre ? (
+          <PierreFileView
+            path={path}
+            content={content}
+            language="markdown"
+            lineNumbers={showLineNumbers}
+            cacheKey={path}
+          />
+        ) : (
+          <PlainTextView content={content} showLineNumbers={showLineNumbers} />
+        )}
       </div>
     )
   }
@@ -242,43 +235,53 @@ export function ContentViewer({
   }
 
   const lines = content.split('\n')
-  const language = languageForPath(path)
-  const plainText = content.length > MAX_HIGHLIGHT_CHARS || language === ''
+  const policy = fileViewPolicy(path, content.length)
   const showLineNumbers = lines.length <= MAX_NUMBERED_LINES
   return (
-    <div className="oh-dsh-content-root">
+    <div className={`oh-dsh-content-root${policy.pierre ? ' oh-dsh-content-root-fill' : ''}`}>
       <div className="oh-dsh-content-meta">
         <span>{name}</span>
-        <span>{language === '' ? `${lines.length} lines` : `${language} · ${lines.length} lines`}</span>
+        <span>{isPlainLanguage(policy.language) ? `${lines.length} lines` : `${policy.language} · ${lines.length} lines`}</span>
         {truncated ? <span>{t('files.preview-truncated')}</span> : null}
       </div>
-      {plainText ? (
-        <pre className={`oh-dsh-content-plain${showLineNumbers ? ' is-numbered' : ''}`}>
-          {showLineNumbers ? (
-            lines.map((line, index) => (
-              <span className="line" key={index}>
-                <span className="oh-dsh-content-line-number">{index + 1}</span>
-                {line === '' ? ' ' : line}
-                {'\n'}
-              </span>
-            ))
-          ) : (
-            <code>{content}</code>
-          )}
-        </pre>
+      {policy.pierre ? (
+        <PierreFileView
+          path={path}
+          content={content}
+          language={policy.language}
+          lineNumbers={showLineNumbers}
+          cacheKey={path}
+        />
       ) : (
-        <ol className={`oh-dsh-content-lines is-highlighted${showLineNumbers ? '' : ' no-line-numbers'}`}>
-          {lines.map((line, index) => (
-            <li key={index}>
-              {showLineNumbers ? (
-                <span className="oh-dsh-content-line-number">{index + 1}</span>
-              ) : null}
-              <code dangerouslySetInnerHTML={{ __html: highlightLine(line, language) }} />
-            </li>
-          ))}
-        </ol>
+        <PlainTextView content={content} showLineNumbers={showLineNumbers} />
       )}
     </div>
+  )
+}
+
+/** Plain-text fallback: unknown language or oversized file (>MAX_HIGHLIGHT_CHARS). */
+function PlainTextView({
+  content,
+  showLineNumbers,
+}: {
+  content: string
+  showLineNumbers: boolean
+}): JSX.Element {
+  const lines = content.split('\n')
+  return (
+    <pre className={`oh-dsh-content-plain${showLineNumbers ? ' is-numbered' : ''}`}>
+      {showLineNumbers ? (
+        lines.map((line, index) => (
+          <span className="line" key={index}>
+            <span className="oh-dsh-content-line-number">{index + 1}</span>
+            {line === '' ? ' ' : line}
+            {'\n'}
+          </span>
+        ))
+      ) : (
+        <code>{content}</code>
+      )}
+    </pre>
   )
 }
 

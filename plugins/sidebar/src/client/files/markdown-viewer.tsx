@@ -2,14 +2,16 @@
  * Markdown preview renderer for the DSH sidebar.
  *
  * Uses react-markdown + remark-gfm (GFM tables/strikethrough/task lists) and
- * reuses the existing Prism highlighter for code blocks. Interactive GFM task
+ * Shiki (`@pierre/diffs`' codeToHtml re-export) for fenced code blocks —
+ * same grammar/theme family as the File/Diff surfaces. Interactive GFM task
  * checkboxes report their 0-based checkbox index; the caller maps that to a
  * source line through `findTaskMarkerSourceLines`.
  */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { highlightCode } from './syntax-highlight.ts'
+import { codeToHtml } from '@pierre/diffs'
+import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { findTaskMarkerSourceLines } from './markdown-task-list.ts'
 
 export interface MarkdownViewerProps {
@@ -56,22 +58,25 @@ export function MarkdownViewer({
             return <h4 id={slugify(String(children))} {...props}>{children}</h4>
           },
           code({ node, className, children, ...props }) {
-            const inline = className === undefined && !String(children).includes('\n')
-            if (inline) {
-              return (
-                <code className={className} {...props}>{children}</code>
-              )
-            }
-            const language = /language-([\w-]+)/.exec(className ?? '')?.[1] ?? ''
-            const text = String(children).replace(/\n$/, '')
+            // Inline code only — fenced blocks are handled by the `pre` override.
             return (
-              <pre className="oh-dsh-markdown-code-block">
-                <code
-                  className={className}
-                  dangerouslySetInnerHTML={{ __html: highlightCode(text, language) }}
-                />
-              </pre>
+              <code className={className} {...props}>{children}</code>
             )
+          },
+          pre({ node: _node, children, ...props }) {
+            // react-markdown wraps fenced code in <pre><code class="language-x">;
+            // replace that wrapper with the Shiki block so we don't end up
+            // with a nested pre > div > pre.shiki structure.
+            const codeEl = children as {
+              props?: { className?: string; children?: unknown }
+            } | undefined
+            const className = codeEl?.props?.className
+            if (typeof className !== 'string' || !className.startsWith('language-')) {
+              return <pre {...props}>{children}</pre>
+            }
+            const language = /^language-([\w-]+)/.exec(className)?.[1] ?? 'text'
+            const text = String(codeEl?.props?.children ?? '').replace(/\n$/, '')
+            return <MarkdownCodeBlock text={text} language={language} />
           },
           input({ type, checked, disabled: _disabled, node: _node, ...props }) {
             if (type !== 'checkbox') {
@@ -108,6 +113,51 @@ export function MarkdownViewer({
   )
 }
 
+
+/** Fenced code block highlighted via Shiki (codeToHtml); plain text until ready. */
+function MarkdownCodeBlock({
+  text,
+  language,
+}: {
+  text: string
+  language: string
+}): JSX.Element {
+  const pierreTheme = usePierreDiffTheme()
+  const theme = pierreTheme === 'github-dark' ? 'github-dark' : 'github-light'
+  const [html, setHtml] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    setHtml(null)
+    codeToHtml(text, { lang: language, theme })
+      .then(output => { if (alive) setHtml(output) })
+      .catch(() => { if (alive) setHtml(escapeHtml(text)) })
+    return () => { alive = false }
+  }, [language, text, theme])
+
+  if (html === null) {
+    return (
+      <pre className="oh-dsh-markdown-code-block">
+        <code>{text}</code>
+      </pre>
+    )
+  }
+  // Shiki emits its own <pre class="shiki">; the wrapper keeps the block
+  // styling consistent with the pre-highlight placeholder.
+  return (
+    <div
+      className="oh-dsh-markdown-code-block oh-dsh-markdown-code-shiki"
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+}
 
 function slugify(text: string): string {
   return text
