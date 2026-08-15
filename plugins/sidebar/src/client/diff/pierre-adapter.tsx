@@ -30,12 +30,17 @@ export function resolvePierreDiffTheme(): PierreDiffTheme {
 }
 
 /**
- * Worker factory for the pierre pool. esbuild bundles the worker file via
- * `new URL(..., import.meta.url)` (no Vite `?worker` synthesis needed).
+ * Worker factory for the pierre pool.
+ *
+ * The client bundle is emitted in cjs module-factory format, where
+ * `import.meta.url` is empty — so `new URL(..., import.meta.url)` cannot
+ * resolve the worker. The worker is therefore built as its own ESM chunk
+ * (`client-pierre-worker.js`, see build-config.mjs + pierre-worker-entry.ts)
+ * and served by the sidebar-host /sidebar/bundle route (same origin).
  */
 export function createPierreDiffWorker(): Worker {
   return new Worker(
-    new URL('@pierre/diffs/worker/worker.js', import.meta.url),
+    '/sidebar/bundle/pierre-worker.js',
     { type: 'module' },
   )
 }

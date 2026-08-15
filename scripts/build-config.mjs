@@ -130,5 +130,24 @@ export function desktopBuilds(root) {
     external: ['react', 'react-dom/client', 'react/jsx-runtime'],
   })
 
+  // Pierre highlight worker (module worker). The client bundle is emitted in
+  // cjs module-factory format where import.meta is empty, so the worker is
+  // built as its own ESM chunk and loaded from the bundle route's absolute
+  // path (see pierre-adapter.tsx createPierreDiffWorker). `ignoreAnnotations`
+  // keeps the side-effect import alive — the package's `sideEffects` list does
+  // not cover the worker file, but its top-level code is what registers the
+  // worker message handlers.
+  builds.push({
+    bundle: true,
+    entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'diff', 'pierre-worker-entry.ts')],
+    outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js'),
+    platform: 'browser',
+    format: 'esm',
+    target: 'es2022',
+    sourcemap: true,
+    logLevel: 'info',
+    ignoreAnnotations: true,
+  })
+
   return builds
 }
