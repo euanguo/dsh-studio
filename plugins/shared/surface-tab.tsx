@@ -1,11 +1,12 @@
 /**
- * Center surface tab chip / strip (ported from the reference project's
- * `components/ui/surface-tab.tsx`).
+ * Surface tab chip / strip — the shared tab component used by EVERY
+ * surface host: the center strip and the right panel's top row.
+ * Ported from the reference project's `components/ui/surface-tab.tsx`.
  * Preview tabs render italic titles and can be pinned via double-click.
  */
 import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from 'react'
 import { useRef } from 'react'
-import { IconClose } from '../../../../shared/tabler-icons.tsx'
+import { IconClose } from './tabler-icons.tsx'
 
 const SURFACE_TAB_ACTION_SELECTOR = '[data-surface-tab-action]'
 

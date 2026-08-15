@@ -32,6 +32,7 @@ import centerSurfaceCss from './surfaces/center-surface.css'
 import diffViewerCss from './diff/diff-viewer.css'
 import listRowCss from '../../../shared/list-row.css'
 import filenameLabelCss from '../../../shared/filename-label.css'
+import surfaceTabCss from '../../../shared/surface-tab.css'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { useTranslate } from '../../../shared/use-i18n.ts'
 import themeCss from '../../../shared/theme.css'
@@ -227,7 +228,7 @@ class WorkspaceToolsService implements WorkspaceTools {
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
     this.style = document.createElement('style')
     this.style.dataset.ohDshDesktopSidebarStyles = 'true'
-    this.style.textContent = `${themeCss}\n${listRowCss}\n${filenameLabelCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
+    this.style.textContent = `${themeCss}\n${listRowCss}\n${filenameLabelCss}\n${surfaceTabCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
 ${centerSurfaceCss}
 ${diffViewerCss}`
     document.head.append(this.style)
