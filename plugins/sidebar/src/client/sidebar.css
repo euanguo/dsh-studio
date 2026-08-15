@@ -1275,3 +1275,72 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   color: var(--dsw-alias-state-info-primary, #0969da);
 }
 
+
+/* Diff comments */
+.oh-dsh-diff-comments {
+  padding: 6px var(--oh-dsh-space-2);
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: var(--dsw-alias-bg-base, #fff);
+  flex: none;
+}
+
+.oh-dsh-diff-comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.oh-dsh-diff-comment {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
+  font-size: var(--oh-dsh-font-xs);
+}
+
+.oh-dsh-diff-comment-line {
+  flex: none;
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+}
+
+.oh-dsh-diff-comment-body {
+  min-width: 0;
+  flex: 1;
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.oh-dsh-diff-comment button {
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+  cursor: pointer;
+}
+
+.oh-dsh-diff-comment-form {
+  display: flex;
+  gap: 6px;
+}
+
+.oh-dsh-diff-comment-form input[type='number'] {
+  width: 60px;
+}
+
+.oh-dsh-diff-comment-form input[type='text'] {
+  min-width: 0;
+  flex: 1;
+}
+
+.oh-dsh-diff-comment-form input,
+.oh-dsh-diff-comment-form button {
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-bg-base, #fff);
+  color: var(--dsw-alias-label-primary, #1f2328);
+  font-size: var(--oh-dsh-font-xs);
+}
+

@@ -22,6 +22,7 @@ import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
 import { MultiDiffFileStack } from '../diff/multi-diff-file-stack.tsx'
 import { ImageDiffViewer } from '../diff/image-diff-viewer.tsx'
+import { nextDiffCommentId, readDiffComments, writeDiffComments, type DiffComment } from '../diff/diff-comments-store.ts'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { parseGitReviewDiff, reviewFileToDiffDocument } from '../review/review-diff.ts'
@@ -334,6 +335,14 @@ export function DiffSurfaceView({
   const [context, setContext] = useState(3)
   const [expanding, setExpanding] = useState(false)
   const [imageDiff, setImageDiff] = useState<{ oldData: string; newData: string } | null>(null)
+  const [comments, setComments] = useState<readonly DiffComment[]>(() =>
+    readDiffComments().filter(comment =>
+      comment.filePath === surface.filePath
+      && comment.createdAt.length > 0,
+    ),
+  )
+  const [commentLine, setCommentLine] = useState('')
+  const [commentBody, setCommentBody] = useState('')
   const isImagePath = /\.(png|jpe?g|gif|webp|bmp|ico|svg|avif)$/i.test(surface.filePath)
   const theme = usePierreDiffTheme()
   const layout = useDiffViewPreferences(state => state.layout)
@@ -454,6 +463,64 @@ export function DiffSurfaceView({
         >
           {expanding ? t('workspace.loading-diff') : `Expand context (${context} → ${Math.min(200, context + 20)})`}
         </button>
+      </div>
+      <div className="oh-dsh-diff-comments">
+        {comments.length > 0 ? (
+          <div className="oh-dsh-diff-comments-list">
+            {comments.map(comment => (
+              <div key={comment.id} className="oh-dsh-diff-comment">
+                <span className="oh-dsh-diff-comment-line">Line {comment.line}</span>
+                <span className="oh-dsh-diff-comment-body">{comment.body}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = comments.filter(candidate => candidate.id !== comment.id)
+                    setComments(next)
+                    writeDiffComments([
+                      ...readDiffComments().filter(candidate => candidate.filePath !== surface.filePath),
+                      ...next,
+                    ])
+                  }}
+                >✕</button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <div className="oh-dsh-diff-comment-form">
+          <input
+            type="number"
+            min={1}
+            placeholder="Line"
+            value={commentLine}
+            onChange={event => { setCommentLine(event.target.value) }}
+          />
+          <input
+            type="text"
+            placeholder="Comment"
+            value={commentBody}
+            onChange={event => { setCommentBody(event.target.value) }}
+          />
+          <button
+            type="button"
+            disabled={commentLine === '' || commentBody.trim() === ''}
+            onClick={() => {
+              const line = Number(commentLine)
+              if (!Number.isInteger(line) || line < 1) return
+              const comment: DiffComment = {
+                id: nextDiffCommentId(),
+                filePath: surface.filePath,
+                line,
+                body: commentBody.trim(),
+                createdAt: new Date().toISOString(),
+              }
+              const next = [...comments, comment]
+              setComments(next)
+              writeDiffComments([...readDiffComments().filter(candidate => candidate.filePath !== surface.filePath), ...next])
+              setCommentLine('')
+              setCommentBody('')
+            }}
+          >Add</button>
+        </div>
       </div>
     </div>
   )
