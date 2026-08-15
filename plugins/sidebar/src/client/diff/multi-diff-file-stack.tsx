@@ -76,6 +76,7 @@ export function MultiDiffFileStack({
                   <DiffViewer
                     document={reviewFileToDiffDocument(file)}
                     theme={theme}
+                    t={t}
                     virtualize={false}
                     layout={layout}
                     wordWrap={wordWrap}

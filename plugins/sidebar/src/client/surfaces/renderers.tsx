@@ -500,6 +500,7 @@ export function DiffSurfaceView({
         <DiffViewer
           document={document}
           theme={theme}
+          t={t}
           layout={layout}
           wordWrap={wordWrap}
           hideMeta
@@ -828,7 +829,7 @@ export function CommitDiffSurfaceView({
               <small><b>+{file.additions}</b> −{file.deletions}</small>
             </summary>
             <div className="oh-dsh-commit-surface-lines">
-              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} virtualize={false} hideMeta />
+              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} t={t} virtualize={false} hideMeta />
             </div>
           </details>
         ))}
@@ -896,6 +897,7 @@ export function CommitFileSurfaceView({
         <DiffViewer
           document={document}
           theme={theme}
+          t={t}
           hideMeta
           cacheBust={`${surface.hash}:${surface.filePath}`}
         />
@@ -961,7 +963,7 @@ function CommittedAllDiffView({
               <small><b>+{file.additions}</b> −{file.deletions}</small>
             </summary>
             <div className="oh-dsh-commit-surface-lines">
-              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} virtualize={false} hideMeta />
+              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} t={t} virtualize={false} hideMeta />
             </div>
           </details>
         ))}
@@ -1028,6 +1030,7 @@ function CommittedFileDiffView({
         <DiffViewer
           document={document}
           theme={theme}
+          t={t}
           hideMeta
           cacheBust={`${surface.baseRef}:${filePath}`}
         />

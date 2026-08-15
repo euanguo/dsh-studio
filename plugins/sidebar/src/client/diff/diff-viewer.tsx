@@ -11,6 +11,8 @@
  */
 import type { ReactNode } from 'react'
 import type { AnnotationSide, DiffLineAnnotation } from '@pierre/diffs'
+import type { Translate } from '../../../../shared/i18n.ts'
+import type { WorkspaceMessage } from '../i18n.ts'
 import {
   buildPatch,
   type DiffDocument,
@@ -22,6 +24,7 @@ import type { DiffComment } from './diff-comments-store.ts'
 export type DiffViewerProps = Readonly<{
   document: DiffDocument
   theme: PierreDiffTheme
+  t: Translate<WorkspaceMessage>
   layout?: DiffLayoutStyle
   wordWrap?: boolean
   /** Hide the meta strip when an outer header already shows path/stats. */
@@ -48,6 +51,7 @@ export type DiffViewerProps = Readonly<{
 export function DiffViewer({
   document,
   theme,
+  t,
   layout = 'unified',
   wordWrap = false,
   hideMeta = false,
@@ -59,6 +63,28 @@ export function DiffViewer({
 }: DiffViewerProps): JSX.Element {
   const summary = `${document.path}  +${String(document.additions)} −${String(document.deletions)}`
   const patch = buildPatch(document)
+  const hasContentLines = document.lines.some(line => line.kind !== 'hunk')
+
+  // Pure renames / empty documents carry no rows: rendering them through
+  // Pierre throws in the hunks renderer ("deletionLine and additionLine
+  // are null"), so show a placeholder instead.
+  if (!hasContentLines) {
+    return (
+      <div className="oh-dsh-diff-viewer" data-testid="diff-viewer" data-layout={layout}>
+        {hideMeta ? null : (
+          <div className="oh-dsh-diff-viewer-meta">
+            <span>{summary}</span>
+          </div>
+        )}
+        <div
+          className="oh-dsh-diff-empty"
+          data-kind={document.change === 'renamed' ? 'renamed' : 'empty'}
+        >
+          {document.change === 'renamed' ? t('workspace.renamed-only') : t('workspace.no-content-changes')}
+        </div>
+      </div>
+    )
+  }
 
   const renderedDiff = renderPierreDiff({
     patch,

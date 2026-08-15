@@ -101,6 +101,8 @@ export type WorkspaceMessage =
   | 'workspace.no-background-processes'
   | 'workspace.loading-diff'
   | 'workspace.no-text-diff'
+  | 'workspace.no-content-changes'
+  | 'workspace.renamed-only'
   | 'workspace.review-history'
   | 'workspace.no-commits'
   | 'workspace.review-commit'
@@ -244,6 +246,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.no-background-processes': 'No background processes',
     'workspace.loading-diff': 'Loading diff…',
     'workspace.no-text-diff': 'No textual diff is available.',
+    'workspace.no-content-changes': 'No content changes.',
+    'workspace.renamed-only': 'Renamed file — no content changes.',
     'workspace.review-history': 'Commit history',
     'workspace.no-commits': 'No commits on this branch',
     'workspace.review-commit': 'Commit',
@@ -386,6 +390,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.no-background-processes': '没有后台进程',
     'workspace.loading-diff': '正在加载差异…',
     'workspace.no-text-diff': '没有可用的文本差异。',
+    'workspace.no-content-changes': '没有内容变更。',
+    'workspace.renamed-only': '文件被重命名 — 没有内容变更。',
     'workspace.review-history': '提交历史',
     'workspace.no-commits': '当前分支没有提交',
     'workspace.review-commit': '提交',

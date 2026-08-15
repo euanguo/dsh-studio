@@ -28,6 +28,18 @@
   min-width: 0;
 }
 
+/* Empty documents (pure renames): placeholder instead of Pierre, whose
+   hunks renderer throws on zero-row diffs. */
+.oh-dsh-diff-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 64px;
+  padding: var(--oh-dsh-space-3);
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-sm);
+}
+
 /* ---------- line comment annotations (Pierre annotation rows) ---------- */
 
 .oh-dsh-line-comment {
