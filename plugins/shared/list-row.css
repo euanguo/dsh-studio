@@ -118,10 +118,11 @@
   /* Overlay on top of the row's trailing area: revealed on hover (or while
      an action menu is open) and absolutely positioned so the trailing
      status stays flush right in the resting state — no reserved slot means
-     no dead space next to the status mark. The buttons sit on a SOLID
-     surface so they fully cover the trailing stats/status behind them;
-     the fade lives in ::before, an EXTRA strip to the left of the buttons
-     (right → left, solid → transparent) that melts into the row. */
+     no dead space next to the status mark. The wash is the SOLID row
+     surface (panel background + the hover tint fading in from the left
+     edge) so the action buttons fully cover the trailing stats/status
+     behind them instead of showing through; the left fade blends into the
+     row. */
   position: absolute;
   top: 50%;
   right: var(--oh-dsh-space-1);
@@ -131,21 +132,12 @@
   gap: var(--oh-dsh-space-1);
   padding: 0 var(--oh-dsh-space-0);
   border-radius: var(--oh-dsh-radius-sm);
-  background: var(--dsw-alias-bg-base, #fff);
+  background:
+    linear-gradient(to right,
+      transparent 0%,
+      var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) 18px),
+    var(--dsw-alias-bg-base, #fff);
   opacity: 0;
-  pointer-events: none;
-}
-
-/* The fade is extra width to the LEFT of the button cluster, not a
-   gradient inside the buttons' own box. */
-.oh-dsh-list-row-actions::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 100%;
-  width: 16px;
-  background: linear-gradient(to left, var(--dsw-alias-bg-base, #fff), transparent);
   pointer-events: none;
 }
 

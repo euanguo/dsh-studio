@@ -1,10 +1,11 @@
 /**
  * Center surface store (ported from the reference project's
- * `surfaces/center-surface-store.ts`).
+ * `surfaces/center-surface-store.ts`, adapted to per-workspace slices).
  *
- * The center open-set identity owner: which tabs are open in the middle
- * area and which one is active. Pure synchronous identity writes — opening
- * a surface never fetches or mounts React (callers schedule those after).
+ * The center open-set identity owner, keyed by WORKSPACE (cwd): every
+ * workspace keeps its own tab queue (session conversations + open
+ * file/diff/browser/terminal surfaces), so switching workspaces swaps the
+ * whole queue — the same way the Git panel and file list follow the cwd.
  *
  * Preview/pin semantics (the single implementation point is
  * `openPreviewableSurface`):
@@ -14,9 +15,9 @@
  * - conversations and terminals are always pinned (`isPreview: false`).
  *
  * Persistence: the store itself is pure memory. A thin subscriber layer
- * (see `persistCenterSurfaces`) mirrors the open set to localStorage and
- * rebuilds it on startup — deliberately NOT zustand `persist` middleware so
- * the identity store stays pure.
+ * (see `persistCenterSurfaces`) mirrors every workspace's queue to
+ * localStorage and rebuilds them on startup — deliberately NOT zustand
+ * `persist` middleware so the identity store stays pure.
  */
 import { create } from 'zustand'
 import {
@@ -42,41 +43,70 @@ const EMPTY_SLICE: CenterSurfaceSlice = {
 }
 
 interface CenterSurfaceState {
-  slice: CenterSurfaceSlice
-  getSlice(): CenterSurfaceSlice
+  /** Per-workspace (cwd) open sets. */
+  byCwd: Record<string, CenterSurfaceSlice>
+  getSlice(cwd: string): CenterSurfaceSlice
   openConversation(input: {
-    sessionId: string
     cwd: string
+    sessionId: string
     title: string
     /** Activate the tab immediately (open gesture). Sync passes false. */
     activate?: boolean
   }): ConversationCenterSurface
   openFile(input: {
-    sessionId: string
     cwd: string
+    sessionId: string
     filePath: string
     title?: string
     preview?: boolean
   }): FileCenterSurface
   openDiff(input: {
-    sessionId: string
     cwd: string
+    sessionId: string
     filePath: string
     staged: boolean
     title?: string
     preview?: boolean
   }): DiffCenterSurface
-  openBrowser(input: { title?: string; resource?: string; preview?: boolean }): BrowserCenterSurface
-  openTerminal(input: { title: string }): TerminalCenterSurface
+  openBrowser(input: {
+    cwd: string
+    title?: string
+    resource?: string
+    preview?: boolean
+  }): BrowserCenterSurface
+  openTerminal(input: { cwd: string; title: string }): TerminalCenterSurface
   /** Clear isPreview on a surface (double-click pin). */
-  pin(surfaceId: string): void
-  activate(surfaceId: string): void
-  close(surfaceId: string): void
+  pin(cwd: string, surfaceId: string): void
+  activate(cwd: string, surfaceId: string): void
+  close(cwd: string, surfaceId: string): void
+  clearCwd(cwd: string): void
   clearAll(): void
-  /** Session ids whose center tab was closed by the user (persisted). */
-  dismissedSessions: readonly string[]
-  dismissSession(sessionId: string): void
-  undismissSession(sessionId: string): void
+  /** Session ids whose center tab was closed, per workspace (persisted). */
+  dismissedSessions: Record<string, string[]>
+  dismissSession(cwd: string, sessionId: string): void
+  undismissSession(cwd: string, sessionId: string): void
+}
+
+function readSlice(
+  byCwd: Record<string, CenterSurfaceSlice>,
+  cwd: string,
+): CenterSurfaceSlice {
+  return byCwd[cwd] ?? EMPTY_SLICE
+}
+
+function writeSlice(
+  byCwd: Record<string, CenterSurfaceSlice>,
+  cwd: string,
+  slice: CenterSurfaceSlice,
+): Record<string, CenterSurfaceSlice> {
+  return { ...byCwd, [cwd]: slice }
+}
+
+function readDismissed(
+  dismissed: Record<string, string[]>,
+  cwd: string,
+): readonly string[] {
+  return dismissed[cwd] ?? []
 }
 
 /**
@@ -148,10 +178,10 @@ function openPreviewableSurface(
 }
 
 export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
-  slice: EMPTY_SLICE,
-  dismissedSessions: [],
+  byCwd: {},
+  dismissedSessions: {},
 
-  getSlice: () => get().slice,
+  getSlice: cwd => readSlice(get().byCwd, cwd),
 
   openConversation: input => {
     const id = conversationSurfaceId(input.sessionId)
@@ -166,16 +196,17 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       isPreview: false,
     }
     set(state => {
-      const existingIndex = state.slice.open.findIndex(surface => surface.id === id)
+      const slice = readSlice(state.byCwd, input.cwd)
+      const existingIndex = slice.open.findIndex(surface => surface.id === id)
       if (existingIndex >= 0) {
-        if (state.slice.activeId === id || !shouldActivate) return state
-        return { slice: { open: state.slice.open, activeId: id } }
+        if (slice.activeId === id || !shouldActivate) return state
+        return { byCwd: writeSlice(state.byCwd, input.cwd, { open: slice.open, activeId: id }) }
       }
       return {
-        slice: {
-          open: [...state.slice.open, nextSurface],
-          activeId: shouldActivate ? id : state.slice.activeId,
-        },
+        byCwd: writeSlice(state.byCwd, input.cwd, {
+          open: [...slice.open, nextSurface],
+          activeId: shouldActivate ? id : slice.activeId,
+        }),
       }
     })
     return nextSurface
@@ -195,9 +226,10 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       isPreview,
     }
     set(state => {
-      const next = openPreviewableSurface(state.slice, nextSurface)
-      if (next === state.slice) return state
-      return { slice: next }
+      const slice = readSlice(state.byCwd, input.cwd)
+      const next = openPreviewableSurface(slice, nextSurface)
+      if (next === slice) return state
+      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
     })
     return nextSurface
   },
@@ -217,9 +249,10 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       isPreview,
     }
     set(state => {
-      const next = openPreviewableSurface(state.slice, nextSurface)
-      if (next === state.slice) return state
-      return { slice: next }
+      const slice = readSlice(state.byCwd, input.cwd)
+      const next = openPreviewableSurface(slice, nextSurface)
+      if (next === slice) return state
+      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
     })
     return nextSurface
   },
@@ -230,15 +263,17 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     const nextSurface: BrowserCenterSurface = {
       id,
       kind: 'browser',
+      cwd: input.cwd,
       title: input.title?.trim() || 'Browser',
       ...(input.resource === undefined ? {} : { resource: input.resource }),
       closable: true,
       isPreview,
     }
     set(state => {
-      const next = openPreviewableSurface(state.slice, nextSurface)
-      if (next === state.slice) return state
-      return { slice: next }
+      const slice = readSlice(state.byCwd, input.cwd)
+      const next = openPreviewableSurface(slice, nextSurface)
+      if (next === slice) return state
+      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
     })
     return nextSurface
   },
@@ -248,23 +283,26 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     const nextSurface: TerminalCenterSurface = {
       id,
       kind: 'terminal',
+      cwd: input.cwd,
       title: input.title,
       closable: true,
       isPreview: false,
     }
     set(state => {
-      const existing = state.slice.open.some(surface => surface.id === id)
-      if (existing && state.slice.activeId === id) return state
-      const open = existing ? state.slice.open : [...state.slice.open, nextSurface]
-      return { slice: { open, activeId: id } }
+      const slice = readSlice(state.byCwd, input.cwd)
+      const existing = slice.open.some(surface => surface.id === id)
+      if (existing && slice.activeId === id) return state
+      const open = existing ? slice.open : [...slice.open, nextSurface]
+      return { byCwd: writeSlice(state.byCwd, input.cwd, { open, activeId: id }) }
     })
     return nextSurface
   },
 
-  pin: surfaceId => {
+  pin: (cwd, surfaceId) => {
     set(state => {
+      const slice = readSlice(state.byCwd, cwd)
       let changed = false
-      const open = state.slice.open.map(surface => {
+      const open = slice.open.map(surface => {
         if (surface.id !== surfaceId) return surface
         if (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'browser') {
           if (surface.isPreview) {
@@ -275,49 +313,66 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
         return surface
       })
       if (!changed) return state
-      return { slice: { open, activeId: state.slice.activeId } }
+      return { byCwd: writeSlice(state.byCwd, cwd, { open, activeId: slice.activeId }) }
     })
   },
 
-  activate: surfaceId => {
+  activate: (cwd, surfaceId) => {
     set(state => {
-      if (state.slice.activeId === surfaceId) return state
+      const slice = readSlice(state.byCwd, cwd)
+      if (slice.activeId === surfaceId) return state
       // Conversation tabs are rendered from the sessions list, not from the
       // open set — activating one must still work (it hides the surface
       // body and reveals the conversation).
       const isConversation = surfaceId.startsWith('conversation:')
-      if (!isConversation && !state.slice.open.some(surface => surface.id === surfaceId)) {
+      if (!isConversation && !slice.open.some(surface => surface.id === surfaceId)) {
         return state
       }
-      return { slice: { open: state.slice.open, activeId: surfaceId } }
+      return { byCwd: writeSlice(state.byCwd, cwd, { open: slice.open, activeId: surfaceId }) }
     })
   },
 
-  close: surfaceId => {
+  close: (cwd, surfaceId) => {
     set(state => {
-      const open = state.slice.open.filter(surface => surface.id !== surfaceId)
-      if (open.length === state.slice.open.length) return state
-      let activeId = state.slice.activeId
+      const slice = readSlice(state.byCwd, cwd)
+      const open = slice.open.filter(surface => surface.id !== surfaceId)
+      if (open.length === slice.open.length) return state
+      let activeId = slice.activeId
       if (activeId === surfaceId) {
         activeId = open.at(-1)?.id ?? null
       }
-      return { slice: { open, activeId } }
+      return { byCwd: writeSlice(state.byCwd, cwd, { open, activeId }) }
     })
   },
 
-  clearAll: () => set({ slice: EMPTY_SLICE }),
-
-  dismissSession: sessionId => {
+  clearCwd: cwd => {
     set(state => {
-      if (state.dismissedSessions.includes(sessionId)) return state
-      return { dismissedSessions: [...state.dismissedSessions, sessionId] }
+      if (state.byCwd[cwd] === undefined) return state
+      const next = { ...state.byCwd }
+      delete next[cwd]
+      return { byCwd: next }
     })
   },
 
-  undismissSession: sessionId => {
+  clearAll: () => set({ byCwd: {}, dismissedSessions: {} }),
+
+  dismissSession: (cwd, sessionId) => {
     set(state => {
-      if (!state.dismissedSessions.includes(sessionId)) return state
-      return { dismissedSessions: state.dismissedSessions.filter(id => id !== sessionId) }
+      const dismissed = readDismissed(state.dismissedSessions, cwd)
+      if (dismissed.includes(sessionId)) return state
+      return { dismissedSessions: { ...state.dismissedSessions, [cwd]: [...dismissed, sessionId] } }
+    })
+  },
+
+  undismissSession: (cwd, sessionId) => {
+    set(state => {
+      const dismissed = readDismissed(state.dismissedSessions, cwd)
+      if (!dismissed.includes(sessionId)) return state
+      const next = dismissed.filter(id => id !== sessionId)
+      const rest = { ...state.dismissedSessions }
+      if (next.length > 0) rest[cwd] = next
+      else delete rest[cwd]
+      return { dismissedSessions: rest }
     })
   },
 }))
@@ -327,24 +382,29 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
 const CENTER_SURFACES_STORAGE_KEY = 'oh-dsh-desktop.center-surfaces'
 
 export interface PersistedCenterSurfaces {
-  /** v2: diff surfaces carry the corrected staged flag (v1 predates the
-   *  porcelain v2 staged fix and can resurrect stale NO-DIFF tabs). */
-  version: 2
-  open: ReadonlyArray<CenterSurface>
-  activeId: string | null
-  /** Session tabs the user closed; sync skips them until reopened. */
-  dismissedSessions?: readonly string[]
+  /** v3: per-workspace (cwd) tab queues. */
+  version: 3
+  byCwd: Record<string, {
+    open: ReadonlyArray<CenterSurface>
+    activeId: string | null
+  }>
+  /** Session tabs the user closed, per workspace; sync skips them. */
+  dismissedSessions?: Record<string, string[]>
 }
 
-/** Mirror the open set to localStorage on every change. */
+/** Mirror every workspace's open set to localStorage on each change. */
 export function persistCenterSurfaces(): () => void {
   return useCenterSurfaceStore.subscribe(state => {
     try {
       const payload: PersistedCenterSurfaces = {
-        version: 2,
-        open: state.slice.open,
-        activeId: state.slice.activeId,
-        ...(state.dismissedSessions.length > 0 ? { dismissedSessions: state.dismissedSessions } : {}),
+        version: 3,
+        byCwd: Object.fromEntries(Object.entries(state.byCwd).map(([cwd, slice]) => [
+          cwd,
+          { open: slice.open, activeId: slice.activeId },
+        ])),
+        ...(Object.keys(state.dismissedSessions).length > 0
+          ? { dismissedSessions: state.dismissedSessions }
+          : {}),
       }
       window.localStorage.setItem(CENTER_SURFACES_STORAGE_KEY, JSON.stringify(payload))
     } catch {
@@ -353,20 +413,19 @@ export function persistCenterSurfaces(): () => void {
   })
 }
 
-/** Rebuild the open set from localStorage (startup). Pinned tabs restore as-is. */
+/** Rebuild every workspace's open set from localStorage (startup). */
 export function restoreCenterSurfaces(): void {
   let payload: PersistedCenterSurfaces | null = null
   try {
     const raw = window.localStorage.getItem(CENTER_SURFACES_STORAGE_KEY)
     if (raw !== null) {
       const parsed = JSON.parse(raw) as Partial<PersistedCenterSurfaces>
-      if (parsed.version === 2 && Array.isArray(parsed.open)) {
+      if (parsed.version === 3 && parsed.byCwd !== null && typeof parsed.byCwd === 'object') {
         payload = {
-          version: 2,
-          open: parsed.open,
-          activeId: parsed.activeId ?? null,
-          ...(Array.isArray(parsed.dismissedSessions)
-            ? { dismissedSessions: parsed.dismissedSessions }
+          version: 3,
+          byCwd: parsed.byCwd as PersistedCenterSurfaces['byCwd'],
+          ...(parsed.dismissedSessions !== null && typeof parsed.dismissedSessions === 'object'
+            ? { dismissedSessions: parsed.dismissedSessions as Record<string, string[]> }
             : {}),
         }
       }
@@ -376,41 +435,43 @@ export function restoreCenterSurfaces(): void {
   }
   if (payload === null) return
   const state = useCenterSurfaceStore.getState()
-  const open = payload.open.filter(
-    (surface): surface is CenterSurface =>
-      surface !== null && typeof surface === 'object' && typeof surface.id === 'string'
-      && typeof surface.kind === 'string'
-      && typeof surface.title === 'string'
-      && typeof surface.closable === 'boolean'
-      && typeof surface.isPreview === 'boolean',
-  )
-  const activeId = open.some(surface => surface.id === payload!.activeId)
-    ? payload!.activeId
-    : open.at(-1)?.id ?? null
-  const dismissedSessions = Array.isArray(payload.dismissedSessions)
-    ? payload.dismissedSessions.filter((id): id is string => typeof id === 'string')
-    : []
   state.clearAll()
-  if (dismissedSessions.length > 0) {
-    useCenterSurfaceStore.setState({ dismissedSessions })
+  if (payload.dismissedSessions !== undefined) {
+    useCenterSurfaceStore.setState({ dismissedSessions: payload.dismissedSessions })
   }
-  // Re-insert through the store so ids/order stay canonical.
-  for (const surface of open) {
-    if (surface.kind === 'conversation') {
-      state.openConversation({ sessionId: surface.sessionId, cwd: surface.cwd, title: surface.title, activate: false })
-    } else if (surface.kind === 'file') {
-      state.openFile({ sessionId: surface.sessionId, cwd: surface.cwd, filePath: surface.filePath, title: surface.title, preview: false })
-    } else if (surface.kind === 'diff') {
-      state.openDiff({ sessionId: surface.sessionId, cwd: surface.cwd, filePath: surface.filePath, staged: surface.staged, title: surface.title, preview: false })
-    } else if (surface.kind === 'browser') {
-      state.openBrowser({
-        title: surface.title,
-        ...(surface.resource === undefined ? {} : { resource: surface.resource }),
-        preview: false,
-      })
-    } else if (surface.kind === 'terminal') {
-      state.openTerminal({ title: surface.title })
+  for (const [cwd, entry] of Object.entries(payload.byCwd)) {
+    if (!Array.isArray(entry?.open)) continue
+    const open = entry.open.filter(
+      (surface): surface is CenterSurface =>
+        surface !== null && typeof surface === 'object' && typeof surface.id === 'string'
+        && typeof surface.kind === 'string'
+        && typeof surface.title === 'string'
+        && typeof surface.closable === 'boolean'
+        && typeof surface.isPreview === 'boolean'
+        && typeof surface.cwd === 'string',
+    )
+    // Re-insert through the store so ids/order stay canonical.
+    for (const surface of open) {
+      if (surface.kind === 'conversation') {
+        state.openConversation({ cwd, sessionId: surface.sessionId, title: surface.title, activate: false })
+      } else if (surface.kind === 'file') {
+        state.openFile({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, title: surface.title, preview: false })
+      } else if (surface.kind === 'diff') {
+        state.openDiff({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, staged: surface.staged, title: surface.title, preview: false })
+      } else if (surface.kind === 'browser') {
+        state.openBrowser({
+          cwd,
+          title: surface.title,
+          ...(surface.resource === undefined ? {} : { resource: surface.resource }),
+          preview: false,
+        })
+      } else if (surface.kind === 'terminal') {
+        state.openTerminal({ cwd, title: surface.title })
+      }
     }
+    const activeId = open.some(surface => surface.id === entry.activeId)
+      ? entry.activeId
+      : open.at(-1)?.id ?? null
+    if (activeId !== null) state.activate(cwd, activeId)
   }
-  if (activeId !== null) state.activate(activeId)
 }
