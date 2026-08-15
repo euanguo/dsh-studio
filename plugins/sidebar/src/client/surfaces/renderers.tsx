@@ -582,6 +582,31 @@ export function DiffAllSurfaceView({
     })
   }, [])
 
+  const navigateChange = useCallback((direction: 1 | -1) => {
+    const root = listRef.current
+    if (root === null) return
+    const rows = Array.from(root.querySelectorAll<HTMLElement>(
+      '.oh-dsh-diff-raw-row[data-line-kind="added"], .oh-dsh-diff-raw-row[data-line-kind="removed"]',
+    ))
+    if (rows.length === 0) return
+    const anchor = root.scrollTop + 12
+    let target = direction === 1
+      ? rows.find(row => row.offsetTop >= anchor)
+      : [...rows].reverse().find(row => row.offsetTop < anchor)
+    if (target === undefined) target = direction === 1 ? rows[0] : rows.at(-1)
+    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key !== 'F7') return
+      event.preventDefault()
+      navigateChange(event.shiftKey ? -1 : 1)
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => { window.removeEventListener('keydown', onKeyDown) }
+  }, [navigateChange])
+
   const collapseFile = useCallback((path: string) => {
     setRenderedKeys(previous => {
       if (!previous.has(path)) return previous
@@ -640,6 +665,8 @@ export function DiffAllSurfaceView({
           </span>
         )}
         t={t}
+        onPrevChange={() => { navigateChange(-1) }}
+        onNextChange={() => { navigateChange(1) }}
       />
       <div className="oh-dsh-diff-all-body">
         <DiffPathTreeNav
