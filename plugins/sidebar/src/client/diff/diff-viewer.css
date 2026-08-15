@@ -28,6 +28,30 @@
   min-width: 0;
 }
 
+/* ---------- line comment annotations (Pierre annotation rows) ---------- */
+
+.oh-dsh-line-comment {
+  display: flex;
+  align-items: center;
+  max-width: 420px;
+  padding: 4px 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 10%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-bg-base, #fff);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.oh-dsh-line-comment-body {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-primary, #1f2328);
+  font-family: var(--oh-dsh-font-sans, system-ui, sans-serif);
+  font-size: var(--oh-dsh-font-xs);
+  line-height: 18px;
+}
+
 /* ---------- RawDiff (fallback / comment surface) ---------- */
 
 .oh-dsh-diff-raw-lines {

@@ -24,7 +24,9 @@ import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
 import { MultiDiffFileStack } from '../diff/multi-diff-file-stack.tsx'
 import { ImageDiffViewer } from '../diff/image-diff-viewer.tsx'
-import { nextDiffCommentId, readDiffComments, writeDiffComments, type DiffComment } from '../diff/diff-comments-store.ts'
+import { nextDiffCommentId, readDiffComments, writeDiffComments, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
+import { commentsToDiffLineAnnotations, commentsToFileLineAnnotations } from '../diff/comment-annotations.ts'
+import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { parseGitReviewDiff, reviewFileToDiffDocument } from '../review/review-diff.ts'
@@ -60,6 +62,16 @@ export function FileSurfaceView({
     top: number
     label: string
   } | null>(null)
+
+  // Persisted diff comments also hang on the file's own lines (one comment
+  // system across diff / file / editor surfaces).
+  const comments = useMemo(
+    () => readDiffComments().filter(comment =>
+      commentPathMatches(comment.filePath, surface.filePath, surface.cwd)
+      && comment.createdAt.length > 0,
+    ),
+    [surface.cwd, surface.filePath, fingerprint],
+  )
 
   useEffect(() => {
     let alive = true
@@ -189,6 +201,7 @@ export function FileSurfaceView({
           size={snapshot.size}
           truncated={snapshot.truncated}
           markdownPreview={markdownMode === 'preview'}
+          comments={comments}
           onTaskToggle={onTaskToggle}
           onOpenExternal={onOpenExternal}
           {...(snapshot.data === undefined ? {} : { data: snapshot.data })}
@@ -211,7 +224,7 @@ export function FileSurfaceView({
 
 /* ---------- editor ---------- */
 
-function createPierreEditor(options: EditorOptions<undefined>): Editor<undefined> {
+function createPierreEditor<LAnnotation>(options: EditorOptions<LAnnotation>): Editor<LAnnotation> {
   return new Editor(options)
 }
 
@@ -230,6 +243,20 @@ export function EditorSurfaceView({
   const [saving, setSaving] = useState(false)
   const [readOnly, setReadOnly] = useState(false)
   const theme = usePierreDiffTheme()
+
+  // Persisted diff comments also hang on the editor's lines (display only —
+  // adding happens from the diff surface's line gutter).
+  const comments = useMemo(
+    () => readDiffComments().filter(comment =>
+      commentPathMatches(comment.filePath, surface.filePath, surface.cwd)
+      && comment.createdAt.length > 0,
+    ),
+    [surface.cwd, surface.filePath],
+  )
+  const lineAnnotations = useMemo(
+    () => commentsToFileLineAnnotations(comments),
+    [comments],
+  )
 
   const save = useCallback((nextContent?: string) => {
     const value = nextContent ?? latestContentRef.current
@@ -283,7 +310,7 @@ export function EditorSurfaceView({
     cacheKey: `editor:${surface.filePath}`,
   }), [content, surface.filePath])
 
-  const editorOptions = useMemo<EditorOptions<undefined>>(() => ({
+  const editorOptions = useMemo<EditorOptions<DiffComment>>(() => ({
     persistState: false,
     onChange: nextFile => {
       latestContentRef.current = nextFile.contents
@@ -316,6 +343,14 @@ export function EditorSurfaceView({
             edit={!readOnly}
             editorOptions={editorOptions}
             options={{ disableFileHeader: true, theme }}
+            {...(lineAnnotations.length > 0
+              ? {
+                  lineAnnotations,
+                  renderAnnotation: (annotation: { metadata: DiffComment }) => (
+                    <CommentBubble comment={annotation.metadata} />
+                  ),
+                }
+              : {})}
           />
         </Virtualizer>
       </EditProvider>
@@ -339,7 +374,7 @@ export function DiffSurfaceView({
   const [imageDiff, setImageDiff] = useState<{ oldData: string; newData: string } | null>(null)
   const [comments, setComments] = useState<readonly DiffComment[]>(() =>
     readDiffComments().filter(comment =>
-      comment.filePath === surface.filePath
+      commentPathMatches(comment.filePath, surface.filePath, surface.cwd)
       && comment.createdAt.length > 0,
     ),
   )
@@ -349,6 +384,22 @@ export function DiffSurfaceView({
   const theme = usePierreDiffTheme()
   const layout = useDiffViewPreferences(state => state.layout)
   const wordWrap = useDiffViewPreferences(state => state.wordWrap)
+
+  // Persisted comments render as Pierre annotation rows on the new-side lines.
+  const lineAnnotations = useMemo(
+    () => commentsToDiffLineAnnotations(comments),
+    [comments],
+  )
+  const renderCommentAnnotation = useCallback((annotation: { metadata?: DiffComment }) => (
+    annotation.metadata !== undefined
+      ? <CommentBubble comment={annotation.metadata} />
+      : null
+  ), [])
+  const onLineNumberClick = useCallback((input: { lineNumber: number; side: 'additions' | 'deletions' }) => {
+    // Comments attach to the new side only; ignore old-side gutter clicks.
+    if (input.side !== 'additions') return
+    setCommentLine(String(input.lineNumber))
+  }, [])
 
   useEffect(() => {
     let alive = true
@@ -451,6 +502,10 @@ export function DiffSurfaceView({
           wordWrap={wordWrap}
           hideMeta
           cacheBust={`${surface.staged ? 'staged' : 'unstaged'}:${context}`}
+          {...(lineAnnotations.length > 0
+            ? { lineAnnotations, renderAnnotation: renderCommentAnnotation }
+            : {})}
+          onLineNumberClick={onLineNumberClick}
         />
       </div>
       <div className="oh-dsh-diff-context-bar">
@@ -479,7 +534,7 @@ export function DiffSurfaceView({
                     const next = comments.filter(candidate => candidate.id !== comment.id)
                     setComments(next)
                     writeDiffComments([
-                      ...readDiffComments().filter(candidate => candidate.filePath !== surface.filePath),
+                      ...readDiffComments().filter(candidate => !commentPathMatches(candidate.filePath, surface.filePath, surface.cwd)),
                       ...next,
                     ])
                   }}
@@ -517,7 +572,7 @@ export function DiffSurfaceView({
               }
               const next = [...comments, comment]
               setComments(next)
-              writeDiffComments([...readDiffComments().filter(candidate => candidate.filePath !== surface.filePath), ...next])
+              writeDiffComments([...readDiffComments().filter(candidate => !commentPathMatches(candidate.filePath, surface.filePath, surface.cwd)), ...next])
               setCommentLine('')
               setCommentBody('')
             }}

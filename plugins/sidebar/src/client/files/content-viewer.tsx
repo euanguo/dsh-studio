@@ -25,6 +25,7 @@ import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
 import { MarkdownViewer } from './markdown-viewer.tsx'
 import { IpynbViewer } from './ipynb-viewer.tsx'
 import { MermaidViewer } from './mermaid-viewer.tsx'
+import type { DiffComment } from '../diff/diff-comments-store.ts'
 
 type ContentKind = 'text' | 'csv' | 'markdown' | 'html' | 'image' | 'pdf' | 'ipynb' | 'mermaid' | 'binary'
 
@@ -81,6 +82,8 @@ export interface ContentViewerProps {
   data?: string
   /** For Markdown: rendered preview vs source. */
   markdownPreview?: boolean
+  /** Line comments shown as annotation rows in Pierre code views. */
+  comments?: readonly DiffComment[]
   onTaskToggle?(input: { sourceLine: number; checked: boolean }): void
   onOpenExternal?(): void
   onShowInFolder?(): void
@@ -95,6 +98,7 @@ export function ContentViewer({
   truncated = false,
   data,
   markdownPreview = true,
+  comments,
   onTaskToggle,
   onOpenExternal,
   onShowInFolder,
@@ -210,6 +214,7 @@ export function ContentViewer({
             language="markdown"
             lineNumbers={showLineNumbers}
             cacheKey={path}
+            {...(comments === undefined ? {} : { comments })}
           />
         ) : (
           <PlainTextView content={content} showLineNumbers={showLineNumbers} />
@@ -251,6 +256,7 @@ export function ContentViewer({
           language={policy.language}
           lineNumbers={showLineNumbers}
           cacheKey={path}
+          {...(comments === undefined ? {} : { comments })}
         />
       ) : (
         <PlainTextView content={content} showLineNumbers={showLineNumbers} />

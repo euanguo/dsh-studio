@@ -11,8 +11,10 @@
  */
 import { useMemo } from 'react'
 import { File as PierreFile, Virtualizer } from '@pierre/diffs/react'
-import type { FileContents } from '@pierre/diffs'
+import type { FileContents, LineAnnotation } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
+import type { DiffComment } from '../diff/diff-comments-store.ts'
+import { CommentBubble } from '../diff/comment-bubble.tsx'
 
 export interface PierreFileViewProps {
   path: string
@@ -23,6 +25,8 @@ export interface PierreFileViewProps {
   lineNumbers: boolean
   /** Distinguishes otherwise-identical documents for the worker cache. */
   cacheKey: string
+  /** Line comments rendered as annotation rows at their file lines. */
+  comments?: readonly DiffComment[]
 }
 
 export function PierreFileView({
@@ -31,6 +35,7 @@ export function PierreFileView({
   language,
   lineNumbers,
   cacheKey,
+  comments,
 }: PierreFileViewProps): JSX.Element {
   const theme = usePierreDiffTheme()
   const file = useMemo<FileContents>(() => ({
@@ -39,6 +44,13 @@ export function PierreFileView({
     lang: language,
     cacheKey: `view:${cacheKey}`,
   }), [cacheKey, content, language, path])
+
+  const lineAnnotations = useMemo<Array<LineAnnotation<DiffComment>> | undefined>(
+    () => (comments === undefined || comments.length === 0
+      ? undefined
+      : comments.map(comment => ({ lineNumber: comment.line, metadata: comment }))),
+    [comments],
+  )
 
   return (
     <Virtualizer className="oh-dsh-pierre-file-host" config={{ overscrollSize: 300 }}>
@@ -49,6 +61,14 @@ export function PierreFileView({
           disableLineNumbers: !lineNumbers,
           theme,
         }}
+        {...(lineAnnotations === undefined
+          ? {}
+          : {
+              lineAnnotations,
+              renderAnnotation: (annotation: LineAnnotation<DiffComment>) => (
+                <CommentBubble comment={annotation.metadata} />
+              ),
+            })}
       />
     </Virtualizer>
   )

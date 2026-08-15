@@ -66,6 +66,13 @@ export function MultiDiffFileStack({
                   </span>
                 </div>
                 <div className="oh-dsh-multi-diff-lines">
+                  {/*
+                    rawOnly is kept deliberately: a natural-height FileDiff
+                    container measures 0×0 and the render loop deadlocks
+                    (no rows). Switching this stack to Pierre requires either
+                    a bounded-height Virtualizer per file or the official
+                    MultiFileDiff component (see viewer-libraries-research §4).
+                  */}
                   <DiffViewer
                     document={reviewFileToDiffDocument(file)}
                     theme={theme}

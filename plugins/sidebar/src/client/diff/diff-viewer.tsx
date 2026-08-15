@@ -5,16 +5,20 @@
  * future diff — so there is exactly one diff component family.
  *
  * The structured DiffDocument is rebuilt into a patch for Pierre; when
- * Pierre cannot parse it (or `rawOnly` is set for comment interactions)
- * the structured RawDiff renderer takes over.
+ * Pierre cannot parse it (or `rawOnly` is set for natural-height stacks
+ * where the render loop cannot start) the structured RawDiff renderer takes
+ * over. Line comments render as Pierre annotation rows (lineAnnotations +
+ * renderAnnotation) on the new-side lines.
  */
+import type { ReactNode } from 'react'
+import type { AnnotationSide, DiffLineAnnotation } from '@pierre/diffs'
 import {
   buildPatch,
   type DiffDocument,
   type DiffLayoutStyle,
-  type DiffLine,
 } from './file-diff.ts'
 import { renderPierreDiff, type PierreDiffTheme } from './pierre-adapter.tsx'
+import type { DiffComment } from './diff-comments-store.ts'
 
 export type DiffViewerProps = Readonly<{
   document: DiffDocument
@@ -29,11 +33,16 @@ export type DiffViewerProps = Readonly<{
    */
   virtualize?: boolean
   /**
-   * Render the structured rows (no Pierre) and make each line clickable.
-   * Used by the commit review where lines carry comment targets.
+   * Render the structured rows (no Pierre). Used by natural-height stacks
+   * (multi-diff / commit lists) where a size-less FileDiff container cannot
+   * start its render loop.
    */
   rawOnly?: boolean
-  onLineClick?: (line: DiffLine) => void
+  /** Line comments rendered as Pierre annotation rows (new-side lines). */
+  lineAnnotations?: DiffLineAnnotation<DiffComment>[]
+  renderAnnotation?: (annotation: DiffLineAnnotation<DiffComment>) => ReactNode
+  /** Clicking a line-number gutter reports the line (prefills the comment form). */
+  onLineNumberClick?: (input: { lineNumber: number; side: AnnotationSide }) => void
   /**
    * Extra cache-key input: distinguishes otherwise-identical documents
    * (same path) whose rendered content differs — e.g. the same file's
@@ -51,13 +60,15 @@ export function DiffViewer({
   hideMeta = false,
   virtualize = true,
   rawOnly = false,
-  onLineClick,
+  lineAnnotations,
+  renderAnnotation,
+  onLineNumberClick,
   cacheBust,
 }: DiffViewerProps): JSX.Element {
   const summary = `${document.path}  +${String(document.additions)} −${String(document.deletions)}`
   const patch = buildPatch(document)
 
-  if (rawOnly || onLineClick !== undefined) {
+  if (rawOnly) {
     return (
       <div className="oh-dsh-diff-viewer" data-testid="diff-viewer" data-layout={layout}>
         {hideMeta ? null : (
@@ -69,7 +80,6 @@ export function DiffViewer({
           document={document}
           wordWrap={wordWrap}
           layout={layout}
-          {...(onLineClick === undefined ? {} : { onLineClick })}
         />
       </div>
     )
@@ -83,6 +93,9 @@ export function DiffViewer({
     layout,
     wordWrap,
     virtualize,
+    ...(lineAnnotations === undefined ? {} : { lineAnnotations }),
+    ...(renderAnnotation === undefined ? {} : { renderAnnotation }),
+    ...(onLineNumberClick === undefined ? {} : { onLineNumberClick }),
   })
 
   if (renderedDiff === null) {
@@ -115,17 +128,15 @@ export function DiffViewer({
   )
 }
 
-/** Structured row renderer (the Pierre-less fallback / comment surface). */
+/** Structured row renderer (the Pierre-less fallback / rawOnly stacks). */
 export function RawDiff({
   document,
   wordWrap,
   layout = 'unified',
-  onLineClick,
 }: {
   document: DiffDocument
   wordWrap: boolean
   layout?: DiffLayoutStyle
-  onLineClick?: (line: DiffLine) => void
 }): JSX.Element {
   if (layout === 'split') {
     return (
@@ -135,23 +146,14 @@ export function RawDiff({
           const rightText = line.kind === 'removed' ? '' : line.displayText
           const leftLabel = line.oldLineLabel
           const rightLabel = line.newLineLabel
-          const row = (
-            <>
-              <span className="oh-dsh-diff-raw-gutter">{leftLabel}</span>
-              <code className="oh-dsh-diff-raw-code">{leftText}</code>
-              <span className="oh-dsh-diff-raw-gutter">{rightLabel}</span>
-              <code className="oh-dsh-diff-raw-code">{rightText}</code>
-            </>
-          )
           return (
             <li key={`${document.path}-${index + 1}`} data-line-kind={line.kind}>
-              {onLineClick !== undefined ? (
-                <button type="button" className="oh-dsh-diff-raw-row" onClick={() => { onLineClick(line) }}>
-                  {row}
-                </button>
-              ) : (
-                <div className="oh-dsh-diff-raw-row">{row}</div>
-              )}
+              <div className="oh-dsh-diff-raw-row">
+                <span className="oh-dsh-diff-raw-gutter">{leftLabel}</span>
+                <code className="oh-dsh-diff-raw-code">{leftText}</code>
+                <span className="oh-dsh-diff-raw-gutter">{rightLabel}</span>
+                <code className="oh-dsh-diff-raw-code">{rightText}</code>
+              </div>
             </li>
           )
         })}
@@ -168,24 +170,11 @@ export function RawDiff({
             <code>{line.displayText}</code>
           </>
         )
-        const content = onLineClick !== undefined
-          ? (
-            <button
-              type="button"
-              className="oh-dsh-diff-raw-row"
-              data-line-kind={line.kind}
-              title={line.oldLine === null && line.newLine === null ? undefined : String(line.oldLine ?? line.newLine)}
-              onClick={() => { onLineClick(line) }}
-            >
-              {row}
-            </button>
-          )
-          : (
-            <div className="oh-dsh-diff-raw-row" data-line-kind={line.kind}>
-              {row}
-            </div>
-          )
-        return <li key={`${document.path}-${index + 1}`}>{content}</li>
+        return (
+          <li key={`${document.path}-${index + 1}`}>
+            <div className="oh-dsh-diff-raw-row" data-line-kind={line.kind}>{row}</div>
+          </li>
+        )
       })}
     </ol>
   )

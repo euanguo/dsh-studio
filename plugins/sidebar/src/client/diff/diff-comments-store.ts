@@ -45,3 +45,18 @@ export function nextDiffCommentId(): string {
     ? crypto.randomUUID()
     : `diff-comment-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`
 }
+
+/** Strip the workspace root prefix so git-relative and absolute paths compare. */
+export function pathRelativeToCwd(filePath: string, cwd: string): string {
+  const prefix = cwd.endsWith('/') ? cwd : `${cwd}/`
+  return filePath.startsWith(prefix) ? filePath.slice(prefix.length) : filePath
+}
+
+/**
+ * Whether a stored comment path (git-relative, from the diff surface) refers
+ * to the same file as a surface's `filePath` (absolute in Electron). Both
+ * sides are normalized against the workspace cwd before comparing.
+ */
+export function commentPathMatches(storedPath: string, filePath: string, cwd: string): boolean {
+  return pathRelativeToCwd(storedPath, cwd) === pathRelativeToCwd(filePath, cwd)
+}

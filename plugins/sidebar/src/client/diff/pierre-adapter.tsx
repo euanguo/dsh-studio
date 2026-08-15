@@ -17,7 +17,9 @@ import {
   useWorkerPool,
 } from '@pierre/diffs/react'
 import { parsePatchFiles } from '@pierre/diffs'
+import type { AnnotationSide, DiffLineAnnotation } from '@pierre/diffs'
 import type { DiffLayoutStyle } from './file-diff.ts'
+import type { DiffComment } from './diff-comments-store.ts'
 
 /** Light/dark theme names Pierre understands. */
 export type PierreDiffTheme = 'github-light' | 'github-dark'
@@ -85,6 +87,11 @@ export function renderPierreDiff(
     /** Single-file center surfaces: Virtualizer owns scroll.
      *  Multi-diff stacked panes: false so content grows and the outer list scrolls. */
     virtualize?: boolean
+    /** Line comments rendered as annotation rows on the new-side lines. */
+    lineAnnotations?: DiffLineAnnotation<DiffComment>[]
+    renderAnnotation?: (annotation: DiffLineAnnotation<DiffComment>) => ReactNode
+    /** Clicking a line-number gutter reports the line (prefills the comment form). */
+    onLineNumberClick?: (input: { lineNumber: number; side: AnnotationSide }) => void
   }>,
 ): ReactNode {
   const parsed = parsePatchFiles(input.patch, input.cacheKey)
@@ -94,6 +101,7 @@ export function renderPierreDiff(
   const layout = input.layout ?? 'unified'
   const wordWrap = input.wordWrap === true
   const virtualize = input.virtualize !== false
+  const hasAnnotations = input.lineAnnotations !== undefined && input.lineAnnotations.length > 0
 
   const file = (
     <FileDiff
@@ -104,7 +112,20 @@ export function renderPierreDiff(
         lineDiffType: 'none',
         overflow: wordWrap ? 'wrap' : 'scroll',
         theme: input.theme,
+        ...(input.onLineNumberClick === undefined
+          ? {}
+          : {
+              onLineNumberClick: props => {
+                input.onLineNumberClick?.({ lineNumber: props.lineNumber, side: props.annotationSide })
+              },
+            }),
       }}
+      {...(hasAnnotations
+        ? {
+            lineAnnotations: input.lineAnnotations,
+            ...(input.renderAnnotation === undefined ? {} : { renderAnnotation: input.renderAnnotation }),
+          }
+        : {})}
     />
   )
 
