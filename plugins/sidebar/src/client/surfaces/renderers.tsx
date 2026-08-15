@@ -8,7 +8,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { betterSidebarApi } from '../better-sidebar-api.ts'
-import { loadEditorChunk } from '../chunk-loader.ts'
+import type { FileContents } from '@pierre/diffs'
+import { Editor, type EditorOptions } from '@pierre/diffs/edit'
+import { EditProvider, File as PierreFile, Virtualizer } from '@pierre/diffs/react'
 import { getFileRuntime } from '../runtimes/registry.ts'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
@@ -209,6 +211,10 @@ export function FileSurfaceView({
 
 /* ---------- editor ---------- */
 
+function createPierreEditor(options: EditorOptions<undefined>): Editor<undefined> {
+  return new Editor(options)
+}
+
 export function EditorSurfaceView({
   surface,
   t,
@@ -216,19 +222,20 @@ export function EditorSurfaceView({
   surface: EditorCenterSurface
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const hostRef = useRef<HTMLDivElement | null>(null)
-  const editorRef = useRef<{ getValue(): string; setValue(value: string): void; focus(): void; destroy(): void } | null>(null)
+  const latestContentRef = useRef('')
   const autosaveTimerRef = useRef<number | null>(null)
   const [content, setContent] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
   const [readOnly, setReadOnly] = useState(false)
-  const [chunkError, setChunkError] = useState('')
+  const theme = usePierreDiffTheme()
 
   const save = useCallback((nextContent?: string) => {
-    const value = nextContent ?? editorRef.current?.getValue()
-    if (value === undefined) return
+    const value = nextContent ?? latestContentRef.current
+    if (value === '') {
+      // Empty content is a valid save; still write it below.
+    }
     setSaving(true)
     betterSidebarApi.fsWrite(
       { sessionId: surface.sessionId, cwd: surface.cwd },
@@ -248,8 +255,8 @@ export function EditorSurfaceView({
     let alive = true
     setContent(null)
     setError('')
-    setChunkError('')
     setDirty(false)
+    latestContentRef.current = ''
     void betterSidebarApi.fsRead(
       { sessionId: surface.sessionId, cwd: surface.cwd },
       surface.filePath,
@@ -259,47 +266,33 @@ export function EditorSurfaceView({
         setError(t('files.viewer.binary'))
         return
       }
+      latestContentRef.current = result.content
       setContent(result.content)
     }).catch((cause: unknown) => {
       if (alive) setError(cause instanceof Error ? cause.message : String(cause))
     })
-    return () => { alive = false }
-  }, [surface.cwd, surface.filePath, surface.sessionId, t])
-
-  useEffect(() => {
-    if (content === null || hostRef.current === null) return
-    let alive = true
-    let disposed = false
-    void loadEditorChunk().then(api => {
-      if (!alive || disposed || hostRef.current === null) return
-      const handle = api.mountCodeEditor({
-        parent: hostRef.current,
-        value: content,
-        filePath: surface.filePath,
-        readOnly,
-        onChange: value => {
-          setDirty(true)
-          if (autosaveTimerRef.current !== null) window.clearTimeout(autosaveTimerRef.current)
-          autosaveTimerRef.current = window.setTimeout(() => {
-            if (!readOnly) save(value)
-          }, 1000)
-        },
-        onSave: () => { save() },
-      })
-      editorRef.current = handle
-    }).catch((cause: unknown) => {
-      if (alive) setChunkError(cause instanceof Error ? cause.message : String(cause))
-    })
     return () => {
       alive = false
-      disposed = true
       if (autosaveTimerRef.current !== null) window.clearTimeout(autosaveTimerRef.current)
-      editorRef.current?.destroy()
-      editorRef.current = null
     }
-  }, [content, readOnly, save, surface.filePath])
+  }, [surface.cwd, surface.filePath, surface.sessionId, t])
 
-  if (chunkError !== '') return <div className="oh-dsh-side-error" role="alert">{chunkError}</div>
+  const file = useMemo<FileContents>(() => ({
+    name: surface.filePath.split(/[\\/]/).filter(Boolean).pop() ?? surface.filePath,
+    contents: content ?? '',
+    cacheKey: `editor:${surface.filePath}`,
+  }), [content, surface.filePath])
+
+  const editorOptions = useMemo<EditorOptions<undefined>>(() => ({
+    persistState: false,
+    onChange: nextFile => {
+      latestContentRef.current = nextFile.contents
+      setDirty(true)
+      if (autosaveTimerRef.current !== null) window.clearTimeout(autosaveTimerRef.current)
+      autosaveTimerRef.current = window.setTimeout(() => { save(nextFile.contents) }, 1000)
+    },
+  }), [save])
+
   if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
   if (content === null) return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
   return (
@@ -316,7 +309,16 @@ export function EditorSurfaceView({
           </button>
         </span>
       </div>
-      <div ref={hostRef} className="oh-dsh-editor-host" />
+      <EditProvider createEditor={createPierreEditor}>
+        <Virtualizer className="oh-dsh-editor-host">
+          <PierreFile
+            file={file}
+            edit={!readOnly}
+            editorOptions={editorOptions}
+            options={{ disableFileHeader: true, theme }}
+          />
+        </Virtualizer>
+      </EditProvider>
     </div>
   )
 }
