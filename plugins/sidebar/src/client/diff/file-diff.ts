@@ -54,17 +54,60 @@ export function buildDiffDocument(input: DiffDocumentInput): DiffDocument {
 export function buildPatch(document: DiffDocument): string {
   const oldPath = document.change === 'added' ? '/dev/null' : `a/${document.path}`
   const newPath = document.change === 'deleted' ? '/dev/null' : `b/${document.path}`
-  return [
+  const header = [
     `diff --git a/${document.path} b/${document.path}`,
     `--- ${oldPath}`,
     `+++ ${newPath}`,
-    ...document.lines.map(line => {
-      if (line.kind === 'hunk') return line.text
-      if (line.kind === 'added') return `+${line.text}`
-      if (line.kind === 'removed') return `-${line.text}`
-      return ` ${line.text}`
-    }),
-  ].join('\n')
+  ]
+  // Hunk headers are regenerated from the line numbers: documents built from
+  // review files carry no `hunk` rows, and Pierre's parsePatchFiles ignores
+  // a patch without `@@` headers entirely (0 hunks → empty render).
+  const body: string[] = []
+  let hunkLines: string[] = []
+  let oldStart = 0
+  let newStart = 0
+  let oldCount = 0
+  let newCount = 0
+  let prevOldEnd = 0
+  let prevNewEnd = 0
+
+  const flushHunk = (): void => {
+    if (hunkLines.length === 0) return
+    body.push(`@@ -${oldStart},${oldCount} +${newStart},${newCount} @@`, ...hunkLines)
+    hunkLines = []
+  }
+
+  for (const line of document.lines) {
+    if (line.kind === 'hunk') continue
+    const text = line.kind === 'added'
+      ? `+${line.text}`
+      : line.kind === 'removed'
+        ? `-${line.text}`
+        : ` ${line.text}`
+    const curOldStart = line.oldLine ?? prevOldEnd
+    const curNewStart = line.newLine ?? prevNewEnd
+    // A gap on BOTH sides starts a new hunk (standard unified-diff rule).
+    if (hunkLines.length > 0 && curOldStart > prevOldEnd + 1 && curNewStart > prevNewEnd + 1) {
+      flushHunk()
+    }
+    if (hunkLines.length === 0) {
+      oldStart = line.oldLine ?? prevOldEnd
+      newStart = line.newLine ?? prevNewEnd
+      oldCount = 0
+      newCount = 0
+    }
+    hunkLines.push(text)
+    if (line.oldLine !== null) {
+      oldCount += 1
+      prevOldEnd = line.oldLine
+    }
+    if (line.newLine !== null) {
+      newCount += 1
+      prevNewEnd = line.newLine
+    }
+  }
+  flushHunk()
+  return [...header, ...body].join('\n')
 }
 
 export type DiffCollectionSummary = Readonly<{
