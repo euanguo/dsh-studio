@@ -1,13 +1,11 @@
 /**
- * Unit tests for the text-viewer language detection + degradation policy
+ * Unit tests for the text-viewer language detection
  * (plugins/sidebar/src/client/files/language.ts).
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  MAX_HIGHLIGHT_CHARS,
   MAX_NUMBERED_LINES,
-  fileViewPolicy,
   isPlainLanguage,
   languageForPath,
 } from '../plugins/sidebar/src/client/files/language.ts'
@@ -36,29 +34,6 @@ test('isPlainLanguage covers the plain rendering set', () => {
   assert.equal(isPlainLanguage('markdown'), false)
 })
 
-test('fileViewPolicy routes known languages under the size cap to pierre', () => {
-  assert.deepEqual(fileViewPolicy('main.ts', 100), { language: 'typescript', pierre: true })
-  assert.deepEqual(fileViewPolicy('README.md', 10_000), { language: 'markdown', pierre: true })
-})
-
-test('fileViewPolicy degrades oversized files to plain text', () => {
-  const policy = fileViewPolicy('main.ts', MAX_HIGHLIGHT_CHARS + 1)
-  assert.equal(policy.language, 'typescript')
-  assert.equal(policy.pierre, false)
-})
-
-test('fileViewPolicy keeps the boundary inclusive at the cap', () => {
-  const policy = fileViewPolicy('main.ts', MAX_HIGHLIGHT_CHARS)
-  assert.equal(policy.pierre, true)
-})
-
-test('fileViewPolicy degrades unknown languages to plain text', () => {
-  const policy = fileViewPolicy('data.unknownxyz', 10)
-  assert.equal(policy.language, 'text')
-  assert.equal(policy.pierre, false)
-})
-
 test('line-number cap constant stays at the Synara policy value', () => {
   assert.equal(MAX_NUMBERED_LINES, 20_000)
-  assert.equal(MAX_HIGHLIGHT_CHARS, 250_000)
 })

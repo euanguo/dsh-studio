@@ -667,31 +667,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   overflow: hidden;
 }
 
-/* Plain fallback (unknown language / oversized file). */
-.oh-dsh-content-plain {
-  margin: 0;
-  padding: var(--oh-dsh-space-2) 0 var(--oh-dsh-space-3);
-  overflow: auto;
-  font: var(--oh-dsh-font-sm) var(--oh-dsh-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  line-height: 18px;
-}
-
-.oh-dsh-content-plain .line {
-  display: flex;
-  min-width: max-content;
-}
-
-.oh-dsh-content-line-number {
-  flex: none;
-  width: 4ch;
-  padding: 0 var(--oh-dsh-space-2) 0 var(--oh-dsh-space-3);
-  box-sizing: border-box;
-  text-align: right;
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-  font-size: var(--oh-dsh-font-xs);
-  user-select: none;
-}
-
 .oh-dsh-content-markdown {
   min-height: 0;
   overflow: auto;

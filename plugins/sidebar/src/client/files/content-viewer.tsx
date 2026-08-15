@@ -19,7 +19,7 @@ import {
 } from '../../../../shared/tabler-icons.tsx'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { fileViewPolicy, isPlainLanguage, MAX_NUMBERED_LINES } from './language.ts'
+import { isPlainLanguage, languageForPath, MAX_NUMBERED_LINES } from './language.ts'
 import { PierreFileView } from './pierre-file-view.tsx'
 import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
 import { MarkdownViewer } from './markdown-viewer.tsx'
@@ -198,7 +198,6 @@ export function ContentViewer({
       )
     }
     const lines = content.split('\n')
-    const policy = fileViewPolicy(path, content.length)
     const showLineNumbers = lines.length <= MAX_NUMBERED_LINES
     return (
       <div className="oh-dsh-content-root oh-dsh-content-root-fill">
@@ -207,18 +206,14 @@ export function ContentViewer({
           <span>{`markdown · ${lines.length} lines`}</span>
           {truncated ? <span>{t('files.preview-truncated')}</span> : null}
         </div>
-        {policy.pierre ? (
-          <PierreFileView
-            path={path}
-            content={content}
-            language="markdown"
-            lineNumbers={showLineNumbers}
-            cacheKey={path}
-            {...(comments === undefined ? {} : { comments })}
-          />
-        ) : (
-          <PlainTextView content={content} showLineNumbers={showLineNumbers} />
-        )}
+        <PierreFileView
+          path={path}
+          content={content}
+          language="markdown"
+          lineNumbers={showLineNumbers}
+          cacheKey={path}
+          {...(comments === undefined ? {} : { comments })}
+        />
       </div>
     )
   }
@@ -239,55 +234,29 @@ export function ContentViewer({
     )
   }
 
+  // Every plain-text kind (code, unknown extension, oversized) renders
+  // through the same Pierre File component — one viewer family, no custom
+  // plain renderer. Unknown languages pass lang 'text' (plain rows with
+  // line numbers, same chrome as highlighted files).
   const lines = content.split('\n')
-  const policy = fileViewPolicy(path, content.length)
+  const language = languageForPath(path)
   const showLineNumbers = lines.length <= MAX_NUMBERED_LINES
   return (
-    <div className={`oh-dsh-content-root${policy.pierre ? ' oh-dsh-content-root-fill' : ''}`}>
+    <div className="oh-dsh-content-root oh-dsh-content-root-fill">
       <div className="oh-dsh-content-meta">
         <span>{name}</span>
-        <span>{isPlainLanguage(policy.language) ? `${lines.length} lines` : `${policy.language} · ${lines.length} lines`}</span>
+        <span>{isPlainLanguage(language) ? `${lines.length} lines` : `${language} · ${lines.length} lines`}</span>
         {truncated ? <span>{t('files.preview-truncated')}</span> : null}
       </div>
-      {policy.pierre ? (
-        <PierreFileView
-          path={path}
-          content={content}
-          language={policy.language}
-          lineNumbers={showLineNumbers}
-          cacheKey={path}
-          {...(comments === undefined ? {} : { comments })}
-        />
-      ) : (
-        <PlainTextView content={content} showLineNumbers={showLineNumbers} />
-      )}
+      <PierreFileView
+        path={path}
+        content={content}
+        language={language}
+        lineNumbers={showLineNumbers}
+        cacheKey={path}
+        {...(comments === undefined ? {} : { comments })}
+      />
     </div>
-  )
-}
-
-/** Plain-text fallback: unknown language or oversized file (>MAX_HIGHLIGHT_CHARS). */
-function PlainTextView({
-  content,
-  showLineNumbers,
-}: {
-  content: string
-  showLineNumbers: boolean
-}): JSX.Element {
-  const lines = content.split('\n')
-  return (
-    <pre className={`oh-dsh-content-plain${showLineNumbers ? ' is-numbered' : ''}`}>
-      {showLineNumbers ? (
-        lines.map((line, index) => (
-          <span className="line" key={index}>
-            <span className="oh-dsh-content-line-number">{index + 1}</span>
-            {line === '' ? ' ' : line}
-            {'\n'}
-          </span>
-        ))
-      ) : (
-        <code>{content}</code>
-      )}
-    </pre>
   )
 }
 

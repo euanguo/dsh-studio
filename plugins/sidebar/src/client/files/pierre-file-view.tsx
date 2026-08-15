@@ -19,7 +19,7 @@ import { CommentBubble } from '../diff/comment-bubble.tsx'
 export interface PierreFileViewProps {
   path: string
   content: string
-  /** Shiki language id (never 'text' / ''). */
+  /** Shiki language id; 'text' renders plain rows (unknown languages). */
   language: string
   /** Show the line-number gutter (dropped above MAX_NUMBERED_LINES). */
   lineNumbers: boolean
