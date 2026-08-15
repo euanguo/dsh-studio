@@ -26,18 +26,18 @@ import {
   type SidebarConfig,
   type SidebarPrefs,
 } from './config.ts'
-import { isWithin, parentOf, requireAbsolute, listDirectory, rootLabel } from './fs-tree.ts'
+import { isWithin, parentOf, requireAbsolute, listDirectory, rootLabel } from '../../shared/fs-tree.ts'
 import { decodeHtmlUrl } from './html-route.ts'
 import { extractFrameAncestors } from './browser-probe.ts'
 import { isTrustedApiRequest, isLoopbackHostname } from './trust-fence.ts'
 import { registerBundleRoute } from './bundle-route.ts'
-import * as git from './git.ts'
+import * as git from '../../shared/git-core.ts'
 import { SettingsConflictError, settingsNamespace, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import { defaultShell, ensureSpawnHelper, PtyManager } from './pty-manager.ts'
 import { AgentPtyRegistry, clampDims, type AgentTerminalHandle } from './agent-pty.ts'
 import { registerTools } from './tools.ts'
 import { buildJobsApi, type SidebarJobsRoutes } from './jobs-routes.ts'
-import { readJsonBody, requireString, SidebarError, writeError, writeJson, writeOk } from './wire.ts'
+import { readJsonBody, requireString, SidebarError, writeError, writeJson, writeOk } from '../../shared/wire.ts'
 
 export { Config }
 export type { SidebarConfig, ResolvedSidebarConfig }
@@ -133,15 +133,21 @@ async function resolveGitPath(cwd: string, raw: string): Promise<string> {
 /** How many leading bytes a binary read returns for client-side detect sniffing. */
 const READ_HEAD_LIMIT = 4096
 
+/** Binary payloads up to this size ship inline (base64) for image/PDF previews. */
+const PREVIEW_LIMIT = 2 * 1024 * 1024
+
 /** Text read of a file with the size cap; binary detection via NUL probe.
  *  Binary reads also return the first {@link READ_HEAD_LIMIT} bytes (base64)
- *  so the client can re-match viewers by content (`detect`). */
+ *  so the client can re-match viewers by content (`detect`), and — when the
+ *  file is small enough — the full base64 payload (`data`) for inline
+ *  image/PDF previews. */
 async function readText(path: string, readLimit: number): Promise<{
   content: string
   truncated: boolean
   binary: boolean
   size: number
   head?: string
+  data?: string
 }> {
   const info = await stat(path).catch((error: unknown) => {
     throw new SidebarError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
@@ -159,10 +165,24 @@ async function readText(path: string, readLimit: number): Promise<{
     const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
     const slice = buffer.subarray(0, bytesRead)
     const binary = slice.includes(0)
-    const head = binary
-      ? slice.subarray(0, Math.min(slice.length, READ_HEAD_LIMIT)).toString('base64')
-      : undefined
-    return { content: binary ? '' : slice.toString('utf8'), truncated, binary, size, ...(head === undefined ? {} : { head }) }
+    if (binary) {
+      const head = slice.subarray(0, Math.min(slice.length, READ_HEAD_LIMIT)).toString('base64')
+      if (size <= PREVIEW_LIMIT) {
+        // Re-read the full payload for inline image/PDF previews.
+        const full = Buffer.alloc(size)
+        const { bytesRead: fullRead } = await handle.read(full, 0, full.length, 0)
+        return {
+          content: '',
+          truncated: false,
+          binary,
+          size,
+          head,
+          data: full.subarray(0, fullRead).toString('base64'),
+        }
+      }
+      return { content: '', truncated, binary, size, head }
+    }
+    return { content: slice.toString('utf8'), truncated, binary: false, size }
   } finally {
     await handle.close()
   }
@@ -199,6 +219,14 @@ function buildApi(
     const clientCwd = typeof record?.cwd === 'string' && record.cwd !== '' ? record.cwd : undefined
     return { sessionId, cwd: sessionCwdOf(ctx, sessionId, clientCwd) }
   }
+  // Worktree-only scope: the workspace browser has no session binding, so the
+  // worktree endpoints accept a bare absolute cwd (same same-origin POST fence).
+  const cwdScopeOf = (payload: unknown): string => {
+    const record = payload as { cwd?: unknown } | null
+    const raw = typeof record?.cwd === 'string' && record.cwd !== '' ? record.cwd : undefined
+    if (raw === undefined) throw new SidebarError('bad-request', 'cwd is required')
+    return requireAbsolute(raw)
+  }
   // Background jobs: the LIST rides the harness's `session/jobs` push
   // mirror, so these routes only replay output the model has read (from the
   // session's own event log — no DSH source is touched, the model's
@@ -221,8 +249,16 @@ function buildApi(
       // Relative paths are git-derived (status/diff report repo-root-relative
       // names; the untracked diff view reads the file through this route).
       const path = await resolveGitPath(cwd, requireString(payload, 'path'))
-      const { content, truncated, binary, size, head } = await readText(path, resolved.readLimit)
-      if (binary) return { kind: 'binary', size, truncated, head }
+      const { content, truncated, binary, size, head, data } = await readText(path, resolved.readLimit)
+      if (binary) {
+        return {
+          kind: 'binary',
+          size,
+          truncated,
+          ...(head === undefined ? {} : { head }),
+          ...(data === undefined ? {} : { data }),
+        }
+      }
       return { kind: 'text', content, truncated }
     },
     'fs.write': async (payload) => {
@@ -242,7 +278,22 @@ function buildApi(
     },
     'git.status': async (payload) => {
       const { cwd } = cwdOf(payload)
-      return git.status(cwd)
+      // One porcelain v2 subprocess yields isRepo + branch + entries (and
+      // upstream/ahead/behind for free); attach per-entry +N/−M counts so the
+      // client's change list can render file stats without extra round-trips.
+      const result = await git.statusV2(cwd)
+      const [worktree, cached] = await Promise.all([
+        git.numstat(cwd, false).catch(() => []),
+        git.numstat(cwd, true).catch(() => []),
+      ])
+      const statsByPath = new Map(
+        [...worktree, ...cached].map(stat => [stat.path, stat] as const),
+      )
+      const stats = result.entries.map(entry => {
+        const found = statsByPath.get(entry.path)
+        return found ?? { path: entry.path, additions: 0, deletions: 0 }
+      })
+      return { isRepo: result.isRepo, branch: result.branch, entries: result.entries, stats }
     },
     'git.diff': async (payload) => {
       const { cwd } = cwdOf(payload)
@@ -314,6 +365,18 @@ function buildApi(
       const path = await resolveGitPath(cwd, requireString(payload, 'path'))
       const rev = requireString(payload, 'rev')
       return { content: await git.show(cwd, rev, path) }
+    },
+    'git.worktree-list': (payload) => {
+      const cwd = cwdScopeOf(payload)
+      return git.worktreeList(cwd)
+    },
+    'git.worktree-add': (payload) => {
+      const cwd = cwdScopeOf(payload)
+      const path = requireAbsolute(requireString(payload, 'path'))
+      const branch = requireString(payload, 'branch')
+      const record = payload as { createBranch?: unknown } | null
+      const createBranch = record?.createBranch === true
+      return git.worktreeAdd(cwd, path, branch, createBranch)
     },
     // Release a terminal immediately. The WebSocket close frame already does
     // this while the socket is open; this route covers the tab-close that

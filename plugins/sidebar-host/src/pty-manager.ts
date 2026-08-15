@@ -10,7 +10,7 @@ import { chmodSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
 import * as nodePty from 'node-pty'
-import { SidebarError } from './wire.ts'
+import { SidebarError } from '../../shared/wire.ts'
 
 /** Per-terminal transcript bound (bytes kept for replay). */
 const TRANSCRIPT_LIMIT = 1 << 20

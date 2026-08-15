@@ -18,14 +18,23 @@ distribution is a self-contained single repository.
 The maintainer allowed direct changes to the plugin body; each change is
 recorded here so upstream upgrades can be re-applied:
 
-- `git.ts` — added `numstat()` / `parseNumstatZ()`: per-path `git diff
-  --numstat -z` parsing for the +N/−M file stats shown by the
-  source-control panel.
+- `git.ts` — **deleted**. Implementation moved to `plugins/shared/git-core.ts`
+  (porcelain v2 single-command status + `numstat()`/`parseNumstatZ()` +
+  `core.quotePath=false` + `maxOutputBytes`); `index.ts` imports it directly.
+- `fs-tree.ts` / `wire.ts` / `prefs-shared.ts` — **deleted**. Moved to
+  `plugins/shared/` (framework-agnostic capability layer shared by the
+  sidebar host, the left-rail host and this vendored host). Internal
+  importers (`index.ts` / `config.ts` / `agent-pty.ts` / `jobs-routes.ts` /
+  `pty-manager.ts` / `client/state.ts`) now import from `../../shared/*`.
 - `agent-pty.ts` — `exitCode`/`exitSignal` default to `null` (strict-mode
   `exactOptionalPropertyTypes` compatibility).
 - `index.ts` — optional `head` returned conditionally; settings view
   returns `{}` instead of explicit `undefined` values (same strict-mode
-  compatibility).
+  compatibility). Plus (generic-host parity so the desktop client can call
+  `/sidebar/api` directly): `readText` also returns a full base64 `data`
+  payload for binaries ≤ 2MB (inline image/PDF preview); `git.status`
+  upgraded to `statusV2` + per-entry `numstat` stats; added `cwdScopeOf`
+  and `git.worktree-list` / `git.worktree-add` (bare-cwd scope, no session).
 - `jobs-routes.ts` — optional `text` returned conditionally (strict-mode).
 - `client/api.ts` — fetch init assembled without an optional `signal`
   spread (strict-mode overload compatibility).
@@ -38,7 +47,7 @@ recorded here so upstream upgrades can be re-applied:
 ## Upgrading
 
 1. Fetch the upstream repo, diff `src/` against this tree:
-   `git diff --no-index plugins/better-sidebar-runtime/src <upstream>/src`
+   `git diff --no-index plugins/sidebar-host/src <upstream>/src`
    (ignore the upstream `src/client/` UI files — not vendored).
 2. Apply upstream changes, keeping the fork delta above (including the
    vendored `src/client/` type-contract subset).
