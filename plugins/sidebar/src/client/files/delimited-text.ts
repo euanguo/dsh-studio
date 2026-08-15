@@ -1,5 +1,5 @@
 /** Minimal RFC-ish CSV/TSV split for lightweight file previews. */
-export const MAX_CSV_ROWS = 2_000
+export const MAX_CSV_ROWS = 100_000
 
 export function parseDelimitedRows(text: string, delimiter: string): string[][] {
   const rows: string[][] = []

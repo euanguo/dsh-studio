@@ -9,7 +9,8 @@
  * caps), image loading/error/zoom states, PDF toolbar, sticky CSV header,
  * differentiated binary states, and truncated propagation for write-gating.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   IconExternalLink,
   IconFileText,
@@ -217,8 +218,6 @@ export function ContentViewer({
   if (kind === 'csv') {
     const delimiter = detectDelimiter(path, content)
     const rows = parseDelimitedRows(content, delimiter)
-    const header = rows[0] ?? []
-    const body = rows.slice(1)
     return (
       <div className="oh-dsh-content-root">
         <div className="oh-dsh-content-meta">
@@ -227,24 +226,7 @@ export function ContentViewer({
           {size === undefined ? '' : formatBytes(size)}
           {truncated ? <span>{t('files.preview-truncated')}</span> : null}
         </div>
-        <div className="oh-dsh-content-table-wrap">
-          <table className="oh-dsh-content-table">
-            {header.length > 0 && (
-              <thead>
-                <tr>
-                  {header.map((cell, index) => <th key={`h-${index}`}>{cell}</th>)}
-                </tr>
-              </thead>
-            )}
-            <tbody>
-              {body.map((row, rowIndex) => (
-                <tr key={`r-${rowIndex}`}>
-                  {row.map((cell, cellIndex) => <td key={`c-${rowIndex}-${cellIndex}`}>{cell}</td>)}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CsvVirtualTable rows={rows} />
       </div>
     )
   }
@@ -286,6 +268,46 @@ export function ContentViewer({
           ))}
         </ol>
       )}
+    </div>
+  )
+}
+
+function CsvVirtualTable({ rows }: { rows: string[][] }): JSX.Element {
+  const parentRef = useRef<HTMLDivElement | null>(null)
+  const header = rows[0] ?? []
+  const body = rows.slice(1)
+  const virtualizer = useVirtualizer({
+    count: body.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 24,
+    overscan: 12,
+  })
+  const items = virtualizer.getVirtualItems()
+  const topSpacer = items[0]?.start ?? 0
+  const bottomSpacer = Math.max(0, virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0))
+  return (
+    <div className="oh-dsh-content-table-wrap" ref={parentRef}>
+      <table className="oh-dsh-content-table oh-dsh-content-table-virtual">
+        {header.length > 0 ? (
+          <thead>
+            <tr>
+              {header.map((cell, index) => <th key={`h-${index}`}>{cell}</th>)}
+            </tr>
+          </thead>
+        ) : null}
+        <tbody>
+          {topSpacer > 0 ? <tr aria-hidden="true"><td style={{ height: topSpacer, padding: 0 }} /></tr> : null}
+          {items.map(item => {
+            const row = body[item.index] ?? []
+            return (
+              <tr key={`r-${item.key}`} data-index={item.index} ref={virtualizer.measureElement}>
+                {row.map((cell, cellIndex) => <td key={`c-${item.index}-${cellIndex}`}>{cell}</td>)}
+              </tr>
+            )
+          })}
+          {bottomSpacer > 0 ? <tr aria-hidden="true"><td style={{ height: bottomSpacer, padding: 0 }} /></tr> : null}
+        </tbody>
+      </table>
     </div>
   )
 }
