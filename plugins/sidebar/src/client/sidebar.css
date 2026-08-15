@@ -1252,3 +1252,26 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   padding: 4px 10px;
 }
 
+
+/* Markdown TOC */
+.oh-dsh-markdown-toc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--oh-dsh-space-3);
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-md);
+  background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 3%));
+}
+
+.oh-dsh-markdown-toc a {
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-xs);
+  text-decoration: none;
+}
+
+.oh-dsh-markdown-toc a:hover {
+  color: var(--dsw-alias-state-info-primary, #0969da);
+}
+

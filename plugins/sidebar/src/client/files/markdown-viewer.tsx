@@ -6,6 +6,7 @@
  * checkboxes report their 0-based checkbox index; the caller maps that to a
  * source line through `findTaskMarkerSourceLines`.
  */
+import { useMemo } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { highlightCode } from './syntax-highlight.ts'
@@ -25,13 +26,35 @@ export function MarkdownViewer({
   taskTogglesEnabled = true,
 }: MarkdownViewerProps): JSX.Element {
   const sourceLines = onTaskToggle === undefined ? [] : findTaskMarkerSourceLines(content)
+  const headings = useMemo(() => extractHeadings(content), [content])
   let taskCursor = -1
 
   return (
     <div className="oh-dsh-content-markdown" data-testid="markdown-viewer">
+      {headings.length > 1 ? (
+        <nav className="oh-dsh-markdown-toc" aria-label="Table of contents">
+          {headings.map(heading => (
+            <a key={heading.id} href={`#${heading.id}`} style={{ paddingLeft: `${(heading.level - 1) * 10}px` }}>
+              {heading.text}
+            </a>
+          ))}
+        </nav>
+      ) : null}
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          h1({ children, ...props }) {
+            return <h1 id={slugify(String(children))} {...props}>{children}</h1>
+          },
+          h2({ children, ...props }) {
+            return <h2 id={slugify(String(children))} {...props}>{children}</h2>
+          },
+          h3({ children, ...props }) {
+            return <h3 id={slugify(String(children))} {...props}>{children}</h3>
+          },
+          h4({ children, ...props }) {
+            return <h4 id={slugify(String(children))} {...props}>{children}</h4>
+          },
           code({ node, className, children, ...props }) {
             const inline = className === undefined && !String(children).includes('\n')
             if (inline) {
@@ -83,4 +106,25 @@ export function MarkdownViewer({
       </ReactMarkdown>
     </div>
   )
+}
+
+
+function slugify(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s-]/gu, '')
+    .replace(/\s+/g, '-')
+}
+
+function extractHeadings(content: string): Array<{ id: string; text: string; level: number }> {
+  const result: Array<{ id: string; text: string; level: number }> = []
+  for (const line of content.split('\n')) {
+    const match = /^(#{1,4})\s+(.+)$/.exec(line)
+    if (match === null) continue
+    const level = match[1]!.length
+    const text = match[2]!.trim()
+    result.push({ id: slugify(text), text, level })
+  }
+  return result
 }
