@@ -244,6 +244,13 @@ function RailFloatControls({
           <IconRailExpand />
         </button>
       )}
+      {/* Bridge the strip's bottom border across the DSH center-column gap
+          to the right panel's left edge, so the top divider reads as one
+          continuous line. The gap is the DSH layout's fixed 12px margin
+          between the center column and the panel column. */}
+      {sidebar !== undefined && rightOpen && (
+        <div className="oh-dsh-center-border-bridge" aria-hidden="true" />
+      )}
     </>,
     document.body,
   )
