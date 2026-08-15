@@ -6,7 +6,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import type { DesktopBridge } from '../../../../src/contracts.ts'
+import type { DesktopBridge } from '../../../shared/desktop-contracts.ts'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { localeTag } from '../../../shared/i18n.ts'
 import { useTranslate } from '../../../shared/use-i18n.ts'
@@ -719,7 +719,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
     setPending(true)
     setLocalError(null)
     try {
-      setSnapshot(await bridge.pluginMarketplace.dispatch(command))
+      setSnapshot(await bridge.pluginMarketplace.dispatch(command) as MarketplaceSnapshot)
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : String(error))
     } finally {
@@ -733,10 +733,10 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
     setLocalError(null)
     void bridge.pluginMarketplace.getSnapshot().then(initial => {
       if (!alive) return
-      setSnapshot(initial)
+      setSnapshot(initial as MarketplaceSnapshot)
       return bridge.pluginMarketplace.dispatch({ type: 'refresh' })
     }).then(refreshed => {
-      if (alive && refreshed !== undefined) setSnapshot(refreshed)
+      if (alive && refreshed !== undefined) setSnapshot(refreshed as MarketplaceSnapshot)
     }).catch((error: unknown) => {
       if (alive) setLocalError(error instanceof Error ? error.message : String(error))
     }).finally(() => {

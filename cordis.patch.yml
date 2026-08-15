@@ -17,14 +17,11 @@
     - id: oh-desktop
       name: '@oh-dsh/desktop'
 
-    - id: oh-better-sidebar-runtime
-      name: '@oh-dsh/better-sidebar-runtime'
+    - id: oh-sidebar-host
+      name: '@oh-dsh/sidebar-host'
 
-    - id: oh-vision
-      name: '@oh-dsh/vision'
-
-    - id: oh-skins
-      name: '@oh-dsh/skins'
+    - id: oh-desktop-skins
+      name: '@oh-dsh/desktop-skins'
 
     - id: oh-sidebar
       name: '@oh-dsh/sidebar'
@@ -37,6 +34,9 @@
 
     - id: oh-plugin-marketplace
       name: '@oh-dsh/plugin-marketplace'
+
+    - id: oh-sidebar-desktop
+      name: '@oh-dsh/sidebar-desktop'
 
 # Left rail: the forked ui-workspace replaces the official browser. The
 # official row is disabled (slot 'sidebar.workspaces' is single-owner), and

@@ -6,7 +6,7 @@
  * selected/previewed on click. The cache (`entriesByDir`) is owned by the
  * explorer runtime — the view never fetches.
  */
-import type { WorkspaceFileEntry, WorkspaceFileKind } from '../protocol.ts'
+import type { WorkspaceFileEntry, WorkspaceFileKind } from '../../protocol.ts'
 
 export interface FileRow {
   kind: WorkspaceFileKind

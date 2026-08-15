@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import type { WorkspaceChange } from '../plugins/desktop-sidebar/src/protocol.ts'
+import type { WorkspaceChange } from '../plugins/sidebar/src/protocol.ts'
 import {
   buildSourceControlTree,
   canDiscardChange,
@@ -11,11 +11,11 @@ import {
   collectUnstagePaths,
   flattenSourceControlTree,
   sectionOfChange,
-} from '../plugins/desktop-sidebar/src/client/source-control-tree.ts'
+} from '../plugins/sidebar/src/client/source-control/source-control-tree.ts'
 import {
   buildSourceControlRows,
   type FileRow,
-} from '../plugins/desktop-sidebar/src/client/source-control-view-model.ts'
+} from '../plugins/sidebar/src/client/source-control/source-control-view-model.ts'
 
 function change(path: string, status: WorkspaceChange['status'], staged: boolean): WorkspaceChange {
   return { path, oldPath: null, status, staged, additions: 0, deletions: 0 }

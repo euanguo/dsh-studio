@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/sidebar",
+  "name": "@oh-dsh/sidebar-desktop",
   "version": "0.1.2",
-  "description": "Extensible Oh-DSH side panel with workspace and desktop tools",
+  "description": "Desktop add-on for the Oh-DSH sidebar: Electron webview browser",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -14,12 +14,7 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
-        "@deepseek-ai/dsh-client-ui-conversation",
-        "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-ui-input-trigger",
-        "@deepseek-ai/dsh-client-ui-slots",
-        "@oh-dsh/panel-controls",
-        "@oh-dsh/pinned-summary"
+        "@oh-dsh/sidebar"
       ],
       "platform": "web",
       "immediately": true
@@ -34,13 +29,6 @@
     "@types/react": "~18.3.1",
     "@types/react-dom": "^18.3.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "zustand": "^5.0.15",
-    "@pierre/diffs": "^1.3.5"
-  },
-  "dependencies": {
-    "@types/prismjs": "^1.26.6",
-    "prismjs": "^1.30.0",
-    "react-markdown": "^10.1.0"
+    "react-dom": "^18.2.0"
   }
 }

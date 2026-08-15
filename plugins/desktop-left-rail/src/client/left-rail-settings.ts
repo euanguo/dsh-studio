@@ -5,7 +5,7 @@
  * state (tab/group/alias), while projects/worktrees stay derived from git.
  */
 const NS = 'oh-dsh.left-rail'
-const API_ROOT = '/oh-dsh-desktop/sidebar/api/'
+const API_ROOT = '/sidebar/api/'
 
 /** The durable left-rail view slice (JSON-compatible). */
 export interface LeftRailSettings {

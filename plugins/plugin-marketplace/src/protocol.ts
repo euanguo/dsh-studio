@@ -20,9 +20,9 @@ export type MarketplaceConfirmation =
   | 'accept-source-change'
 
 const PROTECTED_PLUGIN_IDS = new Set([
-  'better-sidebar-runtime',
+  'sidebar-host',
   'desktop',
-  'desktop-sidebar',
+  'sidebar',
   'dsh-better-sidebar',
   'sidebar',
   'oh-dsh-desktop',
@@ -33,9 +33,9 @@ const PROTECTED_PLUGIN_IDS = new Set([
 ])
 
 const PROTECTED_PLUGIN_PACKAGES = new Set([
-  '@oh-dsh/better-sidebar-runtime',
+  '@oh-dsh/sidebar-host',
   '@oh-dsh/desktop',
-  '@oh-dsh/desktop-sidebar',
+  '@oh-dsh/sidebar',
   '@oh-dsh/panel-controls',
   '@oh-dsh/sidebar',
   'dsh-better-sidebar',

@@ -6,11 +6,11 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   useCenterSurfaceStore,
-} from '../plugins/desktop-sidebar/src/client/surfaces/center-surface-store.ts'
+} from '../plugins/sidebar/src/client/surfaces/center-surface-store.ts'
 import {
   isPreviewSurface,
   resolveActiveSurface,
-} from '../plugins/desktop-sidebar/src/client/surfaces/types.ts'
+} from '../plugins/sidebar/src/client/surfaces/types.ts'
 
 const CWD = '/ws'
 

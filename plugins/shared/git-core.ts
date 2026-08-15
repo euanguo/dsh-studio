@@ -5,8 +5,8 @@
  * porcelain-parseable output formats (`-z` NUL framing, unit separators)
  * so parsing never depends on locale or color config.
  *
- * Upgraded from the vendored `better-sidebar-runtime/src/git.ts` (moved to
- * plugins/shared so the desktop-sidebar and desktop-left-rail hosts share
+ * Upgraded from the vendored `sidebar-host/src/git.ts` (moved to
+ * plugins/shared so the sidebar and desktop-left-rail hosts share
  * exactly one implementation):
  * - `statusV2()`: `git status --porcelain=2 --branch` — branch, upstream,
  *   ahead/behind and entries from ONE subprocess (the v1 path needed three).

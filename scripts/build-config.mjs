@@ -9,13 +9,14 @@ import { join } from 'node:path'
  */
 export function desktopBuilds(root) {
   const pluginPackages = [
-    { directory: 'better-sidebar-runtime', hostOnly: true },
+    { directory: 'sidebar-host', hostOnly: true },
     { directory: 'desktop-skins', id: '@oh-dsh/desktop-skins' },
-    { directory: 'desktop-sidebar', id: '@oh-dsh/desktop-sidebar' },
+    { directory: 'sidebar', id: '@oh-dsh/sidebar' },
     { directory: 'desktop-left-rail', id: '@oh-dsh/desktop-left-rail' },
     { directory: 'panel-controls', id: '@oh-dsh/panel-controls' },
     { directory: 'pinned-summary', id: '@oh-dsh/pinned-summary' },
     { directory: 'plugin-marketplace', id: '@oh-dsh/plugin-marketplace' },
+    { directory: 'sidebar-desktop', id: '@oh-dsh/sidebar-desktop' },
   ]
 
   const shared = {
@@ -75,7 +76,7 @@ export function desktopBuilds(root) {
       outfile: join(output, 'index.js'),
       platform: 'node',
       format: 'esm',
-      external: plugin.directory === 'better-sidebar-runtime'
+      external: plugin.directory === 'sidebar-host'
         ? ['@deepseek-ai/*', 'cordis', 'node-pty', 'schemastery', 'ws']
         : [],
     })
@@ -94,7 +95,7 @@ export function desktopBuilds(root) {
           'react',
           'react-dom/client',
           'react/jsx-runtime',
-          ...(['desktop-skins', 'desktop-sidebar', 'desktop-left-rail'].includes(plugin.directory)
+          ...(['desktop-skins', 'sidebar', 'desktop-left-rail'].includes(plugin.directory)
             ? ['@deepseek-ai/dsh-client-runtime/client']
             : []),
           ...(plugin.directory === 'desktop-left-rail'

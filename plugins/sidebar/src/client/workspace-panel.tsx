@@ -43,11 +43,11 @@ import {
 } from './client-types.ts'
 import {
   ReviewCommentsService,
-} from './review-comments.ts'
+} from './review/review-comments.ts'
 import {
   SourceControlPanel,
   type SourceControlPendingAction,
-} from './source-control-panel.tsx'
+} from './source-control/source-control-panel.tsx'
 import {
   ListRow,
   ListRowBody,
@@ -61,9 +61,16 @@ import {
   buildSourceControlRows,
   type SourceControlListMode,
   type SourceControlVisibleRow,
-} from './source-control-view-model.ts'
-import type { SourceControlSectionId } from './source-control-tree.ts'
+} from './source-control/source-control-view-model.ts'
+import type { SourceControlSectionId } from './source-control/source-control-tree.ts'
 import {
+<<<<<<<< HEAD:plugins/desktop-sidebar/src/client/workspace-panel.tsx
+========
+  buildSourceControlTree,
+  flattenSourceControlTree,
+} from './source-control/source-control-tree.ts'
+import {
+>>>>>>>> c58e891 (feat(sidebar): split desktop sidebar into sidebar + sidebar-desktop and switch to the generic host):plugins/sidebar/src/client/workspace-panel.tsx
   getSourceControlRuntime,
   sidebarScopeKey,
 } from './runtimes/registry.ts'

@@ -19,15 +19,14 @@ import { createRoot, type Root } from 'react-dom/client'
 import type { DesktopPanels } from '../../../panel-controls/src/client.ts'
 import type { PinnedSummary } from '../../../pinned-summary/src/client.ts'
 import {
-  BrowserView,
   FilesView,
   FileView,
   SideToolsPanel,
   ToolIcon,
 } from './SideToolsPanel.tsx'
 import sideToolsCss from './side-tools.css'
-import workspaceCss from './desktop-sidebar.css'
-import sourceControlCss from './source-control.css'
+import workspaceCss from './sidebar.css'
+import sourceControlCss from './source-control/source-control.css'
 import centerSurfaceCss from './surfaces/center-surface.css'
 import diffViewerCss from './diff/diff-viewer.css'
 import listRowCss from '../../../shared/list-row.css'
@@ -43,8 +42,10 @@ import {
   centerSurfaceRendererRegistry,
 } from './surfaces/center-surface-host.tsx'
 import {
-  BrowserSurfaceView,
   CommitDiffSurfaceView,
+  CommitFileSurfaceView,
+  CommittedSurfaceView,
+  DiffAllSurfaceView,
   DiffSurfaceView,
   FileSurfaceView,
 } from './surfaces/renderers.tsx'
@@ -53,12 +54,12 @@ import {
   type DesktopSidebar,
   type DesktopSidebarSnapshot,
 } from './sidebar-service.ts'
-import { HttpSidebarPreferencesStorage } from './sidebar-storage.ts'
+import { LocalStorageSidebarPreferencesStorage } from './sidebar-storage.ts'
 import { DEFAULT_SIDEBAR_PREFERENCES } from '../sidebar-preferences.ts'
 import {
   ReviewCommentsService,
   type ReviewInputTriggersService,
-} from './review-comments.ts'
+} from './review/review-comments.ts'
 import {
   SidebarRuntimeSettingsService,
 } from './runtime-settings.ts'
@@ -77,7 +78,7 @@ import {
   BinaryFileViewer,
   HtmlFileViewer,
   TextFileViewer,
-} from './file-viewers.tsx'
+} from './files/file-viewers.tsx'
 import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
 import { disposeSidebarRuntimes } from './runtimes/registry.ts'
 import {
@@ -234,7 +235,7 @@ ${centerSurfaceCss}
 ${diffViewerCss}`
     document.head.append(this.style)
     this.element = document.createElement('div')
-    this.element.id = 'oh-dsh-desktop-sidebar-root'
+    this.element.id = 'oh-dsh-sidebar-root'
     // The sidebar is a fixed overlay; #root is left in place (no wrapper, no
     // DOM restructuring). The squeeze is applied as padding-right on #root,
     // coordinated through the desktopPanels right-panel claim.
@@ -265,8 +266,8 @@ ${diffViewerCss}`
     this.style?.remove()
     delete document.documentElement.dataset.ohDshDesktopSidebarOpen
     delete document.documentElement.dataset.ohDshPanelMaximized
-    document.documentElement.style.removeProperty('--oh-dsh-desktop-sidebar-width')
-    this.panels.releaseRightPanel('desktop-sidebar')
+    document.documentElement.style.removeProperty('--oh-dsh-sidebar-width')
+    this.panels.releaseRightPanel('sidebar')
   }
 
   private publish(next: WorkspaceToolsState): void {
@@ -306,7 +307,7 @@ ${diffViewerCss}`
   }
 
   private applyLayout(): void {
-    document.documentElement.style.setProperty('--oh-dsh-desktop-sidebar-width', `${String(this.state.width)}px`)
+    document.documentElement.style.setProperty('--oh-dsh-sidebar-width', `${String(this.state.width)}px`)
     const html = document.documentElement
     // Narrow viewports (< 900px) open the sidebar as a full-width drawer:
     // squeezing #root by the panel width would leave the app unusable, and
@@ -320,14 +321,14 @@ ${diffViewerCss}`
       // The overlay container is flush with the window's right edge (no
       // right inset anymore), so the squeeze equals the panel width: the
       // app's center column ends exactly at the panel's left edge.
-      this.panels.claimRightPanel('desktop-sidebar', {
+      this.panels.claimRightPanel('sidebar', {
         paddingRight: fullWidth
           ? '100vw'
           : `${String(this.state.width)}px`,
       })
     } else {
       delete html.dataset.ohDshDesktopSidebarOpen
-      this.panels.releaseRightPanel('desktop-sidebar')
+      this.panels.releaseRightPanel('sidebar')
     }
     // The overlay container only occupies the panel footprint while open on
     // wide viewports; closed it collapses to 0 so it never intercepts
@@ -436,14 +437,6 @@ function registerBuiltinSidebarTools(options: {
       order: 20,
       shortcut: '⌘J',
       title: () => t('terminal'),
-    }),
-    sidebar.registerTab({
-      icon: <ToolIcon kind="browser" />,
-      id: 'browser',
-      order: 30,
-      render: props => <BrowserView {...props} t={t} />,
-      shortcut: '⌘T',
-      title: () => t('browser'),
     }),
     sidebar.registerTab({
       dedupeKey: tab => tab.resource,
@@ -567,13 +560,21 @@ function registerCenterSurfaceRenderers(t: Translate<WorkspaceMessage>): void {
     if (surface.kind !== 'diff') return null
     return <DiffSurfaceView surface={surface} t={t} />
   })
+  centerSurfaceRendererRegistry.register('diff-all', surface => {
+    if (surface.kind !== 'diff-all') return null
+    return <DiffAllSurfaceView surface={surface} t={t} />
+  })
   centerSurfaceRendererRegistry.register('commit', surface => {
     if (surface.kind !== 'commit') return null
     return <CommitDiffSurfaceView surface={surface} t={t} />
   })
-  centerSurfaceRendererRegistry.register('browser', surface => {
-    if (surface.kind !== 'browser') return null
-    return <BrowserSurfaceView surface={surface} t={t} />
+  centerSurfaceRendererRegistry.register('commit-file', surface => {
+    if (surface.kind !== 'commit-file') return null
+    return <CommitFileSurfaceView surface={surface} t={t} />
+  })
+  centerSurfaceRendererRegistry.register('committed', surface => {
+    if (surface.kind !== 'committed') return null
+    return <CommittedSurfaceView surface={surface} t={t} />
   })
 }
 
@@ -602,9 +603,9 @@ function pathBelongsToActiveWorkspace(
 export function apply(ctx: ClientContext): void {
   const locale = ctx.get('locale') as LocaleService
   const slots = ctx.get('slots') as SlotsService
-  const t: Translate<WorkspaceMessage> = locale.bind('oh-dsh.desktop-sidebar')
+  const t: Translate<WorkspaceMessage> = locale.bind('oh-dsh.sidebar')
   ctx.effect(
-    () => locale.register('oh-dsh.desktop-sidebar', WORKSPACE_MESSAGES),
+    () => locale.register('oh-dsh.sidebar', WORKSPACE_MESSAGES),
     'oh-dsh-desktop: workspace tools dictionaries',
   )
   const panels = ctx.get('desktopPanels') as DesktopPanels
@@ -625,7 +626,7 @@ export function apply(ctx: ClientContext): void {
     window.localStorage,
   )
   const desktopSidebar = new DesktopSidebarService(
-    new HttpSidebarPreferencesStorage(fetch.bind(globalThis)),
+    new LocalStorageSidebarPreferencesStorage(),
   )
   const runtimeSettings = new SidebarRuntimeSettingsService()
   const service = new WorkspaceToolsService(
@@ -751,7 +752,7 @@ export function apply(ctx: ClientContext): void {
   }, 'oh-dsh-desktop: workspace tools')
 
   slots.inject('settings.section', () => slots.register({
-    id: 'oh-dsh-desktop-sidebar',
+    id: 'oh-dsh-sidebar',
     inject: actions => {
       settingsActions = actions
       syncSidebarSettings(settingsActions, desktopSidebar.getSnapshot())
@@ -782,7 +783,7 @@ export function apply(ctx: ClientContext): void {
       }
     },
     label: () => t('settings.title'),
-    locale: 'oh-dsh.desktop-sidebar',
+    locale: 'oh-dsh.sidebar',
     name: 'settings.section',
     order: 40,
     store: settingsStore,

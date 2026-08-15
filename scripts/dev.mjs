@@ -48,7 +48,7 @@ const SYNC_PAIRS = [
   ['dist/client.js.map', '@oh-dsh/desktop/dist/client.js.map'],
   ['dist/plugin.js', '@oh-dsh/desktop/dist/plugin.js'],
   ['dist/cordis.patch.yml', '@oh-dsh/desktop/dist/cordis.patch.yml'],
-  ...['better-sidebar-runtime', 'desktop-skins', 'desktop-sidebar', 'desktop-left-rail', 'panel-controls',
+  ...['sidebar-host', 'desktop-skins', 'sidebar', 'desktop-left-rail', 'panel-controls',
     'pinned-summary', 'plugin-marketplace'].flatMap(directory => [
     [`plugins/${directory}/package.json`, `@oh-dsh/${directory}/package.json`],
     [`dist/plugins/${directory}/index.js`, `@oh-dsh/${directory}/dist/index.js`],
@@ -105,7 +105,7 @@ async function rebuildAll(reason) {
 
 // ── 2 + 3: initial build, then watch sources; Electron auto-restart ─────────
 let rebuildTimer = undefined
-const WATCH_ROOTS = [join(root, 'src'), join(root, 'plugins'), join(root, 'plugins', 'better-sidebar-runtime', 'src')]
+const WATCH_ROOTS = [join(root, 'src'), join(root, 'plugins')]
 for (const watchRoot of WATCH_ROOTS) {
   if (!existsSync(watchRoot)) continue
   watch(watchRoot, { recursive: true, persistent: true }, () => {

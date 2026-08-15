@@ -1,5 +1,5 @@
 /**
- * Unit tests for the sidebar runtimes (plugins/desktop-sidebar/src/client/runtimes):
+ * Unit tests for the sidebar runtimes (plugins/sidebar/src/client/runtimes):
  * explorer listing cache semantics and source-control soft-revalidate.
  * Transports are mocked; no network.
  */
@@ -8,11 +8,11 @@ import { test } from 'node:test'
 import {
   WorkspaceExplorerRuntime,
   type WorkspaceExplorerTransport,
-} from '../plugins/desktop-sidebar/src/client/runtimes/explorer-runtime.ts'
+} from '../plugins/sidebar/src/client/runtimes/explorer-runtime.ts'
 import {
   SourceControlRuntime,
   type SourceControlRuntimeOptions,
-} from '../plugins/desktop-sidebar/src/client/runtimes/source-control-runtime.ts'
+} from '../plugins/sidebar/src/client/runtimes/source-control-runtime.ts'
 
 /* ---------- WorkspaceExplorerRuntime ---------- */
 

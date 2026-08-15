@@ -18,10 +18,9 @@ import {
 } from '../../../shared/sidebar-api.ts'
 
 /**
- * The client face of the desktop sidebar API. All calls go to the desktop
- * host's /oh-dsh-desktop/sidebar/api route (never the upstream /sidebar/api);
- * the wire contract, DTOs, and call helpers are shared through
- * @oh-dsh/shared so the two halves cannot drift.
+ * The client face of the sidebar API. All calls go to the generic host's
+ * /sidebar/api route; the wire contract, DTOs, and call helpers are shared
+ * through @oh-dsh/shared so the two halves cannot drift.
  */
 export type BetterSidebarScope = SidebarScope
 export type BetterSidebarFsEntry = SidebarFsEntry

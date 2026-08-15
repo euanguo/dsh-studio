@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import type { WorkspaceFileEntry } from '../plugins/desktop-sidebar/src/protocol.ts'
-import { buildFileRows } from '../plugins/desktop-sidebar/src/client/file-tree-model.ts'
+import type { WorkspaceFileEntry } from '../plugins/sidebar/src/protocol.ts'
+import { buildFileRows } from '../plugins/sidebar/src/client/files/file-tree-model.ts'
 
 function dir(path: string, name: string): WorkspaceFileEntry {
   return { kind: 'directory', name, path, size: null }

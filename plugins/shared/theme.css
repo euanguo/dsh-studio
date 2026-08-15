@@ -12,7 +12,7 @@
  *   padding 14、Modal radius 16 等），避免各插件各自为政的 3/5/7/9px。
  * - 控件尺寸镜像 DSH Button 的 28px（small）/ 36px（default）。
  *
- * 注入方式：每个注入样式表的插件（desktop-sidebar / panel-controls /
+ * 注入方式：每个注入样式表的插件（sidebar / panel-controls /
  * plugin-marketplace / pinned-summary）在自身 CSS 前拼接本文件；重复
  * 定义同一组 :root 变量是幂等的。
  */
@@ -51,8 +51,6 @@
   --oh-dsh-diff-add-fg: var(--dsw-alias-state-success-primary, #2da44e);
   --oh-dsh-diff-del-bg: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 14%, transparent);
   --oh-dsh-diff-del-fg: var(--dsw-alias-state-error-primary, #cf222e);
-  --oh-dsh-diff-hunk-bg: color-mix(in srgb, var(--oh-dsh-accent, #0969da) 8%, transparent);
-  --oh-dsh-diff-muted: var(--dsw-alias-label-tertiary, #8c959f);
 
   /* 悬浮层（详情 overlay）表面 */
   --oh-dsh-overlay-bg: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 97%, transparent);

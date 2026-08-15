@@ -1,6 +1,6 @@
 /**
  * Unit tests for the unified diff document entity
- * (plugins/desktop-sidebar/src/client/diff/file-diff.ts).
+ * (plugins/sidebar/src/client/diff/file-diff.ts).
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
@@ -8,7 +8,7 @@ import {
   buildDiffDocument,
   buildPatch,
   summarizeDiffDocuments,
-} from '../plugins/desktop-sidebar/src/client/diff/file-diff.ts'
+} from '../plugins/sidebar/src/client/diff/file-diff.ts'
 
 const SAMPLE_PATCH = [
   'diff --git a/a.ts b/a.ts',

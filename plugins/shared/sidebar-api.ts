@@ -1,13 +1,12 @@
 /**
  * Shared sidebar JSON API wire contract (@oh-dsh/shared).
  *
- * Single source of truth for the desktop sidebar API that BOTH halves
- * consume: the desktop host (plugins/desktop-sidebar/src/sidebar-api.ts)
- * implements the methods, and the client (better-sidebar-api.ts) calls them.
- * The envelope shape mirrors the upstream DSH-better-sidebar wire
- * ({ok:true,value} / {ok:false,error}) so the same protocol stays
- * interchangeable, but the desktop client never depends on the upstream
- * host's route directly — it only talks to /oh-dsh-desktop/sidebar/api.
+ * Single source of truth for the sidebar API that BOTH halves consume: the
+ * generic host (plugins/sidebar-host/src/index.ts) implements the
+ * methods, and the client (better-sidebar-api.ts) calls them. The envelope
+ * shape mirrors the upstream DSH-better-sidebar wire ({ok:true,value} /
+ * {ok:false,error}); the client talks to the generic host's `/sidebar/api`
+ * route directly.
  */
 
 /** One conversation-scoped request: the owning session + its cwd. */
@@ -102,8 +101,8 @@ export interface SidebarEnvelope<T> {
   value?: T
 }
 
-/** Route prefix served by the desktop host (NOT the upstream /sidebar/api). */
-export const SIDEBAR_API_BASE = '/oh-dsh-desktop/sidebar/api'
+/** Route prefix served by the generic sidebar host (`/sidebar/api`). */
+export const SIDEBAR_API_BASE = '/sidebar/api'
 
 /** Build the POST body for one scoped method call. */
 export function sidebarScopePayload(

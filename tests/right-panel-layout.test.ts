@@ -8,23 +8,23 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 test('desktop sidebar is a fixed overlay that never restructures #root', () => {
   const css = readFileSync(
-    join(root, 'plugins/desktop-sidebar/src/client/desktop-sidebar.css'),
+    join(root, 'plugins/sidebar/src/client/sidebar.css'),
     'utf8',
   )
   const workspace = readFileSync(
-    join(root, 'plugins/desktop-sidebar/src/client/plugin.tsx'),
+    join(root, 'plugins/sidebar/src/client/plugin.tsx'),
     'utf8',
   )
 
   // No grid wrapper: the sidebar overlays the app, #root stays in place.
   assert.doesNotMatch(css, /#oh-dsh-embedded-layout/)
-  assert.match(css, /#oh-dsh-desktop-sidebar-root\s*\{[^}]*position: fixed;[^}]*pointer-events: none;/s)
+  assert.match(css, /#oh-dsh-sidebar-root\s*\{[^}]*position: fixed;[^}]*pointer-events: none;/s)
   assert.doesNotMatch(workspace, /appRoot\.before\(layout\)/)
   assert.match(workspace, /document\.body\.append\(this\.element\)/)
 
   // The squeeze is claimed through the desktopPanels coordinator.
-  assert.match(workspace, /this\.panels\.claimRightPanel\('desktop-sidebar'/)
-  assert.match(workspace, /this\.panels\.releaseRightPanel\('desktop-sidebar'/)
+  assert.match(workspace, /this\.panels\.claimRightPanel\('sidebar'/)
+  assert.match(workspace, /this\.panels\.releaseRightPanel\('sidebar'/)
   assert.doesNotMatch(workspace, /ohDshRightPanelOwner = /)
 })
 
@@ -46,11 +46,11 @@ test('right panel footprint is coordinated by the desktopPanels service', () => 
 
 test('review, pinned summary, and embedded side tools keep distinct layouts', () => {
   const summary = readFileSync(join(root, 'plugins/pinned-summary/src/client.ts'), 'utf8')
-  const workspace = readFileSync(join(root, 'plugins/desktop-sidebar/src/client/plugin.tsx'), 'utf8')
-  const workspacePanel = readFileSync(join(root, 'plugins/desktop-sidebar/src/client/workspace-panel.tsx'), 'utf8')
-  const workspaceCss = readFileSync(join(root, 'plugins/desktop-sidebar/src/client/desktop-sidebar.css'), 'utf8')
-  const sideTools = readFileSync(join(root, 'plugins/desktop-sidebar/src/client/SideToolsPanel.tsx'), 'utf8')
-  const sideToolsCss = readFileSync(join(root, 'plugins/desktop-sidebar/src/client/side-tools.css'), 'utf8')
+  const workspace = readFileSync(join(root, 'plugins/sidebar/src/client/plugin.tsx'), 'utf8')
+  const workspacePanel = readFileSync(join(root, 'plugins/sidebar/src/client/workspace-panel.tsx'), 'utf8')
+  const workspaceCss = readFileSync(join(root, 'plugins/sidebar/src/client/sidebar.css'), 'utf8')
+  const sideTools = readFileSync(join(root, 'plugins/sidebar/src/client/SideToolsPanel.tsx'), 'utf8')
+  const sideToolsCss = readFileSync(join(root, 'plugins/sidebar/src/client/side-tools.css'), 'utf8')
 
   assert.match(workspace, /if \(open\) this\.pinnedSummary\.setOpen\(false\)/)
   assert.match(workspace, /if \(this\.state\.open\) this\.pinnedSummary\.setOpen\(false\)/)

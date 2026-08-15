@@ -1,8 +1,8 @@
 /**
  * Client half of the desktop worktree API. The left rail has no session
- * binding, so it calls the desktop host's `/oh-dsh-desktop/sidebar/api`
+ * binding, so it calls the desktop host's `/sidebar/api`
  * worktree endpoints with a bare cwd (same-origin POST, same fence as the
- * file/git routes — see plugins/desktop-sidebar/src/sidebar-api.ts).
+ * file/git routes — see plugins/sidebar/src/sidebar-api.ts).
  */
 import { useEffect, useState } from 'react'
 import type { GitWorktreeLayout, WorktreeLayoutMap } from './tree.ts'
@@ -10,7 +10,7 @@ import type { GitWorktreeLayout, WorktreeLayoutMap } from './tree.ts'
 /** One worktree list response (null = cwd is not a git work tree). */
 export type WorktreeLayoutResult = GitWorktreeLayout | null
 
-const API_ROOT = '/oh-dsh-desktop/sidebar/api/'
+const API_ROOT = '/sidebar/api/'
 
 async function call(method: string, payload: unknown, signal?: AbortSignal): Promise<unknown> {
   const response = await fetch(`${API_ROOT}${method}`, {

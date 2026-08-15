@@ -3,11 +3,11 @@ import { test } from 'node:test'
 import {
   parseGitReviewDiff,
   reviewCommitFromBetterSidebar,
-} from '../plugins/sidebar/src/client/review-diff.ts'
+} from '../plugins/sidebar/src/client/review/review-diff.ts'
 import {
   formatReviewComment,
   formatReviewRequest,
-} from '../plugins/sidebar/src/client/review-comments.ts'
+} from '../plugins/sidebar/src/client/review/review-comments.ts'
 
 test('Better Sidebar commit patches become line-addressable reviews', () => {
   const diff = [

@@ -1,6 +1,3 @@
-export const SIDEBAR_PREFERENCES_API_PATH =
-  '/oh-dsh/sidebar/preferences'
-
 export const SIDEBAR_MIN_WIDTH = 280
 export const SIDEBAR_MAX_WIDTH = 480
 export const SIDEBAR_DEFAULT_WIDTH = 300

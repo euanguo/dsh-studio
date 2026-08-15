@@ -1,5 +1,5 @@
 html {
-  --oh-dsh-desktop-sidebar-width: 300px;
+  --oh-dsh-sidebar-width: 300px;
 }
 
 /* The desktop sidebar is a fixed overlay; #root is left untouched (the
@@ -8,7 +8,7 @@ html {
    only spans the panel footprint while open on wide viewports (width 0
    otherwise) and never intercepts pointer events itself — the panel
    re-enables pointer-events when visible. */
-#oh-dsh-desktop-sidebar-root {
+#oh-dsh-sidebar-root {
   position: fixed;
   /* Top of the stacking ladder: DSH reserves a 28px window-drag strip as
      body::before at the maximum z-index. The panel's own top row (tabs,
@@ -22,19 +22,19 @@ html {
   top: 0;
   right: 0;
   bottom: 0;
-  width: var(--oh-dsh-desktop-sidebar-width);
+  width: var(--oh-dsh-sidebar-width);
   min-width: 0;
   overflow: hidden;
   pointer-events: none;
 }
 
-html[data-oh-dsh-desktop-sidebar-open='true'] #oh-dsh-desktop-sidebar-root {
+html[data-oh-dsh-sidebar-open='true'] #oh-dsh-sidebar-root {
   overflow: visible;
 }
 
 /* Maximized: the panel covers the whole window and the app is squeezed out
    (padding-right: 100vw). */
-html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
+html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   top: 0;
   right: 0;
   bottom: 0;
@@ -44,7 +44,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 /* Narrow viewports (< 900px): the sidebar opens as a full-width drawer
    (edge to edge); the inline width still collapses to 0 while closed. */
 @media (max-width: 900px) {
-  #oh-dsh-desktop-sidebar-root {
+  #oh-dsh-sidebar-root {
     top: 0;
     right: 0;
     bottom: 0;
@@ -361,6 +361,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-desktop-sidebar-root {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #oh-dsh-desktop-sidebar-root { transition: none; }
+  #oh-dsh-sidebar-root { transition: none; }
   .oh-dsh-workspace-panel { transition: none; }
 }
