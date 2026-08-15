@@ -5,6 +5,7 @@ import type {
   GitReviewLineType,
 } from './review-types.ts'
 import type { BetterSidebarGitLogEntry } from './better-sidebar-api.ts'
+import type { DiffDocument } from './diff/file-diff.ts'
 
 interface MutableReviewFile extends GitReviewFile {
   oldCursor: number | null
@@ -140,5 +141,32 @@ export function reviewCommitFromBetterSidebar(
     authoredAt: entry.date,
     message: entry.subject,
     files: parseGitReviewDiff(diff),
+  }
+}
+
+/** GitReviewFile (commit review) → the unified DiffDocument shape. */
+export function reviewFileToDiffDocument(file: GitReviewFile): DiffDocument {
+  return {
+    path: file.path,
+    change: file.status === 'added' ? 'added'
+      : file.status === 'deleted' ? 'deleted'
+      : file.status === 'renamed' ? 'renamed'
+      : 'modified',
+    additions: file.additions,
+    deletions: file.deletions,
+    lines: file.lines.slice(0, 400).map(line => {
+      const kind = line.type === 'addition' ? 'added'
+        : line.type === 'deletion' ? 'removed'
+        : 'context'
+      return {
+        kind,
+        text: line.content,
+        displayText: line.content === '' ? ' ' : line.content,
+        oldLine: line.oldLine,
+        newLine: line.newLine,
+        oldLineLabel: line.oldLine === null ? ' ' : String(line.oldLine),
+        newLineLabel: line.newLine === null ? ' ' : String(line.newLine),
+      }
+    }),
   }
 }

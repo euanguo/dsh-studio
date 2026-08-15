@@ -190,3 +190,74 @@
   overflow: auto;
   padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
 }
+
+/* ---------- Commit diff surface ---------- */
+
+.oh-dsh-commit-surface {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.oh-dsh-commit-surface-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--oh-dsh-space-2);
+  flex: none;
+  min-height: 34px;
+  padding: 0 var(--oh-dsh-space-3);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  font-size: var(--oh-dsh-font-sm);
+}
+
+.oh-dsh-commit-surface-header span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-dsh-commit-surface-header small {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font: var(--oh-dsh-font-xs) var(--oh-dsh-font-mono);
+}
+
+.oh-dsh-commit-surface-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
+}
+
+.oh-dsh-commit-surface-body details {
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+.oh-dsh-commit-surface-body summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--oh-dsh-space-2);
+  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-3);
+  cursor: pointer;
+  font: var(--oh-dsh-font-xs)/1.35 var(--oh-dsh-font-mono);
+}
+
+.oh-dsh-commit-surface-body summary > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.oh-dsh-commit-surface-body summary small { color: var(--dsw-alias-state-error-primary, #cf222e); }
+.oh-dsh-commit-surface-body summary b { color: var(--dsw-alias-state-success-primary, #2da44e); font-weight: 500; }
+
+.oh-dsh-commit-surface-lines {
+  max-height: 420px;
+  overflow: auto;
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}

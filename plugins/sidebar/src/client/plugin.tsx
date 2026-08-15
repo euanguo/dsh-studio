@@ -44,6 +44,7 @@ import {
 } from './surfaces/center-surface-host.tsx'
 import {
   BrowserSurfaceView,
+  CommitDiffSurfaceView,
   DiffSurfaceView,
   FileSurfaceView,
 } from './surfaces/renderers.tsx'
@@ -565,6 +566,10 @@ function registerCenterSurfaceRenderers(t: Translate<WorkspaceMessage>): void {
   centerSurfaceRendererRegistry.register('diff', surface => {
     if (surface.kind !== 'diff') return null
     return <DiffSurfaceView surface={surface} t={t} />
+  })
+  centerSurfaceRendererRegistry.register('commit', surface => {
+    if (surface.kind !== 'commit') return null
+    return <CommitDiffSurfaceView surface={surface} t={t} />
   })
   centerSurfaceRendererRegistry.register('browser', surface => {
     if (surface.kind !== 'browser') return null
