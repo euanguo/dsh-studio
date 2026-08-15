@@ -47,6 +47,7 @@ import {
   CommittedSurfaceView,
   DiffAllSurfaceView,
   DiffSurfaceView,
+  EditorSurfaceView,
   FileSurfaceView,
 } from './surfaces/renderers.tsx'
 import {
@@ -555,6 +556,10 @@ function registerCenterSurfaceRenderers(t: Translate<WorkspaceMessage>): void {
   centerSurfaceRendererRegistry.register('file', surface => {
     if (surface.kind !== 'file') return null
     return <FileSurfaceView surface={surface} t={t} />
+  })
+  centerSurfaceRendererRegistry.register('editor', surface => {
+    if (surface.kind !== 'editor') return null
+    return <EditorSurfaceView surface={surface} t={t} />
   })
   centerSurfaceRendererRegistry.register('diff', surface => {
     if (surface.kind !== 'diff') return null

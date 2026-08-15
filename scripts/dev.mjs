@@ -55,6 +55,8 @@ const SYNC_PAIRS = [
     [`dist/plugins/${directory}/client.js`, `@oh-dsh/${directory}/dist/client.js`],
     [`dist/plugins/${directory}/client.js.map`, `@oh-dsh/${directory}/dist/client.js.map`],
   ]),
+  ['dist/plugins/sidebar-host/client-editor.js', '@oh-dsh/sidebar-host/dist/client-editor.js'],
+  ['dist/plugins/sidebar-host/client-editor.js.map', '@oh-dsh/sidebar-host/dist/client-editor.js.map'],
 ]
 
 let syncedCount = 0

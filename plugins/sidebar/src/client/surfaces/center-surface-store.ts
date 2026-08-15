@@ -25,6 +25,7 @@ import {
   commitSurfaceId,
   conversationSurfaceId,
   diffSurfaceId,
+  editorSurfaceId,
   fileSurfaceId,
   fileNameFromPath,
   isPreviewSurface,
@@ -34,6 +35,7 @@ import {
   type CommitCenterSurface,
   type ConversationCenterSurface,
   type DiffCenterSurface,
+  type EditorCenterSurface,
   type FileCenterSurface,
   type BrowserCenterSurface,
   type TerminalCenterSurface,
@@ -63,6 +65,12 @@ interface CenterSurfaceState {
     preview?: boolean
     markdownPreview?: boolean
   }): FileCenterSurface
+  openEditor(input: {
+    cwd: string
+    sessionId: string
+    filePath: string
+    title?: string
+  }): EditorCenterSurface
   setFileMarkdownPreview(cwd: string, surfaceId: string, markdownPreview: boolean): void
   openDiff(input: {
     cwd: string
@@ -245,6 +253,28 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       const next = openPreviewableSurface(slice, nextSurface)
       if (next === slice) return state
       return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
+    })
+    return nextSurface
+  },
+
+  openEditor: input => {
+    const id = editorSurfaceId(input.filePath)
+    const nextSurface: EditorCenterSurface = {
+      id,
+      kind: 'editor',
+      sessionId: input.sessionId,
+      cwd: input.cwd,
+      filePath: input.filePath,
+      title: input.title?.trim() || fileNameFromPath(input.filePath),
+      closable: true,
+      isPreview: false,
+    }
+    set(state => {
+      const slice = readSlice(state.byCwd, input.cwd)
+      const existing = slice.open.some(surface => surface.id === id)
+      if (existing && slice.activeId === id) return state
+      const open = existing ? slice.open : [...slice.open, nextSurface]
+      return { byCwd: writeSlice(state.byCwd, input.cwd, { open, activeId: id }) }
     })
     return nextSurface
   },
@@ -515,6 +545,8 @@ export function restoreCenterSurfaces(): void {
           preview: false,
           ...(surface.markdownPreview === undefined ? {} : { markdownPreview: surface.markdownPreview }),
         })
+      } else if (surface.kind === 'editor') {
+        state.openEditor({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, title: surface.title })
       } else if (surface.kind === 'diff') {
         state.openDiff({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, staged: surface.staged, title: surface.title, preview: false })
       } else if (surface.kind === 'commit') {

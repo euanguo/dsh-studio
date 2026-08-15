@@ -7,6 +7,7 @@
 import { Fragment, useMemo } from 'react'
 import {
   IconChevronRight,
+  IconEdit,
   IconExternalLink,
   IconEye,
   IconFileText,
@@ -23,6 +24,7 @@ export function FileViewerChrome({
   truncated = false,
   meta,
   onOpenExternal,
+  onEdit,
 }: {
   cwd: string
   filePath: string
@@ -33,6 +35,7 @@ export function FileViewerChrome({
   /** Single-line metadata, e.g. `123 lines` or `ts · 123 lines`. */
   meta?: string | null
   onOpenExternal?(): void
+  onEdit?(): void
 }): JSX.Element {
   const { prefixSegments, fileSegment } = useMemo(() => {
     const normalized = filePath.replace(/\\/g, '/')
@@ -100,6 +103,17 @@ export function FileViewerChrome({
             )
           })}
         </div>
+      ) : null}
+
+      {onEdit !== undefined ? (
+        <button
+          type="button"
+          className="oh-dsh-file-viewer-chrome-action"
+          title="Edit in built-in editor"
+          onClick={onEdit}
+        >
+          <IconEdit size={14} />
+        </button>
       ) : null}
 
       {onOpenExternal !== undefined ? (

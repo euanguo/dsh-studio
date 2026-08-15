@@ -1089,3 +1089,77 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 94%, transparent);
 }
 
+
+/* Editor surface (CodeMirror chunk host) */
+.oh-dsh-editor-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+.oh-dsh-editor-header {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-2);
+  height: 34px;
+  padding: 0 var(--oh-dsh-space-2);
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: var(--dsw-alias-bg-base, #fff);
+  font-size: var(--oh-dsh-font-xs);
+  flex: none;
+}
+
+.oh-dsh-editor-header > span:first-child {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.oh-dsh-editor-dirty {
+  color: var(--dsw-alias-state-warning-primary, #9a6700);
+}
+
+.oh-dsh-editor-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.oh-dsh-editor-actions button {
+  padding: 3px 10px;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-xs);
+  cursor: pointer;
+}
+
+.oh-dsh-editor-actions button:hover:not(:disabled) {
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.oh-dsh-editor-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.oh-dsh-editor-host {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.oh-dsh-editor-host .cm-editor {
+  height: 100%;
+}
+
+.oh-dsh-editor-host .cm-scroller {
+  overflow: auto;
+}
+

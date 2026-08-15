@@ -115,5 +115,20 @@ export function desktopBuilds(root) {
     }
   }
 
+  // Lazy chunks served by the sidebar-host /sidebar/bundle route. The chunk
+  // file must live in the host's lib directory (`dist/plugins/sidebar-host`).
+  builds.push({
+    bundle: true,
+    entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'editor', 'editor-chunk.ts')],
+    outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-editor.js'),
+    platform: 'browser',
+    format: 'iife',
+    target: 'es2022',
+    sourcemap: true,
+    logLevel: 'info',
+    loader: { '.css': 'text' },
+    external: ['react', 'react-dom/client', 'react/jsx-runtime'],
+  })
+
   return builds
 }

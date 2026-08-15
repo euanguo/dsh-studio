@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { betterSidebarApi } from '../better-sidebar-api.ts'
+import { loadEditorChunk } from '../chunk-loader.ts'
 import { getFileRuntime } from '../runtimes/registry.ts'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
@@ -31,6 +32,7 @@ import type {
   CommittedCenterSurface,
   DiffAllCenterSurface,
   DiffCenterSurface,
+  EditorCenterSurface,
   FileCenterSurface,
 } from './types.ts'
 
@@ -108,6 +110,14 @@ export function FileSurfaceView({
     }
   }, [surface.filePath])
 
+  const onEdit = useCallback(() => {
+    useCenterSurfaceStore.getState().openEditor({
+      cwd: surface.cwd,
+      sessionId: surface.sessionId,
+      filePath: surface.filePath,
+    })
+  }, [surface.cwd, surface.filePath, surface.sessionId])
+
   const onSourceMouseUp = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     if (isMarkdown && markdownMode === 'preview') {
       setSelectionAction(null)
@@ -163,6 +173,7 @@ export function FileSurfaceView({
         truncated={snapshot.truncated}
         meta={content === null ? null : `${lineCount} lines`}
         onOpenExternal={onOpenExternal}
+        {...(content === null ? {} : { onEdit })}
       />
       {writeError !== '' ? (
         <div className="oh-dsh-side-error" role="alert">{writeError}</div>
@@ -191,6 +202,120 @@ export function FileSurfaceView({
           </button>
         </div>
       ) : null}
+    </div>
+  )
+}
+
+/* ---------- editor ---------- */
+
+export function EditorSurfaceView({
+  surface,
+  t,
+}: {
+  surface: EditorCenterSurface
+  t: Translate<WorkspaceMessage>
+}): JSX.Element {
+  const hostRef = useRef<HTMLDivElement | null>(null)
+  const editorRef = useRef<{ getValue(): string; setValue(value: string): void; focus(): void; destroy(): void } | null>(null)
+  const autosaveTimerRef = useRef<number | null>(null)
+  const [content, setContent] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const [dirty, setDirty] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [readOnly, setReadOnly] = useState(false)
+  const [chunkError, setChunkError] = useState('')
+
+  const save = useCallback((nextContent?: string) => {
+    const value = nextContent ?? editorRef.current?.getValue()
+    if (value === undefined) return
+    setSaving(true)
+    betterSidebarApi.fsWrite(
+      { sessionId: surface.sessionId, cwd: surface.cwd },
+      surface.filePath,
+      value,
+    ).then(() => {
+      setDirty(false)
+      setError('')
+      // Refresh the file runtime so other file tabs see the new content.
+      getFileRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }).invalidate(surface.filePath)
+    }).catch((cause: unknown) => {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    }).finally(() => { setSaving(false) })
+  }, [surface.cwd, surface.filePath, surface.sessionId])
+
+  useEffect(() => {
+    let alive = true
+    setContent(null)
+    setError('')
+    setChunkError('')
+    setDirty(false)
+    void betterSidebarApi.fsRead(
+      { sessionId: surface.sessionId, cwd: surface.cwd },
+      surface.filePath,
+    ).then(result => {
+      if (!alive) return
+      if (result.kind !== 'text') {
+        setError(t('files.viewer.binary'))
+        return
+      }
+      setContent(result.content)
+    }).catch((cause: unknown) => {
+      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
+    })
+    return () => { alive = false }
+  }, [surface.cwd, surface.filePath, surface.sessionId, t])
+
+  useEffect(() => {
+    if (content === null || hostRef.current === null) return
+    let alive = true
+    let disposed = false
+    void loadEditorChunk().then(api => {
+      if (!alive || disposed || hostRef.current === null) return
+      const handle = api.mountCodeEditor({
+        parent: hostRef.current,
+        value: content,
+        filePath: surface.filePath,
+        readOnly,
+        onChange: value => {
+          setDirty(true)
+          if (autosaveTimerRef.current !== null) window.clearTimeout(autosaveTimerRef.current)
+          autosaveTimerRef.current = window.setTimeout(() => {
+            if (!readOnly) save(value)
+          }, 1000)
+        },
+        onSave: () => { save() },
+      })
+      editorRef.current = handle
+    }).catch((cause: unknown) => {
+      if (alive) setChunkError(cause instanceof Error ? cause.message : String(cause))
+    })
+    return () => {
+      alive = false
+      disposed = true
+      if (autosaveTimerRef.current !== null) window.clearTimeout(autosaveTimerRef.current)
+      editorRef.current?.destroy()
+      editorRef.current = null
+    }
+  }, [content, readOnly, save, surface.filePath])
+
+  if (chunkError !== '') return <div className="oh-dsh-side-error" role="alert">{chunkError}</div>
+  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
+  if (content === null) return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+  return (
+    <div className="oh-dsh-editor-surface" data-testid="editor-surface">
+      <div className="oh-dsh-editor-header">
+        <span title={surface.filePath}>{surface.title}</span>
+        {dirty ? <small className="oh-dsh-editor-dirty">●</small> : null}
+        <span className="oh-dsh-editor-actions">
+          <button type="button" onClick={() => { setReadOnly(value => !value) }}>
+            {readOnly ? 'Edit' : 'Read only'}
+          </button>
+          <button type="button" disabled={saving || !dirty} onClick={() => { save() }}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </span>
+      </div>
+      <div ref={hostRef} className="oh-dsh-editor-host" />
     </div>
   )
 }
