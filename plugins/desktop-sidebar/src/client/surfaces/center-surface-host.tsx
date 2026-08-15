@@ -195,75 +195,55 @@ export function CenterSurfaceTabs({
 const EMPTY_CENTER_SLICE: CenterSurfaceSlice = { open: [], activeId: null }
 
 /**
- * Left/right rail toggles living at the ends of the center tab strip —
- * the same "one top bar maintains all three columns" pattern as the
- * reference shell: with the left rail collapsed its expand button sits at
- * the strip's left end, and the right rail toggle sits at the right end.
+ * Left/right rail controls, reference-shell style:
+ * - the LEFT rail toggle sits right of the macOS traffic lights (fixed at
+ *   the top-left); while the rail is expanded that spot is the rail's own
+ *   header, and when it collapses the button stays put at the strip's
+ *   left edge (the strip pads itself to make room);
+ * - the RIGHT rail keeps its own controls in its top row; when the panel
+ *   is closed a floating reopen button appears at the top-right edge.
  */
-function CenterRailToggles({
+function RailFloatControls({
   sidebar,
+  leftRailOpen,
+  onToggleLeftRail,
 }: {
   sidebar: DesktopSidebarServiceLike | undefined
+  leftRailOpen: boolean | null
+  onToggleLeftRail(): void
 }): JSX.Element {
-  const [leftRailOpen, setLeftRailOpen] = useState<boolean | null>(null)
   const rightOpen = useSyncExternalStore(
     useCallback((listener: () => void) => {
       if (sidebar === undefined) return () => {}
-      return sidebar.subscribe?.(listener) ?? (() => {})
+      return sidebar.subscribe(listener)
     }, [sidebar]),
     () => sidebar?.getSnapshot().open ?? false,
   )
 
-  // Track the DSH left rail: its toggle button flips between 打开/收起
-  // aria-labels; observe it like the body observer does.
-  useEffect(() => {
-    const read = (): void => {
-      const button = document.querySelector<HTMLButtonElement>(
-        '[data-slot="sidebar"] button[aria-label*="侧边栏"]',
-      )
-      if (button === null) return
-      setLeftRailOpen(button.getAttribute('aria-label')?.includes('收起') ?? false)
-    }
-    read()
-    const observer = new MutationObserver(read)
-    if (document.body !== null) {
-      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'class'] })
-    }
-    return () => { observer.disconnect() }
-  }, [])
-
-  const toggleLeftRail = (): void => {
-    const button = document.querySelector<HTMLButtonElement>(
-      '[data-slot="sidebar"] button[aria-label*="侧边栏"]',
-    )
-    button?.click()
-  }
-
   return (
-    <div className="oh-dsh-center-tabs-rail-controls" role="presentation">
+    <>
       <button
         type="button"
-        className="oh-dsh-center-rail-toggle"
-        aria-label="左栏"
+        className="oh-dsh-left-rail-toggle"
+        aria-label={leftRailOpen ? '收起左栏' : '展开左栏'}
         title={leftRailOpen ? '收起左栏' : '展开左栏'}
         aria-pressed={leftRailOpen === true}
-        onClick={toggleLeftRail}
+        onClick={onToggleLeftRail}
       >
         {leftRailOpen ? <IconRailCollapse /> : <IconRailExpand />}
       </button>
-      {sidebar !== undefined && (
+      {sidebar !== undefined && !rightOpen && (
         <button
           type="button"
-          className="oh-dsh-center-rail-toggle"
-          aria-label="右栏"
-          title={rightOpen ? '收起右栏' : '展开右栏'}
-          aria-pressed={rightOpen}
-          onClick={() => { sidebar.setOpen(!sidebar.getSnapshot().open) }}
+          className="oh-dsh-right-rail-reopen"
+          aria-label="展开右栏"
+          title="展开右栏"
+          onClick={() => { sidebar.setOpen(true) }}
         >
-          {rightOpen ? <IconRailCollapse /> : <IconRailExpand />}
+          <IconRailExpand />
         </button>
       )}
-    </div>
+    </>
   )
 }
 
@@ -283,6 +263,38 @@ function IconRailCollapse(): JSX.Element {
       <path d="M7.5 3.5v13" />
     </svg>
   )
+}
+
+/** Track the DSH left rail open/closed state via its toggle button's
+ *  aria-label (flips between 打开侧边栏 / 收起侧边栏). */
+function useLeftRailOpenState(): {
+  leftRailOpen: boolean | null
+  toggleLeftRail(): void
+} {
+  const [leftRailOpen, setLeftRailOpen] = useState<boolean | null>(null)
+  useEffect(() => {
+    const read = (): void => {
+      const button = document.querySelector<HTMLButtonElement>(
+        '[data-slot="sidebar"] button[aria-label*="侧边栏"]',
+      )
+      if (button === null) return
+      setLeftRailOpen(button.getAttribute('aria-label')?.includes('收起') ?? false)
+    }
+    read()
+    const observer = new MutationObserver(read)
+    if (document.body !== null) {
+      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'class'] })
+    }
+    return () => { observer.disconnect() }
+  }, [])
+  return {
+    leftRailOpen,
+    toggleLeftRail: () => {
+      document.querySelector<HTMLButtonElement>(
+        '[data-slot="sidebar"] button[aria-label*="侧边栏"]',
+      )?.click()
+    },
+  }
 }
 
 export function CenterSurfaceBody({
@@ -427,13 +439,16 @@ function CenterSurfaceHostView({
   sidebar: DesktopSidebarServiceLike | undefined
 }): JSX.Element {
   const [mounted, setMounted] = useState(false)
+  const { leftRailOpen, toggleLeftRail } = useLeftRailOpenState()
   useEffect(() => { setMounted(true) }, [])
   if (!mounted) return <></>
   return (
     <DiffWorkerPoolProvider>
       <DiffThemeSync />
-      <div className="oh-dsh-center-tabs-strip">
-        <CenterRailToggles sidebar={sidebar} />
+      <RailFloatControls sidebar={sidebar} leftRailOpen={leftRailOpen} onToggleLeftRail={toggleLeftRail} />
+      <div
+        className={`oh-dsh-center-tabs-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}`}
+      >
         <CenterSurfaceTabs sessions={sessions} t={t} />
       </div>
       <CenterSurfaceBody sessions={sessions} />
