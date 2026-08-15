@@ -43,6 +43,36 @@ export const betterSidebarApi = {
     path: string,
     content: string,
   ): Promise<{ ok: boolean }> => callSidebarApi('fs.write', scope, { path, content }),
+  fsCreate: (
+    scope: BetterSidebarScope,
+    path: string,
+    directory: boolean,
+  ): Promise<{ ok: boolean }> => callSidebarApi('fs.create', scope, { path, directory }),
+  fsRename: (
+    scope: BetterSidebarScope,
+    from: string,
+    to: string,
+  ): Promise<{ ok: boolean }> => callSidebarApi('fs.rename', scope, { from, to }),
+  fsDelete: (
+    scope: BetterSidebarScope,
+    path: string,
+  ): Promise<{ ok: boolean }> => callSidebarApi('fs.delete', scope, { path }),
+  fsCopy: (
+    scope: BetterSidebarScope,
+    from: string,
+    to: string,
+  ): Promise<{ ok: boolean }> => callSidebarApi('fs.copy', scope, { from, to }),
+  fsSearch: (
+    scope: BetterSidebarScope,
+    pattern: string,
+    caseSensitive: boolean,
+    signal?: AbortSignal,
+  ): Promise<Array<{ path: string; line: number; text: string }>> => callSidebarApi(
+    'fs.search',
+    scope,
+    { pattern, caseSensitive },
+    signal,
+  ),
   fsTree: (
     scope: BetterSidebarScope,
     path: string,

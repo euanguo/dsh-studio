@@ -235,6 +235,33 @@ export function FilesView({
   )
   const selectedPath = chrome?.explorer.selectedPath ?? null
   const [refreshKey, setRefreshKey] = useState(0)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchHits, setSearchHits] = useState<Array<{ path: string; line: number; text: string }> | null>(null)
+  const [searching, setSearching] = useState(false)
+
+  useEffect(() => {
+    if (scope === undefined || cwd === undefined) return
+    if (searchQuery.trim() === '') {
+      setSearchHits(null)
+      setSearching(false)
+      return
+    }
+    const controller = new AbortController()
+    setSearching(true)
+    const timer = window.setTimeout(() => {
+      void betterSidebarApi.fsSearch(scope, searchQuery, false, controller.signal).then(hits => {
+        setSearchHits(hits)
+        setSearching(false)
+      }).catch(() => {
+        setSearchHits([])
+        setSearching(false)
+      })
+    }, 250)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [cwd, scope?.sessionId, searchQuery])
 
   // Tree mode expands from the workspace root; ensureListing short-circuits
   // on Ready/Empty — revisiting after a tab switch costs zero network.
@@ -319,6 +346,47 @@ export function FilesView({
           onClick={() => { setRefreshKey(value => value + 1) }}
         ><IconRefresh size={16} /></button>
       </div>
+      <div className="oh-dsh-files-search">
+        <input
+          type="search"
+          placeholder="Search files…"
+          value={searchQuery}
+          onChange={event => { setSearchQuery(event.target.value) }}
+          onKeyDown={event => {
+            if (event.key === 'Escape') setSearchQuery('')
+          }}
+        />
+      </div>
+      {searchHits !== null ? (
+        <div className="oh-dsh-file-search-results">
+          {searching ? <div className="oh-dsh-side-muted">{t('files.loading')}</div> : null}
+          {!searching && searchHits.length === 0 ? (
+            <div className="oh-dsh-side-muted">No matches</div>
+          ) : null}
+          {searchHits.slice(0, 100).map(hit => (
+            <button
+              key={`${hit.path}:${hit.line}`}
+              type="button"
+              className="oh-dsh-file-search-hit"
+              onClick={() => {
+                const cwd2 = cwd
+                if (cwd2 === undefined) return
+                const abs = hit.path.startsWith(cwd2) ? hit.path : `${cwd2.replace(/\/+$/, '')}/${hit.path}`
+                useCenterSurfaceStore.getState().openFile({
+                  sessionId: scope?.sessionId ?? '',
+                  cwd: cwd2,
+                  filePath: abs,
+                  title: hit.path.split('/').at(-1) ?? hit.path,
+                  preview: true,
+                })
+              }}
+            >
+              <span className="oh-dsh-file-search-hit-path">{hit.path}:{hit.line}</span>
+              <span className="oh-dsh-file-search-hit-text">{hit.text}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
       {loading && !entriesByDir.has(cwd) && <div className="oh-dsh-side-muted">{t('files.loading')}</div>}
       {error !== '' && <div className="oh-dsh-side-error" role="alert">{error}</div>}
       <div className="oh-dsh-file-list">

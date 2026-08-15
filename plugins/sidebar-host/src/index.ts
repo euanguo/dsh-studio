@@ -13,7 +13,7 @@
  * processes are keyed by session.
  */
 import { execFile } from 'node:child_process'
-import { mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, extname, isAbsolute, join } from 'node:path'
 import type { IncomingMessage } from 'node:http'
 import { WebSocket, WebSocketServer } from 'ws'
@@ -147,6 +147,37 @@ function gitBlobBase64(cwd: string, spec: string, relPath: string): Promise<stri
         return
       }
       resolvePromise(stdout.toString('base64'))
+    })
+  })
+}
+
+export interface FsSearchHit {
+  path: string
+  line: number
+  text: string
+}
+
+/** Search the workspace with `git grep` (falls back to an empty result set
+ *  when the workspace is not a repository — the UI shows a no-results state
+ *  instead of a hard error). */
+function searchWorkspace(cwd: string, pattern: string, caseSensitive: boolean): Promise<FsSearchHit[]> {
+  const args = ['-C', cwd, 'grep', '--no-color', '-n', '-I', '-E']
+  if (!caseSensitive) args.push('-i')
+  args.push('-e', pattern)
+  return new Promise(resolvePromise => {
+    execFile('git', args, { encoding: 'utf8', timeout: 20_000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
+      if (error !== null && error.code !== 1) {
+        resolvePromise([])
+        return
+      }
+      const hits: FsSearchHit[] = []
+      for (const line of stdout.split(/\r?\n/)) {
+        if (line === '') continue
+        const match = /^([^:]+):(\d+):(.*)$/.exec(line)
+        if (match === null) continue
+        hits.push({ path: match[1]!, line: Number(match[2]), text: match[3] ?? '' })
+      }
+      resolvePromise(hits.slice(0, 500))
     })
   })
 }
@@ -290,6 +321,59 @@ function buildApi(
         throw new SidebarError('fs-error', `cannot write "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
       }
       return { ok: true }
+    },
+    'fs.create': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      const path = requireAbsolute(requireString(payload, 'path'))
+      const record = payload as { directory?: unknown }
+      try {
+        if (record.directory === true) {
+          await mkdir(path, { recursive: false })
+        } else {
+          await writeFile(path, '', { encoding: 'utf8', flag: 'wx' })
+        }
+      } catch (error) {
+        throw new SidebarError('fs-error', `cannot create "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+      }
+      return { ok: true }
+    },
+    'fs.rename': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      const from = requireAbsolute(requireString(payload, 'from'))
+      const to = requireAbsolute(requireString(payload, 'to'))
+      try {
+        await rename(from, to)
+      } catch (error) {
+        throw new SidebarError('fs-error', `cannot rename "${from}": ${error instanceof Error ? error.message : String(error)}`, 400)
+      }
+      return { ok: true }
+    },
+    'fs.delete': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      const path = requireAbsolute(requireString(payload, 'path'))
+      try {
+        await rm(path, { recursive: true, force: false })
+      } catch (error) {
+        throw new SidebarError('fs-error', `cannot delete "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+      }
+      return { ok: true }
+    },
+    'fs.copy': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      const from = requireAbsolute(requireString(payload, 'from'))
+      const to = requireAbsolute(requireString(payload, 'to'))
+      try {
+        await copyFile(from, to)
+      } catch (error) {
+        throw new SidebarError('fs-error', `cannot copy "${from}": ${error instanceof Error ? error.message : String(error)}`, 400)
+      }
+      return { ok: true }
+    },
+    'fs.search': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      const record = payload as { pattern?: unknown; caseSensitive?: unknown }
+      const pattern = requireString(payload, 'pattern')
+      return searchWorkspace(cwd, pattern, record.caseSensitive === true)
     },
     'git.status': async (payload) => {
       const { cwd } = cwdOf(payload)
