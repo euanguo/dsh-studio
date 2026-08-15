@@ -111,37 +111,46 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 .oh-dsh-workspace-content {
   position: relative;
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
   overflow: auto;
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2) var(--oh-dsh-space-3);
+  /* Scroll container only — it owns NO inset. Each <section> child is the
+     "shell" that owns its own 8px padding (with a flush bottom divider), so
+     no negative margin / cancel-then-readd dance is needed anywhere. */
   box-sizing: border-box;
 }
 
 .oh-dsh-workspace-content section {
-  /* Flush dividers: the border runs edge to edge across the content
-     column (negating the content padding), while inner padding keeps the
-     section content aligned with the rows. */
-  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-2);
-  margin: 0 calc(-1 * var(--oh-dsh-space-2));
+  /* Section = shell: single owner of the 8px inset on all four sides. The
+     bottom border is outside the padding (border-box), so the divider runs
+     flush edge to edge with no negative margin. Inner content must not
+     re-declare this inset. */
+  padding: var(--oh-dsh-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
-.oh-dsh-workspace-section-title,
+/* The last section (the directory footer) has nothing below it in the scroll
+   column — the docked history strip is a sibling with its own border-top, so
+   the footer's own divider would only double up on it. */
+.oh-dsh-workspace-content section:last-child {
+  border-bottom: 0;
+}
+
 .oh-dsh-workspace-fact {
   display: grid;
   grid-template-columns: 26px minmax(0, 1fr) auto;
   align-items: center;
-  min-height: 38px;
+  min-height: 32px;
   gap: var(--oh-dsh-space-2);
-  padding: 0 6px;
+  /* 6px indent matches the ListRow depth-main leading, so the section icon
+     lines up with the row chevrons/files below. */
+  padding: 0 var(--oh-dsh-space-1-5);
   box-sizing: border-box;
   font-size: var(--oh-dsh-font-lg);
 }
 
-.oh-dsh-workspace-section-title strong { font-weight: 550; }
-
-.oh-dsh-workspace-section-icon,
 .oh-dsh-workspace-fact-icon {
   display: grid;
   place-items: center;
@@ -161,17 +170,171 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 .oh-dsh-change-list { padding: 0; }
 
+/* Git history is a sibling of the scroll column (not inside it), so the
+   change-list scrollbar never runs into it. It sits at the bottom of the
+   review view as its own flex-none strip. */
+.oh-dsh-review-history {
+  position: relative;
+  flex: none;
+  /* Top border separates the docked history strip from the change list above
+     (module separator). */
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: var(--dsw-alias-bg-base, #fff);
+  padding: var(--oh-dsh-space-2);
+}
+
+/* Drag the top edge of the expanded history to resize it (96–520px); the
+   bounded height keeps the change list visible above. */
+.oh-dsh-history-resize {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: row-resize;
+  z-index: 1;
+}
+
+/* The history header is the collapse/expand toggle — a plain static row
+   matching the "changes" header (no hover wash), only the chevron hints the
+   expand/collapse interaction. */
+.oh-dsh-history-toggle {
+  cursor: pointer;
+}
+
+.oh-dsh-history-chevron {
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  transition: transform 120ms ease;
+}
+.oh-dsh-history-chevron.is-collapsed {
+  transform: rotate(-90deg);
+}
+
 /* Commit history rows ride the shared ListRow family (hover/selected
-   geometry lives in list-row.css); only the hash chip is Git-specific. */
+   geometry + row spacing lives in list-row.css); only the hash chip is
+   Git-specific. Negative side margins let the internal scrollbar sit flush
+   against the window edge (same as the change-list scrollbar); inner padding
+   keeps the rows aligned with the section content. */
 .oh-dsh-review-commit-list {
   display: grid;
-  gap: var(--oh-dsh-space-0);
-  padding: 0 var(--oh-dsh-space-1) var(--oh-dsh-space-1);
+  /* Single auto column would size to the widest row's max-content, so a long
+     subject + author + hash could exceed the panel and force a horizontal
+     scrollbar. Pin the track to the panel width (min 0 keeps it shrinkable
+     when the sidebar is narrow); the subject then ellipsizes instead. */
+  grid-template-columns: minmax(0, 1fr);
+  margin: 0 calc(-1 * var(--oh-dsh-space-2));
+  padding: 0 var(--oh-dsh-space-2) var(--oh-dsh-space-1);
 }
 
 .oh-dsh-review-commit-hash {
   color: var(--dsw-alias-label-secondary, #57606a);
   font: var(--oh-dsh-font-xs)/1.4 var(--oh-dsh-font-mono);
+}
+
+/* Author rides the trailing slot (right-aligned, before the hash chip) so the
+   subject keeps the full label width instead of sharing a stacked meta row. */
+.oh-dsh-review-commit-author {
+  min-width: 0;
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+}
+
+/* Inline file list under an expanded history row (orca parity). Each file is
+   one compact clickable row, indented to sit under the commit subject. */
+.oh-dsh-review-commit-files {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--oh-dsh-space-1);
+}
+
+.oh-dsh-review-commit-file {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--oh-dsh-size-row);
+  /* Align with the commit subject (chevron column + depth inset + gap), then
+     indent one more step per directory depth in tree mode — the same ladder
+     the change list uses. */
+  padding: 0 var(--oh-dsh-space-2) 0 calc(
+    var(--oh-dsh-space-1-5) + 16px + var(--oh-dsh-space-2)
+    + var(--oh-dsh-tree-indent) * var(--tree-depth, 0)
+  );
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: var(--oh-dsh-font-sm) system-ui;
+  text-align: left;
+  cursor: pointer;
+}
+
+.oh-dsh-review-commit-file:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+}
+
+.oh-dsh-review-commit-file .oh-dsh-list-row-label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.oh-dsh-review-commit-file .oh-dsh-sc-mark {
+  flex: 0 0 auto;
+}
+
+/* Directory row in the inline commit file list (tree mode). */
+.oh-dsh-review-commit-dir {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  width: 100%;
+  min-width: 0;
+  min-height: var(--oh-dsh-size-row);
+  padding: 0 var(--oh-dsh-space-2) 0 calc(
+    var(--oh-dsh-space-1-5) + 16px + var(--oh-dsh-space-2)
+    + var(--oh-dsh-tree-indent) * var(--tree-depth, 0)
+  );
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font: var(--oh-dsh-font-sm) system-ui;
+  text-align: left;
+  cursor: pointer;
+}
+
+.oh-dsh-review-commit-dir:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+}
+
+.oh-dsh-review-commit-dir-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Section-level variant (committed changes): the files are direct children of
+   the section header — no commit-row chevron column to clear — so they align
+   with the change list's 6px base indent. */
+.oh-dsh-review-commit-file.is-section,
+.oh-dsh-review-commit-dir.is-section {
+  padding-left: calc(var(--oh-dsh-space-1-5) + var(--oh-dsh-tree-indent) * var(--tree-depth, 0));
+}
+
+/* Committed-changes header: collapse/expand toggle + view-all + chevron. */
+.oh-dsh-committed-header { cursor: pointer; }
+
+.oh-dsh-committed-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-0);
 }
 
 .oh-dsh-workspace-facts { display: grid; gap: 1px; }
@@ -197,11 +360,12 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 .oh-dsh-new-branch {
   display: flex;
   gap: var(--oh-dsh-space-1-5);
-  padding: var(--oh-dsh-space-0) var(--oh-dsh-space-1-5) var(--oh-dsh-space-1) var(--oh-dsh-space-1-5);
+  /* Content row: the parent facts section already owns the 8px inset, so
+     this row only spaces its own input/button children. */
 }
 
 .oh-dsh-new-branch input,
-.oh-dsh-commit-box textarea {
+.oh-dsh-commit-area textarea {
   min-width: 0;
   box-sizing: border-box;
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
@@ -219,7 +383,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-new-branch button,
-.oh-dsh-commit-box button {
+.oh-dsh-commit-actions button {
   padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
   border-radius: var(--oh-dsh-radius-sm);
@@ -232,28 +396,15 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-new-branch button:disabled,
-.oh-dsh-commit-box button:disabled { opacity: 0.45; cursor: default; }
+.oh-dsh-commit-actions button:disabled { opacity: 0.45; cursor: default; }
 
-.oh-dsh-commit-toggle {
-  width: 100%;
-  border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  text-align: left;
-  font: inherit;
-}
-
-.oh-dsh-commit-toggle:hover { background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%)); }
-
-.oh-dsh-commit-box {
+/* Top-of-panel commit area (branch + message + commit/push). */
+.oh-dsh-commit-area {
   display: grid;
   gap: var(--oh-dsh-space-1-5);
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1-5) var(--oh-dsh-space-2) var(--oh-dsh-space-1-5);
 }
 
-.oh-dsh-commit-box textarea {
+.oh-dsh-commit-area textarea {
   width: 100%;
   min-height: 64px;
   resize: vertical;
@@ -261,19 +412,24 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   font-size: var(--oh-dsh-font-sm);
 }
 
-.oh-dsh-commit-box > div { display: flex; gap: var(--oh-dsh-space-1-5); }
-.oh-dsh-commit-box small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--oh-dsh-font-xs); }
+.oh-dsh-commit-actions { display: flex; gap: var(--oh-dsh-space-1-5); }
+.oh-dsh-commit-area small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--oh-dsh-font-xs); }
 
 .oh-dsh-workspace-directory {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--oh-dsh-space-1) var(--oh-dsh-space-3);
-  min-height: 62px;
-  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-4) var(--oh-dsh-space-2) var(--oh-dsh-space-1-5) !important;
+  gap: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
+  min-height: 48px;
 }
 
+.oh-dsh-workspace-directory > span,
+.oh-dsh-workspace-directory > small {
+  /* The footer row keeps the section's own 8px inset (no extra indent) so
+     its name/path line up with the tab strip's 8px horizontal padding. */
+  padding-left: 0;
+}
 .oh-dsh-workspace-directory > span { font-size: var(--oh-dsh-font-lg); }
 .oh-dsh-workspace-directory > small {
   grid-column: 1;
@@ -300,41 +456,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-processes h3 {
-  margin: 8px 6px 10px;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-md);
-  font-weight: 500;
-}
-
-.oh-dsh-process-row {
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
-  align-items: center;
-  min-height: 34px;
-  gap: var(--oh-dsh-space-2);
-  padding: 0 6px;
-}
-
-.oh-dsh-process-row > span {
-  display: grid;
-  place-items: center;
-  width: 20px;
-  height: 20px;
-  border: 1px solid currentColor;
-  border-radius: 4px;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font: var(--oh-dsh-font-xs)/1 var(--oh-dsh-font-mono);
-}
-
-.oh-dsh-process-row code {
-  overflow: hidden;
-  color: var(--dsw-alias-label-primary, #1f2328);
-  font: var(--oh-dsh-font-sm)/1.35 var(--oh-dsh-font-mono);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .oh-dsh-workspace-empty,
 .oh-dsh-workspace-muted {
   padding: 18px 12px;
@@ -346,7 +467,9 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 .oh-dsh-workspace-empty { margin: auto; max-width: 220px; font-size: var(--oh-dsh-font-md); line-height: 1.5; }
 
 .oh-dsh-workspace-error {
-  margin: 4px 0 8px;
+  /* Sits directly inside the scroll container (no shell), so it owns its
+     own 8px inset to line up with the sections around it. */
+  margin: var(--oh-dsh-space-2) var(--oh-dsh-space-2) 0;
   padding: 8px 10px;
   border-radius: var(--oh-dsh-radius-sm);
   background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 10%, transparent);
