@@ -9,6 +9,17 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
+import {
+  IconBranchOutline16,
+  IconBrowseOutline16,
+  IconCodeOutline16,
+  IconEllipsisOutline16,
+  IconFolderOpenOutline16,
+  IconListPenOutline16,
+  IconNewChatOutline16,
+  Menu,
+  type MenuEntry,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '../../../shared/i18n.ts'
 import type { DesktopPanels } from '../../../panel-controls/src/client.ts'
 import {
@@ -471,58 +482,68 @@ function PinnedTabs({ sidebar, t }: {
   )
 }
 
-/* [+] menu: every enabled tool that is not open yet, as a small popover. */
+/* [+] menu rows use the official outline-16 icon set (the same set the left
+   rail's picker menu uses); unknown descriptors fall back to the ellipsis. */
+const TOOL_MENU_ICONS: Readonly<Record<string, ReactNode>> = {
+  browser: <IconBrowseOutline16 />,
+  files: <IconFolderOpenOutline16 />,
+  review: <IconBranchOutline16 />,
+  'side-chat': <IconNewChatOutline16 />,
+  terminal: <IconCodeOutline16 />,
+  trajectory: <IconListPenOutline16 />,
+}
+
+/* [+] menu: every enabled tool that is not open yet, as an anchored
+   dropdown. Uses the official ui-primitives Menu in PORTAL mode: the panel
+   clips absolutely-positioned children (overflow: hidden), so the list
+   renders into document.body instead; the shared rule in side-tools.css
+   (body > div[role='menu']) lifts it above the sidebar's fixed root. */
 function AddToolsMenu({ sidebar, t }: {
   sidebar: DesktopSidebar
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
   const [open, setOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement | null>(null)
-  useEffect(() => {
-    if (!open) return
-    const close = (event: MouseEvent): void => {
-      if (menuRef.current?.contains(event.target as Node)) return
-      setOpen(false)
-    }
-    window.addEventListener('mousedown', close, true)
-    return () => { window.removeEventListener('mousedown', close, true) }
-  }, [open])
+  const anchorRef = useRef<HTMLButtonElement | null>(null)
+  const getAnchorRect = useCallback(
+    () => anchorRef.current?.getBoundingClientRect() ?? null,
+    [],
+  )
   const descriptors = sidebar.getTabs().filter(descriptor =>
     descriptor.hidden !== true
     && sidebar.isTabEnabled(descriptor.id)
     && !snapshot.tabs.some(tab => tab.type === descriptor.id)
   )
+  const items: MenuEntry[] = descriptors.length === 0
+    ? [{ type: 'label', id: 'no-more-tools', text: t('side.no-more-tools') }]
+    : descriptors.map(descriptor => ({
+      id: descriptor.id,
+      label: descriptorTitle(descriptor),
+      icon: TOOL_MENU_ICONS[descriptor.id] ?? <IconEllipsisOutline16 />,
+    }))
   return (
-    <div className="oh-dsh-add-tools" ref={menuRef}>
+    <div className="oh-dsh-add-tools">
       <button
+        ref={anchorRef}
         type="button"
         aria-label={t('side.add-tool')}
         aria-expanded={open}
         title={t('side.add-tool')}
         onClick={() => { setOpen(value => !value) }}
       ><IconPlus size={14} /></button>
-      {open && (
-        <div className="oh-dsh-add-tools-menu" role="menu">
-          {descriptors.map(descriptor => (
-            <button
-              type="button"
-              role="menuitem"
-              key={descriptor.id}
-              onClick={() => {
-                sidebar.openTab({ type: descriptor.id })
-                setOpen(false)
-              }}
-            >
-              <DescriptorIcon descriptor={descriptor} />
-              <span>{descriptorTitle(descriptor)}</span>
-            </button>
-          ))}
-          {descriptors.length === 0 && (
-            <div className="oh-dsh-side-muted">{t('side.no-more-tools')}</div>
-          )}
-        </div>
-      )}
+      <Menu
+        open={open}
+        anchor={null}
+        align="end"
+        items={items}
+        portal
+        getAnchorRect={getAnchorRect}
+        onSelect={(id) => {
+          sidebar.openTab({ type: id })
+          setOpen(false)
+        }}
+        onClose={() => { setOpen(false) }}
+      />
     </div>
   )
 }

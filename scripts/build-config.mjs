@@ -98,10 +98,12 @@ export function desktopBuilds(root) {
           ...(['desktop-skins', 'sidebar', 'desktop-left-rail'].includes(plugin.directory)
             ? ['@deepseek-ai/dsh-client-runtime/client']
             : []),
-          ...(plugin.directory === 'desktop-left-rail'
+          ...(['desktop-left-rail', 'sidebar', 'sidebar-desktop'].includes(plugin.directory)
             // Platform seed (frozen module table): the runtime resolves the
             // official ui-primitives bundle — icons/menus/dialogs stay 1:1
             // with the official web app (see docs/official-plugin-migration.md).
+            // sidebar-desktop bundles the sidebar's own client modules
+            // (SideToolsPanel), so it inherits the same external.
             ? ['@deepseek-ai/dsh-client-ui-primitives']
             : []),
         ],

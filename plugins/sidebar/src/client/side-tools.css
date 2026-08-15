@@ -336,8 +336,14 @@
 .oh-dsh-add-tools {
   position: relative;
   flex: none;
+  /* Flex row: the official Menu's anchor span (inline-flex, empty in portal
+     mode) would otherwise drop below the block-level [+] button and inflate
+     the container, pushing the button out of vertical alignment. */
+  display: flex;
+  align-items: center;
 }
 
+/* The [+] trigger: plain icon button, same geometry as the window controls. */
 .oh-dsh-add-tools > button {
   display: grid;
   place-items: center;
@@ -357,43 +363,13 @@
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-add-tools-menu {
-  position: absolute;
+/* Any official Menu opened in portal mode (list portaled to document.body)
+   must float above the sidebar's own fixed root (z-index 2147483647, the
+   maximum — needed to clear the DSH window-drag strip). The official card
+   only reaches 1100, so every portaled list would land UNDER the panel
+   otherwise. This is the single seam: every floating layer inside the panel
+   uses portal mode and inherits this rule, instead of being clipped by the
+   panel's overflow: hidden. */
+body > div[role='menu'] {
   z-index: 2147483647;
-  top: calc(100% + var(--oh-dsh-space-1));
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  min-width: 176px;
-  padding: var(--oh-dsh-space-1);
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 9%));
-  border-radius: var(--oh-dsh-radius-md);
-  background: var(--oh-dsh-overlay-bg);
-  box-shadow: var(--oh-dsh-overlay-shadow);
-}
-
-.oh-dsh-add-tools-menu button {
-  display: flex;
-  align-items: center;
-  gap: var(--oh-dsh-space-2);
-  padding: 5px var(--oh-dsh-space-2);
-  border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-primary, #1f2328);
-  font: var(--oh-dsh-font-sm) system-ui;
-  text-align: left;
-  cursor: pointer;
-}
-
-.oh-dsh-add-tools-menu button:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-}
-
-.oh-dsh-add-tools-menu button svg {
-  flex: none;
-}
-
-.oh-dsh-add-tools-menu .oh-dsh-side-muted {
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
 }
