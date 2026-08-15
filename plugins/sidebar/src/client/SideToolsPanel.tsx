@@ -40,6 +40,7 @@ import {
   ListRowTrailing,
 } from '../../../shared/list-row.tsx'
 import { FilenameLabel } from '../../../shared/filename-label.tsx'
+import { SurfaceTab } from './surfaces/surface-tab.tsx'
 import {
   getExplorerRuntime,
   resolveSidebarPath,
@@ -565,7 +566,8 @@ function OrphanedTab({ title, t }: {
 }
 
 /* Pinned panel entries — 文件 (files) and Git (review) stay one click away,
-   everything else is added through the [+] menu. */
+   everything else is added through the [+] menu. Rendered with the shared
+   SurfaceTab chip (the same component the center tab strip uses). */
 function PinnedTabs({ sidebar, t }: {
   sidebar: DesktopSidebar
   t: Translate<WorkspaceMessage>
@@ -582,18 +584,18 @@ function PinnedTabs({ sidebar, t }: {
   }
   return (
     <div className="oh-dsh-side-pinned" role="tablist">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeType === 'files'}
-        onClick={() => { openType('files') }}
-      ><ToolIcon kind="files" />{t('files')}</button>
-      <button
-        type="button"
-        role="tab"
-        aria-selected={activeType === 'review'}
-        onClick={() => { openType('review') }}
-      ><ToolIcon kind="review" />{t('side.git')}</button>
+      <SurfaceTab
+        label={t('files')}
+        icon={<ToolIcon kind="files" />}
+        active={activeType === 'files'}
+        onSelect={() => { openType('files') }}
+      />
+      <SurfaceTab
+        label={t('side.git')}
+        icon={<ToolIcon kind="review" />}
+        active={activeType === 'review'}
+        onSelect={() => { openType('review') }}
+      />
     </div>
   )
 }
@@ -654,29 +656,28 @@ function AddToolsMenu({ sidebar, t }: {
   )
 }
 
+/* Extra open tools (beyond the pinned 文件 / Git entries) as shared
+   SurfaceTab chips. */
 function TabStrip({ sidebar, t }: {
   sidebar: DesktopSidebar
   t: Translate<WorkspaceMessage>
 }): JSX.Element | null {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
-  if (snapshot.tabs.length < 2) return null
+  const pinnedTypes = new Set(['files', 'review'])
+  const tabs = snapshot.tabs.filter(tab => !pinnedTypes.has(tab.type))
+  if (tabs.length === 0) return null
   return (
     <div className="oh-dsh-side-tabs" role="tablist">
-      {snapshot.tabs.map(tab => (
-        <div key={tab.id} data-active={tab.id === snapshot.activeId || undefined}>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab.id === snapshot.activeId}
-            title={tab.title}
-            onClick={() => { sidebar.activateTab(tab.id) }}
-          >{tab.title}</button>
-          <button
-            type="button"
-            aria-label={t('side.close-named-tab', { title: tab.title })}
-            onClick={() => { sidebar.closeTab(tab.id) }}
-          ><IconClose size={12} /></button>
-        </div>
+      {tabs.map(tab => (
+        <SurfaceTab
+          key={tab.id}
+          label={tab.title}
+          title={tab.title}
+          active={tab.id === snapshot.activeId}
+          onSelect={() => { sidebar.activateTab(tab.id) }}
+          onClose={() => { sidebar.closeTab(tab.id) }}
+          closeLabel={t('side.close-named-tab', { title: tab.title })}
+        />
       ))}
     </div>
   )
@@ -799,37 +800,6 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
           t={props.t}
         />
       </div>
-      {activeTab !== undefined && descriptor?.chrome !== 'custom' && (
-        <header className="oh-dsh-workspace-header oh-dsh-side-header">
-          <div>
-            <button
-              type="button"
-              aria-label={props.t('side.back')}
-              onClick={() => { props.sidebar.activateTab(null) }}
-            ><IconArrowLeft size={16} /></button>
-            <strong>{title}</strong>
-          </div>
-          <div>
-            <button
-              type="button"
-              aria-label={props.t('side.close-tab')}
-              onClick={() => { props.sidebar.closeTab(activeTab.id) }}
-            ><IconMinus size={16} /></button>
-            <button
-              type="button"
-              aria-label={props.maximized ? props.t('side.restore') : props.t('side.expand')}
-              title={props.maximized ? props.t('side.restore') : props.t('side.expand')}
-              aria-pressed={props.maximized}
-              onClick={props.onToggleMaximized}
-            >{props.maximized ? <IconRestore size={16} /> : <IconExpand size={16} />}</button>
-            <button
-              type="button"
-              aria-label={props.t('side.close')}
-              onClick={props.onClose}
-            ><IconClose size={16} /></button>
-          </div>
-        </header>
-      )}
       {content}
     </aside>
   )

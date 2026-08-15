@@ -716,7 +716,7 @@ export function apply(ctx: ClientContext): void {
     service.mount()
     // Center surface module: renderer registry + the middle-area tab host.
     registerCenterSurfaceRenderers(t)
-    const centerSurfaceHost = new CenterSurfaceHost({ sessions, t })
+    const centerSurfaceHost = new CenterSurfaceHost({ sessions, t, sidebar: desktopSidebar })
     centerSurfaceHost.mount()
     const removeSidebar = ctx.reflect.provide(
       'desktopSidebar',
