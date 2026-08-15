@@ -644,16 +644,27 @@ export function DiffAllSurfaceView({
   const navigateChange = useCallback((direction: 1 | -1) => {
     const root = listRef.current
     if (root === null) return
-    const rows = Array.from(root.querySelectorAll<HTMLElement>(
-      '.oh-dsh-diff-raw-row[data-line-kind="added"], .oh-dsh-diff-raw-row[data-line-kind="removed"]',
-    ))
+    // Pierre rows live in each block's diffs-container shadow root.
+    const rows: Array<{ top: number; el: Element }> = []
+    for (const block of root.querySelectorAll('.oh-dsh-multi-diff-block[data-mounted="true"]')) {
+      const container = block.querySelector('diffs-container')
+      const shadow = container?.shadowRoot
+      if (shadow === null || shadow === undefined) continue
+      for (const row of shadow.querySelectorAll('[data-line-type^="change-"]')) {
+        rows.push({ top: row.getBoundingClientRect().top, el: row })
+      }
+    }
     if (rows.length === 0) return
-    const anchor = root.scrollTop + 12
+    rows.sort((a, b) => a.top - b.top)
+    // Anchor on the viewport middle: the centered row lands exactly on it,
+    // so the next press advances past it (strict inequality on both sides).
+    const rootRect = root.getBoundingClientRect()
+    const anchor = rootRect.top + rootRect.height * 0.5
     let target = direction === 1
-      ? rows.find(row => row.offsetTop >= anchor)
-      : [...rows].reverse().find(row => row.offsetTop < anchor)
-    if (target === undefined) target = direction === 1 ? rows[0] : rows.at(-1)
-    target?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      ? rows.find(row => row.top > anchor)
+      : [...rows].reverse().find(row => row.top < anchor)
+    if (target === undefined) target = direction === 1 ? rows[0] : rows[rows.length - 1]
+    target?.el.scrollIntoView({ behavior: 'smooth', block: 'center' })
   }, [])
 
   useEffect(() => {
@@ -811,7 +822,7 @@ export function CommitDiffSurfaceView({
               <small><b>+{file.additions}</b> −{file.deletions}</small>
             </summary>
             <div className="oh-dsh-commit-surface-lines">
-              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} rawOnly hideMeta />
+              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} virtualize={false} hideMeta />
             </div>
           </details>
         ))}
@@ -944,7 +955,7 @@ function CommittedAllDiffView({
               <small><b>+{file.additions}</b> −{file.deletions}</small>
             </summary>
             <div className="oh-dsh-commit-surface-lines">
-              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} rawOnly hideMeta />
+              <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} virtualize={false} hideMeta />
             </div>
           </details>
         ))}

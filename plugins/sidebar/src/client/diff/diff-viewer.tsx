@@ -5,10 +5,9 @@
  * future diff — so there is exactly one diff component family.
  *
  * The structured DiffDocument is rebuilt into a patch for Pierre; when
- * Pierre cannot parse it (or `rawOnly` is set for natural-height stacks
- * where the render loop cannot start) the structured RawDiff renderer takes
- * over. Line comments render as Pierre annotation rows (lineAnnotations +
- * renderAnnotation) on the new-side lines.
+ * Pierre cannot parse it, the structured RawDiff renderer takes over as the
+ * fallback. Line comments render as Pierre annotation rows (lineAnnotations
+ * + renderAnnotation) on the new-side lines.
  */
 import type { ReactNode } from 'react'
 import type { AnnotationSide, DiffLineAnnotation } from '@pierre/diffs'
@@ -32,12 +31,6 @@ export type DiffViewerProps = Readonly<{
    * can scroll the full stack. Default true for single-file center surfaces.
    */
   virtualize?: boolean
-  /**
-   * Render the structured rows (no Pierre). Used by natural-height stacks
-   * (multi-diff / commit lists) where a size-less FileDiff container cannot
-   * start its render loop.
-   */
-  rawOnly?: boolean
   /** Line comments rendered as Pierre annotation rows (new-side lines). */
   lineAnnotations?: DiffLineAnnotation<DiffComment>[]
   renderAnnotation?: (annotation: DiffLineAnnotation<DiffComment>) => ReactNode
@@ -59,7 +52,6 @@ export function DiffViewer({
   wordWrap = false,
   hideMeta = false,
   virtualize = true,
-  rawOnly = false,
   lineAnnotations,
   renderAnnotation,
   onLineNumberClick,
@@ -67,23 +59,6 @@ export function DiffViewer({
 }: DiffViewerProps): JSX.Element {
   const summary = `${document.path}  +${String(document.additions)} −${String(document.deletions)}`
   const patch = buildPatch(document)
-
-  if (rawOnly) {
-    return (
-      <div className="oh-dsh-diff-viewer" data-testid="diff-viewer" data-layout={layout}>
-        {hideMeta ? null : (
-          <div className="oh-dsh-diff-viewer-meta">
-            <span>{summary}</span>
-          </div>
-        )}
-        <RawDiff
-          document={document}
-          wordWrap={wordWrap}
-          layout={layout}
-        />
-      </div>
-    )
-  }
 
   const renderedDiff = renderPierreDiff({
     patch,
@@ -128,7 +103,7 @@ export function DiffViewer({
   )
 }
 
-/** Structured row renderer (the Pierre-less fallback / rawOnly stacks). */
+/** Structured row renderer (the Pierre-less fallback when the patch cannot be parsed). */
 export function RawDiff({
   document,
   wordWrap,

@@ -67,16 +67,16 @@ export function MultiDiffFileStack({
                 </div>
                 <div className="oh-dsh-multi-diff-lines">
                   {/*
-                    rawOnly is kept deliberately: a natural-height FileDiff
-                    container measures 0×0 and the render loop deadlocks
-                    (no rows). Switching this stack to Pierre requires either
-                    a bounded-height Virtualizer per file or the official
-                    MultiFileDiff component (see viewer-libraries-research §4).
+                    Pierre rendering with natural per-file sizing: the outer
+                    list scrolls the whole stack. Previously deadlocked
+                    because buildPatch emitted no @@ headers for review-style
+                    documents, so Pierre parsed 0 hunks and rendered nothing —
+                    fixed in file-diff.ts.
                   */}
                   <DiffViewer
                     document={reviewFileToDiffDocument(file)}
                     theme={theme}
-                    rawOnly
+                    virtualize={false}
                     layout={layout}
                     wordWrap={wordWrap}
                     hideMeta
