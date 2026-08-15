@@ -14,6 +14,8 @@
 
 /* Top row of the panel: the shared SurfaceTab chips (pinned 文件 / Git,
    then extra open tools) plus the flush-right window controls.
+   Height matches the center tab strip (41px) so the two rows and their
+   bottom borders line up on the same line.
    `no-drag`: DSH reserves a 28px `-webkit-app-region: drag` strip at the
    very top (body::before) that swallows every real mouse event in its
    band — the top row lives inside it, so it must opt out to stay
@@ -23,8 +25,8 @@
   display: flex;
   align-items: center;
   flex: none;
-  min-height: 37px;
-  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-3);
+  min-height: 41px;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-3);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
