@@ -40,7 +40,7 @@ import {
   ListRowTrailing,
 } from '../../../shared/list-row.tsx'
 import { FilenameLabel } from '../../../shared/filename-label.tsx'
-import { SurfaceTab } from './surfaces/surface-tab.tsx'
+import { SurfaceTab } from '../../../shared/surface-tab.tsx'
 import {
   getExplorerRuntime,
   resolveSidebarPath,
