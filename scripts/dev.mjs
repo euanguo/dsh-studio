@@ -57,6 +57,8 @@ const SYNC_PAIRS = [
   ]),
   ['dist/plugins/sidebar-host/client-editor.js', '@oh-dsh/sidebar-host/dist/client-editor.js'],
   ['dist/plugins/sidebar-host/client-editor.js.map', '@oh-dsh/sidebar-host/dist/client-editor.js.map'],
+  ['dist/plugins/sidebar-host/client-mermaid.js', '@oh-dsh/sidebar-host/dist/client-mermaid.js'],
+  ['dist/plugins/sidebar-host/client-mermaid.js.map', '@oh-dsh/sidebar-host/dist/client-mermaid.js.map'],
 ]
 
 let syncedCount = 0

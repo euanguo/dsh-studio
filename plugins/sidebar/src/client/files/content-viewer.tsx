@@ -23,6 +23,7 @@ import { highlightCode, languageForPath } from './syntax-highlight.ts'
 import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
 import { MarkdownViewer } from './markdown-viewer.tsx'
 import { IpynbViewer } from './ipynb-viewer.tsx'
+import { MermaidViewer } from './mermaid-viewer.tsx'
 
 /** Highlight one source line (empty lines render as a single space). */
 function highlightLine(line: string, language: string): string {
@@ -34,7 +35,7 @@ export const MAX_HIGHLIGHT_CHARS = 250_000
 /** Above this many lines the line-number gutter is dropped (Synara policy). */
 export const MAX_NUMBERED_LINES = 20_000
 
-type ContentKind = 'text' | 'csv' | 'markdown' | 'html' | 'image' | 'pdf' | 'ipynb' | 'binary'
+type ContentKind = 'text' | 'csv' | 'markdown' | 'html' | 'image' | 'pdf' | 'ipynb' | 'mermaid' | 'binary'
 
 const IMAGE_EXTS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp', 'svg', 'avif',
@@ -49,6 +50,7 @@ function detectKind(path: string, binary: boolean): ContentKind {
   if (binary) return 'binary'
   if (ext === 'csv' || ext === 'tsv') return 'csv'
   if (ext === 'ipynb') return 'ipynb'
+  if (ext === 'mmd' || ext === 'mermaid') return 'mermaid'
   if (ext === 'md' || ext === 'markdown' || ext === 'mdx') return 'markdown'
   if (ext === 'html' || ext === 'htm') return 'html'
   return 'text'
@@ -178,6 +180,14 @@ export function ContentViewer({
     return (
       <div className="oh-dsh-content-root">
         <IpynbViewer content={content} />
+      </div>
+    )
+  }
+
+  if (kind === 'mermaid') {
+    return (
+      <div className="oh-dsh-content-root">
+        <MermaidViewer content={content} />
       </div>
     )
   }

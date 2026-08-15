@@ -27,3 +27,12 @@ export async function loadEditorChunk(): Promise<EditorChunkApi> {
   if (api === undefined) throw new Error('Editor chunk did not register itself.')
   return api
 }
+
+export type MermaidChunkApi = NonNullable<Window['__ohDshMermaidChunk']>
+
+export async function loadMermaidChunk(): Promise<MermaidChunkApi> {
+  await loadChunk('mermaid')
+  const api = window.__ohDshMermaidChunk
+  if (api === undefined) throw new Error('Mermaid chunk did not register itself.')
+  return api
+}

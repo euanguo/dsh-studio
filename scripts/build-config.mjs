@@ -130,5 +130,18 @@ export function desktopBuilds(root) {
     external: ['react', 'react-dom/client', 'react/jsx-runtime'],
   })
 
+  builds.push({
+    bundle: true,
+    entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'files', 'mermaid-chunk.ts')],
+    outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js'),
+    platform: 'browser',
+    format: 'iife',
+    target: 'es2022',
+    sourcemap: true,
+    logLevel: 'info',
+    loader: { '.css': 'text' },
+    external: ['react', 'react-dom/client', 'react/jsx-runtime'],
+  })
+
   return builds
 }

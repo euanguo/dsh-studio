@@ -1344,3 +1344,31 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   font-size: var(--oh-dsh-font-xs);
 }
 
+
+/* Mermaid viewer */
+.oh-dsh-mermaid-viewer {
+  padding: var(--oh-dsh-space-3);
+  overflow: auto;
+}
+
+.oh-dsh-mermaid-svg {
+  display: flex;
+  justify-content: center;
+  min-width: fit-content;
+}
+
+.oh-dsh-mermaid-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.oh-dsh-mermaid-source {
+  padding: 12px;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
+  overflow-x: auto;
+  font-family: var(--oh-dsh-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+}
+
