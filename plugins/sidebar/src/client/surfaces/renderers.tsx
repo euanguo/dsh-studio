@@ -171,6 +171,7 @@ export function FileSurfaceView({
           markdownPreview={markdownMode === 'preview'}
           onTaskToggle={onTaskToggle}
           onOpenExternal={onOpenExternal}
+          {...(snapshot.data === undefined ? {} : { data: snapshot.data })}
           t={t}
         />
       </div>
