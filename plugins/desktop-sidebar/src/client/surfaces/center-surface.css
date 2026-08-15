@@ -61,37 +61,58 @@
   display: none;
 }
 
-/* Left/right rail toggles at the strip ends — one top bar maintains all
-   three columns (reference-shell pattern). */
-.oh-dsh-center-tabs-rail-controls {
-  display: flex;
-  align-items: center;
-  gap: var(--oh-dsh-space-0);
-  flex: none;
-  padding-right: var(--oh-dsh-space-1);
-  -webkit-app-region: no-drag;
+/* While the DSH left rail is collapsed, its fixed toggle (right of the
+   traffic lights) overlaps the strip's left edge — the strip pads itself
+   so the first tab never sits under the button. */
+.oh-dsh-center-tabs-strip.is-left-collapsed {
+  padding-left: 48px;
 }
 
-.oh-dsh-center-rail-toggle {
+/* Floating rail controls (reference-shell pattern):
+   - left rail toggle: fixed right of the macOS traffic lights; while the
+     rail is expanded that spot is the rail header, collapsed it marks the
+     strip's left edge;
+   - right rail reopen: appears at the top-right edge while the right panel
+     is closed. Both must opt out of the 28px window-drag strip and sit at
+     its z-level to receive real clicks. */
+.oh-dsh-left-rail-toggle,
+.oh-dsh-right-rail-reopen {
+  -webkit-app-region: no-drag;
+  position: fixed;
+  z-index: 2147483647;
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: 0;
   border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
-  color: var(--dsw-alias-label-tertiary, #8c959f);
+  color: var(--dsw-alias-label-secondary, #57606a);
   cursor: pointer;
 }
 
-.oh-dsh-center-rail-toggle:hover,
-.oh-dsh-center-rail-toggle[aria-pressed='true'] {
+.oh-dsh-left-rail-toggle {
+  top: 7px;
+  left: 74px;
+}
+
+.oh-dsh-right-rail-reopen {
+  top: 7px;
+  right: 8px;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 88%, transparent);
+  box-shadow: 0 2px 10px rgb(0 0 0 / 14%);
+}
+
+.oh-dsh-left-rail-toggle:hover,
+.oh-dsh-right-rail-reopen:hover,
+.oh-dsh-left-rail-toggle[aria-pressed='true'] {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-center-rail-toggle svg {
+.oh-dsh-left-rail-toggle svg,
+.oh-dsh-right-rail-reopen svg {
   width: 16px;
   height: 16px;
   fill: none;
@@ -99,12 +120,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.6;
-}
-
-/* The tab strip keeps flexing; the rail controls stay fixed at the ends. */
-.oh-dsh-center-tabs-strip > .oh-dsh-surface-tab-strip {
-  flex: 1;
-  min-width: 0;
 }
 
 /* ---------- Surface tab chip ---------- */
