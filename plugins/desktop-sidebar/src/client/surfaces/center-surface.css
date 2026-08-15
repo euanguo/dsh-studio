@@ -101,7 +101,6 @@
   top: 7px;
   right: 8px;
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 88%, transparent);
-  box-shadow: 0 2px 10px rgb(0 0 0 / 14%);
 }
 
 .oh-dsh-left-rail-toggle:hover,
@@ -120,22 +119,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.6;
-}
-
-/* Divider bridge: continues the strip's bottom border (y = strip height)
-   across the DSH center-column gap to the right panel's left edge. The
-   gap is the fixed 12px layout margin; the panel's own left border starts
-   where this ends — so the bridge's right edge sits at the panel's left
-   edge (window width minus the panel width). */
-.oh-dsh-center-border-bridge {
-  position: fixed;
-  top: 41px;
-  right: var(--oh-dsh-desktop-sidebar-width, 480px);
-  width: 12px;
-  height: 1px;
-  z-index: 2147483647;
-  background: var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  pointer-events: none;
 }
 
 /* ---------- Surface body (file / diff / browser render area) ---------- */
