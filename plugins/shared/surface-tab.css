@@ -5,6 +5,15 @@
    only (same tokens the row family uses).
    ============================================================ */
 
+/* The strip gives every tab its chip gap — consumers do not add their
+   own (the center strip and the right panel top row share this). */
+.oh-dsh-surface-tab-strip {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+  min-width: 0;
+}
+
 .oh-dsh-surface-tab {
   -webkit-app-region: no-drag;
   display: inline-flex;
