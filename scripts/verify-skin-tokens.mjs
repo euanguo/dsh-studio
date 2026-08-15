@@ -1,6 +1,10 @@
 // 最终核对：从 Synara theme-tokens.css 源码推导每个皮肤 token 的期望值，
 // 与 plugins/desktop-skins/src/client/skins.ts 实际值比对。
 import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 // ---- 颜色工具 ----
 const hexToRgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
@@ -47,7 +51,7 @@ const mixTransparent = (c, p) => {
 }
 
 // ---- 皮肤文件提取 ----
-const skinsSrc = readFileSync('/Users/verger/code_source/front_end/important_project/oh-dsh-desktop/plugins/desktop-skins/src/client/skins.ts', 'utf8')
+const skinsSrc = readFileSync(join(root, 'plugins', 'desktop-skins', 'src', 'client', 'skins.ts'), 'utf8')
 function extract(name) {
   const block = skinsSrc.split(`const ${name} = {`)[1].split('} as const')[0]
   const tokens = {}
