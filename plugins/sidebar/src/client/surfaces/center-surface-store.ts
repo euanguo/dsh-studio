@@ -61,7 +61,9 @@ interface CenterSurfaceState {
     filePath: string
     title?: string
     preview?: boolean
+    markdownPreview?: boolean
   }): FileCenterSurface
+  setFileMarkdownPreview(cwd: string, surfaceId: string, markdownPreview: boolean): void
   openDiff(input: {
     cwd: string
     sessionId: string
@@ -159,7 +161,7 @@ function openPreviewableSurface(
         return { ...surface, title: next.title, staged: next.staged, isPreview } as DiffCenterSurface
       }
       if (surface.kind === 'file' && next.kind === 'file') {
-        return { ...surface, title: next.title, isPreview } as FileCenterSurface
+        return { ...surface, title: next.title, isPreview, markdownPreview: next.markdownPreview ?? surface.markdownPreview } as FileCenterSurface
       }
       if (surface.kind === 'browser' && next.kind === 'browser') {
         return { ...surface, title: next.title, resource: next.resource, isPreview } as BrowserCenterSurface
@@ -236,6 +238,7 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       title: input.title?.trim() || fileNameFromPath(input.filePath),
       closable: true,
       isPreview,
+      ...(input.markdownPreview === undefined ? {} : { markdownPreview: input.markdownPreview }),
     }
     set(state => {
       const slice = readSlice(state.byCwd, input.cwd)
@@ -330,6 +333,21 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       return { byCwd: writeSlice(state.byCwd, input.cwd, { open, activeId: id }) }
     })
     return nextSurface
+  },
+
+  setFileMarkdownPreview: (cwd, surfaceId, markdownPreview) => {
+    set(state => {
+      const slice = readSlice(state.byCwd, cwd)
+      let changed = false
+      const open = slice.open.map(surface => {
+        if (surface.id !== surfaceId || surface.kind !== 'file') return surface
+        if (surface.markdownPreview === markdownPreview) return surface
+        changed = true
+        return { ...surface, markdownPreview }
+      })
+      if (!changed) return state
+      return { byCwd: writeSlice(state.byCwd, cwd, { open, activeId: slice.activeId }) }
+    })
   },
 
   pin: (cwd, surfaceId) => {
@@ -489,7 +507,14 @@ export function restoreCenterSurfaces(): void {
       if (surface.kind === 'conversation') {
         state.openConversation({ cwd, sessionId: surface.sessionId, title: surface.title, activate: false })
       } else if (surface.kind === 'file') {
-        state.openFile({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, title: surface.title, preview: false })
+        state.openFile({
+          cwd,
+          sessionId: surface.sessionId,
+          filePath: surface.filePath,
+          title: surface.title,
+          preview: false,
+          ...(surface.markdownPreview === undefined ? {} : { markdownPreview: surface.markdownPreview }),
+        })
       } else if (surface.kind === 'diff') {
         state.openDiff({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, staged: surface.staged, title: surface.title, preview: false })
       } else if (surface.kind === 'commit') {

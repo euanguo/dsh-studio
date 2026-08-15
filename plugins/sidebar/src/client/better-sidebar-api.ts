@@ -38,6 +38,11 @@ export const betterSidebarApi = {
     path: string,
     signal?: AbortSignal,
   ): Promise<BetterSidebarFsRead> => callSidebarApi('fs.read', scope, { path }, signal),
+  fsWrite: (
+    scope: BetterSidebarScope,
+    path: string,
+    content: string,
+  ): Promise<{ ok: boolean }> => callSidebarApi('fs.write', scope, { path, content }),
   fsTree: (
     scope: BetterSidebarScope,
     path: string,

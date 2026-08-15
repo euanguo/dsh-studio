@@ -34,6 +34,8 @@ export interface FileCenterSurface {
   title: string
   closable: true
   isPreview: boolean
+  /** Persisted Markdown Source/Preview preference for this tab. */
+  markdownPreview?: boolean
 }
 
 export interface DiffCenterSurface {

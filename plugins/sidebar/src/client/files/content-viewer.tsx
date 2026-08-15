@@ -2,18 +2,37 @@
  * File content viewer migrated from the reference project's
  * content-viewer.tsx: routes by extension to text (numbered lines), CSV/TSV
  * (table), markdown (react-markdown), binary (open-externally placeholder),
- * and empty states. Rendering stays inside the detached panel / file tab.
+ * image/PDF (inline preview + toolbar), and empty states. Rendering stays
+ * inside the detached panel / file tab.
+ *
+ * P1 upgrades: large-file graded fallbacks (250k highlight / 20k line-number
+ * caps), image loading/error/zoom states, PDF toolbar, sticky CSV header,
+ * differentiated binary states, and truncated propagation for write-gating.
  */
-import ReactMarkdown from 'react-markdown'
-import { IconFileText } from '../../../../shared/tabler-icons.tsx'
+import { useEffect, useState } from 'react'
+import {
+  IconExternalLink,
+  IconFileText,
+  IconMinus,
+  IconPlus,
+} from '../../../../shared/tabler-icons.tsx'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { highlightCode, languageForPath } from './syntax-highlight.ts'
+import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
+import { MarkdownViewer } from './markdown-viewer.tsx'
 
 /** Highlight one source line (empty lines render as a single space). */
 function highlightLine(line: string, language: string): string {
   return line === '' ? ' ' : highlightCode(line, language)
-}type ContentKind = 'text' | 'csv' | 'markdown' | 'html' | 'image' | 'pdf' | 'binary'
+}
+
+/** Above this many characters the per-line Prism path degrades to plain text. */
+export const MAX_HIGHLIGHT_CHARS = 250_000
+/** Above this many lines the line-number gutter is dropped (Synara policy). */
+export const MAX_NUMBERED_LINES = 20_000
+
+type ContentKind = 'text' | 'csv' | 'markdown' | 'html' | 'image' | 'pdf' | 'binary'
 
 const IMAGE_EXTS = new Set([
   'png', 'jpg', 'jpeg', 'gif', 'webp', 'ico', 'bmp', 'svg', 'avif',
@@ -50,38 +69,26 @@ function mimeFor(path: string): string {
   return table[ext] ?? 'application/octet-stream'
 }
 
-/** Minimal RFC-ish CSV/TSV split (quoted fields, capped at 500 rows). */
-export function parseDelimitedRows(text: string, delimiter: string): string[][] {
-  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
-  const rows: string[][] = []
-  for (const line of lines) {
-    if (line === '') continue
-    const cells: string[] = []
-    let current = ''
-    let inQuotes = false
-    for (let i = 0; i < line.length; i += 1) {
-      const ch = line[i]!
-      if (ch === '"') {
-        if (inQuotes && line[i + 1] === '"') {
-          current += '"'
-          i += 1
-        } else {
-          inQuotes = !inQuotes
-        }
-        continue
-      }
-      if (ch === delimiter && !inQuotes) {
-        cells.push(current)
-        current = ''
-        continue
-      }
-      current += ch
-    }
-    cells.push(current)
-    rows.push(cells)
-    if (rows.length >= 500) break
-  }
-  return rows
+function formatBytes(size: number): string {
+  if (size < 1024) return `${String(size)} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+export interface ContentViewerProps {
+  path: string
+  content: string | null
+  binary: boolean
+  size?: number
+  truncated?: boolean
+  /** Full base64 payload for binary previews (images / PDFs). */
+  data?: string
+  /** For Markdown: rendered preview vs source. */
+  markdownPreview?: boolean
+  onTaskToggle?(input: { sourceLine: number; checked: boolean }): void
+  onOpenExternal?(): void
+  onShowInFolder?(): void
+  t: Translate<WorkspaceMessage>
 }
 
 export function ContentViewer({
@@ -89,38 +96,36 @@ export function ContentViewer({
   content,
   binary,
   size,
+  truncated = false,
   data,
+  markdownPreview = true,
+  onTaskToggle,
   onOpenExternal,
+  onShowInFolder,
   t,
-}: {
-  path: string
-  content: string | null
-  binary: boolean
-  size?: number
-  /** Full base64 payload for binary previews (images / PDFs). */
-  data?: string
-  onOpenExternal?(): void
-  t: Translate<WorkspaceMessage>
-}): JSX.Element {
+}: ContentViewerProps): JSX.Element {
   const kind = detectKind(path, binary)
   const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
 
   if (kind === 'image' && data !== undefined) {
     return (
-      <div className="oh-dsh-content-media">
-        <img
-          src={`data:${mimeFor(path)};base64,${data}`}
-          alt={name}
-        />
-      </div>
+      <ImageViewer
+        path={path}
+        data={data}
+        mime={mimeFor(path)}
+        t={t}
+        {...(onOpenExternal === undefined ? {} : { onOpenExternal })}
+      />
     )
   }
 
   if (kind === 'pdf' && data !== undefined) {
     return (
-      <div className="oh-dsh-content-media">
-        <iframe title={name} src={`data:application/pdf;base64,${data}`} />
-      </div>
+      <PdfViewer
+        path={path}
+        data={data}
+        {...(onOpenExternal === undefined ? {} : { onOpenExternal })}
+      />
     )
   }
 
@@ -133,11 +138,12 @@ export function ContentViewer({
   }
 
   if (kind === 'binary') {
+    const isEmpty = size !== undefined && size === 0
     return (
-      <div className="oh-dsh-content-empty">
+      <div className="oh-dsh-content-empty" data-kind={isEmpty ? 'empty' : 'binary'}>
         <IconFileText size={20} />
         <strong>{name}</strong>
-        <span>{t('files.viewer.binary')}</span>
+        <span>{isEmpty ? 'Empty file' : t('files.viewer.binary')}</span>
         {onOpenExternal !== undefined && (
           <button type="button" onClick={onOpenExternal}>{t('files.open')}</button>
         )}
@@ -147,7 +153,7 @@ export function ContentViewer({
 
   if (content === null) {
     return (
-      <div className="oh-dsh-content-empty">
+      <div className="oh-dsh-content-empty" data-kind="unavailable">
         <IconFileText size={20} />
         <strong>{name}</strong>
         <span>{t('overlay.no-content')}</span>
@@ -155,16 +161,51 @@ export function ContentViewer({
     )
   }
 
-  if (kind === 'markdown') {
+  if (content.length === 0) {
     return (
-      <div className="oh-dsh-content-markdown">
-        <ReactMarkdown>{content}</ReactMarkdown>
+      <div className="oh-dsh-content-empty" data-kind="empty">
+        <IconFileText size={20} />
+        <strong>{name}</strong>
+        <span>Empty file</span>
+      </div>
+    )
+  }
+
+  if (kind === 'markdown') {
+    if (markdownPreview) {
+      return (
+        <MarkdownViewer
+          content={content}
+          taskTogglesEnabled={!truncated}
+          {...(onTaskToggle === undefined ? {} : { onTaskToggle })}
+        />
+      )
+    }
+    const language = 'markdown'
+    const lines = content.split('\n')
+    return (
+      <div className="oh-dsh-content-root">
+        <div className="oh-dsh-content-meta">
+          <span>{name}</span>
+          <span>{`${language} · ${lines.length} lines`}</span>
+          {truncated ? <span>{t('files.preview-truncated')}</span> : null}
+        </div>
+        <ol className={`oh-dsh-content-lines is-highlighted${lines.length > MAX_NUMBERED_LINES ? ' no-line-numbers' : ''}`}>
+          {lines.map((line, index) => (
+            <li key={index}>
+              {lines.length <= MAX_NUMBERED_LINES ? (
+                <span className="oh-dsh-content-line-number">{index + 1}</span>
+              ) : null}
+              <code dangerouslySetInnerHTML={{ __html: highlightLine(line, language) }} />
+            </li>
+          ))}
+        </ol>
       </div>
     )
   }
 
   if (kind === 'csv') {
-    const delimiter = path.toLowerCase().endsWith('.tsv') ? '\t' : ','
+    const delimiter = detectDelimiter(path, content)
     const rows = parseDelimitedRows(content, delimiter)
     const header = rows[0] ?? []
     const body = rows.slice(1)
@@ -172,7 +213,9 @@ export function ContentViewer({
       <div className="oh-dsh-content-root">
         <div className="oh-dsh-content-meta">
           <span>{delimiter === '\t' ? 'tsv' : 'csv'}</span>
-          <span>{size === undefined ? '' : formatBytes(size)}</span>
+          <span>{`${Math.max(rows.length - 1, 0)} rows`}</span>
+          {size === undefined ? '' : formatBytes(size)}
+          {truncated ? <span>{t('files.preview-truncated')}</span> : null}
         </div>
         <div className="oh-dsh-content-table-wrap">
           <table className="oh-dsh-content-table">
@@ -198,31 +241,134 @@ export function ContentViewer({
 
   const lines = content.split('\n')
   const language = languageForPath(path)
+  const plainText = content.length > MAX_HIGHLIGHT_CHARS || language === ''
+  const showLineNumbers = lines.length <= MAX_NUMBERED_LINES
   return (
     <div className="oh-dsh-content-root">
       <div className="oh-dsh-content-meta">
         <span>{name}</span>
         <span>{language === '' ? `${lines.length} lines` : `${language} · ${lines.length} lines`}</span>
+        {truncated ? <span>{t('files.preview-truncated')}</span> : null}
       </div>
-      <ol className={`oh-dsh-content-lines${language === '' ? '' : ' is-highlighted'}`}>
-        {lines.map((line, index) => (
-          <li key={index}>
-            <span className="oh-dsh-content-line-number">{index + 1}</span>
-            {language === '' ? (
-              <code>{line === '' ? ' ' : line}</code>
-            ) : (
-              // Per-line Prism output — escaped by the highlighter.
+      {plainText ? (
+        <pre className={`oh-dsh-content-plain${showLineNumbers ? ' is-numbered' : ''}`}>
+          {showLineNumbers ? (
+            lines.map((line, index) => (
+              <span className="line" key={index}>
+                <span className="oh-dsh-content-line-number">{index + 1}</span>
+                {line === '' ? ' ' : line}
+                {'\n'}
+              </span>
+            ))
+          ) : (
+            <code>{content}</code>
+          )}
+        </pre>
+      ) : (
+        <ol className={`oh-dsh-content-lines is-highlighted${showLineNumbers ? '' : ' no-line-numbers'}`}>
+          {lines.map((line, index) => (
+            <li key={index}>
+              {showLineNumbers ? (
+                <span className="oh-dsh-content-line-number">{index + 1}</span>
+              ) : null}
               <code dangerouslySetInnerHTML={{ __html: highlightLine(line, language) }} />
-            )}
-          </li>
-        ))}
-      </ol>
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   )
 }
 
-function formatBytes(size: number): string {
-  if (size < 1024) return `${String(size)} B`
-  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+function ImageViewer({
+  path,
+  data,
+  mime,
+  t,
+  onOpenExternal,
+}: {
+  path: string
+  data: string
+  mime: string
+  t: Translate<WorkspaceMessage>
+  onOpenExternal?(): void
+}): JSX.Element {
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const [zoom, setZoom] = useState(1)
+  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+
+  useEffect(() => {
+    setStatus('loading')
+    setZoom(1)
+  }, [path, data])
+
+  return (
+    <div className="oh-dsh-content-media" data-status={status}>
+      {status === 'error' ? (
+        <div className="oh-dsh-content-empty">
+          <IconFileText size={20} />
+          <strong>{name}</strong>
+          <span>Could not load image.</span>
+          {onOpenExternal !== undefined && (
+            <button type="button" onClick={onOpenExternal}>{t('files.open')}</button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="oh-dsh-image-toolbar">
+            <button type="button" onClick={() => setZoom(value => Math.max(0.25, value - 0.25))} aria-label="Zoom out">
+              <IconMinus size={14} />
+            </button>
+            <span>{`${Math.round(zoom * 100)}%`}</span>
+            <button type="button" onClick={() => setZoom(value => Math.min(8, value + 0.25))} aria-label="Zoom in">
+              <IconPlus size={14} />
+            </button>
+            <button type="button" onClick={() => setZoom(1)}>Reset</button>
+            {onOpenExternal !== undefined ? (
+              <button type="button" onClick={onOpenExternal} aria-label="Open externally">
+                <IconExternalLink size={14} />
+              </button>
+            ) : null}
+          </div>
+          <div className="oh-dsh-content-media-stage">
+            {status === 'loading' ? <span className="oh-dsh-side-muted">Loading image…</span> : null}
+            <img
+              src={`data:${mime};base64,${data}`}
+              alt={name}
+              loading="lazy"
+              decoding="async"
+              style={{ transform: `scale(${zoom})` }}
+              onLoad={() => setStatus('ready')}
+              onError={() => setStatus('error')}
+            />
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function PdfViewer({
+  path,
+  data,
+  onOpenExternal,
+}: {
+  path: string
+  data: string
+  onOpenExternal?(): void
+}): JSX.Element {
+  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+  return (
+    <div className="oh-dsh-content-media">
+      <div className="oh-dsh-pdf-toolbar">
+        <span title={path}>{name}</span>
+        {onOpenExternal !== undefined ? (
+          <button type="button" onClick={onOpenExternal} aria-label="Open externally">
+            <IconExternalLink size={14} />
+          </button>
+        ) : null}
+      </div>
+      <iframe title={name} src={`data:application/pdf;base64,${data}`} />
+    </div>
+  )
 }

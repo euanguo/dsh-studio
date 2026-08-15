@@ -4,12 +4,16 @@
  * Each renderer is a pure view over its surface identity — data comes from
  * the runtimes / sidebar API.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { betterSidebarApi } from '../better-sidebar-api.ts'
 import { getFileRuntime } from '../runtimes/registry.ts'
 import { ContentViewer } from '../files/content-viewer.tsx'
+import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
+import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
+import { formatFileSelectionReference, getLineSelectionWithin } from '../files/file-selection-reference.ts'
+import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
@@ -38,29 +42,149 @@ export function FileSurfaceView({
     [surface.cwd, surface.sessionId],
   )
   const [fingerprint, setFingerprint] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const [writeError, setWriteError] = useState('')
+  const [selectionAction, setSelectionAction] = useState<{
+    left: number
+    top: number
+    label: string
+  } | null>(null)
+
   useEffect(() => {
     let alive = true
+    if (reloadKey > 0) runtime.invalidate(surface.filePath)
     void runtime.ensureLoaded(surface.filePath).then(() => {
       if (alive) setFingerprint(runtime.fingerprint())
     })
     return () => { alive = false }
-  }, [runtime, surface.filePath])
+  }, [runtime, surface.filePath, reloadKey])
+
+  const isMarkdown = /\.(md|mdx|markdown)$/i.test(surface.filePath)
+  const markdownMode: MarkdownViewMode = surface.markdownPreview === true ? 'preview' : 'source'
+
+  const onMarkdownModeChange = useCallback((mode: MarkdownViewMode) => {
+    useCenterSurfaceStore.getState().setFileMarkdownPreview(
+      surface.cwd,
+      surface.id,
+      mode === 'preview',
+    )
+  }, [surface.cwd, surface.id])
+
+  const writeQueueRef = useRef(Promise.resolve())
+  const onTaskToggle = useCallback(({ sourceLine, checked }: { sourceLine: number; checked: boolean }) => {
+    const entry = runtime.getEntry(surface.filePath)
+    const snapshot = entry?.phase === 'ready' ? entry.snapshot : null
+    if (snapshot === null || snapshot.kind !== 'text' || snapshot.content === null || snapshot.truncated) return
+    const next = toggleMarkdownTaskMarker(snapshot.content, sourceLine, checked)
+    if (next === null) return
+    setWriteError('')
+    writeQueueRef.current = writeQueueRef.current
+      .then(() => betterSidebarApi.fsWrite(
+        { sessionId: surface.sessionId, cwd: surface.cwd },
+        surface.filePath,
+        next,
+      ))
+      .then(() => {
+        runtime.invalidate(surface.filePath)
+        setFingerprint(runtime.fingerprint())
+        void runtime.ensureLoaded(surface.filePath)
+      })
+      .catch((cause: unknown) => {
+        runtime.invalidate(surface.filePath)
+        void runtime.ensureLoaded(surface.filePath)
+        setWriteError(cause instanceof Error ? cause.message : String(cause))
+      })
+  }, [runtime, surface.cwd, surface.filePath, surface.sessionId])
+
+  const onOpenExternal = useCallback(() => {
+    if (window.dshDesktop !== undefined) {
+      void window.dshDesktop.openExternal(surface.filePath)
+    }
+  }, [surface.filePath])
+
+  const onSourceMouseUp = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    if (isMarkdown && markdownMode === 'preview') {
+      setSelectionAction(null)
+      return
+    }
+    const selection = getLineSelectionWithin(event.currentTarget)
+    if (selection === null) {
+      setSelectionAction(null)
+      return
+    }
+    setSelectionAction({
+      left: event.clientX,
+      top: event.clientY,
+      label: formatFileSelectionReference({ path: surface.filePath, selection }),
+    })
+  }, [isMarkdown, markdownMode, surface.filePath])
+
+  const onCopySelection = useCallback(async (label: string) => {
+    try {
+      await navigator.clipboard.writeText(label)
+    } catch {
+      // Clipboard can be unavailable in sandboxed web contexts; best effort.
+    }
+    setSelectionAction(null)
+  }, [])
+
   const entry = runtime.getEntry(surface.filePath)
   if (entry === undefined || entry.phase === 'loading') {
     return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
   }
   if (entry.phase === 'error' || entry.snapshot === null) {
-    return <div className="oh-dsh-side-error" role="alert">{entry.message ?? t('overlay.no-content')}</div>
+    return (
+      <div className="oh-dsh-side-error" role="alert">
+        <span>{entry.message ?? t('overlay.no-content')}</span>
+        <button type="button" onClick={() => {
+          runtime.invalidate(surface.filePath)
+          setReloadKey(value => value + 1)
+        }}>Retry</button>
+      </div>
+    )
   }
   const snapshot = entry.snapshot
+  const content = snapshot.kind === 'text' ? snapshot.content : null
+  const lineCount = content === null ? 0 : content.split('\n').length
   return (
-    <ContentViewer
-      path={surface.filePath}
-      content={snapshot.kind === 'text' ? snapshot.content : null}
-      binary={snapshot.binary}
-      {...(snapshot.data === undefined ? {} : { data: snapshot.data })}
-      t={t}
-    />
+    <div className="oh-dsh-file-surface" data-testid="file-surface">
+      <FileViewerChrome
+        cwd={surface.cwd}
+        filePath={surface.filePath}
+        isMarkdown={isMarkdown}
+        markdownMode={markdownMode}
+        onMarkdownModeChange={onMarkdownModeChange}
+        truncated={snapshot.truncated}
+        meta={content === null ? null : `${lineCount} lines`}
+        onOpenExternal={onOpenExternal}
+      />
+      {writeError !== '' ? (
+        <div className="oh-dsh-side-error" role="alert">{writeError}</div>
+      ) : null}
+      <div className="oh-dsh-file-surface-body" onMouseUp={onSourceMouseUp}>
+        <ContentViewer
+          path={surface.filePath}
+          content={content}
+          binary={snapshot.binary}
+          size={snapshot.size}
+          truncated={snapshot.truncated}
+          markdownPreview={markdownMode === 'preview'}
+          onTaskToggle={onTaskToggle}
+          onOpenExternal={onOpenExternal}
+          t={t}
+        />
+      </div>
+      {selectionAction !== null ? (
+        <div
+          className="oh-dsh-file-selection-action"
+          style={{ left: selectionAction.left, top: selectionAction.top }}
+        >
+          <button type="button" onClick={() => { void onCopySelection(selectionAction.label) }}>
+            Copy {selectionAction.label}
+          </button>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
