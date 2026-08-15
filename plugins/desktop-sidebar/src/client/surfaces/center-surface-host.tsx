@@ -231,7 +231,7 @@ function RailFloatControls({
         aria-pressed={leftRailOpen === true}
         onClick={onToggleLeftRail}
       >
-        {leftRailOpen ? <IconRailCollapse /> : <IconRailExpand />}
+        {leftRailOpen ? <IconLeftRailClose /> : <IconLeftRailOpen />}
       </button>
       {sidebar !== undefined && !rightOpen && (
         <button
@@ -241,35 +241,43 @@ function RailFloatControls({
           title="展开右栏"
           onClick={() => { sidebar.setOpen(true) }}
         >
-          <IconRailExpand />
+          <IconRightRailOpen />
         </button>
-      )}
-      {/* Bridge the strip's bottom border across the DSH center-column gap
-          to the right panel's left edge, so the top divider reads as one
-          continuous line. The gap is the DSH layout's fixed 12px margin
-          between the center column and the panel column. */}
-      {sidebar !== undefined && rightOpen && (
-        <div className="oh-dsh-center-border-bridge" aria-hidden="true" />
       )}
     </>,
     document.body,
   )
 }
 
-function IconRailExpand(): JSX.Element {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="3" y="3" width="14" height="14" rx="2.5" />
-      <path d="M12.5 3.5v13" />
-    </svg>
-  )
-}
-
-function IconRailCollapse(): JSX.Element {
+/** Left rail, expanded — clicking collapses it (arrow points left). */
+function IconLeftRailClose(): JSX.Element {
   return (
     <svg viewBox="0 0 20 20" aria-hidden="true">
       <rect x="3" y="3" width="14" height="14" rx="2.5" />
       <path d="M7.5 3.5v13" />
+      <path d="M11.5 8l-3 2.5 3 2.5" />
+    </svg>
+  )
+}
+
+/** Left rail, collapsed — clicking expands it (arrow points right). */
+function IconLeftRailOpen(): JSX.Element {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="3" y="3" width="14" height="14" rx="2.5" />
+      <path d="M7.5 3.5v13" />
+      <path d="M11.5 8l3 2.5-3 2.5" />
+    </svg>
+  )
+}
+
+/** Right rail reopen (panel closed) — clicking slides it in (arrow left). */
+function IconRightRailOpen(): JSX.Element {
+  return (
+    <svg viewBox="0 0 20 20" aria-hidden="true">
+      <rect x="3" y="3" width="14" height="14" rx="2.5" />
+      <path d="M12.5 3.5v13" />
+      <path d="M8.5 8l-3 2.5 3 2.5" />
     </svg>
   )
 }

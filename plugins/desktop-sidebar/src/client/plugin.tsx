@@ -316,13 +316,13 @@ ${diffViewerCss}`
       html.dataset.ohDshDesktopSidebarOpen = 'true'
       // The #root squeeze is owned by the desktopPanels right-panel
       // coordinator — claim the footprint instead of writing global state.
-      // The +12px accounts for the overlay container's right inset, so the
-      // app's center column (and the terminal dock attached to it) ends
-      // exactly at the panel's left edge instead of sliding underneath it.
+      // The overlay container is flush with the window's right edge (no
+      // right inset anymore), so the squeeze equals the panel width: the
+      // app's center column ends exactly at the panel's left edge.
       this.panels.claimRightPanel('desktop-sidebar', {
         paddingRight: fullWidth
           ? '100vw'
-          : `calc(${String(this.state.width)}px + 12px)`,
+          : `${String(this.state.width)}px`,
       })
     } else {
       delete html.dataset.ohDshDesktopSidebarOpen
