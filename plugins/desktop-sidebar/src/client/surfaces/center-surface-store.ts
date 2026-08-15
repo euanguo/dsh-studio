@@ -22,6 +22,7 @@
 import { create } from 'zustand'
 import {
   browserSurfaceId,
+  commitSurfaceId,
   conversationSurfaceId,
   diffSurfaceId,
   fileSurfaceId,
@@ -30,6 +31,7 @@ import {
   terminalSurfaceId,
   type CenterSurface,
   type CenterSurfaceSlice,
+  type CommitCenterSurface,
   type ConversationCenterSurface,
   type DiffCenterSurface,
   type FileCenterSurface,
@@ -68,6 +70,13 @@ interface CenterSurfaceState {
     title?: string
     preview?: boolean
   }): DiffCenterSurface
+  openCommit(input: {
+    cwd: string
+    sessionId: string
+    hash: string
+    title?: string
+    preview?: boolean
+  }): CommitCenterSurface
   openBrowser(input: {
     cwd: string
     title?: string
@@ -117,7 +126,7 @@ function readDismissed(
  */
 function openPreviewableSurface(
   current: CenterSurfaceSlice,
-  next: FileCenterSurface | DiffCenterSurface | BrowserCenterSurface,
+  next: FileCenterSurface | DiffCenterSurface | CommitCenterSurface | BrowserCenterSurface,
 ): CenterSurfaceSlice {
   const existingIndex = current.open.findIndex(surface => surface.id === next.id)
   if (existingIndex >= 0) {
@@ -154,6 +163,9 @@ function openPreviewableSurface(
       }
       if (surface.kind === 'browser' && next.kind === 'browser') {
         return { ...surface, title: next.title, resource: next.resource, isPreview } as BrowserCenterSurface
+      }
+      if (surface.kind === 'commit' && next.kind === 'commit') {
+        return { ...surface, title: next.title, isPreview } as CommitCenterSurface
       }
       return surface
     })
@@ -257,6 +269,28 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     return nextSurface
   },
 
+  openCommit: input => {
+    const id = commitSurfaceId(input.hash)
+    const isPreview = input.preview ?? true
+    const nextSurface: CommitCenterSurface = {
+      id,
+      kind: 'commit',
+      sessionId: input.sessionId,
+      cwd: input.cwd,
+      hash: input.hash,
+      title: input.title?.trim() || input.hash.slice(0, 7),
+      closable: true,
+      isPreview,
+    }
+    set(state => {
+      const slice = readSlice(state.byCwd, input.cwd)
+      const next = openPreviewableSurface(slice, nextSurface)
+      if (next === slice) return state
+      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
+    })
+    return nextSurface
+  },
+
   openBrowser: input => {
     const id = browserSurfaceId(input.resource)
     const isPreview = input.preview ?? true
@@ -304,7 +338,7 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       let changed = false
       const open = slice.open.map(surface => {
         if (surface.id !== surfaceId) return surface
-        if (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'browser') {
+        if (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'commit' || surface.kind === 'browser') {
           if (surface.isPreview) {
             changed = true
             return { ...surface, isPreview: false }
@@ -458,6 +492,8 @@ export function restoreCenterSurfaces(): void {
         state.openFile({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, title: surface.title, preview: false })
       } else if (surface.kind === 'diff') {
         state.openDiff({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, staged: surface.staged, title: surface.title, preview: false })
+      } else if (surface.kind === 'commit') {
+        state.openCommit({ cwd, sessionId: surface.sessionId, hash: surface.hash, title: surface.title, preview: false })
       } else if (surface.kind === 'browser') {
         state.openBrowser({
           cwd,

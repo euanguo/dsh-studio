@@ -19,19 +19,13 @@ import type {
 import { WORKSPACE_API_PATH } from '../protocol.ts'
 import type { Translate } from '../../../shared/i18n.ts'
 import {
-  IconArrowLeft,
-  IconBox,
   IconBranch,
   IconChevronDown,
   IconChevronUp,
-  IconClose,
   IconCommit,
-  IconExpand,
   IconHistory,
   IconPlus,
   IconPrompt,
-  IconRefresh,
-  IconRestore,
 } from '../../../shared/icons.tsx'
 import type { WorkspaceMessage } from './i18n.ts'
 import {
@@ -48,21 +42,21 @@ import {
   type WorkspacesService,
 } from './client-types.ts'
 import {
-  nextReviewCommentId,
   ReviewCommentsService,
-  type ReviewCommentSide,
 } from './review-comments.ts'
-import {
-  reviewCommitFromBetterSidebar,
-} from './review-diff.ts'
-import type { GitReviewCommit, GitReviewFile } from './review-types.ts'
-import { DiffViewer } from './diff/diff-viewer.tsx'
-import type { DiffDocument } from './diff/file-diff.ts'
-import { usePierreDiffTheme } from './diff/pierre-adapter.tsx'
 import {
   SourceControlPanel,
   type SourceControlPendingAction,
 } from './source-control-panel.tsx'
+import {
+  ListRow,
+  ListRowBody,
+  ListRowLabel,
+  ListRowLabelText,
+  ListRowLeading,
+  ListRowMain,
+  ListRowTrailing,
+} from '../../../shared/list-row.tsx'
 import {
   buildSourceControlRows,
   type SourceControlListMode,
@@ -97,42 +91,6 @@ function workspaceUrl(cwd: string): string {
   const url = new URL(WORKSPACE_API_PATH, window.location.origin)
   url.searchParams.set('cwd', cwd)
   return url.href
-}
-
-type ReviewCommentTarget = {
-  kind: 'commit'
-} | {
-  kind: 'line'
-  filePath: string
-  line: number
-  side: Exclude<ReviewCommentSide, null>
-}
-
-/** GitReviewFile (commit review) → the unified DiffDocument shape. */
-function reviewFileToDiffDocument(file: GitReviewFile): DiffDocument {
-  return {
-    path: file.path,
-    change: file.status === 'added' ? 'added'
-      : file.status === 'deleted' ? 'deleted'
-      : file.status === 'renamed' ? 'renamed'
-      : 'modified',
-    additions: file.additions,
-    deletions: file.deletions,
-    lines: file.lines.slice(0, 400).map(line => {
-      const kind = line.type === 'addition' ? 'added'
-        : line.type === 'deletion' ? 'removed'
-        : 'context'
-      return {
-        kind,
-        text: line.content,
-        displayText: line.content === '' ? ' ' : line.content,
-        oldLine: line.oldLine,
-        newLine: line.newLine,
-        oldLineLabel: line.oldLine === null ? ' ' : String(line.oldLine),
-        newLineLabel: line.newLine === null ? ' ' : String(line.newLine),
-      }
-    }),
-  }
 }
 
 export function processTitle(call: RunningToolCall): string {
@@ -186,7 +144,6 @@ export function WorkspacePanel({
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const panelState = useSyncExternalStore(service.subscribe, service.getSnapshot)
-  const theme = usePierreDiffTheme()
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
   const sessionId = sessionList.current
   const cwd = sessionId === undefined ? undefined : sessionList.byId[sessionId]?.cwd
@@ -233,15 +190,8 @@ export function WorkspacePanel({
   const [commitOpen, setCommitOpen] = useState(false)
   const [commitMessage, setCommitMessage] = useState('')
   const [newBranch, setNewBranch] = useState('')
-  const [selectedCommit, setSelectedCommit] = useState<GitReviewCommit | null>(null)
+  const [selectedCommitId, setSelectedCommitId] = useState<string | null>(null)
   const [reviewLoading, setReviewLoading] = useState(false)
-  const [commentTarget, setCommentTarget] = useState<ReviewCommentTarget | null>(null)
-  const [commentBody, setCommentBody] = useState('')
-  const [commentNotice, setCommentNotice] = useState('')
-  const comments = useSyncExternalStore(
-    reviewComments.subscribe,
-    reviewComments.getSnapshot,
-  )
   const visibleChanges = snapshot?.changes.slice(0, 200) ?? []
   const rows = useMemo<SourceControlVisibleRow[]>(
     () => buildSourceControlRows({
@@ -260,18 +210,6 @@ export function WorkspacePanel({
     [cwd, sessionId],
   )
   const branch = snapshot?.branch ?? null
-  const selectedComments = useMemo(() => comments.filter(comment =>
-    selectedCommit !== null
-    && comment.commitId === selectedCommit.id
-    && comment.sessionId === (sessionId ?? null)
-    && comment.workspacePath === cwd
-    && comment.branch === branch), [
-    branch,
-    comments,
-    cwd,
-    selectedCommit,
-    sessionId,
-  ])
 
   const refresh = useCallback(async (): Promise<void> => {
     if (runtime === null) return
@@ -291,11 +229,22 @@ export function WorkspacePanel({
   }, [panelState.open, panelState.view, runtime])
 
   useEffect(() => {
-    setSelectedCommit(null)
-    setCommentTarget(null)
-    setCommentBody('')
-    setCommentNotice('')
+    setSelectedCommitId(null)
   }, [cwd])
+
+  // Clicking a history row opens the commit diff in the CENTER surface
+  // (single click = preview tab, double click = pinned).
+  const openCommitInCenter = (entry: BetterSidebarGitLogEntry): void => {
+    if (cwd === undefined) return
+    setSelectedCommitId(entry.hashFull)
+    useCenterSurfaceStore.getState().openCommit({
+      sessionId: sessionId ?? '',
+      cwd,
+      hash: entry.hashFull,
+      title: entry.subject || entry.hash,
+      preview: true,
+    })
+  }
 
   useEffect(() => {
     if (cwd === undefined || branch === null) return
@@ -372,53 +321,6 @@ export function WorkspacePanel({
     void navigator.clipboard?.writeText(path)
   }
 
-  const showCommit = async (entry: BetterSidebarGitLogEntry): Promise<void> => {
-    if (scope === undefined || reviewLoading) return
-    if (selectedCommit?.id === entry.hashFull) {
-      setSelectedCommit(null)
-      setCommentTarget(null)
-      return
-    }
-    setReviewLoading(true)
-    setCommentTarget(null)
-    setCommentBody('')
-    setCommentNotice('')
-    try {
-      const result = await betterSidebarApi.gitCommitDiff(
-        scope,
-        entry.hashFull,
-      )
-      setSelectedCommit(reviewCommitFromBetterSidebar(entry, result.diff))
-    } catch (nextError) {
-      runtime?.reportError(errorMessage(nextError))
-    } finally {
-      setReviewLoading(false)
-    }
-  }
-
-  const addReviewComment = (): void => {
-    if (selectedCommit === null || cwd === undefined || branch === null
-      || commentTarget === null || commentBody.trim() === '') return
-    const lineTarget = commentTarget.kind === 'line' ? commentTarget : null
-    const result = reviewComments.add(selectedCommit, {
-      id: nextReviewCommentId(),
-      sessionId: sessionId ?? null,
-      workspacePath: cwd,
-      branch,
-      commitId: selectedCommit.id,
-      filePath: lineTarget?.filePath ?? null,
-      line: lineTarget?.line ?? null,
-      side: lineTarget?.side ?? null,
-      body: commentBody.trim(),
-      createdAt: new Date().toISOString(),
-    })
-    setCommentBody('')
-    setCommentTarget(null)
-    setCommentNotice(result === 'inserted'
-      ? t('workspace.comment-added')
-      : t('workspace.comment-saved'))
-  }
-
   const chooseWorkspace = async (): Promise<void> => {
     const paths = await window.dshDesktop?.chooseWorkspace() ?? []
     for (const path of paths) {
@@ -429,25 +331,6 @@ export function WorkspacePanel({
 
   return (
     <div className="oh-dsh-review-view" aria-label={t('workspace.changes')}>
-      <header className="oh-dsh-workspace-header">
-        <div>
-          <button type="button" aria-label={t('side.back')} onClick={() => { service.openMenu() }}><IconArrowLeft size={16} /></button>
-          <strong>{snapshot?.name ?? (cwd?.split(/[\\/]/).filter(Boolean).pop() || t('workspace.title'))}</strong>
-        </div>
-        <div>
-          <button type="button" onClick={() => { void refresh() }} aria-label={t('workspace.refresh')} title={t('workspace.refresh')}><IconRefresh size={16} /></button>
-          <button type="button" onClick={() => { void chooseWorkspace() }} aria-label={t('workspace.add')} title={t('workspace.add')}><IconPlus size={16} /></button>
-          <button
-            type="button"
-            aria-label={panelState.maximized ? t('side.restore') : t('side.expand')}
-            title={panelState.maximized ? t('side.restore') : t('side.expand')}
-            aria-pressed={panelState.maximized}
-            onClick={() => { service.togglePanelMaximized() }}
-          >{panelState.maximized ? <IconRestore size={16} /> : <IconExpand size={16} />}</button>
-          <button type="button" onClick={() => { service.setOpen(false) }} aria-label={t('workspace.close-review')} title={t('workspace.close-review')}><IconClose size={16} /></button>
-        </div>
-      </header>
-
       {cwd === undefined
         ? <div className="oh-dsh-workspace-empty">{t('workspace.select')}</div>
         : (
@@ -508,18 +391,28 @@ export function WorkspacePanel({
                 </div>
                 <div className="oh-dsh-review-commit-list">
                   {history.map(entry => (
-                    <button
-                      type="button"
+                    <ListRow
                       key={entry.hashFull}
                       className="oh-dsh-review-commit-row"
-                      data-selected={selectedCommit?.id === entry.hashFull || undefined}
-                      disabled={reviewLoading}
-                      onClick={() => { void showCommit(entry) }}
+                      selected={selectedCommitId === entry.hashFull}
+                      title={entry.subject}
+                      onClick={() => { if (!reviewLoading) openCommitInCenter(entry) }}
                     >
-                      <code>{entry.hash}</code>
-                      <span title={entry.subject}>{entry.subject}</span>
-                      <small>{entry.author}</small>
-                    </button>
+                      <ListRowMain className="oh-dsh-sc-depth-main">
+                        <ListRowLeading aria-hidden="true">
+                          <IconCommit size={14} />
+                        </ListRowLeading>
+                        <ListRowBody>
+                          <ListRowLabel>
+                            <ListRowLabelText>{entry.subject}</ListRowLabelText>
+                          </ListRowLabel>
+                          <span className="oh-dsh-list-row-meta">{entry.author}</span>
+                        </ListRowBody>
+                        <ListRowTrailing>
+                          <code className="oh-dsh-review-commit-hash">{entry.hash}</code>
+                        </ListRowTrailing>
+                      </ListRowMain>
+                    </ListRow>
                   ))}
                   {history.length === 0 && (
                     <div className="oh-dsh-workspace-muted">
@@ -527,132 +420,10 @@ export function WorkspacePanel({
                     </div>
                   )}
                 </div>
-
-                {selectedCommit !== null && (
-                  <div className="oh-dsh-review-commit-detail">
-                    <header>
-                      <div>
-                        <code>{selectedCommit.shortId}</code>
-                        <strong>{selectedCommit.subject}</strong>
-                        <small>
-                          {selectedCommit.author} · {selectedCommit.authoredAt}
-                        </small>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCommentTarget({ kind: 'commit' })
-                          setCommentNotice('')
-                        }}
-                      >{t('workspace.comment-commit')}</button>
-                    </header>
-
-                    {selectedComments.length > 0 && (
-                      <div className="oh-dsh-review-comments">
-                        <strong>{t('workspace.pending-comments')}</strong>
-                        {selectedComments.map(comment => (
-                          <div key={comment.id}>
-                            <span>
-                              {comment.filePath === null
-                                ? t('workspace.review-commit')
-                                : `${comment.filePath}:${String(comment.line)}`}
-                            </span>
-                            <p>{comment.body}</p>
-                            <button
-                              type="button"
-                              aria-label={t('workspace.remove-comment')}
-                              title={t('workspace.remove-comment')}
-                              onClick={() => { reviewComments.remove(comment.id) }}
-                            ><IconClose size={12} /></button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-
-                    {selectedCommit.files.map(file => (
-                      <details key={`${file.oldPath ?? ''}:${file.path}`} open>
-                        <summary>
-                          <span title={file.path}>{file.path}</span>
-                          <small>
-                            <b>+{file.additions}</b> −{file.deletions}
-                          </small>
-                        </summary>
-                        <div className="oh-dsh-review-diff-lines">
-                          <DiffViewer
-                            document={reviewFileToDiffDocument(file)}
-                            theme={theme}
-                            rawOnly
-                            hideMeta
-                            onLineClick={line => {
-                              const lineNumber = line.oldLine ?? line.newLine
-                              if (lineNumber === null) return
-                              setCommentTarget({
-                                kind: 'line',
-                                filePath: file.path,
-                                line: lineNumber,
-                                side: line.oldLine !== null && line.newLine === null ? 'old' : 'new',
-                              })
-                              setCommentNotice('')
-                            }}
-                          />
-                          {file.lines.length > 400 && (
-                            <div className="oh-dsh-workspace-muted">
-                              {t('workspace.diff-truncated', {
-                                count: file.lines.length - 400,
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      </details>
-                    ))}
-
-                    {commentTarget !== null && (
-                      <div className="oh-dsh-review-comment-form">
-                        <strong>
-                          {commentTarget.kind === 'commit'
-                            ? t('workspace.comment-commit')
-                            : `${commentTarget.filePath}:${String(commentTarget.line)}`}
-                        </strong>
-                        <textarea
-                          autoFocus
-                          value={commentBody}
-                          placeholder={t('workspace.comment-placeholder')}
-                          onChange={event => { setCommentBody(event.currentTarget.value) }}
-                        />
-                        <div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setCommentTarget(null)
-                              setCommentBody('')
-                            }}
-                          >{t('workspace.cancel')}</button>
-                          <button
-                            type="button"
-                            disabled={commentBody.trim() === ''}
-                            onClick={addReviewComment}
-                          >{t('workspace.add-comment')}</button>
-                        </div>
-                      </div>
-                    )}
-                    {commentNotice !== '' && (
-                      <p className="oh-dsh-review-comment-notice">
-                        {commentNotice}
-                      </p>
-                    )}
-                  </div>
-                )}
               </section>
             )}
 
             <section className="oh-dsh-workspace-facts">
-              <label className="oh-dsh-workspace-fact">
-                <span className="oh-dsh-workspace-fact-icon"><IconBox size={16} /></span>
-                <select aria-label={t('workspace.execution-environment')} value="local" onChange={() => {}}>
-                  <option value="local">{t('workspace.local')}</option>
-                </select>
-                <span className="oh-dsh-workspace-chevron"><IconChevronDown size={14} /></span>
-              </label>
               <label className="oh-dsh-workspace-fact">
                 <span className="oh-dsh-workspace-fact-icon"><IconBranch size={16} /></span>
                 <select

@@ -16,7 +16,7 @@ import type { ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '../../../../shared/i18n.ts'
-import { IconExternalLink, IconFile, IconGitBranch } from '../../../../shared/tabler-icons.tsx'
+import { IconExternalLink, IconFile, IconGitBranch, IconHistory } from '../../../../shared/tabler-icons.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { SessionsService } from '../client-types.ts'
 import {
@@ -49,6 +49,7 @@ function surfaceIcon(surface: CenterSurface): JSX.Element | null {
   if (surface.kind === 'conversation') return <IconFile size={13} />
   if (surface.kind === 'file') return <IconFile size={13} />
   if (surface.kind === 'diff') return <IconGitBranch size={13} />
+  if (surface.kind === 'commit') return <IconHistory size={13} />
   if (surface.kind === 'browser') return <IconExternalLink size={13} />
   return null
 }
