@@ -22,8 +22,12 @@
 import { create } from 'zustand'
 import {
   browserSurfaceId,
+  commitFileSurfaceId,
   commitSurfaceId,
+  committedSurfaceId,
+  conflictSurfaceId,
   conversationSurfaceId,
+  diffAllSurfaceId,
   diffSurfaceId,
   editorSurfaceId,
   fileSurfaceId,
@@ -33,7 +37,11 @@ import {
   type CenterSurface,
   type CenterSurfaceSlice,
   type CommitCenterSurface,
+  type CommitFileCenterSurface,
+  type CommittedCenterSurface,
+  type ConflictCenterSurface,
   type ConversationCenterSurface,
+  type DiffAllCenterSurface,
   type DiffCenterSurface,
   type EditorCenterSurface,
   type FileCenterSurface,
@@ -80,6 +88,13 @@ interface CenterSurfaceState {
     title?: string
     preview?: boolean
   }): DiffCenterSurface
+  openDiffAll(input: {
+    cwd: string
+    sessionId: string
+    staged: boolean
+    title?: string
+    preview?: boolean
+  }): DiffAllCenterSurface
   openCommit(input: {
     cwd: string
     sessionId: string
@@ -87,6 +102,29 @@ interface CenterSurfaceState {
     title?: string
     preview?: boolean
   }): CommitCenterSurface
+  openCommitFile(input: {
+    cwd: string
+    sessionId: string
+    hash: string
+    filePath: string
+    title?: string
+    preview?: boolean
+  }): CommitFileCenterSurface
+  openCommitted(input: {
+    cwd: string
+    sessionId: string
+    baseRef: string
+    filePath?: string
+    title?: string
+    preview?: boolean
+  }): CommittedCenterSurface
+  openConflict(input: {
+    cwd: string
+    sessionId: string
+    filePath: string
+    title?: string
+    preview?: boolean
+  }): ConflictCenterSurface
   openBrowser(input: {
     cwd: string
     title?: string
@@ -136,7 +174,7 @@ function readDismissed(
  */
 function openPreviewableSurface(
   current: CenterSurfaceSlice,
-  next: FileCenterSurface | DiffCenterSurface | CommitCenterSurface | BrowserCenterSurface,
+  next: FileCenterSurface | DiffCenterSurface | DiffAllCenterSurface | CommitCenterSurface | CommitFileCenterSurface | CommittedCenterSurface | ConflictCenterSurface | BrowserCenterSurface,
 ): CenterSurfaceSlice {
   const existingIndex = current.open.findIndex(surface => surface.id === next.id)
   if (existingIndex >= 0) {
@@ -168,6 +206,9 @@ function openPreviewableSurface(
       if (surface.kind === 'diff' && next.kind === 'diff') {
         return { ...surface, title: next.title, staged: next.staged, isPreview } as DiffCenterSurface
       }
+      if (surface.kind === 'diff-all' && next.kind === 'diff-all') {
+        return { ...surface, title: next.title, staged: next.staged, isPreview } as DiffAllCenterSurface
+      }
       if (surface.kind === 'file' && next.kind === 'file') {
         return { ...surface, title: next.title, isPreview, markdownPreview: next.markdownPreview ?? surface.markdownPreview } as FileCenterSurface
       }
@@ -176,6 +217,12 @@ function openPreviewableSurface(
       }
       if (surface.kind === 'commit' && next.kind === 'commit') {
         return { ...surface, title: next.title, isPreview } as CommitCenterSurface
+      }
+      if (surface.kind === 'commit-file' && next.kind === 'commit-file') {
+        return { ...surface, title: next.title, isPreview } as CommitFileCenterSurface
+      }
+      if (surface.kind === 'committed' && next.kind === 'committed') {
+        return { ...surface, title: next.title, isPreview } as CommittedCenterSurface
       }
       return surface
     })
@@ -324,6 +371,96 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     return nextSurface
   },
 
+  openCommitFile: input => {
+    const id = commitFileSurfaceId(input.hash, input.filePath)
+    const isPreview = input.preview ?? true
+    const nextSurface: CommitFileCenterSurface = {
+      id,
+      kind: 'commit-file',
+      sessionId: input.sessionId,
+      cwd: input.cwd,
+      hash: input.hash,
+      filePath: input.filePath,
+      title: input.title?.trim() || fileNameFromPath(input.filePath),
+      closable: true,
+      isPreview,
+    }
+    set(state => {
+      const slice = readSlice(state.byCwd, input.cwd)
+      const next = openPreviewableSurface(slice, nextSurface)
+      if (next === slice) return state
+      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
+    })
+    return nextSurface
+  },
+
+  openCommitted: input => {
+    const id = committedSurfaceId(input.baseRef, input.filePath)
+    const isPreview = input.preview ?? true
+    const nextSurface: CommittedCenterSurface = {
+      id,
+      kind: 'committed',
+      sessionId: input.sessionId,
+      cwd: input.cwd,
+      baseRef: input.baseRef,
+      ...(input.filePath === undefined ? {} : { filePath: input.filePath }),
+      title: input.title?.trim() || (input.filePath === undefined ? 'Committed changes' : fileNameFromPath(input.filePath)),
+      closable: true,
+      isPreview,
+    }
+    set(state => {
+      const slice = readSlice(state.byCwd, input.cwd)
+      const next = openPreviewableSurface(slice, nextSurface)
+      if (next === slice) return state
+      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
+    })
+    return nextSurface
+  },
+
+  openConflict: input => {
+    const id = conflictSurfaceId(input.filePath)
+    const isPreview = input.preview ?? true
+    const nextSurface: ConflictCenterSurface = {
+      id,
+      kind: 'conflict',
+      sessionId: input.sessionId,
+      cwd: input.cwd,
+      filePath: input.filePath,
+      title: input.title?.trim() || fileNameFromPath(input.filePath),
+      closable: true,
+      isPreview,
+    }
+    set(state => {
+      const slice = readSlice(state.byCwd, input.cwd)
+      const next = openPreviewableSurface(slice, nextSurface)
+      if (next === slice) return state
+      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
+    })
+    return nextSurface
+  },
+
+  openDiffAll: input => {
+    const id = diffAllSurfaceId(input.staged)
+    const isPreview = input.preview ?? true
+    const nextSurface: DiffAllCenterSurface = {
+      id,
+      kind: 'diff-all',
+      sessionId: input.sessionId,
+      cwd: input.cwd,
+      staged: input.staged,
+      title: input.title?.trim() || (input.staged ? 'Staged changes' : 'Changes'),
+      closable: true,
+      isPreview,
+    }
+    set(state => {
+      const slice = readSlice(state.byCwd, input.cwd)
+      const next = openPreviewableSurface(slice, nextSurface)
+      if (next === slice) return state
+      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
+    })
+    return nextSurface
+  },
+
   openBrowser: input => {
     const id = browserSurfaceId(input.resource)
     const isPreview = input.preview ?? true
@@ -386,7 +523,7 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       let changed = false
       const open = slice.open.map(surface => {
         if (surface.id !== surfaceId) return surface
-        if (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'commit' || surface.kind === 'browser') {
+        if (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'commit' || surface.kind === 'commit-file' || surface.kind === 'committed' || surface.kind === 'conflict' || surface.kind === 'browser') {
           if (surface.isPreview) {
             changed = true
             return { ...surface, isPreview: false }
@@ -549,8 +686,23 @@ export function restoreCenterSurfaces(): void {
         state.openEditor({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, title: surface.title })
       } else if (surface.kind === 'diff') {
         state.openDiff({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, staged: surface.staged, title: surface.title, preview: false })
+      } else if (surface.kind === 'diff-all') {
+        state.openDiffAll({ cwd, sessionId: surface.sessionId, staged: surface.staged, title: surface.title, preview: false })
       } else if (surface.kind === 'commit') {
         state.openCommit({ cwd, sessionId: surface.sessionId, hash: surface.hash, title: surface.title, preview: false })
+      } else if (surface.kind === 'commit-file') {
+        state.openCommitFile({ cwd, sessionId: surface.sessionId, hash: surface.hash, filePath: surface.filePath, title: surface.title, preview: false })
+      } else if (surface.kind === 'committed') {
+        state.openCommitted({
+          cwd,
+          sessionId: surface.sessionId,
+          baseRef: surface.baseRef,
+          ...(surface.filePath === undefined ? {} : { filePath: surface.filePath }),
+          title: surface.title,
+          preview: false,
+        })
+      } else if (surface.kind === 'conflict') {
+        state.openConflict({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, title: surface.title, preview: false })
       } else if (surface.kind === 'browser') {
         state.openBrowser({
           cwd,

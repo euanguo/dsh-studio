@@ -11,7 +11,11 @@ export type CenterSurfaceKind =
   | 'conversation'
   | 'file'
   | 'diff'
+  | 'diff-all'
   | 'commit'
+  | 'commit-file'
+  | 'committed'
+  | 'conflict'
   | 'browser'
   | 'terminal'
   | 'editor'
@@ -62,6 +66,19 @@ export interface DiffCenterSurface {
   isPreview: boolean
 }
 
+/** Combined diff of one change area (staged / unstaged) — the section's
+ *  "view all" target. */
+export interface DiffAllCenterSurface {
+  id: string
+  kind: 'diff-all'
+  sessionId: string
+  cwd: string
+  staged: boolean
+  title: string
+  closable: true
+  isPreview: boolean
+}
+
 export interface CommitCenterSurface {
   id: string
   kind: 'commit'
@@ -69,6 +86,46 @@ export interface CommitCenterSurface {
   cwd: string
   /** The full commit hash this surface shows the diff of. */
   hash: string
+  title: string
+  closable: true
+  isPreview: boolean
+}
+
+/** Single-file diff within one commit (a file clicked in a commit's inline
+ *  file list). */
+export interface CommitFileCenterSurface {
+  id: string
+  kind: 'commit-file'
+  sessionId: string
+  cwd: string
+  hash: string
+  filePath: string
+  title: string
+  closable: true
+  isPreview: boolean
+}
+
+/** Committed-changes diff against the branch upstream: the whole projection
+ *  (`filePath` unset) or one committed file. */
+export interface CommittedCenterSurface {
+  id: string
+  kind: 'committed'
+  sessionId: string
+  cwd: string
+  baseRef: string
+  filePath?: string
+  title: string
+  closable: true
+  isPreview: boolean
+}
+
+/** Merge-conflict resolver for one conflicted file (git UU/AA/DD entry). */
+export interface ConflictCenterSurface {
+  id: string
+  kind: 'conflict'
+  sessionId: string
+  cwd: string
+  filePath: string
   title: string
   closable: true
   isPreview: boolean
@@ -100,7 +157,11 @@ export type CenterSurface =
   | FileCenterSurface
   | EditorCenterSurface
   | DiffCenterSurface
+  | DiffAllCenterSurface
   | CommitCenterSurface
+  | CommitFileCenterSurface
+  | CommittedCenterSurface
+  | ConflictCenterSurface
   | BrowserCenterSurface
   | TerminalCenterSurface
 
@@ -127,8 +188,24 @@ export function diffSurfaceId(filePath: string, staged: boolean): string {
   return `diff:${staged ? 'staged' : 'unstaged'}:${filePath}`
 }
 
+export function diffAllSurfaceId(staged: boolean): string {
+  return `diff-all:${staged ? 'staged' : 'unstaged'}`
+}
+
 export function commitSurfaceId(hash: string): string {
   return `commit:${hash}`
+}
+
+export function commitFileSurfaceId(hash: string, filePath: string): string {
+  return `commit-file:${hash}:${filePath}`
+}
+
+export function committedSurfaceId(baseRef: string, filePath?: string): string {
+  return `committed:${baseRef}:${filePath ?? 'all'}`
+}
+
+export function conflictSurfaceId(filePath: string): string {
+  return `conflict:${filePath}`
 }
 
 export function browserSurfaceId(resource: string | undefined): string {
@@ -142,7 +219,7 @@ export function terminalSurfaceId(): string {
 /* ---------- selectors ---------- */
 
 export function isPreviewSurface(surface: CenterSurface): boolean {
-  return (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'commit' || surface.kind === 'browser')
+  return (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'diff-all' || surface.kind === 'commit' || surface.kind === 'commit-file' || surface.kind === 'committed' || surface.kind === 'conflict' || surface.kind === 'browser')
     && surface.isPreview
 }
 

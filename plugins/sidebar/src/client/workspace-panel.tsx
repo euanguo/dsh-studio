@@ -296,6 +296,11 @@ export function WorkspacePanel({
       useCenterSurfaceStore.getState().openFile({ sessionId: sessionId ?? '', cwd, filePath: path, title: name, preview })
       return
     }
+    // Conflicted entries (UU/AA/DD) open the merge-conflict resolver.
+    if (change.status === 'conflicted') {
+      useCenterSurfaceStore.getState().openConflict({ sessionId: sessionId ?? '', cwd, filePath: path, title: name, preview })
+      return
+    }
     useCenterSurfaceStore.getState().openDiff({ sessionId: sessionId ?? '', cwd, filePath: path, staged: change.staged, title: name, preview })
   }
 

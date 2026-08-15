@@ -1247,6 +1247,74 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   overflow: auto;
 }
 
+/* ---------- merge conflict resolver ---------- */
+
+.oh-dsh-conflict-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+.oh-dsh-conflict-header {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-2);
+  height: 34px;
+  padding: 0 var(--oh-dsh-space-2);
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  font-size: var(--oh-dsh-font-xs);
+  flex: none;
+}
+
+.oh-dsh-conflict-header > span:first-child {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.oh-dsh-conflict-header small {
+  color: var(--dsw-alias-state-warning-primary, #9a6700);
+}
+
+.oh-dsh-conflict-hint {
+  padding: 6px var(--oh-dsh-space-3);
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+  flex: none;
+}
+
+.oh-dsh-conflict-actions button {
+  padding: 3px 10px;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-xs);
+  cursor: pointer;
+}
+
+.oh-dsh-conflict-actions button:hover:not(:disabled) {
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.oh-dsh-conflict-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.oh-dsh-conflict-host {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
 
 /* File search box + results */
 .oh-dsh-files-search {

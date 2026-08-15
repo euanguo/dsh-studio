@@ -45,6 +45,7 @@ import {
   CommitDiffSurfaceView,
   CommitFileSurfaceView,
   CommittedSurfaceView,
+  ConflictSurfaceView,
   DiffAllSurfaceView,
   DiffSurfaceView,
   EditorSurfaceView,
@@ -580,6 +581,10 @@ function registerCenterSurfaceRenderers(t: Translate<WorkspaceMessage>): void {
   centerSurfaceRendererRegistry.register('committed', surface => {
     if (surface.kind !== 'committed') return null
     return <CommittedSurfaceView surface={surface} t={t} />
+  })
+  centerSurfaceRendererRegistry.register('conflict', surface => {
+    if (surface.kind !== 'conflict') return null
+    return <ConflictSurfaceView surface={surface} t={t} />
   })
 }
 

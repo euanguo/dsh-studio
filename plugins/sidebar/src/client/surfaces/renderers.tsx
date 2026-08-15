@@ -8,10 +8,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { betterSidebarApi } from '../better-sidebar-api.ts'
-import type { FileContents } from '@pierre/diffs'
+import type { FileContents, MergeConflictResolution } from '@pierre/diffs'
 import { Editor, type EditorOptions } from '@pierre/diffs/edit'
-import { EditProvider, File as PierreFile, Virtualizer } from '@pierre/diffs/react'
-import { getFileRuntime } from '../runtimes/registry.ts'
+import { EditProvider, File as PierreFile, UnresolvedFile, Virtualizer } from '@pierre/diffs/react'
+import { getFileRuntime, getSourceControlRuntime, resolveSidebarPath } from '../runtimes/registry.ts'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
 import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
@@ -27,6 +27,7 @@ import { ImageDiffViewer } from '../diff/image-diff-viewer.tsx'
 import { nextDiffCommentId, readDiffComments, writeDiffComments, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
 import { commentsToDiffLineAnnotations, commentsToFileLineAnnotations } from '../diff/comment-annotations.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
+import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { parseGitReviewDiff, reviewFileToDiffDocument } from '../review/review-diff.ts'
@@ -35,6 +36,7 @@ import type {
   CommitCenterSurface,
   CommitFileCenterSurface,
   CommittedCenterSurface,
+  ConflictCenterSurface,
   DiffAllCenterSurface,
   DiffCenterSurface,
   EditorCenterSurface,
@@ -1013,6 +1015,138 @@ function CommittedFileDiffView({
           cacheBust={`${surface.baseRef}:${filePath}`}
         />
       </div>
+    </div>
+  )
+}
+
+/* ---------- merge conflict resolver ---------- */
+
+/**
+ * Merge-conflict resolver for one conflicted file (git UU/AA/DD). Renders the
+ * raw file through @pierre/diffs' UnresolvedFile — conflict markers become
+ * region renders with accept actions; accepting writes the resolved content
+ * to disk, stages the file (marking it resolved) and swaps the tab to the
+ * normal file view.
+ *
+ * The actions render through `renderMergeConflictUtility`: the react wrapper
+ * always installs its own `onMergeConflictAction` state sync (which makes the
+ * `onMergeConflictResolve` option unusable), so buttons route through the
+ * instance's `handleMergeConflictActionClick` — that path re-renders the
+ * region AND syncs the wrapper's React state. The resolved FileContents come
+ * from `instance.resolveConflict(...)` before the click handler runs.
+ */
+export function ConflictSurfaceView({
+  surface,
+  t,
+}: {
+  surface: ConflictCenterSurface
+  t: Translate<WorkspaceMessage>
+}): JSX.Element {
+  const [content, setContent] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
+  const theme = usePierreDiffTheme()
+  const name = surface.filePath.split(/[\\/]/).filter(Boolean).pop() ?? surface.filePath
+  // The Git panel hands over git-relative paths; fs.* wire calls want absolute.
+  const absolutePath = resolveSidebarPath(surface.cwd, surface.filePath)
+
+  useEffect(() => {
+    let alive = true
+    setContent(null)
+    setError('')
+    void betterSidebarApi.fsRead(
+      { sessionId: surface.sessionId, cwd: surface.cwd },
+      absolutePath,
+    ).then(result => {
+      if (!alive) return
+      if (result.kind !== 'text') {
+        setError(t('files.viewer.binary'))
+        return
+      }
+      setContent(result.content)
+    }).catch((cause: unknown) => {
+      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
+    })
+    return () => { alive = false }
+  }, [absolutePath, surface.sessionId, surface.cwd, t])
+
+  const onResolved = useCallback((resolved: FileContents) => {
+    setBusy(true)
+    betterSidebarApi.fsWrite(
+      { sessionId: surface.sessionId, cwd: surface.cwd },
+      absolutePath,
+      resolved.contents,
+    ).then(() => betterSidebarApi.gitStage(
+      { sessionId: surface.sessionId, cwd: surface.cwd },
+      surface.filePath,
+    )).then(() => {
+      // Refresh file + git state, then swap this tab for the plain file view.
+      getFileRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }).invalidate(absolutePath)
+      void getSourceControlRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }).refresh()
+      const store = useCenterSurfaceStore.getState()
+      store.close(surface.cwd, surface.id)
+      store.openFile({
+        cwd: surface.cwd,
+        sessionId: surface.sessionId,
+        filePath: absolutePath,
+        title: name,
+        preview: false,
+      })
+    }).catch((cause: unknown) => {
+      setBusy(false)
+      setError(cause instanceof Error ? cause.message : String(cause))
+    })
+  }, [absolutePath, surface.cwd, surface.filePath, surface.sessionId, surface.id, name])
+
+  const file = useMemo<FileContents>(() => ({
+    name,
+    contents: content ?? '',
+    cacheKey: `conflict:${surface.filePath}`,
+  }), [content, name, surface.filePath])
+
+  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
+  if (content === null) return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+  return (
+    <div className="oh-dsh-conflict-surface" data-testid="conflict-surface">
+      <div className="oh-dsh-conflict-header">
+        <span title={surface.filePath}>{name}</span>
+        <small>Merge conflict</small>
+        <span className="oh-dsh-conflict-actions">
+          <button type="button" disabled={busy}>{busy ? 'Resolving…' : 'Resolve and stage'}</button>
+        </span>
+      </div>
+      <div className="oh-dsh-conflict-hint">Choose a resolution below for each conflicted region.</div>
+      <Virtualizer className="oh-dsh-conflict-host">
+        <UnresolvedFile
+          file={file}
+          options={{ disableFileHeader: true, theme }}
+          renderMergeConflictUtility={(action, getInstance) => {
+            const resolve = (resolution: MergeConflictResolution): void => {
+              // The react wrapper does not hydrate the original file, so the
+              // instance's own resolveConflict returns empty contents — build
+              // the resolved text ourselves (same split semantics).
+              const resolvedContents = resolveConflictRegionContents(content, action.conflict, resolution)
+              const instance = getInstance()
+              if (instance !== undefined) {
+                // Re-renders the region and syncs the react wrapper state.
+                // (Runtime-public field; the .d.ts marks it private.)
+                const clickHandle = instance as unknown as {
+                  handleMergeConflictActionClick(target: { conflictIndex: number; resolution: MergeConflictResolution }): void
+                }
+                clickHandle.handleMergeConflictActionClick({ conflictIndex: action.conflictIndex, resolution })
+              }
+              void onResolved({ name, contents: resolvedContents, cacheKey: `conflict:${surface.filePath}` })
+            }
+            return (
+              <div className="oh-dsh-conflict-actions">
+                <button type="button" disabled={busy} onClick={() => { resolve('current') }}>Accept current</button>
+                <button type="button" disabled={busy} onClick={() => { resolve('incoming') }}>Accept incoming</button>
+                <button type="button" disabled={busy} onClick={() => { resolve('both') }}>Keep both</button>
+              </div>
+            )
+          }}
+        />
+      </Virtualizer>
     </div>
   )
 }
