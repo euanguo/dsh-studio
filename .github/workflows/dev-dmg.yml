@@ -1,0 +1,74 @@
+name: Dev DMG
+
+# Builds a macOS arm64 DMG on every push to the dev branch and uploads it
+# as a workflow artifact only. No GitHub release or tag is created; the
+# installer is downloaded from the Actions run page.
+#
+# Signing: no macOS signing secrets are expected on the fork, so the
+# package is always produced with the ad-hoc fallback (CSC_LINK unset).
+# The DMG installs via right-click -> Open and does not support
+# automatic updates. Add MACOS_CSC_LINK, MACOS_CSC_KEY_PASSWORD,
+# APPLE_ID, APPLE_APP_SPECIFIC_PASSWORD and APPLE_TEAM_ID secrets to the
+# repository to switch to signed and notarized builds.
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-dmg-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    name: Package macOS arm64 DMG
+    runs-on: macos-15
+    timeout-minutes: 180
+
+    env:
+      DSH_DESKTOP_NODE_PLATFORM: darwin
+      DSH_DESKTOP_NODE_ARCH: arm64
+      npm_config_pm_on_fail: 'ignore'
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: recursive
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Package macOS DMG
+        env:
+          # No signing credentials on the fork: force the ad-hoc
+          # fallback instead of discovering a stale local identity.
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: pnpm run dist:mac
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: oh-dsh-desktop-dmg-arm64
+          compression-level: 0
+          path: release/Oh-DSH-Desktop-*.dmg
+          if-no-files-found: error
