@@ -16,14 +16,13 @@ import {
 import type {
   WorkspaceChange,
   WorkspaceFacts,
-  WorkspaceHostMutationResponse,
   WorkspaceMutation,
   WorkspaceSnapshot,
 } from '../protocol.ts'
-import { WORKSPACE_API_PATH } from '../protocol.ts'
 import type { Translate } from '../../../shared/i18n.ts'
 import { basename } from '../../../shared/path.ts'
 import { copyText } from '../../../shared/copy-text.ts'
+import { runPanelMutation } from './source-control/panel-mutations.ts'
 import { toast } from '../../../shared/toast.tsx'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import { confirmDialog } from './kit/dialog.tsx'
@@ -271,25 +270,6 @@ function CommitFilesBody({
       ))}
     </div>
   )
-}
-
-async function responseJson<T>(
-  response: Response,
-  t: Translate<WorkspaceMessage>,
-): Promise<T> {
-  const payload = await response.json() as T & { error?: string }
-  if (!response.ok) {
-    throw new Error(payload.error ?? t('workspace.request-failed', {
-      status: response.status,
-    }))
-  }
-  return payload
-}
-
-function workspaceUrl(cwd: string): string {
-  const url = new URL(WORKSPACE_API_PATH, window.location.origin)
-  url.searchParams.set('cwd', cwd)
-  return url.href
 }
 
 export function WorkspacePanel({
@@ -561,23 +541,14 @@ export function WorkspacePanel({
     if (cwd === undefined || scope === undefined || busy) return
     setBusy(true)
     try {
-      if (mutation.action === 'checkout') {
-        await betterSidebarApi.gitCheckout(scope, mutation.branch)
-      } else if (mutation.action === 'commit') {
-        await betterSidebarApi.gitStage(scope)
-        await betterSidebarApi.gitCommit(scope, mutation.message)
-        setCommitMessage('')
-      } else {
-        const response = await fetch(workspaceUrl(cwd), {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify(mutation),
-        })
-        await responseJson<WorkspaceHostMutationResponse>(response, t)
-      }
-      await refresh()
-    } catch (nextError) {
-      runtime?.reportError(errorMessage(nextError))
+      await runPanelMutation(mutation, {
+        scope,
+        cwd,
+        t,
+        onCommitted: () => { setCommitMessage('') },
+        refresh,
+        reportError: message => { runtime?.reportError(message) },
+      })
     } finally {
       setBusy(false)
     }
