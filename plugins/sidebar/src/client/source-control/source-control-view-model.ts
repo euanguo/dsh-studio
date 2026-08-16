@@ -7,6 +7,7 @@
  * owns nothing but the collapsed sets and the selection.
  */
 import type { WorkspaceChange } from '../../protocol.ts'
+import { basename } from '../../../../shared/path.ts'
 import {
   buildSourceControlTree,
   canDiscardChange,
@@ -121,7 +122,7 @@ export function buildSourceControlRows(
       // One plain row per change — no directory grouping. Depth is always 0;
       // the basename is shown, the full path is the row title.
       for (const change of changes) {
-        const name = change.path.split('/').filter(Boolean).pop() ?? change.path
+        const name = basename(change.path)
         rows.push({
           kind: 'file',
           key: keyFor(`file:${change.path}`),

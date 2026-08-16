@@ -21,6 +21,7 @@ import { EditProvider, File as PierreFile, Virtualizer } from '@pierre/diffs/rea
 import type { FileContents } from '@pierre/diffs'
 import type { Translate } from '../../../../shared/i18n.ts'
 import { copyText } from '../../../../shared/copy-text.ts'
+import { basename } from '../../../../shared/path.ts'
 import { toast } from '../../../../shared/toast.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { betterSidebarApi } from '../better-sidebar-api.ts'
@@ -194,7 +195,7 @@ export function FileSurfaceView({
   )
 
   const file = useMemo<FileContents>(() => ({
-    name: surface.filePath.split(/[\\/]/).filter(Boolean).pop() ?? surface.filePath,
+    name: basename(surface.filePath),
     contents: editable.content ?? '',
     cacheKey: `editor:${surface.filePath}`,
   }), [editable.content, surface.filePath])

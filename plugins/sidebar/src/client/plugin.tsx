@@ -24,6 +24,7 @@ import {
   SideToolsPanel,
   ToolIcon,
 } from './SideToolsPanel.tsx'
+import { basename, isUnderRoot } from '../../../shared/path.ts'
 import sideToolsCss from './side-tools.css'
 import workspaceCss from './sidebar.css'
 import sourceControlCss from './source-control/source-control.css'
@@ -159,7 +160,7 @@ class WorkspaceToolsService implements WorkspaceTools {
   }
 
   openFile(path: string): void {
-    const title = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+    const title = basename(path)
     this.pinnedSummary.setOpen(false)
     this.sidebar.openTab({ resource: path, title, type: 'file' })
     this.sidebar.setOpen(true)
@@ -638,10 +639,7 @@ function pathBelongsToActiveWorkspace(
 ): boolean {
   const cwd = activeWorkspace(sessions)
   if (cwd === undefined) return false
-  const normalizedRoot = cwd.replaceAll('\\', '/').replace(/\/+$/, '')
-  const normalizedPath = path.replaceAll('\\', '/').replace(/\/+$/, '')
-  return normalizedPath === normalizedRoot
-    || normalizedPath.startsWith(`${normalizedRoot}/`)
+  return isUnderRoot(cwd, path)
 }
 
 export function apply(ctx: ClientContext): void {

@@ -16,6 +16,7 @@ import {
   type SidebarScope,
   type SidebarSettingsView,
 } from '../../../shared/sidebar-api.ts'
+import { normalizePath } from '../../../shared/path.ts'
 
 /**
  * The client face of the sidebar API. All calls go to the generic host's
@@ -216,7 +217,7 @@ export function workspaceChangesFromBetterSidebar(
 }
 
 function normalizedPath(path: string): string {
-  return path.replaceAll('\\', '/').replace(/\/$/, '')
+  return normalizePath(path)
 }
 
 function workspaceParent(cwd: string, path: string): string | null {

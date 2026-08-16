@@ -1,4 +1,5 @@
 import type { DiffPathTreeRow } from './path-tree-nav.tsx'
+import { basename, dirname } from '../../../../shared/path.ts'
 
 /**
  * Builds the flattened rows for a diff path tree in depth-first order:
@@ -30,12 +31,14 @@ export function buildDiffTreeRows(
     const segments = file.path.split('/')
     const parent = segments.length > 1 ? segments.slice(0, -1).join('/') : null
     const list = filesByParent.get(parent) ?? []
-    list.push({ path: file.path, name: segments.at(-1) ?? file.path })
+    list.push({ path: file.path, name: basename(file.path) })
     filesByParent.set(parent, list)
   }
 
-  const parentOf = (dirPath: string): string | null =>
-    dirPath.includes('/') ? dirPath.slice(0, dirPath.lastIndexOf('/')) : null
+  const parentOf = (dirPath: string): string | null => {
+    const parent = dirname(dirPath)
+    return parent === '' ? null : parent
+  }
 
   // Directories grouped by parent (null for top level): emitLevel reads
   // each level's children straight from the map instead of filtering the
@@ -67,7 +70,7 @@ export function buildDiffTreeRows(
         key: `dir:${sub}`,
         kind: 'directory',
         path: sub,
-        name: sub.split('/').at(-1) ?? sub,
+        name: basename(sub),
         depth,
         fileCount: dirCounts.get(sub) ?? 0,
         collapsed: collapsedDirs.has(sub),

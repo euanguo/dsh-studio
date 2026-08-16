@@ -24,6 +24,7 @@ import {
 } from './file-runtime.ts'
 import type { BetterSidebarScope } from '../better-sidebar-api.ts'
 import { betterSidebarApi } from '../better-sidebar-api.ts'
+import { resolveSidebarPath } from '../../../../shared/path.ts'
 
 export interface SidebarScope {
   sessionId: string
@@ -32,14 +33,6 @@ export interface SidebarScope {
 
 export function sidebarScopeKey(scope: SidebarScope): string {
   return `${scope.sessionId}:${scope.cwd}`
-}
-
-/** cwd-relative path → absolute path for the fs.tree/fs.read wire calls. */
-export function resolveSidebarPath(cwd: string, relativePath: string): string {
-  if (relativePath === '') return cwd
-  const root = cwd.replace(/[/\\]+$/, '')
-  const relative = relativePath.replace(/^[/\\]+/, '').replace(/\\/g, '/')
-  return `${root}/${relative}`
 }
 
 /* ---------- explorer (directory listings) ---------- */

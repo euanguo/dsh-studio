@@ -12,7 +12,8 @@ import type { WorkspaceMessage } from '../i18n.ts'
 import { betterSidebarApi } from '../better-sidebar-api.ts'
 import type { FileContents, MergeConflictResolution } from '@pierre/diffs'
 import { UnresolvedFile, Virtualizer } from '@pierre/diffs/react'
-import { getFileRuntime, getSourceControlRuntime, resolveSidebarPath } from '../runtimes/registry.ts'
+import { getFileRuntime, getSourceControlRuntime } from '../runtimes/registry.ts'
+import { basename, resolveSidebarPath } from '../../../../shared/path.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
 import { EmptyView, ErrorView, LoadingView } from '../kit/status.tsx'
@@ -978,7 +979,7 @@ export function ConflictSurfaceView({
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const theme = usePierreDiffTheme()
-  const name = surface.filePath.split(/[\\/]/).filter(Boolean).pop() ?? surface.filePath
+  const name = basename(surface.filePath)
   // The Git panel hands over git-relative paths; fs.* wire calls want absolute.
   const absolutePath = resolveSidebarPath(surface.cwd, surface.filePath)
 

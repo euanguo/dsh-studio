@@ -18,6 +18,7 @@ import {
   IconPlus,
 } from '../../../../shared/tabler-icons.tsx'
 import type { Translate } from '../../../../shared/i18n.ts'
+import { basename } from '../../../../shared/path.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { isPlainLanguage, languageForPath, MAX_NUMBERED_LINES } from './language.ts'
 import { PierreFileView } from './pierre-file-view.tsx'
@@ -114,7 +115,7 @@ export function ContentViewer({
   t,
 }: ContentViewerProps): JSX.Element {
   const kind = detectKind(path, binary)
-  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+  const name = basename(path)
 
   // Heavy per-content derivations, computed once per content change instead
   // of once per render (rail resizes / tab switches re-render this view).
@@ -335,7 +336,7 @@ function ImageViewer({
 }): JSX.Element {
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [zoom, setZoom] = useState(1)
-  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+  const name = basename(path)
 
   useEffect(() => {
     setStatus('loading')
@@ -397,7 +398,7 @@ function PdfViewer({
   data: string
   onOpenExternal?(): void
 }): JSX.Element {
-  const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+  const name = basename(path)
   return (
     <div className="oh-dsh-content-media">
       <div className="oh-dsh-pdf-toolbar">

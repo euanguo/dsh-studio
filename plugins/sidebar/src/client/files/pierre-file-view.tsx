@@ -13,6 +13,7 @@ import { useMemo } from 'react'
 import { File as PierreFile, Virtualizer } from '@pierre/diffs/react'
 import type { FileContents, LineAnnotation } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
+import { basename } from '../../../../shared/path.ts'
 import type { DiffComment } from '../diff/diff-comments-store.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 
@@ -39,7 +40,7 @@ export function PierreFileView({
 }: PierreFileViewProps): JSX.Element {
   const theme = usePierreDiffTheme()
   const file = useMemo<FileContents>(() => ({
-    name: path.split(/[\\/]/).filter(Boolean).pop() ?? path,
+    name: basename(path),
     contents: content,
     lang: language,
     cacheKey: `view:${cacheKey}`,

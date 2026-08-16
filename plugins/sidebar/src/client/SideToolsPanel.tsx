@@ -35,6 +35,14 @@ import {
   IconPlus,
   FileGlyph,
 } from '../../../shared/tabler-icons.tsx'
+import {
+  basename,
+  dirname,
+  isUnderRoot,
+  joinPath,
+  relativePathOf,
+  resolveSidebarPath,
+} from '../../../shared/path.ts'
 import type { WorkspaceFilesResponse, WorkspaceFileEntry, WorkspaceFileKind } from '../protocol.ts'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import {
@@ -54,7 +62,6 @@ import { FilenameLabel } from '../../../shared/filename-label.tsx'
 import { SurfaceTab } from '../../../shared/surface-tab.tsx'
 import {
   getExplorerRuntime,
-  resolveSidebarPath,
   sidebarScopeKey,
 } from './runtimes/registry.ts'
 import { useSidebarChromeStore } from './runtimes/chrome-store.ts'
@@ -76,15 +83,6 @@ const SEARCH_DEBOUNCE_MS = 250
 const SEARCH_RESULT_LIMIT = 100
 /** Bytes sniffed from a file head for viewer detection. */
 const VIEWER_SNIFF_BYTES = 512
-
-/** Absolute path → repo-relative path for the explorer runtime keys. */
-function relativePathOf(cwd: string, absolute: string): string {
-  const root = cwd.replace(/[/\\]+$/, '')
-  const value = absolute.replace(/\\/g, '/')
-  if (value === root) return ''
-  if (value.startsWith(`${root}/`)) return value.slice(root.length + 1)
-  return absolute.replace(/^[/\\]+/, '').replace(/\\/g, '/')
-}
 
 interface SideToolsPanelProps {
   cwd: string | undefined
@@ -362,7 +360,7 @@ export function FilesView({
     })
     if (name === null || name.trim() === '') return
     try {
-      await betterSidebarApi.fsCreate(scope, `${base.replace(/\/+$/, '')}/${name.trim()}`, directory)
+      await betterSidebarApi.fsCreate(scope, joinPath(base, name.trim()), directory)
       refreshListings()
     } catch (cause) {
       await alertDialog({
@@ -377,14 +375,14 @@ export function FilesView({
     if (cwd === undefined || scope === undefined || selectedPath === null) return
     const name = await promptDialog({
       title: t('files.rename-to'),
-      defaultValue: selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath,
+      defaultValue: basename(selectedPath),
       confirmLabel: t('dialog.ok'),
       cancelLabel: t('dialog.cancel'),
     })
     if (name === null || name.trim() === '') return
-    const parent = selectedPath.replace(/\\/g, '/').replace(/\/+$/, '').split('/').slice(0, -1).join('/') || cwd
+    const parent = dirname(selectedPath) || cwd
     try {
-      await betterSidebarApi.fsRename(scope, selectedPath, `${parent.replace(/\/+$/, '')}/${name.trim()}`)
+      await betterSidebarApi.fsRename(scope, selectedPath, joinPath(parent, name.trim()))
       refreshListings()
     } catch (cause) {
       await alertDialog({
@@ -419,7 +417,7 @@ export function FilesView({
 
   const copyFsEntry = async (): Promise<void> => {
     if (cwd === undefined || scope === undefined || selectedPath === null) return
-    const base = selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath
+    const base = basename(selectedPath)
     const target = await promptDialog({
       title: t('files.copy-to'),
       defaultValue: `${base}.copy`,
@@ -445,7 +443,7 @@ export function FilesView({
   return (
     <div className="oh-dsh-files-view">
       <div className="oh-dsh-files-path" title={cwd}>
-        <span>{cwd.split(/[\\/]/).filter(Boolean).pop() ?? cwd}</span>
+        <span>{basename(cwd)}</span>
         <button type="button" title={t('files.new-file')} onClick={() => { void createFsEntry(false) }}>+F</button>
         <button type="button" title={t('files.new-folder')} onClick={() => { void createFsEntry(true) }}>+D</button>
         <button type="button" title={t('files.rename')} disabled={selectedPath === null} onClick={() => { void renameFsEntry() }}>↳</button>
@@ -483,12 +481,12 @@ export function FilesView({
               onClick={() => {
                 const cwd2 = cwd
                 if (cwd2 === undefined) return
-                const abs = hit.path.startsWith(cwd2) ? hit.path : `${cwd2.replace(/\/+$/, '')}/${hit.path}`
+                const abs = isUnderRoot(cwd2, hit.path) ? hit.path : joinPath(cwd2, hit.path)
                 useCenterSurfaceStore.getState().openFile({
                   sessionId: scope?.sessionId ?? '',
                   cwd: cwd2,
                   filePath: abs,
-                  title: hit.path.split('/').at(-1) ?? hit.path,
+                  title: basename(hit.path),
                   preview: true,
                 })
               }}

@@ -22,6 +22,7 @@ import type {
 } from '../protocol.ts'
 import { WORKSPACE_API_PATH } from '../protocol.ts'
 import type { Translate } from '../../../shared/i18n.ts'
+import { basename } from '../../../shared/path.ts'
 import { copyText } from '../../../shared/copy-text.ts'
 import { toast } from '../../../shared/toast.tsx'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
@@ -111,7 +112,7 @@ type CommittedState =
   | { status: 'ready'; baseRef: string; entries: readonly BetterSidebarGitCommitFile[] }
 
 function commitFileName(path: string): string {
-  return path.split(/[\\/]/).filter(Boolean).pop() ?? path
+  return basename(path)
 }
 
 function commitFileStatusWord(status: string): string {
@@ -572,7 +573,7 @@ export function WorkspacePanel({
 
   const openDiffInCenter = (path: string, preview: boolean): void => {
     if (cwd === undefined || scopeKey === null) return
-    const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+    const name = basename(path)
     const change = snapshot?.changes.find(candidate => candidate.path === path)
     useSidebarChromeStore.getState().setSourceControlSelectedPath(scopeKey, path)
     // Single click = preview diff tab; double click = pinned diff tab.
@@ -808,7 +809,7 @@ export function WorkspacePanel({
             </section>
 
             <section className="oh-dsh-workspace-directory">
-              <span>{snapshot?.name ?? cwd.split(/[\\/]/).filter(Boolean).pop()}</span>
+              <span>{snapshot?.name ?? basename(cwd)}</span>
               <small title={cwd}>{cwd}</small>
               <button type="button" onClick={() => { void chooseWorkspace() }} aria-label={t('workspace.add')}><IconPlus size={16} /></button>
             </section>

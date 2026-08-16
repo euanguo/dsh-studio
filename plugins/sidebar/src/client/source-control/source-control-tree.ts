@@ -7,6 +7,7 @@
  * collapsed-directory key set flattens the tree into a stable row stream.
  */
 import type { WorkspaceChange } from '../../protocol.ts'
+import { normalizePath } from '../../../../shared/path.ts'
 
 export type SourceControlSectionId =
   | 'staged'
@@ -86,11 +87,9 @@ function createDirectory(
 }
 
 function normalizeRelativePath(path: string): string {
-  return path
-    .replace(/\\/g, '/')
+  return normalizePath(path)
     .replace(/^\/+/, '')
     .replace(/^\.\//, '')
-    .replace(/\/{2,}/g, '/')
 }
 
 function splitPathSegments(path: string): string[] {

@@ -6,6 +6,7 @@
  */
 import { Fragment, useMemo } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
+import { basename } from '../../../../shared/path.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
   IconChevronRight,
@@ -44,7 +45,7 @@ export function FileViewerChrome({
   const { prefixSegments, fileSegment } = useMemo(() => {
     const normalized = filePath.replace(/\\/g, '/')
     const root = cwd.replace(/\\/g, '/').replace(/\/+$/, '')
-    const projectName = root.length > 0 ? root.split('/').at(-1) ?? root : null
+    const projectName = root.length > 0 ? basename(root) : null
     const fileSegments = normalized.split('/').filter(segment => segment.length > 0)
     const segments = projectName !== null && !normalized.startsWith('/')
       ? [projectName, ...fileSegments]
@@ -54,7 +55,7 @@ export function FileViewerChrome({
         name,
         key: segments.slice(0, index + 1).join('/'),
       })),
-      fileSegment: segments.at(-1) ?? filePath,
+      fileSegment: segments.at(-1) ?? basename(filePath),
     }
   }, [cwd, filePath])
 
