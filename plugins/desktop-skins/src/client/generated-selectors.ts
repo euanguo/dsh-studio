@@ -11,10 +11,10 @@ export const MENU_LIST = Object.freeze([
 ] as const)
 
 export const MENU_SURFACE = Object.freeze([
-  '.LqtciG_menu',
-  '.gtvCtq_menu',
-  '.vGKOra_menu',
-  '.wI0qGa_menu',
+  '.SLJQ8q_menu',
+  '.Xflt8a_menu',
+  '._273omW_menu',
+  '._6JUrJq_menu',
 ] as const)
 
 export const MENU_ITEM = Object.freeze([
@@ -31,49 +31,49 @@ export const ITEM_LABEL = Object.freeze([
 ] as const)
 
 export const NAV_CELL = Object.freeze([
-  '.-wizCq_navCell',
+  '._5J5IwG_navCell',
 ] as const)
 
 export const TRIGGER_PILL = Object.freeze([
-  '.-wizCq_trigger',
-  '.H3siGG_trigger',
-  '.LqtciG_trigger',
-  '.uNlE1G_trigger',
-  '.vGKOra_trigger',
-  '.vGKOra_triggerOpen',
-  '.wI0qGa_trigger',
-  '.wI0qGa_triggerDot',
-  '.wI0qGa_triggerOpen',
+  '.RXWBNW_trigger',
+  '.SLJQ8q_trigger',
+  '._273omW_trigger',
+  '._273omW_triggerOpen',
+  '._5J5IwG_trigger',
+  '._6JUrJq_trigger',
+  '._6JUrJq_triggerDot',
+  '._6JUrJq_triggerOpen',
+  '.oevV-W_trigger',
 ] as const)
 
 export const TRIGGER_LABEL = Object.freeze([
-  '.-wizCq_triggerLabel',
-  '.LqtciG_triggerLabel',
-  '._0U89xG_triggerLabel',
-  '.uNlE1G_triggerLabel',
+  '.Hfb7ua_triggerLabel',
+  '.RXWBNW_triggerLabel',
+  '.SLJQ8q_triggerLabel',
+  '._5J5IwG_triggerLabel',
 ] as const)
 
 export const TRIGGER_EFFORT = Object.freeze([
-  '.LqtciG_triggerEffort',
+  '.SLJQ8q_triggerEffort',
 ] as const)
 
 export const TRIGGER_ICON = Object.freeze([
-  '.uNlE1G_triggerIcon',
+  '.RXWBNW_triggerIcon',
 ] as const)
 
 export const SEAT = Object.freeze([
-  '.urMWOG_seat',
+  '.-nlEuW_seat',
 ] as const)
 
 export const WORKSPACE_PILL = Object.freeze([
-  '.N4HsDW_workspaceDropAfter',
-  '.N4HsDW_workspaceDropBefore',
-  '.UTNGfq_workspace',
-  '.UTNGfq_workspaceRow',
+  '.-FzMdG_workspaceDropAfter',
+  '.-FzMdG_workspaceDropBefore',
+  '._045r0W_workspace',
+  '._045r0W_workspaceRow',
 ] as const)
 
 export const WORKSPACE_LABEL = Object.freeze([
-  '.UTNGfq_workspaceLabel',
+  '._045r0W_workspaceLabel',
 ] as const)
 
 export const GROUP_LABEL = Object.freeze([
@@ -83,86 +83,85 @@ export const GROUP_LABEL = Object.freeze([
 ] as const)
 
 export const SELECTOR = Object.freeze([
-  '.AsQOla_selector',
-  '.LGN8lq_selector',
-  '._5HI2va_selector',
-  '.sl_epq_selector',
+  '.G33h5a_selector',
+  '._2TSIga_selector',
+  '._2vQ3uG_selector',
+  '._44MkdW_selector',
 ] as const)
 
 export const NEW_SESSION = Object.freeze([
-  '.VfOgWa_newSession',
+  '.XRFJpq_newSession',
 ] as const)
 
 export const SESSION_ROW = Object.freeze([
-  '.Mxhjma_sessionRow',
+  '.E6U8KW_sessionRow',
 ] as const)
 
 export const PROJECT_ROW = Object.freeze([
-  '.Mxhjma_projectRow',
+  '.E6U8KW_projectRow',
 ] as const)
 
 export const WORKSPACE_ROW = Object.freeze([
-  '.UTNGfq_workspaceRow',
+  '._045r0W_workspaceRow',
 ] as const)
 
 export const CARD = Object.freeze([
-  '.EBSbfa_card',
-  '.PWfTsa_card',
-  '.PWfTsa_cardContent',
-  '.PWfTsa_cardDetails',
-  '.PWfTsa_cardTitle',
-  '.PWfTsa_cardTrailing',
-  '.PWfTsa_cards',
-  '.QtPdFG_card',
-  '.QtPdFG_cardOpen',
-  '.TH6ClG_card',
+  '.-RKVaW_card',
+  '.AJMdJG_card',
+  '.AJMdJG_cardContent',
+  '.AJMdJG_cardDetails',
+  '.AJMdJG_cardTitle',
+  '.AJMdJG_cardTrailing',
+  '.AJMdJG_cards',
+  '.GJ_hHq_card',
+  '.JyUsPW_card',
+  '.JyUsPW_cardOpen',
+  '.KyDztq_cardBody',
+  '.Pf2xyW_cards',
+  '.UdNE0q_card',
+  '.UdNE0q_cardActive',
+  '.UdNE0q_cardBroken',
+  '.UdNE0q_cardBrokenReason',
+  '.UdNE0q_cardDesc',
+  '.UdNE0q_cardFoot',
+  '.UdNE0q_cardHead',
+  '.UdNE0q_cardId',
+  '.UdNE0q_cardMain',
+  '.UdNE0q_cardName',
+  '.UdNE0q_cards',
+  '._28FJ6W_card',
+  '._3lgNhq_card',
+  '._4wDhyG_card',
   '._card_1b2ny_13',
   '._card_9gj4p_13',
-  '.bWsSua_cards',
-  '.fBOgmW_cardBody',
-  '.kxQ7mG_card',
-  '.lSocfq_card',
-  '.lbz_ZG_card',
-  '.lbz_ZG_cardWorkspaceTrigger',
-  '.m2VMiW_card',
-  '.naRqtq_card',
-  '.uDZgaq_card',
-  '.vI7wFG_card',
-  '.z4NEJq_card',
-  '.z4NEJq_cardActive',
-  '.z4NEJq_cardBroken',
-  '.z4NEJq_cardBrokenReason',
-  '.z4NEJq_cardDesc',
-  '.z4NEJq_cardFoot',
-  '.z4NEJq_cardHead',
-  '.z4NEJq_cardId',
-  '.z4NEJq_cardMain',
-  '.z4NEJq_cardName',
-  '.z4NEJq_cards',
+  '.l33V-W_card',
+  '.ySYjtW_card',
+  '.ystR2a_card',
+  '.ystR2a_cardWorkspaceTrigger',
 ] as const)
 
 export const DIALOG = Object.freeze([
-  '._642HZG_dialog',
+  '.OTqlpa_dialog',
+  '.UdNE0q_dialog',
+  '.UdNE0q_dialogFields',
   '._dialog_15u5s_22',
-  '.saFVAG_dialog',
-  '.z4NEJq_dialog',
-  '.z4NEJq_dialogFields',
+  '.sieH7G_dialog',
 ] as const)
 
 export const RENAME_INPUT = Object.freeze([
-  '.Mxhjma_renameInput',
-  '.N4HsDW_renameInput',
+  '.-FzMdG_renameInput',
+  '.E6U8KW_renameInput',
 ] as const)
 
 export const THEME_CUBE = Object.freeze([
-  '.OUwk0a_themeCube',
+  '.Ol_1rG_themeCube',
 ] as const)
 
 export const PRIMARY_PILL = Object.freeze([
-  '.IpZAPW_primary:not(._button_kz6gm_4)',
-  '._2WqzUG_primaryButton:not(._button_kz6gm_4)',
+  '.BSJ_qa_primaryButton:not(._button_kz6gm_4)',
   '._primary_kz6gm_38:not(._button_kz6gm_4)',
-  '.lbz_ZG_primary:not(._button_kz6gm_4)',
+  '.omc2ra_primary:not(._button_kz6gm_4)',
+  '.ystR2a_primary:not(._button_kz6gm_4)',
 ] as const)
 
 export const BUTTON_CLASS = Object.freeze([
@@ -170,29 +169,28 @@ export const BUTTON_CLASS = Object.freeze([
 ] as const)
 
 export const WRAP = Object.freeze([
+  '.ByE5Lq_wrap',
   '._wrap_1ao1y_1',
   '._wrap_rcb0a_29',
-  '.d5URwa_wrap',
 ] as const)
 
 export const ICON = Object.freeze([
-  '.EBSbfa_iconButton',
-  '.Mxhjma_iconButton',
-  '.N4HsDW_iconButton',
-  '.OYLFnq_icon',
-  '.TH6ClG_icon',
-  '.VfOgWa_iconButton',
-  '._2WqzUG_iconButton',
-  '._2WqzUG_iconButtonDanger',
-  '._64ccDW_iconBtn',
+  '.-FzMdG_iconButton',
+  '.BSJ_qa_iconButton',
+  '.BSJ_qa_iconButtonDanger',
+  '.E6U8KW_iconButton',
+  '.UdNE0q_iconButton',
+  '.UdNE0q_iconDanger',
+  '.XRFJpq_iconButton',
+  '._0VrW4q_iconBtn',
+  '._28FJ6W_iconButton',
+  '._4wDhyG_iconIdle',
+  '._5qFjmq_icon',
   '._iconIdle_9cl6j_42',
   '._icon_1ao1y_16',
   '._icon_fvpz7_35',
   '._icon_kz6gm_73',
-  '.m2VMiW_iconIdle',
-  '.vI7wFG_iconIdle',
-  '.z4NEJq_iconButton',
-  '.z4NEJq_iconDanger',
+  '.ySYjtW_icon',
 ] as const)
 
 export const BUTTON_MD = Object.freeze([
