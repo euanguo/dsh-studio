@@ -92,6 +92,10 @@ export type WorkspaceMessage =
   | 'settings.open-links-description'
   | 'settings.runtime-load-failed'
   | 'settings.runtime-save-failed'
+  | 'settings.feature-settings'
+  | 'settings.plugin-settings'
+  | 'settings.no-feature-settings'
+  | 'settings.done'
   | 'workspace.request-failed'
   | 'workspace.title'
   | 'workspace.add'
@@ -260,6 +264,10 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.open-links-description': 'Open plain HTTP and HTTPS link clicks in the desktop browser. Cmd/Ctrl-click still opens them externally.',
     'settings.runtime-load-failed': 'Could not load the runtime settings.',
     'settings.runtime-save-failed': 'Could not save the runtime settings.',
+    'settings.feature-settings': 'Settings',
+    'settings.plugin-settings': 'Plugin settings',
+    'settings.no-feature-settings': 'This feature has no additional settings.',
+    'settings.done': 'Done',
     'workspace.request-failed': 'Workspace request failed ({status})',
     'workspace.title': 'Workspace',
     'workspace.add': 'Add workspace',
@@ -427,6 +435,10 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.open-links-description': '普通 HTTP/HTTPS 链接会在桌面浏览器中打开；Cmd/Ctrl 点击仍使用外部浏览器。',
     'settings.runtime-load-failed': '无法加载运行时设置。',
     'settings.runtime-save-failed': '无法保存运行时设置。',
+    'settings.feature-settings': '设置',
+    'settings.plugin-settings': '插件设置',
+    'settings.no-feature-settings': '该功能没有附加设置。',
+    'settings.done': '完成',
     'workspace.request-failed': '工作区请求失败（{status}）',
     'workspace.title': '工作区',
     'workspace.add': '添加工作区',

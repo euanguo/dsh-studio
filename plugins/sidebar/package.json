@@ -8,6 +8,10 @@
   "exports": {
     ".": "./dist/index.js",
     "./client": "./dist/client.js",
+    "./client/contract": {
+      "types": "./dist/plugins/sidebar/types/sidebar/src/client/contract.d.ts",
+      "default": "./dist/client.js"
+    },
     "./package.json": "./package.json"
   },
   "dsh": {

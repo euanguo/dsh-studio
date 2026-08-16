@@ -52,6 +52,28 @@
   color: var(--dsw-alias-label-tertiary, #8c959f);
 }
 
+/* Tab badge pill: a small rounded count/status chip next to the icon. */
+.oh-dsh-surface-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.oh-dsh-surface-tab.is-active .oh-dsh-surface-tab-badge {
+  background: var(--dsw-alias-accent-bg, rgb(77 107 254 / 14%));
+  color: var(--dsw-alias-accent-fg, #4d6bfe);
+}
+
 .oh-dsh-surface-tab-label {
   display: flex;
   align-items: center;

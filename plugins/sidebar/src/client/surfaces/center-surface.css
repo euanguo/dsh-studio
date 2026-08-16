@@ -138,6 +138,21 @@
   stroke-width: 1.6;
 }
 
+/* The rail toggle glyphs are FILLED icons (a frame with a filled strip):
+   override the outline defaults above so the strip renders as a solid bar. */
+.oh-dsh-left-rail-toggle .oh-dsh-rail-toggle-glyph,
+.oh-dsh-right-rail-reopen .oh-dsh-rail-toggle-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.oh-dsh-left-rail-toggle .oh-dsh-rail-toggle-glyph svg,
+.oh-dsh-right-rail-reopen .oh-dsh-rail-toggle-glyph svg {
+  fill: currentColor;
+  stroke: none;
+}
+
 /* ---------- Surface body (file / diff / browser render area) ---------- */
 
 .oh-dsh-center-surface-body {

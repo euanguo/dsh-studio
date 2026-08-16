@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Translate } from '../../../shared/i18n.ts'
 import { IconArrowLeft, IconRefresh } from '../../../shared/icons.tsx'
-import type { DesktopSidebarRenderProps } from '../../../sidebar/src/client/sidebar-service.ts'
+import type { SidebarRenderProps } from '../../../sidebar/src/client/contract.ts'
 import type { BrowserCenterSurface } from '../../../sidebar/src/client/surfaces/types.ts'
 import type { WorkspaceMessage } from '../../../sidebar/src/client/i18n.ts'
 
@@ -38,7 +38,7 @@ export function BrowserView({
   patch,
   t,
   tab,
-}: DesktopSidebarRenderProps & {
+}: SidebarRenderProps & {
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const container = useRef<HTMLDivElement | null>(null)

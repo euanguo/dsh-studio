@@ -12,7 +12,7 @@ test('desktop sidebar is a fixed overlay that never restructures #root', () => {
     'utf8',
   )
   const workspace = readFileSync(
-    join(root, 'plugins/sidebar/src/client/plugin.tsx'),
+    join(root, 'plugins/sidebar/src/client/workspace-tools.tsx'),
     'utf8',
   )
 
@@ -46,7 +46,10 @@ test('right panel footprint is coordinated by the desktopPanels service', () => 
 
 test('review, pinned summary, and embedded side tools keep distinct layouts', () => {
   const summary = readFileSync(join(root, 'plugins/pinned-summary/src/client.ts'), 'utf8')
-  const workspace = readFileSync(join(root, 'plugins/sidebar/src/client/plugin.tsx'), 'utf8')
+  const workspace = readFileSync(join(root, 'plugins/sidebar/src/client/workspace-tools.tsx'), 'utf8')
+  const plugin = readFileSync(join(root, 'plugins/sidebar/src/client/plugin.tsx'), 'utf8')
+  const builtinTabs = readFileSync(join(root, 'plugins/sidebar/src/client/builtins/tabs.tsx'), 'utf8')
+  const builtinViewers = readFileSync(join(root, 'plugins/sidebar/src/client/builtins/viewers.tsx'), 'utf8')
   const workspacePanel = readFileSync(join(root, 'plugins/sidebar/src/client/workspace-panel.tsx'), 'utf8')
   const workspaceCss = readFileSync(join(root, 'plugins/sidebar/src/client/sidebar.css'), 'utf8')
   const sideTools = readFileSync(join(root, 'plugins/sidebar/src/client/SideToolsPanel.tsx'), 'utf8')
@@ -69,10 +72,13 @@ test('review, pinned summary, and embedded side tools keep distinct layouts', ()
   assert.match(sideTools, /props\.sidebar\.getTab\(activeTab\.type\)/)
   assert.match(sideTools, /descriptor\.render\(renderProps\)/)
   assert.match(sideTools, /<TabStrip sidebar=\{props\.sidebar\} t=\{props\.t\} \/>/)
-  assert.match(workspace, /function registerBuiltinSidebarTools/)
-  assert.match(workspace, /sidebar\.registerTab\(\{[\s\S]*id: 'review'/)
-  assert.match(workspace, /sidebar\.registerViewer\(\{[\s\S]*id: 'binary'/)
-  assert.match(workspace, /desktopSidebar\.setSession\(sessions\.list\.getSnapshot\(\)\.current \?\? null\)/)
+  // Built-in registrations are dogfooded through the same registry service
+  // (builtins/ modules); the plugin assembly only wires the services in.
+  assert.match(plugin, /registerBuiltins\(desktopSidebar/)
+  assert.match(builtinTabs, /id: 'review'/)
+  assert.match(builtinTabs, /id: 'files'/)
+  assert.match(builtinViewers, /id: 'binary'/)
+  assert.match(plugin, /desktopSidebar\.setSession\(/)
   assert.match(sideToolsCss, /\.oh-dsh-side-panel\s*\{[^}]*width: 100% !important;[^}]*border-radius: 0;[^}]*box-shadow: none;/s)
   // The window controls live in the panel's top row, flush right — no
   // floating toolbar, no summary button riding the window edge.

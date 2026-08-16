@@ -10,6 +10,8 @@ export interface PersistedSidebarTab {
   type: string
   title: string
   resource?: string
+  /** JSON-serializable custom state (the contract's `tab.meta`). */
+  meta?: unknown
 }
 
 export interface PersistedSidebarSession {
@@ -24,6 +26,8 @@ export interface DesktopSidebarPreferences {
   sessions: Record<string, PersistedSidebarSession>
   tabsEnabled: Record<string, boolean>
   viewersEnabled: Record<string, boolean>
+  /** Plugin-owned settings blobs keyed by descriptor id (open map). */
+  pluginSettings: Record<string, Record<string, unknown>>
   version: 1
 }
 
@@ -34,6 +38,7 @@ export const DEFAULT_SIDEBAR_PREFERENCES: DesktopSidebarPreferences =
     sessions: Object.freeze({}),
     tabsEnabled: Object.freeze({}),
     viewersEnabled: Object.freeze({}),
+    pluginSettings: Object.freeze({}),
     version: 1,
   }) as DesktopSidebarPreferences
 
@@ -58,6 +63,39 @@ function parseEnabledMap(value: unknown): Record<string, boolean> | undefined {
   return output
 }
 
+/** JSON-serializable values only: primitives, finite numbers, arrays and
+ *  plain objects (recursively). `undefined`, functions, symbols, NaN and
+ *  class instances are rejected so persisted `meta` / plugin settings can
+ *  never poison the localStorage document. */
+const MAX_JSON_DEPTH = 6
+
+function isJsonSafe(value: unknown, depth = 0): boolean {
+  if (depth > MAX_JSON_DEPTH) return false
+  if (value === null) return true
+  switch (typeof value) {
+    case 'boolean':
+      return true
+    case 'number':
+      return Number.isFinite(value)
+    case 'string':
+      return true
+    case 'object': {
+      if (Array.isArray(value)) {
+        return value.every(item => isJsonSafe(item, depth + 1))
+      }
+      const prototype = Object.getPrototypeOf(value)
+      if (prototype !== Object.prototype && prototype !== null) return false
+      return Object.values(value).every(item => isJsonSafe(item, depth + 1))
+    }
+    default:
+      return false
+  }
+}
+
+function parseMeta(value: unknown): unknown | undefined {
+  return value === undefined || isJsonSafe(value) ? value : undefined
+}
+
 function parseTab(value: unknown): PersistedSidebarTab | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return undefined
@@ -68,11 +106,14 @@ function parseTab(value: unknown): PersistedSidebarTab | undefined {
   if (input.resource !== undefined
     && (typeof input.resource !== 'string' || input.resource.length > 4096
       || input.resource.includes('\0'))) return undefined
+  const meta = parseMeta(input.meta)
+  if (input.meta !== undefined && meta === undefined) return undefined
   return {
     id: input.id,
     type: input.type,
     title: input.title,
     ...(typeof input.resource === 'string' ? { resource: input.resource } : {}),
+    ...(meta === undefined ? {} : { meta }),
   }
 }
 
@@ -107,6 +148,34 @@ export function clampSidebarWidth(value: number): number {
   )
 }
 
+function parsePluginSettings(
+  value: unknown,
+): Record<string, Record<string, unknown>> | undefined {
+  if (value === undefined) return {}
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    return undefined
+  }
+  const entries = Object.entries(value as Record<string, unknown>)
+  if (entries.length > 120) return undefined
+  const output: Record<string, Record<string, unknown>> = {}
+  for (const [id, blob] of entries) {
+    if (!validKey(id, 120)) return undefined
+    if (typeof blob !== 'object' || blob === null || Array.isArray(blob)) {
+      return undefined
+    }
+    const keys = Object.entries(blob as Record<string, unknown>)
+    if (keys.length > 120) return undefined
+    const parsed: Record<string, unknown> = {}
+    for (const [key, item] of keys) {
+      if (!validKey(key, 120)) return undefined
+      if (!isJsonSafe(item)) return undefined
+      parsed[key] = item
+    }
+    output[id] = parsed
+  }
+  return output
+}
+
 export function parseSidebarPreferences(
   value: unknown,
 ): DesktopSidebarPreferences | undefined {
@@ -123,7 +192,9 @@ export function parseSidebarPreferences(
     || input.defaultWidth > SIDEBAR_LEGACY_MAX_WIDTH) return undefined
   const tabsEnabled = parseEnabledMap(input.tabsEnabled)
   const viewersEnabled = parseEnabledMap(input.viewersEnabled)
-  if (tabsEnabled === undefined || viewersEnabled === undefined) return undefined
+  const pluginSettings = parsePluginSettings(input.pluginSettings)
+  if (tabsEnabled === undefined || viewersEnabled === undefined
+    || pluginSettings === undefined) return undefined
   if (typeof input.sessions !== 'object' || input.sessions === null
     || Array.isArray(input.sessions)) return undefined
   const entries = Object.entries(input.sessions as Record<string, unknown>)
@@ -141,6 +212,7 @@ export function parseSidebarPreferences(
     sessions,
     tabsEnabled,
     viewersEnabled,
+    pluginSettings,
     version: 1,
   }
 }

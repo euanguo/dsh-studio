@@ -1,8 +1,11 @@
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
-import type { DesktopSidebar } from '../../../sidebar/src/client/sidebar-service.ts'
+import type {
+  DesktopSidebarService,
+  SidebarRenderProps,
+} from '../../../sidebar/src/client/contract.ts'
 import type { WorkspaceMessage } from '../../../sidebar/src/client/i18n.ts'
 import { ToolIcon } from '../../../sidebar/src/client/SideToolsPanel.tsx'
-import { centerSurfaceRendererRegistry } from '../../../sidebar/src/client/surfaces/center-surface-host.tsx'
+import type { BrowserCenterSurface } from '../../../sidebar/src/client/surfaces/types.ts'
 import { BrowserView, BrowserSurfaceView } from './browser-view.tsx'
 
 interface ClientContext {
@@ -14,12 +17,13 @@ export const inject = ['desktopSidebar', 'locale']
 
 /**
  * Desktop add-on: registers the Electron `<webview>` browser as a sidebar tab
- * and as a center-surface renderer. The generic sidebar deliberately ships
- * WITHOUT these so it stays Electron-free; this plugin is what a desktop
- * distribution layers on top.
+ * and as a center-surface renderer through the registry service's extension
+ * points (the same contract external plugins use). The generic sidebar
+ * deliberately ships WITHOUT these so it stays Electron-free; this plugin is
+ * what a desktop distribution layers on top.
  */
 export function apply(ctx: ClientContext): void {
-  const sidebar = ctx.get('desktopSidebar') as DesktopSidebar
+  const sidebar = ctx.get('desktopSidebar') as DesktopSidebarService
   const locale = ctx.get('locale') as LocaleService
   // Reuse the generic sidebar's dictionary namespace so the browser.* keys
   // resolve without duplicating them here.
@@ -30,16 +34,26 @@ export function apply(ctx: ClientContext): void {
       icon: <ToolIcon kind="browser" />,
       id: 'browser',
       order: 30,
-      render: props => <BrowserView {...props} t={t} />,
+      render: (props: SidebarRenderProps) => <BrowserView {...props} t={t} />,
       shortcut: '⌘T',
+      // Declarative settings: the link-takeover MASTER switch renders under
+      // this tab's card in the settings page.
+      settings: {
+        toggles: [{
+          key: 'browserInterceptLinks',
+          title: () => t('settings.open-links'),
+          desc: () => t('settings.open-links-description'),
+        }],
+      },
       title: () => t('browser'),
     })
-    centerSurfaceRendererRegistry.register('browser', surface => {
+    const removeSurface = sidebar.registerSurfaceRenderer('browser', surface => {
       if (surface.kind !== 'browser') return null
-      return <BrowserSurfaceView surface={surface} t={t} />
+      return <BrowserSurfaceView surface={surface as BrowserCenterSurface} t={t} />
     })
     return () => {
       removeTab()
+      removeSurface()
     }
   }, 'sidebar-desktop: browser tab + surface renderer')
 }

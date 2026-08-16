@@ -43,6 +43,8 @@ import {
   IconGitPullRequest as TbGitPullRequest,
   IconHistory as TbHistory,
   IconLayoutList as TbLayoutList,
+  IconLayoutSidebarRightFilled as TbLayoutSidebarRightFilled,
+  IconLayoutBottombarFilled as TbLayoutBottombarFilled,
   IconLink as TbLink,
   IconList as TbList,
   IconListTree as TbListTree,
@@ -95,6 +97,37 @@ export const IconRotate = tabler(TbRotateClockwise)
 export const IconFiles = tabler(TbFiles)
 export const IconList = tabler(TbList)
 export const IconListTree = tabler(TbListTree)
+/** Right-panel toggle glyph (VSCode-style): a frame with a filled strip
+ *  along its RIGHT edge — the same glyph for both states (state is carried
+ *  by aria-pressed), mirroring the upstream better-sidebar cluster. */
+export const IconSidebarRightFilled = tabler(TbLayoutSidebarRightFilled)
+/** Bottom-panel toggle glyph: a frame with a filled strip along its BOTTOM
+ *  edge — same glyph for both states. */
+export const IconBottombarFilled = tabler(TbLayoutBottombarFilled)
+/**
+ * Left-panel toggle glyph: the mirror of `IconSidebarRightFilled` (a frame
+ * with a filled strip along its LEFT edge) — Tabler ships only arrow-bearing
+ * left variants, so the frame+strip path of `IconLayoutSidebarLeftExpandFilled`
+ * (arrow segment stripped) is used. Drives the DSH left-rail control.
+ */
+export const IconSidebarLeftFilled = ({
+  size = DEFAULT_SIZE,
+  className,
+}: {
+  size?: number
+  className?: string
+}): JSX.Element => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    className={className}
+  >
+    <path d="M18 3a3 3 0 0 1 2.995 2.824l.005 .176v12a3 3 0 0 1 -2.824 2.995l-.176 .005h-12a3 3 0 0 1 -2.995 -2.824l-.005 -.176v-12a3 3 0 0 1 2.824 -2.995l.176 -.005h12zm0 2h-9v14h9a1 1 0 0 0 .993 -.883l.007 -.117v-12a1 1 0 0 0 -.883 -.993l-.117 -.007z" />
+  </svg>
+)
 export const IconLayoutList = tabler(TbLayoutList)
 export const IconFolder = tabler(TbFolder)
 export const IconFolderOpen = tabler(TbFolderOpen)

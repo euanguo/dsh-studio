@@ -16,11 +16,21 @@ import type { ErrorInfo, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '../../../../shared/i18n.ts'
-import { IconExternalLink, IconFile, IconGitBranch, IconHistory } from '../../../../shared/tabler-icons.tsx'
+import {
+  IconExternalLink,
+  IconFile,
+  IconFileDiff,
+  IconGitBranch,
+  IconGitCommit,
+  IconHistory,
+  IconSidebarLeftFilled,
+  IconSidebarRightFilled,
+} from '../../../../shared/tabler-icons.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { ErrorView } from '../kit/status.tsx'
 import { centerColumnElement, leftRailToggleButton, readLeftRailOpen } from './dsh-dom.ts'
 import type { SessionsService } from '../client-types.ts'
+import type { SidebarSnapshot } from '../contract.ts'
 import {
   persistCenterSurfaces,
   restoreCenterSurfaces,
@@ -37,21 +47,18 @@ import {
   SurfaceTabStrip,
 } from '../../../../shared/surface-tab.tsx'
 import {
-  SurfaceRendererRegistry,
-} from './surface-renderer-registry.tsx'
-import {
   DiffThemeSync,
   DiffWorkerPoolProvider,
 } from '../diff/pierre-adapter.tsx'
-
-/** The one registry used by the desktop sidebar host. */
-export const centerSurfaceRendererRegistry = new SurfaceRendererRegistry()
 
 function surfaceIcon(surface: CenterSurface): JSX.Element | null {
   if (surface.kind === 'conversation') return <IconFile size={13} />
   if (surface.kind === 'file') return <IconFile size={13} />
   if (surface.kind === 'diff') return <IconGitBranch size={13} />
+  if (surface.kind === 'diff-all') return <IconGitBranch size={13} />
   if (surface.kind === 'commit') return <IconHistory size={13} />
+  if (surface.kind === 'commit-file') return <IconFileDiff size={13} />
+  if (surface.kind === 'committed') return <IconGitCommit size={13} />
   if (surface.kind === 'browser') return <IconExternalLink size={13} />
   return null
 }
@@ -160,7 +167,7 @@ export function CenterSurfaceTabs({
           <SurfaceTab
             key={surface.id}
             label={label}
-            title={isConversation ? surface.sessionId : (surface.kind === 'file' || surface.kind === 'diff' ? surface.filePath : surface.title)}
+            title={isConversation ? surface.sessionId : (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'commit-file' ? surface.filePath : surface.title)}
             icon={surfaceIcon(surface)}
             active={active}
             isPreview={!isConversation && surface.kind !== 'terminal' && surface.isPreview}
@@ -212,16 +219,13 @@ function RailFloatControls({
   leftRailOpen,
   onToggleLeftRail,
 }: {
-  sidebar: DesktopSidebarServiceLike | undefined
+  sidebar: DesktopSidebarServiceLike
   leftRailOpen: boolean | null
   onToggleLeftRail(): void
 }): JSX.Element {
   const rightOpen = useSyncExternalStore(
-    useCallback((listener: () => void) => {
-      if (sidebar === undefined) return () => {}
-      return sidebar.subscribe(listener)
-    }, [sidebar]),
-    () => sidebar?.getSnapshot().open ?? false,
+    useCallback((listener: () => void) => sidebar.subscribe(listener), [sidebar]),
+    () => sidebar.getSnapshot().open,
   )
 
   return createPortal(
@@ -234,9 +238,11 @@ function RailFloatControls({
         aria-pressed={leftRailOpen === true}
         onClick={onToggleLeftRail}
       >
-        {leftRailOpen ? <IconLeftRailClose /> : <IconLeftRailOpen />}
+        <span className="oh-dsh-rail-toggle-glyph" aria-hidden="true">
+          <IconSidebarLeftFilled />
+        </span>
       </button>
-      {sidebar !== undefined && !rightOpen && (
+      {!rightOpen && (
         <button
           type="button"
           className="oh-dsh-right-rail-reopen"
@@ -244,44 +250,13 @@ function RailFloatControls({
           title="展开右栏"
           onClick={() => { sidebar.setOpen(true) }}
         >
-          <IconRightRailOpen />
+          <span className="oh-dsh-rail-toggle-glyph" aria-hidden="true">
+            <IconSidebarRightFilled />
+          </span>
         </button>
       )}
     </>,
     document.body,
-  )
-}
-
-/** Left rail, expanded — clicking collapses it (arrow points left). */
-function IconLeftRailClose(): JSX.Element {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="3" y="3" width="14" height="14" rx="2.5" />
-      <path d="M7.5 3.5v13" />
-      <path d="M11.5 8l-3 2.5 3 2.5" />
-    </svg>
-  )
-}
-
-/** Left rail, collapsed — clicking expands it (arrow points right). */
-function IconLeftRailOpen(): JSX.Element {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="3" y="3" width="14" height="14" rx="2.5" />
-      <path d="M7.5 3.5v13" />
-      <path d="M11.5 8l3 2.5-3 2.5" />
-    </svg>
-  )
-}
-
-/** Right rail reopen (panel closed) — clicking slides it in (arrow left). */
-function IconRightRailOpen(): JSX.Element {
-  return (
-    <svg viewBox="0 0 20 20" aria-hidden="true">
-      <rect x="3" y="3" width="14" height="14" rx="2.5" />
-      <path d="M12.5 3.5v13" />
-      <path d="M8.5 8l-3 2.5 3 2.5" />
-    </svg>
   )
 }
 
@@ -319,8 +294,10 @@ function useLeftRailOpenState(): {
 
 export function CenterSurfaceBody({
   sessions,
+  sidebar,
 }: {
   sessions: SessionsService
+  sidebar: DesktopSidebarServiceLike
 }): JSX.Element {
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
   const current = sessionList.current
@@ -331,7 +308,7 @@ export function CenterSurfaceBody({
   const hidden = active === null || active.kind === 'conversation'
   let content: ReactNode = null
   if (active !== null && !hidden) {
-    content = centerSurfaceRendererRegistry.render(active)
+    content = sidebar.renderSurface(active)
   }
   return (
     <div className="oh-dsh-center-surface-body" data-hidden={hidden || undefined}>
@@ -347,21 +324,22 @@ export function CenterSurfaceBody({
 export interface CenterSurfaceHostOptions {
   sessions: SessionsService
   t: Translate<WorkspaceMessage>
-  /** The desktop sidebar service (right rail) for the strip's rail toggles. */
-  sidebar?: DesktopSidebarServiceLike
+  /** The desktop sidebar service (right rail + surface renderer registry). */
+  sidebar: DesktopSidebarServiceLike
 }
 
 /** The subset of the sidebar service the center strip drives. */
 export interface DesktopSidebarServiceLike {
-  getSnapshot(): { open: boolean }
+  getSnapshot(): SidebarSnapshot
   subscribe(listener: () => void): () => void
   setOpen(open: boolean): void
+  renderSurface(surface: CenterSurface): ReactNode
 }
 
 export class CenterSurfaceHost {
   private readonly sessions: SessionsService
   private readonly t: Translate<WorkspaceMessage>
-  private readonly sidebar: DesktopSidebarServiceLike | undefined
+  private readonly sidebar: DesktopSidebarServiceLike
   private root: Root | null = null
   private element: HTMLDivElement | null = null
   private attachObserver: MutationObserver | null = null
@@ -494,7 +472,7 @@ function CenterSurfaceHostView({
 }: {
   sessions: SessionsService
   t: Translate<WorkspaceMessage>
-  sidebar: DesktopSidebarServiceLike | undefined
+  sidebar: DesktopSidebarServiceLike
 }): JSX.Element {
   const [mounted, setMounted] = useState(false)
   const { leftRailOpen, toggleLeftRail } = useLeftRailOpenState()
@@ -514,7 +492,7 @@ function CenterSurfaceHostView({
         >
           <CenterSurfaceTabs sessions={sessions} t={t} />
         </div>
-        <CenterSurfaceBody sessions={sessions} />
+        <CenterSurfaceBody sessions={sessions} sidebar={sidebar} />
       </DiffWorkerPoolProvider>
     </CenterSurfaceHostErrorBoundary>
   )

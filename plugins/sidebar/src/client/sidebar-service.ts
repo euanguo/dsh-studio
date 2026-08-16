@@ -1,4 +1,29 @@
+/**
+ * The desktop sidebar registry service: tabs, file viewers, center-surface
+ * renderers and plugin-owned settings, plus the per-session open-tab state.
+ *
+ * The public contract lives in `./contract.ts` (descriptor vocabulary +
+ * service face, shared with the settings seam, the built-in registrations
+ * and external consumer plugins). This module implements it.
+ *
+ * Design notes:
+ * - The registry is synchronous-snapshot (Map + listener set) so React can
+ *   read it through `useSyncExternalStore` without tearing.
+ * - `dedupeKey` unifies the open-tab strategies: single-instance
+ *   (`single: true` ≡ `() => id`), per-resource (`tab => tab.resource`) and
+ *   per-id. `createTab` lets a descriptor own tab instantiation and state
+ *   patching.
+ * - `matchViewer` walks descriptors in priority order (desc, stable): per
+ *   descriptor it tries `detect` first (when `head` bytes are given), then
+ *   `exts`; `exts: []` is a catch-all.
+ * - Lifecycle callbacks (onOpen/onActivate/onClose) fire from the SERVICE
+ *   paths only; a throwing callback is logged and never breaks the flow.
+ * - State is persisted per session (tabs layout) plus the enable maps and
+ *   the pluginSettings blobs; writes are throttled through one flush queue.
+ */
 import type { ReactNode } from 'react'
+import { basename } from '../../../shared/path.ts'
+import type { CenterSurface, CenterSurfaceKind } from './surfaces/types.ts'
 import {
   clampSidebarWidth,
   DEFAULT_SIDEBAR_PREFERENCES,
@@ -9,109 +34,73 @@ import {
   type PersistedSidebarTab,
 } from '../sidebar-preferences.ts'
 import type { SidebarPreferencesStorage } from './sidebar-storage.ts'
+import {
+  SIDEBAR_FEATURES,
+  SIDEBAR_SERVICE_VERSION,
+  type DesktopSidebarService as DesktopSidebarServiceContract,
+  type OpenTabResult,
+  type SidebarScope,
+  type SidebarSnapshot,
+  type SidebarTab,
+  type SidebarTabDescriptor,
+  type SidebarTabSeed,
+  type SidebarViewerDescriptor,
+} from './contract.ts'
 
+export type {
+  OpenTabResult,
+  SidebarFeature,
+  SidebarFileFetchStrategy,
+  SidebarRenderProps,
+  SidebarScope,
+  SidebarSettingToggle,
+  SidebarSettingToggleType,
+  SidebarSettingsDeclaration,
+  SidebarSettingsRenderProps,
+  SidebarSnapshot,
+  SidebarSurfaceRenderer,
+  SidebarTab,
+  SidebarTabDescriptor,
+  SidebarTabSeed,
+  SidebarViewerDescriptor,
+  SidebarViewerRenderInput,
+} from './contract.ts'
+
+export { SIDEBAR_FEATURES, SIDEBAR_SERVICE_VERSION } from './contract.ts'
+
+/** Re-exported for the panel: the persisted tab shape is the live tab shape. */
 export interface DesktopSidebarTab extends PersistedSidebarTab {}
 
-export interface DesktopSidebarTabSeed {
-  id?: string
-  resource?: string
-  title?: string
-  type: string
+/** One request's target session; absent means the active session. */
+interface TabTarget {
+  sessionId: string
+  /** True when the target is NOT the session on screen (no UI publish). */
+  inactive: boolean
 }
 
-export interface DesktopSidebarRenderProps {
-  active: boolean
-  close(): void
-  patch(patch: { resource?: string; title?: string }): void
-  tab: DesktopSidebarTab
+function extensionOf(path: string): string {
+  const separator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
+  const dot = path.lastIndexOf('.')
+  return dot > separator ? path.slice(dot + 1).toLowerCase() : ''
 }
 
-export interface DesktopSidebarTabDescriptor {
-  action?: () => void | Promise<void>
-  available?: () => boolean
-  chrome?: 'custom' | 'standard'
-  createTab?: (
-    seed: DesktopSidebarTabSeed,
-    tabs: readonly DesktopSidebarTab[],
-  ) => DesktopSidebarTab | null
-  dedupeKey?: (tab: DesktopSidebarTab) => string | undefined
-  hidden?: boolean
-  icon?: ReactNode | ((size: number) => ReactNode)
-  id: string
-  order?: number
-  render?: (props: DesktopSidebarRenderProps) => ReactNode
-  requiresWorkspace?: boolean
-  shortcut?: string
-  single?: boolean
-  title: string | (() => string)
+function titleOf(descriptor: SidebarTabDescriptor): string {
+  return typeof descriptor.title === 'function'
+    ? descriptor.title()
+    : descriptor.title
 }
 
-export type SidebarFileFetchStrategy =
-  | 'binary-download'
-  | 'custom'
-  | 'media-url'
-  | 'text'
-
-export interface DesktopSidebarViewerDescriptor {
-  detect?: (path: string, head: Uint8Array) => boolean
-  extensions: readonly string[]
-  fetchStrategy: SidebarFileFetchStrategy
-  icon?: ReactNode | ((size: number) => ReactNode)
-  id: string
-  order?: number
-  render?: (input: {
-    content?: string
-    path: string
-    resourceUrl?: string
-    title: string
-  }) => ReactNode
-  title: string | (() => string)
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
 }
 
-export interface DesktopSidebarSnapshot {
-  activeId: string | null
-  error: string | null
-  maximized: boolean
-  open: boolean
-  openByDefault: boolean
-  ready: boolean
-  revision: number
-  sessionId: string | null
-  tabs: readonly DesktopSidebarTab[]
-  tabsEnabled: Readonly<Record<string, boolean>>
-  viewersEnabled: Readonly<Record<string, boolean>>
-  width: number
-}
-
-export type OpenTabResult =
-  | { kind: 'disabled' | 'limit' | 'missing' | 'not-ready' }
-  | { kind: 'focused' | 'opened'; tab: DesktopSidebarTab }
-
-export interface DesktopSidebar {
-  activateTab(id: string | null): void
-  closeTab(id: string): void
-  getSnapshot(): DesktopSidebarSnapshot
-  getTab(id: string): DesktopSidebarTabDescriptor | undefined
-  getTabs(): readonly DesktopSidebarTabDescriptor[]
-  getViewers(): readonly DesktopSidebarViewerDescriptor[]
-  isTabEnabled(id: string): boolean
-  isViewerEnabled(id: string): boolean
-  matchViewer(
-    path: string,
-    head?: Uint8Array,
-  ): DesktopSidebarViewerDescriptor | undefined
-  openTab(seed: DesktopSidebarTabSeed): OpenTabResult
-  patchTab(id: string, patch: { resource?: string; title?: string }): void
-  registerTab(descriptor: DesktopSidebarTabDescriptor): () => void
-  registerViewer(descriptor: DesktopSidebarViewerDescriptor): () => void
-  setMaximized(maximized: boolean): void
-  setOpen(open: boolean): void
-  setOpenByDefault(open: boolean): void
-  setSession(sessionId: string | null): void
-  setTabEnabled(id: string, enabled: boolean): void
-  setViewerEnabled(id: string, enabled: boolean): void
-  setWidth(width: number): void
-  subscribe(listener: () => void): () => void
+/** Run one plugin callback; a throw is logged and never breaks the caller. */
+function safeCall(fn: () => void): void {
+  try {
+    fn()
+  } catch (error) {
+    console.error('[sidebar] plugin callback error:', error)
+  }
 }
 
 function freshPreferences(): DesktopSidebarPreferences {
@@ -120,6 +109,7 @@ function freshPreferences(): DesktopSidebarPreferences {
     sessions: {},
     tabsEnabled: {},
     viewersEnabled: {},
+    pluginSettings: {},
   }
 }
 
@@ -134,39 +124,26 @@ function clonePreferences(
     )),
     tabsEnabled: { ...preferences.tabsEnabled },
     viewersEnabled: { ...preferences.viewersEnabled },
+    pluginSettings: Object.fromEntries(
+      Object.entries(preferences.pluginSettings).map(
+        ([id, blob]) => [id, { ...blob }],
+      ),
+    ),
   }
 }
 
-function extensionOf(path: string): string {
-  const separator = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))
-  const dot = path.lastIndexOf('.')
-  return dot > separator ? path.slice(dot + 1).toLowerCase() : ''
-}
-
-function titleOf(descriptor: DesktopSidebarTabDescriptor): string {
-  return typeof descriptor.title === 'function'
-    ? descriptor.title()
-    : descriptor.title
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
-export class DesktopSidebarService implements DesktopSidebar {
+export class DesktopSidebarService implements DesktopSidebarServiceContract {
   private readonly listeners = new Set<() => void>()
-  private readonly tabDescriptors = new Map<string, DesktopSidebarTabDescriptor>()
-  private readonly viewerDescriptors = new Map<
-    string,
-    DesktopSidebarViewerDescriptor
-  >()
+  private readonly tabDescriptors = new Map<string, SidebarTabDescriptor>()
+  private readonly viewerDescriptors = new Map<string, SidebarViewerDescriptor>()
+  private readonly surfaceRenderers = new Map<CenterSurfaceKind, (surface: CenterSurface) => ReactNode>()
   private preferences = freshPreferences()
   private dirty = false
   private disposed = false
   private flushing: Promise<void> | undefined
   private instance = 0
   private readonly storage: SidebarPreferencesStorage
-  private snapshot: DesktopSidebarSnapshot = {
+  private snapshot: SidebarSnapshot = {
     activeId: null,
     error: null,
     maximized: false,
@@ -175,17 +152,22 @@ export class DesktopSidebarService implements DesktopSidebar {
     ready: false,
     revision: 0,
     sessionId: null,
+    scope: null,
     tabs: [],
     tabsEnabled: {},
     viewersEnabled: {},
+    pluginSettings: {},
     width: DEFAULT_SIDEBAR_PREFERENCES.defaultWidth,
   }
+
+  readonly version = SIDEBAR_SERVICE_VERSION
+  readonly features = SIDEBAR_FEATURES
 
   constructor(storage: SidebarPreferencesStorage) {
     this.storage = storage
   }
 
-  getSnapshot = (): DesktopSidebarSnapshot => this.snapshot
+  getSnapshot = (): SidebarSnapshot => this.snapshot
 
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
@@ -205,8 +187,12 @@ export class DesktopSidebarService implements DesktopSidebar {
         ready: true,
         revision: this.snapshot.revision + 1,
         sessionId: requestedSession,
+        scope: requestedSession === null
+          ? null
+          : { sessionId: requestedSession },
         tabsEnabled: { ...this.preferences.tabsEnabled },
         viewersEnabled: { ...this.preferences.viewersEnabled },
+        pluginSettings: this.pluginSettingsSnapshot(),
         width: this.preferences.defaultWidth,
       })
     } catch (error) {
@@ -224,7 +210,7 @@ export class DesktopSidebarService implements DesktopSidebar {
     this.listeners.clear()
   }
 
-  registerTab(descriptor: DesktopSidebarTabDescriptor): () => void {
+  registerTab(descriptor: SidebarTabDescriptor): () => void {
     if (this.tabDescriptors.has(descriptor.id)) {
       throw new Error(`sidebar: duplicate tab "${descriptor.id}"`)
     }
@@ -238,7 +224,7 @@ export class DesktopSidebarService implements DesktopSidebar {
     }
   }
 
-  registerViewer(descriptor: DesktopSidebarViewerDescriptor): () => void {
+  registerViewer(descriptor: SidebarViewerDescriptor): () => void {
     if (this.viewerDescriptors.has(descriptor.id)) {
       throw new Error(`sidebar: duplicate viewer "${descriptor.id}"`)
     }
@@ -252,19 +238,41 @@ export class DesktopSidebarService implements DesktopSidebar {
     }
   }
 
-  getTabs(): readonly DesktopSidebarTabDescriptor[] {
+  registerSurfaceRenderer(
+    kind: CenterSurfaceKind,
+    renderer: (surface: CenterSurface) => ReactNode,
+  ): () => void {
+    if (this.surfaceRenderers.has(kind)) {
+      throw new Error(`sidebar: duplicate surface renderer "${kind}"`)
+    }
+    this.surfaceRenderers.set(kind, renderer)
+    this.touch()
+    return () => {
+      if (this.surfaceRenderers.get(kind) === renderer) {
+        this.surfaceRenderers.delete(kind)
+        this.touch()
+      }
+    }
+  }
+
+  renderSurface(surface: CenterSurface): ReactNode {
+    const renderer = this.surfaceRenderers.get(surface.kind)
+    return renderer === undefined ? null : renderer(surface)
+  }
+
+  getTabs(): readonly SidebarTabDescriptor[] {
     return [...this.tabDescriptors.values()].sort(
       (left, right) => (left.order ?? 100) - (right.order ?? 100),
     )
   }
 
-  getViewers(): readonly DesktopSidebarViewerDescriptor[] {
+  getViewers(): readonly SidebarViewerDescriptor[] {
     return [...this.viewerDescriptors.values()].sort(
-      (left, right) => (right.order ?? 0) - (left.order ?? 0),
+      (left, right) => (right.priority ?? 0) - (left.priority ?? 0),
     )
   }
 
-  getTab(id: string): DesktopSidebarTabDescriptor | undefined {
+  getTab(id: string): SidebarTabDescriptor | undefined {
     return this.tabDescriptors.get(id)
   }
 
@@ -279,40 +287,90 @@ export class DesktopSidebarService implements DesktopSidebar {
   matchViewer(
     path: string,
     head?: Uint8Array,
-  ): DesktopSidebarViewerDescriptor | undefined {
+  ): SidebarViewerDescriptor | undefined {
     const extension = extensionOf(path)
     for (const viewer of this.getViewers()) {
       if (!this.isViewerEnabled(viewer.id)) continue
       if (head !== undefined && viewer.detect !== undefined) {
         if (viewer.detect(path, head)) return viewer
-        if (viewer.extensions.length === 0) continue
-      } else if (viewer.extensions.length === 0) {
+        // A catch-all with detect is SNIFF-ONLY: it must not blind-claim
+        // paths it never sniffed.
+        if (viewer.exts.length === 0) continue
+      } else if (viewer.exts.length === 0) {
+        // Blind catch-all (no detect) claims anything; a sniff-only
+        // catch-all (detect defined, no head yet) yields this round.
         if (viewer.detect === undefined) return viewer
         continue
       }
-      if (viewer.extensions.map(value => value.toLowerCase()).includes(extension)) {
+      if (viewer.exts.map(value => value.toLowerCase()).includes(extension)) {
         return viewer
       }
     }
     return undefined
   }
 
-  setSession(sessionId: string | null): void {
-    if (sessionId === this.snapshot.sessionId) return
+  resolveUrlTarget(url: URL): SidebarTabDescriptor | undefined {
+    // Registration order wins (Map iteration is insertion order); a
+    // disabled tab type is skipped; a throwing predicate is swallowed.
+    for (const descriptor of this.tabDescriptors.values()) {
+      if (descriptor.urlTarget === undefined) continue
+      if (!this.isTabEnabled(descriptor.id)) continue
+      let claimed = false
+      try {
+        claimed = descriptor.urlTarget(url) === true
+      } catch (error) {
+        console.error('[sidebar] urlTarget error:', error)
+        continue
+      }
+      if (claimed) return descriptor
+    }
+    return undefined
+  }
+
+  getPluginSettings(id: string): Record<string, unknown> {
+    return { ...(this.preferences.pluginSettings[id] ?? {}) }
+  }
+
+  updatePluginSetting(id: string, key: string, value: unknown): void {
+    if (this.preferences.pluginSettings[id]?.[key] === value
+      && Object.hasOwn(this.preferences.pluginSettings[id] ?? {}, key)) return
+    const blob = { ...(this.preferences.pluginSettings[id] ?? {}) }
+    blob[key] = value
+    this.preferences.pluginSettings[id] = blob
+    this.publish({
+      ...this.snapshot,
+      pluginSettings: this.pluginSettingsSnapshot(),
+      revision: this.snapshot.revision + 1,
+    })
+    this.schedulePersist()
+  }
+
+  setSession(sessionId: string | null, cwd?: string): void {
+    if (sessionId === this.snapshot.sessionId
+      && (cwd === undefined || this.snapshot.scope?.cwd === cwd)) return
     this.publish({
       ...this.snapshot,
       ...this.sessionSnapshot(sessionId),
       revision: this.snapshot.revision + 1,
       sessionId,
+      scope: sessionId === null
+        ? null
+        : { sessionId, ...(cwd === undefined || cwd === '' ? {} : { cwd }) },
     })
   }
 
-  openTab(seed: DesktopSidebarTabSeed): OpenTabResult {
+  openTab(seed: SidebarTabSeed, scope?: SidebarScope): OpenTabResult {
     if (!this.snapshot.ready) return { kind: 'not-ready' }
+    const target = this.targetOf(scope)
+    if (target === null) return { kind: 'not-ready' }
     const descriptor = this.tabDescriptors.get(seed.type)
     if (descriptor === undefined) return { kind: 'missing' }
     if (!this.isTabEnabled(seed.type)) return { kind: 'disabled' }
-    if (descriptor.available?.() === false) return { kind: 'disabled' }
+    if (descriptor.available?.(this.snapshot.scope, this.snapshot) === false) {
+      return { kind: 'disabled' }
+    }
+    const tabs = [...this.sessionOf(target.sessionId).tabs]
+    // Action-only descriptors run instead of opening a tab.
     if (descriptor.action !== undefined && descriptor.render === undefined) {
       void descriptor.action()
       return { kind: 'focused', tab: {
@@ -321,16 +379,16 @@ export class DesktopSidebarService implements DesktopSidebar {
         title: titleOf(descriptor),
       } }
     }
-    const tabs = [...this.snapshot.tabs]
     const created = descriptor.createTab?.(seed, tabs)
     if (created === null) return { kind: 'disabled' }
-    let tab = created ?? {
+    const tab = created?.tab ?? {
       id: seed.id ?? (descriptor.single === true
         ? descriptor.id
         : `${descriptor.id}:${String(Date.now())}:${String(++this.instance)}`),
       type: descriptor.id,
       title: seed.title ?? titleOf(descriptor),
       ...(seed.resource !== undefined ? { resource: seed.resource } : {}),
+      ...(seed.meta !== undefined ? { meta: seed.meta } : {}),
     }
     const key = descriptor.dedupeKey?.(tab)
       ?? (descriptor.single === true ? descriptor.id : undefined)
@@ -342,35 +400,85 @@ export class DesktopSidebarService implements DesktopSidebar {
       return candidateKey === key
     })
     if (existing !== undefined) {
-      this.activateTab(existing.id)
+      // A dedupe/id-safety-net focus is an ACTIVATION, not an open — it
+      // fires onActivate even when the tab is already the active one (the
+      // user explicitly asked to open it).
+      this.focusExisting(target, existing, scope)
       return { kind: 'focused', tab: existing }
     }
     if (tabs.length >= SIDEBAR_MAX_TABS) return { kind: 'limit' }
-    tab = { ...tab }
-    this.writeSession([...tabs, tab], tab.id)
+    const nextTabs = created?.patch?.tabs !== undefined
+      ? [...created.patch.tabs]
+      : [...tabs, tab]
+    const nextActive = created?.patch?.activeId !== undefined
+      ? created.patch.activeId
+      : tab.id
+    this.writeTarget(target, nextTabs, nextActive)
+    // The callback scope carries the caller's explicit scope or the target
+    // session (with the on-screen cwd when it is the active session).
+    const callbackScope: SidebarScope = scope ?? {
+      sessionId: target.sessionId,
+      ...(this.snapshot.scope?.cwd === undefined
+        ? {}
+        : { cwd: this.snapshot.scope.cwd }),
+    }
+    safeCall(() => descriptor.onOpen?.(tab, callbackScope))
     return { kind: 'opened', tab }
   }
 
-  closeTab(id: string): void {
-    const index = this.snapshot.tabs.findIndex(tab => tab.id === id)
+  closeTab(tabId: string, scope?: SidebarScope): void {
+    const target = this.targetOf(scope)
+    if (target === null) return
+    const tabs = [...this.sessionOf(target.sessionId).tabs]
+    const index = tabs.findIndex(tab => tab.id === tabId)
     if (index === -1) return
-    const tabs = this.snapshot.tabs.filter(tab => tab.id !== id)
-    const activeId = this.snapshot.activeId === id
-      ? tabs[Math.min(index, tabs.length - 1)]?.id ?? null
-      : this.snapshot.activeId
-    this.writeSession(tabs, activeId)
+    const closed = tabs[index]!
+    const next = tabs.filter(tab => tab.id !== tabId)
+    const activeId = this.sessionOf(target.sessionId).activeId === tabId
+      ? next[Math.min(index, next.length - 1)]?.id ?? null
+      : this.sessionOf(target.sessionId).activeId
+    this.writeTarget(target, next, activeId)
+    const descriptor = this.tabDescriptors.get(closed.type)
+    const callbackScope: SidebarScope = scope ?? {
+      sessionId: target.sessionId,
+      ...(this.snapshot.scope?.cwd === undefined
+        ? {}
+        : { cwd: this.snapshot.scope.cwd }),
+    }
+    safeCall(() => descriptor?.onClose?.(closed, callbackScope))
   }
 
-  activateTab(id: string | null): void {
-    if (id !== null && !this.snapshot.tabs.some(tab => tab.id === id)) return
-    if (this.snapshot.activeId === id) return
-    this.writeSession(this.snapshot.tabs, id)
+  activateTab(tabId: string | null, scope?: SidebarScope): void {
+    const target = this.targetOf(scope)
+    if (target === null) return
+    const session = this.sessionOf(target.sessionId)
+    if (tabId !== null && !session.tabs.some(tab => tab.id === tabId)) return
+    if (session.activeId === tabId) return
+    this.writeTarget(target, session.tabs, tabId)
+    if (tabId !== null) {
+      const activated = session.tabs.find(tab => tab.id === tabId)
+      const descriptor = activated === undefined
+        ? undefined
+        : this.tabDescriptors.get(activated.type)
+      const callbackScope: SidebarScope = scope ?? {
+        sessionId: target.sessionId,
+        ...(this.snapshot.scope?.cwd === undefined
+          ? {}
+          : { cwd: this.snapshot.scope.cwd }),
+      }
+      safeCall(() => descriptor?.onActivate?.(activated!, callbackScope))
+    }
   }
 
-  patchTab(id: string, patch: { resource?: string; title?: string }): void {
+  updateTab(
+    tabId: string,
+    patch: { resource?: string; title?: string; meta?: unknown },
+  ): void {
+    const sessionId = this.snapshot.sessionId
+    if (sessionId === null) return
     let changed = false
-    const tabs = this.snapshot.tabs.map(tab => {
-      if (tab.id !== id) return tab
+    const tabs = this.sessionOf(sessionId).tabs.map(tab => {
+      if (tab.id !== tabId) return tab
       changed = true
       return {
         ...tab,
@@ -378,9 +486,25 @@ export class DesktopSidebarService implements DesktopSidebar {
         ...(patch.resource !== undefined
           ? { resource: patch.resource.slice(0, 4096) }
           : {}),
+        ...(patch.meta !== undefined ? { meta: patch.meta } : {}),
       }
     })
-    if (changed) this.writeSession(tabs, this.snapshot.activeId)
+    if (changed) {
+      this.writeTarget(
+        { sessionId, inactive: sessionId !== this.snapshot.sessionId },
+        tabs,
+        this.sessionOf(sessionId).activeId,
+      )
+    }
+  }
+
+  openFile(scope: SidebarScope, path: string, title?: string): void {
+    this.openTab({
+      type: 'file',
+      resource: path,
+      title: title ?? basename(path),
+      id: `file:${path}`,
+    }, scope)
   }
 
   setOpen(open: boolean): void {
@@ -449,8 +573,81 @@ export class DesktopSidebarService implements DesktopSidebar {
     await this.flushing
   }
 
+  /** The target session of an operation: the explicit scope or the active
+   *  session. Null while no session is bound (or the service is not ready). */
+  private targetOf(scope?: SidebarScope): TabTarget | null {
+    if (!this.snapshot.ready) return null
+    const sessionId = scope?.sessionId ?? this.snapshot.sessionId
+    if (sessionId === null) return null
+    return {
+      sessionId,
+      inactive: scope !== undefined && scope.sessionId !== this.snapshot.sessionId,
+    }
+  }
+
+  /** A shallow copy of the pluginSettings map (blobs are immutable). */
+  private pluginSettingsSnapshot(): Readonly<Record<string, Record<string, unknown>>> {
+    return Object.fromEntries(
+      Object.entries(this.preferences.pluginSettings).map(
+        ([id, blob]) => [id, { ...blob }],
+      ),
+    )
+  }
+
+  private sessionOf(sessionId: string): PersistedSidebarSession {
+    return this.preferences.sessions[sessionId] ?? {
+      activeId: null,
+      lastUsed: 0,
+      tabs: [],
+    }
+  }
+
+  private writeTarget(
+    target: TabTarget,
+    tabs: readonly SidebarTab[],
+    activeId: string | null,
+  ): void {
+    this.preferences.sessions[target.sessionId] = {
+      activeId,
+      lastUsed: Date.now(),
+      tabs: tabs.map(tab => ({ ...tab })),
+    }
+    this.pruneSessions()
+    this.schedulePersist()
+    if (!target.inactive) {
+      this.publish({
+        ...this.snapshot,
+        activeId,
+        revision: this.snapshot.revision + 1,
+        tabs: tabs.map(tab => ({ ...tab })),
+      })
+    }
+  }
+
+  /** Focus an existing tab through the service path (fires onActivate). A
+   *  focus of the already-active tab still fires the callback — the user
+   *  explicitly asked to open it. */
+  private focusExisting(
+    target: TabTarget,
+    tab: SidebarTab,
+    scope?: SidebarScope,
+  ): void {
+    const session = this.sessionOf(target.sessionId)
+    if (session.activeId !== tab.id) {
+      this.writeTarget(target, session.tabs, tab.id)
+    }
+    const descriptor = this.tabDescriptors.get(tab.type)
+    const callbackScope: SidebarScope = scope ?? {
+      sessionId: target.sessionId,
+      ...(this.snapshot.scope?.cwd === undefined
+        ? {}
+        : { cwd: this.snapshot.scope.cwd }),
+    }
+    safeCall(() => descriptor?.onActivate?.(tab, callbackScope))
+  }
+
   private sessionSnapshot(sessionId: string | null): Pick<
-    DesktopSidebarSnapshot,
+    SidebarSnapshot,
     'activeId' | 'tabs'
   > {
     const session = sessionId === null
@@ -460,28 +657,6 @@ export class DesktopSidebarService implements DesktopSidebar {
       activeId: session?.activeId ?? null,
       tabs: session?.tabs.map(tab => ({ ...tab })) ?? [],
     }
-  }
-
-  private writeSession(
-    tabs: readonly DesktopSidebarTab[],
-    activeId: string | null,
-  ): void {
-    const sessionId = this.snapshot.sessionId
-    if (sessionId !== null) {
-      this.preferences.sessions[sessionId] = {
-        activeId,
-        lastUsed: Date.now(),
-        tabs: tabs.map(tab => ({ ...tab })),
-      }
-      this.pruneSessions()
-      this.schedulePersist()
-    }
-    this.publish({
-      ...this.snapshot,
-      activeId,
-      revision: this.snapshot.revision + 1,
-      tabs: tabs.map(tab => ({ ...tab })),
-    })
   }
 
   private pruneSessions(): void {
@@ -497,7 +672,7 @@ export class DesktopSidebarService implements DesktopSidebar {
     this.publish({ ...this.snapshot, revision: this.snapshot.revision + 1 })
   }
 
-  private publish(snapshot: DesktopSidebarSnapshot): void {
+  private publish(snapshot: SidebarSnapshot): void {
     this.snapshot = snapshot
     for (const listener of [...this.listeners]) listener()
   }

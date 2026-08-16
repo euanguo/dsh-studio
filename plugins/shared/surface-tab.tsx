@@ -18,6 +18,8 @@ export type SurfaceTabProps = Readonly<{
   label: string
   active?: boolean
   icon?: ReactNode
+  /** A small pill rendered next to the icon (counts / status). */
+  badge?: ReactNode
   title?: string
   closeLabel?: string
   /** Preview tabs render italic title and can be pinned via double-click. */
@@ -32,6 +34,7 @@ export function SurfaceTab({
   label,
   active = false,
   icon,
+  badge,
   title,
   closeLabel,
   isPreview = false,
@@ -114,6 +117,9 @@ export function SurfaceTab({
     >
       {icon !== undefined && icon !== null ? (
         <span className="oh-dsh-surface-tab-icon" aria-hidden="true">{icon}</span>
+      ) : null}
+      {badge !== undefined && badge !== null ? (
+        <span className="oh-dsh-surface-tab-badge" aria-hidden="true">{badge}</span>
       ) : null}
       <span className={`oh-dsh-surface-tab-label${isPreview ? ' is-preview' : ''}`}>
         <span className="oh-dsh-surface-tab-text">{label}</span>

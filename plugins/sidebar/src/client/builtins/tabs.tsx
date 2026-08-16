@@ -1,0 +1,115 @@
+/**
+ * The built-in sidebar tab descriptors (review / files / file / terminal /
+ * side-chat / trajectory), registered through the same
+ * {@link DesktopSidebarService} external plugins use — eating our own
+ * dogfood. Action-only descriptors (terminal / side-chat / trajectory) are
+ * menu shortcuts: opening them runs the action instead of opening a tab.
+ */
+import {
+  formatKeymapHint,
+  binding,
+} from '../kit/keymap.ts'
+import {
+  ToolIcon,
+  FilesView,
+  FileView,
+} from '../SideToolsPanel.tsx'
+import { WorkspacePanel } from '../workspace-panel.tsx'
+import type { SidebarTabDescriptor } from '../contract.ts'
+import type { SidebarBuiltinDeps } from './deps.ts'
+
+/** The built-in tab descriptors (ascending + menu order). */
+export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescriptor[] {
+  const { t } = deps
+  return [
+    {
+      chrome: 'custom',
+      icon: <ToolIcon kind="review" />,
+      id: 'review',
+      order: 10,
+      render: () => (
+        <WorkspacePanel
+          reviewComments={deps.reviewComments}
+          service={deps.service}
+          sessions={deps.sessions}
+          workspaces={deps.workspaces}
+          t={t}
+        />
+      ),
+      requiresWorkspace: true,
+      shortcut: formatKeymapHint(binding({ ctrl: true, shift: true, key: 'g' })),
+      single: true,
+      title: () => t('review'),
+    },
+    {
+      action: () => { deps.panels.toggleBottomPanel() },
+      icon: <ToolIcon kind="terminal" />,
+      id: 'terminal',
+      order: 20,
+      shortcut: formatKeymapHint(binding({ mod: true, key: 'j' })),
+      // Declarative settings: the model-facing tools switch and the
+      // bottom-panel auto-terminal switch render under this tab's card in
+      // the settings page (the host gates the toolset on the first one).
+      settings: {
+        toggles: [{
+          key: 'agentTerminalTools',
+          title: () => t('settings.agent-terminal-tools'),
+          desc: () => t('settings.agent-terminal-tools-description'),
+        }, {
+          key: 'bottomPanelAutoTerminal',
+          title: () => t('settings.bottom-terminal'),
+          desc: () => t('settings.bottom-terminal-description'),
+        }],
+      },
+      title: () => t('terminal'),
+    },
+    {
+      dedupeKey: tab => tab.resource,
+      icon: <ToolIcon kind="files" />,
+      id: 'files',
+      order: 40,
+      render: props => (
+        <FilesView
+          {...props}
+          sidebar={deps.sidebar}
+          t={t}
+        />
+      ),
+      requiresWorkspace: true,
+      shortcut: formatKeymapHint(binding({ mod: true, key: 'p' })),
+      title: () => t('files'),
+    },
+    {
+      dedupeKey: tab => tab.resource,
+      hidden: true,
+      icon: <ToolIcon kind="file" />,
+      id: 'file',
+      render: props => (
+        <FileView
+          {...props}
+          onOpenPath={deps.openExternalPath}
+          sidebar={deps.sidebar}
+          t={t}
+        />
+      ),
+      requiresWorkspace: true,
+      title: () => t('files'),
+    },
+    {
+      action: async () => { await deps.service.openSideChat() },
+      icon: <ToolIcon kind="chat" />,
+      id: 'side-chat',
+      order: 50,
+      shortcut: formatKeymapHint(binding({ mod: true, alt: true, key: 's' })),
+      title: () => t('side-chat'),
+    },
+    {
+      action: () => { deps.service.openTrajectory() },
+      icon: <ToolIcon kind="trajectory" />,
+      id: 'trajectory',
+      order: 60,
+      requiresWorkspace: true,
+      title: () => t('trajectory'),
+    },
+  ]
+}

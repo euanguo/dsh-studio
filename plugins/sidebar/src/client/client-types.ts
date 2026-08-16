@@ -7,7 +7,7 @@ import type { DesktopBridge } from '../../../shared/desktop-contracts.ts'
 import type { Translate } from '../../../shared/i18n.ts'
 import type { ReviewSessionsService } from './review/review-comments.ts'
 import type { SidebarRuntimeSettingsService } from './runtime-settings.ts'
-import type { DesktopSidebar } from './sidebar-service.ts'
+import type { DesktopSidebarService } from './contract.ts'
 import type { WorkspaceMessage } from './i18n.ts'
 
 declare global {
@@ -81,6 +81,8 @@ export interface SidebarSettingsState {
   tabsEnabled: Record<string, boolean>
   viewersEnabled: Record<string, boolean>
   width: number
+  /** Plugin-owned settings blobs keyed by descriptor id (mirrors the prefs). */
+  pluginSettings: Record<string, Record<string, unknown>>
 }
 
 export interface BoundSidebarSettingsActions {
@@ -90,6 +92,7 @@ export interface BoundSidebarSettingsActions {
     tabsEnabled: Record<string, boolean>,
     viewersEnabled: Record<string, boolean>,
     width: number,
+    pluginSettings: Record<string, Record<string, unknown>>,
   ): void
 }
 
@@ -99,8 +102,9 @@ export interface SidebarSettingsProps {
   setTabEnabled(id: string, enabled: boolean): void
   setViewerEnabled(id: string, enabled: boolean): void
   setWidth(width: number): void
+  updatePluginSetting(id: string, key: string, value: unknown): void
   runtime: SidebarRuntimeSettingsService
-  sidebar: DesktopSidebar
+  sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
   useStore<T>(selector: (state: SidebarSettingsState) => T): T
 }
@@ -144,8 +148,8 @@ export interface WorkspaceTools {
   toggle(): void
   togglePanelMaximized(): void
   toggleSidePanel(): void
-  /** The tab/viewer registry (open file tabs from list previews). */
-  sidebar: DesktopSidebar
+  /** The tab/viewer registry service (open file tabs from list previews). */
+  sidebar: DesktopSidebarService
 }
 
 export const EMPTY_CONVERSATION: ConversationSnapshot = { runningCalls: [] }

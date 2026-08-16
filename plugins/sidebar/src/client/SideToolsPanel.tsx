@@ -34,6 +34,8 @@ import {
   IconChevronRight,
   IconPlus,
   FileGlyph,
+  IconBottombarFilled,
+  IconSidebarRightFilled,
 } from '../../../shared/tabler-icons.tsx'
 import {
   basename,
@@ -48,7 +50,6 @@ import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import {
   betterSidebarApi,
   mapBetterSidebarFile,
-  type BetterSidebarScope,
 } from './better-sidebar-api.ts'
 import { buildFileRows } from './files/file-tree-model.ts'
 import {
@@ -69,10 +70,12 @@ import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
 import { binding, formatKeymapHint } from './kit/keymap.ts'
 import { alertDialog, confirmDialog, promptDialog } from './kit/dialog.tsx'
 import type {
-  DesktopSidebar,
-  DesktopSidebarRenderProps,
-  DesktopSidebarTabDescriptor,
-} from './sidebar-service.ts'
+  DesktopSidebarService,
+  SidebarRenderProps,
+  SidebarScope,
+  SidebarTab,
+  SidebarTabDescriptor,
+} from './contract.ts'
 import type { WorkspaceMessage } from './i18n.ts'
 
 /** Tab descriptor icon size (px). */
@@ -93,7 +96,7 @@ interface SideToolsPanelProps {
   onToggleSide(): void
   open: boolean
   panels: DesktopPanels
-  sidebar: DesktopSidebar
+  sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
   width: number
 }
@@ -124,14 +127,14 @@ function defaultIcon(id: string): ToolIconKind {
   return 'file'
 }
 
-function descriptorTitle(descriptor: DesktopSidebarTabDescriptor): string {
+function descriptorTitle(descriptor: SidebarTabDescriptor): string {
   return typeof descriptor.title === 'function'
     ? descriptor.title()
     : descriptor.title
 }
 
 function DescriptorIcon({ descriptor }: {
-  descriptor: DesktopSidebarTabDescriptor
+  descriptor: SidebarTabDescriptor
 }): JSX.Element {
   const icon = typeof descriptor.icon === 'function'
     ? descriptor.icon(DESCRIPTOR_ICON_SIZE)
@@ -140,7 +143,7 @@ function DescriptorIcon({ descriptor }: {
 }
 
 function ToolRow(props: {
-  descriptor: DesktopSidebarTabDescriptor
+  descriptor: SidebarTabDescriptor
   disabled?: boolean
   onClick(): void
 }): JSX.Element {
@@ -162,7 +165,7 @@ function ToolRow(props: {
 
 function SideMenu(props: SideToolsPanelProps): JSX.Element {
   const [error, setError] = useState('')
-  const open = async (descriptor: DesktopSidebarTabDescriptor): Promise<void> => {
+  const open = async (descriptor: SidebarTabDescriptor): Promise<void> => {
     try {
       setError('')
       if (descriptor.action !== undefined && descriptor.render === undefined) {
@@ -178,6 +181,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
       setError(next instanceof Error ? next.message : String(next))
     }
   }
+  const snapshot = props.sidebar.getSnapshot()
   const descriptors = props.sidebar.getTabs().filter(descriptor =>
     descriptor.hidden !== true && props.sidebar.isTabEnabled(descriptor.id),
   )
@@ -188,7 +192,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
           key={descriptor.id}
           descriptor={descriptor}
           disabled={(descriptor.requiresWorkspace === true && props.cwd === undefined)
-            || descriptor.available?.() === false}
+            || descriptor.available?.(snapshot.scope, snapshot) === false}
           onClick={() => { void open(descriptor) }}
         />
       ))}
@@ -216,16 +220,15 @@ export function FilesView({
   sidebar,
   t,
   tab,
-}: DesktopSidebarRenderProps & {
-  scope: BetterSidebarScope | undefined
-  sidebar: DesktopSidebar
+}: SidebarRenderProps & {
+  sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const cwd = scope?.cwd
   // Retained explorer runtime: switching tabs back hits the cached listings
   // (zero network), because the registry keeps the instance alive.
   const runtime = useMemo(
-    () => (scope === undefined || scope.cwd === undefined
+    () => (scope === null || scope.cwd === undefined
       ? null
       : getExplorerRuntime({ sessionId: scope.sessionId, cwd: scope.cwd })),
     [scope?.cwd, scope?.sessionId],
@@ -234,7 +237,7 @@ export function FilesView({
     useCallback((listener: () => void) => runtime?.subscribe(listener) ?? (() => {}), [runtime]),
     useCallback(() => runtime?.listingsFingerprint() ?? 'none', [runtime]),
   )
-  const scopeKey = scope === undefined || scope.cwd === undefined
+  const scopeKey = scope === null || scope.cwd === undefined
     ? null
     : sidebarScopeKey({ sessionId: scope.sessionId, cwd: scope.cwd })
   const chrome = useSidebarChromeStore(state =>
@@ -249,7 +252,7 @@ export function FilesView({
   const [searching, setSearching] = useState(false)
 
   useEffect(() => {
-    if (scope === undefined || cwd === undefined) return
+    if (scope == null || cwd === undefined) return
     if (searchQuery.trim() === '') {
       setSearchHits(null)
       setSearching(false)
@@ -351,7 +354,7 @@ export function FilesView({
   }
 
   const createFsEntry = async (directory: boolean): Promise<void> => {
-    if (cwd === undefined || scope === undefined) return
+    if (cwd === undefined || scope == null) return
     const base = selectedPath ?? cwd
     const name = await promptDialog({
       title: directory ? t('files.new-folder-name') : t('files.new-file-name'),
@@ -372,7 +375,7 @@ export function FilesView({
   }
 
   const renameFsEntry = async (): Promise<void> => {
-    if (cwd === undefined || scope === undefined || selectedPath === null) return
+    if (cwd === undefined || scope == null || selectedPath === null) return
     const name = await promptDialog({
       title: t('files.rename-to'),
       defaultValue: basename(selectedPath),
@@ -394,7 +397,7 @@ export function FilesView({
   }
 
   const deleteFsEntry = async (): Promise<void> => {
-    if (cwd === undefined || scope === undefined || selectedPath === null) return
+    if (cwd === undefined || scope == null || selectedPath === null) return
     const confirmed = await confirmDialog({
       title: t('files.delete'),
       message: t('files.delete-confirm', { path: selectedPath }),
@@ -416,7 +419,7 @@ export function FilesView({
   }
 
   const copyFsEntry = async (): Promise<void> => {
-    if (cwd === undefined || scope === undefined || selectedPath === null) return
+    if (cwd === undefined || scope == null || selectedPath === null) return
     const base = basename(selectedPath)
     const target = await promptDialog({
       title: t('files.copy-to'),
@@ -560,10 +563,9 @@ export function FileView({
   sidebar,
   t,
   tab,
-}: DesktopSidebarRenderProps & {
-  scope: BetterSidebarScope | undefined
+}: SidebarRenderProps & {
   onOpenPath(path: string): Promise<void>
-  sidebar: DesktopSidebar
+  sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const cwd = scope?.cwd
@@ -572,7 +574,7 @@ export function FileView({
   const path = tab.resource
 
   useEffect(() => {
-    if (cwd === undefined || path === undefined || scope === undefined) return
+    if (cwd === undefined || path === undefined || scope == null) return
     const controller = new AbortController()
     void betterSidebarApi.fsRead(scope, path, controller.signal).then(
       result => {
@@ -619,23 +621,44 @@ export function FileView({
   )
 }
 
-function OrphanedTab({ title, t }: {
+function OrphanedTab({ tab, t }: {
+  tab: SidebarTab
   t: Translate<WorkspaceMessage>
-  title: string
 }): JSX.Element {
   return (
     <div className="oh-dsh-side-empty">
-      <strong>{title}</strong>
+      <strong>{tab.title}</strong>
       <p>{t('side.orphaned-tab')}</p>
+      <code className="oh-dsh-orphaned-type">{tab.type}</code>
     </div>
   )
+}
+
+/** The tab-strip badge of one open tab (a throwing badge is swallowed). */
+function tabBadge(
+  sidebar: DesktopSidebarService,
+  tab: SidebarTab,
+): ReactNode {
+  const descriptor = sidebar.getTab(tab.type)
+  if (descriptor?.badge === undefined) return null
+  try {
+    const value = descriptor.badge(sidebar.getSnapshot().scope, sidebar.getSnapshot())
+    if (value === null || value === undefined) return null
+    const label = typeof value === 'number'
+      ? (value > 99 ? '99+' : String(value))
+      : String(value)
+    return <span className="oh-dsh-surface-tab-badge" aria-hidden="true">{label}</span>
+  } catch (error) {
+    console.error('[sidebar] badge error:', error)
+    return null
+  }
 }
 
 /* Pinned panel entries — 文件 (files) and Git (review) stay one click away,
    everything else is added through the [+] menu. Rendered with the shared
    SurfaceTab chip (the same component the center tab strip uses). */
 function PinnedTabs({ sidebar, t }: {
-  sidebar: DesktopSidebar
+  sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
@@ -648,18 +671,22 @@ function PinnedTabs({ sidebar, t }: {
     }
     sidebar.openTab({ type })
   }
+  const filesTab = snapshot.tabs.find(tab => tab.type === 'files')
+  const reviewTab = snapshot.tabs.find(tab => tab.type === 'review')
   return (
     <div className="oh-dsh-side-pinned" role="tablist">
       <SurfaceTab
         label={t('files')}
         icon={<ToolIcon kind="files" />}
         active={activeType === 'files'}
+        badge={filesTab === undefined ? null : tabBadge(sidebar, filesTab)}
         onSelect={() => { openType('files') }}
       />
       <SurfaceTab
         label={t('side.git')}
         icon={<ToolIcon kind="review" />}
         active={activeType === 'review'}
+        badge={reviewTab === undefined ? null : tabBadge(sidebar, reviewTab)}
         onSelect={() => { openType('review') }}
       />
     </div>
@@ -683,7 +710,7 @@ const TOOL_MENU_ICONS: Readonly<Record<string, ReactNode>> = {
    renders into document.body instead; the shared rule in side-tools.css
    (body > div[role='menu']) lifts it above the sidebar's fixed root. */
 function AddToolsMenu({ sidebar, t }: {
-  sidebar: DesktopSidebar
+  sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
@@ -735,7 +762,7 @@ function AddToolsMenu({ sidebar, t }: {
 /* Extra open tools (beyond the pinned 文件 / Git entries) as shared
    SurfaceTab chips. */
 function TabStrip({ sidebar, t }: {
-  sidebar: DesktopSidebar
+  sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
 }): JSX.Element | null {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
@@ -750,6 +777,7 @@ function TabStrip({ sidebar, t }: {
           label={tab.title}
           title={tab.title}
           active={tab.id === snapshot.activeId}
+          badge={tabBadge(sidebar, tab)}
           onSelect={() => { sidebar.activateTab(tab.id) }}
           onClose={() => { sidebar.closeTab(tab.id) }}
           closeLabel={t('side.close-named-tab', { title: tab.title })}
@@ -793,7 +821,9 @@ function PanelActions({
         title={`${t('terminal.title')} (${formatKeymapHint(binding({ mod: true, key: 'j' }))})`}
         onClick={() => { panels.toggleBottomPanel() }}
       >
-        <svg viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2.5" /><path d="M3.5 13.5h13" /></svg>
+        <span className="oh-dsh-side-toggle-glyph" aria-hidden="true">
+          <IconBottombarFilled />
+        </span>
       </button>
       <button
         type="button"
@@ -802,7 +832,9 @@ function PanelActions({
         title={`${t('side.title')} (${formatKeymapHint(binding({ mod: true, alt: true, key: 'b' }))})`}
         onClick={onToggleSide}
       >
-        <svg viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2.5" /><path d="M12.5 3.5v13" /></svg>
+        <span className="oh-dsh-side-toggle-glyph" aria-hidden="true">
+          <IconSidebarRightFilled />
+        </span>
       </button>
     </div>
   )
@@ -834,18 +866,19 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
     window.addEventListener('pointercancel', finish)
   }
   const title = activeTab?.title ?? props.t('side.title')
-  const renderProps: DesktopSidebarRenderProps | undefined = activeTab === undefined
+  const renderProps: SidebarRenderProps | undefined = activeTab === undefined
     ? undefined
     : {
       active: props.open,
       close: () => { props.sidebar.closeTab(activeTab.id) },
-      patch: patch => { props.sidebar.patchTab(activeTab.id, patch) },
+      patch: patch => { props.sidebar.updateTab(activeTab.id, patch) },
+      scope: snapshot.scope,
       tab: activeTab,
     }
   const content: ReactNode = activeTab === undefined
     ? <SideMenu {...props} />
     : descriptor?.render === undefined || renderProps === undefined
-      ? <OrphanedTab title={title} t={props.t} />
+      ? <OrphanedTab tab={activeTab} t={props.t} />
       : descriptor.render(renderProps)
   return (
     <aside
