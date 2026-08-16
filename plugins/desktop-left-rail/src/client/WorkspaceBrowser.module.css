@@ -564,3 +564,159 @@
   flex: none;
   margin-left: auto;
 }
+
+/* Search mode: project-name matches above the session results. */
+.projectMatches {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  margin-bottom: 6px;
+}
+
+.projectMatchHeader {
+  padding: 4px 8px 2px;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.projectMatchRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 4px 8px;
+  border: none;
+  border-radius: 12.5px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: var(--dsw-alias-label-primary);
+}
+
+.projectMatchRow:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.projectMatchIcon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 20px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.projectMatchText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.projectMatchTitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.projectMatchMeta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 15px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* New WorkTree modal: token-driven layout replaces the inlined styles so the
+   dialog follows the skin (labels/borders) and keeps one spacing rhythm. */
+.wtModalBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wtModalContext {
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.wtModalContextBranch {
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.wtSectionLabel {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-tertiary);
+  margin-bottom: 4px;
+}
+
+.wtExistingRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.wtExistingRowText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wtExistingBranch {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+.wtPickerButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 12.5px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.wtPickerButton:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.wtPickerButtonText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wtNewBranchInput {
+  height: 36px;
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.wtPathInput {
+  height: 36px;
+  font-size: 13px;
+}

@@ -1,8 +1,11 @@
 /**
  * The desktop three-level tree body: a horizontal group-tab strip + the
  * project → worktree → session list beneath it. Every level is foldable;
- * session rows reuse Rows.SessionNodeItem (official behavior). Tab/group state
- * and expansions come from the workspace view store.
+ * session rows reuse Rows.SessionNodeItem (official behavior) indented under
+ * their worktree. Tab/group state and expansions come from the workspace
+ * view store. A collapsed worktree previews its first five sessions and
+ * offers "show the rest"; expanding reveals the full run and the collapse
+ * verb.
  */
 import { Fragment, useMemo } from 'react'
 import { IconEllipsisOutline16, IconPlusOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -13,7 +16,7 @@ import { deriveProjectTree } from './tree.ts'
 import { WorkspaceBrowserCss as css } from './styles.js'
 import { cn } from './shim/cn.ts'
 import { SessionNodeItem } from './rows/Rows.tsx'
-import { ProjectRowItem, WorktreeRowItem } from './rows/ProjectRows.tsx'
+import { ProjectRowItem, WorktreeRowItem, type WorktreeWorkspace } from './rows/ProjectRows.tsx'
 
 /** Session rows visible per worktree before the local overflow control. */
 const COLLAPSED_SESSION_LIMIT = 5
@@ -59,6 +62,11 @@ export function ProjectTreeBody({
     [list, workspaces, layouts, archivedSessionIds, view],
   )
   const now = Date.now()
+  const workspaceTitles = useMemo(() => {
+    const byId = new Map<string, string>()
+    for (const workspace of workspaces) byId.set(workspace.workspaceId as string, workspace.title)
+    return byId
+  }, [workspaces])
 
   return (
     <div className={cn(css.treeBody, css.wide)}>
@@ -73,7 +81,8 @@ export function ProjectTreeBody({
             className={cn(css.tab, tab.id === tree.activeTab && css.tabActive)}
             onClick={() => { onSetTab(tab.id) }}
           >
-            {tab.label}
+            {/* The pinned catch-all tab is localized; user groups carry their own label. */}
+            {tab.pinned ? t('tab.default') : tab.label ?? tab.id}
           </button>
         ))}
         <button type="button" className={css.tabPlus} aria-label={t('tab.newGroup')} onClick={onNewGroup}>
@@ -116,58 +125,64 @@ export function ProjectTreeBody({
                 onOpenPath={() => { onOpenPath(project.repoRoot) }}
                 onCopy={onCopy}
               />
-              {project.expanded && wtRows.map((wt) => (
-                // Keyed Fragment: no wrapper element, so every row stays a
-                // direct child of .groupSection and `.groupSection > * + *`
-                // (the official 2px row gap) applies across all levels.
-                <Fragment key={wt.key}>
-                  <WorktreeRowItem
-                    worktree={wt}
-                    t={t}
-                    onToggle={() => { onToggleWorktree(wt.key, !wt.expanded) }}
-                    onCreate={() => {
-                      if (wt.workspaceId !== undefined) {
-                        onToggleWorktree(wt.key, true)
-                        startSession(wt.workspaceId)
-                      }
-                    }}
-                    actions={wt.workspaceId === undefined
-                      ? undefined
-                      : {
-                        rename: () => { onRenameWorktree(wt.workspaceId as string, wt.label) },
-                        delete: () => { onDeleteWorktree(wt.workspaceId as string, wt.label) },
+              {project.expanded && wtRows.map((wt) => {
+                const wtWorkspaces: WorktreeWorkspace[] = wt.workspaceIds.map(id => ({
+                  id: id as string,
+                  title: workspaceTitles.get(id as string) ?? id as string,
+                }))
+                const visibleSessions = wt.expanded ? wt.sessions : wt.sessions.slice(0, COLLAPSED_SESSION_LIMIT)
+                const overflow = wt.sessions.length > COLLAPSED_SESSION_LIMIT
+                return (
+                  // Keyed Fragment: no wrapper element, so every row stays a
+                  // direct child of .groupSection and `.groupSection > * + *`
+                  // (the official 2px row gap) applies across all levels.
+                  <Fragment key={wt.key}>
+                    <WorktreeRowItem
+                      worktree={wt}
+                      t={t}
+                      onToggle={() => { onToggleWorktree(wt.key, !wt.expanded) }}
+                      onCreate={(workspaceId) => {
+                        const target = workspaceId ?? (wt.workspaceIds.length === 1 ? wt.workspaceIds[0] as string : undefined)
+                        if (target !== undefined) {
+                          onToggleWorktree(wt.key, true)
+                          startSession(target as WorkspaceId)
+                        }
                       }}
-                    onOpenPath={() => { onOpenPath(wt.path) }}
-                    onCopy={onCopy}
-                  />
-                  {wt.expanded && (
-                    <>
-                      {wt.sessions.slice(0, COLLAPSED_SESSION_LIMIT).map(node => (
-                        <SessionNodeItem
-                          key={node.id}
-                          node={node}
-                          currentId={list.current}
-                          now={now}
-                          onOpen={open}
-                          onRename={onSessionRename}
-                          onFork={forkSession}
-                          onArchive={onSessionArchive}
-                          t={t}
-                        />
-                      ))}
-                      {wt.sessions.length > COLLAPSED_SESSION_LIMIT && (
-                        <button
-                          type="button"
-                          className={css.sessionOverflowButton}
-                          onClick={() => { onToggleWorktree(wt.key, true) }}
-                        >
-                          {t('sessions.expand', { n: wt.sessions.length - COLLAPSED_SESSION_LIMIT })}
-                        </button>
-                      )}
-                    </>
-                  )}
-                </Fragment>
-              ))}
+                      workspaces={wtWorkspaces}
+                      onRenameWorkspace={onRenameWorktree}
+                      onDeleteWorkspace={onDeleteWorktree}
+                      onOpenPath={() => { onOpenPath(wt.path) }}
+                      onCopy={onCopy}
+                    />
+                    {visibleSessions.map(node => (
+                      <SessionNodeItem
+                        key={node.id}
+                        node={node}
+                        currentId={list.current}
+                        now={now}
+                        onOpen={open}
+                        onRename={onSessionRename}
+                        onFork={forkSession}
+                        onArchive={onSessionArchive}
+                        nested
+                        t={t}
+                      />
+                    ))}
+                    {overflow && (
+                      <button
+                        type="button"
+                        className={css.sessionOverflowButton}
+                        aria-expanded={wt.expanded}
+                        onClick={() => { onToggleWorktree(wt.key, !wt.expanded) }}
+                      >
+                        {wt.expanded
+                          ? t('sessions.collapse')
+                          : t('sessions.expand', { n: wt.sessions.length - COLLAPSED_SESSION_LIMIT })}
+                      </button>
+                    )}
+                  </Fragment>
+                )
+              })}
             </div>
           )
         })}

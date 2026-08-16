@@ -1,14 +1,15 @@
-/* Tree rows: project 34px, session 32px, radius 8, indent step 22px
-   (16px slot + 6px gap). Hover swaps
-   are pure CSS: project folder -> chevron + action buttons; session time ->
-   ellipsis button. */
+/* Tree rows: project 34px, worktree 30px, session 32px; radius follows the
+   skin row discipline (12.5px); the three-level tree indents worktree rows
+   by 12px and nested session rows by another 12px so the hierarchy reads at
+   a glance. Hover swaps are pure CSS: project folder -> chevron + action
+   buttons; session time -> ellipsis button. */
 
 .projectRow,
 .sessionRow {
   display: flex;
   align-items: center;
   gap: 6px;
-  border-radius: 8px;
+  border-radius: 12.5px;
   padding: 0 8px;
   cursor: pointer;
   user-select: none;
@@ -286,7 +287,17 @@
   bottom: -7px;
 }
 
-/* Hover-card body (figma 169:16903): dark surface, fixed colors both themes. */
+/* Keyboard reorder glyphs ride the same chevron, rotated for up/down. */
+.moveUpIcon {
+  transform: rotate(-90deg);
+}
+
+.moveDownIcon {
+  transform: rotate(90deg);
+}
+
+/* Hover-card body (figma 169:16903): skin tokens replace the forked
+   hardcoded greys so the card follows the active skin in both themes. */
 .hoverContent {
   display: flex;
   flex-direction: column;
@@ -296,21 +307,21 @@
 .hoverTitle {
   font-size: 14px;
   line-height: 20px;
-  color: #FFFFFF;
+  color: var(--dsw-alias-label-primary);
   overflow-wrap: break-word;
 }
 
 .hoverPath {
   font-size: 12px;
   line-height: 16px;
-  color: #CFD3D6;
+  color: var(--dsw-alias-label-secondary);
   word-break: break-all;
 }
 
 .hoverTime {
   font-size: 12px;
   line-height: 16px;
-  color: #CFD3D6;
+  color: var(--dsw-alias-label-secondary);
 }
 
 .hoverStatus {
@@ -319,7 +330,7 @@
   gap: 8px;
   font-size: 12px;
   line-height: 20px;
-  color: #ADB2B8;
+  color: var(--dsw-alias-label-secondary);
 }
 
 .iconButton {
@@ -355,17 +366,29 @@
   }
 }
 
-/* Three-level tree additions: worktree rows + branch/main badges. */
+/* Three-level tree additions: worktree rows + branch/main badges. The
+   worktree row sits one level under its project, so it indents by 12px. */
 .worktreeRow {
   display: flex;
   align-items: center;
   gap: 4px;
   height: 30px;
-  padding: 0 8px;
-  border-radius: 8px;
+  padding: 0 8px 0 20px;
+  border-radius: 12.5px;
   cursor: pointer;
   user-select: none;
   color: var(--dsw-alias-label-primary);
+}
+
+/* Nested session rows (under a worktree) indent one more step; the grouped
+   workspace-browser sessions stay flush with their group header. */
+.sessionNested {
+  padding-left: 32px;
+}
+
+/* The project row is the tree's level-0 heading: bolder than its worktrees. */
+.projectRow .title {
+  font-weight: 600;
 }
 
 .worktreeRow:hover {
@@ -396,6 +419,19 @@
 }
 
 .mainBadge {
+  flex: none;
+  font-size: 10px;
+  line-height: 16px;
+  height: 16px;
+  padding: 0 5px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Several workspaces share one worktree: the ×N counter makes the multi-
+   target rows discoverable (their actions expand per workspace in the menu). */
+.countBadge {
   flex: none;
   font-size: 10px;
   line-height: 16px;

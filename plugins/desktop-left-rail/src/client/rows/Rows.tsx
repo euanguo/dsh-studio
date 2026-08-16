@@ -8,11 +8,10 @@
 import { useState } from 'react'
 import { cn } from '../shim/cn.ts'
 import {
-  Button, HoverCard, Menu, Modal, StateDot, Tooltip,
-  IconArchiveOutline20, IconBranchOutline16, IconCloseFill14, IconEditOutline16,
-  IconEllipsisOutline16, IconFolderClose16, IconFolderOpen16, IconPersonalizationOutline16,
-  IconPlusOutline16, IconProjectAddOutline16, IconSearchOutline16, IconTrashOutline16,
-  IconTriangleRightFill14, type MenuEntry, type StateDotState,
+  HoverCard, Menu, StateDot,
+  IconArchiveOutline20, IconBranchOutline16, IconEditOutline16, IconEllipsisOutline16,
+  IconFolderClose16, IconFolderOpen16, IconPlusOutline16, IconTrashOutline16,
+  IconTriangleRightFill14, type StateDotState,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
@@ -346,12 +345,14 @@ export function SearchResultItem({ result, currentId, onOpen, t }: {
  * @param props.onRename - open the session rename dialog (id + current title).
  * @param props.onFork - fork a session at its last completed turn.
  * @param props.onArchive - archive a session by id.
+ * @param props.onMove - keyboard reorder verbs (move up/down one slot).
  * @param props.drag - optional draggable-row wiring.
  * @param props.flat - omit the empty status slot in the hierarchy-free flat list.
+ * @param props.nested - render indented under a worktree in the three-level tree.
  * @param props.t - the browser root's locale seat.
  * @returns the session row.
  */
-export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork, onArchive, drag, flat = false, t }: {
+export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork, onArchive, onMove, drag, flat = false, nested = false, t }: {
   node: SessionNode
   currentId: string | undefined
   now: number
@@ -362,10 +363,14 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
   onFork: (id: SessionNode['id']) => void
   /** Archive this session (row menu action; commits without a dialog). */
   onArchive: (id: SessionNode['id']) => void
+  /** Keyboard reorder verbs; absent when the row's account is not reorderable. */
+  onMove?: ((verb: 'up' | 'down') => void) | undefined
   /** Present only on draggable rows (workspace-group sessions outside search). */
   drag?: RowDragProps | undefined
   /** The row is rendered without a parent Workspace header. */
   flat?: boolean | undefined
+  /** The row renders under a worktree in the three-level tree (indented). */
+  nested?: boolean | undefined
   t: RowTranslate
 }) {
   const row = node
@@ -377,12 +382,20 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
   const [menuOpen, setMenuOpen] = useState(false)
   // Archive hides the row through the registry-global archive set and never
   // touches the session log, so it is not styled as destructive and needs no
-  // confirmation dialog.
+  // confirmation dialog. Keyboard reorder (up/down) is the accessibility
+  // twin of mouse drag-and-drop.
   const sessionMenuItems = [
     { id: 'rename', label: t('rename'), icon: <IconEditOutline16 /> },
     { id: 'fork', label: t('menu.fork'), icon: <IconBranchOutline16 /> },
     // 20-native glyph in the menu's 16px icon slot (Menu.module.css .itemIcon).
     { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutline20 size={16} /> },
+    ...(onMove === undefined
+      ? []
+      : [
+        { type: 'separator' as const, id: 'move-sep' },
+        { id: 'move-up', label: t('menu.moveUp'), icon: <IconTriangleRightFill14 className={css.moveUpIcon} /> },
+        { id: 'move-down', label: t('menu.moveDown'), icon: <IconTriangleRightFill14 className={css.moveDownIcon} /> },
+      ]),
   ]
   // Figma session cell: pad 8, status slot 16, then a 4px title gap.
   const ownRow = (
@@ -390,6 +403,7 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
       className={cn(
         css.sessionRow, selected && css.selected, menuOpen && css.menuOpen,
         flat && !showStatus && css.flatSessionRowWithoutStatus,
+        nested && css.sessionNested,
         drag?.marker === 'before' && css.dropBefore, drag?.marker === 'after' && css.dropAfter,
       )}
       role="treeitem"
@@ -445,6 +459,8 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
               if (id === 'rename') onRename(node.id, row.title)
               if (id === 'fork') onFork(node.id)
               if (id === 'archive') onArchive(node.id)
+              if (id === 'move-up') onMove?.('up')
+              if (id === 'move-down') onMove?.('down')
             }}
             portal
             closeOnPointerLeave
