@@ -502,3 +502,12 @@ body > div[role='menu'] {
 .oh-dsh-dialog-confirm:hover {
   filter: brightness(1.05);
 }
+
+/* Center host crash boundary (kit/status ErrorView wrapper). */
+.oh-dsh-center-host-crash {
+  padding: var(--oh-dsh-space-4);
+}
+
+.oh-dsh-center-host-mounting {
+  display: none;
+}

@@ -65,6 +65,7 @@ export type WorkspaceMessage =
   | 'side.orphaned-tab'
   | 'center.tablist'
   | 'center.close'
+  | 'center.crash'
   | 'side.tab-limit'
   | 'side.tool-disabled'
   | 'side.tool-missing'
@@ -231,6 +232,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.orphaned-tab': 'Its provider is not currently available. You can close this tab without losing the rest of the session.',
     'center.tablist': 'Center tabs',
     'center.close': 'Close tab',
+    'center.crash': 'The file area failed to render.',
     'side.tab-limit': 'Close an existing tab before opening another.',
     'side.tool-disabled': 'This side panel tool is disabled.',
     'side.tool-missing': 'This side panel tool is no longer registered.',
@@ -396,6 +398,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.orphaned-tab': '当前无法找到它的提供者。关闭此标签页不会影响会话中的其他内容。',
     'center.tablist': '中间标签页',
     'center.close': '关闭标签页',
+    'center.crash': '文件区域渲染失败。',
     'side.tab-limit': '请先关闭一个已有标签页。',
     'side.tool-disabled': '此侧边栏工具已被禁用。',
     'side.tool-missing': '此侧边栏工具已不再注册。',

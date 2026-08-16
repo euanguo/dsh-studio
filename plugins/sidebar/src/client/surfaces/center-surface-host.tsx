@@ -11,13 +11,15 @@
  * conversation is visible; any other surface kind renders its body over
  * the center column.
  */
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import type { ReactNode } from 'react'
+import { Component, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import type { ErrorInfo, ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '../../../../shared/i18n.ts'
 import { IconExternalLink, IconFile, IconGitBranch, IconHistory } from '../../../../shared/tabler-icons.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
+import { ErrorView } from '../kit/status.tsx'
+import { centerColumnElement, leftRailToggleButton, readLeftRailOpen } from './dsh-dom.ts'
 import type { SessionsService } from '../client-types.ts'
 import {
   persistCenterSurfaces,
@@ -292,11 +294,8 @@ function useLeftRailOpenState(): {
   const [leftRailOpen, setLeftRailOpen] = useState<boolean | null>(null)
   useEffect(() => {
     const read = (): void => {
-      const button = document.querySelector<HTMLButtonElement>(
-        '[data-slot="sidebar"] button[aria-label*="侧边栏"]',
-      )
-      if (button === null) return
-      setLeftRailOpen(button.getAttribute('aria-label')?.includes('收起') ?? false)
+      const next = readLeftRailOpen()
+      if (next !== null) setLeftRailOpen(next)
     }
     read()
     // Observe only the DSH left sidebar subtree (not the whole body):
@@ -313,9 +312,7 @@ function useLeftRailOpenState(): {
   return {
     leftRailOpen,
     toggleLeftRail: () => {
-      document.querySelector<HTMLButtonElement>(
-        '[data-slot="sidebar"] button[aria-label*="侧边栏"]',
-      )?.click()
+      leftRailToggleButton()?.click()
     },
   }
 }
@@ -369,6 +366,7 @@ export class CenterSurfaceHost {
   private element: HTMLDivElement | null = null
   private attachObserver: MutationObserver | null = null
   private stopPersist: (() => void) | null = null
+  private remountVersion = 0
 
   constructor(options: CenterSurfaceHostOptions) {
     this.sessions = options.sessions
@@ -381,9 +379,7 @@ export class CenterSurfaceHost {
     this.element = document.createElement('div')
     this.element.id = 'oh-dsh-center-tabs-root'
     this.root = createRoot(this.element)
-    this.root.render(
-      <CenterSurfaceHostView sessions={this.sessions} t={this.t} sidebar={this.sidebar} />,
-    )
+    this.render()
     this.stopPersist = persistCenterSurfaces()
     restoreCenterSurfaces()
     this.attachToCenterColumn()
@@ -401,6 +397,19 @@ export class CenterSurfaceHost {
     useCenterSurfaceStore.getState().clearAll()
   }
 
+  private render(): void {
+    // key forces a fresh mount when the version bumps (self-healing after
+    // the DSH tree rebuilds and discards our subtree).
+    this.root?.render(
+      <CenterSurfaceHostView
+        key={this.remountVersion}
+        sessions={this.sessions}
+        t={this.t}
+        sidebar={this.sidebar}
+      />,
+    )
+  }
+
   /**
    * Mount the tab strip inside the DSH center column as a normal-flow flex
    * child (`.aOBRAa_centerCol` is a `flex-direction: column` container whose
@@ -415,14 +424,23 @@ export class CenterSurfaceHost {
    * instead of painting on top of it.
    *
    * The DSH layout mounts asynchronously and re-renders its tree, so a
-   * MutationObserver re-attaches the node if it is ever missing.
+   * MutationObserver re-attaches the node if it is ever missing. If the DSH
+   * tree crashes and rebuilds, our element survives the re-attach but its
+   * React-rendered children are gone — an emptied element triggers a forced
+   * remount so the host recovers without a reload.
    */
   private attachToCenterColumn(): void {
     const attach = (): boolean => {
       if (this.element === null) return false
       const column = centerColumnElement()
       if (column === null) return false
-      if (this.element.parentElement === column) return true
+      if (this.element.parentElement === column) {
+        if (this.element.childElementCount === 0) {
+          this.remountVersion += 1
+          this.render()
+        }
+        return true
+      }
       column.prepend(this.element)
       return true
     }
@@ -438,18 +456,35 @@ export class CenterSurfaceHost {
 }
 
 /**
- * The DSH center column: the flex-column container that holds the
- * conversation slot (`[data-slot="conversation"]` sits inside it, next to
- * the sidebar column). Prefer the slot's parent so we do not depend on the
- * obfuscated class name; fall back to the class when the slot is absent.
+ * A render crash in one surface must not take the whole center host (and
+ * its tabs) down: the boundary shows a retryable error instead.
  */
-function centerColumnElement(): HTMLElement | null {
-  const conversationSlot = document.querySelector('[data-slot="conversation"]')
-  if (conversationSlot?.parentElement instanceof HTMLElement) {
-    return conversationSlot.parentElement
+class CenterSurfaceHostErrorBoundary extends Component<
+  { children: ReactNode; t: Translate<WorkspaceMessage> },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null }
+
+  static getDerivedStateFromError(error: Error): { error: Error } {
+    return { error }
   }
-  const fallback = document.querySelector<HTMLElement>('.aOBRAa_centerCol')
-  return fallback
+
+  componentDidCatch(error: Error, info: ErrorInfo): void {
+    console.error('[sidebar] center surface host crashed', error, info.componentStack)
+  }
+
+  render(): ReactNode {
+    if (this.state.error === null) return this.props.children
+    return (
+      <div className="oh-dsh-center-host-crash">
+        <ErrorView
+          message={this.props.t('center.crash')}
+          retryLabel={this.props.t('overlay.retry')}
+          onRetry={() => { this.setState({ error: null }) }}
+        />
+      </div>
+    )
+  }
 }
 
 function CenterSurfaceHostView({
@@ -465,18 +500,23 @@ function CenterSurfaceHostView({
   const { leftRailOpen, toggleLeftRail } = useLeftRailOpenState()
   useEffect(() => { setMounted(true) }, [])
   useCenterColumnHeight()
-  if (!mounted) return <></>
+  // A real placeholder keeps the host root non-empty while mounting: the
+  // self-healing attach logic treats an EMPTIED root as "DSH rebuilt its
+  // tree and discarded our children" and force-remounts.
+  if (!mounted) return <span className="oh-dsh-center-host-mounting" aria-hidden="true" />
   return (
-    <DiffWorkerPoolProvider>
-      <DiffThemeSync />
-      <RailFloatControls sidebar={sidebar} leftRailOpen={leftRailOpen} onToggleLeftRail={toggleLeftRail} />
-      <div
-        className={`oh-dsh-center-tabs-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}`}
-      >
-        <CenterSurfaceTabs sessions={sessions} t={t} />
-      </div>
-      <CenterSurfaceBody sessions={sessions} />
-    </DiffWorkerPoolProvider>
+    <CenterSurfaceHostErrorBoundary t={t}>
+      <DiffWorkerPoolProvider>
+        <DiffThemeSync />
+        <RailFloatControls sidebar={sidebar} leftRailOpen={leftRailOpen} onToggleLeftRail={toggleLeftRail} />
+        <div
+          className={`oh-dsh-center-tabs-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}`}
+        >
+          <CenterSurfaceTabs sessions={sessions} t={t} />
+        </div>
+        <CenterSurfaceBody sessions={sessions} />
+      </DiffWorkerPoolProvider>
+    </CenterSurfaceHostErrorBoundary>
   )
 }
 
