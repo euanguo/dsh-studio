@@ -589,7 +589,7 @@
   min-width: 0;
   padding: 4px 8px;
   border: none;
-  border-radius: 12.5px;
+  border-radius: var(--gw-skin-radius-row, 12.5px);
   background: transparent;
   cursor: pointer;
   text-align: left;

@@ -1,15 +1,23 @@
-/* Tree rows: project 34px, worktree 30px, session 32px; radius follows the
-   skin row discipline (12.5px); the three-level tree indents worktree rows
-   by 12px and nested session rows by another 12px so the hierarchy reads at
-   a glance. Hover swaps are pure CSS: project folder -> chevron + action
-   buttons; session time -> ellipsis button. */
+/* Tree rows: one compact row height for every level, driven by the skin
+   geometry token (--gw-skin-row-h, the menu row height) with a 30px
+   fallback outside the skin scope; radius follows --gw-skin-radius-row
+   (12.5px). The three-level tree indents worktree rows by 12px and nested
+   session rows by another 12px so the hierarchy reads at a glance. Hover
+   swaps are pure CSS: project folder -> chevron + action buttons; session
+   time -> ellipsis button. */
+
+.projectRow,
+.worktreeRow,
+.sessionRow {
+  height: var(--gw-skin-row-h, 30px);
+}
 
 .projectRow,
 .sessionRow {
   display: flex;
   align-items: center;
   gap: 6px;
-  border-radius: 12.5px;
+  border-radius: var(--gw-skin-radius-row, 12.5px);
   padding: 0 8px;
   cursor: pointer;
   user-select: none;
@@ -33,7 +41,7 @@
   min-height: 48px;
   box-sizing: border-box;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--gw-skin-radius-row, 12.5px);
   padding: 4px 8px;
   background: transparent;
   cursor: pointer;
@@ -96,7 +104,6 @@
 
 /* Compact one-line Workspace row after removing the session-count subtitle. */
 .projectRow {
-  height: 34px;
   align-items: center;
   box-sizing: border-box;
 }
@@ -107,7 +114,6 @@
 
 /* Session cell (figma): pad 8, a 16px status slot, then a 4px title gap. */
 .sessionRow {
-  height: 32px;
   gap: 0;
   /* Mount fade: session rows appear by unfolding a group (or the tree
      mounting). Stable row keys keep already-visible rows from replaying it. */
@@ -378,9 +384,8 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 30px;
   padding: 0 8px 0 20px;
-  border-radius: 12.5px;
+  border-radius: var(--gw-skin-radius-row, 12.5px);
   cursor: pointer;
   user-select: none;
   color: var(--dsw-alias-label-primary);
