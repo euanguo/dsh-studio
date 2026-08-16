@@ -39,7 +39,6 @@ export const TRIGGER_PILL = Object.freeze([
   '.H3siGG_trigger',
   '.LqtciG_trigger',
   '.uNlE1G_trigger',
-  '.uNlE1G_triggerIcon',
   '.vGKOra_trigger',
   '.vGKOra_triggerOpen',
   '.wI0qGa_trigger',
@@ -64,7 +63,6 @@ export const TRIGGER_ICON = Object.freeze([
 
 export const SEAT = Object.freeze([
   '.urMWOG_seat',
-  '.urMWOG_seatIcon',
 ] as const)
 
 export const WORKSPACE_PILL = Object.freeze([

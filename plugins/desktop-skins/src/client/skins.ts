@@ -377,14 +377,16 @@ body[data-oh-dsh-skin] [role="option"] {
   line-height: var(--gw-skin-row-lh) !important;
   border-radius: var(--gw-skin-radius-row) !important;
 }
-/* 菜单行角色（menuitem/option 等）：组件显式 height 会盖过 min-height，
-   导致弹出层维持旧的行高（实测模型选择弹出层 40px）。菜单行是单行紧凑
-   内容，直接钉死 token 行高。 */
+/* 菜单行角色（menuitem/option 等）：组件显式 height（实测模型选择弹出层
+   40px）会盖过 min-height，用 height: auto 覆盖组件钉死值——行高由
+   padding + line-height 自然形成（18.59 + 5×2 = 28.59），多行内容
+   （标题+描述的模式选项）自然撑开，不再需要任何多行特判。 */
 body[data-oh-dsh-skin] [role="menuitem"],
 body[data-oh-dsh-skin] [role="menuitemradio"],
 body[data-oh-dsh-skin] [role="menuitemcheckbox"],
 body[data-oh-dsh-skin] [role="option"] {
-  height: var(--gw-skin-row-h) !important;
+  height: auto !important;
+  min-height: var(--gw-skin-row-h) !important;
 }
 ${gate([...ITEM_WRAP, ...ITEM_LABEL])} {
   padding: 0 !important;
@@ -419,7 +421,15 @@ body[data-oh-dsh-skin] button {
    TRIGGER_PILL/WORKSPACE_PILL 精确清单里（生成器已按排除规则剔除）。 */
 body[data-oh-dsh-skin] button[aria-haspopup]:not([role="menuitem"]),
 ${gate([...TRIGGER_PILL, ...SEAT, ...WORKSPACE_PILL])} {
-  height: var(--gw-skin-row-h) !important;
+  height: auto !important;
+  min-height: var(--gw-skin-row-h) !important;
+  /* 组件自带显式 height（28–34px）与自带纵向 padding，统一用 token
+     纵向 padding 替换——行高由 padding + 行高自然形成（18.59 + 5×2 =
+     28.59），横向 padding 保留组件值。行高 token 统一裸文本节点
+     （seat 的"标准模式"直接文本，无 label 类）。 */
+  padding-top: var(--gw-skin-row-py) !important;
+  padding-bottom: var(--gw-skin-row-py) !important;
+  line-height: var(--gw-skin-row-lh) !important;
   border-radius: var(--gw-skin-radius-pill) !important;
   corner-shape: round;
 }
@@ -445,10 +455,13 @@ ${gate(GROUP_LABEL)} {
 }
 
 ${gate(SELECTOR)} {
-  height: 28px !important;
+  height: auto !important;
   min-height: 28px;
-  padding: 0 12px !important;
+  /* 组件自带 height 36px + lh 22px，覆盖后由 padding + line-height
+     自然形成 28px（20 + 4×2）。 */
+  padding: 4px 12px !important;
   font-size: 14px !important;
+  line-height: 20px !important;
   border-radius: var(--gw-skin-radius-row) !important;
 }
 
@@ -491,7 +504,9 @@ ${gate([...THEME_CUBE, '.oh-dsh-skins-tile'])} {
   border-radius: var(--gw-skin-radius-menu) !important;
 }
 
-/* Button 组件 md 规格（ruleset 2.2 对话框按钮）：32px 高 + 6×16 padding。 */
+/* Button 组件 md 规格（ruleset 2.2 对话框按钮）：32px 高 + 6×16 padding。
+   注意：这是 ChatGPT 实测的盒子规格（验收项 3），6px padding + 22px
+   行高的自然高度是 34px，与规格差 2px——规格优先，保留钉死并注明。 */
 ${gate(BUTTON_MD)} {
   height: 32px !important;
   padding: 6px 16px !important;
@@ -556,14 +571,18 @@ body[data-oh-dsh-skin] .Sqg4Fa_row {
 }
 
 /* 插件清单卡片的保存/放弃动作键（QtPdFG 自有类，非 Button 组件）：
-   对齐对话框动作键 md 规格（32px 高 + 6×16 padding）。 */
+   对齐对话框动作键 md 规格（32px 高 + 6×16 padding，规格钉死见
+   BUTTON_MD 注释）。 */
 body[data-oh-dsh-skin] .QtPdFG_save,
 body[data-oh-dsh-skin] .QtPdFG_discard {
   height: 32px !important;
   padding: 6px 16px !important;
 }
 
-/* goal 目标输入框：输入框规范（12.5px + token 行高） */
+/* goal 目标输入框：输入框规范（12.5px + token 行高）。
+   注意：input 元素的高度由 UA 内部渲染模型决定（line-height 不参与
+   高度计算），padding + line-height 无法自然撑到 28.59（实测 auto 下
+   30.59px）——input 属规格控件，保留钉死并注明（与 BUTTON_MD 同类）。 */
 body[data-oh-dsh-skin] ._64ccDW_objectiveInput {
   height: var(--gw-skin-row-h) !important;
   border-radius: var(--gw-skin-radius-row) !important;
@@ -578,9 +597,11 @@ body[data-oh-dsh-skin] .gtvCtq_groupTitle {
   color: var(--dsw-alias-label-tertiary) !important;
 }
 
-/* 过滤 pill（Pill 组件 e3ygd）：pill + 行规格（官方 24px/12px 方角） */
+/* 过滤 pill（Pill 组件 e3ygd）：pill + 行规格（官方 24px/12px 方角）。
+   padding/字号/行高全在配方里，高度自然形成（18.59 + 5×2 = 28.59）。 */
 body[data-oh-dsh-skin] ._pill_e3ygd_1 {
-  height: var(--gw-skin-row-h) !important;
+  height: auto !important;
+  min-height: var(--gw-skin-row-h) !important;
   padding: var(--gw-skin-row-pad) !important;
   font-size: var(--gw-skin-row-fs) !important;
   line-height: var(--gw-skin-row-lh) !important;
@@ -616,16 +637,6 @@ body[data-oh-dsh-skin] ._onboardingMask_1cfrq_10 {
   background: var(--dsw-alias-bg-mask-1) !important;
   backdrop-filter: var(--dsw-mask-blur) !important;
   -webkit-backdrop-filter: var(--dsw-mask-blur) !important;
-}
-
-/* 带描述的多行菜单项（urMWOG 访问模式选择：itemName + itemDesc 两行
-   结构）：单行行高钉死规则会把两行内容压成一行、描述互相重叠
-   （实测 4 个模式选项内容 54–70px 被压成 28.59px）。放行高度自然
-   撑开，勾选图标与标题顶对齐。 */
-body[data-oh-dsh-skin] ._item_19372_91:has(.urMWOG_item) {
-  height: auto !important;
-  min-height: var(--gw-skin-row-h) !important;
-  align-items: flex-start !important;
 }
 
 `
