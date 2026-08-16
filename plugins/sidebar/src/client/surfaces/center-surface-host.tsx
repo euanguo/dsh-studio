@@ -209,8 +209,8 @@ const EMPTY_CENTER_SLICE: CenterSurfaceSlice = { open: [], activeId: null }
  * controls as in-flow flex members, so nothing floats over the tabs:
  * - LEFT: the left-rail toggle — ALWAYS rendered, the single manager of
  *   the DSH left rail (DSH's own header toggle is hidden by CSS; the
- *   strip's live `--oh-dsh-traffic-pad` keeps it exactly right of the
- *   macOS traffic lights in every rail state);
+ *   strip's live `is-left-collapsed` padding keeps it exactly right of
+ *   the macOS traffic lights in every rail state);
  * - MIDDLE: the tab scroller (the ONLY scrolling member);
  * - RIGHT: the right-rail reopen button (only while the panel is closed —
  *   pinned to the strip's right end, never covered by overflowing tabs).
@@ -490,7 +490,9 @@ function CenterSurfaceHostView({
         {/* The unified top rail: left toggle + tab scroller + right reopen,
             all in-flow members of the strip (see the TopRailControls
             section comment above). */}
-        <div className="oh-dsh-center-tabs-strip">
+        <div
+          className={`oh-dsh-center-tabs-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}${rightOpen ? '' : ' is-right-free'}`}
+        >
           <LeftRailToggleButton onToggleLeftRail={toggleLeftRail} leftRailOpen={leftRailOpen} />
           <div className="oh-dsh-center-tabs-scroller">
             <CenterSurfaceTabs sessions={sessions} t={t} />

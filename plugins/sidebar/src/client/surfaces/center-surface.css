@@ -12,16 +12,23 @@
    collapses so the conversation shows.
    ============================================================ */
 
-/* The unified top-rail geometry variables (set live by
-   chrome-geometry.ts; the values here are the non-desktop fallbacks):
-   - `--oh-dsh-traffic-pad-l/r`: the STRIP's effective left/right padding
-     (chrome reservation minus the strip's own offset, clamped) — so the
-     in-flow left-rail toggle always sits exactly right of the macOS
-     traffic lights regardless of the DSH rail state, and the strip's
-     right-end controls never tuck under the Windows overlay buttons;
-   - `--oh-dsh-traffic-left`: absolute content start, for diagnostics. */
+/* The unified top-rail geometry variables. Only the two raw chrome
+   facts are published live (by chrome-geometry.ts): the macOS content
+   start next to the traffic lights, and the Windows overlay control
+   region. All PADDING decisions are made by app state in CSS — no
+   element measuring, no observers:
+   - strip left:  `.is-left-collapsed` (left rail collapsed) reserves
+     the traffic lights minus the DSH collapsed rail's own offset;
+   - strip right: `.is-right-free` (right panel closed — the strip's
+     right edge reaches the window edge) reserves the overlay buttons;
+   - panel row:   `[data-oh-dsh-sidebar-full-width='true']` (panel
+     overlays the whole window) reserves the full traffic-light zone. */
 :root {
   --oh-dsh-traffic-left: 74px;
+  /* The DSH collapsed activity rail (55px) plus its 1px border — the
+     strip starts right of it, so it already clears the lights by that
+     much and only the remainder needs reserving. */
+  --oh-dsh-rail-offset: 56px;
 }
 
 #oh-dsh-center-tabs-root {
@@ -75,12 +82,30 @@
   align-items: center;
   gap: var(--oh-dsh-space-1);
   min-height: 42px;
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-traffic-pad-r, var(--oh-dsh-traffic-right, var(--oh-dsh-space-2))) var(--oh-dsh-space-1) var(--oh-dsh-traffic-pad-l, 74px);
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2) var(--oh-dsh-space-1) var(--oh-dsh-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
   backdrop-filter: blur(6px);
   flex: none;
+}
+
+/* Left rail collapsed: reserve the traffic lights. The strip already
+   starts right of the DSH collapsed rail (--oh-dsh-rail-offset), so
+   only the remainder is padded — the in-flow toggle lands exactly right
+   of the lights (76px − 56px = 20px), never doubling the reservation. */
+.oh-dsh-center-tabs-strip.is-left-collapsed {
+  /* max() keeps the base padding on platforms without left-side lights
+     (Windows: --oh-dsh-traffic-left is 0, the calc would go negative). */
+  padding-left: max(var(--oh-dsh-space-2), calc(var(--oh-dsh-traffic-left, 76px) - var(--oh-dsh-rail-offset, 56px)));
+}
+
+/* Right panel closed: the strip's right edge reaches the window edge,
+   so reserve the Windows overlay control buttons on the right. While
+   the panel is open the strip ends at the panel's left edge — no
+   reservation needed (the 8px base padding applies). */
+.oh-dsh-center-tabs-strip.is-right-free {
+  padding-right: var(--oh-dsh-traffic-right, var(--oh-dsh-space-2));
 }
 
 /* The DSH left rail keeps its own expand/collapse toggle in its header;
@@ -116,7 +141,7 @@
 /* In-strip rail controls (the unified top rail):
    - left rail toggle: always rendered — the single manager of the DSH
      left rail (the DSH's own header toggle is hidden); sits right of the
-     macOS traffic lights (the strip's live `--oh-dsh-traffic-pad`);
+     macOS traffic lights (the strip's `is-left-collapsed` padding);
    - right rail reopen: rendered only while the panel is closed, pinned to
      the strip's right end — overflowing tabs scroll under it never (they
      live in the scroller). Both opt out of the window-drag strip. */

@@ -33,12 +33,22 @@
   width: 100%;
   min-width: 0;
   min-height: 42px;
-  /* The panel may overlay the whole window (x=0) or sit side-by-side;
-     chrome-geometry.ts computes the effective pads per element: left of
-     the macOS traffic lights, right of the Windows overlay controls. */
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-side-pad-r, var(--oh-dsh-traffic-right, var(--oh-dsh-space-2))) var(--oh-dsh-space-1) var(--oh-dsh-side-pad-l, var(--oh-dsh-space-2));
+  /* State-driven chrome reservations (no measuring):
+     - left: the full traffic-light zone ONLY while the panel overlays
+       the whole window (x=0) — `data-oh-dsh-sidebar-full-width='true'`,
+       published by workspace-tools from `maximized || narrowViewport`;
+     - right: the Windows overlay buttons — the panel's right edge is
+       flush with the window edge in every mode, so always reserve. */
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-traffic-right, var(--oh-dsh-space-2)) var(--oh-dsh-space-1) var(--oh-dsh-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+/* The panel overlays the whole window (maximized, or narrow viewport):
+   its top row starts at x=0, under the macOS traffic lights — reserve
+   the full content start. Side-by-side mode needs no left reservation. */
+[data-oh-dsh-sidebar-full-width='true'] .oh-dsh-side-top {
+  padding-left: var(--oh-dsh-traffic-left, 76px);
 }
 
 .oh-dsh-side-pinned {

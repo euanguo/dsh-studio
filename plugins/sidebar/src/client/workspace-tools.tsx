@@ -306,6 +306,15 @@ ${diffViewerCss}`
     // collapsing the container to 0 (the old behavior) made an open sidebar
     // invisible — "closed but cannot reopen".
     const fullWidth = this.state.maximized || this.narrowViewport.matches
+    // The full-width state drives the side panel's top-row chrome
+    // reservation (its top row starts at x=0, under the traffic lights) —
+    // see side-tools.css. Published as an attribute so CSS keys off it
+    // directly; no measuring, no observers.
+    if (this.state.open && fullWidth) {
+      html.dataset.ohDshSidebarFullWidth = 'true'
+    } else {
+      delete html.dataset.ohDshSidebarFullWidth
+    }
     if (this.state.open) {
       html.dataset.ohDshDesktopSidebarOpen = 'true'
       // The #root squeeze is owned by the desktopPanels right-panel
