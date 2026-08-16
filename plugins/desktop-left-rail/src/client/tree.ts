@@ -671,3 +671,24 @@ export function relativeTime(updatedAt: number, now: number): RelativeTime {
   if (diff < 365 * DAY) return { unit: 'months', n: Math.floor(diff / (30 * DAY)) }
   return { unit: 'years', n: Math.floor(diff / (365 * DAY)) }
 }
+
+/**
+ * The worktree session-run visibility decision: a folded worktree hides its
+ * sessions outright (the row click must produce a visible change at any
+ * session count); an expanded one previews `limit` rows until the run is
+ * explicitly widened.
+ * @param sessions - the worktree's full session run.
+ * @param expanded - whether the worktree row itself is expanded.
+ * @param runExpanded - whether the preview was widened to the full run.
+ * @param limit - previewed rows while the run stays collapsed.
+ * @returns the session rows to render.
+ */
+export function worktreeVisibleSessions(
+  sessions: readonly SessionNode[],
+  expanded: boolean,
+  runExpanded: boolean,
+  limit: number,
+): readonly SessionNode[] {
+  if (!expanded) return []
+  return runExpanded ? sessions : sessions.slice(0, limit)
+}

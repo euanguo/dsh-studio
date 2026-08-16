@@ -10,10 +10,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { SessionId, SessionListState, SessionSummary, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionNode } from '../plugins/desktop-left-rail/src/client/tree.ts'
 import {
   deriveFlat, deriveGroups, deriveProjectTree, deriveSearchResults,
   relativeTime, repoExpansionKey, UNGROUPED_EXPANSION_KEY, UNGROUPED_KEY,
-  UNGROUPED_LABEL, worktreeExpansionKey, workspaceExpansionKey, workspaceLabel,
+  UNGROUPED_LABEL, worktreeExpansionKey, worktreeVisibleSessions, workspaceExpansionKey, workspaceLabel,
 } from '../plugins/desktop-left-rail/src/client/tree.ts'
 import { indexSubagentDescendants } from '../plugins/desktop-left-rail/src/client/subagent-lineage.ts'
 
@@ -29,6 +30,18 @@ function summary(id: string, overrides: Partial<SessionSummary> = {}): SessionSu
     blank: false,
     updatedAt: 1_000,
     ...overrides,
+  }
+}
+
+function node(id: string): SessionNode {
+  return {
+    id: id as SessionId,
+    title: `title-${id}`,
+    blank: false,
+    running: false,
+    runningSubagentCount: 0,
+    completed: false,
+    updatedAt: 1_000,
   }
 }
 
@@ -424,4 +437,25 @@ test('workspaceLabel: basename, trailing slash, empty and root cases', () => {
   assert.equal(workspaceLabel('/'), '/')
   assert.equal(workspaceLabel(undefined), UNGROUPED_LABEL)
   assert.equal(workspaceLabel(''), UNGROUPED_LABEL)
+})
+
+/* ------------------------------------------------------------------------- *
+ * worktreeVisibleSessions — the row-click visibility contract
+ * ------------------------------------------------------------------------- */
+
+test('worktreeVisibleSessions: a folded worktree hides its sessions outright', () => {
+  const sessions = [node('s1'), node('s2')]
+  assert.deepEqual(worktreeVisibleSessions(sessions, false, false, 5), [])
+  assert.deepEqual(worktreeVisibleSessions(sessions, false, true, 5), [])
+})
+
+test('worktreeVisibleSessions: an expanded worktree previews the limit until the run widens', () => {
+  const sessions = [node('s1'), node('s2'), node('s3'), node('s4'), node('s5'), node('s6')]
+  assert.deepEqual(worktreeVisibleSessions(sessions, true, false, 5).map(s => s.id), ['s1', 's2', 's3', 's4', 's5'])
+  assert.deepEqual(worktreeVisibleSessions(sessions, true, true, 5).map(s => s.id), ['s1', 's2', 's3', 's4', 's5', 's6'])
+})
+
+test('worktreeVisibleSessions: a small run is fully visible when expanded', () => {
+  const sessions = [node('s1'), node('s2')]
+  assert.deepEqual(worktreeVisibleSessions(sessions, true, false, 5).map(s => s.id), ['s1', 's2'])
 })

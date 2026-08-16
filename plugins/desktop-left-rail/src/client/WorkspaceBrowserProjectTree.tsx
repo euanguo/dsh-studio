@@ -7,12 +7,12 @@
  * offers "show the rest"; expanding reveals the full run and the collapse
  * verb.
  */
-import { Fragment, useMemo } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { IconEllipsisOutline16, IconPlusOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 import type { GroupTab, ProjectTreeView, WorktreeLayoutMap } from './tree.ts'
-import { deriveProjectTree } from './tree.ts'
+import { deriveProjectTree, worktreeVisibleSessions } from './tree.ts'
 import { WorkspaceBrowserCss as css } from './styles.js'
 import { cn } from './shim/cn.ts'
 import { SessionNodeItem } from './rows/Rows.tsx'
@@ -67,6 +67,11 @@ export function ProjectTreeBody({
     for (const workspace of workspaces) byId.set(workspace.workspaceId as string, workspace.title)
     return byId
   }, [workspaces])
+  // Transient session-run expansion per worktree (same two-level posture as
+  // the grouped view): the worktree row itself folds the whole run, while
+  // this local set only widens a previewed run past five sessions. Not
+  // persisted — the run state resets with the tree.
+  const [expandedRuns, setExpandedRuns] = useState<string[]>([])
 
   return (
     <div className={cn(css.treeBody, css.wide)}>
@@ -130,8 +135,24 @@ export function ProjectTreeBody({
                   id: id as string,
                   title: workspaceTitles.get(id as string) ?? id as string,
                 }))
-                const visibleSessions = wt.expanded ? wt.sessions : wt.sessions.slice(0, COLLAPSED_SESSION_LIMIT)
+                // Folding a worktree hides its sessions outright — the row
+                // click must produce a visible change at any session count.
+                // An expanded worktree previews five sessions with a working
+                // "show the rest" verb (local run state); the full run shows
+                // the collapse verb.
+                const runExpanded = expandedRuns.includes(wt.key)
+                const visibleSessions = worktreeVisibleSessions(
+                  wt.sessions,
+                  wt.expanded,
+                  runExpanded,
+                  COLLAPSED_SESSION_LIMIT,
+                )
                 const overflow = wt.sessions.length > COLLAPSED_SESSION_LIMIT
+                const toggleRun = (): void => {
+                  setExpandedRuns(runs => runs.includes(wt.key)
+                    ? runs.filter(key => key !== wt.key)
+                    : [...runs, wt.key])
+                }
                 return (
                   // Keyed Fragment: no wrapper element, so every row stays a
                   // direct child of .groupSection and `.groupSection > * + *`
@@ -168,14 +189,14 @@ export function ProjectTreeBody({
                         t={t}
                       />
                     ))}
-                    {overflow && (
+                    {wt.expanded && overflow && (
                       <button
                         type="button"
                         className={css.sessionOverflowButton}
-                        aria-expanded={wt.expanded}
-                        onClick={() => { onToggleWorktree(wt.key, !wt.expanded) }}
+                        aria-expanded={runExpanded}
+                        onClick={toggleRun}
                       >
-                        {wt.expanded
+                        {runExpanded
                           ? t('sessions.collapse')
                           : t('sessions.expand', { n: wt.sessions.length - COLLAPSED_SESSION_LIMIT })}
                       </button>
