@@ -34,8 +34,7 @@ import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme, type PierreDiffTheme } from '../diff/pierre-adapter.tsx'
-import { parseGitReviewDiff, reviewFileToDiffDocument } from '../review/review-diff.ts'
-import type { GitReviewFile } from '../review/review-types.ts'
+import { parseGitReviewDiff, reviewFileToDiffDocument, type GitReviewFile } from '../diff/git-review-diff.ts'
 import type {
   CommitCenterSurface,
   CommitFileCenterSurface,
@@ -46,6 +45,16 @@ import type {
   EditorCenterSurface,
   FileCenterSurface,
 } from './types.ts'
+
+/** Single-file diff render caps (fall back to the too-large notice). */
+const DIFF_MAX_RENDER_LINES = 120_000
+const DIFF_MAX_RENDER_CHARS = 6_000_000
+/** "Expand context" bounds: start, step, ceiling (lines). */
+const DIFF_CONTEXT_INITIAL = 3
+const DIFF_CONTEXT_LIMIT = 200
+const DIFF_CONTEXT_STEP = 20
+/** Files pre-mounted in a diff-all stack (the rest mount on scroll). */
+const DIFF_ALL_PREMOUNT_COUNT = 6
 
 /* ---------- file ---------- */
 
@@ -371,10 +380,10 @@ export function EditorSurfaceView({
         {dirty ? <small className="oh-dsh-editor-dirty">●</small> : null}
         <span className="oh-dsh-editor-actions">
           <button type="button" onClick={() => { setReadOnly(value => !value) }}>
-            {readOnly ? 'Edit' : 'Read only'}
+            {readOnly ? t('editor.edit') : t('editor.read-only')}
           </button>
           <button type="button" disabled={saving || !dirty} onClick={() => { save() }}>
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? t('editor.saving') : t('editor.save')}
           </button>
         </span>
       </div>
@@ -411,7 +420,7 @@ export function DiffSurfaceView({
 }): JSX.Element {
   const [diff, setDiff] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const [context, setContext] = useState(3)
+  const [context, setContext] = useState(DIFF_CONTEXT_INITIAL)
   const [expanding, setExpanding] = useState(false)
   const [imageDiff, setImageDiff] = useState<{ oldData: string; newData: string } | null>(null)
   const [comments, setComments] = useState<readonly DiffComment[]>(() =>
@@ -522,11 +531,11 @@ export function DiffSurfaceView({
       </div>
     )
   }
-  if (document.lines.length > 120_000 || diff.length > 6_000_000) {
+  if (document.lines.length > DIFF_MAX_RENDER_LINES || diff.length > DIFF_MAX_RENDER_CHARS) {
     return (
       <div className="oh-dsh-diff-surface">
         <DiffToolbar t={t} />
-        <EmptyView title={`Diff too large to render inline (${document.lines.length} lines).`} />
+        <EmptyView title={t('diff.too-large', { lines: document.lines.length })} />
       </div>
     )
   }
@@ -559,15 +568,15 @@ export function DiffSurfaceView({
       <div className="oh-dsh-diff-context-bar">
         <button
           type="button"
-          disabled={expanding || context >= 200}
+          disabled={expanding || context >= DIFF_CONTEXT_LIMIT}
           onClick={() => {
             setExpanding(true)
-            setContext(value => Math.min(200, value + 20))
+            setContext(value => Math.min(DIFF_CONTEXT_LIMIT, value + DIFF_CONTEXT_STEP))
             if (expandTimerRef.current !== null) window.clearTimeout(expandTimerRef.current)
             expandTimerRef.current = window.setTimeout(() => setExpanding(false), 1200)
           }}
         >
-          {expanding ? t('workspace.loading-diff') : `Expand context (${context} → ${Math.min(200, context + 20)})`}
+          {expanding ? t('workspace.loading-diff') : t('diff.expand-context', { current: context, next: Math.min(DIFF_CONTEXT_LIMIT, context + DIFF_CONTEXT_STEP) })}
         </button>
       </div>
       <div className="oh-dsh-diff-comments">
@@ -694,7 +703,8 @@ export function DiffAllSurfaceView({
             }
           }))
           untrackedFiles = synthesized.filter((file): file is GitReviewFile => file !== null)
-        } catch {
+        } catch (cause) {
+          console.warn('[sidebar] failed to synthesize untracked-file diffs', cause)
           untrackedFiles = []
         }
       }
@@ -705,7 +715,7 @@ export function DiffAllSurfaceView({
         return
       }
       setFiles(allFiles)
-      setRenderedKeys(new Set(allFiles.slice(0, 6).map(file => file.path)))
+      setRenderedKeys(new Set(allFiles.slice(0, DIFF_ALL_PREMOUNT_COUNT).map(file => file.path)))
     }).catch((cause: unknown) => {
       if (alive) setError(cause instanceof Error ? cause.message : String(cause))
     })
@@ -784,7 +794,7 @@ export function DiffAllSurfaceView({
       file.path,
       surface.staged,
       undefined,
-      20,
+      DIFF_CONTEXT_STEP,
     ).then(result => {
       const reparsed = parseGitReviewDiff(result.diff)
       const nextFile = reparsed.find(candidate => candidate.path === file.path) ?? reparsed[0]
@@ -1331,7 +1341,7 @@ export function ConflictSurfaceView({
         <span title={surface.filePath}>{name}</span>
         <small>Merge conflict</small>
         <span className="oh-dsh-conflict-actions">
-          <button type="button" disabled={busy}>{busy ? 'Resolving…' : 'Resolve and stage'}</button>
+          <button type="button" disabled={busy}>{busy ? t('conflict.resolving') : t('conflict.resolve-and-stage')}</button>
         </span>
       </div>
       <div className="oh-dsh-conflict-hint">Choose a resolution below for each conflicted region.</div>
@@ -1358,9 +1368,9 @@ export function ConflictSurfaceView({
             }
             return (
               <div className="oh-dsh-conflict-actions">
-                <button type="button" disabled={busy} onClick={() => { resolve('current') }}>Accept current</button>
-                <button type="button" disabled={busy} onClick={() => { resolve('incoming') }}>Accept incoming</button>
-                <button type="button" disabled={busy} onClick={() => { resolve('both') }}>Keep both</button>
+                <button type="button" disabled={busy} onClick={() => { resolve('current') }}>{t('conflict.accept-current')}</button>
+                <button type="button" disabled={busy} onClick={() => { resolve('incoming') }}>{t('conflict.accept-incoming')}</button>
+                <button type="button" disabled={busy} onClick={() => { resolve('both') }}>{t('conflict.keep-both')}</button>
               </div>
             )
           }}

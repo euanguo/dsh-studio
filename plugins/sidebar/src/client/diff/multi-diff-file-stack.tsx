@@ -6,9 +6,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
-import type { GitReviewFile } from '../review/review-types.ts'
 import { DiffViewer } from './diff-viewer.tsx'
-import { reviewFileToDiffDocument } from '../review/review-diff.ts'
+import { reviewFileToDiffDocument, type GitReviewFile } from './git-review-diff.ts'
 import type { PierreDiffTheme } from './pierre-adapter.tsx'
 
 const OBSERVER_ROOT_MARGIN = '320px 0px'
@@ -101,7 +100,7 @@ function MultiDiffFileBlock({
         <span className="oh-dsh-multi-diff-actions">
           {onExpandContext !== undefined ? (
             <button type="button" onClick={() => { onExpandContext(file) }}>
-              Expand context
+              {t('diff.expand-context-file')}
             </button>
           ) : null}
           {onCollapse !== undefined ? (

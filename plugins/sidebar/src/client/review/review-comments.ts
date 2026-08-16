@@ -1,4 +1,4 @@
-import type { GitReviewCommit } from './review-types.ts'
+import type { GitReviewCommit } from '../diff/git-review-diff.ts'
 
 export type ReviewCommentSide = 'new' | 'old' | null
 

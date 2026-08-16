@@ -1,11 +1,53 @@
-import type {
-  GitReviewCommit,
-  GitReviewFile,
-  GitReviewFileStatus,
-  GitReviewLineType,
-} from './review-types.ts'
+/**
+ * Git review diff parsing and its structural types (moved out of review/:
+ * the diff layer needs these to build DiffDocuments, and review/ consumed
+ * them back — the cross-import cycle is broken by owning the git-diff
+ * parsing in diff/).
+ */
 import type { BetterSidebarGitLogEntry } from '../better-sidebar-api.ts'
-import type { DiffDocument } from '../diff/file-diff.ts'
+import type { DiffDocument } from './file-diff.ts'
+
+export type GitReviewLineType = 'context' | 'addition' | 'deletion'
+
+export interface GitReviewLine {
+  key: string
+  type: GitReviewLineType
+  content: string
+  oldLine: number | null
+  newLine: number | null
+}
+
+export type GitReviewFileStatus =
+  | 'added'
+  | 'modified'
+  | 'deleted'
+  | 'renamed'
+  | 'binary'
+
+export interface GitReviewFile {
+  path: string
+  oldPath: string | null
+  status: GitReviewFileStatus
+  additions: number
+  deletions: number
+  lines: GitReviewLine[]
+}
+
+export interface GitReviewCommitSummary {
+  id: string
+  shortId: string
+  subject: string
+  author: string
+  authoredAt: string
+}
+
+export interface GitReviewCommit extends GitReviewCommitSummary {
+  message: string
+  files: GitReviewFile[]
+}
+
+/** Per-file line cap when converting review files to diff documents. */
+const MAX_REVIEW_DIFF_LINES = 400
 
 interface MutableReviewFile extends GitReviewFile {
   oldCursor: number | null
@@ -154,7 +196,7 @@ export function reviewFileToDiffDocument(file: GitReviewFile): DiffDocument {
       : 'modified',
     additions: file.additions,
     deletions: file.deletions,
-    lines: file.lines.slice(0, 400).map(line => {
+    lines: file.lines.slice(0, MAX_REVIEW_DIFF_LINES).map(line => {
       const kind = line.type === 'addition' ? 'added'
         : line.type === 'deletion' ? 'removed'
         : 'context'

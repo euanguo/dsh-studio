@@ -37,6 +37,17 @@ export type WorkspaceMessage =
   | 'files.zoom-reset'
   | 'files.open-externally'
   | 'files.rendering-diagram'
+  | 'files.new-file'
+  | 'files.new-folder'
+  | 'files.new-file-name'
+  | 'files.new-folder-name'
+  | 'files.rename'
+  | 'files.rename-to'
+  | 'files.copy'
+  | 'files.copy-to'
+  | 'files.delete'
+  | 'files.delete-confirm'
+  | 'files.search-placeholder'
   | 'files.viewer.binary'
   | 'files.viewer.html'
   | 'files.viewer.markdown'
@@ -135,6 +146,18 @@ export type WorkspaceMessage =
   | 'diff.layout.unified'
   | 'diff.layout.split'
   | 'diff.wrap'
+  | 'diff.too-large'
+  | 'diff.expand-context'
+  | 'diff.expand-context-file'
+  | 'editor.edit'
+  | 'editor.read-only'
+  | 'editor.save'
+  | 'editor.saving'
+  | 'conflict.resolve-and-stage'
+  | 'conflict.resolving'
+  | 'conflict.accept-current'
+  | 'conflict.accept-incoming'
+  | 'conflict.keep-both'
 
 export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
   en: {
@@ -174,6 +197,17 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.zoom-reset': 'Reset',
     'files.open-externally': 'Open externally',
     'files.rendering-diagram': 'Rendering diagram…',
+    'files.new-file': 'New file',
+    'files.new-folder': 'New folder',
+    'files.new-file-name': 'New file name',
+    'files.new-folder-name': 'New folder name',
+    'files.rename': 'Rename',
+    'files.rename-to': 'Rename to',
+    'files.copy': 'Copy',
+    'files.copy-to': 'Copy to',
+    'files.delete': 'Delete',
+    'files.delete-confirm': 'Delete "{path}"?',
+    'files.search-placeholder': 'Search files…',
     'files.viewer.binary': 'Binary file',
     'files.viewer.html': 'HTML preview',
     'files.viewer.markdown': 'Markdown preview',
@@ -272,6 +306,18 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'diff.layout.unified': 'Unified view',
     'diff.layout.split': 'Side-by-side view',
     'diff.wrap': 'Wrap long lines',
+    'diff.too-large': 'Diff too large to render inline ({lines} lines).',
+    'diff.expand-context': 'Expand context ({current} → {next})',
+    'diff.expand-context-file': 'Expand context',
+    'editor.edit': 'Edit',
+    'editor.read-only': 'Read only',
+    'editor.save': 'Save',
+    'editor.saving': 'Saving…',
+    'conflict.resolve-and-stage': 'Resolve and stage',
+    'conflict.resolving': 'Resolving…',
+    'conflict.accept-current': 'Accept current',
+    'conflict.accept-incoming': 'Accept incoming',
+    'conflict.keep-both': 'Keep both',
   },
   zh: {
     'side.expand': '展开侧边栏',
@@ -310,6 +356,17 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.zoom-reset': '重置',
     'files.open-externally': '在外部打开',
     'files.rendering-diagram': '渲染图表中…',
+    'files.new-file': '新建文件',
+    'files.new-folder': '新建文件夹',
+    'files.new-file-name': '新建文件名称',
+    'files.new-folder-name': '新建文件夹名称',
+    'files.rename': '重命名',
+    'files.rename-to': '重命名为',
+    'files.copy': '复制',
+    'files.copy-to': '复制为',
+    'files.delete': '删除',
+    'files.delete-confirm': '确定删除 "{path}"？',
+    'files.search-placeholder': '搜索文件…',
     'files.viewer.binary': '二进制文件',
     'files.viewer.html': 'HTML 预览',
     'files.viewer.markdown': 'Markdown 预览',
@@ -408,5 +465,17 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'diff.layout.unified': '统一视图',
     'diff.layout.split': '分栏视图',
     'diff.wrap': '自动换行',
+    'diff.too-large': '差异过大，无法内联渲染（{lines} 行）。',
+    'diff.expand-context': '展开上下文（{current} → {next}）',
+    'diff.expand-context-file': '展开上下文',
+    'editor.edit': '编辑',
+    'editor.read-only': '只读',
+    'editor.save': '保存',
+    'editor.saving': '保存中…',
+    'conflict.resolve-and-stage': '解决并暂存',
+    'conflict.resolving': '解决中…',
+    'conflict.accept-current': '接受当前版本',
+    'conflict.accept-incoming': '接受传入版本',
+    'conflict.keep-both': '两者都保留',
   },
 }

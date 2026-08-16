@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import {
   parseGitReviewDiff,
   reviewCommitFromBetterSidebar,
-} from '../plugins/sidebar/src/client/review/review-diff.ts'
+} from '../plugins/sidebar/src/client/diff/git-review-diff.ts'
 import {
   formatReviewComment,
   formatReviewRequest,
