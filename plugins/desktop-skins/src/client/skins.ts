@@ -618,6 +618,16 @@ body[data-oh-dsh-skin] ._onboardingMask_1cfrq_10 {
   -webkit-backdrop-filter: var(--dsw-mask-blur) !important;
 }
 
+/* 带描述的多行菜单项（urMWOG 访问模式选择：itemName + itemDesc 两行
+   结构）：单行行高钉死规则会把两行内容压成一行、描述互相重叠
+   （实测 4 个模式选项内容 54–70px 被压成 28.59px）。放行高度自然
+   撑开，勾选图标与标题顶对齐。 */
+body[data-oh-dsh-skin] ._item_19372_91:has(.urMWOG_item) {
+  height: auto !important;
+  min-height: var(--gw-skin-row-h) !important;
+  align-items: flex-start !important;
+}
+
 `
 const CHATGPT_NIGHT_COLOR_CSS = renderColorCss(
   'body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-night"]',
