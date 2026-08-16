@@ -1,10 +1,14 @@
 /**
  * Client-side chunk loader for /sidebar/bundle/<name>.js.
  * Scripts are loaded once and cached for the lifetime of the page.
+ * `name` is the shared ChunkName union — the servable set (host) and the
+ * requested set (client) come from the same list.
  */
+import type { ChunkName } from '../../../shared/bundle-names.ts'
+
 const loaded = new Map<string, Promise<void>>()
 
-export function loadChunk(name: string): Promise<void> {
+export function loadChunk(name: ChunkName): Promise<void> {
   const existing = loaded.get(name)
   if (existing !== undefined) return existing
   const promise = new Promise<void>((resolvePromise, reject) => {

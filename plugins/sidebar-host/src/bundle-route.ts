@@ -18,10 +18,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from './context-types.ts'
-
-/** The chunk names the client may request (mirror of src/client/chunk-loader.ts). */
-export const CHUNK_NAMES = ['docx', 'xlsx', 'pptx', 'terminal', 'editor', 'mermaid', 'pierre-worker'] as const
-export type ChunkName = (typeof CHUNK_NAMES)[number]
+import { CHUNK_NAMES, type ChunkName } from '../../shared/bundle-names.ts'
 
 /** Directory of this host-half module (lib/ — the chunk scripts live next to it). */
 const LIB_DIR = dirname(fileURLToPath(import.meta.url))
