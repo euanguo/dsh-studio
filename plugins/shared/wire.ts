@@ -92,3 +92,43 @@ export function requireString(payload: unknown, key: string): string {
   }
   return value
 }
+
+/** Narrow an optional string field (missing → undefined; present but invalid → bad-request). */
+export function optionalString(payload: unknown, key: string): string | undefined {
+  const value = (payload as Record<string, unknown> | null)?.[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'string' || value === '') {
+    throw new SidebarError('bad-request', `invalid "${key}"`)
+  }
+  return value
+}
+
+/** Narrow an optional boolean field (missing → undefined; present but invalid → bad-request). */
+export function optionalBoolean(payload: unknown, key: string): boolean | undefined {
+  const value = (payload as Record<string, unknown> | null)?.[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'boolean') {
+    throw new SidebarError('bad-request', `invalid "${key}"`)
+  }
+  return value
+}
+
+/** Narrow an optional integer field within [min, max] (missing → undefined; invalid → bad-request). */
+export function optionalInteger(payload: unknown, key: string, min: number, max: number): number | undefined {
+  const value = (payload as Record<string, unknown> | null)?.[key]
+  if (value === undefined) return undefined
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) {
+    throw new SidebarError('bad-request', `invalid "${key}"`)
+  }
+  return value
+}
+
+/** Narrow the optional `paths` array (missing → undefined; must be non-empty strings). */
+export function optionalPathList(payload: unknown): string[] | undefined {
+  const value = (payload as Record<string, unknown> | null)?.['paths']
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || item === '')) {
+    throw new SidebarError('bad-request', 'invalid "paths"')
+  }
+  return value as string[]
+}

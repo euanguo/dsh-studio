@@ -101,6 +101,52 @@ export interface SidebarEnvelope<T> {
   value?: T
 }
 
+/**
+ * Request DTOs per API method — the single source of truth for the wire
+ * payload shapes. The host parses against these names and the client types
+ * its calls with them, so the two halves cannot drift (the stage/unstage
+ * `paths` vs `path` mismatch was exactly this class of bug).
+ */
+export interface SidebarApiRequests {
+  'session.cwd': { sessionId: string; cwd?: string }
+  'fs.tree': { path?: string }
+  'fs.read': { path: string }
+  'fs.write': { path: string; content: string }
+  'fs.create': { path: string; directory?: boolean }
+  'fs.rename': { from: string; to: string }
+  'fs.delete': { path: string }
+  'fs.copy': { from: string; to: string }
+  'fs.search': { pattern: string; caseSensitive?: boolean }
+  'fs.tail': { path: string; maxBytes?: number }
+  'git.status': Record<string, never>
+  'git.diff': { path?: string; staged?: boolean; context?: number }
+  'git.image-diff': { path: string; staged?: boolean }
+  'git.stage': { paths?: string[] }
+  'git.unstage': { paths?: string[] }
+  'git.commit': { message: string }
+  'git.branch': Record<string, never>
+  'git.checkout': { branch: string }
+  'git.log': { count?: number; skip?: number }
+  'git.commit-diff': { hash: string }
+  'git.commit-files': { hash: string }
+  'git.commit-file-diff': { hash: string; path: string }
+  'git.committed-files': Record<string, never>
+  'git.committed-diff': { baseRef: string; path?: string }
+  'git.discard': { paths: string[] }
+  'git.revert': { hash: string }
+  'git.cherry-pick': { hash: string }
+  'git.show': { path: string; rev: string }
+  'git.worktree-list': Record<string, never>
+  'git.worktree-add': { path: string; branch: string; createBranch?: boolean }
+  'pty.close': { sessionId: string; tab: string }
+  'agent-pty.close': { uuid: string }
+  'settings.get': Record<string, never>
+  'settings.update': { patch: Record<string, unknown>; expectedRevision?: number }
+  'browser.probe': { url: string }
+}
+
+export type SidebarApiMethod = keyof SidebarApiRequests
+
 /** Route prefix served by the generic sidebar host (`/sidebar/api`). */
 export const SIDEBAR_API_BASE = '/sidebar/api'
 

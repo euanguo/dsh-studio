@@ -38,7 +38,18 @@ import { defaultShell, ensureSpawnHelper, PtyManager } from './pty-manager.ts'
 import { AgentPtyRegistry, clampDims, type AgentTerminalHandle } from './agent-pty.ts'
 import { registerTools } from './tools.ts'
 import { buildJobsApi, type SidebarJobsRoutes } from './jobs-routes.ts'
-import { readJsonBody, requireString, SidebarError, writeError, writeJson, writeOk } from '../../shared/wire.ts'
+import {
+  optionalBoolean,
+  optionalInteger,
+  optionalPathList,
+  optionalString,
+  readJsonBody,
+  requireString,
+  SidebarError,
+  writeError,
+  writeJson,
+  writeOk,
+} from '../../shared/wire.ts'
 
 export { Config }
 export type { SidebarConfig, ResolvedSidebarConfig }
@@ -129,17 +140,6 @@ async function resolveGitPath(cwd: string, raw: string): Promise<string> {
   if (isAbsolute(raw)) return requireAbsolute(raw)
   const root = await git.repoRoot(cwd).catch(() => cwd)
   return requireAbsolute(join(root, raw))
-}
-
-/** Narrow the optional `paths` array the client sends for bulk git ops. */
-function pathsOf(payload: unknown): string[] | undefined {
-  const record = payload as { paths?: unknown } | null
-  const value = record?.paths
-  if (value === undefined) return undefined
-  if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || item === '')) {
-    throw new SidebarError('bad-request', 'invalid "paths"')
-  }
-  return value as string[]
 }
 
 /** Refuse mutating fs operations outside the session working directory. */
@@ -396,17 +396,13 @@ function buildApi(
     },
     'fs.search': async (payload) => {
       const { cwd } = cwdOf(payload)
-      const record = payload as { pattern?: unknown; caseSensitive?: unknown }
       const pattern = requireString(payload, 'pattern')
-      return searchWorkspace(cwd, pattern, record.caseSensitive === true)
+      return searchWorkspace(cwd, pattern, optionalBoolean(payload, 'caseSensitive') === true)
     },
     'fs.tail': async (payload) => {
       const { cwd } = cwdOf(payload)
       const path = await resolveGitPath(cwd, requireString(payload, 'path'))
-      const record = payload as { maxBytes?: unknown }
-      const maxBytes = typeof record.maxBytes === 'number' && Number.isInteger(record.maxBytes) && record.maxBytes > 0
-        ? Math.min(record.maxBytes, 512 * 1024)
-        : 128 * 1024
+      const maxBytes = Math.min(optionalInteger(payload, 'maxBytes', 1, Number.MAX_SAFE_INTEGER) ?? 128 * 1024, 512 * 1024)
       const info = await stat(path).catch((error: unknown) => {
         throw new SidebarError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
       })
@@ -441,18 +437,15 @@ function buildApi(
     },
     'git.diff': async (payload) => {
       const { cwd } = cwdOf(payload)
-      const record = payload as { path?: unknown; staged?: unknown; context?: unknown }
-      const path = record.path === undefined ? undefined : await resolveGitPath(cwd, requireString(payload, 'path'))
-      const context = typeof record.context === 'number' && Number.isInteger(record.context) && record.context >= 0 && record.context <= 200
-        ? record.context
-        : undefined
-      return { diff: await git.diff(cwd, path, record.staged === true, context) }
+      const raw = optionalString(payload, 'path')
+      const path = raw === undefined ? undefined : await resolveGitPath(cwd, raw)
+      const context = optionalInteger(payload, 'context', 0, 200)
+      return { diff: await git.diff(cwd, path, optionalBoolean(payload, 'staged') === true, context) }
     },
     'git.image-diff': async (payload) => {
       const { cwd } = cwdOf(payload)
-      const record = payload as { path?: unknown; staged?: unknown }
       const rel = requireString(payload, 'path')
-      const staged = record.staged === true
+      const staged = optionalBoolean(payload, 'staged') === true
       const abs = await resolveGitPath(cwd, rel)
       const oldData = await gitBlobBase64(cwd, staged ? 'HEAD' : '', rel)
       const newData = staged
@@ -462,12 +455,12 @@ function buildApi(
     },
     'git.stage': async (payload) => {
       const { cwd } = cwdOf(payload)
-      await git.stage(cwd, pathsOf(payload))
+      await git.stage(cwd, optionalPathList(payload))
       return { ok: true }
     },
     'git.unstage': async (payload) => {
       const { cwd } = cwdOf(payload)
-      await git.unstage(cwd, pathsOf(payload))
+      await git.unstage(cwd, optionalPathList(payload))
       return { ok: true }
     },
     'git.commit': async (payload) => {
@@ -487,22 +480,43 @@ function buildApi(
     },
     'git.log': async (payload) => {
       const { cwd } = cwdOf(payload)
-      const record = payload as { count?: unknown; skip?: unknown }
-      const count = typeof record.count === 'number' && Number.isInteger(record.count) && record.count > 0
-        ? record.count
-        : undefined
-      const skip = typeof record.skip === 'number' && Number.isInteger(record.skip) && record.skip >= 0
-        ? record.skip
-        : undefined
+      const count = optionalInteger(payload, 'count', 1, 1000)
+      const skip = optionalInteger(payload, 'skip', 0, 100_000)
       return git.log(cwd, count, skip)
     },
     'git.commit-diff': async (payload) => {
       const { cwd } = cwdOf(payload)
       return { diff: await git.commitDiff(cwd, requireString(payload, 'hash')) }
     },
+    'git.commit-files': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      return git.commitFiles(cwd, requireString(payload, 'hash'))
+    },
+    'git.commit-file-diff': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      return {
+        diff: await git.commitFileDiff(
+          cwd,
+          requireString(payload, 'hash'),
+          requireString(payload, 'path'),
+        ),
+      }
+    },
+    'git.committed-files': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      const baseRef = await git.upstreamRef(cwd)
+      if (baseRef === null) return { baseRef: null, entries: [] }
+      return { baseRef, entries: await git.committedFiles(cwd, baseRef) }
+    },
+    'git.committed-diff': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      const baseRef = requireString(payload, 'baseRef')
+      const path = optionalString(payload, 'path')
+      return { diff: await git.committedDiff(cwd, baseRef, path) }
+    },
     'git.discard': async (payload) => {
       const { cwd } = cwdOf(payload)
-      const paths = pathsOf(payload)
+      const paths = optionalPathList(payload)
       if (paths === undefined || paths.length === 0) {
         throw new SidebarError('bad-request', 'discard requires at least one path')
       }
@@ -533,9 +547,7 @@ function buildApi(
       const cwd = cwdScopeOf(payload)
       const path = requireAbsolute(requireString(payload, 'path'))
       const branch = requireString(payload, 'branch')
-      const record = payload as { createBranch?: unknown } | null
-      const createBranch = record?.createBranch === true
-      return git.worktreeAdd(cwd, path, branch, createBranch)
+      return git.worktreeAdd(cwd, path, branch, optionalBoolean(payload, 'createBranch') === true)
     },
     // Release a terminal immediately. The WebSocket close frame already does
     // this while the socket is open; this route covers the tab-close that
