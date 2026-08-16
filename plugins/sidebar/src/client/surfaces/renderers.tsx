@@ -17,6 +17,7 @@ import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-ch
 import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
 import { formatFileSelectionReference, getLineSelectionWithin } from '../files/file-selection-reference.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
+import { binding, registerKeymapAction } from '../kit/keymap.ts'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffToolbar } from '../diff/diff-toolbar.tsx'
 import { useDiffViewPreferences } from '../diff/diff-view-preferences.ts'
@@ -94,6 +95,19 @@ export function FileSurfaceView({
       mode === 'preview',
     )
   }, [surface.cwd, surface.id])
+
+  // Mod+Shift+V toggles Source/Preview on markdown file surfaces only.
+  useEffect(() => {
+    if (!isMarkdown) return
+    return registerKeymapAction(
+      'markdown.togglePreview',
+      binding({ mod: true, shift: true, key: 'v' }),
+      () => {
+        onMarkdownModeChange(markdownMode === 'preview' ? 'source' : 'preview')
+        return true
+      },
+    )
+  }, [isMarkdown, markdownMode, onMarkdownModeChange])
 
   const writeQueueRef = useRef(Promise.resolve())
   const onTaskToggle = useCallback(({ sourceLine, checked }: { sourceLine: number; checked: boolean }) => {
@@ -279,6 +293,12 @@ export function EditorSurfaceView({
       setError(cause instanceof Error ? cause.message : String(cause))
     }).finally(() => { setSaving(false) })
   }, [surface.cwd, surface.filePath, surface.sessionId])
+
+  // Mod+S flushes the editor immediately (autosave remains the safety net).
+  useEffect(() => registerKeymapAction('editor.save', binding({ mod: true, key: 's' }), () => {
+    save()
+    return true
+  }), [save])
 
   useEffect(() => {
     let alive = true
@@ -705,15 +725,15 @@ export function DiffAllSurfaceView({
     root.scrollTop = root.scrollTop + (target.top - anchor)
   }, [])
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key !== 'F7') return
-      event.preventDefault()
-      navigateChange(event.shiftKey ? -1 : 1)
-    }
-    window.addEventListener('keydown', onKeyDown)
-    return () => { window.removeEventListener('keydown', onKeyDown) }
-  }, [navigateChange])
+  useEffect(() => registerKeymapAction('diff.prevChange', binding({ key: 'F7' }), () => {
+    navigateChange(1)
+    return true
+  }), [navigateChange])
+
+  useEffect(() => registerKeymapAction('diff.nextChange', binding({ shift: true, key: 'F7' }), () => {
+    navigateChange(-1)
+    return true
+  }), [navigateChange])
 
   const collapseFile = useCallback((path: string) => {
     setRenderedKeys(previous => {

@@ -83,6 +83,7 @@ import {
 } from './files/file-viewers.tsx'
 import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
 import { disposeSidebarRuntimes } from './runtimes/registry.ts'
+import { binding, installKeymap, registerKeymapAction } from './kit/keymap.ts'
 import {
   acquireOpenPathPatch,
   registerLinkHandler,
@@ -100,29 +101,8 @@ class WorkspaceToolsService implements WorkspaceTools {
   private stopSidebar: (() => void) | undefined
   private readonly narrowViewport = window.matchMedia('(max-width: 900px)')
   private readonly handleViewportChange = (): void => { this.applyLayout() }
-  private readonly handleShortcut = (event: KeyboardEvent): void => {
-    const key = event.key.toLowerCase()
-    const primary = event.metaKey || event.ctrlKey
-    if (event.key === 'Escape' && this.state.maximized) {
-      event.preventDefault()
-      this.togglePanelMaximized()
-    } else if (event.ctrlKey && event.shiftKey && key === 'g') {
-      event.preventDefault()
-      this.openReview()
-    } else if (primary && !event.altKey && key === 't') {
-      event.preventDefault()
-      this.openBrowser()
-    } else if (primary && !event.altKey && key === 'p') {
-      event.preventDefault()
-      this.openFiles()
-    } else if (primary && event.altKey && key === 's') {
-      event.preventDefault()
-      void this.openSideChat()
-    } else if (primary && event.altKey && key === 'b') {
-      event.preventDefault()
-      this.toggleSidePanel()
-    }
-  }
+  private stopKeymap: (() => void) | undefined
+  private readonly disposeKeymapActions: Array<() => void> = []
 
   constructor(
     readonly sidebar: DesktopSidebar,
@@ -255,13 +235,45 @@ ${diffViewerCss}`
       />,
     )
     this.narrowViewport.addEventListener('change', this.handleViewportChange)
-    window.addEventListener('keydown', this.handleShortcut, true)
+    this.stopKeymap = installKeymap()
+    // Global (panel-level) shortcuts: registered for the app lifetime.
+    // Surface-scoped shortcuts register from their mounted views.
+    this.disposeKeymapActions.push(
+      registerKeymapAction('panel.toggle', binding({ mod: true, alt: true, key: 'b' }), () => {
+        this.toggleSidePanel()
+        return true
+      }),
+      registerKeymapAction('panel.maximizeEscape', binding({ key: 'Escape' }), () => {
+        if (!this.state.maximized) return false
+        this.togglePanelMaximized()
+        return true
+      }),
+      registerKeymapAction('review.open', binding({ ctrl: true, shift: true, key: 'g' }), () => {
+        this.openReview()
+        return true
+      }),
+      registerKeymapAction('browser.open', binding({ mod: true, key: 't' }), () => {
+        this.openBrowser()
+        return true
+      }),
+      registerKeymapAction('files.open', binding({ mod: true, key: 'p' }), () => {
+        this.openFiles()
+        return true
+      }),
+      registerKeymapAction('sidechat.open', binding({ mod: true, alt: true, key: 's' }), () => {
+        void this.openSideChat()
+        return true
+      }),
+    )
     this.applyLayout()
   }
 
   dispose(): void {
     this.stopSidebar?.()
-    window.removeEventListener('keydown', this.handleShortcut, true)
+    for (const unregister of this.disposeKeymapActions) unregister()
+    this.disposeKeymapActions.length = 0
+    this.stopKeymap?.()
+    this.stopKeymap = undefined
     this.narrowViewport.removeEventListener('change', this.handleViewportChange)
     this.root?.unmount()
     this.element?.remove()
