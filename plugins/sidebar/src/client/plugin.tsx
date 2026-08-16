@@ -44,14 +44,13 @@ import {
   CenterSurfaceHost,
   centerSurfaceRendererRegistry,
 } from './surfaces/center-surface-host.tsx'
+import { DiffSurfaceView, DiffAllSurfaceView } from './surfaces/diff-renderers.tsx'
 import {
   CommitDiffSurfaceView,
   CommitFileSurfaceView,
   CommittedSurfaceView,
-  ConflictSurfaceView,
-  DiffAllSurfaceView,
-  DiffSurfaceView,
-} from './surfaces/renderers.tsx'
+} from './surfaces/commit-renderers.tsx'
+import { ConflictSurfaceView } from './surfaces/conflict-renderer.tsx'
 import { FileSurfaceView } from './surfaces/file-surface.tsx'
 import {
   DesktopSidebarService,
