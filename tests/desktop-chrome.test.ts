@@ -42,13 +42,3 @@ test('titlebar inset is a token so surfaces follow the removal', () => {
   )
   assert.match(client, /const DESKTOP_TITLEBAR_HEIGHT = 0/)
 })
-
-test('fallback drag strip only appears when no usable header exists', () => {
-  assert.match(
-    client,
-    // The bar requires BOTH no usable header AND no mounted center strip
-    // (the strip is itself a drag region; the bar would swallow its
-    // controls' clicks — see the comment in DESKTOP_CHROME_CSS).
-    /body:not\(:has\(\[data-slot='conversation'\] header:not\(:empty\)\)\):not\(:has\(#oh-dsh-center-tabs-root\)\)::before[^{]*\{[^}]*webkit-app-region: drag;/s,
-  )
-})

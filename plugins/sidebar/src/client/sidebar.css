@@ -10,11 +10,11 @@ html {
    re-enables pointer-events when visible. */
 #oh-dsh-sidebar-root {
   position: fixed;
-  /* Top of the stacking ladder: DSH reserves a 28px window-drag strip as
-     body::before at the maximum z-index. The panel's own top row (tabs,
-     [+] menu, window controls) lives inside that 28px band, so the root
-     must match that z-index and paint after it — otherwise every real
-     click on the top row is swallowed by the drag strip. */
+  /* Top of the stacking ladder: the panel's top row (tabs, [+] menu,
+     window controls) is an interactive strip in the window-drag band,
+     so the root keeps the maximum z-index and paints above the center
+     strip — otherwise every real click on the top row would hit the
+     drag region underneath. */
   z-index: 2147483647;
   /* Flush to the window's edges — the panel is a flush right column (the
      macOS traffic lights live in the top-left corner and are never covered

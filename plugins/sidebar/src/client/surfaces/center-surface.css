@@ -4,9 +4,8 @@
    (`.aOBRAa_centerCol`), above the conversation slot — no fixed
    overlay, no left-rail measurement. The strip sits at the very
    top of the center area and doubles as the window drag region
-   (DSH reserves a 28px `body::before` drag strip with maximum
-   z-index; the strip matches that z-index and later paint order
-   so it replaces the reserved strip instead of leaving a gap).
+   (blank strip space drags the window; every interactive chip
+   opts out with no-drag).
    An active surface body fills the column (pushing the
    conversation out of view); with a conversation active the body
    collapses so the conversation shows.
