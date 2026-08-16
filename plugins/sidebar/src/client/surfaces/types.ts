@@ -172,8 +172,11 @@ export type CenterSurfaceSlice = Readonly<{
 
 /* ---------- id helpers (canonical, parseable) ---------- */
 
+/** Prefix of conversation surface ids (`conversation:<sessionId>`). */
+export const CONVERSATION_SURFACE_PREFIX = 'conversation:'
+
 export function conversationSurfaceId(sessionId: string): string {
-  return `conversation:${sessionId}`
+  return `${CONVERSATION_SURFACE_PREFIX}${sessionId}`
 }
 
 export function fileSurfaceId(filePath: string): string {

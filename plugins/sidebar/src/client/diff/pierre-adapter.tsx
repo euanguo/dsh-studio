@@ -40,9 +40,11 @@ export function resolvePierreDiffTheme(): PierreDiffTheme {
  * (`client-pierre-worker.js`, see build-config.mjs + pierre-worker-entry.ts)
  * and served by the sidebar-host /sidebar/bundle route (same origin).
  */
+const PIERRE_WORKER_URL = '/sidebar/bundle/pierre-worker.js'
+
 export function createPierreDiffWorker(): Worker {
   return new Worker(
-    '/sidebar/bundle/pierre-worker.js',
+    PIERRE_WORKER_URL,
     { type: 'module' },
   )
 }
@@ -71,7 +73,10 @@ function DiffWorkerThemeSync({ theme }: { readonly theme: PierreDiffTheme }): nu
     if (workerPool === undefined) return
     const current = workerPool.getDiffRenderOptions()
     if (current.theme === theme) return
-    void workerPool.setRenderOptions({ ...current, theme }).catch(() => undefined)
+    void workerPool.setRenderOptions({ ...current, theme }).catch((cause: unknown) => {
+      // Highlighting continues on the previous theme; log and keep going.
+      console.warn('[sidebar] failed to update pierre theme', cause)
+    })
   }, [theme, workerPool])
   return null
 }

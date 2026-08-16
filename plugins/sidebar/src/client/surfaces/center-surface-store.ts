@@ -26,6 +26,7 @@ import {
   commitSurfaceId,
   committedSurfaceId,
   conflictSurfaceId,
+  CONVERSATION_SURFACE_PREFIX,
   conversationSurfaceId,
   diffAllSurfaceId,
   diffSurfaceId,
@@ -543,7 +544,7 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       // Conversation tabs are rendered from the sessions list, not from the
       // open set — activating one must still work (it hides the surface
       // body and reveals the conversation).
-      const isConversation = surfaceId.startsWith('conversation:')
+      const isConversation = surfaceId.startsWith(CONVERSATION_SURFACE_PREFIX)
       if (!isConversation && !slice.open.some(surface => surface.id === surfaceId)) {
         return state
       }

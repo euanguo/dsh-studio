@@ -84,6 +84,13 @@ import {
 import { useSidebarChromeStore } from './runtimes/chrome-store.ts'
 import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
 
+/** Commit history panel resizer bounds (px). */
+const HISTORY_HEIGHT_DEFAULT = 256
+const HISTORY_HEIGHT_MIN = 96
+const HISTORY_HEIGHT_MAX = 520
+/** Change rows rendered before the "more changes" notice. */
+const VISIBLE_CHANGES_LIMIT = 200
+
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -366,8 +373,9 @@ export function WorkspacePanel({
   // keeps a bounded height (drag the top edge to resize) instead of pushing
   // the change list out of view (orca parity).
   const [historyCollapsed, setHistoryCollapsed] = useState(true)
-  const [historyHeight, setHistoryHeight] = useState(256)
+  const [historyHeight, setHistoryHeight] = useState(HISTORY_HEIGHT_DEFAULT)
   const historyResizeRef = useRef<{ startY: number; startHeight: number } | null>(null)
+  const historyResizeCleanupRef = useRef<(() => void) | null>(null)
   const startHistoryResize = useCallback((event: React.PointerEvent): void => {
     event.preventDefault()
     historyResizeRef.current = { startY: event.clientY, startHeight: historyHeight }
@@ -375,16 +383,25 @@ export function WorkspacePanel({
       const session = historyResizeRef.current
       if (session === null) return
       const next = session.startHeight + session.startY - move.clientY
-      setHistoryHeight(Math.min(520, Math.max(96, next)))
+      setHistoryHeight(Math.min(HISTORY_HEIGHT_MAX, Math.max(HISTORY_HEIGHT_MIN, next)))
     }
     const onUp = (): void => {
       historyResizeRef.current = null
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      historyResizeCleanupRef.current = null
     }
+    historyResizeCleanupRef.current = onUp
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerup', onUp)
+    // Pointer capture can drop mid-drag (window blur, gesture takeover).
+    window.addEventListener('pointercancel', onUp)
   }, [historyHeight])
+  // If the panel unmounts mid-drag the window listeners above would leak.
+  useEffect(() => () => {
+    historyResizeCleanupRef.current?.()
+  }, [])
   // Draft commit message lives in the chrome store (persisted per scope) so it
   // survives tab switches and reloads.
   const commitMessage = chrome?.sourceControl.commitMessage ?? ''
@@ -393,7 +410,7 @@ export function WorkspacePanel({
       useSidebarChromeStore.getState().setSourceControlCommitMessage(scopeKey, message)
     }
   }
-  const visibleChanges = snapshot?.changes.slice(0, 200) ?? []
+  const visibleChanges = snapshot?.changes.slice(0, VISIBLE_CHANGES_LIMIT) ?? []
   const rows = useMemo<SourceControlVisibleRow[]>(
     () => buildSourceControlRows({
       changes: visibleChanges,

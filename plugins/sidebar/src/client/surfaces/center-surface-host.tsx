@@ -299,9 +299,14 @@ function useLeftRailOpenState(): {
       setLeftRailOpen(button.getAttribute('aria-label')?.includes('收起') ?? false)
     }
     read()
+    // Observe only the DSH left sidebar subtree (not the whole body):
+    // chat streaming re-renders the conversation constantly, and this
+    // state only depends on the sidebar toggle's aria-label.
     const observer = new MutationObserver(read)
-    if (document.body !== null) {
-      observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'class'] })
+    const sidebarSlot = document.querySelector<HTMLElement>('[data-slot="sidebar"]')
+    const root = sidebarSlot ?? document.body
+    if (root !== null) {
+      observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'class'] })
     }
     return () => { observer.disconnect() }
   }, [])
