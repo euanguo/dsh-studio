@@ -8,6 +8,8 @@ export type DesktopSkinsMessage =
   | 'skins.name.ember-dusk'
   | 'skins.name.synara-night'
   | 'skins.name.synara-day'
+  | 'skins.name.chatgpt-night'
+  | 'skins.name.chatgpt-day'
   | 'skins.mode.system'
   | 'skins.mode.light'
   | 'skins.mode.dark'
@@ -24,6 +26,8 @@ export const DESKTOP_SKINS_MESSAGES: Record<'en' | 'zh', Record<DesktopSkinsMess
     'skins.name.ember-dusk': 'Ember Dusk',
     'skins.name.synara-night': 'Synara Night',
     'skins.name.synara-day': 'Synara Day',
+    'skins.name.chatgpt-night': 'ChatGPT Night',
+    'skins.name.chatgpt-day': 'ChatGPT Day',
     'skins.mode.system': 'Follow appearance',
     'skins.mode.light': 'Light',
     'skins.mode.dark': 'Dark',
@@ -39,6 +43,8 @@ export const DESKTOP_SKINS_MESSAGES: Record<'en' | 'zh', Record<DesktopSkinsMess
     'skins.name.ember-dusk': '余烬暮色',
     'skins.name.synara-night': 'Synara 夜色',
     'skins.name.synara-day': 'Synara 晨曦',
+    'skins.name.chatgpt-night': 'ChatGPT 暗夜',
+    'skins.name.chatgpt-day': 'ChatGPT 白日',
     'skins.mode.system': '跟随外观设置',
     'skins.mode.light': '浅色',
     'skins.mode.dark': '深色',

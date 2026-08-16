@@ -46,6 +46,16 @@ function builtinPreference(value: string | null): value is 'light' | 'dark' | 's
   return value !== null && BUILTIN_PREFERENCES.has(value)
 }
 
+/** The default skins that replace the official light/dark themes: the
+ *  ChatGPT pair. `system` resolves against the active scheme at the time
+ *  of the call. */
+const DEFAULT_SKINS = new Set(['oh-dsh-skin-chatgpt-night', 'oh-dsh-skin-chatgpt-day'])
+
+function skinForFallback(preference: 'light' | 'dark' | 'system', activeScheme: 'light' | 'dark'): string {
+  const scheme = preference === 'system' ? activeScheme : preference
+  return scheme === 'dark' ? 'oh-dsh-skin-chatgpt-night' : 'oh-dsh-skin-chatgpt-day'
+}
+
 /** Coordinates the official theme registry, durable skin choice, and DOM. */
 export class DesktopSkinsController implements DesktopSkins {
   private readonly listeners = new Set<() => void>()
@@ -81,6 +91,16 @@ export class DesktopSkinsController implements DesktopSkins {
       const skin = stored === null ? undefined : desktopSkin(stored)
       if (skin === undefined) {
         if (stored !== null) this.remove(ACTIVE_SKIN_KEY)
+        // No durable skin choice: default to the ChatGPT pair for the
+        // current scheme instead of the official theme. Record the
+        // system preference first so clearing a later choice can restore
+        // the same default.
+        const snapshot = this.theme.getTheme()
+        if (builtinPreference(snapshot.preference)) {
+          this.write(FALLBACK_THEME_KEY, snapshot.preference)
+        }
+        const fallback = this.fallbackPreference()
+        this.theme.setTheme(skinForFallback(fallback, snapshot.active.colorScheme))
       } else {
         const preference = this.theme.getTheme().preference
         if (builtinPreference(preference) && !builtinPreference(this.read(FALLBACK_THEME_KEY))) {
@@ -99,25 +119,48 @@ export class DesktopSkinsController implements DesktopSkins {
   adopt(snapshot: ThemeSnapshot): void {
     if (!this.started) return
     const skin = desktopSkin(snapshot.active.id)
-    if (skin === undefined) {
-      this.remove(ACTIVE_SKIN_KEY)
-      if (builtinPreference(snapshot.preference)) {
-        this.write(FALLBACK_THEME_KEY, snapshot.preference)
-      }
+    if (skin !== undefined) {
+      if (!DEFAULT_SKINS.has(skin.id)) this.write(ACTIVE_SKIN_KEY, skin.id)
+      this.dom.apply(skin)
+      this.publish(skin.id)
+      return
+    }
+    // A foreign registered theme is active: hands off, do not fight it.
+    if (snapshot.active.id !== 'light' && snapshot.active.id !== 'dark') {
       this.dom.apply(undefined)
       this.publish(null)
       return
     }
-    this.write(ACTIVE_SKIN_KEY, skin.id)
-    this.dom.apply(skin)
-    this.publish(skin.id)
+    // The official light/dark pair is active. ui-theme's async settings-scope
+    // adoption reverts a non-builtin preference to the durable builtin and
+    // re-emits `theme/change`, so re-assert the durable skin choice when one
+    // exists; otherwise map the official scheme onto the default ChatGPT pair
+    // (the official light/dark themes are replaced by the pair). setTheme
+    // re-enters adopt through `theme/change`, which then applies the skin.
+    const stored = this.read(ACTIVE_SKIN_KEY)
+    const durable = stored === null ? undefined : desktopSkin(stored)
+    if (builtinPreference(snapshot.preference)) {
+      this.write(FALLBACK_THEME_KEY, snapshot.preference)
+    }
+    const target = durable?.id ?? skinForFallback(this.fallbackPreference(), snapshot.active.colorScheme)
+    const targetSkin = desktopSkin(target)
+    if (targetSkin !== undefined) {
+      // Re-assert through the theme service so the token layer paints (setTheme
+      // also re-enters adopt via `theme/change` in the live wiring; applying
+      // directly here keeps the controller self-contained for any caller).
+      this.theme.setTheme(target)
+      this.dom.apply(targetSkin)
+      this.publish(targetSkin.id)
+    }
   }
 
   dispose(): void {
     if (!this.started) return
     const fallback = this.fallbackPreference()
     this.started = false
-    if (this.snapshot.activeId !== null) this.theme.setTheme(fallback)
+    if (this.snapshot.activeId !== null) {
+      this.theme.setTheme(skinForFallback(fallback, this.theme.getTheme().active.colorScheme))
+    }
     this.disposeRegistrations()
     this.dom.dispose()
   }
@@ -130,7 +173,8 @@ export class DesktopSkinsController implements DesktopSkins {
     if (!this.started) throw new Error('desktop skins controller is not started')
     if (id === null) {
       this.remove(ACTIVE_SKIN_KEY)
-      this.theme.setTheme(this.fallbackPreference())
+      const fallback = this.fallbackPreference()
+      this.theme.setTheme(skinForFallback(fallback, this.theme.getTheme().active.colorScheme))
       this.adopt(this.theme.getTheme())
       return
     }

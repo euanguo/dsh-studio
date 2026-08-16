@@ -109,14 +109,25 @@ class FakeSkinDom implements SkinDomPort {
 }
 
 test('desktop skins are namespaced and keep every app surface on one opaque base', () => {
-  assert.equal(DESKTOP_SKINS.length, 6)
+  assert.equal(DESKTOP_SKINS.length, 8)
   assert.equal(new Set(DESKTOP_SKINS.map(skin => skin.id)).size, DESKTOP_SKINS.length)
   for (const skin of DESKTOP_SKINS) {
+    const chatgpt = skin.id.startsWith('oh-dsh-skin-chatgpt')
     assert.match(skin.id, /^oh-dsh-skin-/)
     assert.ok(Object.keys(skin.tokens).length >= 30)
     assert.match(skin.tokens['--dsw-alias-bg-base'] ?? '', /^#[0-9a-f]{6}$/i)
-    assert.equal(skin.tokens['--dsw-alias-bg-base'], skin.tokens['--dsw-specific-sidebar-fill'])
-    assert.equal(skin.css, undefined)
+    assert.match(skin.tokens['--dsw-specific-sidebar-fill'] ?? '', /^#[0-9a-f]{6}$/i)
+    // Non-ChatGPT skins keep one opaque base for every surface; the
+    // ChatGPT pair deliberately deepens the sidebar rail (measured).
+    if (!chatgpt) {
+      assert.equal(skin.tokens['--dsw-alias-bg-base'], skin.tokens['--dsw-specific-sidebar-fill'])
+    }
+    // Only the ChatGPT pair carries an atmosphere stylesheet.
+    assert.equal(skin.css === undefined, !chatgpt)
+    if (chatgpt) {
+      assert.match(skin.css ?? '', /data-oh-dsh-skin\*=/)
+      assert.match(skin.css ?? '', /--gw-skin-radius-pill/)
+    }
   }
 })
 
@@ -148,13 +159,15 @@ test('choosing Original restores the appearance used before a skin', () => {
   assert.equal(storage.getItem(FALLBACK_THEME_KEY), 'dark')
 
   controller.setSkin(null)
-  assert.equal(theme.getTheme().preference, 'dark')
+  // Clearing the choice falls back to the default ChatGPT skin for the
+  // scheme (dark here), not the official theme.
+  assert.equal(theme.getTheme().active.id, 'oh-dsh-skin-chatgpt-night')
   assert.equal(storage.getItem(ACTIVE_SKIN_KEY), null)
-  assert.equal(controller.getSnapshot().activeId, null)
-  assert.equal(dom.active, undefined)
+  assert.equal(controller.getSnapshot().activeId, 'oh-dsh-skin-chatgpt-night')
+  assert.equal(dom.active, 'oh-dsh-skin-chatgpt-night')
 })
 
-test('an official appearance change safely takes over from desktop skins', () => {
+test('a durable skin choice outlasts an official appearance change', () => {
   const storage = new MemoryStorage()
   const theme = new FakeThemeService('system')
   const dom = new FakeSkinDom()
@@ -165,10 +178,34 @@ test('an official appearance change safely takes over from desktop skins', () =>
   theme.setTheme('light')
   controller.adopt(theme.getTheme())
 
-  assert.equal(storage.getItem(ACTIVE_SKIN_KEY), null)
+  // The official light/dark pair is replaced by the ChatGPT skins, so an
+  // official appearance change re-asserts the durable skin choice instead of
+  // taking over.
+  assert.equal(storage.getItem(ACTIVE_SKIN_KEY), 'oh-dsh-skin-ember-dusk')
   assert.equal(storage.getItem(FALLBACK_THEME_KEY), 'light')
-  assert.equal(controller.getSnapshot().activeId, null)
-  assert.equal(dom.active, undefined)
+  assert.equal(theme.getTheme().active.id, 'oh-dsh-skin-ember-dusk')
+  assert.equal(controller.getSnapshot().activeId, 'oh-dsh-skin-ember-dusk')
+  assert.equal(dom.active, 'oh-dsh-skin-ember-dusk')
+})
+
+test('official themes resolve to the default ChatGPT pair (builtin appearance is replaced)', () => {
+  const storage = new MemoryStorage()
+  const theme = new FakeThemeService('dark')
+  const dom = new FakeSkinDom()
+  const controller = new DesktopSkinsController(theme, storage, dom)
+  controller.start()
+
+  // ui-theme's async settings-scope adoption reverts the preference to the
+  // durable builtin and re-emits `theme/change`; the controller must re-assert
+  // the default ChatGPT skin instead of stripping it.
+  theme.setTheme('system')
+  controller.adopt(theme.getTheme())
+
+  assert.equal(storage.getItem(ACTIVE_SKIN_KEY), null)
+  assert.equal(storage.getItem(FALLBACK_THEME_KEY), 'system')
+  assert.equal(theme.getTheme().active.id, 'oh-dsh-skin-chatgpt-day')
+  assert.equal(controller.getSnapshot().activeId, 'oh-dsh-skin-chatgpt-day')
+  assert.equal(dom.active, 'oh-dsh-skin-chatgpt-day')
 })
 
 test('desktop skins reject unknown choices and release theme registrations', () => {
@@ -199,7 +236,7 @@ test('runtime teardown preserves the selected skin for the next launch', () => {
   controller.adopt(theme.getTheme())
 
   assert.equal(storage.getItem(ACTIVE_SKIN_KEY), 'oh-dsh-skin-porcelain')
-  assert.equal(theme.getTheme().preference, 'dark')
+  assert.equal(theme.getTheme().active.id, 'oh-dsh-skin-chatgpt-night')
   assert.equal(theme.custom.size, 0)
 })
 
