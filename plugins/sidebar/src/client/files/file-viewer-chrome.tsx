@@ -5,6 +5,8 @@
  * CSS-token environment (no Tailwind classes).
  */
 import { Fragment, useMemo } from 'react'
+import type { Translate } from '../../../../shared/i18n.ts'
+import type { WorkspaceMessage } from '../i18n.ts'
 import {
   IconChevronRight,
   IconEdit,
@@ -25,6 +27,7 @@ export function FileViewerChrome({
   meta,
   onOpenExternal,
   onEdit,
+  t,
 }: {
   cwd: string
   filePath: string
@@ -36,6 +39,7 @@ export function FileViewerChrome({
   meta?: string | null
   onOpenExternal?(): void
   onEdit?(): void
+  t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const { prefixSegments, fileSegment } = useMemo(() => {
     const normalized = filePath.replace(/\\/g, '/')
@@ -73,7 +77,7 @@ export function FileViewerChrome({
       ) : null}
       {truncated ? (
         <span className="oh-dsh-file-viewer-chrome-meta oh-dsh-file-viewer-chrome-truncated">
-          Shown partially
+          {t('files.partial')}
         </span>
       ) : null}
 
@@ -81,8 +85,8 @@ export function FileViewerChrome({
         <div className="oh-dsh-file-viewer-mode-switch" role="radiogroup" aria-label="Markdown view">
           {(
             [
-              { mode: 'source', label: 'Source', title: 'Source view', Icon: IconFileText },
-              { mode: 'preview', label: 'Preview', title: 'Rendered preview', Icon: IconEye },
+              { mode: 'source', label: t('files.viewer.source'), title: t('files.viewer.source'), Icon: IconFileText },
+              { mode: 'preview', label: t('files.viewer.preview'), title: t('files.viewer.preview'), Icon: IconEye },
             ] as const
           ).map(segment => {
             const selected = segment.mode === markdownMode
@@ -109,7 +113,7 @@ export function FileViewerChrome({
         <button
           type="button"
           className="oh-dsh-file-viewer-chrome-action"
-          title="Edit in built-in editor"
+          title={t('files.edit')}
           onClick={onEdit}
         >
           <IconEdit size={14} />
@@ -120,7 +124,7 @@ export function FileViewerChrome({
         <button
           type="button"
           className="oh-dsh-file-viewer-chrome-action"
-          title="Open externally"
+          title={t('files.open-externally')}
           onClick={onOpenExternal}
         >
           <IconExternalLink size={14} />

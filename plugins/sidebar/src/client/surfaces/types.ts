@@ -18,7 +18,6 @@ export type CenterSurfaceKind =
   | 'conflict'
   | 'browser'
   | 'terminal'
-  | 'editor'
 
 export interface ConversationCenterSurface {
   id: string
@@ -41,17 +40,6 @@ export interface FileCenterSurface {
   isPreview: boolean
   /** Persisted Markdown Source/Preview preference for this tab. */
   markdownPreview?: boolean
-}
-
-export interface EditorCenterSurface {
-  id: string
-  kind: 'editor'
-  sessionId: string
-  cwd: string
-  filePath: string
-  title: string
-  closable: true
-  isPreview: false
 }
 
 export interface DiffCenterSurface {
@@ -155,7 +143,6 @@ export interface TerminalCenterSurface {
 export type CenterSurface =
   | ConversationCenterSurface
   | FileCenterSurface
-  | EditorCenterSurface
   | DiffCenterSurface
   | DiffAllCenterSurface
   | CommitCenterSurface
@@ -181,10 +168,6 @@ export function conversationSurfaceId(sessionId: string): string {
 
 export function fileSurfaceId(filePath: string): string {
   return `file:${filePath}`
-}
-
-export function editorSurfaceId(filePath: string): string {
-  return `editor:${filePath}`
 }
 
 export function diffSurfaceId(filePath: string, staged: boolean): string {

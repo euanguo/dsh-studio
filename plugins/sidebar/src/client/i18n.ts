@@ -149,10 +149,13 @@ export type WorkspaceMessage =
   | 'diff.too-large'
   | 'diff.expand-context'
   | 'diff.expand-context-file'
-  | 'editor.edit'
-  | 'editor.read-only'
   | 'editor.save'
   | 'editor.saving'
+  | 'files.view'
+  | 'files.edit'
+  | 'files.viewer.source'
+  | 'files.viewer.preview'
+  | 'files.partial'
   | 'conflict.resolve-and-stage'
   | 'conflict.resolving'
   | 'conflict.accept-current'
@@ -309,10 +312,13 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'diff.too-large': 'Diff too large to render inline ({lines} lines).',
     'diff.expand-context': 'Expand context ({current} → {next})',
     'diff.expand-context-file': 'Expand context',
-    'editor.edit': 'Edit',
-    'editor.read-only': 'Read only',
     'editor.save': 'Save',
     'editor.saving': 'Saving…',
+    'files.view': 'View',
+    'files.edit': 'Edit in built-in editor',
+    'files.viewer.source': 'Source',
+    'files.viewer.preview': 'Preview',
+    'files.partial': 'Shown partially',
     'conflict.resolve-and-stage': 'Resolve and stage',
     'conflict.resolving': 'Resolving…',
     'conflict.accept-current': 'Accept current',
@@ -468,10 +474,13 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'diff.too-large': '差异过大，无法内联渲染（{lines} 行）。',
     'diff.expand-context': '展开上下文（{current} → {next}）',
     'diff.expand-context-file': '展开上下文',
-    'editor.edit': '编辑',
-    'editor.read-only': '只读',
     'editor.save': '保存',
     'editor.saving': '保存中…',
+    'files.view': '查看',
+    'files.edit': '在编辑器内编辑',
+    'files.viewer.source': '源代码',
+    'files.viewer.preview': '预览',
+    'files.partial': '仅显示部分内容',
     'conflict.resolve-and-stage': '解决并暂存',
     'conflict.resolving': '解决中…',
     'conflict.accept-current': '接受当前版本',
