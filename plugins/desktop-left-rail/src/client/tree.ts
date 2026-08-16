@@ -3,14 +3,33 @@
  * Unassigned Sessions trail under Ungrouped; only the selected blank Session
  * remains visible.
  */
-import {
-  indexSubagentDescendants, type PendingInteractionStatus, type SessionId, type SessionListState,
-  type SessionSearchResultItem, type SessionSummary, type SubagentDescendantSummary,
-  type WorkspaceId, type WorkspaceView,
+import { indexSubagentDescendants, type SubagentDescendantSummary } from './subagent-lineage.ts'
+import type {
+  PendingInteractionStatus, SessionId, SessionListState,
+  SessionSearchResultItem, SessionSummary, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
 
 /** Group key for Sessions outside every Workspace. */
 export const UNGROUPED_KEY = ''
+
+/* ------------------------------------------------------------------------- *
+ * Expansion-key namespaces (P3: view-state keys are prefixed so workspace
+ * ids, repo roots and worktree paths can never collide in one dictionary).
+ * ------------------------------------------------------------------------- */
+
+/** Expansion-key namespace for the ungrouped session bucket. */
+export const UNGROUPED_EXPANSION_KEY = 'ungrouped'
+/** Expansion key of one real Workspace group. */
+export const workspaceExpansionKey = (workspaceId: string): string => `ws:${workspaceId}`
+/** Expansion key of one project row (repo root or bare directory). */
+export const repoExpansionKey = (repoRoot: string): string => `repo:${repoRoot}`
+/** Expansion key of one worktree row (absolute path). */
+export const worktreeExpansionKey = (path: string): string => `wt:${path}`
+
+/** The expansion-key account of one group key (workspace id or ungrouped). */
+export function groupExpansionKeyOf(groupKey: string): string {
+  return groupKey === UNGROUPED_KEY ? UNGROUPED_EXPANSION_KEY : workspaceExpansionKey(groupKey)
+}
 
 /** Display label for the ungrouped bucket row. */
 export const UNGROUPED_LABEL = 'Ungrouped'
@@ -92,7 +111,8 @@ export const DEFAULT_GROUP_ID = '__default__'
 /** One named group tab in the horizontal strip. */
 export interface GroupTab {
   id: string
-  label: string
+  /** Display label; absent for the pinned default tab (the renderer localizes it). */
+  label?: string
   /** The built-in catch-all tab (cannot be renamed/removed). */
   pinned: boolean
 }
@@ -108,9 +128,12 @@ export interface WorktreeNode {
   branch: string | null
   /** The repository's main worktree (repo root). */
   main: boolean
-  /** DSH workspace whose cwd lives inside this worktree (host identity). */
-  workspaceId: WorkspaceId | undefined
-  /** Visible sessions colonized under this worktree. */
+  /**
+   * DSH workspaces whose cwd lives inside this worktree (host identities in
+   * workspace order; actions must address every member, not just one).
+   */
+  workspaceIds: readonly WorkspaceId[]
+  /** All sessions colonized under this worktree (the renderer crops to five when collapsed). */
   sessions: readonly SessionNode[]
   /** Total visible sessions before collapse. */
   sessionCount: number
@@ -342,7 +365,7 @@ export function deriveGroups(
         ?? UNGROUPED_KEY
   const groups: GroupNode[] = []
   for (const g of groupByWorkspace(list, workspaces, archived, view.ungroupedOrder)) {
-    const expanded = expandedGroups.has(g.key)
+    const expanded = expandedGroups.has(groupExpansionKeyOf(g.key))
     groups.push({
       key: g.key,
       workspaceId: g.workspaceId,
@@ -397,7 +420,7 @@ export function deriveProjectTree(
     label: string
     branch: string | null
     main: boolean
-    workspaceId: WorkspaceId | undefined
+    workspaceIds: WorkspaceId[]
     members: SessionSummary[]
   }
 
@@ -441,19 +464,29 @@ export function deriveProjectTree(
     let wts: WT[]
     if (layout === undefined) {
       // Non-git dir: a single synthetic worktree, members from its workspace.
+      // `main: false` — the "main" marker is a git concept and a bare
+      // directory must not advertise it (the renderer shows the badge only
+      // for git worktrees).
       const workspace = workspaces.find(w => w.path === key)
       wts = [{
-        path: key, label: workspaceLabel(key), branch: null, main: true,
-        workspaceId: workspace?.workspaceId, members: workspace === undefined ? [] : join(workspace),
+        path: key, label: workspaceLabel(key), branch: null, main: false,
+        workspaceIds: workspace === undefined ? [] : [workspace.workspaceId],
+        members: workspace === undefined ? [] : join(workspace),
       }]
     } else {
-      wts = layout.worktrees.map(wt => ({ path: wt.path, label: workspaceLabel(wt.path), branch: wt.branch, main: wt.main, workspaceId: undefined, members: [] }))
+      wts = layout.worktrees.map(wt => ({
+        path: wt.path, label: workspaceLabel(wt.path), branch: wt.branch, main: wt.main,
+        workspaceIds: [], members: [],
+      }))
       for (const workspace of workspaces) {
         const l = layoutOf(workspace.path)
         if (l === null || l === undefined || l.repoRoot !== key) continue
         const bucket = worktreeOf(wts, workspace.path)
         if (bucket !== undefined) {
-          bucket.workspaceId = workspace.workspaceId
+          // Every workspace whose cwd lives under this worktree joins the
+          // row: members accumulate and the identity list grows, so row
+          // actions address the full set instead of the last workspace.
+          bucket.workspaceIds.push(workspace.workspaceId)
           bucket.members.push(...join(workspace))
         }
       }
@@ -464,27 +497,36 @@ export function deriveProjectTree(
       mainBranch: wts[0]?.branch ?? null,
       worktrees: wts.map(wt => ({
         key: wt.path, path: wt.path, label: wt.label, branch: wt.branch, main: wt.main,
-        workspaceId: wt.workspaceId,
-        sessions: expanded.has(wt.path) ? wt.members.map(m => sessionNode(m, descendants)) : [],
+        workspaceIds: wt.workspaceIds,
+        // Sessions always carry the full member list; the renderer decides
+        // the collapsed preview (first five) vs the full expanded run.
+        sessions: wt.members.map(m => sessionNode(m, descendants)),
         sessionCount: wt.members.length,
-        expanded: expanded.has(wt.path),
+        expanded: expanded.has(worktreeExpansionKey(wt.path)),
         containsCurrent: wt.members.some(m => m.id === current),
       })),
       worktreeCount: wts.length,
-      expanded: expanded.has(key),
+      expanded: expanded.has(repoExpansionKey(key)),
       containsCurrent,
     }
   })
 
-  // Tabs: pinned default first, then user groups in stored order.
-  const tabs: GroupTab[] = [{ id: DEFAULT_GROUP_ID, label: '默认', pinned: true }]
+  // Tabs: pinned default first, then user groups in stored order. The pinned
+  // tab carries no label — the renderer localizes it (t('tab.default')).
+  const tabs: GroupTab[] = [{ id: DEFAULT_GROUP_ID, pinned: true }]
   for (const id of view.groupIds) {
     if (id === DEFAULT_GROUP_ID) continue
     tabs.push({ id, label: view.groupLabels[id] ?? id, pinned: false })
   }
   const activeTab = tabs.some(tab => tab.id === view.activeTab) ? view.activeTab : DEFAULT_GROUP_ID
 
-  const groupOf = (repoRoot: string): string => view.projectGroup[repoRoot] ?? DEFAULT_GROUP_ID
+  // A project assigned to a group that no longer exists (settings drift or a
+  // half-finished move gesture) must not vanish: it falls back to the pinned
+  // tab instead of being filtered out of every tab.
+  const groupOf = (repoRoot: string): string => {
+    const assigned = view.projectGroup[repoRoot] ?? DEFAULT_GROUP_ID
+    return tabs.some(tab => tab.id === assigned) ? assigned : DEFAULT_GROUP_ID
+  }
   const projects = allProjects.filter(p => groupOf(p.repoRoot) === activeTab)
 
   return { tabs, activeTab, projects, allProjects }
