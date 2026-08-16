@@ -42,7 +42,9 @@ export interface ChromeGeometry {
   platform: NodeJS.Platform
   /** macOS traffic-light anchor (the BrowserWindow trafficLightPosition). */
   trafficLight: { x: number; y: number } | null
-  /** Estimated traffic-light cluster width (buttons + gaps + trailing). */
+  /** Exact traffic-light cluster width: three 12px buttons with 8px gaps
+   *  (Apple HIG) = 52px. Deterministic — the buttons are system-drawn at
+   *  fixed positions relative to our own anchor. */
   trafficLightWidth: number
 }
 

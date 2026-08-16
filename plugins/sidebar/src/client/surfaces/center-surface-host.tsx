@@ -207,9 +207,10 @@ const EMPTY_CENTER_SLICE: CenterSurfaceSlice = { open: [], activeId: null }
 /**
  * The unified top rail: the center tab strip owns ALL top-of-window
  * controls as in-flow flex members, so nothing floats over the tabs:
- * - LEFT: the DSH left-rail toggle (only while the rail is collapsed —
- *   right of the macOS traffic lights, which the strip reserves via
- *   `--oh-dsh-traffic-left`);
+ * - LEFT: the left-rail toggle — ALWAYS rendered, the single manager of
+ *   the DSH left rail (DSH's own header toggle is hidden by CSS; the
+ *   strip's live `--oh-dsh-traffic-pad` keeps it exactly right of the
+ *   macOS traffic lights in every rail state);
  * - MIDDLE: the tab scroller (the ONLY scrolling member);
  * - RIGHT: the right-rail reopen button (only while the panel is closed —
  *   pinned to the strip's right end, never covered by overflowing tabs).
@@ -218,14 +219,17 @@ const EMPTY_CENTER_SLICE: CenterSurfaceSlice = { open: [], activeId: null }
  */
 function LeftRailToggleButton(props: {
   onToggleLeftRail(): void
+  /** Whether the DSH left rail is currently expanded (null = unknown). */
+  leftRailOpen: boolean | null
 }): JSX.Element {
+  const label = props.leftRailOpen === true ? '收起左栏' : '展开左栏'
   return (
     <button
       type="button"
       className="oh-dsh-left-rail-toggle"
-      aria-label="展开左栏"
-      title="展开左栏"
-      aria-pressed={false}
+      aria-label={label}
+      title={label}
+      aria-pressed={props.leftRailOpen === true}
       onClick={props.onToggleLeftRail}
     >
       <span className="oh-dsh-rail-toggle-glyph" aria-hidden="true">
@@ -486,12 +490,8 @@ function CenterSurfaceHostView({
         {/* The unified top rail: left toggle + tab scroller + right reopen,
             all in-flow members of the strip (see the TopRailControls
             section comment above). */}
-        <div
-          className={`oh-dsh-center-tabs-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}`}
-        >
-          {leftRailOpen === false && (
-            <LeftRailToggleButton onToggleLeftRail={toggleLeftRail} />
-          )}
+        <div className="oh-dsh-center-tabs-strip">
+          <LeftRailToggleButton onToggleLeftRail={toggleLeftRail} leftRailOpen={leftRailOpen} />
           <div className="oh-dsh-center-tabs-scroller">
             <CenterSurfaceTabs sessions={sessions} t={t} />
           </div>

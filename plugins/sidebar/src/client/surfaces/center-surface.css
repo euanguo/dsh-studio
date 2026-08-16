@@ -12,10 +12,14 @@
    collapses so the conversation shows.
    ============================================================ */
 
-/* The macOS traffic-light reservation for the unified top rail: the strip
-   pads its left edge by this width while the DSH left rail is collapsed,
-   so the in-flow left-rail toggle sits exactly right of the lights. This
-   is the single place the offset lives. */
+/* The unified top-rail geometry variables (set live by
+   chrome-geometry.ts; the values here are the non-desktop fallbacks):
+   - `--oh-dsh-traffic-pad-l/r`: the STRIP's effective left/right padding
+     (chrome reservation minus the strip's own offset, clamped) — so the
+     in-flow left-rail toggle always sits exactly right of the macOS
+     traffic lights regardless of the DSH rail state, and the strip's
+     right-end controls never tuck under the Windows overlay buttons;
+   - `--oh-dsh-traffic-left`: absolute content start, for diagnostics. */
 :root {
   --oh-dsh-traffic-left: 74px;
 }
@@ -71,7 +75,7 @@
   align-items: center;
   gap: var(--oh-dsh-space-1);
   min-height: 42px;
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-traffic-right, var(--oh-dsh-space-2)) var(--oh-dsh-space-1) var(--oh-dsh-space-2);
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-traffic-pad-r, var(--oh-dsh-traffic-right, var(--oh-dsh-space-2))) var(--oh-dsh-space-1) var(--oh-dsh-traffic-pad-l, 74px);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
@@ -79,12 +83,13 @@
   flex: none;
 }
 
-/* While the DSH left rail is collapsed the strip reserves the macOS
-   traffic-light width (`--oh-dsh-traffic-left`) so the in-flow toggle
-   sits exactly right of the lights and the first tab never tucks under
-   either. The reservation is the single place this offset lives. */
-.oh-dsh-center-tabs-strip.is-left-collapsed {
-  padding-left: var(--oh-dsh-traffic-left, 74px);
+/* The DSH left rail keeps its own expand/collapse toggle in its header;
+   the unified top rail is the single manager now, so the DSH button is
+   hidden — it stays clickable programmatically by the strip's toggle
+   (`leftRailToggleButton().click()`). The aria-label flip that tracks
+   the rail state lives on this same (hidden) button. */
+[data-slot='sidebar'] button[aria-label*='侧边栏'] {
+  display: none !important;
 }
 
 /* The tab scroller is the ONLY scrolling member of the strip: the toggle
@@ -109,8 +114,9 @@
 }
 
 /* In-strip rail controls (the unified top rail):
-   - left rail toggle: rendered only while the rail is collapsed, right of
-     the macOS traffic lights (the strip's is-left-collapsed padding);
+   - left rail toggle: always rendered — the single manager of the DSH
+     left rail (the DSH's own header toggle is hidden); sits right of the
+     macOS traffic lights (the strip's live `--oh-dsh-traffic-pad`);
    - right rail reopen: rendered only while the panel is closed, pinned to
      the strip's right end — overflowing tabs scroll under it never (they
      live in the scroller). Both opt out of the window-drag strip. */

@@ -14,8 +14,9 @@
 
 /* Top row of the panel: the shared SurfaceTab chips (pinned 文件 / Git,
    then extra open tools) plus the flush-right window controls.
-   Height matches the center tab strip (41px) so the two rows and their
-   bottom borders line up on the same line.
+   Height matches the center tab strip (42px) so the two rows and their
+   bottom borders line up on the same line. 42px keeps the tab's vertical
+   inset (8px) equal to the horizontal padding (8px).
    `no-drag`: DSH reserves a 28px `-webkit-app-region: drag` strip at the
    very top (body::before) that swallows every real mouse event in its
    band — the top row lives inside it, so it must opt out to stay
@@ -25,8 +26,17 @@
   display: flex;
   align-items: center;
   flex: none;
-  min-height: 41px;
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-3);
+  /* Fill the panel exactly: as a flex:none child the row would otherwise
+     size to its content and overflow a side-by-side panel (the tab strip
+     scrolls internally instead). min-width:0 lets it shrink to the
+     panel's width — auto would floor it at the content's min-width. */
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  /* The panel may overlay the whole window (x=0) or sit side-by-side;
+     chrome-geometry.ts computes the effective pads per element: left of
+     the macOS traffic lights, right of the Windows overlay controls. */
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-side-pad-r, var(--oh-dsh-traffic-right, var(--oh-dsh-space-2))) var(--oh-dsh-space-1) var(--oh-dsh-side-pad-l, var(--oh-dsh-space-2));
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
@@ -222,8 +232,8 @@
 .oh-dsh-side-error { margin: var(--oh-dsh-space-2) var(--oh-dsh-space-3); padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-2); border-radius: var(--oh-dsh-radius-sm); background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 10%, transparent); color: var(--dsw-alias-state-error-primary, #cf222e); font-size: var(--oh-dsh-font-sm); }
 
 .oh-dsh-files-path span { flex: 1; min-width: 0; overflow: hidden; color: var(--dsw-alias-label-secondary, #57606a); font-size: var(--oh-dsh-font-sm); text-overflow: ellipsis; white-space: nowrap; }
-.oh-dsh-file-list { flex: 1; min-height: 0; overflow: auto; padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1) var(--oh-dsh-space-4) var(--oh-dsh-space-3); }
-.oh-dsh-file-list > button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: var(--oh-dsh-space-1-5); width: 100%; min-height: 32px; padding: 0 7px; border: 0; border-radius: var(--oh-dsh-radius-sm); background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
+.oh-dsh-file-list { flex: 1; min-height: 0; overflow: auto; padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2) var(--oh-dsh-space-4) var(--oh-dsh-space-2); }
+.oh-dsh-file-list > button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: var(--oh-dsh-space-1-5); width: 100%; min-height: 32px; padding: 0 var(--oh-dsh-space-1-5); border: 0; border-radius: var(--oh-dsh-radius-sm); background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
 .oh-dsh-file-list > button:hover { background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%)); }
 .oh-dsh-file-list > button span:nth-child(2) { overflow: hidden; font-size: var(--oh-dsh-font-md); text-overflow: ellipsis; white-space: nowrap; }
 .oh-dsh-file-list small { color: var(--dsw-alias-label-tertiary, #8c959f); font-size: var(--oh-dsh-font-xs); }
