@@ -9,7 +9,7 @@
  * caps), image loading/error/zoom states, PDF toolbar, sticky CSV header,
  * differentiated binary states, and truncated propagation for write-gating.
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   IconExternalLink,
@@ -72,6 +72,15 @@ function formatBytes(size: number): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/** Newline-count line total without allocating the full line array. */
+function countLineBreaks(text: string): number {
+  let count = 1
+  for (let index = 0; index < text.length; index += 1) {
+    if (text.charCodeAt(index) === 10) count += 1
+  }
+  return count
+}
+
 export interface ContentViewerProps {
   path: string
   content: string | null
@@ -106,6 +115,21 @@ export function ContentViewer({
 }: ContentViewerProps): JSX.Element {
   const kind = detectKind(path, binary)
   const name = path.split(/[\\/]/).filter(Boolean).pop() ?? path
+
+  // Heavy per-content derivations, computed once per content change instead
+  // of once per render (rail resizes / tab switches re-render this view).
+  const lineCount = useMemo(
+    () => (content === null ? 0 : countLineBreaks(content)),
+    [content],
+  )
+  const csvTable = useMemo(() => {
+    // Only meaningful for the csv branch; other kinds get an inert default.
+    if (kind !== 'csv' || content === null) {
+      return { delimiter: '\t', rows: [] as ReturnType<typeof parseDelimitedRows> }
+    }
+    const delimiter = detectDelimiter(path, content)
+    return { delimiter, rows: parseDelimitedRows(content, delimiter) }
+  }, [kind, path, content])
 
   if (kind === 'image' && data !== undefined) {
     return (
@@ -143,7 +167,7 @@ export function ContentViewer({
       <div className="oh-dsh-content-empty" data-kind={isEmpty ? 'empty' : 'binary'}>
         <IconFileText size={20} />
         <strong>{name}</strong>
-        <span>{isEmpty ? 'Empty file' : t('files.viewer.binary')}</span>
+        <span>{isEmpty ? t('files.empty-file') : t('files.viewer.binary')}</span>
         {onOpenExternal !== undefined && (
           <button type="button" onClick={onOpenExternal}>{t('files.open')}</button>
         )}
@@ -166,7 +190,7 @@ export function ContentViewer({
       <div className="oh-dsh-content-empty" data-kind="empty">
         <IconFileText size={20} />
         <strong>{name}</strong>
-        <span>Empty file</span>
+        <span>{t('files.empty-file')}</span>
       </div>
     )
   }
@@ -182,7 +206,7 @@ export function ContentViewer({
   if (kind === 'mermaid') {
     return (
       <div className="oh-dsh-content-root">
-        <MermaidViewer content={content} />
+        <MermaidViewer content={content} t={t} />
       </div>
     )
   }
@@ -197,13 +221,12 @@ export function ContentViewer({
         />
       )
     }
-    const lines = content.split('\n')
-    const showLineNumbers = lines.length <= MAX_NUMBERED_LINES
+    const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
     return (
       <div className="oh-dsh-content-root oh-dsh-content-root-fill">
         <div className="oh-dsh-content-meta">
           <span>{name}</span>
-          <span>{`markdown · ${lines.length} lines`}</span>
+          <span>{`markdown · ${lineCount} lines`}</span>
           {truncated ? <span>{t('files.preview-truncated')}</span> : null}
         </div>
         <PierreFileView
@@ -219,17 +242,15 @@ export function ContentViewer({
   }
 
   if (kind === 'csv') {
-    const delimiter = detectDelimiter(path, content)
-    const rows = parseDelimitedRows(content, delimiter)
     return (
       <div className="oh-dsh-content-root">
         <div className="oh-dsh-content-meta">
-          <span>{delimiter === '\t' ? 'tsv' : 'csv'}</span>
-          <span>{`${Math.max(rows.length - 1, 0)} rows`}</span>
+          <span>{csvTable.delimiter === '\t' ? 'tsv' : 'csv'}</span>
+          <span>{`${Math.max(csvTable.rows.length - 1, 0)} rows`}</span>
           {size === undefined ? '' : formatBytes(size)}
           {truncated ? <span>{t('files.preview-truncated')}</span> : null}
         </div>
-        <CsvVirtualTable rows={rows} />
+        <CsvVirtualTable rows={csvTable.rows} />
       </div>
     )
   }
@@ -238,14 +259,13 @@ export function ContentViewer({
   // through the same Pierre File component — one viewer family, no custom
   // plain renderer. Unknown languages pass lang 'text' (plain rows with
   // line numbers, same chrome as highlighted files).
-  const lines = content.split('\n')
   const language = languageForPath(path)
-  const showLineNumbers = lines.length <= MAX_NUMBERED_LINES
+  const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
   return (
     <div className="oh-dsh-content-root oh-dsh-content-root-fill">
       <div className="oh-dsh-content-meta">
         <span>{name}</span>
-        <span>{isPlainLanguage(language) ? `${lines.length} lines` : `${language} · ${lines.length} lines`}</span>
+        <span>{isPlainLanguage(language) ? `${lineCount} lines` : `${language} · ${lineCount} lines`}</span>
         {truncated ? <span>{t('files.preview-truncated')}</span> : null}
       </div>
       <PierreFileView
@@ -328,7 +348,7 @@ function ImageViewer({
         <div className="oh-dsh-content-empty">
           <IconFileText size={20} />
           <strong>{name}</strong>
-          <span>Could not load image.</span>
+          <span>{t('files.image-load-failed')}</span>
           {onOpenExternal !== undefined && (
             <button type="button" onClick={onOpenExternal}>{t('files.open')}</button>
           )}
@@ -336,22 +356,22 @@ function ImageViewer({
       ) : (
         <>
           <div className="oh-dsh-image-toolbar">
-            <button type="button" onClick={() => setZoom(value => Math.max(0.25, value - 0.25))} aria-label="Zoom out">
+            <button type="button" onClick={() => setZoom(value => Math.max(0.25, value - 0.25))} aria-label={t('files.zoom-out')}>
               <IconMinus size={14} />
             </button>
             <span>{`${Math.round(zoom * 100)}%`}</span>
-            <button type="button" onClick={() => setZoom(value => Math.min(8, value + 0.25))} aria-label="Zoom in">
+            <button type="button" onClick={() => setZoom(value => Math.min(8, value + 0.25))} aria-label={t('files.zoom-in')}>
               <IconPlus size={14} />
             </button>
-            <button type="button" onClick={() => setZoom(1)}>Reset</button>
+            <button type="button" onClick={() => setZoom(1)}>{t('files.zoom-reset')}</button>
             {onOpenExternal !== undefined ? (
-              <button type="button" onClick={onOpenExternal} aria-label="Open externally">
+              <button type="button" onClick={onOpenExternal} aria-label={t('files.open-externally')}>
                 <IconExternalLink size={14} />
               </button>
             ) : null}
           </div>
           <div className="oh-dsh-content-media-stage">
-            {status === 'loading' ? <span className="oh-dsh-side-muted">Loading image…</span> : null}
+            {status === 'loading' ? <span className="oh-dsh-side-muted">{t('files.image-loading')}</span> : null}
             <img
               src={`data:${mime};base64,${data}`}
               alt={name}

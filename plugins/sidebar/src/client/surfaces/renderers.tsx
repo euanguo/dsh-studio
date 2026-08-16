@@ -33,7 +33,7 @@ import { commentsToDiffLineAnnotations, commentsToFileLineAnnotations } from '..
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
 import { buildDiffDocument } from '../diff/file-diff.ts'
-import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
+import { usePierreDiffTheme, type PierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { parseGitReviewDiff, reviewFileToDiffDocument } from '../review/review-diff.ts'
 import type { GitReviewFile } from '../review/review-types.ts'
 import type {
@@ -195,7 +195,10 @@ export function FileSurfaceView({
   }
   const snapshot = entry.snapshot
   const content = snapshot.kind === 'text' ? snapshot.content : null
-  const lineCount = content === null ? 0 : content.split('\n').length
+  const lineCount = useMemo(
+    () => (content === null ? 0 : content.split('\n').length),
+    [content],
+  )
   return (
     <div className="oh-dsh-file-surface" data-testid="file-surface">
       <FileViewerChrome
@@ -277,26 +280,38 @@ export function EditorSurfaceView({
     [comments],
   )
 
+  // Writes serialize through one queue (autosave, Mod+S and the Save button
+  // can fire concurrently); dirty only clears when the file on disk matches
+  // what the editor still holds at resolve time, so typing during a write is
+  // never mislabeled as saved.
+  const writeQueueRef = useRef(Promise.resolve())
+  const pendingWritesRef = useRef(0)
+
   const save = useCallback((nextContent?: string) => {
     const value = nextContent ?? latestContentRef.current
-    if (value === '') {
-      // Empty content is a valid save; still write it below.
-    }
+    pendingWritesRef.current += 1
     setSaving(true)
-    betterSidebarApi.fsWrite(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
-      surface.filePath,
-      value,
-    ).then(() => {
-      setDirty(false)
-      setError('')
-      // Refresh the file runtime so other file tabs see the new content.
-      getFileRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }).invalidate(surface.filePath)
-    }).catch((cause: unknown) => {
-      const message = cause instanceof Error ? cause.message : String(cause)
-      setError(message)
-      toast('error', t('toast.save-failed', { message }))
-    }).finally(() => { setSaving(false) })
+    writeQueueRef.current = writeQueueRef.current
+      .then(() => betterSidebarApi.fsWrite(
+        { sessionId: surface.sessionId, cwd: surface.cwd },
+        surface.filePath,
+        value,
+      ))
+      .then(() => {
+        setDirty(latestContentRef.current !== value)
+        setError('')
+        // Refresh the file runtime so other file tabs see the new content.
+        getFileRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }).invalidate(surface.filePath)
+      })
+      .catch((cause: unknown) => {
+        const message = cause instanceof Error ? cause.message : String(cause)
+        setError(message)
+        toast('error', t('toast.save-failed', { message }))
+      })
+      .finally(() => {
+        pendingWritesRef.current -= 1
+        if (pendingWritesRef.current === 0) setSaving(false)
+      })
   }, [surface.cwd, surface.filePath, surface.sessionId, t])
 
   // Mod+S flushes the editor immediately (autosave remains the safety net).
@@ -407,6 +422,11 @@ export function DiffSurfaceView({
   )
   const [commentLine, setCommentLine] = useState('')
   const [commentBody, setCommentBody] = useState('')
+  // Cooldown after "Expand context" (the button re-enables when it fires).
+  const expandTimerRef = useRef<number | null>(null)
+  useEffect(() => () => {
+    if (expandTimerRef.current !== null) window.clearTimeout(expandTimerRef.current)
+  }, [])
   const isImagePath = /\.(png|jpe?g|gif|webp|bmp|ico|svg|avif)$/i.test(surface.filePath)
   const theme = usePierreDiffTheme()
   const layout = useDiffViewPreferences(state => state.layout)
@@ -543,7 +563,8 @@ export function DiffSurfaceView({
           onClick={() => {
             setExpanding(true)
             setContext(value => Math.min(200, value + 20))
-            window.setTimeout(() => setExpanding(false), 1200)
+            if (expandTimerRef.current !== null) window.clearTimeout(expandTimerRef.current)
+            expandTimerRef.current = window.setTimeout(() => setExpanding(false), 1200)
           }}
         >
           {expanding ? t('workspace.loading-diff') : `Expand context (${context} → ${Math.min(200, context + 20)})`}
@@ -575,13 +596,15 @@ export function DiffSurfaceView({
           <input
             type="number"
             min={1}
-            placeholder="Line"
+            aria-label={t('workspace.comment-line')}
+            placeholder={t('workspace.comment-line')}
             value={commentLine}
             onChange={event => { setCommentLine(event.target.value) }}
           />
           <input
             type="text"
-            placeholder="Comment"
+            aria-label={t('workspace.comment-placeholder')}
+            placeholder={t('workspace.comment-placeholder')}
             value={commentBody}
             onChange={event => { setCommentBody(event.target.value) }}
           />
@@ -604,7 +627,7 @@ export function DiffSurfaceView({
               setCommentLine('')
               setCommentBody('')
             }}
-          >Add</button>
+          >{t('workspace.add-comment')}</button>
         </div>
       </div>
     </div>
@@ -842,6 +865,92 @@ export function DiffAllSurfaceView({
 
 /* ---------- commit diff ---------- */
 
+/** Distance beyond the viewport at which a commit file block pre-mounts. */
+const COMMIT_BLOCK_MOUNT_MARGIN = '320px 0px'
+
+/**
+ * One commit file's details/summary row. The details stay open, but the
+ * heavy DiffViewer body mounts lazily when the row scrolls near the
+ * viewport — a large commit no longer builds every Pierre diff upfront.
+ */
+function CommitFileBlock({
+  file,
+  theme,
+  t,
+  cacheBust,
+}: {
+  file: GitReviewFile
+  theme: PierreDiffTheme
+  t: Translate<WorkspaceMessage>
+  cacheBust: string
+}): JSX.Element {
+  const [mounted, setMounted] = useState(false)
+  const rowRef = useRef<HTMLDetailsElement | null>(null)
+  useEffect(() => {
+    const node = rowRef.current
+    if (node === null) return
+    if (typeof IntersectionObserver === 'undefined') {
+      setMounted(true)
+      return
+    }
+    const observer = new IntersectionObserver(
+      entries => {
+        if (!entries.some(entry => entry.isIntersecting)) return
+        setMounted(true)
+        observer.disconnect()
+      },
+      { root: null, rootMargin: COMMIT_BLOCK_MOUNT_MARGIN, threshold: 0.01 },
+    )
+    observer.observe(node)
+    return () => { observer.disconnect() }
+  }, [])
+  const document = useMemo(() => reviewFileToDiffDocument(file), [file])
+  return (
+    <details ref={rowRef} open data-path={file.path}>
+      <summary>
+        <span title={file.path}>{file.path}</span>
+        <small><b>+{file.additions}</b> −{file.deletions}</small>
+      </summary>
+      <div className="oh-dsh-commit-surface-lines">
+        {mounted ? (
+          <DiffViewer
+            document={document}
+            theme={theme}
+            t={t}
+            virtualize={false}
+            hideMeta
+            cacheBust={cacheBust}
+          />
+        ) : null}
+      </div>
+    </details>
+  )
+}
+
+/** Shared commit file list (lazy-mounted blocks) for commit / committed-all views. */
+function CommitFileStack({
+  files,
+  theme,
+  t,
+  cacheBust,
+}: {
+  files: readonly GitReviewFile[]
+  theme: PierreDiffTheme
+  t: Translate<WorkspaceMessage>
+  cacheBust: string
+}): JSX.Element {
+  return (
+    <>
+      {files.map(file => (
+        <CommitFileBlock key={`${file.oldPath ?? ''}:${file.path}`} file={file} theme={theme} t={t} cacheBust={cacheBust} />
+      ))}
+      {files.length === 0 && (
+        <EmptyView title={t('workspace.no-text-diff')} />
+      )}
+    </>
+  )
+}
+
 export function CommitDiffSurfaceView({
   surface,
   t,
@@ -901,20 +1010,12 @@ export function CommitDiffSurfaceView({
           }}
         />
         <div className="oh-dsh-commit-surface-body" ref={bodyRef}>
-          {files.map(file => (
-            <details key={`${file.oldPath ?? ''}:${file.path}`} open data-path={file.path}>
-              <summary>
-                <span title={file.path}>{file.path}</span>
-                <small><b>+{file.additions}</b> −{file.deletions}</small>
-              </summary>
-              <div className="oh-dsh-commit-surface-lines">
-                <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} t={t} virtualize={false} hideMeta />
-              </div>
-            </details>
-          ))}
-          {files.length === 0 && (
-            <EmptyView title={t('workspace.no-text-diff')} />
-          )}
+          <CommitFileStack
+            files={files}
+            theme={theme}
+            t={t}
+            cacheBust={`commit:${surface.hash}`}
+          />
         </div>
       </div>
     </div>
@@ -1059,20 +1160,12 @@ function CommittedAllDiffView({
           }}
         />
         <div className="oh-dsh-commit-surface-body" ref={bodyRef}>
-          {files.map(file => (
-            <details key={`${file.oldPath ?? ''}:${file.path}`} open data-path={file.path}>
-              <summary>
-                <span title={file.path}>{file.path}</span>
-                <small><b>+{file.additions}</b> −{file.deletions}</small>
-              </summary>
-              <div className="oh-dsh-commit-surface-lines">
-                <DiffViewer document={reviewFileToDiffDocument(file)} theme={theme} t={t} virtualize={false} hideMeta />
-              </div>
-            </details>
-          ))}
-          {files.length === 0 && (
-            <EmptyView title={t('workspace.no-text-diff')} />
-          )}
+          <CommitFileStack
+            files={files}
+            theme={theme}
+            t={t}
+            cacheBust={`committed:${surface.baseRef}`}
+          />
         </div>
       </div>
     </div>

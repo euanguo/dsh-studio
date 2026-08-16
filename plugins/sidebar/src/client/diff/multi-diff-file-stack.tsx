@@ -3,7 +3,7 @@
  * explicit click/focus) mounts the real diff block. Unmounted rows never
  * build DiffViewer / Pierre workers — Synara's `MultiDiffFileStack` policy.
  */
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { GitReviewFile } from '../review/review-types.ts'
@@ -46,45 +46,15 @@ export function MultiDiffFileStack({
             data-mounted={mounted ? 'true' : 'false'}
           >
             {mounted ? (
-              <div className="oh-dsh-multi-diff-mounted">
-                <div className="oh-dsh-multi-diff-file-header">
-                  <span title={file.path}>{file.path}</span>
-                  <small>
-                    <b>+{file.additions}</b> −{file.deletions}
-                  </small>
-                  <span className="oh-dsh-multi-diff-actions">
-                    {onExpandContext !== undefined ? (
-                      <button type="button" onClick={() => { onExpandContext(file) }}>
-                        Expand context
-                      </button>
-                    ) : null}
-                    {onCollapse !== undefined ? (
-                      <button type="button" onClick={() => { onCollapse(file.path) }}>
-                        {t('source-control.view-all')}
-                      </button>
-                    ) : null}
-                  </span>
-                </div>
-                <div className="oh-dsh-multi-diff-lines">
-                  {/*
-                    Pierre rendering with natural per-file sizing: the outer
-                    list scrolls the whole stack. Previously deadlocked
-                    because buildPatch emitted no @@ headers for review-style
-                    documents, so Pierre parsed 0 hunks and rendered nothing —
-                    fixed in file-diff.ts.
-                  */}
-                  <DiffViewer
-                    document={reviewFileToDiffDocument(file)}
-                    theme={theme}
-                    t={t}
-                    virtualize={false}
-                    layout={layout}
-                    wordWrap={wordWrap}
-                    hideMeta
-                    cacheBust={`multi:${file.path}`}
-                  />
-                </div>
-              </div>
+              <MultiDiffFileBlock
+                file={file}
+                theme={theme}
+                t={t}
+                layout={layout}
+                wordWrap={wordWrap}
+                {...(onExpandContext === undefined ? {} : { onExpandContext })}
+                {...(onCollapse === undefined ? {} : { onCollapse })}
+              />
             ) : (
               <MultiDiffPlaceholder
                 file={file}
@@ -94,6 +64,71 @@ export function MultiDiffFileStack({
           </section>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * One mounted diff block. The diff document is memoized per file so parent
+ * re-renders (expand/collapse of sibling blocks, rail resizes) don't rebuild
+ * the document and bust the memoized DiffViewer below.
+ */
+function MultiDiffFileBlock({
+  file,
+  theme,
+  t,
+  layout,
+  wordWrap,
+  onExpandContext,
+  onCollapse,
+}: {
+  file: GitReviewFile
+  theme: PierreDiffTheme
+  t: Translate<WorkspaceMessage>
+  layout: 'unified' | 'split'
+  wordWrap: boolean
+  onExpandContext?(file: GitReviewFile): void
+  onCollapse?(path: string): void
+}): JSX.Element {
+  const document = useMemo(() => reviewFileToDiffDocument(file), [file])
+  return (
+    <div className="oh-dsh-multi-diff-mounted">
+      <div className="oh-dsh-multi-diff-file-header">
+        <span title={file.path}>{file.path}</span>
+        <small>
+          <b>+{file.additions}</b> −{file.deletions}
+        </small>
+        <span className="oh-dsh-multi-diff-actions">
+          {onExpandContext !== undefined ? (
+            <button type="button" onClick={() => { onExpandContext(file) }}>
+              Expand context
+            </button>
+          ) : null}
+          {onCollapse !== undefined ? (
+            <button type="button" onClick={() => { onCollapse(file.path) }}>
+              {t('source-control.view-all')}
+            </button>
+          ) : null}
+        </span>
+      </div>
+      <div className="oh-dsh-multi-diff-lines">
+        {/*
+          Pierre rendering with natural per-file sizing: the outer list
+          scrolls the whole stack. Previously deadlocked because buildPatch
+          emitted no @@ headers for review-style documents, so Pierre parsed
+          0 hunks and rendered nothing — fixed in file-diff.ts.
+        */}
+        <DiffViewer
+          document={document}
+          theme={theme}
+          t={t}
+          virtualize={false}
+          layout={layout}
+          wordWrap={wordWrap}
+          hideMeta
+          cacheBust={`multi:${file.path}`}
+        />
+      </div>
     </div>
   )
 }

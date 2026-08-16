@@ -9,7 +9,7 @@
  * fallback. Line comments render as Pierre annotation rows (lineAnnotations
  * + renderAnnotation) on the new-side lines.
  */
-import type { ReactNode } from 'react'
+import { memo, useMemo, type ReactNode } from 'react'
 import type { AnnotationSide, DiffLineAnnotation } from '@pierre/diffs'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -48,7 +48,14 @@ export type DiffViewerProps = Readonly<{
   cacheBust?: string
 }>
 
-export function DiffViewer({
+/**
+ * Memoized: parent re-renders (tab switches, rail resizes) must not rebuild
+ * the patch or re-run Pierre's patch parser per mounted block — those are
+ * the two O(n) costs of every diff render. All props are referentially
+ * stable at the call sites (documents/annotations come from useMemo /
+ * useCallback), so the memo only re-renders when content really changes.
+ */
+export const DiffViewer = memo(function DiffViewer({
   document,
   theme,
   t,
@@ -61,9 +68,15 @@ export function DiffViewer({
   onLineNumberClick,
   cacheBust,
 }: DiffViewerProps): JSX.Element {
-  const summary = `${document.path}  +${String(document.additions)} −${String(document.deletions)}`
-  const patch = buildPatch(document)
-  const hasContentLines = document.lines.some(line => line.kind !== 'hunk')
+  const summary = useMemo(
+    () => `${document.path}  +${String(document.additions)} −${String(document.deletions)}`,
+    [document],
+  )
+  const patch = useMemo(() => buildPatch(document), [document])
+  const hasContentLines = useMemo(
+    () => document.lines.some(line => line.kind !== 'hunk'),
+    [document],
+  )
 
   // Pure renames / empty documents carry no rows: rendering them through
   // Pierre throws in the hunks renderer ("deletionLine and additionLine
@@ -86,9 +99,10 @@ export function DiffViewer({
     )
   }
 
-  const renderedDiff = renderPierreDiff({
+  const cacheKey = `workspace:${document.path}:${layout}:${wordWrap ? 'wrap' : 'scroll'}:${virtualize ? 'v' : 'n'}:${cacheBust ?? ''}`
+  const renderedDiff = useMemo(() => renderPierreDiff({
     patch,
-    cacheKey: `workspace:${document.path}:${layout}:${wordWrap ? 'wrap' : 'scroll'}:${virtualize ? 'v' : 'n'}:${cacheBust ?? ''}`,
+    cacheKey,
     theme,
     surfaceClassName: virtualize ? 'oh-dsh-pierre-surface' : 'oh-dsh-pierre-surface-natural',
     layout,
@@ -97,7 +111,7 @@ export function DiffViewer({
     ...(lineAnnotations === undefined ? {} : { lineAnnotations }),
     ...(renderAnnotation === undefined ? {} : { renderAnnotation }),
     ...(onLineNumberClick === undefined ? {} : { onLineNumberClick }),
-  })
+  }), [patch, cacheKey, theme, layout, wordWrap, virtualize, lineAnnotations, renderAnnotation, onLineNumberClick])
 
   if (renderedDiff === null) {
     return (
@@ -127,7 +141,7 @@ export function DiffViewer({
       {renderedDiff}
     </div>
   )
-}
+})
 
 /** Structured row renderer (the Pierre-less fallback when the patch cannot be parsed). */
 export function RawDiff({

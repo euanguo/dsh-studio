@@ -37,6 +37,17 @@ export function buildDiffTreeRows(
   const parentOf = (dirPath: string): string | null =>
     dirPath.includes('/') ? dirPath.slice(0, dirPath.lastIndexOf('/')) : null
 
+  // Directories grouped by parent (null for top level): emitLevel reads
+  // each level's children straight from the map instead of filtering the
+  // whole directory list per level (O(D²) on deep trees).
+  const childrenByParent = new Map<string | null, string[]>()
+  for (const dirPath of dirPaths) {
+    const parent = parentOf(dirPath)
+    const list = childrenByParent.get(parent) ?? []
+    list.push(dirPath)
+    childrenByParent.set(parent, list)
+  }
+
   const rows: DiffPathTreeRow[] = []
 
   function emitFile(path: string, name: string, depth: number) {
@@ -51,7 +62,7 @@ export function buildDiffTreeRows(
   }
 
   function emitLevel(dirPath: string | null, depth: number) {
-    for (const sub of dirPaths.filter(candidate => parentOf(candidate) === dirPath)) {
+    for (const sub of childrenByParent.get(dirPath) ?? []) {
       rows.push({
         key: `dir:${sub}`,
         kind: 'directory',
