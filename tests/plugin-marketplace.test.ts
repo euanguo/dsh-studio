@@ -759,7 +759,7 @@ test('Agent gateway authenticates and defers runtime-restarting applies', async 
   }
 })
 
-test('marketplace navigation renders a round icon button matching the Settings seat', () => {
+test('marketplace navigation matches the Settings seat geometry and row radius', () => {
   const client = readFileSync(new URL(
     '../plugins/plugin-marketplace/src/client/plugin.tsx',
     import.meta.url,
@@ -775,14 +775,16 @@ test('marketplace navigation renders a round icon button matching the Settings s
   assert.doesNotMatch(client, /--oh-marketplace-sidebar-height/)
   assert.doesNotMatch(client, /SIDEBAR_BOTTOM_INSET/)
   assert.doesNotMatch(css, /data-oh-dsh-marketplace-sidebar-root/)
-  // The foot area stacks two icon options (marketplace + Settings): the
-  // entry is a round icon button with the same 28/36px geometry as the
-  // official Settings seat in both states, not a full-width row.
-  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*border-radius: 50%;/)
-  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*width: 28px;[\s\S]*height: 28px;/)
+  // The foot area stacks two options (marketplace + Settings): the entry
+  // keeps its icon + label row in the expanded sidebar, shares the
+  // Settings seat's 28/36px heights and follows the skin row radius
+  // (12.5px superellipse) in both states.
+  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*border-radius: 12\.5px;/)
+  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*corner-shape: superellipse\(1\.5\);/)
+  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*height: 28px;/)
   assert.match(css, /\.oh-marketplace-nav\[data-collapsed='true'\] \{[\s\S]*width: 36px;[\s\S]*height: 36px;/)
   assert.match(css, /\.oh-marketplace-nav svg \{[\s\S]*width: 16px;[\s\S]*height: 16px;/)
-  assert.doesNotMatch(client, /\{wide && <span>\{label\}\}/)
+  assert.match(client, /\{wide && <span>\{label\}<\/span>\}/)
   assert.match(css, /data-oh-dsh-marketplace-footer-stack='true'/)
   assert.match(css, /flex-direction: column !important;/)
   assert.match(client, /marketplaceFooter\(settings\)/)

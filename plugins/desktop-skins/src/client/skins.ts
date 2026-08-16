@@ -547,20 +547,20 @@ body[data-oh-dsh-skin] button[disabled] {
    ================================================================ */
 
 /* 组件自带的圆形按钮：通用 button 12.5px 规则会把它们压成方角
-   （实测 .SIlZCq_close 28×28 被压），恢复 pill。 */
+   （实测 .SIlZCq_close 28×28 被压），恢复 pill。ui-sidebar 的 iconButton
+   （rail 顶部 + 底部 Settings 座位）刻意不在清单里：侧栏的按钮与左侧
+   列表统一为 --gw-skin-radius-row（12.5px superellipse），不保留正圆。 */
 body[data-oh-dsh-skin] .SIlZCq_close,
 body[data-oh-dsh-skin] .Sqg4Fa_action,
 body[data-oh-dsh-skin] .d4tJKG_action,
 body[data-oh-dsh-skin] .zNtrCa_toBottom,
-body[data-oh-dsh-skin] .VfOgWa_iconButton,
 body[data-oh-dsh-skin] ._64ccDW_iconBtn,
 body[data-oh-dsh-skin] ._close_18d3q_30,
 body[data-oh-dsh-skin] ._remove_1hk8w_53,
 body[data-oh-dsh-skin] ._arrow_1hk8w_90,
 body[data-oh-dsh-skin] .EBSbfa_iconButton,
 body[data-oh-dsh-skin] .bF00Jq_inspectButton,
-body[data-oh-dsh-skin] .LEwn7a_actionButton,
-body[data-oh-dsh-skin] .oh-marketplace-nav {
+body[data-oh-dsh-skin] .LEwn7a_actionButton {
   border-radius: var(--gw-skin-radius-pill) !important;
 }
 

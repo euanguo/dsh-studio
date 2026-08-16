@@ -1,16 +1,18 @@
 .oh-marketplace-nav {
-  /* Round icon button matching the official Settings seat geometry
-     (28px expanded / 36px collapsed, centered): the foot area stacks two
-     icon options, so the marketplace entry must render the same shape. */
+  /* Foot-area entry: icon + label row in the expanded sidebar, matching
+     the Settings seat's 28px height and the skin row radius (12.5px
+     superellipse); the collapsed rail renders the bare 36px icon seat. */
   box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
+  gap: 6px;
+  min-width: 28px;
   height: 28px;
-  padding: 0;
+  padding: 0 10px;
   border: 0;
-  border-radius: 50%;
+  border-radius: 12.5px;
+  corner-shape: superellipse(1.5);
   background: transparent;
   color: var(--dsw-alias-label-primary, #222);
   cursor: pointer;
@@ -32,18 +34,16 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 1.6;
-  transform: scale(1.36);
-  transform-origin: center;
 }
 
 .oh-marketplace-nav[data-collapsed='true'] {
   justify-content: center;
   width: 36px;
+  min-width: 36px;
   min-height: 36px;
   height: 36px;
   margin: 8px 0 10px;
   padding: 0;
-  border-radius: 50%;
 }
 
 [data-oh-dsh-marketplace-footer-stack='true']:has(
