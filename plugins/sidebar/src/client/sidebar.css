@@ -831,6 +831,11 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-diff-toolbar-leading {
+  /* Flex, not block: the inline-flex title inside would otherwise ride the
+     text baseline and sit low in the bar (baseline alignment leaves the
+     descender gap below). Center it as a flex item instead. */
+  display: flex;
+  align-items: center;
   min-width: 0;
   flex: 1;
   overflow: hidden;
