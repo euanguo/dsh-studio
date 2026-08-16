@@ -44,6 +44,7 @@ import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme, type PierreDiffTheme } from '../diff/pierre-adapter.tsx'
+import { useLazyDiffBlockMount } from '../diff/use-lazy-diff-block-mount.ts'
 import { parseGitReviewDiff, reviewFileToDiffDocument, type GitReviewFile } from '../diff/git-review-diff.ts'
 import type {
   CommitCenterSurface,
@@ -500,17 +501,10 @@ export function DiffAllSurfaceView({
 
 /* ---------- commit diff ---------- */
 
-/** Distance beyond the viewport at which a commit file block pre-mounts. */
-const COMMIT_BLOCK_MOUNT_MARGIN = '320px 0px'
-/** Keep-band around the viewport: farther blocks release their diff body. */
-const COMMIT_BLOCK_KEEP_BAND = '1600px 0px'
-
 /**
  * One commit file's details/summary row. The details stay open, but the
- * heavy DiffViewer body mounts lazily when the row scrolls near the
- * viewport and RELEASES (replaced by a same-height placeholder) when the
- * row scrolls far away — a large commit neither builds every Pierre diff
- * upfront nor keeps every rendered block resident.
+ * heavy DiffViewer body mounts lazily via useLazyDiffBlockMount (M7) and
+ * releases to a same-height placeholder when the row scrolls far away.
  */
 function CommitFileBlock({
   file,
@@ -523,66 +517,7 @@ function CommitFileBlock({
   t: Translate<WorkspaceMessage>
   cacheBust: string
 }): JSX.Element {
-  const [mounted, setMounted] = useState(false)
-  const [releasedHeight, setReleasedHeight] = useState<number | null>(null)
-  const detailsRef = useRef<HTMLDetailsElement | null>(null)
-  const bodyRef = useRef<HTMLDivElement | null>(null)
-  const latestHeightRef = useRef<number | null>(null)
-
-  // Mount-on-approach; a released block re-mounts (drops its same-height
-  // placeholder) when the user scrolls back into the mount band.
-  useEffect(() => {
-    if (mounted && releasedHeight === null) return
-    const node = detailsRef.current
-    if (node === null) return
-    if (typeof IntersectionObserver === 'undefined') {
-      setMounted(true)
-      setReleasedHeight(null)
-      return
-    }
-    const observer = new IntersectionObserver(
-      entries => {
-        if (!entries.some(entry => entry.isIntersecting)) return
-        if (releasedHeight !== null) {
-          setReleasedHeight(null)
-        } else {
-          setMounted(true)
-        }
-        observer.disconnect()
-      },
-      { root: null, rootMargin: COMMIT_BLOCK_MOUNT_MARGIN, threshold: 0.01 },
-    )
-    observer.observe(node)
-    return () => { observer.disconnect() }
-  }, [mounted, releasedHeight])
-
-  // Track the body height and release the diff body when the block leaves
-  // the keep-band; a same-height placeholder holds the scroll position.
-  useEffect(() => {
-    if (!mounted || releasedHeight !== null) return
-    const node = bodyRef.current
-    if (node === null) return
-    if (typeof IntersectionObserver === 'undefined' || typeof ResizeObserver === 'undefined') {
-      return
-    }
-    const resizeObserver = new ResizeObserver(entries => {
-      const height = entries[0]?.contentRect.height
-      if (height !== undefined && height > 0) latestHeightRef.current = height
-    })
-    resizeObserver.observe(node)
-    const releaseObserver = new IntersectionObserver(entries => {
-      if (!entries.some(entry => entry.isIntersecting)) {
-        const height = latestHeightRef.current
-        if (height !== null) setReleasedHeight(height)
-      }
-    }, { root: null, rootMargin: COMMIT_BLOCK_KEEP_BAND, threshold: 0 })
-    releaseObserver.observe(node)
-    return () => {
-      resizeObserver.disconnect()
-      releaseObserver.disconnect()
-    }
-  }, [mounted, releasedHeight])
-
+  const { mounted, releasedHeight, detailsRef, bodyRef } = useLazyDiffBlockMount()
   const document = useMemo(() => reviewFileToDiffDocument(file), [file])
   return (
     <details ref={detailsRef} open data-path={file.path}>

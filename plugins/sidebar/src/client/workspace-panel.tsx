@@ -454,7 +454,11 @@ export function WorkspacePanel({
     if (!panelState.open || panelState.view !== 'review' || runtime === null) return
     void runtime.ensureLoaded()
     void refreshCommitted()
+    // Soft-revalidate on a 4s cadence while the review panel is open, but
+    // never while the document is hidden (backgrounded window / another
+    // tab) — the focus listener below covers the return to visibility.
     const timer = window.setInterval(() => {
+      if (document.hidden) return
       void runtime.refresh()
       void refreshCommitted()
     }, 4_000)
@@ -462,10 +466,18 @@ export function WorkspacePanel({
       void runtime.refresh()
       void refreshCommitted()
     }
+    const onVisibility = (): void => {
+      if (!document.hidden) {
+        void runtime.refresh()
+        void refreshCommitted()
+      }
+    }
     window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
     return () => {
       window.clearInterval(timer)
       window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
     }
   }, [panelState.open, panelState.view, runtime, refreshCommitted])
 
