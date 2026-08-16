@@ -28,9 +28,14 @@ export function leftRailToggleButton(): HTMLButtonElement | null {
   )
 }
 
-/** Whether the DSH left rail is currently expanded (null when unknown). */
+/**
+ * Whether the DSH left rail is currently expanded (null when unknown).
+ * The DSH toggle's aria-label describes the ACTION it performs — it reads
+ * "收起侧边栏" / "Collapse sidebar" while the rail is EXPANDED (clicking
+ * collapses it) and "展开侧边栏" / "Expand sidebar" while it is collapsed.
+ */
 export function readLeftRailOpen(): boolean | null {
   const label = leftRailToggleButton()?.getAttribute('aria-label')
   if (label === undefined || label === null || label === '') return null
-  return !label.includes('收起')
+  return label.includes('收起') || /collapse/i.test(label)
 }

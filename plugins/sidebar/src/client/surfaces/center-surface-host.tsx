@@ -13,7 +13,6 @@
  */
 import { Component, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '../../../../shared/i18n.ts'
 import {
@@ -206,57 +205,51 @@ export function CenterSurfaceTabs({
 const EMPTY_CENTER_SLICE: CenterSurfaceSlice = { open: [], activeId: null }
 
 /**
- * Left/right rail controls, reference-shell style:
- * - the LEFT rail toggle sits right of the macOS traffic lights (fixed at
- *   the top-left); while the rail is expanded that spot is the rail's own
- *   header, and when it collapses the button stays put at the strip's
- *   left edge (the strip pads itself to make room);
- * - the RIGHT rail keeps its own controls in its top row; when the panel
- *   is closed a floating reopen button appears at the top-right edge.
+ * The unified top rail: the center tab strip owns ALL top-of-window
+ * controls as in-flow flex members, so nothing floats over the tabs:
+ * - LEFT: the DSH left-rail toggle (only while the rail is collapsed —
+ *   right of the macOS traffic lights, which the strip reserves via
+ *   `--oh-dsh-traffic-left`);
+ * - MIDDLE: the tab scroller (the ONLY scrolling member);
+ * - RIGHT: the right-rail reopen button (only while the panel is closed —
+ *   pinned to the strip's right end, never covered by overflowing tabs).
+ * Both buttons keep the same glyph and hover states; their position no
+ * longer depends on fixed viewport coordinates or hard-coded offsets.
  */
-function RailFloatControls({
-  sidebar,
-  leftRailOpen,
-  onToggleLeftRail,
-}: {
-  sidebar: DesktopSidebarServiceLike
-  leftRailOpen: boolean | null
+function LeftRailToggleButton(props: {
   onToggleLeftRail(): void
 }): JSX.Element {
-  const rightOpen = useSyncExternalStore(
-    useCallback((listener: () => void) => sidebar.subscribe(listener), [sidebar]),
-    () => sidebar.getSnapshot().open,
+  return (
+    <button
+      type="button"
+      className="oh-dsh-left-rail-toggle"
+      aria-label="展开左栏"
+      title="展开左栏"
+      aria-pressed={false}
+      onClick={props.onToggleLeftRail}
+    >
+      <span className="oh-dsh-rail-toggle-glyph" aria-hidden="true">
+        <IconSidebarLeftFilled />
+      </span>
+    </button>
   )
+}
 
-  return createPortal(
-    <>
-      <button
-        type="button"
-        className="oh-dsh-left-rail-toggle"
-        aria-label={leftRailOpen ? '收起左栏' : '展开左栏'}
-        title={leftRailOpen ? '收起左栏' : '展开左栏'}
-        aria-pressed={leftRailOpen === true}
-        onClick={onToggleLeftRail}
-      >
-        <span className="oh-dsh-rail-toggle-glyph" aria-hidden="true">
-          <IconSidebarLeftFilled />
-        </span>
-      </button>
-      {!rightOpen && (
-        <button
-          type="button"
-          className="oh-dsh-right-rail-reopen"
-          aria-label="展开右栏"
-          title="展开右栏"
-          onClick={() => { sidebar.setOpen(true) }}
-        >
-          <span className="oh-dsh-rail-toggle-glyph" aria-hidden="true">
-            <IconSidebarRightFilled />
-          </span>
-        </button>
-      )}
-    </>,
-    document.body,
+function RightRailReopenButton(props: {
+  sidebar: DesktopSidebarServiceLike
+}): JSX.Element {
+  return (
+    <button
+      type="button"
+      className="oh-dsh-right-rail-reopen"
+      aria-label="展开右栏"
+      title="展开右栏"
+      onClick={() => { props.sidebar.setOpen(true) }}
+    >
+      <span className="oh-dsh-rail-toggle-glyph" aria-hidden="true">
+        <IconSidebarRightFilled />
+      </span>
+    </button>
   )
 }
 
@@ -476,6 +469,10 @@ function CenterSurfaceHostView({
 }): JSX.Element {
   const [mounted, setMounted] = useState(false)
   const { leftRailOpen, toggleLeftRail } = useLeftRailOpenState()
+  const rightOpen = useSyncExternalStore(
+    useCallback((listener: () => void) => sidebar.subscribe(listener), [sidebar]),
+    () => sidebar.getSnapshot().open,
+  )
   useEffect(() => { setMounted(true) }, [])
   useCenterColumnHeight()
   // A real placeholder keeps the host root non-empty while mounting: the
@@ -486,11 +483,19 @@ function CenterSurfaceHostView({
     <CenterSurfaceHostErrorBoundary t={t}>
       <DiffWorkerPoolProvider>
         <DiffThemeSync />
-        <RailFloatControls sidebar={sidebar} leftRailOpen={leftRailOpen} onToggleLeftRail={toggleLeftRail} />
+        {/* The unified top rail: left toggle + tab scroller + right reopen,
+            all in-flow members of the strip (see the TopRailControls
+            section comment above). */}
         <div
           className={`oh-dsh-center-tabs-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}`}
         >
-          <CenterSurfaceTabs sessions={sessions} t={t} />
+          {leftRailOpen === false && (
+            <LeftRailToggleButton onToggleLeftRail={toggleLeftRail} />
+          )}
+          <div className="oh-dsh-center-tabs-scroller">
+            <CenterSurfaceTabs sessions={sessions} t={t} />
+          </div>
+          {!rightOpen && <RightRailReopenButton sidebar={sidebar} />}
         </div>
         <CenterSurfaceBody sessions={sessions} sidebar={sidebar} />
       </DiffWorkerPoolProvider>

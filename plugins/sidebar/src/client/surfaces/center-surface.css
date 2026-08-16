@@ -12,6 +12,14 @@
    collapses so the conversation shows.
    ============================================================ */
 
+/* The macOS traffic-light reservation for the unified top rail: the strip
+   pads its left edge by this width while the DSH left rail is collapsed,
+   so the in-flow left-rail toggle sits exactly right of the lights. This
+   is the single place the offset lives. */
+:root {
+  --oh-dsh-traffic-left: 74px;
+}
+
 #oh-dsh-center-tabs-root {
   display: flex;
   flex-direction: column;
@@ -51,12 +59,12 @@
   display: none !important;
 }
 
-/* The tab strip itself is interactive — and draggable: blank strip space
-   drags the window (Electron), while every interactive chip opts out.
-   No elevated z-index: the strip must stay in the normal stacking order
-   so DSH dialogs (overlay layer) paint above it too. Electron's window
-   drag hit-testing (-webkit-app-region) is independent of CSS stacking,
-   and the current DSH shell has no reserved top drag strip to fight. */
+/* The unified top rail: the strip owns the left-rail toggle, the tab
+   scroller and the right-rail reopen as in-flow flex members — nothing
+   floats over the tabs, and no fixed viewport coordinates are needed.
+   Blank strip space drags the window (Electron); every interactive chip
+   opts out. No elevated z-index: the strip stays in the normal stacking
+   order so DSH dialogs (overlay layer) paint above it too. */
 .oh-dsh-center-tabs-strip {
   -webkit-app-region: drag;
   display: flex;
@@ -68,37 +76,50 @@
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
   backdrop-filter: blur(6px);
-  overflow-x: auto;
-  scrollbar-width: none;
   flex: none;
 }
 
-.oh-dsh-center-tabs-strip::-webkit-scrollbar {
+/* While the DSH left rail is collapsed the strip reserves the macOS
+   traffic-light width (`--oh-dsh-traffic-left`) so the in-flow toggle
+   sits exactly right of the lights and the first tab never tucks under
+   either. The reservation is the single place this offset lives. */
+.oh-dsh-center-tabs-strip.is-left-collapsed {
+  padding-left: var(--oh-dsh-traffic-left, 74px);
+}
+
+/* The tab scroller is the ONLY scrolling member of the strip: the toggle
+   and reopen buttons stay pinned at their ends while the tabs overflow.
+   The inner strip must not shrink (width = its content) so the scroller
+   actually overflows and scrolls. */
+.oh-dsh-center-tabs-scroller {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.oh-dsh-center-tabs-scroller .oh-dsh-surface-tab-strip {
+  flex: none;
+}
+
+.oh-dsh-center-tabs-scroller::-webkit-scrollbar {
   display: none;
 }
 
-/* While the DSH left rail is collapsed, its fixed toggle (right of the
-   traffic lights) overlaps the strip's left edge — the strip pads itself
-   so the first tab never sits under the button. */
-.oh-dsh-center-tabs-strip.is-left-collapsed {
-  padding-left: 48px;
-}
-
-/* Floating rail controls (reference-shell pattern):
-   - left rail toggle: fixed right of the macOS traffic lights; while the
-     rail is expanded that spot is the rail header, collapsed it marks the
-     strip's left edge;
-   - right rail reopen: appears at the top-right edge while the right panel
-     is closed. Both must opt out of the 28px window-drag strip to receive
-     real clicks. z-index stays low (10): above the in-flow strip/body,
-     below DSH's overlay layer (z-index 20) so settings dialogs cover them. */
+/* In-strip rail controls (the unified top rail):
+   - left rail toggle: rendered only while the rail is collapsed, right of
+     the macOS traffic lights (the strip's is-left-collapsed padding);
+   - right rail reopen: rendered only while the panel is closed, pinned to
+     the strip's right end — overflowing tabs scroll under it never (they
+     live in the scroller). Both opt out of the window-drag strip. */
 .oh-dsh-left-rail-toggle,
 .oh-dsh-right-rail-reopen {
   -webkit-app-region: no-drag;
-  position: fixed;
-  z-index: 10;
   display: grid;
   place-items: center;
+  flex: none;
   width: 28px;
   height: 28px;
   padding: 0;
@@ -109,14 +130,7 @@
   cursor: pointer;
 }
 
-.oh-dsh-left-rail-toggle {
-  top: 7px;
-  left: 74px;
-}
-
 .oh-dsh-right-rail-reopen {
-  top: 7px;
-  right: 8px;
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 88%, transparent);
 }
 
