@@ -18,6 +18,11 @@
   align-items: center;
   gap: 6px;
   border-radius: var(--gw-skin-radius-row, 12.5px);
+  /* Same corner shape as the skin's button/menuitem rules: the rows are
+     divs (role=treeitem), so the skin's corner-shape gate does not reach
+     them — without this the rows render standard arcs while buttons and
+     menu items render superellipses, and the radii look mismatched. */
+  corner-shape: superellipse(1.5);
   padding: 0 8px;
   cursor: pointer;
   user-select: none;
@@ -386,6 +391,7 @@
   gap: 4px;
   padding: 0 8px 0 20px;
   border-radius: var(--gw-skin-radius-row, 12.5px);
+  corner-shape: superellipse(1.5);
   cursor: pointer;
   user-select: none;
   color: var(--dsw-alias-label-primary);
