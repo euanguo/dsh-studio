@@ -5,31 +5,15 @@
  * file/git routes — see plugins/sidebar/src/sidebar-api.ts).
  */
 import { useEffect, useState } from 'react'
+import { callSidebarGlobalApi } from '../../../shared/sidebar-api.ts'
 import type { GitWorktreeLayout, WorktreeLayoutMap } from './tree.ts'
 
 /** One worktree list response (null = cwd is not a git work tree). */
 export type WorktreeLayoutResult = GitWorktreeLayout | null
 
-const API_ROOT = '/sidebar/api/'
-
-async function call(method: string, payload: unknown, signal?: AbortSignal): Promise<unknown> {
-  const response = await fetch(`${API_ROOT}${method}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
-    ...(signal === undefined ? {} : { signal }),
-  })
-  const body = (await response.json().catch(() => ({}))) as { ok?: boolean; error?: { message?: string }; value?: unknown }
-  if (!response.ok || body.ok === false) {
-    throw new Error(body.error?.message ?? `sidebar api ${method} failed (${response.status})`)
-  }
-  return body.value
-}
-
 /** `git.worktree-list` for one cwd; null when not in a git work tree. */
 export async function fetchWorktreeLayout(cwd: string, signal?: AbortSignal): Promise<WorktreeLayoutResult> {
-  const value = await call('git.worktree-list', { cwd }, signal)
-  return value as WorktreeLayoutResult
+  return callSidebarGlobalApi<WorktreeLayoutResult>('git.worktree-list', { cwd }, signal)
 }
 
 /** Create a linked worktree. */
@@ -39,19 +23,21 @@ export async function createWorktree(
   branch: string,
   createBranch: boolean,
 ): Promise<void> {
-  await call('git.worktree-add', { cwd, path, branch, createBranch })
+  await callSidebarGlobalApi('git.worktree-add', { cwd, path, branch, createBranch })
 }
 
 /** The repository's branches (`git.branch` → { current, names }). */
 export async function fetchBranches(cwd: string, signal?: AbortSignal): Promise<{ current: string; names: string[] }> {
-  return (await call('git.branch', { cwd }, signal)) as { current: string; names: string[] }
+  return callSidebarGlobalApi<{ current: string; names: string[] }>('git.branch', { cwd }, signal)
 }
 
 /**
  * Batch-fetch the worktree layout for every unique workspace cwd. Results are
  * cached per cwd until the cwd roster changes (new worktrees refresh via a
- * manual `refresh`). Layouts are pure derivation input — a failed lookup
- * degrades that cwd to a non-git directory project.
+ * manual `refresh`); regaining window focus or tab visibility also refreshes
+ * so layouts created or branches switched outside the app do not stay stale.
+ * Layouts are pure derivation input — a failed lookup degrades that cwd to a
+ * non-git directory project.
  */
 export function useWorktreeLayouts(cwds: readonly string[]): {
   layouts: WorktreeLayoutMap
@@ -88,6 +74,20 @@ export function useWorktreeLayouts(cwds: readonly string[]): {
     }
     // `key` is the roster; `revision` forces a refetch after a worktree add.
   }, [key, revision])
+  useEffect(() => {
+    // External changes (a terminal, another surface, another user) can add
+    // worktrees or switch branches: refetch when the window regains focus or
+    // becomes visible again.
+    const refreshIfVisible = (): void => {
+      if (document.visibilityState === 'visible') setRevision(v => v + 1)
+    }
+    window.addEventListener('focus', refreshIfVisible)
+    document.addEventListener('visibilitychange', refreshIfVisible)
+    return () => {
+      window.removeEventListener('focus', refreshIfVisible)
+      document.removeEventListener('visibilitychange', refreshIfVisible)
+    }
+  }, [])
   const refresh = (): void => { setRevision(v => v + 1) }
   return { layouts, refresh, loading }
 }

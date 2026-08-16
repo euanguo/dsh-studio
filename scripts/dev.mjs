@@ -112,7 +112,21 @@ let rebuildTimer = undefined
 const WATCH_ROOTS = [join(root, 'src'), join(root, 'plugins')]
 for (const watchRoot of WATCH_ROOTS) {
   if (!existsSync(watchRoot)) continue
-  watch(watchRoot, { recursive: true, persistent: true }, () => {
+  watch(watchRoot, { recursive: true, persistent: true }, (eventType, filename) => {
+    // CSS Modules edits do not reach the bundle on their own: the committed
+    // styles.ts class map is a build-time generation artifact, so regenerate
+    // it before the incremental rebuild picks the change up.
+    const name = typeof filename === 'string' ? filename : ''
+    if (name.includes('desktop-left-rail') && name.endsWith('.module.css')) {
+      import('./plugin-styles.mjs').then(({ generatePluginStyles }) => {
+        try {
+          generatePluginStyles('desktop-left-rail')
+          log('regenerated desktop-left-rail styles.ts')
+        } catch (error) {
+          log(`plugin-styles failed: ${error instanceof Error ? error.message : String(error)}`)
+        }
+      })
+    }
     clearTimeout(rebuildTimer)
     rebuildTimer = setTimeout(() => void rebuildAll('source change'), 120)
   })
