@@ -257,7 +257,9 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
     titleBarStyle: platform === 'darwin' ? 'hiddenInset' : 'hidden',
     ...(platform === 'darwin'
       ? {
-        trafficLightPosition: { x: 16, y: 18 },
+        // Vertically center the traffic lights on the 42px unified top
+        // rail: the cluster is 14px tall, so y = (42 - 14) / 2 = 14.
+        trafficLightPosition: { x: 16, y: 14 },
         vibrancy: 'sidebar' as const,
         visualEffectState: 'followWindow' as const,
       }
