@@ -456,29 +456,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-workspace-empty,
-.oh-dsh-workspace-muted {
-  padding: 18px 12px;
-  color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: var(--oh-dsh-font-sm);
-  text-align: center;
-}
-
-.oh-dsh-workspace-empty { margin: auto; max-width: 220px; font-size: var(--oh-dsh-font-md); line-height: 1.5; }
-
-.oh-dsh-workspace-error {
-  /* Sits directly inside the scroll container (no shell), so it owns its
-     own 8px inset to line up with the sections around it. */
-  margin: var(--oh-dsh-space-2) var(--oh-dsh-space-2) 0;
-  padding: 8px 10px;
-  border-radius: var(--oh-dsh-radius-sm);
-  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 10%, transparent);
-  color: var(--dsw-alias-state-error-primary, #cf222e);
-  font-size: var(--oh-dsh-font-xs);
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
 @media (max-width: 900px) {
   .oh-dsh-workspace-panel { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }
 }

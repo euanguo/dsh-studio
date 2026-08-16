@@ -283,7 +283,6 @@
 .oh-dsh-sidebar-settings-size strong { font-size: var(--oh-dsh-font-lg); }
 .oh-dsh-sidebar-settings p,
 .oh-dsh-sidebar-settings small { margin: 0; color: var(--dsw-alias-label-secondary, #656d76); font-size: var(--oh-dsh-font-sm); line-height: 1.45; }
-.oh-dsh-sidebar-settings-error { color: var(--dsw-alias-state-error-primary, #cf222e) !important; }
 .oh-dsh-sidebar-settings-heading > button { padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-3); border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 9%)); border-radius: var(--oh-dsh-radius-md); background: transparent; color: inherit; cursor: pointer; }
 .oh-dsh-sidebar-settings-size input[type='range'] { width: min(210px, 40%); accent-color: var(--oh-dsh-accent); }
 .oh-dsh-sidebar-settings input[type='checkbox'] { position: relative; flex: none; width: 32px; height: 18px; margin: 0; appearance: none; border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 14%)); border-radius: var(--oh-dsh-radius-pill); background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 8%)); cursor: pointer; transition: background 140ms ease; }

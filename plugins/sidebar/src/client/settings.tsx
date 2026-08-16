@@ -15,6 +15,7 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from '../sidebar-preferences.ts'
+import { ErrorView } from './kit/status.tsx'
 
 export function sidebarLabel(value: string | (() => string)): string {
   return typeof value === 'function' ? value() : value
@@ -144,11 +145,11 @@ export function SidebarSettingsRow({
           />
         </label>
         {runtimeState.error !== null && (
-          <p className="oh-dsh-sidebar-settings-error" role="alert">
-            {t(runtimeState.error === 'load'
+          <ErrorView
+            message={t(runtimeState.error === 'load'
               ? 'settings.runtime-load-failed'
               : 'settings.runtime-save-failed')}
-          </p>
+          />
         )}
       </section>
       <section>

@@ -1,10 +1,8 @@
 import type { LocaleMessages } from '../../../shared/i18n.ts'
 
 export type WorkspaceMessage =
-  | 'panels.label'
   | 'side.expand'
   | 'side.restore'
-  | 'summary.toggle'
   | 'summary.title'
   | 'terminal.toggle'
   | 'terminal.title'
@@ -24,26 +22,30 @@ export type WorkspaceMessage =
   | 'browser.url'
   | 'browser.go'
   | 'files.select-workspace'
-  | 'files.request-failed'
   | 'files.loading'
   | 'files.empty-directory'
-  | 'files.showing-first'
   | 'files.open'
-  | 'files.binary'
   | 'files.preview-truncated'
   | 'files.not-file'
   | 'files.no-viewer'
+  | 'files.empty-file'
+  | 'files.search-no-matches'
+  | 'files.image-loading'
+  | 'files.image-load-failed'
+  | 'files.zoom-out'
+  | 'files.zoom-in'
+  | 'files.zoom-reset'
+  | 'files.open-externally'
+  | 'files.rendering-diagram'
   | 'files.viewer.binary'
   | 'files.viewer.html'
   | 'files.viewer.markdown'
   | 'files.viewer.text'
   | 'files.refresh'
-  | 'side.back'
   | 'side.close'
   | 'side.git'
   | 'side.add-tool'
   | 'side.no-more-tools'
-  | 'side.close-tab'
   | 'side.close-named-tab'
   | 'side.not-ready'
   | 'side.orphaned-tab'
@@ -77,51 +79,36 @@ export type WorkspaceMessage =
   | 'settings.runtime-save-failed'
   | 'workspace.request-failed'
   | 'workspace.title'
-  | 'workspace.refresh'
   | 'workspace.add'
-  | 'workspace.close-review'
   | 'workspace.select'
   | 'workspace.changes'
-  | 'workspace.staged'
+  | 'workspace.committed'
   | 'workspace.more-changes'
   | 'workspace.clean'
   | 'workspace.not-git'
-  | 'workspace.execution-environment'
-  | 'workspace.local'
   | 'workspace.current-branch'
   | 'workspace.new-branch'
   | 'workspace.new-branch-name'
   | 'workspace.create'
-  | 'workspace.commit-or-push'
   | 'workspace.commit-message'
   | 'workspace.commit-all'
   | 'workspace.push'
   | 'workspace.behind'
-  | 'workspace.background-processes'
-  | 'workspace.no-background-processes'
   | 'workspace.loading-diff'
   | 'workspace.no-text-diff'
   | 'workspace.no-content-changes'
   | 'workspace.renamed-only'
   | 'workspace.review-history'
   | 'workspace.no-commits'
-  | 'workspace.review-commit'
-  | 'workspace.comment-commit'
+  | 'workspace.commit-no-files'
   | 'workspace.comment-line'
   | 'workspace.comment-placeholder'
   | 'workspace.add-comment'
-  | 'workspace.cancel'
-  | 'workspace.comment-added'
-  | 'workspace.comment-saved'
-  | 'workspace.pending-comments'
-  | 'workspace.remove-comment'
-  | 'workspace.diff-truncated'
   | 'source-control.section.conflict'
   | 'source-control.section.staged'
   | 'source-control.section.unstaged'
   | 'source-control.mode.flat'
   | 'source-control.mode.tree'
-  | 'source-control.section.untracked'
   | 'source-control.status.added'
   | 'source-control.status.modified'
   | 'source-control.status.deleted'
@@ -135,9 +122,9 @@ export type WorkspaceMessage =
   | 'source-control.stage-all'
   | 'source-control.unstage-all'
   | 'source-control.discard-all'
+  | 'source-control.view-all'
   | 'source-control.copy-path'
   | 'source-control.discard-confirm'
-  | 'source-control.op-pending'
   | 'toast.copied'
   | 'toast.copy-failed'
   | 'toast.save-failed'
@@ -151,10 +138,8 @@ export type WorkspaceMessage =
 
 export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
   en: {
-    'panels.label': 'Desktop panels',
     'side.expand': 'Expand side panel',
     'side.restore': 'Restore side panel',
-    'summary.toggle': 'Toggle pinned summary',
     'summary.title': 'Pinned summary',
     'terminal.toggle': 'Toggle terminal panel',
     'terminal.title': 'Terminal',
@@ -174,26 +159,30 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'browser.url': 'Browser URL',
     'browser.go': 'Go',
     'files.select-workspace': 'Select a workspace to browse files.',
-    'files.request-failed': 'File request failed ({status})',
     'files.loading': 'Loading…',
     'files.empty-directory': 'Empty directory',
-    'files.showing-first': 'Showing the first 300 entries',
     'files.open': 'Open',
-    'files.binary': 'Binary file · {size}',
     'files.preview-truncated': 'preview truncated',
     'files.not-file': 'The selected path is not a regular file.',
     'files.no-viewer': 'No preview is available for this file ({size}).',
+    'files.empty-file': 'Empty file',
+    'files.search-no-matches': 'No matches',
+    'files.image-loading': 'Loading image…',
+    'files.image-load-failed': 'Could not load image.',
+    'files.zoom-out': 'Zoom out',
+    'files.zoom-in': 'Zoom in',
+    'files.zoom-reset': 'Reset',
+    'files.open-externally': 'Open externally',
+    'files.rendering-diagram': 'Rendering diagram…',
     'files.viewer.binary': 'Binary file',
     'files.viewer.html': 'HTML preview',
     'files.viewer.markdown': 'Markdown preview',
     'files.viewer.text': 'Text preview',
     'files.refresh': 'Refresh',
-    'side.back': 'Back to side panel',
     'side.close': 'Close side panel',
     'side.git': 'Git',
     'side.add-tool': 'Add tool',
     'side.no-more-tools': 'No more tools to add',
-    'side.close-tab': 'Close active tab',
     'side.close-named-tab': 'Close {title}',
     'side.not-ready': 'The side panel is still starting.',
     'side.orphaned-tab': 'Its provider is not currently available. You can close this tab without losing the rest of the session.',
@@ -227,51 +216,36 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.runtime-save-failed': 'Could not save the runtime settings.',
     'workspace.request-failed': 'Workspace request failed ({status})',
     'workspace.title': 'Workspace',
-    'workspace.refresh': 'Refresh workspace',
     'workspace.add': 'Add workspace',
-    'workspace.close-review': 'Close review',
     'workspace.select': 'Select a DSH workspace to inspect changes.',
     'workspace.changes': 'Changes',
-    'workspace.staged': 'staged',
+    'workspace.committed': 'Committed changes',
     'workspace.more-changes': '{count} more changes',
     'workspace.clean': 'Working tree clean',
     'workspace.not-git': 'This directory is not a Git repository.',
-    'workspace.execution-environment': 'Execution environment',
-    'workspace.local': 'Local',
     'workspace.current-branch': 'Current branch',
     'workspace.new-branch': 'New branch',
     'workspace.new-branch-name': 'New branch name',
     'workspace.create': 'Create',
-    'workspace.commit-or-push': 'Commit or push',
     'workspace.commit-message': 'Commit message',
     'workspace.commit-all': 'Commit all',
     'workspace.push': 'Push',
     'workspace.behind': 'Behind upstream by {count}',
-    'workspace.background-processes': 'Background processes',
-    'workspace.no-background-processes': 'No background processes',
     'workspace.loading-diff': 'Loading diff…',
     'workspace.no-text-diff': 'No textual diff is available.',
     'workspace.no-content-changes': 'No content changes.',
     'workspace.renamed-only': 'Renamed file — no content changes.',
     'workspace.review-history': 'Commit history',
     'workspace.no-commits': 'No commits on this branch',
-    'workspace.review-commit': 'Commit',
-    'workspace.comment-commit': 'Comment on commit',
+    'workspace.commit-no-files': 'No file changes in this commit',
     'workspace.comment-line': 'Comment on this line',
     'workspace.comment-placeholder': 'Describe the change you want…',
     'workspace.add-comment': 'Add comment',
-    'workspace.cancel': 'Cancel',
-    'workspace.comment-added': 'Added to the message composer.',
-    'workspace.comment-saved': 'Saved. Open a chat to send this review.',
-    'workspace.pending-comments': 'Pending review comments',
-    'workspace.remove-comment': 'Remove review comment',
-    'workspace.diff-truncated': '{count} more lines are hidden',
     'source-control.section.conflict': 'Conflicts',
     'source-control.section.staged': 'Staged',
     'source-control.section.unstaged': 'Unstaged',
     'source-control.mode.flat': 'Flat list',
     'source-control.mode.tree': 'Tree',
-    'source-control.section.untracked': 'Untracked',
     'source-control.status.added': 'Added',
     'source-control.status.modified': 'Modified',
     'source-control.status.deleted': 'Deleted',
@@ -285,9 +259,9 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'source-control.stage-all': 'Stage all',
     'source-control.unstage-all': 'Unstage all',
     'source-control.discard-all': 'Discard all',
+    'source-control.view-all': 'View all',
     'source-control.copy-path': 'Copy path',
     'source-control.discard-confirm': 'Discard changes in "{paths}"? This cannot be undone.',
-    'source-control.op-pending': 'Operation in progress…',
     'toast.copied': 'Copied to clipboard',
     'toast.copy-failed': 'Copy failed',
     'toast.save-failed': 'Save failed: {message}',
@@ -300,10 +274,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'diff.wrap': 'Wrap long lines',
   },
   zh: {
-    'panels.label': '桌面面板',
     'side.expand': '展开侧边栏',
     'side.restore': '恢复侧边栏',
-    'summary.toggle': '切换固定摘要',
     'summary.title': '固定摘要',
     'terminal.toggle': '切换终端面板',
     'terminal.title': '终端',
@@ -323,26 +295,30 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'browser.url': '浏览器 URL',
     'browser.go': '前往',
     'files.select-workspace': '选择工作区以浏览文件。',
-    'files.request-failed': '文件请求失败（{status}）',
     'files.loading': '加载中…',
     'files.empty-directory': '空目录',
-    'files.showing-first': '仅显示前 300 项',
     'files.open': '打开',
-    'files.binary': '二进制文件 · {size}',
     'files.preview-truncated': '预览已截断',
     'files.not-file': '所选路径不是常规文件。',
     'files.no-viewer': '此文件没有可用的预览（{size}）。',
+    'files.empty-file': '空文件',
+    'files.search-no-matches': '无匹配结果',
+    'files.image-loading': '加载图片中…',
+    'files.image-load-failed': '图片加载失败。',
+    'files.zoom-out': '缩小',
+    'files.zoom-in': '放大',
+    'files.zoom-reset': '重置',
+    'files.open-externally': '在外部打开',
+    'files.rendering-diagram': '渲染图表中…',
     'files.viewer.binary': '二进制文件',
     'files.viewer.html': 'HTML 预览',
     'files.viewer.markdown': 'Markdown 预览',
     'files.viewer.text': '文本预览',
     'files.refresh': '刷新',
-    'side.back': '返回侧边栏',
     'side.close': '关闭侧边栏',
     'side.git': 'Git',
     'side.add-tool': '添加工具',
     'side.no-more-tools': '没有更多可添加的工具',
-    'side.close-tab': '关闭当前标签页',
     'side.close-named-tab': '关闭 {title}',
     'side.not-ready': '侧边栏仍在启动。',
     'side.orphaned-tab': '当前无法找到它的提供者。关闭此标签页不会影响会话中的其他内容。',
@@ -376,51 +352,36 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.runtime-save-failed': '无法保存运行时设置。',
     'workspace.request-failed': '工作区请求失败（{status}）',
     'workspace.title': '工作区',
-    'workspace.refresh': '刷新工作区',
     'workspace.add': '添加工作区',
-    'workspace.close-review': '关闭审查',
     'workspace.select': '选择 DSH 工作区以检查变更。',
     'workspace.changes': '变更',
-    'workspace.staged': '已暂存',
+    'workspace.committed': '已提交的更改',
     'workspace.more-changes': '还有 {count} 项变更',
     'workspace.clean': '工作树已清理',
     'workspace.not-git': '此目录不是 Git 仓库。',
-    'workspace.execution-environment': '执行环境',
-    'workspace.local': '本地',
     'workspace.current-branch': '当前分支',
     'workspace.new-branch': '新分支',
     'workspace.new-branch-name': '新分支名称',
     'workspace.create': '创建',
-    'workspace.commit-or-push': '提交或推送',
     'workspace.commit-message': '提交信息',
     'workspace.commit-all': '提交全部',
     'workspace.push': '推送',
     'workspace.behind': '落后上游 {count} 个提交',
-    'workspace.background-processes': '后台进程',
-    'workspace.no-background-processes': '没有后台进程',
     'workspace.loading-diff': '正在加载差异…',
     'workspace.no-text-diff': '没有可用的文本差异。',
     'workspace.no-content-changes': '没有内容变更。',
     'workspace.renamed-only': '文件被重命名 — 没有内容变更。',
     'workspace.review-history': '提交历史',
     'workspace.no-commits': '当前分支没有提交',
-    'workspace.review-commit': '提交',
-    'workspace.comment-commit': '评论此提交',
+    'workspace.commit-no-files': '此提交没有文件变更',
     'workspace.comment-line': '评论此行',
     'workspace.comment-placeholder': '描述希望修改的内容…',
     'workspace.add-comment': '添加评论',
-    'workspace.cancel': '取消',
-    'workspace.comment-added': '已添加到消息输入框。',
-    'workspace.comment-saved': '已保存，请打开对话发送此次审查。',
-    'workspace.pending-comments': '待发送的审查评论',
-    'workspace.remove-comment': '移除审查评论',
-    'workspace.diff-truncated': '另有 {count} 行已隐藏',
     'source-control.section.conflict': '冲突',
     'source-control.section.staged': '已暂存',
     'source-control.section.unstaged': '未暂存',
     'source-control.mode.flat': '平铺列表',
     'source-control.mode.tree': '树形',
-    'source-control.section.untracked': '未跟踪',
     'source-control.status.added': '新增',
     'source-control.status.modified': '已修改',
     'source-control.status.deleted': '已删除',
@@ -434,9 +395,9 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'source-control.stage-all': '全部暂存',
     'source-control.unstage-all': '全部取消暂存',
     'source-control.discard-all': '全部丢弃',
+    'source-control.view-all': '查看全部',
     'source-control.copy-path': '复制路径',
     'source-control.discard-confirm': '确定丢弃 "{paths}" 中的更改？此操作无法撤销。',
-    'source-control.op-pending': '操作进行中…',
     'toast.copied': '已复制到剪贴板',
     'toast.copy-failed': '复制失败',
     'toast.save-failed': '保存失败：{message}',

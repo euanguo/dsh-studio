@@ -417,7 +417,7 @@ export function FilesView({
         <div className="oh-dsh-file-search-results">
           {searching ? <LoadingView label={t('files.loading')} /> : null}
           {!searching && searchHits.length === 0 ? (
-            <EmptyView title="No matches" />
+            <EmptyView title={t('files.search-no-matches')} />
           ) : null}
           {searchHits.slice(0, 100).map(hit => (
             <button

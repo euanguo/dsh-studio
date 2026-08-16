@@ -149,10 +149,13 @@ export function registerKeymapAction(
   }
 }
 
-/** A shortcut with no modifiers must not hijack typing contexts. */
+/** A shortcut with no modifiers must not hijack typing or select contexts. */
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement
-    && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+    && (target.tagName === 'INPUT'
+      || target.tagName === 'TEXTAREA'
+      || target.tagName === 'SELECT'
+      || target.isContentEditable)
 }
 
 /**
@@ -161,6 +164,9 @@ function isEditableTarget(target: EventTarget | null): boolean {
  */
 export function installKeymap(): () => void {
   const onKeyDown = (event: KeyboardEvent): void => {
+    // Held keys re-fire keydown; skip repeats so toggles (Mod+Alt+B, Escape)
+    // don't flip state several times per press.
+    if (event.repeat) return
     for (const action of actions.values()) {
       if (!eventMatchesBinding(action.binding, event)) continue
       if (isEditableTarget(event.target)

@@ -4,10 +4,18 @@
  * parse/load errors.
  */
 import { useEffect, useRef, useState } from 'react'
+import type { Translate } from '../../../../shared/i18n.ts'
+import type { WorkspaceMessage } from '../i18n.ts'
 import { loadMermaidChunk } from '../chunk-loader.ts'
 import { LoadingView } from '../kit/status.tsx'
 
-export function MermaidViewer({ content }: { content: string }): JSX.Element {
+export function MermaidViewer({
+  content,
+  t,
+}: {
+  content: string
+  t: Translate<WorkspaceMessage>
+}): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -32,7 +40,7 @@ export function MermaidViewer({ content }: { content: string }): JSX.Element {
 
   return (
     <div className="oh-dsh-mermaid-viewer" data-testid="mermaid-viewer">
-      {loading ? <LoadingView label="Rendering diagram…" /> : null}
+      {loading ? <LoadingView label={t('files.rendering-diagram')} /> : null}
       {error !== '' ? (
         <pre className="oh-dsh-mermaid-source">
           <code>{content}</code>

@@ -14,21 +14,21 @@ export function LoadingView({ label }: { label: string }): JSX.Element {
   )
 }
 
-export function ErrorView({
-  message,
-  onRetry,
-  retryLabel,
-}: {
-  message: string
-  onRetry?: () => void
-  retryLabel?: string
-}): JSX.Element {
+/**
+ * Either a plain error message, or a retryable one where the retry label is
+ * required (pre-translated by the call site — no i18n inside the kit).
+ */
+export type ErrorViewProps =
+  | { message: string; onRetry: () => void; retryLabel: string }
+  | { message: string; onRetry?: undefined; retryLabel?: undefined }
+
+export function ErrorView({ message, onRetry, retryLabel }: ErrorViewProps): JSX.Element {
   return (
     <div className="oh-dsh-side-error oh-dsh-status" data-kind="error" role="alert">
       <span className="oh-dsh-status-message">{message}</span>
       {onRetry !== undefined && (
         <button type="button" className="oh-dsh-status-retry" onClick={onRetry}>
-          {retryLabel ?? 'Retry'}
+          {retryLabel}
         </button>
       )}
     </div>

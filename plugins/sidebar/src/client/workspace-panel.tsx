@@ -24,6 +24,7 @@ import { WORKSPACE_API_PATH } from '../protocol.ts'
 import type { Translate } from '../../../shared/i18n.ts'
 import { copyText } from '../../../shared/copy-text.ts'
 import { toast } from '../../../shared/toast.tsx'
+import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import {
   IconBranch,
   IconChevronDown,
@@ -203,21 +204,21 @@ function CommitFilesBody({
   if (state === undefined || state.status === 'loading') {
     return (
       <div className="oh-dsh-review-commit-files">
-        <div className="oh-dsh-workspace-muted">{t('overlay.loading')}</div>
+        <LoadingView label={t('overlay.loading')} />
       </div>
     )
   }
   if (state.status === 'error') {
     return (
       <div className="oh-dsh-review-commit-files">
-        <div className="oh-dsh-workspace-muted">{state.error}</div>
+        <ErrorView message={state.error} />
       </div>
     )
   }
   if (state.entries.length === 0) {
     return (
       <div className="oh-dsh-review-commit-files">
-        <div className="oh-dsh-workspace-muted">{t('workspace.commit-no-files')}</div>
+        <EmptyView title={t('workspace.commit-no-files')} />
       </div>
     )
   }
@@ -626,11 +627,11 @@ export function WorkspacePanel({
   return (
     <div className="oh-dsh-review-view" aria-label={t('workspace.changes')}>
       {cwd === undefined
-        ? <div className="oh-dsh-workspace-empty">{t('workspace.select')}</div>
+        ? <EmptyView title={t('workspace.select')} />
         : (
           <>
             <div className="oh-dsh-workspace-content">
-            {error !== '' && <div className="oh-dsh-workspace-error" role="alert">{error}</div>}
+            {error !== '' && <ErrorView message={error} />}
 
             {/* Commit area rides the top (orca parity): branch + message +
                 commit/push stay visible above the change list instead of
@@ -705,17 +706,17 @@ export function WorkspacePanel({
                   onCopyPath={copyPath}
                 />
                 {(snapshot?.changes.length ?? 0) > visibleChanges.length && (
-                  <div className="oh-dsh-workspace-muted">
-                    {t('workspace.more-changes', {
+                  <EmptyView
+                    title={t('workspace.more-changes', {
                       count: (snapshot?.changes.length ?? 0) - visibleChanges.length,
                     })}
-                  </div>
+                  />
                 )}
                 {snapshot?.kind === 'repository' && snapshot.changes.length === 0 && (
-                  <div className="oh-dsh-workspace-muted">{t('workspace.clean')}</div>
+                  <EmptyView title={t('workspace.clean')} />
                 )}
                 {snapshot?.kind === 'directory' && (
-                  <div className="oh-dsh-workspace-muted">{t('workspace.not-git')}</div>
+                  <EmptyView title={t('workspace.not-git')} />
                 )}
               </div>
             </section>
@@ -871,9 +872,7 @@ export function WorkspacePanel({
                     )
                   })}
                   {history.length === 0 && (
-                    <div className="oh-dsh-workspace-muted">
-                      {t('workspace.no-commits')}
-                    </div>
+                    <EmptyView title={t('workspace.no-commits')} />
                   )}
                 </div>
               )}
