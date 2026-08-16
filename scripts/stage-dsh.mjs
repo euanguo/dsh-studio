@@ -25,10 +25,9 @@ import {
   resolve,
   sep,
 } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
 import { resolveNodeDistributionPlatform } from '../src/node-platform.ts'
-import { adaptTuiRendererPackage } from './tui-upstream-adapter.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dshSource = resolveDshSource()
@@ -401,7 +400,10 @@ function stageSourceCounterpart(link) {
     source = join(dshSource, 'vendor', basename(link))
   }
   if (!existsSync(source)) {
-    throw new Error(`staged runtime link has no usable source: ${link}`)
+    // The source checkout may simply not carry this package on the current
+    // platform (e.g. an optional Linux/Windows native addon on macOS): skip
+    // the dangling link instead of failing the whole stage.
+    return undefined
   }
   if (!isWithin(dshSource, source)) {
     // Global-store content has no dependency links of its own; copy it
@@ -595,21 +597,65 @@ function runtimePackageDirectory(name) {
   return join(runtime, 'node_modules', ...name.split('/'))
 }
 
-function resolveDependencyManifest(requireFromPackage, dependency) {
+function resolveDependencyManifest(requireFromPackage, dependency, fromManifestPath) {
   try {
     return requireFromPackage.resolve(`${dependency}/package.json`)
   } catch (packageJsonError) {
-    let directory = dirname(requireFromPackage.resolve(dependency))
+    // The exports map may declare a "require" entry pointing at a file the
+    // package does not ship while the "import" entry exists (e.g.
+    // @upsetjs/venn.js@2.0.0: require -> ./build/index.js, import ->
+    // ./build/venn.esm.js). The bundled runtime consumes these packages
+    // through import semantics, so resolve the entry with import semantics
+    // based on the requiring package's manifest.
+    try {
+      const resolvedUrl = import.meta.resolve(dependency, pathToFileURL(fromManifestPath).href)
+      const manifestPath = manifestUpwardFrom(dirname(fileURLToPath(resolvedUrl)), dependency)
+      if (manifestPath !== null) return manifestPath
+    } catch { /* fall through */ }
+    // The physical node_modules chain (require-style walk that ignores
+    // exports entirely) — stage only needs the package's files. The
+    // manifest is returned REALPATHED: createRequire resolves sibling
+    // dependencies from the manifest's directory, and a symlinked
+    // workspace path would miss the .pnpm isolation dir's siblings.
+    const directory = locatePackageDirectory(fromManifestPath, dependency)
+    if (directory !== null) return realpathSync(join(directory, 'package.json'))
+    let walk = dirname(requireFromPackage.resolve(dependency))
     for (;;) {
-      const manifestPath = join(directory, 'package.json')
+      const manifestPath = join(walk, 'package.json')
       if (existsSync(manifestPath)) {
         const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
         if (manifest.name === dependency) return manifestPath
       }
-      const parent = dirname(directory)
-      if (parent === directory) throw packageJsonError
-      directory = parent
+      const parent = dirname(walk)
+      if (parent === walk) throw packageJsonError
+      walk = parent
     }
+  }
+}
+
+/** Walk upward from a resolved entry file to the nearest matching manifest. */
+function manifestUpwardFrom(directory, dependency) {
+  for (;;) {
+    const manifestPath = join(directory, 'package.json')
+    if (existsSync(manifestPath)) {
+      const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+      if (manifest.name === dependency) return manifestPath
+    }
+    const parent = dirname(directory)
+    if (parent === directory) return null
+    directory = parent
+  }
+}
+
+/** Physical node_modules-chain lookup (exports-agnostic). */
+function locatePackageDirectory(fromManifestPath, dependency) {
+  let directory = dirname(fromManifestPath)
+  for (;;) {
+    const candidate = join(directory, 'node_modules', ...dependency.split('/'))
+    if (existsSync(join(candidate, 'package.json'))) return candidate
+    const parent = dirname(directory)
+    if (parent === directory) return null
+    directory = parent
   }
 }
 
@@ -713,7 +759,7 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
     for (const [dependency, optional] of dependencyNames(manifest)) {
       try {
         const dependencyTarget = installManifest(
-          resolveDependencyManifest(requireFromPackage, dependency),
+          resolveDependencyManifest(requireFromPackage, dependency, canonicalManifest),
         )
         linkDependency(target, dependency, dependencyTarget)
       } catch (error) {
@@ -729,7 +775,7 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
   for (const [dependency, optional] of dependencyNames(sourceManifest)) {
     try {
       const dependencyTarget = installManifest(
-        resolveDependencyManifest(requireFromSource, dependency),
+        resolveDependencyManifest(requireFromSource, dependency, sourceManifestPath),
       )
       const link = join(installRoot, ...dependency.split('/'))
       mkdirSync(dirname(link), { recursive: true })
@@ -775,28 +821,18 @@ function installDesktopPackages() {
       ],
     },
     {
-      manifest: join(root, 'plugins', 'better-sidebar-runtime', 'package.json'),
+      manifest: join(root, 'plugins', 'sidebar-host', 'package.json'),
       files: [
         [
-          join(root, 'dist', 'plugins', 'better-sidebar-runtime', 'index.js'),
+          join(root, 'dist', 'plugins', 'sidebar-host', 'index.js'),
           'dist/index.js',
         ],
       ],
     },
-    {
-      manifest: join(root, 'plugins', 'vision', 'package.json'),
-      files: [
-        [join(root, 'dist', 'plugins', 'vision', 'index.js'), 'dist/index.js'],
-        [join(root, 'dist', 'plugins', 'vision', 'client.js'), 'dist/client.js'],
-        [join(root, 'dist', 'plugins', 'vision', 'client.js.map'), 'dist/client.js.map'],
-        [join(root, 'dist', 'plugins', 'vision', 'LICENSE'), 'dist/LICENSE'],
-      ],
-    },
     ...[
-      'skins',
-      'sidebar',
       'desktop-skins',
-      'desktop-sidebar',
+      'sidebar',
+      'sidebar-desktop',
       'desktop-left-rail',
       'panel-controls',
       'pinned-summary',
@@ -816,23 +852,6 @@ function installDesktopPackages() {
         [join(root, 'dist', 'web', 'client.js'), 'dist/client.js'],
         [join(root, 'dist', 'web', 'client.js.map'), 'dist/client.js.map'],
         [join(root, 'dist', 'web', 'cordis.patch.yml'), 'dist/cordis.patch.yml'],
-      ],
-    },
-    {
-      manifest: join(root, 'upstream', 'dsh-TUI', 'package.json'),
-      files: [
-        [join(root, 'upstream', 'dsh-TUI', 'lib'), 'lib'],
-        [join(root, 'upstream', 'dsh-TUI', 'skills'), 'skills'],
-        [join(root, 'upstream', 'dsh-TUI', 'cordis.patch.yml'), 'cordis.patch.yml'],
-        [join(root, 'upstream', 'dsh-TUI', 'cordis.yml'), 'cordis.yml'],
-        [join(root, 'upstream', 'dsh-TUI', 'LICENSE'), 'LICENSE'],
-      ],
-    },
-    {
-      manifest: join(root, 'plugins', 'tui', 'package.json'),
-      files: [
-        [join(root, 'dist', 'plugins', 'tui', 'index.js'), 'dist/index.js'],
-        [join(root, 'dist', 'plugins', 'tui', 'cordis.patch.yml'), 'dist/cordis.patch.yml'],
       ],
     },
   ]
@@ -941,19 +960,13 @@ for (const required of [
   'web/client.js',
   'web/client.js.map',
   'web/cordis.patch.yml',
-  'plugins/better-sidebar-runtime/index.js',
-  'plugins/vision/index.js',
-  'plugins/vision/client.js',
-  'plugins/vision/client.js.map',
-  'plugins/vision/LICENSE',
-  'plugins/skins/index.js',
-  'plugins/skins/client.js',
-  'plugins/sidebar/index.js',
-  'plugins/sidebar/client.js',
+  'plugins/sidebar-host/index.js',
   'plugins/desktop-skins/index.js',
   'plugins/desktop-skins/client.js',
-  'plugins/desktop-sidebar/index.js',
-  'plugins/desktop-sidebar/client.js',
+  'plugins/sidebar/index.js',
+  'plugins/sidebar/client.js',
+  'plugins/sidebar-desktop/index.js',
+  'plugins/sidebar-desktop/client.js',
   'plugins/desktop-left-rail/index.js',
   'plugins/desktop-left-rail/client.js',
   'plugins/panel-controls/index.js',
@@ -962,8 +975,6 @@ for (const required of [
   'plugins/pinned-summary/client.js',
   'plugins/plugin-marketplace/index.js',
   'plugins/plugin-marketplace/client.js',
-  'plugins/tui/index.js',
-  'plugins/tui/cordis.patch.yml',
 ]) {
   if (!existsSync(join(root, 'dist', required))) {
     throw new Error(`desktop artifact missing: dist/${required}; run pnpm run build first`)
