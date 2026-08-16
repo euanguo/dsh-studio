@@ -6,6 +6,8 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
+import { copyText } from '../../../../shared/copy-text.ts'
+import { toast } from '../../../../shared/toast.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { betterSidebarApi } from '../better-sidebar-api.ts'
 import type { FileContents, MergeConflictResolution } from '@pierre/diffs'
@@ -132,9 +134,11 @@ export function FileSurfaceView({
       .catch((cause: unknown) => {
         runtime.invalidate(surface.filePath)
         void runtime.ensureLoaded(surface.filePath)
-        setWriteError(cause instanceof Error ? cause.message : String(cause))
+        const message = cause instanceof Error ? cause.message : String(cause)
+        setWriteError(message)
+        toast('error', t('toast.save-failed', { message }))
       })
-  }, [runtime, surface.cwd, surface.filePath, surface.sessionId])
+  }, [runtime, surface.cwd, surface.filePath, surface.sessionId, t])
 
   const onOpenExternal = useCallback(() => {
     if (window.dshDesktop !== undefined) {
@@ -168,13 +172,10 @@ export function FileSurfaceView({
   }, [isMarkdown, markdownMode, surface.filePath])
 
   const onCopySelection = useCallback(async (label: string) => {
-    try {
-      await navigator.clipboard.writeText(label)
-    } catch {
-      // Clipboard can be unavailable in sandboxed web contexts; best effort.
-    }
+    const ok = await copyText(label)
+    toast(ok ? 'success' : 'error', ok ? t('toast.copied') : t('toast.copy-failed'))
     setSelectionAction(null)
-  }, [])
+  }, [t])
 
   const entry = runtime.getEntry(surface.filePath)
   if (entry === undefined || entry.phase === 'loading') {
@@ -292,9 +293,11 @@ export function EditorSurfaceView({
       // Refresh the file runtime so other file tabs see the new content.
       getFileRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }).invalidate(surface.filePath)
     }).catch((cause: unknown) => {
-      setError(cause instanceof Error ? cause.message : String(cause))
+      const message = cause instanceof Error ? cause.message : String(cause)
+      setError(message)
+      toast('error', t('toast.save-failed', { message }))
     }).finally(() => { setSaving(false) })
-  }, [surface.cwd, surface.filePath, surface.sessionId])
+  }, [surface.cwd, surface.filePath, surface.sessionId, t])
 
   // Mod+S flushes the editor immediately (autosave remains the safety net).
   useEffect(() => registerKeymapAction('editor.save', binding({ mod: true, key: 's' }), () => {
@@ -1215,9 +1218,11 @@ export function ConflictSurfaceView({
       })
     }).catch((cause: unknown) => {
       setBusy(false)
-      setError(cause instanceof Error ? cause.message : String(cause))
+      const message = cause instanceof Error ? cause.message : String(cause)
+      setError(message)
+      toast('error', t('toast.save-failed', { message }))
     })
-  }, [absolutePath, surface.cwd, surface.filePath, surface.sessionId, surface.id, name])
+  }, [absolutePath, surface.cwd, surface.filePath, surface.sessionId, surface.id, name, t])
 
   const file = useMemo<FileContents>(() => ({
     name,

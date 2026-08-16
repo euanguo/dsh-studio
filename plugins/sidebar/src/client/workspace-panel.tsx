@@ -4,13 +4,17 @@
  * Extracted from plugin.tsx (single-file assembly) into its own module.
  */
 import {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
+  type CSSProperties,
 } from 'react'
 import type {
+  WorkspaceChange,
   WorkspaceFacts,
   WorkspaceHostMutationResponse,
   WorkspaceMutation,
@@ -18,25 +22,29 @@ import type {
 } from '../protocol.ts'
 import { WORKSPACE_API_PATH } from '../protocol.ts'
 import type { Translate } from '../../../shared/i18n.ts'
+import { copyText } from '../../../shared/copy-text.ts'
+import { toast } from '../../../shared/toast.tsx'
 import {
   IconBranch,
   IconChevronDown,
-  IconChevronUp,
-  IconCommit,
   IconHistory,
   IconPlus,
-  IconPrompt,
 } from '../../../shared/icons.tsx'
+import {
+  FileGlyph,
+  IconChevronRight,
+  IconEye,
+  IconGitCommit,
+} from '../../../shared/tabler-icons.tsx'
+import { FilenameLabel } from '../../../shared/filename-label.tsx'
 import type { WorkspaceMessage } from './i18n.ts'
 import {
   betterSidebarApi,
+  type BetterSidebarGitCommitFile,
   type BetterSidebarGitLogEntry,
   type BetterSidebarScope,
 } from './better-sidebar-api.ts'
 import {
-  EMPTY_CONVERSATION,
-  type ConversationSnapshot,
-  type RunningToolCall,
   type SessionsService,
   type WorkspaceTools,
   type WorkspacesService,
@@ -50,6 +58,7 @@ import {
 } from './source-control/source-control-panel.tsx'
 import {
   ListRow,
+  ListRowActionButton,
   ListRowBody,
   ListRowLabel,
   ListRowLabelText,
@@ -64,13 +73,10 @@ import {
 } from './source-control/source-control-view-model.ts'
 import type { SourceControlSectionId } from './source-control/source-control-tree.ts'
 import {
-<<<<<<<< HEAD:plugins/desktop-sidebar/src/client/workspace-panel.tsx
-========
   buildSourceControlTree,
   flattenSourceControlTree,
 } from './source-control/source-control-tree.ts'
 import {
->>>>>>>> c58e891 (feat(sidebar): split desktop sidebar into sidebar + sidebar-desktop and switch to the generic host):plugins/sidebar/src/client/workspace-panel.tsx
   getSourceControlRuntime,
   sidebarScopeKey,
 } from './runtimes/registry.ts'
@@ -79,6 +85,182 @@ import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
 
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+/** Lazy-loaded file list for one expanded history row. */
+type CommitFilesState =
+  | { status: 'loading' }
+  | { status: 'error'; error: string }
+  | { status: 'ready'; entries: readonly BetterSidebarGitCommitFile[] }
+
+/** The committed-changes projection (files in local commits ahead of the
+ *  branch upstream). `none` = no upstream to compare against. */
+type CommittedState =
+  | { status: 'none' }
+  | { status: 'loading' }
+  | { status: 'error'; error: string }
+  | { status: 'ready'; baseRef: string; entries: readonly BetterSidebarGitCommitFile[] }
+
+function commitFileName(path: string): string {
+  return path.split(/[\\/]/).filter(Boolean).pop() ?? path
+}
+
+function commitFileStatusWord(status: string): string {
+  if (status === 'A') return 'added'
+  if (status === 'D') return 'deleted'
+  if (status === 'R') return 'renamed'
+  if (status === 'C') return 'copied'
+  return 'modified'
+}
+
+type CommitFileRow =
+  | { kind: 'file'; key: string; path: string; status: string; additions: number; deletions: number; depth: number }
+  | { kind: 'directory'; key: string; name: string; depth: number; fileCount: number; expanded: boolean }
+
+/** Build the visible commit-file row stream, following the change list's
+ *  flat/tree mode (directory grouping is re-used from the source-control
+ *  tree model so both lists indent identically). */
+function commitFileRows(
+  files: readonly BetterSidebarGitCommitFile[],
+  mode: SourceControlListMode,
+  collapsedDirs: ReadonlySet<string>,
+  keyPrefix: string,
+): CommitFileRow[] {
+  if (mode === 'flat') {
+    return files.map(file => ({
+      kind: 'file',
+      key: `file:${file.path}`,
+      path: file.path,
+      status: file.status,
+      additions: file.additions,
+      deletions: file.deletions,
+      depth: 0,
+    }))
+  }
+  const fileByPath = new Map(files.map(file => [file.path, file] as const))
+  // The tree builder only reads `path`; the real status/counts are looked up
+  // on render from the commit-file entries.
+  const changes: WorkspaceChange[] = files.map(file => ({
+    path: file.path,
+    oldPath: null,
+    status: 'modified',
+    staged: false,
+    additions: 0,
+    deletions: 0,
+  }))
+  const tree = buildSourceControlTree(changes)
+  const rows: CommitFileRow[] = []
+  for (const node of flattenSourceControlTree(tree, collapsedDirs, keyPrefix)) {
+    if (node.kind === 'file') {
+      const file = fileByPath.get(node.path)
+      rows.push({
+        kind: 'file',
+        key: node.key,
+        path: node.path,
+        status: file?.status ?? 'M',
+        additions: file?.additions ?? 0,
+        deletions: file?.deletions ?? 0,
+        depth: node.depth,
+      })
+    } else {
+      rows.push({
+        kind: 'directory',
+        key: node.key,
+        name: node.name,
+        depth: node.depth,
+        fileCount: node.fileCount,
+        expanded: !collapsedDirs.has(keyPrefix + node.key),
+      })
+    }
+  }
+  return rows
+}
+
+/** The inline file list under an expanded history row (orca parity): click a
+ *  file → its single diff in the center; the commit row's own "view all"
+ *  icon opens the whole-commit diff instead. `nested` marks rows that live
+ *  under a commit row (extra chevron-column indent); the committed-changes
+ *  section passes nested=false so its rows align with the change list. */
+function CommitFilesBody({
+  state,
+  mode,
+  collapsedDirs,
+  onToggleDir,
+  onOpenFile,
+  t,
+  keyPrefix,
+  nested = true,
+}: {
+  state: CommitFilesState | undefined
+  mode: SourceControlListMode
+  collapsedDirs: ReadonlySet<string>
+  onToggleDir(key: string): void
+  onOpenFile(path: string): void
+  t: Translate<WorkspaceMessage>
+  keyPrefix: string
+  nested?: boolean
+}): JSX.Element {
+  if (state === undefined || state.status === 'loading') {
+    return (
+      <div className="oh-dsh-review-commit-files">
+        <div className="oh-dsh-workspace-muted">{t('overlay.loading')}</div>
+      </div>
+    )
+  }
+  if (state.status === 'error') {
+    return (
+      <div className="oh-dsh-review-commit-files">
+        <div className="oh-dsh-workspace-muted">{state.error}</div>
+      </div>
+    )
+  }
+  if (state.entries.length === 0) {
+    return (
+      <div className="oh-dsh-review-commit-files">
+        <div className="oh-dsh-workspace-muted">{t('workspace.commit-no-files')}</div>
+      </div>
+    )
+  }
+  const rows = commitFileRows(state.entries, mode, collapsedDirs, keyPrefix)
+  const sectionModifier = nested ? '' : ' is-section'
+  return (
+    <div className="oh-dsh-review-commit-files">
+      {rows.map(row => row.kind === 'directory' ? (
+        <button
+          key={row.key}
+          type="button"
+          className={`oh-dsh-review-commit-dir${sectionModifier}`}
+          style={{ '--tree-depth': row.depth } as CSSProperties}
+          onClick={() => { onToggleDir(row.key) }}
+        >
+          {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          <span className="oh-dsh-review-commit-dir-name">{row.name}</span>
+          <span className="oh-dsh-workspace-count">{row.fileCount}</span>
+        </button>
+      ) : (
+        <button
+          key={row.key}
+          type="button"
+          className={`oh-dsh-review-commit-file${sectionModifier}`}
+          title={row.path}
+          style={{ '--tree-depth': row.depth } as CSSProperties}
+          onClick={() => { onOpenFile(row.path) }}
+        >
+          <FileGlyph path={row.path} kind="file" />
+          <FilenameLabel name={commitFileName(row.path)} title={row.path} />
+          {(row.additions > 0 || row.deletions > 0) && (
+            <span className="oh-dsh-sc-stat" aria-hidden="true">
+              {row.additions > 0 && <em className="oh-dsh-sc-stat-add">+{row.additions}</em>}
+              {row.deletions > 0 && <em className="oh-dsh-sc-stat-del">−{row.deletions}</em>}
+            </span>
+          )}
+          <span className={`oh-dsh-sc-mark is-${commitFileStatusWord(row.status)}`}>
+            {row.status === 'T' ? 'M' : row.status}
+          </span>
+        </button>
+      ))}
+    </div>
+  )
 }
 
 async function responseJson<T>(
@@ -100,43 +282,6 @@ function workspaceUrl(cwd: string): string {
   return url.href
 }
 
-export function processTitle(call: RunningToolCall): string {
-  try {
-    const args = JSON.parse(call.argsRaw) as Record<string, unknown>
-    const value = args.command ?? args.cmd ?? args.script ?? args.description
-    if (Array.isArray(value)) return value.map(String).join(' ')
-    if (typeof value === 'string' && value.trim() !== '') return value.trim()
-  } catch {
-    // Fall back to the raw tool name for non-JSON arguments.
-  }
-  return call.name
-}
-
-export function flattenRunningCalls(calls: readonly RunningToolCall[]): RunningToolCall[] {
-  const result: RunningToolCall[] = []
-  for (const call of calls) {
-    result.push(call)
-    result.push(...flattenRunningCalls(call.subCalls ?? []))
-  }
-  return result
-}
-
-function useActiveConversation(sessions: SessionsService, sessionId: string | undefined): ConversationSnapshot {
-  const binding = sessionId === undefined ? undefined : sessions.binding(sessionId)
-  const subscribe = useCallback(
-    (listener: () => void) => binding?.session.subscribe(listener) ?? (() => {}),
-    [binding],
-  )
-  const getSnapshot = useCallback(
-    () => binding?.session.getSnapshot() ?? EMPTY_CONVERSATION,
-    [binding],
-  )
-  return useSyncExternalStore(
-    subscribe,
-    getSnapshot,
-  )
-}
-
 export function WorkspacePanel({
   reviewComments,
   service,
@@ -154,11 +299,6 @@ export function WorkspacePanel({
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
   const sessionId = sessionList.current
   const cwd = sessionId === undefined ? undefined : sessionList.byId[sessionId]?.cwd
-  const conversation = useActiveConversation(sessions, sessionId)
-  const processes = useMemo(
-    () => flattenRunningCalls(conversation.runningCalls ?? []),
-    [conversation.runningCalls],
-  )
   // Retained source-control runtime: the git snapshot survives tab switches
   // (registry keeps the instance; ready data renders instantly).
   const runtime = useMemo(
@@ -194,11 +334,64 @@ export function WorkspacePanel({
   const listMode: SourceControlListMode = chrome?.gitListMode ?? 'tree'
   const selectedPath = chrome?.sourceControl.selectedPath ?? null
   const [pendingByPath, setPendingByPath] = useState<ReadonlyMap<string, SourceControlPendingAction>>(new Map())
-  const [commitOpen, setCommitOpen] = useState(false)
-  const [commitMessage, setCommitMessage] = useState('')
   const [newBranch, setNewBranch] = useState('')
-  const [selectedCommitId, setSelectedCommitId] = useState<string | null>(null)
-  const [reviewLoading, setReviewLoading] = useState(false)
+  // Expanded history row + its lazily-loaded file list (per commit hash).
+  const [expandedCommitId, setExpandedCommitId] = useState<string | null>(null)
+  const [commitFiles, setCommitFiles] = useState<ReadonlyMap<string, CommitFilesState>>(new Map())
+  // Collapsed directory keys for the inline commit file lists (prefixed by
+  // commit hash so the same directory path can stay open in different commits).
+  const [collapsedCommitDirs, setCollapsedCommitDirs] = useState<ReadonlySet<string>>(new Set())
+  const toggleCommitDir = (key: string): void => {
+    setCollapsedCommitDirs(current => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+  // Committed changes (files in local commits ahead of the branch upstream).
+  const [committed, setCommitted] = useState<CommittedState>({ status: 'none' })
+  const [committedCollapsed, setCommittedCollapsed] = useState(false)
+  const [collapsedCommittedDirs, setCollapsedCommittedDirs] = useState<ReadonlySet<string>>(new Set())
+  const toggleCommittedDir = (key: string): void => {
+    setCollapsedCommittedDirs(current => {
+      const next = new Set(current)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+  // Git history docks at the bottom collapsed by default; when expanded it
+  // keeps a bounded height (drag the top edge to resize) instead of pushing
+  // the change list out of view (orca parity).
+  const [historyCollapsed, setHistoryCollapsed] = useState(true)
+  const [historyHeight, setHistoryHeight] = useState(256)
+  const historyResizeRef = useRef<{ startY: number; startHeight: number } | null>(null)
+  const startHistoryResize = useCallback((event: React.PointerEvent): void => {
+    event.preventDefault()
+    historyResizeRef.current = { startY: event.clientY, startHeight: historyHeight }
+    const onMove = (move: PointerEvent): void => {
+      const session = historyResizeRef.current
+      if (session === null) return
+      const next = session.startHeight + session.startY - move.clientY
+      setHistoryHeight(Math.min(520, Math.max(96, next)))
+    }
+    const onUp = (): void => {
+      historyResizeRef.current = null
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }, [historyHeight])
+  // Draft commit message lives in the chrome store (persisted per scope) so it
+  // survives tab switches and reloads.
+  const commitMessage = chrome?.sourceControl.commitMessage ?? ''
+  const setCommitMessage = (message: string): void => {
+    if (scopeKey !== null) {
+      useSidebarChromeStore.getState().setSourceControlCommitMessage(scopeKey, message)
+    }
+  }
   const visibleChanges = snapshot?.changes.slice(0, 200) ?? []
   const rows = useMemo<SourceControlVisibleRow[]>(
     () => buildSourceControlRows({
@@ -223,32 +416,106 @@ export function WorkspacePanel({
     await runtime.refresh()
   }, [runtime])
 
+  const refreshCommitted = useCallback(async (): Promise<void> => {
+    if (scope === undefined) return
+    try {
+      const result = await betterSidebarApi.gitCommittedFiles(scope)
+      if (result.baseRef === null) {
+        setCommitted({ status: 'none' })
+        return
+      }
+      setCommitted({ status: 'ready', baseRef: result.baseRef, entries: result.entries })
+    } catch (cause) {
+      setCommitted({ status: 'error', error: errorMessage(cause) })
+    }
+  }, [scope])
+
   useEffect(() => {
     if (!panelState.open || panelState.view !== 'review' || runtime === null) return
     void runtime.ensureLoaded()
-    const timer = window.setInterval(() => { void runtime.refresh() }, 4_000)
-    const onFocus = (): void => { void runtime.refresh() }
+    void refreshCommitted()
+    const timer = window.setInterval(() => {
+      void runtime.refresh()
+      void refreshCommitted()
+    }, 4_000)
+    const onFocus = (): void => {
+      void runtime.refresh()
+      void refreshCommitted()
+    }
     window.addEventListener('focus', onFocus)
     return () => {
       window.clearInterval(timer)
       window.removeEventListener('focus', onFocus)
     }
-  }, [panelState.open, panelState.view, runtime])
+  }, [panelState.open, panelState.view, runtime, refreshCommitted])
 
   useEffect(() => {
-    setSelectedCommitId(null)
+    setExpandedCommitId(null)
+    setCommitFiles(new Map())
+    setCollapsedCommitDirs(new Set())
+    setCommitted({ status: 'none' })
+    setCommittedCollapsed(false)
+    setCollapsedCommittedDirs(new Set())
   }, [cwd])
 
-  // Clicking a history row opens the commit diff in the CENTER surface
-  // (single click = preview tab, double click = pinned).
-  const openCommitInCenter = (entry: BetterSidebarGitLogEntry): void => {
+  // Clicking a history row toggles its inline file list (lazy-loaded, orca
+  // parity) instead of jumping straight to the whole-commit diff.
+  const toggleCommitFiles = (entry: BetterSidebarGitLogEntry): void => {
+    if (scope === undefined) return
+    const hash = entry.hashFull
+    const loaded = commitFiles.has(hash)
+    setExpandedCommitId(current => current === hash ? null : hash)
+    if (loaded) return
+    setCommitFiles(current => new Map(current).set(hash, { status: 'loading' }))
+    void betterSidebarApi.gitCommitFiles(scope, hash).then(entries => {
+      setCommitFiles(current => new Map(current).set(hash, { status: 'ready', entries }))
+    }).catch((cause: unknown) => {
+      setCommitFiles(current => new Map(current).set(hash, { status: 'error', error: errorMessage(cause) }))
+    })
+  }
+
+  // The commit row's "view all" icon → whole-commit diff in the center.
+  const openCommitDiffInCenter = (entry: BetterSidebarGitLogEntry): void => {
     if (cwd === undefined) return
-    setSelectedCommitId(entry.hashFull)
     useCenterSurfaceStore.getState().openCommit({
       sessionId: sessionId ?? '',
       cwd,
       hash: entry.hashFull,
       title: entry.subject || entry.hash,
+      preview: true,
+    })
+  }
+
+  // A file in a commit's inline list → that single file's diff in the center.
+  const openCommitFileInCenter = (entry: BetterSidebarGitLogEntry, filePath: string): void => {
+    if (cwd === undefined) return
+    useCenterSurfaceStore.getState().openCommitFile({
+      sessionId: sessionId ?? '',
+      cwd,
+      hash: entry.hashFull,
+      filePath,
+      preview: true,
+    })
+  }
+
+  // Committed changes: "view all" → whole projection; a file → its diff.
+  const openCommittedAllInCenter = (baseRef: string): void => {
+    if (cwd === undefined) return
+    useCenterSurfaceStore.getState().openCommitted({
+      sessionId: sessionId ?? '',
+      cwd,
+      baseRef,
+      preview: true,
+    })
+  }
+
+  const openCommittedFileInCenter = (baseRef: string, filePath: string): void => {
+    if (cwd === undefined) return
+    useCenterSurfaceStore.getState().openCommitted({
+      sessionId: sessionId ?? '',
+      cwd,
+      baseRef,
+      filePath,
       preview: true,
     })
   }
@@ -304,6 +571,18 @@ export function WorkspacePanel({
     useCenterSurfaceStore.getState().openDiff({ sessionId: sessionId ?? '', cwd, filePath: path, staged: change.staged, title: name, preview })
   }
 
+  const viewAllInCenter = (id: SourceControlSectionId): void => {
+    if (cwd === undefined || sessionId === undefined) return
+    const staged = id === 'staged'
+    useCenterSurfaceStore.getState().openDiffAll({
+      sessionId,
+      cwd,
+      staged,
+      title: staged ? t('source-control.section.staged') : t('source-control.section.unstaged'),
+      preview: true,
+    })
+  }
+
   const runPaths = async (
     action: SourceControlPendingAction,
     paths: readonly string[],
@@ -313,9 +592,10 @@ export function WorkspacePanel({
     for (const path of paths) pending.set(path, action)
     setPendingByPath(pending)
     try {
-      if (action === 'stage') await betterSidebarApi.gitStage(scope, paths.length === 1 ? paths[0] : undefined)
-      else if (action === 'unstage') await betterSidebarApi.gitUnstage(scope, paths.length === 1 ? paths[0] : undefined)
-      else await betterSidebarApi.gitDiscard(scope, paths.length === 1 ? paths[0] : undefined)
+      if (action === 'stage') await betterSidebarApi.gitStage(scope, paths)
+      else if (action === 'unstage') await betterSidebarApi.gitUnstage(scope, paths)
+      else await betterSidebarApi.gitDiscard(scope, paths)
+      if (action === 'discard') toast('success', t('toast.discarded'))
       await refresh()
     } catch (nextError) {
       runtime?.reportError(errorMessage(nextError))
@@ -330,7 +610,9 @@ export function WorkspacePanel({
   }
 
   const copyPath = (path: string): void => {
-    void navigator.clipboard?.writeText(path)
+    void copyText(path).then(ok => {
+      toast(ok ? 'success' : 'error', ok ? t('toast.copied') : t('toast.copy-failed'))
+    })
   }
 
   const chooseWorkspace = async (): Promise<void> => {
@@ -346,8 +628,51 @@ export function WorkspacePanel({
       {cwd === undefined
         ? <div className="oh-dsh-workspace-empty">{t('workspace.select')}</div>
         : (
-          <div className="oh-dsh-workspace-content">
+          <>
+            <div className="oh-dsh-workspace-content">
             {error !== '' && <div className="oh-dsh-workspace-error" role="alert">{error}</div>}
+
+            {/* Commit area rides the top (orca parity): branch + message +
+                commit/push stay visible above the change list instead of
+                hiding behind a bottom fold. */}
+            {snapshot?.kind === 'repository' && (
+              <section className="oh-dsh-commit-area">
+                <label className="oh-dsh-workspace-fact">
+                  <span className="oh-dsh-workspace-fact-icon"><IconBranch size={16} /></span>
+                  <select
+                    value={snapshot?.branch ?? ''}
+                    disabled={busy}
+                    aria-label={t('workspace.current-branch')}
+                    onChange={event => { void mutate({ action: 'checkout', branch: event.currentTarget.value }) }}
+                  >
+                    {(snapshot?.branches ?? []).map(branch => <option key={branch} value={branch}>{branch}</option>)}
+                  </select>
+                  <span className="oh-dsh-workspace-chevron"><IconChevronDown size={14} /></span>
+                </label>
+                <textarea
+                  value={commitMessage}
+                  placeholder={t('workspace.commit-message')}
+                  aria-label={t('workspace.commit-message')}
+                  onChange={event => { setCommitMessage(event.currentTarget.value) }}
+                />
+                <div className="oh-dsh-commit-actions">
+                  <button
+                    type="button"
+                    disabled={busy || snapshot.changes.length === 0 || commitMessage.trim() === ''}
+                    onClick={() => { void mutate({ action: 'commit', message: commitMessage }) }}
+                  >{t('workspace.commit-all')}</button>
+                  <button
+                    type="button"
+                    disabled={busy || !snapshot.hasRemote}
+                    onClick={() => { void mutate({ action: 'push' }) }}
+                  >{t('workspace.push')}{snapshot.ahead > 0 ? ` (${String(snapshot.ahead)})` : ''}</button>
+                </div>
+                {snapshot.behind > 0 && (
+                  <small>{t('workspace.behind', { count: snapshot.behind })}</small>
+                )}
+              </section>
+            )}
+
             <section>
               <div className="oh-dsh-change-list">
                 <SourceControlPanel
@@ -376,6 +701,7 @@ export function WorkspacePanel({
                   onStage={paths => { void runPaths('stage', paths) }}
                   onUnstage={paths => { void runPaths('unstage', paths) }}
                   onDiscard={requestDiscard}
+                  onViewAll={viewAllInCenter}
                   onCopyPath={copyPath}
                 />
                 {(snapshot?.changes.length ?? 0) > visibleChanges.length && (
@@ -394,60 +720,51 @@ export function WorkspacePanel({
               </div>
             </section>
 
-            {snapshot?.kind === 'repository' && (
-              <section className="oh-dsh-review-history">
-                <div className="oh-dsh-workspace-section-title">
-                  <span className="oh-dsh-workspace-section-icon"><IconHistory size={16} /></span>
-                  <strong>{t('workspace.review-history')}</strong>
-                  <span className="oh-dsh-workspace-count">{history.length}</span>
+            {snapshot?.kind === 'repository' && committed.status === 'ready' && committed.entries.length > 0 && (
+              <section className="oh-dsh-committed-section">
+                <div
+                  className="oh-dsh-sc-toolbar oh-dsh-committed-header"
+                  role="button"
+                  tabIndex={0}
+                  aria-expanded={!committedCollapsed}
+                  onClick={() => { setCommittedCollapsed(collapsed => !collapsed) }}
+                >
+                  <span className="oh-dsh-sc-toolbar-title">
+                    <IconGitCommit size={14} />
+                    {t('workspace.committed')}
+                    <em>{committed.entries.length}</em>
+                  </span>
+                  <span className="oh-dsh-committed-actions">
+                    <ListRowActionButton
+                      aria-label={t('source-control.view-all')}
+                      title={t('source-control.view-all')}
+                      onClick={event => {
+                        event.stopPropagation()
+                        openCommittedAllInCenter(committed.baseRef)
+                      }}
+                    ><IconEye size={14} /></ListRowActionButton>
+                    <IconChevronDown
+                      size={14}
+                      className={committedCollapsed ? 'oh-dsh-history-chevron is-collapsed' : 'oh-dsh-history-chevron'}
+                    />
+                  </span>
                 </div>
-                <div className="oh-dsh-review-commit-list">
-                  {history.map(entry => (
-                    <ListRow
-                      key={entry.hashFull}
-                      className="oh-dsh-review-commit-row"
-                      selected={selectedCommitId === entry.hashFull}
-                      title={entry.subject}
-                      onClick={() => { if (!reviewLoading) openCommitInCenter(entry) }}
-                    >
-                      <ListRowMain className="oh-dsh-sc-depth-main">
-                        <ListRowLeading aria-hidden="true">
-                          <IconCommit size={14} />
-                        </ListRowLeading>
-                        <ListRowBody>
-                          <ListRowLabel>
-                            <ListRowLabelText>{entry.subject}</ListRowLabelText>
-                          </ListRowLabel>
-                          <span className="oh-dsh-list-row-meta">{entry.author}</span>
-                        </ListRowBody>
-                        <ListRowTrailing>
-                          <code className="oh-dsh-review-commit-hash">{entry.hash}</code>
-                        </ListRowTrailing>
-                      </ListRowMain>
-                    </ListRow>
-                  ))}
-                  {history.length === 0 && (
-                    <div className="oh-dsh-workspace-muted">
-                      {t('workspace.no-commits')}
-                    </div>
-                  )}
-                </div>
+                {!committedCollapsed && (
+                  <CommitFilesBody
+                    state={{ status: 'ready', entries: committed.entries }}
+                    mode={listMode}
+                    collapsedDirs={collapsedCommittedDirs}
+                    onToggleDir={toggleCommittedDir}
+                    onOpenFile={path => { openCommittedFileInCenter(committed.baseRef, path) }}
+                    t={t}
+                    keyPrefix="committed:"
+                    nested={false}
+                  />
+                )}
               </section>
             )}
 
             <section className="oh-dsh-workspace-facts">
-              <label className="oh-dsh-workspace-fact">
-                <span className="oh-dsh-workspace-fact-icon"><IconBranch size={16} /></span>
-                <select
-                  value={snapshot?.branch ?? ''}
-                  disabled={snapshot?.kind !== 'repository' || busy}
-                  aria-label={t('workspace.current-branch')}
-                  onChange={event => { void mutate({ action: 'checkout', branch: event.currentTarget.value }) }}
-                >
-                  {(snapshot?.branches ?? []).map(branch => <option key={branch} value={branch}>{branch}</option>)}
-                </select>
-                <span className="oh-dsh-workspace-chevron"><IconChevronDown size={14} /></span>
-              </label>
               {snapshot?.kind === 'repository' && (
                 <div className="oh-dsh-new-branch">
                   <input
@@ -463,41 +780,6 @@ export function WorkspacePanel({
                   >{t('workspace.create')}</button>
                 </div>
               )}
-              <button
-                type="button"
-                className="oh-dsh-workspace-fact oh-dsh-commit-toggle"
-                onClick={() => { setCommitOpen(open => !open) }}
-                aria-expanded={commitOpen}
-              >
-                <span className="oh-dsh-workspace-fact-icon"><IconCommit size={16} /></span>
-                <span>{t('workspace.commit-or-push')}</span>
-                <span className="oh-dsh-workspace-chevron">{commitOpen ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}</span>
-              </button>
-              {commitOpen && snapshot?.kind === 'repository' && (
-                <div className="oh-dsh-commit-box">
-                  <textarea
-                    value={commitMessage}
-                    placeholder={t('workspace.commit-message')}
-                    aria-label={t('workspace.commit-message')}
-                    onChange={event => { setCommitMessage(event.currentTarget.value) }}
-                  />
-                  <div>
-                    <button
-                      type="button"
-                      disabled={busy || snapshot.changes.length === 0 || commitMessage.trim() === ''}
-                      onClick={() => { void mutate({ action: 'commit', message: commitMessage }) }}
-                    >{t('workspace.commit-all')}</button>
-                    <button
-                      type="button"
-                      disabled={busy || !snapshot.hasRemote}
-                      onClick={() => { void mutate({ action: 'push' }) }}
-                    >{t('workspace.push')}{snapshot.ahead > 0 ? ` (${String(snapshot.ahead)})` : ''}</button>
-                  </div>
-                  {snapshot.behind > 0 && (
-                    <small>{t('workspace.behind', { count: snapshot.behind })}</small>
-                  )}
-                </div>
-              )}
             </section>
 
             <section className="oh-dsh-workspace-directory">
@@ -505,20 +787,99 @@ export function WorkspacePanel({
               <small title={cwd}>{cwd}</small>
               <button type="button" onClick={() => { void chooseWorkspace() }} aria-label={t('workspace.add')}><IconPlus size={16} /></button>
             </section>
+          </div>
 
-            <section className="oh-dsh-processes">
-              <h3>{t('workspace.background-processes')}</h3>
-              {processes.map(process => (
-                <div key={process.callId} className="oh-dsh-process-row">
-                  <span><IconPrompt size={14} /></span>
-                  <code title={processTitle(process)}>{processTitle(process)}</code>
+          {snapshot?.kind === 'repository' && (
+            <section className="oh-dsh-review-history">
+              {!historyCollapsed && (
+                <div
+                  className="oh-dsh-history-resize"
+                  role="separator"
+                  aria-label={t('workspace.review-history')}
+                  onPointerDown={startHistoryResize}
+                />
+              )}
+              <div
+                className="oh-dsh-sc-toolbar oh-dsh-history-toggle"
+                role="button"
+                tabIndex={0}
+                aria-expanded={!historyCollapsed}
+                onClick={() => { setHistoryCollapsed(collapsed => !collapsed) }}
+              >
+                <span className="oh-dsh-sc-toolbar-title">
+                  <IconHistory size={14} />
+                  {t('workspace.review-history')}
+                  <em>{history.length}</em>
+                </span>
+                <IconChevronDown
+                  size={14}
+                  className={historyCollapsed ? 'oh-dsh-history-chevron is-collapsed' : 'oh-dsh-history-chevron'}
+                />
+              </div>
+              {!historyCollapsed && (
+                <div
+                  className="oh-dsh-review-commit-list"
+                  style={{ maxHeight: historyHeight, overflowY: 'auto' }}
+                >
+                  {history.map(entry => {
+                    const isExpanded = expandedCommitId === entry.hashFull
+                    return (
+                      <Fragment key={entry.hashFull}>
+                        <ListRow
+                          className="oh-dsh-review-commit-row"
+                          selected={isExpanded}
+                          title={entry.subject}
+                        >
+                          <ListRowMain
+                            className="oh-dsh-sc-depth-main"
+                            aria-expanded={isExpanded}
+                            onClick={() => { toggleCommitFiles(entry) }}
+                          >
+                            <ListRowLeading aria-hidden="true">
+                              {isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                            </ListRowLeading>
+                            <ListRowBody>
+                              <ListRowLabel>
+                                <ListRowLabelText>{entry.subject}</ListRowLabelText>
+                              </ListRowLabel>
+                            </ListRowBody>
+                            <ListRowTrailing>
+                              <span className="oh-dsh-review-commit-author">{entry.author}</span>
+                              <code className="oh-dsh-review-commit-hash">{entry.hash}</code>
+                            </ListRowTrailing>
+                          </ListRowMain>
+                          <ListRowTrailing>
+                            <ListRowActionButton
+                              aria-label={t('source-control.view-all')}
+                              title={t('source-control.view-all')}
+                              onClick={() => { openCommitDiffInCenter(entry) }}
+                            ><IconEye size={14} /></ListRowActionButton>
+                          </ListRowTrailing>
+                        </ListRow>
+                        {isExpanded && (
+                          <CommitFilesBody
+                            state={commitFiles.get(entry.hashFull)}
+                            mode={listMode}
+                            collapsedDirs={collapsedCommitDirs}
+                            onToggleDir={toggleCommitDir}
+                            onOpenFile={path => { openCommitFileInCenter(entry, path) }}
+                            t={t}
+                            keyPrefix={`commit:${entry.hashFull}:`}
+                          />
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                  {history.length === 0 && (
+                    <div className="oh-dsh-workspace-muted">
+                      {t('workspace.no-commits')}
+                    </div>
+                  )}
                 </div>
-              ))}
-              {processes.length === 0 && (
-                <div className="oh-dsh-workspace-muted">{t('workspace.no-background-processes')}</div>
               )}
             </section>
-          </div>
+          )}
+          </>
         )}
     </div>
   )

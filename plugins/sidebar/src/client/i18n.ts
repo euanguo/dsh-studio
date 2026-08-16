@@ -138,6 +138,10 @@ export type WorkspaceMessage =
   | 'source-control.copy-path'
   | 'source-control.discard-confirm'
   | 'source-control.op-pending'
+  | 'toast.copied'
+  | 'toast.copy-failed'
+  | 'toast.save-failed'
+  | 'toast.discarded'
   | 'overlay.loading'
   | 'overlay.no-content'
   | 'overlay.retry'
@@ -284,6 +288,10 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'source-control.copy-path': 'Copy path',
     'source-control.discard-confirm': 'Discard changes in "{paths}"? This cannot be undone.',
     'source-control.op-pending': 'Operation in progress…',
+    'toast.copied': 'Copied to clipboard',
+    'toast.copy-failed': 'Copy failed',
+    'toast.save-failed': 'Save failed: {message}',
+    'toast.discarded': 'Changes discarded',
     'overlay.loading': 'Loading…',
     'overlay.no-content': 'No preview available.',
     'overlay.retry': 'Retry',
@@ -429,6 +437,10 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'source-control.copy-path': '复制路径',
     'source-control.discard-confirm': '确定丢弃 "{paths}" 中的更改？此操作无法撤销。',
     'source-control.op-pending': '操作进行中…',
+    'toast.copied': '已复制到剪贴板',
+    'toast.copy-failed': '复制失败',
+    'toast.save-failed': '保存失败：{message}',
+    'toast.discarded': '已丢弃更改',
     'overlay.loading': '加载中…',
     'overlay.no-content': '没有可预览的内容。',
     'overlay.retry': '重试',

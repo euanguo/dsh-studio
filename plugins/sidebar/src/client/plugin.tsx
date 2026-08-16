@@ -32,9 +32,11 @@ import diffViewerCss from './diff/diff-viewer.css'
 import listRowCss from '../../../shared/list-row.css'
 import filenameLabelCss from '../../../shared/filename-label.css'
 import surfaceTabCss from '../../../shared/surface-tab.css'
+import toastCss from '../../../shared/toast.css'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { useTranslate } from '../../../shared/use-i18n.ts'
 import themeCss from '../../../shared/theme.css'
+import { ToastHost } from '../../../shared/toast.tsx'
 import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'
 import ReactMarkdown from 'react-markdown'
 import {
@@ -98,6 +100,11 @@ class WorkspaceToolsService implements WorkspaceTools {
   private style: HTMLStyleElement | undefined
   private element: HTMLDivElement | undefined
   private root: Root | undefined
+  // The toast host mounts on its own document.body element (the sidebar
+  // root is a clipped fixed overlay that only spans the panel footprint,
+  // so an in-panel host would hide or misplace toasts).
+  private toastElement: HTMLDivElement | undefined
+  private toastRoot: Root | undefined
   private stopSidebar: (() => void) | undefined
   private readonly narrowViewport = window.matchMedia('(max-width: 900px)')
   private readonly handleViewportChange = (): void => { this.applyLayout() }
@@ -212,7 +219,7 @@ class WorkspaceToolsService implements WorkspaceTools {
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
     this.style = document.createElement('style')
     this.style.dataset.ohDshDesktopSidebarStyles = 'true'
-    this.style.textContent = `${themeCss}\n${listRowCss}\n${filenameLabelCss}\n${surfaceTabCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
+    this.style.textContent = `${themeCss}\n${listRowCss}\n${filenameLabelCss}\n${surfaceTabCss}\n${toastCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
 ${centerSurfaceCss}
 ${diffViewerCss}`
     document.head.append(this.style)
@@ -234,6 +241,11 @@ ${diffViewerCss}`
         sidebar={this.sidebar}
       />,
     )
+    this.toastElement = document.createElement('div')
+    this.toastElement.id = 'oh-dsh-toast-root'
+    document.body.append(this.toastElement)
+    this.toastRoot = createRoot(this.toastElement)
+    this.toastRoot.render(<ToastHost />)
     this.narrowViewport.addEventListener('change', this.handleViewportChange)
     this.stopKeymap = installKeymap()
     // Global (panel-level) shortcuts: registered for the app lifetime.
@@ -277,6 +289,8 @@ ${diffViewerCss}`
     this.narrowViewport.removeEventListener('change', this.handleViewportChange)
     this.root?.unmount()
     this.element?.remove()
+    this.toastRoot?.unmount()
+    this.toastElement?.remove()
     this.style?.remove()
     delete document.documentElement.dataset.ohDshDesktopSidebarOpen
     delete document.documentElement.dataset.ohDshPanelMaximized
