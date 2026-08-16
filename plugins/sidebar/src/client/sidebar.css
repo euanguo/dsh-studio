@@ -954,7 +954,9 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   min-width: 180px;
   overflow: auto;
   border-right: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  padding: var(--oh-dsh-space-2) 0;
+  /* Same horizontal inset as the right-panel lists (8px) so the tree rows
+     never sit flush against the surface edge or the scrollbar. */
+  padding: var(--oh-dsh-space-2);
   flex: none;
 }
 
