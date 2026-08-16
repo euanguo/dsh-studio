@@ -32,7 +32,8 @@ import { WorkspacePickFlow } from './WorkspacePicker.tsx'
 import { ProjectTreeBody } from './WorkspaceBrowserProjectTree.tsx'
 import { createWorktree, useWorktreeLayouts, fetchBranches } from './worktree-api.ts'
 import { loadLeftRailSettings, saveLeftRailSettings } from './left-rail-settings.ts'
-import { copyText } from './copy.ts'
+import { copyText } from '../../../shared/copy-text.ts'
+import { toast } from '../../../shared/toast.tsx'
 // Identity class map + scoped stylesheet (build-time generated from the
 // forked CSS Modules — see scripts/left-rail-styles.mjs). The scope
 // attribute is mounted on the region root below.
@@ -1041,14 +1042,11 @@ export function WorkspaceBrowser({
   const [removeProjectTarget, setRemoveProjectTarget] = useState<{ repoRoot: string; label: string; count: number } | null>(null)
   const [removeProjectPending, setRemoveProjectPending] = useState(false)
   const [removeProjectError, setRemoveProjectError] = useState<string | null>(null)
-  // Copy-path feedback toast.
-  const [toast, setToast] = useState<string | null>(null)
-  const toastTimer = useRef<number | undefined>(undefined)
+  // Copy-path feedback rides the shared app toast (plugins/shared/toast.tsx);
+  // the sidebar plugin mounts its host, so this rail only publishes.
   const onCopy = (text: string): void => {
-    copyText(text).then((ok) => {
-      setToast(ok ? t('hover.copied') : t('copy.failed'))
-      window.clearTimeout(toastTimer.current)
-      toastTimer.current = window.setTimeout(() => { setToast(null) }, 1600)
+    void copyText(text).then(ok => {
+      toast(ok ? 'success' : 'error', ok ? t('hover.copied') : t('copy.failed'))
     })
   }
 
@@ -1641,29 +1639,6 @@ export function WorkspaceBrowser({
       >
         {removeProjectError !== null && <div className={css.renameError} role="alert">{removeProjectError}</div>}
       </Modal>
-
-      {/* Copy feedback toast. */}
-      {toast !== null && (
-        <div
-          role="status"
-          style={{
-            position: 'absolute',
-            left: '50%',
-            bottom: 12,
-            transform: 'translateX(-50%)',
-            background: 'var(--dsw-alias-button-elevated-fill, #1f2328)',
-            color: 'var(--dsw-alias-label-primary, #f9fafb)',
-            borderRadius: 8,
-            padding: '6px 12px',
-            fontSize: 12,
-            lineHeight: '18px',
-            zIndex: 10,
-            boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
-          }}
-        >
-          {toast}
-        </div>
-      )}
     </div>
   )
 }
