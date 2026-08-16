@@ -392,6 +392,15 @@ body[data-oh-dsh-skin] [role="option"] {
   line-height: var(--gw-skin-row-lh) !important;
   border-radius: var(--gw-skin-radius-row) !important;
 }
+/* 菜单行角色（menuitem/option 等）：组件显式 height 会盖过 min-height，
+   导致弹出层维持旧的行高（实测模型选择弹出层 40px）。菜单行是单行紧凑
+   内容，直接钉死 token 行高。 */
+body[data-oh-dsh-skin] [role="menuitem"],
+body[data-oh-dsh-skin] [role="menuitemradio"],
+body[data-oh-dsh-skin] [role="menuitemcheckbox"],
+body[data-oh-dsh-skin] [role="option"] {
+  height: var(--gw-skin-row-h) !important;
+}
 body[data-oh-dsh-skin] [class*="_itemWrap"],
 body[data-oh-dsh-skin] [class*="_itemLabel"] {
   padding: 0 !important;
@@ -424,7 +433,7 @@ body[data-oh-dsh-skin] button {
    排除菜单项（带 submenu 的 menuitem 也挂 aria-haspopup，但保持行按钮形态）；
    排除 workspaceLabel 等内部文本容器（避免行高强加导致文本顶对齐）。 */
 body[data-oh-dsh-skin] button[aria-haspopup]:not([role="menuitem"]),
-body[data-oh-dsh-skin] [class*="_trigger"]:not([class*="_triggerLabel"]),
+body[data-oh-dsh-skin] [class*="_trigger"]:not([class*="_triggerLabel"]):not([class*="_triggerEffort"]),
 body[data-oh-dsh-skin] [class*="_seat"],
 body[data-oh-dsh-skin] [class*="_workspace"]:not([class*="_workspaceLabel"]) {
   height: var(--gw-skin-row-h) !important;
@@ -438,8 +447,10 @@ body[data-oh-dsh-skin] [class*="_icon"] {
   justify-content: center !important;
 }
 /* 触发器/选择器文本 label：block 内文本贴顶 → flex 垂直居中
-   （修复文字偏上 4-5px；workspaceLabel 同款问题一并覆盖）。 */
+   （修复文字偏上 4-5px；workspaceLabel 同款问题一并覆盖；
+     triggerEffort 是思考强度字样，同标号对待，避免整行拔高）。 */
 body[data-oh-dsh-skin] [class*="_triggerLabel"],
+body[data-oh-dsh-skin] [class*="_triggerEffort"],
 body[data-oh-dsh-skin] [class*="_workspaceLabel"] {
   display: flex !important;
   align-items: center !important;
