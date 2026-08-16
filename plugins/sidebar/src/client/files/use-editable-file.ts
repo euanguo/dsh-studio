@@ -5,8 +5,10 @@
  * Data flow:
  * - viewing state reads through the WorkspaceFileRuntime cache (truncated
  *   previews allowed);
- * - entering edit loads the FULL file through the sidebar fs API into a
- *   local content copy;
+ * - entering edit loads the FULL file through the same file runtime (the
+ *   Edit affordance only exists when the cached snapshot is text and
+ *   untruncated, so the runtime entry IS the complete content — one read
+ *   path, no bare fsRead);
  * - every change updates the local copy, marks dirty and arms a 1s
  *   autosave;
  * - writes serialize through one queue (autosave / Mod+S / Save button can
@@ -21,6 +23,7 @@ import type { Translate } from '../../../../shared/i18n.ts'
 import { toast } from '../../../../shared/toast.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { betterSidebarApi } from '../better-sidebar-api.ts'
+import type { WorkspaceFileRuntime } from '../runtimes/file-runtime.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
 
 /** Autosave delay after the last edit (ms). */
@@ -47,11 +50,13 @@ export function useEditableFile(options: {
   sessionId: string
   cwd: string
   filePath: string
+  /** The retained file runtime the surface already reads through. */
+  runtime: WorkspaceFileRuntime
   t: Translate<WorkspaceMessage>
   /** Called after every successful write (invalidate caches, refresh UI). */
   onPersisted(): void
 }): EditableFileController {
-  const { sessionId, cwd, filePath, t, onPersisted } = options
+  const { sessionId, cwd, filePath, runtime, t, onPersisted } = options
   const scope = useMemo(() => ({ sessionId, cwd }), [sessionId, cwd])
   const latestContentRef = useRef('')
   const autosaveTimerRef = useRef<number | null>(null)
@@ -64,8 +69,10 @@ export function useEditableFile(options: {
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  // Full-file load for the edit state (the runtime cache may hold a
-  // truncated preview — editing always works on the complete content).
+  // Full-file load for the edit state, through the file runtime cache. The
+  // viewer only offers editing for text + untruncated snapshots, so the
+  // ready entry is the complete content; a missing/error entry still maps
+  // to the same error states.
   useEffect(() => {
     if (!editMode) return
     let alive = true
@@ -73,19 +80,22 @@ export function useEditableFile(options: {
     setError('')
     setDirty(false)
     latestContentRef.current = ''
-    void betterSidebarApi.fsRead(scope, filePath).then(result => {
+    void runtime.ensureLoaded(filePath).then(entry => {
       if (!alive) return
-      if (result.kind !== 'text') {
+      if (entry.phase === 'error') {
+        setError(entry.message ?? t('files.viewer.binary'))
+        return
+      }
+      const snapshot = entry.phase === 'ready' ? entry.snapshot : null
+      if (snapshot === null || snapshot.kind !== 'text' || snapshot.content === null) {
         setError(t('files.viewer.binary'))
         return
       }
-      latestContentRef.current = result.content
-      setContent(result.content)
-    }).catch((cause: unknown) => {
-      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
+      latestContentRef.current = snapshot.content
+      setContent(snapshot.content)
     })
     return () => { alive = false }
-  }, [editMode, scope, filePath, t])
+  }, [editMode, runtime, filePath, t])
 
   const save = useCallback((nextContent?: string): Promise<boolean> => {
     const value = nextContent ?? latestContentRef.current

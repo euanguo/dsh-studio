@@ -35,7 +35,7 @@ import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
 import { formatFileSelectionReference, getLineSelectionWithin } from '../files/file-selection-reference.ts'
 import { useEditableFile } from '../files/use-editable-file.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
-import { readDiffComments, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
+import { useDiffCommentsStore, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
 import { commentsToFileLineAnnotations } from '../diff/comment-annotations.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 import type { FileCenterSurface } from './types.ts'
@@ -77,18 +77,21 @@ export function FileSurfaceView({
     sessionId: surface.sessionId,
     cwd: surface.cwd,
     filePath: surface.filePath,
+    runtime,
     t,
     onPersisted,
   })
 
   // Persisted diff comments hang on the file's own lines in both states
-  // (one comment system across diff / file / editor views).
+  // (one comment system across diff / file / editor views); the store is
+  // the single live source (M5).
+  const allComments = useDiffCommentsStore(state => state.comments)
   const comments = useMemo(
-    () => readDiffComments().filter(comment =>
+    () => allComments.filter(comment =>
       commentPathMatches(comment.filePath, surface.filePath, surface.cwd)
       && comment.createdAt.length > 0,
     ),
-    [surface.cwd, surface.filePath, fingerprint],
+    [allComments, surface.cwd, surface.filePath],
   )
 
   useEffect(() => {

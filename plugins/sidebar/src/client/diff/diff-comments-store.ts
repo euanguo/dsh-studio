@@ -1,7 +1,11 @@
 /**
- * Minimal persisted diff comments (worktree diff scope).
- * Stored per workspace+cwd+file+staged in localStorage; pure model.
+ * Persisted diff comments (worktree diff scope), stored per workspace
+ * +cwd+file+staged in localStorage. The zustand store is the single live
+ * mirror — surfaces subscribe instead of keeping local copies (M5), and
+ * every mutation writes through to the localStorage persistence layer.
  */
+import { create } from 'zustand'
+
 export interface DiffComment {
   id: string
   filePath: string
@@ -45,6 +49,27 @@ export function nextDiffCommentId(): string {
     ? crypto.randomUUID()
     : `diff-comment-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`
 }
+
+interface DiffCommentsState {
+  comments: readonly DiffComment[]
+  addComment(comment: DiffComment): void
+  removeComment(id: string): void
+}
+
+/** Live mirror of the persisted comments; surfaces subscribe to this. */
+export const useDiffCommentsStore = create<DiffCommentsState>((set, get) => ({
+  comments: readDiffComments(),
+  addComment: comment => {
+    const next = [...get().comments, comment]
+    set({ comments: next })
+    writeDiffComments(next)
+  },
+  removeComment: id => {
+    const next = get().comments.filter(comment => comment.id !== id)
+    set({ comments: next })
+    writeDiffComments(next)
+  },
+}))
 
 /** Strip the workspace root prefix so git-relative and absolute paths compare. */
 export function pathRelativeToCwd(filePath: string, cwd: string): string {

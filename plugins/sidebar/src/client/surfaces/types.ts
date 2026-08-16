@@ -6,6 +6,7 @@
  * source for the open-set. Surfaces store identity + minimal visual state
  * (`isPreview`) only; never business data.
  */
+import { basename } from '../../../../shared/path.ts'
 
 export type CenterSurfaceKind =
   | 'conversation'
@@ -215,5 +216,5 @@ export function resolveActiveSurface(slice: CenterSurfaceSlice): CenterSurface |
 }
 
 export function fileNameFromPath(filePath: string): string {
-  return filePath.split(/[/\\]/).filter(Boolean).at(-1) || filePath
+  return basename(filePath)
 }

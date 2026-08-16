@@ -5,14 +5,28 @@
  * Each renderer is a pure view over its surface identity — data comes from
  * the runtimes / sidebar API.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import { toast } from '../../../../shared/toast.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { betterSidebarApi } from '../better-sidebar-api.ts'
 import type { FileContents, MergeConflictResolution } from '@pierre/diffs'
 import { UnresolvedFile, Virtualizer } from '@pierre/diffs/react'
-import { getFileRuntime, getSourceControlRuntime } from '../runtimes/registry.ts'
+import {
+  getDiffRuntime,
+  getFileRuntime,
+  getSourceControlRuntime,
+  sidebarScopeKey,
+} from '../runtimes/registry.ts'
+import { useSidebarChromeStore } from '../runtimes/chrome-store.ts'
+import {
+  committedDocKey,
+  committedListKey,
+  commitDocKey,
+  commitListKey,
+  worktreeDocKey,
+  worktreeListKey,
+} from '../runtimes/diff-runtime.ts'
 import { basename, resolveSidebarPath } from '../../../../shared/path.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
@@ -24,7 +38,7 @@ import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
 import { MultiDiffFileStack } from '../diff/multi-diff-file-stack.tsx'
 import { ImageDiffViewer } from '../diff/image-diff-viewer.tsx'
-import { nextDiffCommentId, readDiffComments, writeDiffComments, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
+import { nextDiffCommentId, useDiffCommentsStore, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
 import { commentsToDiffLineAnnotations } from '../diff/comment-annotations.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
@@ -59,17 +73,9 @@ export function DiffSurfaceView({
   surface: DiffCenterSurface
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const [diff, setDiff] = useState<string | null>(null)
-  const [error, setError] = useState('')
   const [context, setContext] = useState(DIFF_CONTEXT_INITIAL)
   const [expanding, setExpanding] = useState(false)
   const [imageDiff, setImageDiff] = useState<{ oldData: string; newData: string } | null>(null)
-  const [comments, setComments] = useState<readonly DiffComment[]>(() =>
-    readDiffComments().filter(comment =>
-      commentPathMatches(comment.filePath, surface.filePath, surface.cwd)
-      && comment.createdAt.length > 0,
-    ),
-  )
   const [commentLine, setCommentLine] = useState('')
   const [commentBody, setCommentBody] = useState('')
   // Cooldown after "Expand context" (the button re-enables when it fires).
@@ -82,7 +88,32 @@ export function DiffSurfaceView({
   const layout = useDiffViewPreferences(state => state.layout)
   const wordWrap = useDiffViewPreferences(state => state.wordWrap)
 
-  // Persisted comments render as Pierre annotation rows on the new-side lines.
+  // The diff document lives in the retained diff runtime (M1): re-opening
+  // this tab renders instantly from the cached entry.
+  const runtime = useMemo(
+    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
+    [surface.cwd, surface.sessionId],
+  )
+  useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
+  const docKey = worktreeDocKey(surface.staged, surface.filePath, context)
+  const doc = runtime.getDoc(docKey)
+  useEffect(() => {
+    if (runtime.getDoc(docKey) === undefined) {
+      void runtime.ensureWorktreeDoc(surface.staged, surface.filePath, context)
+    }
+  }, [runtime, docKey, surface.staged, surface.filePath, context])
+  const diff = doc !== undefined && doc.phase === 'ready' ? doc.diff : null
+
+  // Persisted comments render as Pierre annotation rows on the new-side
+  // lines; the store is the single live source (M5 — no local mirror).
+  const allComments = useDiffCommentsStore(state => state.comments)
+  const comments = useMemo(
+    () => allComments.filter(comment =>
+      commentPathMatches(comment.filePath, surface.filePath, surface.cwd)
+      && comment.createdAt.length > 0,
+    ),
+    [allComments, surface.cwd, surface.filePath],
+  )
   const lineAnnotations = useMemo(
     () => commentsToDiffLineAnnotations(comments),
     [comments],
@@ -97,29 +128,6 @@ export function DiffSurfaceView({
     if (input.side !== 'additions') return
     setCommentLine(String(input.lineNumber))
   }, [])
-
-  useEffect(() => {
-    let alive = true
-    setDiff(null)
-    setError('')
-    void betterSidebarApi.gitDiff(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
-      surface.filePath,
-      surface.staged,
-      undefined,
-      context,
-    ).then(response => {
-      if (!alive) return
-      if (response.diff.trim() === '') {
-        setError(t('workspace.no-text-diff'))
-        return
-      }
-      setDiff(response.diff)
-    }).catch((cause: unknown) => {
-      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
-    })
-    return () => { alive = false }
-  }, [surface.filePath, surface.sessionId, surface.staged, t, context])
 
   const document = useMemo(
     () => (diff === null ? null : buildDiffDocument({
@@ -149,9 +157,14 @@ export function DiffSurfaceView({
     })
     return () => { alive = false }
   }, [diff, isImagePath, surface.cwd, surface.filePath, surface.sessionId, surface.staged])
-  if (error !== '') return <ErrorView message={error} />
-  if (diff === null || document === null) {
+  if (doc !== undefined && doc.phase === 'error') {
+    return <ErrorView message={doc.message ?? t('overlay.no-content')} />
+  }
+  if (doc === undefined || doc.phase === 'loading' || diff === null || document === null) {
     return <LoadingView label={t('overlay.loading')} />
+  }
+  if (diff.trim() === '') {
+    return <ErrorView message={t('workspace.no-text-diff')} />
   }
   if (diff.includes('Binary files ') && diff.includes(' differ')) {
     return (
@@ -230,12 +243,7 @@ export function DiffSurfaceView({
                 <button
                   type="button"
                   onClick={() => {
-                    const next = comments.filter(candidate => candidate.id !== comment.id)
-                    setComments(next)
-                    writeDiffComments([
-                      ...readDiffComments().filter(candidate => !commentPathMatches(candidate.filePath, surface.filePath, surface.cwd)),
-                      ...next,
-                    ])
+                    useDiffCommentsStore.getState().removeComment(comment.id)
                   }}
                 >✕</button>
               </div>
@@ -271,9 +279,7 @@ export function DiffSurfaceView({
                 body: commentBody.trim(),
                 createdAt: new Date().toISOString(),
               }
-              const next = [...comments, comment]
-              setComments(next)
-              writeDiffComments([...readDiffComments().filter(candidate => !commentPathMatches(candidate.filePath, surface.filePath, surface.cwd)), ...next])
+              useDiffCommentsStore.getState().addComment(comment)
               setCommentLine('')
               setCommentBody('')
             }}
@@ -293,12 +299,9 @@ export function DiffAllSurfaceView({
   surface: DiffAllCenterSurface
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const [files, setFiles] = useState<readonly GitReviewFile[] | null>(null)
-  const [error, setError] = useState('')
-  const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [renderedKeys, setRenderedKeys] = useState<ReadonlySet<string>>(new Set())
-  const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(new Set())
   const [expanding, setExpanding] = useState<ReadonlySet<string>>(new Set())
+  const [error, setError] = useState('')
   const listRef = useRef<HTMLDivElement | null>(null)
   // F7 navigation cache: block element → its change-row list + doc key.
   const rowsCacheRef = useRef(new WeakMap<Element, { key: string; rows: Element[] }>())
@@ -306,64 +309,41 @@ export function DiffAllSurfaceView({
   const layout = useDiffViewPreferences(state => state.layout)
   const wordWrap = useDiffViewPreferences(state => state.wordWrap)
 
+  // The change list lives in the retained diff runtime (M1); selection and
+  // collapsed directories are chrome (shared with the source-control panel).
+  const runtime = useMemo(
+    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
+    [surface.cwd, surface.sessionId],
+  )
+  useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
+  const listKey = worktreeListKey(surface.staged)
+  const list = runtime.getList(listKey)
+  const files = list !== undefined && list.phase === 'ready' ? list.files : null
   useEffect(() => {
-    let alive = true
-    setFiles(null)
-    setError('')
-    setRenderedKeys(new Set())
-    setSelectedPath(null)
-    setCollapsedDirs(new Set())
-    setExpanding(new Set())
-    const scope = { sessionId: surface.sessionId, cwd: surface.cwd }
-    void betterSidebarApi.gitDiff(scope, undefined, surface.staged).then(async result => {
-      const parsed = parseGitReviewDiff(result.diff)
-      // Untracked files produce no git diff output — synthesize added-file
-      // diffs from their contents so "view all" shows them too.
-      let untrackedFiles: GitReviewFile[] = []
-      if (!surface.staged) {
-        try {
-          const status = await betterSidebarApi.gitStatus(scope)
-          const untracked = status.entries
-            .filter(entry => entry.xy === '??')
-            .map(entry => entry.path)
-          const synthesized = await Promise.all(untracked.map(async (path): Promise<GitReviewFile | null> => {
-            const read = await betterSidebarApi.fsRead(scope, resolveSidebarPath(surface.cwd, path))
-            if (read.kind !== 'text') return null
-            const lines = read.content.split('\n')
-            return {
-              path,
-              oldPath: null,
-              status: 'added',
-              additions: lines.length,
-              deletions: 0,
-              lines: lines.map((content, index) => ({
-                key: `untracked:${path}:${index}`,
-                type: 'addition' as const,
-                content,
-                oldLine: null,
-                newLine: index + 1,
-              })),
-            }
-          }))
-          untrackedFiles = synthesized.filter((file): file is GitReviewFile => file !== null)
-        } catch (cause) {
-          console.warn('[sidebar] failed to synthesize untracked-file diffs', cause)
-          untrackedFiles = []
-        }
-      }
-      if (!alive) return
-      const allFiles = [...parsed, ...untrackedFiles]
-      if (allFiles.length === 0) {
-        setError(t('workspace.no-text-diff'))
-        return
-      }
-      setFiles(allFiles)
-      setRenderedKeys(new Set(allFiles.slice(0, DIFF_ALL_PREMOUNT_COUNT).map(file => file.path)))
-    }).catch((cause: unknown) => {
-      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
-    })
-    return () => { alive = false }
-  }, [surface.sessionId, surface.cwd, surface.staged, t])
+    if (runtime.getList(listKey) === undefined) {
+      void runtime.ensureWorktreeList(surface.staged)
+    }
+  }, [runtime, listKey, surface.staged])
+  const scopeKey = sidebarScopeKey({ sessionId: surface.sessionId, cwd: surface.cwd })
+  const chrome = useSidebarChromeStore(state => state.getSlice(scopeKey))
+  const selectedPath = chrome.sourceControl.selectedPath
+  const collapsedDirs = useMemo(
+    () => new Set(chrome.sourceControl.collapsedDirectories),
+    [chrome.sourceControl.collapsedDirectories],
+  )
+
+  // Pre-mount the first files once per surface mount — the retained runtime
+  // may already hold a ready list when the tab reopens.
+  const previousFilesRef = useRef<readonly GitReviewFile[] | null>(null)
+  useEffect(() => {
+    if (files === null) return
+    if (previousFilesRef.current !== null) {
+      previousFilesRef.current = files
+      return
+    }
+    previousFilesRef.current = files
+    setRenderedKeys(new Set(files.slice(0, DIFF_ALL_PREMOUNT_COUNT).map(file => file.path)))
+  }, [files])
 
   const requestRender = useCallback((path: string) => {
     setRenderedKeys(previous => {
@@ -445,22 +425,10 @@ export function DiffAllSurfaceView({
       next.add(file.path)
       return next
     })
-    void betterSidebarApi.gitDiff(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
-      file.path,
-      surface.staged,
-      undefined,
-      DIFF_CONTEXT_STEP,
-    ).then(result => {
-      const reparsed = parseGitReviewDiff(result.diff)
-      const nextFile = reparsed.find(candidate => candidate.path === file.path) ?? reparsed[0]
-      setFiles(previous => {
-        if (previous === null) return previous
-        const next = previous.map(candidate => candidate.path === file.path && nextFile !== undefined ? nextFile : candidate)
-        return next
-      })
-    }).catch((cause: unknown) => {
-      setError(cause instanceof Error ? cause.message : String(cause))
+    void runtime.expandWorktreeFile(surface.staged, file.path, DIFF_CONTEXT_STEP).then(doc => {
+      if (doc.phase === 'error') {
+        setError(doc.message ?? t('workspace.no-text-diff'))
+      }
     }).finally(() => {
       setExpanding(previous => {
         if (!previous.has(file.path)) return previous
@@ -469,13 +437,19 @@ export function DiffAllSurfaceView({
         return next
       })
     })
-  }, [surface.sessionId, surface.cwd, surface.staged])
+  }, [runtime, surface.staged, t])
 
   const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
 
   if (error !== '') return <ErrorView message={error} />
+  if (list !== undefined && list.phase === 'error') {
+    return <ErrorView message={list.message ?? t('overlay.no-content')} />
+  }
   if (files === null) {
     return <LoadingView label={t('overlay.loading')} />
+  }
+  if (files.length === 0) {
+    return <ErrorView message={t('workspace.no-text-diff')} />
   }
   return (
     <div className="oh-dsh-diff-all-surface">
@@ -494,15 +468,10 @@ export function DiffAllSurfaceView({
         <DiffPathTreeNav
           rows={rows}
           onToggleDirectory={key => {
-            setCollapsedDirs(previous => {
-              const next = new Set(previous)
-              if (next.has(key)) next.delete(key)
-              else next.add(key)
-              return next
-            })
+            useSidebarChromeStore.getState().toggleSourceControlDirectory(scopeKey, key)
           }}
           onSelectFile={path => {
-            setSelectedPath(path)
+            useSidebarChromeStore.getState().setSourceControlSelectedPath(scopeKey, path)
             requestRender(path)
             requestAnimationFrame(() => {
               const block = listRef.current?.querySelector(`[data-path="${CSS.escape(path)}"]`)
@@ -674,30 +643,34 @@ export function CommitDiffSurfaceView({
   surface: CommitCenterSurface
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const [files, setFiles] = useState<readonly GitReviewFile[] | null>(null)
-  const [error, setError] = useState('')
-  const [selectedPath, setSelectedPath] = useState<string | null>(null)
-  const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(new Set())
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const theme = usePierreDiffTheme()
+
+  // Commit file list lives in the diff runtime; tree chrome is shared.
+  const runtime = useMemo(
+    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
+    [surface.cwd, surface.sessionId],
+  )
+  useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
+  const listKey = commitListKey(surface.hash)
+  const list = runtime.getList(listKey)
+  const files = list !== undefined && list.phase === 'ready' ? list.files : null
   useEffect(() => {
-    let alive = true
-    setFiles(null)
-    setError('')
-    setSelectedPath(null)
-    void betterSidebarApi.gitCommitDiff(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
-      surface.hash,
-    ).then(result => {
-      if (!alive) return
-      setFiles(parseGitReviewDiff(result.diff))
-    }).catch((cause: unknown) => {
-      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
-    })
-    return () => { alive = false }
-  }, [surface.hash, surface.sessionId, surface.cwd])
+    if (runtime.getList(listKey) === undefined) {
+      void runtime.ensureCommitList(surface.hash)
+    }
+  }, [runtime, listKey, surface.hash])
+  const scopeKey = sidebarScopeKey({ sessionId: surface.sessionId, cwd: surface.cwd })
+  const chrome = useSidebarChromeStore(state => state.getSlice(scopeKey))
+  const selectedPath = chrome.sourceControl.selectedPath
+  const collapsedDirs = useMemo(
+    () => new Set(chrome.sourceControl.collapsedDirectories),
+    [chrome.sourceControl.collapsedDirectories],
+  )
   const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
-  if (error !== '') return <ErrorView message={error} />
+  if (list !== undefined && list.phase === 'error') {
+    return <ErrorView message={list.message ?? t('overlay.no-content')} />
+  }
   if (files === null) {
     return <LoadingView label={t('overlay.loading')} />
   }
@@ -711,15 +684,10 @@ export function CommitDiffSurfaceView({
         <DiffPathTreeNav
           rows={rows}
           onToggleDirectory={key => {
-            setCollapsedDirs(previous => {
-              const next = new Set(previous)
-              if (next.has(key)) next.delete(key)
-              else next.add(key)
-              return next
-            })
+            useSidebarChromeStore.getState().toggleSourceControlDirectory(scopeKey, key)
           }}
           onSelectFile={path => {
-            setSelectedPath(path)
+            useSidebarChromeStore.getState().setSourceControlSelectedPath(scopeKey, path)
             requestAnimationFrame(() => {
               bodyRef.current?.querySelector(`[data-path="${CSS.escape(path)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             })
@@ -747,29 +715,20 @@ export function CommitFileSurfaceView({
   surface: CommitFileCenterSurface
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const [diff, setDiff] = useState<string | null>(null)
-  const [error, setError] = useState('')
   const theme = usePierreDiffTheme()
+  const runtime = useMemo(
+    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
+    [surface.cwd, surface.sessionId],
+  )
+  useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
+  const docKey = commitDocKey(surface.hash, surface.filePath)
+  const doc = runtime.getDoc(docKey)
   useEffect(() => {
-    let alive = true
-    setDiff(null)
-    setError('')
-    void betterSidebarApi.gitCommitFileDiff(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
-      surface.hash,
-      surface.filePath,
-    ).then(response => {
-      if (!alive) return
-      if (response.diff.trim() === '') {
-        setError(t('workspace.no-text-diff'))
-        return
-      }
-      setDiff(response.diff)
-    }).catch((cause: unknown) => {
-      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
-    })
-    return () => { alive = false }
-  }, [surface.hash, surface.filePath, surface.sessionId, surface.cwd, t])
+    if (runtime.getDoc(docKey) === undefined) {
+      void runtime.ensureCommitDoc(surface.hash, surface.filePath)
+    }
+  }, [runtime, docKey, surface.hash, surface.filePath])
+  const diff = doc !== undefined && doc.phase === 'ready' ? doc.diff : null
   const document = useMemo(
     () => (diff === null ? null : buildDiffDocument({
       path: surface.filePath,
@@ -780,9 +739,14 @@ export function CommitFileSurfaceView({
     })),
     [diff, surface.filePath],
   )
-  if (error !== '') return <ErrorView message={error} />
-  if (diff === null || document === null) {
+  if (doc !== undefined && doc.phase === 'error') {
+    return <ErrorView message={doc.message ?? t('overlay.no-content')} />
+  }
+  if (doc === undefined || doc.phase === 'loading' || diff === null || document === null) {
     return <LoadingView label={t('overlay.loading')} />
+  }
+  if (diff.trim() === '') {
+    return <ErrorView message={t('workspace.no-text-diff')} />
   }
   return (
     <div className="oh-dsh-diff-surface">
@@ -825,31 +789,34 @@ function CommittedAllDiffView({
   surface: CommittedCenterSurface
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const [files, setFiles] = useState<readonly GitReviewFile[] | null>(null)
-  const [error, setError] = useState('')
-  const [selectedPath, setSelectedPath] = useState<string | null>(null)
-  const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(new Set())
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const theme = usePierreDiffTheme()
+
+  // Committed file list lives in the diff runtime; tree chrome is shared.
+  const runtime = useMemo(
+    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
+    [surface.cwd, surface.sessionId],
+  )
+  useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
+  const listKey = committedListKey(surface.baseRef)
+  const list = runtime.getList(listKey)
+  const files = list !== undefined && list.phase === 'ready' ? list.files : null
   useEffect(() => {
-    let alive = true
-    setFiles(null)
-    setError('')
-    setSelectedPath(null)
-    void betterSidebarApi.gitCommittedDiff(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
-      surface.baseRef,
-      undefined,
-    ).then(result => {
-      if (!alive) return
-      setFiles(parseGitReviewDiff(result.diff))
-    }).catch((cause: unknown) => {
-      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
-    })
-    return () => { alive = false }
-  }, [surface.baseRef, surface.sessionId, surface.cwd])
+    if (runtime.getList(listKey) === undefined) {
+      void runtime.ensureCommittedList(surface.baseRef)
+    }
+  }, [runtime, listKey, surface.baseRef])
+  const scopeKey = sidebarScopeKey({ sessionId: surface.sessionId, cwd: surface.cwd })
+  const chrome = useSidebarChromeStore(state => state.getSlice(scopeKey))
+  const selectedPath = chrome.sourceControl.selectedPath
+  const collapsedDirs = useMemo(
+    () => new Set(chrome.sourceControl.collapsedDirectories),
+    [chrome.sourceControl.collapsedDirectories],
+  )
   const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
-  if (error !== '') return <ErrorView message={error} />
+  if (list !== undefined && list.phase === 'error') {
+    return <ErrorView message={list.message ?? t('overlay.no-content')} />
+  }
   if (files === null) return <LoadingView label={t('overlay.loading')} />
   return (
     <div className="oh-dsh-commit-surface">
@@ -861,15 +828,10 @@ function CommittedAllDiffView({
         <DiffPathTreeNav
           rows={rows}
           onToggleDirectory={key => {
-            setCollapsedDirs(previous => {
-              const next = new Set(previous)
-              if (next.has(key)) next.delete(key)
-              else next.add(key)
-              return next
-            })
+            useSidebarChromeStore.getState().toggleSourceControlDirectory(scopeKey, key)
           }}
           onSelectFile={path => {
-            setSelectedPath(path)
+            useSidebarChromeStore.getState().setSourceControlSelectedPath(scopeKey, path)
             requestAnimationFrame(() => {
               bodyRef.current?.querySelector(`[data-path="${CSS.escape(path)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             })
@@ -896,29 +858,20 @@ function CommittedFileDiffView({
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const filePath = surface.filePath ?? ''
-  const [diff, setDiff] = useState<string | null>(null)
-  const [error, setError] = useState('')
   const theme = usePierreDiffTheme()
+  const runtime = useMemo(
+    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
+    [surface.cwd, surface.sessionId],
+  )
+  useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
+  const docKey = committedDocKey(surface.baseRef, filePath)
+  const doc = runtime.getDoc(docKey)
   useEffect(() => {
-    let alive = true
-    setDiff(null)
-    setError('')
-    void betterSidebarApi.gitCommittedDiff(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
-      surface.baseRef,
-      filePath,
-    ).then(response => {
-      if (!alive) return
-      if (response.diff.trim() === '') {
-        setError(t('workspace.no-text-diff'))
-        return
-      }
-      setDiff(response.diff)
-    }).catch((cause: unknown) => {
-      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
-    })
-    return () => { alive = false }
-  }, [surface.baseRef, filePath, surface.sessionId, surface.cwd, t])
+    if (runtime.getDoc(docKey) === undefined) {
+      void runtime.ensureCommittedDoc(surface.baseRef, filePath)
+    }
+  }, [runtime, docKey, surface.baseRef, filePath])
+  const diff = doc !== undefined && doc.phase === 'ready' ? doc.diff : null
   const document = useMemo(
     () => (diff === null ? null : buildDiffDocument({
       path: filePath,
@@ -929,9 +882,14 @@ function CommittedFileDiffView({
     })),
     [diff, filePath],
   )
-  if (error !== '') return <ErrorView message={error} />
-  if (diff === null || document === null) {
+  if (doc !== undefined && doc.phase === 'error') {
+    return <ErrorView message={doc.message ?? t('overlay.no-content')} />
+  }
+  if (doc === undefined || doc.phase === 'loading' || diff === null || document === null) {
     return <LoadingView label={t('overlay.loading')} />
+  }
+  if (diff.trim() === '') {
+    return <ErrorView message={t('workspace.no-text-diff')} />
   }
   return (
     <div className="oh-dsh-diff-surface">
@@ -975,33 +933,27 @@ export function ConflictSurfaceView({
   surface: ConflictCenterSurface
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const [content, setContent] = useState<string | null>(null)
-  const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
   const theme = usePierreDiffTheme()
   const name = basename(surface.filePath)
   // The Git panel hands over git-relative paths; fs.* wire calls want absolute.
   const absolutePath = resolveSidebarPath(surface.cwd, surface.filePath)
 
+  // Content rides the retained file runtime cache (M6 — one read path).
+  const runtime = useMemo(
+    () => getFileRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
+    [surface.cwd, surface.sessionId],
+  )
+  useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
+  const entry = runtime.getEntry(absolutePath)
   useEffect(() => {
-    let alive = true
-    setContent(null)
-    setError('')
-    void betterSidebarApi.fsRead(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
-      absolutePath,
-    ).then(result => {
-      if (!alive) return
-      if (result.kind !== 'text') {
-        setError(t('files.viewer.binary'))
-        return
-      }
-      setContent(result.content)
-    }).catch((cause: unknown) => {
-      if (alive) setError(cause instanceof Error ? cause.message : String(cause))
-    })
-    return () => { alive = false }
-  }, [absolutePath, surface.sessionId, surface.cwd, t])
+    void runtime.ensureLoaded(absolutePath)
+  }, [runtime, absolutePath])
+  const content = entry !== undefined && entry.phase === 'ready'
+    && entry.snapshot?.kind === 'text'
+    ? entry.snapshot.content
+    : null
 
   const onResolved = useCallback((resolved: FileContents) => {
     setBusy(true)
@@ -1040,6 +992,12 @@ export function ConflictSurfaceView({
   }), [content, name, surface.filePath])
 
   if (error !== '') return <ErrorView message={error} />
+  if (entry !== undefined && entry.phase === 'error') {
+    return <ErrorView message={entry.message ?? t('overlay.no-content')} />
+  }
+  if (entry !== undefined && entry.phase === 'ready' && entry.snapshot !== null && entry.snapshot.kind !== 'text') {
+    return <ErrorView message={t('files.viewer.binary')} />
+  }
   if (content === null) return <LoadingView label={t('overlay.loading')} />
   return (
     <div className="oh-dsh-conflict-surface" data-testid="conflict-surface">
