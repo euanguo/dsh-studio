@@ -47,24 +47,6 @@ html[data-oh-dsh-desktop='true'] {
 
 html[data-oh-dsh-desktop='true'] body {
   box-sizing: border-box;
-  padding-top: var(--oh-dsh-titlebar-height);
-}
-
-/* The unified top rail owns the top 42px (a drag region with no-drag
-   controls); the upstream titlebar bar below is kept but sized by
-   --oh-dsh-titlebar-height = 0, so it renders nothing and never
-   swallows clicks on the rail. */
-html[data-oh-dsh-desktop='true'] body::before {
-  content: '';
-  position: fixed;
-  z-index: 2147483647;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: var(--oh-dsh-titlebar-height);
-  background: var(--dsw-alias-bg-base);
-  -webkit-app-region: drag;
-  user-select: none;
 }
 
 /* No top drag strip: the DSH conversation header is the drag region. It
@@ -104,18 +86,6 @@ html[data-oh-dsh-desktop='true']:has([aria-modal='true']) body * {
 html[data-oh-dsh-desktop='true'] [data-slot='sidebar'] > div {
   padding-top: 28px;
 }
-  content: '';
-  position: fixed;
-  z-index: 2147483647;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: var(--oh-dsh-titlebar-height);
-  background: var(--dsw-alias-bg-base);
-  -webkit-app-region: drag;
-  user-select: none;
-}
-
 html[data-oh-dsh-preview='true'] body::after {
   content: attr(data-oh-dsh-preview-label);
   position: fixed;
@@ -154,9 +124,6 @@ html[data-oh-dsh-desktop='true'] #root [role='presentation']:has(
   backdrop-filter: blur(6px) saturate(0.9);
 }
 
-html[data-oh-dsh-desktop='true']:has(
-  #root [role='presentation'] > [role='dialog']
-) body::before,
 html[data-oh-dsh-desktop='true']:has(
   #root [role='presentation'] > [role='dialog']
 ) body::after,
