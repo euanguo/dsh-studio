@@ -122,10 +122,12 @@ test('desktop skins are namespaced and keep every app surface on one opaque base
     if (!chatgpt) {
       assert.equal(skin.tokens['--dsw-alias-bg-base'], skin.tokens['--dsw-specific-sidebar-fill'])
     }
-    // Only the ChatGPT pair carries an atmosphere stylesheet.
+    // Only the ChatGPT pair carries an atmosphere stylesheet; the geometry
+    // tokens now gate on the exact data-oh-dsh-skin attribute (every skin
+    // consumes the same geometry, so the sub-string chatgpt gate is gone).
     assert.equal(skin.css === undefined, !chatgpt)
     if (chatgpt) {
-      assert.match(skin.css ?? '', /data-oh-dsh-skin\*=/)
+      assert.match(skin.css ?? '', /data-oh-dsh-skin\]/)
       assert.match(skin.css ?? '', /--gw-skin-radius-pill/)
     }
   }

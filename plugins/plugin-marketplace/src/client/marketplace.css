@@ -1,15 +1,15 @@
 .oh-marketplace-nav {
-  /* Foot-area entry: icon + label row in the expanded sidebar, matching
-     the Settings seat's 28px height and the skin row radius (12.5px
-     superellipse); the collapsed rail renders the bare 36px icon seat. */
+  /* Foot-area entry: the same full-width icon + label row geometry as the
+     official Settings trigger (34px row, skin row radius + superellipse);
+     the collapsed rail renders the bare 36px icon seat. */
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-width: 28px;
-  height: 28px;
-  padding: 0 10px;
+  gap: 8px;
+  width: calc(100% + 8px);
+  height: 34px;
+  margin: 4px -4px 4px;
+  padding: 6px 2px 6px 10px;
   border: 0;
   border-radius: 12.5px;
   corner-shape: superellipse(1.5);
@@ -17,6 +17,8 @@
   color: var(--dsw-alias-label-primary, #222);
   cursor: pointer;
   font: inherit;
+  font-size: 14px;
+  line-height: 22px;
   -webkit-app-region: no-drag;
 }
 
@@ -38,12 +40,20 @@
 
 .oh-marketplace-nav[data-collapsed='true'] {
   justify-content: center;
+  gap: 0;
   width: 36px;
   min-width: 36px;
   min-height: 36px;
   height: 36px;
   margin: 8px 0 10px;
   padding: 0;
+}
+
+/* The Settings seat renders an 18px glyph in the collapsed rail; the
+   marketplace icon follows so the two foot options stay equal. */
+.oh-marketplace-nav[data-collapsed='true'] svg {
+  width: 18px;
+  height: 18px;
 }
 
 [data-oh-dsh-marketplace-footer-stack='true']:has(

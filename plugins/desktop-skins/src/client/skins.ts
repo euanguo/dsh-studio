@@ -318,7 +318,7 @@ const CHATGPT_GEOMETRY_CSS = `
    见 docs/SKINS-BUILD-TIME-ARCHITECTURE.md §5），类名子串匹配已全部退役
    （_triggerEffort 这类误命中不会再复发）。
    ================================================================ */
-body[data-oh-dsh-skin*="chatgpt"] {
+body[data-oh-dsh-skin] {
   --gw-skin-row-fs: 13px;
   --gw-skin-row-lh: calc(var(--gw-skin-row-fs) * 1.43);
   --gw-skin-row-py: 5px;
@@ -338,7 +338,7 @@ body[data-oh-dsh-skin*="chatgpt"] {
   --gw-skin-hover-transition: background-color .15s cubic-bezier(.4, 0, .2, 1), color .15s cubic-bezier(.4, 0, .2, 1);
   --gw-skin-disabled-opacity: .4;
 }
-body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-day"] {
+body[data-oh-dsh-skin]:not([data-ds-dark-theme]) {
   --gw-skin-menu-bg: rgba(255, 255, 255, .96);
   --gw-skin-hairline: rgba(26, 28, 31, .117);
 }
@@ -554,6 +554,7 @@ body[data-oh-dsh-skin] .SIlZCq_close,
 body[data-oh-dsh-skin] .Sqg4Fa_action,
 body[data-oh-dsh-skin] .d4tJKG_action,
 body[data-oh-dsh-skin] .zNtrCa_toBottom,
+body[data-oh-dsh-skin] .VfOgWa_iconButton,
 body[data-oh-dsh-skin] ._64ccDW_iconBtn,
 body[data-oh-dsh-skin] ._close_18d3q_30,
 body[data-oh-dsh-skin] ._remove_1hk8w_53,
