@@ -179,6 +179,47 @@ for (const plugin of pluginPackages) {
   }
 }
 
+// Lazy chunks served by the sidebar-host /sidebar/bundle route. The chunk
+// file must live in the host's lib directory (`dist/plugins/sidebar-host`).
+builds.push(build({
+  bundle: true,
+  entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'files', 'mermaid-chunk.ts')],
+  outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js'),
+  platform: 'browser',
+  format: 'iife',
+  target: 'es2022',
+  sourcemap: true,
+  logLevel: 'info',
+  loader: { '.css': 'text' },
+  external: ['react', 'react-dom/client', 'react/jsx-runtime'],
+}))
+
+// Pierre highlight worker (module worker). The client bundle is emitted in
+// cjs module-factory format where import.meta is empty, so the worker is
+// built as its own ESM chunk and loaded from the bundle route's absolute
+// path (see pierre-adapter.tsx createPierreDiffWorker). `ignoreAnnotations`
+// keeps the side-effect import alive — the package's `sideEffects` list does
+// not cover the worker file, but its top-level code is what registers the
+// worker message handlers.
+builds.push(build({
+  bundle: true,
+  entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'diff', 'pierre-worker-entry.ts')],
+  outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js'),
+  platform: 'browser',
+  format: 'esm',
+  target: 'es2022',
+  sourcemap: true,
+  logLevel: 'info',
+  ignoreAnnotations: true,
+}))
+
+// Chunk scripts build first (serially): esbuild instances can race when
+// many builds write into the same output directory concurrently, and the
+// sidebar-host chunks are required by the running app (diff worker,
+// mermaid viewer).
+for (const chunkBuild of builds.splice(-2)) {
+  await chunkBuild
+}
 await Promise.all(builds)
 
 const mainBundle = readFileSync(join(dist, 'main.js'), 'utf8')

@@ -827,6 +827,22 @@ function installDesktopPackages() {
           join(root, 'dist', 'plugins', 'sidebar-host', 'index.js'),
           'dist/index.js',
         ],
+        [
+          join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js'),
+          'dist/client-mermaid.js',
+        ],
+        [
+          join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js.map'),
+          'dist/client-mermaid.js.map',
+        ],
+        [
+          join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js'),
+          'dist/client-pierre-worker.js',
+        ],
+        [
+          join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js.map'),
+          'dist/client-pierre-worker.js.map',
+        ],
       ],
     },
     ...[
