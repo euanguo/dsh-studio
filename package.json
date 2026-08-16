@@ -217,6 +217,7 @@
     "artifactName": "Oh-DSH-Desktop-${version}-${arch}.${ext}"
   },
   "dependencies": {
-    "@upsetjs/venn.js": "^2.0.0"
+    "@upsetjs/venn.js": "^2.0.0",
+    "semver": "7.7.4"
   }
 }
