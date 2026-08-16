@@ -4,6 +4,7 @@
  */
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
+import { EmptyView } from '../kit/status.tsx'
 
 export function TextFileViewer({
   content,
@@ -41,7 +42,7 @@ export function BinaryFileViewer({
           {t('files.open')}
         </button>
       </div>
-      <div className="oh-dsh-side-muted">{t('files.viewer.binary')}</div>
+      <EmptyView title={t('files.viewer.binary')} />
     </div>
   )
 }

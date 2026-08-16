@@ -140,6 +140,7 @@ export type WorkspaceMessage =
   | 'source-control.op-pending'
   | 'overlay.loading'
   | 'overlay.no-content'
+  | 'overlay.retry'
   | 'diff.layout.unified'
   | 'diff.layout.split'
   | 'diff.wrap'
@@ -285,6 +286,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'source-control.op-pending': 'Operation in progress…',
     'overlay.loading': 'Loading…',
     'overlay.no-content': 'No preview available.',
+    'overlay.retry': 'Retry',
     'diff.layout.unified': 'Unified view',
     'diff.layout.split': 'Side-by-side view',
     'diff.wrap': 'Wrap long lines',
@@ -429,6 +431,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'source-control.op-pending': '操作进行中…',
     'overlay.loading': '加载中…',
     'overlay.no-content': '没有可预览的内容。',
+    'overlay.retry': '重试',
     'diff.layout.unified': '统一视图',
     'diff.layout.split': '分栏视图',
     'diff.wrap': '自动换行',

@@ -223,6 +223,41 @@
 .oh-dsh-side-empty,
 .oh-dsh-side-muted { padding: 18px; color: var(--dsw-alias-label-tertiary, #8c959f); font-size: var(--oh-dsh-font-sm); }
 
+/* Unified status views (kit/status.tsx): the error kind becomes a flex row
+   so the retry button sits beside the message; the empty kind stacks a
+   title over an optional description. */
+.oh-dsh-status[data-kind='error'] {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-2);
+}
+
+.oh-dsh-status-message { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+.oh-dsh-status-retry {
+  flex: none;
+  padding: 2px var(--oh-dsh-space-2);
+  border: 1px solid currentColor;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--oh-dsh-font-xs);
+}
+
+.oh-dsh-status-retry:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+
+.oh-dsh-status[data-kind='empty'] {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oh-dsh-space-1);
+}
+
+.oh-dsh-status-title { color: var(--dsw-alias-label-secondary, #57606a); font-size: var(--oh-dsh-font-md); }
+
+.oh-dsh-status-description { font-size: var(--oh-dsh-font-xs); }
+
 .oh-dsh-sidebar-settings {
   display: grid;
   gap: var(--oh-dsh-space-4);

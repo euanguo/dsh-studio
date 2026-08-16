@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { loadMermaidChunk } from '../chunk-loader.ts'
+import { LoadingView } from '../kit/status.tsx'
 
 export function MermaidViewer({ content }: { content: string }): JSX.Element {
   const hostRef = useRef<HTMLDivElement | null>(null)
@@ -31,7 +32,7 @@ export function MermaidViewer({ content }: { content: string }): JSX.Element {
 
   return (
     <div className="oh-dsh-mermaid-viewer" data-testid="mermaid-viewer">
-      {loading ? <div className="oh-dsh-side-muted">Rendering diagram…</div> : null}
+      {loading ? <LoadingView label="Rendering diagram…" /> : null}
       {error !== '' ? (
         <pre className="oh-dsh-mermaid-source">
           <code>{content}</code>

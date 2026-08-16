@@ -36,6 +36,7 @@ import {
   FileGlyph,
 } from '../../../shared/tabler-icons.tsx'
 import type { WorkspaceFilesResponse, WorkspaceFileEntry, WorkspaceFileKind } from '../protocol.ts'
+import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import {
   betterSidebarApi,
   mapBetterSidebarFile,
@@ -182,7 +183,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
           onClick={() => { void open(descriptor) }}
         />
       ))}
-      {error !== '' && <div className="oh-dsh-side-error" role="alert">{error}</div>}
+      {error !== '' && <ErrorView message={error} />}
       <button
         type="button"
         className="oh-dsh-side-menu-close"
@@ -414,9 +415,9 @@ export function FilesView({
       </div>
       {searchHits !== null ? (
         <div className="oh-dsh-file-search-results">
-          {searching ? <div className="oh-dsh-side-muted">{t('files.loading')}</div> : null}
+          {searching ? <LoadingView label={t('files.loading')} /> : null}
           {!searching && searchHits.length === 0 ? (
-            <div className="oh-dsh-side-muted">No matches</div>
+            <EmptyView title="No matches" />
           ) : null}
           {searchHits.slice(0, 100).map(hit => (
             <button
@@ -442,8 +443,8 @@ export function FilesView({
           ))}
         </div>
       ) : null}
-      {loading && !entriesByDir.has(cwd) && <div className="oh-dsh-side-muted">{t('files.loading')}</div>}
-      {error !== '' && <div className="oh-dsh-side-error" role="alert">{error}</div>}
+      {loading && !entriesByDir.has(cwd) && <LoadingView label={t('files.loading')} />}
+      {error !== '' && <ErrorView message={error} />}
       <div className="oh-dsh-file-list">
         {rows.map(row => (
           <ListRow
@@ -484,7 +485,7 @@ export function FilesView({
           </ListRow>
         ))}
         {!loading && !error && rows.length === 0 && (
-          <div className="oh-dsh-side-muted">{t('files.empty-directory')}</div>
+          <EmptyView title={t('files.empty-directory')} />
         )}
       </div>
     </div>
@@ -527,10 +528,10 @@ export function FileView({
   if (cwd === undefined || path === undefined) {
     return <div className="oh-dsh-side-empty">{t('files.select-workspace')}</div>
   }
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
-  if (snapshot === null) return <div className="oh-dsh-side-muted">{t('files.loading')}</div>
+  if (error !== '') return <ErrorView message={error} />
+  if (snapshot === null) return <LoadingView label={t('files.loading')} />
   if (snapshot.kind !== 'file') {
-    return <div className="oh-dsh-side-muted">{t('files.not-file')}</div>
+    return <EmptyView title={t('files.not-file')} />
   }
   const head = snapshot.binary
     ? new Uint8Array([0])
@@ -551,9 +552,7 @@ export function FileView({
           {t('files.open')}
         </button>
       </div>
-      <div className="oh-dsh-side-muted">
-        {t('files.no-viewer', { size: formatSize(snapshot.size) })}
-      </div>
+      <EmptyView title={t('files.no-viewer', { size: formatSize(snapshot.size) })} />
     </div>
   )
 }

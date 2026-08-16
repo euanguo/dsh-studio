@@ -18,6 +18,7 @@ import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
 import { formatFileSelectionReference, getLineSelectionWithin } from '../files/file-selection-reference.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
+import { EmptyView, ErrorView, LoadingView } from '../kit/status.tsx'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffToolbar } from '../diff/diff-toolbar.tsx'
 import { useDiffViewPreferences } from '../diff/diff-view-preferences.ts'
@@ -177,17 +178,18 @@ export function FileSurfaceView({
 
   const entry = runtime.getEntry(surface.filePath)
   if (entry === undefined || entry.phase === 'loading') {
-    return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+    return <LoadingView label={t('overlay.loading')} />
   }
   if (entry.phase === 'error' || entry.snapshot === null) {
     return (
-      <div className="oh-dsh-side-error" role="alert">
-        <span>{entry.message ?? t('overlay.no-content')}</span>
-        <button type="button" onClick={() => {
+      <ErrorView
+        message={entry.message ?? t('overlay.no-content')}
+        retryLabel={t('overlay.retry')}
+        onRetry={() => {
           runtime.invalidate(surface.filePath)
           setReloadKey(value => value + 1)
-        }}>Retry</button>
-      </div>
+        }}
+      />
     )
   }
   const snapshot = entry.snapshot
@@ -207,7 +209,7 @@ export function FileSurfaceView({
         {...(content === null ? {} : { onEdit })}
       />
       {writeError !== '' ? (
-        <div className="oh-dsh-side-error" role="alert">{writeError}</div>
+        <ErrorView message={writeError} />
       ) : null}
       <div className="oh-dsh-file-surface-body" onMouseUp={onSourceMouseUp}>
         <ContentViewer
@@ -342,8 +344,8 @@ export function EditorSurfaceView({
     },
   }), [save])
 
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
-  if (content === null) return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+  if (error !== '') return <ErrorView message={error} />
+  if (content === null) return <LoadingView label={t('overlay.loading')} />
   return (
     <div className="oh-dsh-editor-surface" data-testid="editor-surface">
       <div className="oh-dsh-editor-header">
@@ -474,9 +476,9 @@ export function DiffSurfaceView({
     })
     return () => { alive = false }
   }, [diff, isImagePath, surface.cwd, surface.filePath, surface.sessionId, surface.staged])
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
+  if (error !== '') return <ErrorView message={error} />
   if (diff === null || document === null) {
-    return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+    return <LoadingView label={t('overlay.loading')} />
   }
   if (diff.includes('Binary files ') && diff.includes(' differ')) {
     return (
@@ -492,7 +494,7 @@ export function DiffSurfaceView({
             />
           </div>
         ) : (
-          <div className="oh-dsh-side-muted">{t('workspace.loading-diff')}</div>
+          <LoadingView label={t('workspace.loading-diff')} />
         )}
       </div>
     )
@@ -501,7 +503,7 @@ export function DiffSurfaceView({
     return (
       <div className="oh-dsh-diff-surface">
         <DiffToolbar t={t} />
-        <div className="oh-dsh-side-muted">Diff too large to render inline ({document.lines.length} lines).</div>
+        <EmptyView title={`Diff too large to render inline (${document.lines.length} lines).`} />
       </div>
     )
   }
@@ -779,9 +781,9 @@ export function DiffAllSurfaceView({
 
   const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
 
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
+  if (error !== '') return <ErrorView message={error} />
   if (files === null) {
-    return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+    return <LoadingView label={t('overlay.loading')} />
   }
   return (
     <div className="oh-dsh-diff-all-surface">
@@ -828,7 +830,7 @@ export function DiffAllSurfaceView({
             wordWrap={wordWrap}
             onExpandContext={expandContext}
           />
-          {expanding.size > 0 ? <div className="oh-dsh-side-muted">{t('workspace.loading-diff')}</div> : null}
+          {expanding.size > 0 ? <LoadingView label={t('workspace.loading-diff')} /> : null}
         </div>
       </div>
     </div>
@@ -867,9 +869,9 @@ export function CommitDiffSurfaceView({
     return () => { alive = false }
   }, [surface.hash, surface.sessionId, surface.cwd])
   const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
+  if (error !== '') return <ErrorView message={error} />
   if (files === null) {
-    return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+    return <LoadingView label={t('overlay.loading')} />
   }
   return (
     <div className="oh-dsh-commit-surface">
@@ -908,7 +910,7 @@ export function CommitDiffSurfaceView({
             </details>
           ))}
           {files.length === 0 && (
-            <div className="oh-dsh-side-muted">{t('workspace.no-text-diff')}</div>
+            <EmptyView title={t('workspace.no-text-diff')} />
           )}
         </div>
       </div>
@@ -958,9 +960,9 @@ export function CommitFileSurfaceView({
     })),
     [diff, surface.filePath],
   )
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
+  if (error !== '') return <ErrorView message={error} />
   if (diff === null || document === null) {
-    return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+    return <LoadingView label={t('overlay.loading')} />
   }
   return (
     <div className="oh-dsh-diff-surface">
@@ -1027,8 +1029,8 @@ function CommittedAllDiffView({
     return () => { alive = false }
   }, [surface.baseRef, surface.sessionId, surface.cwd])
   const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
-  if (files === null) return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+  if (error !== '') return <ErrorView message={error} />
+  if (files === null) return <LoadingView label={t('overlay.loading')} />
   return (
     <div className="oh-dsh-commit-surface">
       <div className="oh-dsh-commit-surface-header">
@@ -1066,7 +1068,7 @@ function CommittedAllDiffView({
             </details>
           ))}
           {files.length === 0 && (
-            <div className="oh-dsh-side-muted">{t('workspace.no-text-diff')}</div>
+            <EmptyView title={t('workspace.no-text-diff')} />
           )}
         </div>
       </div>
@@ -1115,9 +1117,9 @@ function CommittedFileDiffView({
     })),
     [diff, filePath],
   )
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
+  if (error !== '') return <ErrorView message={error} />
   if (diff === null || document === null) {
-    return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+    return <LoadingView label={t('overlay.loading')} />
   }
   return (
     <div className="oh-dsh-diff-surface">
@@ -1223,8 +1225,8 @@ export function ConflictSurfaceView({
     cacheKey: `conflict:${surface.filePath}`,
   }), [content, name, surface.filePath])
 
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
-  if (content === null) return <div className="oh-dsh-side-muted">{t('overlay.loading')}</div>
+  if (error !== '') return <ErrorView message={error} />
+  if (content === null) return <LoadingView label={t('overlay.loading')} />
   return (
     <div className="oh-dsh-conflict-surface" data-testid="conflict-surface">
       <div className="oh-dsh-conflict-header">
