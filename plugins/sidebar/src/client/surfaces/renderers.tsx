@@ -186,6 +186,16 @@ export function FileSurfaceView({
     setSelectionAction(null)
   }, [t])
 
+  // All hooks run before the loading/error early returns below.
+  const lineCount = useMemo(
+    () => {
+      const snapshot = runtime.getEntry(surface.filePath)?.snapshot
+      const content = snapshot?.kind === 'text' ? snapshot.content : null
+      return content === null ? 0 : content.split('\n').length
+    },
+    [runtime, surface.filePath],
+  )
+
   const entry = runtime.getEntry(surface.filePath)
   if (entry === undefined || entry.phase === 'loading') {
     return <LoadingView label={t('overlay.loading')} />
@@ -204,10 +214,6 @@ export function FileSurfaceView({
   }
   const snapshot = entry.snapshot
   const content = snapshot.kind === 'text' ? snapshot.content : null
-  const lineCount = useMemo(
-    () => (content === null ? 0 : content.split('\n').length),
-    [content],
-  )
   return (
     <div className="oh-dsh-file-surface" data-testid="file-surface">
       <FileViewerChrome

@@ -78,6 +78,25 @@ export const DiffViewer = memo(function DiffViewer({
     [document],
   )
 
+  // Hooks stay unconditional: the empty-document early return below must not
+  // skip this memo, so the guard lives inside the callback instead.
+  const cacheKey = `workspace:${document.path}:${layout}:${wordWrap ? 'wrap' : 'scroll'}:${virtualize ? 'v' : 'n'}:${cacheBust ?? ''}`
+  const renderedDiff = useMemo(() => {
+    if (!hasContentLines) return null
+    return renderPierreDiff({
+      patch,
+      cacheKey,
+      theme,
+      surfaceClassName: virtualize ? 'oh-dsh-pierre-surface' : 'oh-dsh-pierre-surface-natural',
+      layout,
+      wordWrap,
+      virtualize,
+      ...(lineAnnotations === undefined ? {} : { lineAnnotations }),
+      ...(renderAnnotation === undefined ? {} : { renderAnnotation }),
+      ...(onLineNumberClick === undefined ? {} : { onLineNumberClick }),
+    })
+  }, [hasContentLines, patch, cacheKey, theme, layout, wordWrap, virtualize, lineAnnotations, renderAnnotation, onLineNumberClick])
+
   // Pure renames / empty documents carry no rows: rendering them through
   // Pierre throws in the hunks renderer ("deletionLine and additionLine
   // are null"), so show a placeholder instead.
@@ -98,20 +117,6 @@ export const DiffViewer = memo(function DiffViewer({
       </div>
     )
   }
-
-  const cacheKey = `workspace:${document.path}:${layout}:${wordWrap ? 'wrap' : 'scroll'}:${virtualize ? 'v' : 'n'}:${cacheBust ?? ''}`
-  const renderedDiff = useMemo(() => renderPierreDiff({
-    patch,
-    cacheKey,
-    theme,
-    surfaceClassName: virtualize ? 'oh-dsh-pierre-surface' : 'oh-dsh-pierre-surface-natural',
-    layout,
-    wordWrap,
-    virtualize,
-    ...(lineAnnotations === undefined ? {} : { lineAnnotations }),
-    ...(renderAnnotation === undefined ? {} : { renderAnnotation }),
-    ...(onLineNumberClick === undefined ? {} : { onLineNumberClick }),
-  }), [patch, cacheKey, theme, layout, wordWrap, virtualize, lineAnnotations, renderAnnotation, onLineNumberClick])
 
   if (renderedDiff === null) {
     return (
