@@ -944,6 +944,14 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   min-width: 0;
 }
 
+/* Virtualized slot wrapper: each row is the only child of its absolutely
+   positioned wrapper, so the shared ListRow :last-child rule zeroes the
+   margin on every row. Own the 4px rhythm on the slot instead
+   (path-tree-nav.tsx ROW_HEIGHT_PX mirrors 28 + 4). */
+.oh-dsh-diff-tree-slot {
+  margin-bottom: var(--oh-dsh-space-1);
+}
+
 .oh-dsh-diff-tree-row .oh-dsh-list-row-main {
   padding-left: calc(10px + var(--tree-indent) * var(--tree-depth, 0));
 }

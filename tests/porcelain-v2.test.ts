@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { parsePorcelainV2 } from '../plugins/shared/git-core.ts'
+import { parseCommitFilesZ, parsePorcelainV2 } from '../plugins/shared/git-core.ts'
 
 test('parsePorcelainV2: branch/upstream/ahead-behind plus ordinary entries', () => {
   const result = parsePorcelainV2([
@@ -70,4 +70,23 @@ test('parsePorcelainV2: CRLF tolerance and ignored lines', () => {
   const result = parsePorcelainV2('# branch.head main\r\n! ignored-dir/\r\n')
   assert.equal(result.branch, 'main')
   assert.deepEqual(result.entries, [])
+})
+
+test('parseCommitFilesZ: status + path are separate NUL fields; rename new path wins', () => {
+  const result = parseCommitFilesZ([
+    'M', '\0', 'src/a.ts', '\0',
+    'A', '\0', 'src/new.ts', '\0',
+    'R100', '\0', 'src/old.ts', '\0', 'src/renamed.ts', '\0',
+    'D', '\0', 'src/gone.ts', '\0',
+  ].join(''))
+  assert.deepEqual(result, [
+    { path: 'src/a.ts', status: 'M', additions: 0, deletions: 0 },
+    { path: 'src/new.ts', status: 'A', additions: 0, deletions: 0 },
+    { path: 'src/renamed.ts', status: 'R', additions: 0, deletions: 0 },
+    { path: 'src/gone.ts', status: 'D', additions: 0, deletions: 0 },
+  ])
+})
+
+test('parseCommitFilesZ: empty output yields no entries', () => {
+  assert.deepEqual(parseCommitFilesZ(''), [])
 })

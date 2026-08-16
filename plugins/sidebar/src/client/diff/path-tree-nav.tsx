@@ -34,8 +34,12 @@ export interface DiffPathTreeRow {
   selected?: boolean
 }
 
-/** Row height (mirrors --oh-dsh-size-row used by the shared ListRow). */
-const ROW_HEIGHT_PX = 28
+/** Row slot height: shared ListRow row (28px) + its 4px rhythm margin.
+    The margin lives on the slot wrapper (see .oh-dsh-diff-tree-slot), not
+    on the ListRow itself — every virtualized row is the only child of its
+    absolutely-positioned wrapper, so ListRow's own :last-child rule would
+    zero it. The virtualizer must allocate the full footprint or rows cram. */
+const ROW_HEIGHT_PX = 32
 
 export function DiffPathTreeNav({
   rows,
@@ -99,7 +103,7 @@ export function DiffPathTreeNav({
           } as CSSProperties
           if (row.kind === 'directory') {
             return (
-              <div key={row.key} style={style}>
+              <div key={row.key} className="oh-dsh-diff-tree-slot" style={style}>
                 <ListRow
                   className="oh-dsh-diff-tree-row is-directory"
                   data-path={row.path}
@@ -123,7 +127,7 @@ export function DiffPathTreeNav({
             )
           }
           return (
-            <div key={row.key} style={style}>
+            <div key={row.key} className="oh-dsh-diff-tree-slot" style={style}>
               <ListRow
                 className="oh-dsh-diff-tree-row is-file"
                 data-path={row.path}

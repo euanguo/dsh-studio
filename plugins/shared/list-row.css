@@ -14,11 +14,20 @@
   gap: var(--oh-dsh-space-1);
   height: var(--oh-dsh-size-row);
   min-height: var(--oh-dsh-size-row);
+  /* Uniform breathing room between adjacent rows — owned here, not per-list,
+     so every list built on ListRow gets the same 4px rhythm. */
+  margin-bottom: var(--oh-dsh-space-1);
   border: 0;
   border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
   overflow: hidden;
   color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+/* The last row in a container doesn't need the trailing gap (the container's
+   bottom padding owns that space). */
+.oh-dsh-list-row:last-child {
+  margin-bottom: 0;
 }
 
 .oh-dsh-list-row:hover,
@@ -118,10 +127,9 @@
   /* Overlay on top of the row's trailing area: revealed on hover (or while
      an action menu is open) and absolutely positioned so the trailing
      status stays flush right in the resting state — no reserved slot means
-     no dead space next to the status mark. The buttons sit on a SOLID
-     surface so they fully cover the trailing stats/status behind them;
-     the fade lives in ::before, an EXTRA strip to the left of the buttons
-     (right → left, solid → transparent) that melts into the row. */
+     no dead space next to the status mark. Transparent background sits on
+     the row's own hover wash; the trailing status/marks are hidden on hover
+     by the list itself, so no gradient or solid surface is needed. */
   position: absolute;
   top: 50%;
   right: var(--oh-dsh-space-1);
@@ -131,21 +139,8 @@
   gap: var(--oh-dsh-space-1);
   padding: 0 var(--oh-dsh-space-0);
   border-radius: var(--oh-dsh-radius-sm);
-  background: var(--dsw-alias-bg-base, #fff);
+  background: transparent;
   opacity: 0;
-  pointer-events: none;
-}
-
-/* The fade is extra width to the LEFT of the button cluster, not a
-   gradient inside the buttons' own box. */
-.oh-dsh-list-row-actions::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  right: 100%;
-  width: 16px;
-  background: linear-gradient(to left, var(--dsw-alias-bg-base, #fff), transparent);
   pointer-events: none;
 }
 

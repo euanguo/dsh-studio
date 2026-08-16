@@ -11,21 +11,20 @@
 
 /* ---------- Row stream container ---------- */
 
-.oh-dsh-sc-list {
-  /* Horizontal inset so row hover backgrounds never touch the panel edge:
-     the list breathes inside the content padding instead of spanning it. */
-  padding: 0 var(--oh-dsh-space-1) var(--oh-dsh-space-1);
-}
+/* The change-list rows need no container inset: the parent section owns the
+   8px top/bottom/left/right padding, and inter-row rhythm comes from
+   ListRow's margin-bottom. The toolbar owns its own divider gap below. */
 
 /* Tree indentation for source-control rows (shared with the file browser). */
 .oh-dsh-sc-depth-main {
   padding-left: calc(var(--oh-dsh-space-1-5) + var(--oh-dsh-tree-indent) * var(--tree-depth, 0));
 }
 
-/* Section header rows get secondary emphasis. */
+/* Section header rows get secondary emphasis, matched to the history
+   section-title weight (550) so both header families read the same. */
 .oh-dsh-sc-section-row .oh-dsh-list-row-label {
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-weight: 600;
+  font-weight: 550;
 }
 
 /* Pending (in-flight) file rows dim and stop accepting clicks. */
@@ -34,13 +33,26 @@
   pointer-events: none;
 }
 
-.oh-dsh-sc-count {
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-  font-size: var(--oh-dsh-font-xs);
-  font-variant-numeric: tabular-nums;
+/* Bulk stage/unstage/discard buttons ride inline after "view all" (not the
+   overlay cluster), always visible — no hidden slot leaves a dead gap to the
+   right of "view all". Transparent background keeps them on the row's own
+   hover wash so everything reads one surface. */
+.oh-dsh-sc-section-bulk {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-0);
 }
 
 /* ---------- Status mark & diff stat ---------- */
+
+/* On hover the trailing action buttons take over — hide the decorative
+   status mark, the diff stat and the directory count so only the actions
+   remain. */
+.oh-dsh-sc-file-row:hover .oh-dsh-sc-mark,
+.oh-dsh-sc-file-row:hover .oh-dsh-sc-stat,
+.oh-dsh-sc-directory-row:hover .oh-dsh-workspace-count {
+  opacity: 0;
+}
 
 .oh-dsh-sc-mark {
   display: inline-flex;
@@ -87,15 +99,25 @@
 
 /* In-main trailing stat (inside the clickable area) keeps its own inset. */
 .oh-dsh-sc-stat-trailing {
+  padding-right: 0;
+}
+
+/* The stat cluster sits tight against the status mark: shrink the main's
+   right inset for sc rows (the outer trailing + row gap still own the
+   edge breathing), so "+13 −18" reads as one unit with the M/A/U badge. */
+.oh-dsh-sc-file-row .oh-dsh-list-row-main,
+.oh-dsh-sc-directory-row .oh-dsh-list-row-main {
   padding-right: var(--oh-dsh-space-1);
 }
 
 .oh-dsh-sc-stat-add {
   color: var(--oh-dsh-diff-add-fg);
+  font-style: normal;
 }
 
 .oh-dsh-sc-stat-del {
   color: var(--oh-dsh-diff-del-fg);
+  font-style: normal;
 }
 
 /* ---------- Path context menu ---------- */
@@ -142,15 +164,11 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--oh-dsh-space-2);
-  /* Flush divider: the toolbar spans the whole content column (negating
-     the sc-list 4px padding AND the section 8px padding) so its bottom
-     border runs edge to edge; the inner padding keeps the title/buttons
-     aligned with the rows. */
-  min-height: 34px;
-  margin: 0 calc(-1 * (var(--oh-dsh-space-1) + var(--oh-dsh-space-2)));
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
+  /* Header row — no divider: it and the rows below (staged/unstaged/…)
+     are one section, so the rows start right under it with the same 4px
+     rhythm that separates the rows themselves. */
+  margin-bottom: var(--oh-dsh-space-1);
   box-sizing: border-box;
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 6%));
 }
 
 .oh-dsh-sc-toolbar-title {
