@@ -31,6 +31,7 @@ import type {
   WorkspaceToolsState,
   WorkspacesService,
 } from './client-types.ts'
+import { applyChromeGeometry } from './chrome-geometry.ts'
 import sideToolsCss from './side-tools.css'
 import workspaceCss from './sidebar.css'
 import sourceControlCss from './source-control/source-control.css'
@@ -57,6 +58,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
   private readonly narrowViewport = window.matchMedia('(max-width: 900px)')
   private readonly handleViewportChange = (): void => { this.applyLayout() }
   private stopKeymap: (() => void) | undefined
+  private stopChromeGeometry: (() => void) | undefined
   private readonly disposeKeymapActions: Array<() => void> = []
 
   constructor(
@@ -205,6 +207,9 @@ ${diffViewerCss}`
     )
     this.narrowViewport.addEventListener('change', this.handleViewportChange)
     this.stopKeymap = installKeymap()
+    // Window-chrome geometry (traffic lights / Windows overlay caption) →
+    // the top rail's left/right reservation CSS variables.
+    this.stopChromeGeometry = applyChromeGeometry()
     // Global (panel-level) shortcuts: registered for the app lifetime.
     // Surface-scoped shortcuts register from their mounted views.
     this.disposeKeymapActions.push(
@@ -243,6 +248,8 @@ ${diffViewerCss}`
     this.disposeKeymapActions.length = 0
     this.stopKeymap?.()
     this.stopKeymap = undefined
+    this.stopChromeGeometry?.()
+    this.stopChromeGeometry = undefined
     this.narrowViewport.removeEventListener('change', this.handleViewportChange)
     this.root?.unmount()
     this.element?.remove()

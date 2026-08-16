@@ -37,6 +37,15 @@ export interface DesktopInfo {
   version: string
 }
 
+/** Window-chrome geometry the renderer needs for the unified top rail. */
+export interface ChromeGeometry {
+  platform: NodeJS.Platform
+  /** macOS traffic-light anchor (the BrowserWindow trafficLightPosition). */
+  trafficLight: { x: number; y: number } | null
+  /** Estimated traffic-light cluster width (buttons + gaps + trailing). */
+  trafficLightWidth: number
+}
+
 /** Runtime diagnostics shown by the bundled bottom-panel plugin. */
 export interface DesktopRuntimeSnapshot {
   bundledPlugins: string[]
@@ -53,6 +62,14 @@ export interface DesktopBridge {
   getRuntimeSnapshot(): Promise<DesktopRuntimeSnapshot>
   onCommand(listener: (command: DesktopCommand) => void): () => void
   openExternal(url: string): Promise<void>
+  /**
+   * Window-chrome geometry for top-rail layout (traffic lights on macOS,
+   * the live window-control overlay on Windows). Optional at the call site
+   * like every bridge member — absent outside the desktop.
+   */
+  chrome: {
+    getGeometry(): Promise<ChromeGeometry>
+  }
   /**
    * Marketplace bridge, structurally narrowed so shared does not import the
    * marketplace protocol types. Consumers that need the precise command /

@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { DesktopBridge, DesktopCommand, DesktopInfo, DesktopRuntimeSnapshot } from './contracts.ts'
+import type { ChromeGeometry, DesktopBridge, DesktopCommand, DesktopInfo, DesktopRuntimeSnapshot } from './contracts.ts'
 import type { MarketplaceCommand, MarketplaceSnapshot } from '../plugins/plugin-marketplace/src/protocol.ts'
 
 const bridge: DesktopBridge = Object.freeze({
@@ -18,6 +18,11 @@ const bridge: DesktopBridge = Object.freeze({
   openExternal: async (url: string): Promise<void> => {
     await ipcRenderer.invoke('desktop:open-external', url)
   },
+  chrome: Object.freeze({
+    getGeometry: async (): Promise<ChromeGeometry> => {
+      return await ipcRenderer.invoke('desktop:chrome-geometry') as ChromeGeometry
+    },
+  }),
   pluginMarketplace: Object.freeze({
     dispatch: async (command: MarketplaceCommand): Promise<MarketplaceSnapshot> => {
       return await ipcRenderer.invoke('desktop:plugin-marketplace-dispatch', command) as MarketplaceSnapshot

@@ -70,8 +70,8 @@
   display: flex;
   align-items: center;
   gap: var(--oh-dsh-space-1);
-  min-height: 41px;
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
+  min-height: 42px;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-traffic-right, var(--oh-dsh-space-2)) var(--oh-dsh-space-1) var(--oh-dsh-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
