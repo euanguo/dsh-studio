@@ -528,18 +528,6 @@ body > div[role='menu'] {
   z-index: 2147483647;
 }
 
-/* The DSH settings foot trigger renders a 16px gear while its sibling
-   marketplace entry draws the same 16px glyph scaled ~1.36× (~22px visual).
-   Mirror that scaling so both rail-foot icons share one visual size and one
-   center — the 16px layout box also keeps the trigger's label column
-   identical to the marketplace entry's. */
-[data-slot='sidebar.settings'] .-wizCq_trigger svg {
-  width: 16px;
-  height: 16px;
-  transform: scale(1.36);
-  transform-origin: center;
-}
-
 /* Styled app dialogs (kit/dialog.tsx) — replace window.confirm/prompt/alert. */
 .oh-dsh-dialog-backdrop {
   position: fixed;

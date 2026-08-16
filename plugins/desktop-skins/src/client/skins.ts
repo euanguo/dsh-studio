@@ -438,6 +438,15 @@ ${gate([...TRIGGER_PILL, ...SEAT, ...WORKSPACE_PILL])} {
   border-radius: var(--gw-skin-radius-pill) !important;
   corner-shape: round;
 }
+/* ui-settings-general 的设置触发（.-wizCq_trigger，full-width row seat）
+   同时命中上方的 button[aria-haspopup] 胶囊门控（0,3,1 特异性）：
+   用槽位限定把特异性提到 0,4,1，拉回行规范（12.5px superellipse，
+   与列表/市场一致）。 */
+body[data-oh-dsh-skin] [data-slot='sidebar.settings'] button.-wizCq_trigger {
+  border-radius: var(--gw-skin-radius-row) !important;
+  corner-shape: superellipse(1.5) !important;
+}
+
 /* 触发器内部图标容器：强制居中（DSH triggerIcon 无 align-items，高度变化后 svg 贴顶） */
 ${gate([...TRIGGER_ICON, ...ICON])} {
   align-items: center !important;
