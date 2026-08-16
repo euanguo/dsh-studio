@@ -582,25 +582,39 @@ export interface PersistedCenterSurfaces {
   dismissedSessions?: Record<string, string[]>
 }
 
-/** Mirror every workspace's open set to localStorage on each change. */
+/** Trailing-debounce for persistence: tab bursts (open/close/preview
+ *  replacement) write localStorage once, not once per store change. */
+const PERSIST_DEBOUNCE_MS = 250
+
+/** Mirror every workspace's open set to localStorage (debounced). */
 export function persistCenterSurfaces(): () => void {
-  return useCenterSurfaceStore.subscribe(state => {
-    try {
-      const payload: PersistedCenterSurfaces = {
-        version: 3,
-        byCwd: Object.fromEntries(Object.entries(state.byCwd).map(([cwd, slice]) => [
-          cwd,
-          { open: slice.open, activeId: slice.activeId },
-        ])),
-        ...(Object.keys(state.dismissedSessions).length > 0
-          ? { dismissedSessions: state.dismissedSessions }
-          : {}),
+  let timer: number | null = null
+  const stop = useCenterSurfaceStore.subscribe(() => {
+    if (timer !== null) window.clearTimeout(timer)
+    timer = window.setTimeout(() => {
+      timer = null
+      const state = useCenterSurfaceStore.getState()
+      try {
+        const payload: PersistedCenterSurfaces = {
+          version: 3,
+          byCwd: Object.fromEntries(Object.entries(state.byCwd).map(([cwd, slice]) => [
+            cwd,
+            { open: slice.open, activeId: slice.activeId },
+          ])),
+          ...(Object.keys(state.dismissedSessions).length > 0
+            ? { dismissedSessions: state.dismissedSessions }
+            : {}),
+        }
+        window.localStorage.setItem(CENTER_SURFACES_STORAGE_KEY, JSON.stringify(payload))
+      } catch {
+        // Storage may be unavailable (private mode); persistence is best-effort.
       }
-      window.localStorage.setItem(CENTER_SURFACES_STORAGE_KEY, JSON.stringify(payload))
-    } catch {
-      // Storage may be unavailable (private mode); persistence is best-effort.
-    }
+    }, PERSIST_DEBOUNCE_MS)
   })
+  return () => {
+    if (timer !== null) window.clearTimeout(timer)
+    stop()
+  }
 }
 
 /** Rebuild every workspace's open set from localStorage (startup). */
@@ -620,7 +634,15 @@ export function restoreCenterSurfaces(): void {
         }
       }
     }
-  } catch {
+  } catch (cause) {
+    // Corrupt persisted state: log, drop the bad blob and start clean
+    // instead of failing silently and re-persisting it forever.
+    console.warn('[sidebar] clearing corrupt center-surface persistence', cause)
+    try {
+      window.localStorage.removeItem(CENTER_SURFACES_STORAGE_KEY)
+    } catch {
+      // Storage unavailable; nothing to clean.
+    }
     return
   }
   if (payload === null) return

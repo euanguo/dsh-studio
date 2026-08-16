@@ -118,6 +118,12 @@ export const DiffViewer = memo(function DiffViewer({
     )
   }
 
+  const truncatedNotice = document.truncated === true ? (
+    <div className="oh-dsh-diff-truncated">
+      {t('diff.truncated', { lines: document.lines.length })}
+    </div>
+  ) : null
+
   if (renderedDiff === null) {
     return (
       <div className="oh-dsh-diff-viewer" data-testid="diff-viewer" data-layout={layout}>
@@ -126,6 +132,7 @@ export const DiffViewer = memo(function DiffViewer({
             <span>{summary}</span>
           </div>
         )}
+        {truncatedNotice}
         <RawDiff document={document} wordWrap={wordWrap} layout={layout} />
       </div>
     )
@@ -143,6 +150,7 @@ export const DiffViewer = memo(function DiffViewer({
           <span>{summary}</span>
         </div>
       )}
+      {truncatedNotice}
       {renderedDiff}
     </div>
   )

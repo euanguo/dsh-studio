@@ -299,6 +299,8 @@ export function DiffAllSurfaceView({
   const [collapsedDirs, setCollapsedDirs] = useState<ReadonlySet<string>>(new Set())
   const [expanding, setExpanding] = useState<ReadonlySet<string>>(new Set())
   const listRef = useRef<HTMLDivElement | null>(null)
+  // F7 navigation cache: block element → its change-row list + doc key.
+  const rowsCacheRef = useRef(new WeakMap<Element, { key: string; rows: Element[] }>())
   const theme = usePierreDiffTheme()
   const layout = useDiffViewPreferences(state => state.layout)
   const wordWrap = useDiffViewPreferences(state => state.wordWrap)
@@ -374,13 +376,26 @@ export function DiffAllSurfaceView({
   const navigateChange = useCallback((direction: 1 | -1) => {
     const root = listRef.current
     if (root === null) return
-    // Pierre rows live in each block's diffs-container shadow root.
+    // Pierre rows live in each block's diffs-container shadow root. The row
+    // ELEMENT lists are cached per block keyed by its data-doc-key (changes
+    // when the block's document changes, e.g. expand-context) so repeated
+    // F7 presses skip the shadow-root queries; rects are still measured on
+    // demand because they change with scroll.
     const rows: Array<{ top: number; el: Element }> = []
     for (const block of root.querySelectorAll('.oh-dsh-multi-diff-block[data-mounted="true"]')) {
       const container = block.querySelector('diffs-container')
       const shadow = container?.shadowRoot
       if (shadow === null || shadow === undefined) continue
-      for (const row of shadow.querySelectorAll('[data-line-type^="change-"]')) {
+      const docKey = block.getAttribute('data-doc-key') ?? ''
+      let cached = rowsCacheRef.current.get(block)
+      if (cached === undefined || cached.key !== docKey) {
+        cached = {
+          key: docKey,
+          rows: [...shadow.querySelectorAll('[data-line-type^="change-"]')],
+        }
+        rowsCacheRef.current.set(block, cached)
+      }
+      for (const row of cached.rows) {
         rows.push({ top: row.getBoundingClientRect().top, el: row })
       }
     }
@@ -517,11 +532,15 @@ export function DiffAllSurfaceView({
 
 /** Distance beyond the viewport at which a commit file block pre-mounts. */
 const COMMIT_BLOCK_MOUNT_MARGIN = '320px 0px'
+/** Keep-band around the viewport: farther blocks release their diff body. */
+const COMMIT_BLOCK_KEEP_BAND = '1600px 0px'
 
 /**
  * One commit file's details/summary row. The details stay open, but the
  * heavy DiffViewer body mounts lazily when the row scrolls near the
- * viewport — a large commit no longer builds every Pierre diff upfront.
+ * viewport and RELEASES (replaced by a same-height placeholder) when the
+ * row scrolls far away — a large commit neither builds every Pierre diff
+ * upfront nor keeps every rendered block resident.
  */
 function CommitFileBlock({
   file,
@@ -535,34 +554,80 @@ function CommitFileBlock({
   cacheBust: string
 }): JSX.Element {
   const [mounted, setMounted] = useState(false)
-  const rowRef = useRef<HTMLDetailsElement | null>(null)
+  const [releasedHeight, setReleasedHeight] = useState<number | null>(null)
+  const detailsRef = useRef<HTMLDetailsElement | null>(null)
+  const bodyRef = useRef<HTMLDivElement | null>(null)
+  const latestHeightRef = useRef<number | null>(null)
+
+  // Mount-on-approach; a released block re-mounts (drops its same-height
+  // placeholder) when the user scrolls back into the mount band.
   useEffect(() => {
-    const node = rowRef.current
+    if (mounted && releasedHeight === null) return
+    const node = detailsRef.current
     if (node === null) return
     if (typeof IntersectionObserver === 'undefined') {
       setMounted(true)
+      setReleasedHeight(null)
       return
     }
     const observer = new IntersectionObserver(
       entries => {
         if (!entries.some(entry => entry.isIntersecting)) return
-        setMounted(true)
+        if (releasedHeight !== null) {
+          setReleasedHeight(null)
+        } else {
+          setMounted(true)
+        }
         observer.disconnect()
       },
       { root: null, rootMargin: COMMIT_BLOCK_MOUNT_MARGIN, threshold: 0.01 },
     )
     observer.observe(node)
     return () => { observer.disconnect() }
-  }, [])
+  }, [mounted, releasedHeight])
+
+  // Track the body height and release the diff body when the block leaves
+  // the keep-band; a same-height placeholder holds the scroll position.
+  useEffect(() => {
+    if (!mounted || releasedHeight !== null) return
+    const node = bodyRef.current
+    if (node === null) return
+    if (typeof IntersectionObserver === 'undefined' || typeof ResizeObserver === 'undefined') {
+      return
+    }
+    const resizeObserver = new ResizeObserver(entries => {
+      const height = entries[0]?.contentRect.height
+      if (height !== undefined && height > 0) latestHeightRef.current = height
+    })
+    resizeObserver.observe(node)
+    const releaseObserver = new IntersectionObserver(entries => {
+      if (!entries.some(entry => entry.isIntersecting)) {
+        const height = latestHeightRef.current
+        if (height !== null) setReleasedHeight(height)
+      }
+    }, { root: null, rootMargin: COMMIT_BLOCK_KEEP_BAND, threshold: 0 })
+    releaseObserver.observe(node)
+    return () => {
+      resizeObserver.disconnect()
+      releaseObserver.disconnect()
+    }
+  }, [mounted, releasedHeight])
+
   const document = useMemo(() => reviewFileToDiffDocument(file), [file])
   return (
-    <details ref={rowRef} open data-path={file.path}>
+    <details ref={detailsRef} open data-path={file.path}>
       <summary>
         <span title={file.path}>{file.path}</span>
         <small><b>+{file.additions}</b> −{file.deletions}</small>
       </summary>
-      <div className="oh-dsh-commit-surface-lines">
-        {mounted ? (
+      <div className="oh-dsh-commit-surface-lines" ref={bodyRef}>
+        {releasedHeight !== null ? (
+          <div
+            className="oh-dsh-commit-released"
+            style={{ height: releasedHeight }}
+            aria-hidden="true"
+          />
+        ) : mounted ? (
           <DiffViewer
             document={document}
             theme={theme}

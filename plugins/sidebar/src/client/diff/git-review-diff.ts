@@ -188,6 +188,7 @@ export function reviewCommitFromBetterSidebar(
 
 /** GitReviewFile (commit review) → the unified DiffDocument shape. */
 export function reviewFileToDiffDocument(file: GitReviewFile): DiffDocument {
+  const truncated = file.lines.length > MAX_REVIEW_DIFF_LINES
   return {
     path: file.path,
     change: file.status === 'added' ? 'added'
@@ -196,6 +197,7 @@ export function reviewFileToDiffDocument(file: GitReviewFile): DiffDocument {
       : 'modified',
     additions: file.additions,
     deletions: file.deletions,
+    truncated,
     lines: file.lines.slice(0, MAX_REVIEW_DIFF_LINES).map(line => {
       const kind = line.type === 'addition' ? 'added'
         : line.type === 'deletion' ? 'removed'

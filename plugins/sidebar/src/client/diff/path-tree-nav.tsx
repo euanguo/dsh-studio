@@ -3,10 +3,12 @@
  * ListRow primitives (plugins/shared/list-row) — same row shell, geometry,
  * hover and selected styling as the file explorer and the source-control
  * tree. Pure view over prebuilt rows; click a file to scroll to its diff
- * block.
+ * block. The row list is virtualized (uniform 28px rows) so deep trees
+ * never render every row.
  */
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
 import { useEffect, useRef } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   IconChevronDown,
   IconChevronRight,
@@ -32,6 +34,9 @@ export interface DiffPathTreeRow {
   selected?: boolean
 }
 
+/** Row height (mirrors --oh-dsh-size-row used by the shared ListRow). */
+const ROW_HEIGHT_PX = 28
+
 export function DiffPathTreeNav({
   rows,
   onToggleDirectory,
@@ -42,85 +47,101 @@ export function DiffPathTreeNav({
   onSelectFile(path: string): void
 }): JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null)
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => ROW_HEIGHT_PX,
+    overscan: 10,
+  })
 
-  // Keep a row inside the tree's own scrollport without touching any
-  // ancestor scroller (scrollIntoView would scroll the whole column).
-  function scrollRowIntoTreeView(rowEl: HTMLElement | null) {
-    const container = containerRef.current
-    if (!container || !rowEl) return
-    const cRect = container.getBoundingClientRect()
-    const rRect = rowEl.getBoundingClientRect()
-    if (rRect.top >= cRect.top && rRect.bottom <= cRect.bottom) return
-    container.scrollTop += rRect.top - cRect.top - (cRect.height - rRect.height) / 2
-  }
+  const selectedIndex = rows.findIndex(row => row.selected === true)
 
-  const selectedRow = rows.find(row => row.selected === true)
+  // Keep the selected row inside the tree's own scrollport without touching
+  // any ancestor scroller (scrollIntoView would scroll the whole column).
   useEffect(() => {
-    const container = containerRef.current
-    if (!container || !selectedRow) return
-    const rowEl = [...container.querySelectorAll('.oh-dsh-diff-tree-row')]
-      .find(el => el.getAttribute('data-path') === selectedRow.path)
-    scrollRowIntoTreeView(rowEl as HTMLElement | null)
+    if (selectedIndex < 0) return
+    const visible = virtualizer.getVirtualItems()
+    const isVisible = visible.some(item => item.index === selectedIndex)
+    if (isVisible) return
+    virtualizer.scrollToIndex(selectedIndex, { align: 'center' })
     // Re-run when the selection moves or the tree structure changes
     // (collapse/expand shifts rows, which can drift the selected row
     // out of the scrollport).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, selectedRow?.path])
+  }, [rows, selectedIndex])
 
-  function handleSelectFile(path: string, event: ReactMouseEvent<HTMLElement>) {
+  function handleSelectFile(path: string) {
     onSelectFile(path)
-    const rowEl = (event.currentTarget as HTMLElement).closest('.oh-dsh-diff-tree-row') as HTMLElement | null
-    scrollRowIntoTreeView(rowEl)
+    const index = rows.findIndex(row => row.path === path)
+    if (index < 0) return
+    const visible = virtualizer.getVirtualItems()
+    if (!visible.some(item => item.index === index)) {
+      virtualizer.scrollToIndex(index, { align: 'center' })
+    }
   }
 
   return (
     <div ref={containerRef} className="oh-dsh-diff-tree" data-testid="diff-path-tree">
-      {rows.map(row => {
-        const style = { '--tree-depth': row.depth } as CSSProperties
-        if (row.kind === 'directory') {
+      <div
+        className="oh-dsh-diff-tree-inner"
+        style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
+      >
+        {virtualizer.getVirtualItems().map(item => {
+          const row = rows[item.index]
+          if (row === undefined) return null
+          const style = {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            transform: `translateY(${String(item.start)}px)`,
+            '--tree-depth': row.depth,
+          } as CSSProperties
+          if (row.kind === 'directory') {
+            return (
+              <div key={row.key} style={style}>
+                <ListRow
+                  className="oh-dsh-diff-tree-row is-directory"
+                  data-path={row.path}
+                  title={row.path}
+                >
+                  <ListRowMain
+                    aria-expanded={row.collapsed !== true}
+                    onClick={() => { onToggleDirectory(row.path) }}
+                  >
+                    <ListRowLeading>
+                      {row.collapsed === true ? <IconChevronRight size={14} /> : <IconChevronDown size={14} />}
+                    </ListRowLeading>
+                    <FileGlyph path={row.path} kind="directory" expanded={row.collapsed !== true} />
+                    <ListRowLabel>
+                      <ListRowLabelText>{row.name}</ListRowLabelText>
+                    </ListRowLabel>
+                    <ListRowMeta>{row.fileCount}</ListRowMeta>
+                  </ListRowMain>
+                </ListRow>
+              </div>
+            )
+          }
           return (
-            <ListRow
-              key={row.key}
-              className="oh-dsh-diff-tree-row is-directory"
-              style={style}
-              data-path={row.path}
-              title={row.path}
-            >
-              <ListRowMain
-                aria-expanded={row.collapsed !== true}
-                onClick={() => { onToggleDirectory(row.path) }}
+            <div key={row.key} style={style}>
+              <ListRow
+                className="oh-dsh-diff-tree-row is-file"
+                data-path={row.path}
+                title={row.path}
+                selected={row.selected === true}
               >
-                <ListRowLeading>
-                  {row.collapsed === true ? <IconChevronRight size={14} /> : <IconChevronDown size={14} />}
-                </ListRowLeading>
-                <FileGlyph path={row.path} kind="directory" expanded={row.collapsed !== true} />
-                <ListRowLabel>
-                  <ListRowLabelText>{row.name}</ListRowLabelText>
-                </ListRowLabel>
-                <ListRowMeta>{row.fileCount}</ListRowMeta>
-              </ListRowMain>
-            </ListRow>
+                <ListRowMain onClick={() => { handleSelectFile(row.path) }}>
+                  <ListRowLeading />
+                  <FileGlyph path={row.path} kind="file" />
+                  <ListRowLabel>
+                    <ListRowLabelText>{row.name}</ListRowLabelText>
+                  </ListRowLabel>
+                </ListRowMain>
+              </ListRow>
+            </div>
           )
-        }
-        return (
-          <ListRow
-            key={row.key}
-            className="oh-dsh-diff-tree-row is-file"
-            style={style}
-            data-path={row.path}
-            title={row.path}
-            selected={row.selected === true}
-          >
-            <ListRowMain onClick={event => { handleSelectFile(row.path, event) }}>
-              <ListRowLeading />
-              <FileGlyph path={row.path} kind="file" />
-              <ListRowLabel>
-                <ListRowLabelText>{row.name}</ListRowLabelText>
-              </ListRowLabel>
-            </ListRowMain>
-          </ListRow>
-        )
-      })}
+        })}
+      </div>
     </div>
   )
 }

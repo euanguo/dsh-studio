@@ -2,8 +2,12 @@
  * Multi-file diff stack: placeholders until an IntersectionObserver (or an
  * explicit click/focus) mounts the real diff block. Unmounted rows never
  * build DiffViewer / Pierre workers — Synara's `MultiDiffFileStack` policy.
+ *
+ * Mounted blocks recycle themselves: when a block scrolls beyond the keep
+ * band it swaps its rendered diff for a same-height placeholder (holding
+ * the outer scroll position) and re-mounts when the user scrolls back.
  */
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { DiffViewer } from './diff-viewer.tsx'
@@ -11,6 +15,7 @@ import { reviewFileToDiffDocument, type GitReviewFile } from './git-review-diff.
 import type { PierreDiffTheme } from './pierre-adapter.tsx'
 
 const OBSERVER_ROOT_MARGIN = '320px 0px'
+const KEEP_BAND_ROOT_MARGIN = '1600px 0px'
 
 export function MultiDiffFileStack({
   files,
@@ -37,29 +42,31 @@ export function MultiDiffFileStack({
     <div className="oh-dsh-multi-diff-list" data-testid="multi-diff-list">
       {files.map(file => {
         const mounted = renderedKeys.has(file.path)
+        if (mounted) {
+          return (
+            <MultiDiffFileBlock
+              key={file.path}
+              file={file}
+              theme={theme}
+              t={t}
+              layout={layout}
+              wordWrap={wordWrap}
+              {...(onExpandContext === undefined ? {} : { onExpandContext })}
+              {...(onCollapse === undefined ? {} : { onCollapse })}
+            />
+          )
+        }
         return (
           <section
             key={file.path}
             className="oh-dsh-multi-diff-block"
             data-path={file.path}
-            data-mounted={mounted ? 'true' : 'false'}
+            data-mounted="false"
           >
-            {mounted ? (
-              <MultiDiffFileBlock
-                file={file}
-                theme={theme}
-                t={t}
-                layout={layout}
-                wordWrap={wordWrap}
-                {...(onExpandContext === undefined ? {} : { onExpandContext })}
-                {...(onCollapse === undefined ? {} : { onCollapse })}
-              />
-            ) : (
-              <MultiDiffPlaceholder
-                file={file}
-                onRequestRender={onRequestRender}
-              />
-            )}
+            <MultiDiffPlaceholder
+              file={file}
+              onRequestRender={onRequestRender}
+            />
           </section>
         )
       })}
@@ -70,7 +77,9 @@ export function MultiDiffFileStack({
 /**
  * One mounted diff block. The diff document is memoized per file so parent
  * re-renders (expand/collapse of sibling blocks, rail resizes) don't rebuild
- * the document and bust the memoized DiffViewer below.
+ * the document and bust the memoized DiffViewer below. The block renders
+ * its own section so it can swap between the rendered diff and a
+ * same-height placeholder when scrolled far outside the viewport.
  */
 function MultiDiffFileBlock({
   file,
@@ -90,45 +99,100 @@ function MultiDiffFileBlock({
   onCollapse?(path: string): void
 }): JSX.Element {
   const document = useMemo(() => reviewFileToDiffDocument(file), [file])
+  const sectionRef = useRef<HTMLElement | null>(null)
+  const latestHeightRef = useRef<number | null>(null)
+  const [releasedHeight, setReleasedHeight] = useState<number | null>(null)
+
+  // Track the rendered height while the diff body is visible.
+  useEffect(() => {
+    if (releasedHeight !== null) return
+    const node = sectionRef.current
+    if (node === null || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(entries => {
+      const height = entries[0]?.contentRect.height
+      if (height !== undefined && height > 0) latestHeightRef.current = height
+    })
+    observer.observe(node)
+    return () => { observer.disconnect() }
+  }, [releasedHeight])
+
+  // Release the diff body when the block leaves the keep band; re-mount
+  // (drop the height placeholder) when the user scrolls back in.
+  useEffect(() => {
+    const node = sectionRef.current
+    if (node === null || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.some(entry => entry.isIntersecting)
+      if (!visible && releasedHeight === null) {
+        const height = latestHeightRef.current
+        if (height !== null) setReleasedHeight(height)
+      } else if (visible && releasedHeight !== null) {
+        setReleasedHeight(null)
+      }
+    }, {
+      root: null,
+      rootMargin: releasedHeight === null ? KEEP_BAND_ROOT_MARGIN : OBSERVER_ROOT_MARGIN,
+      threshold: 0,
+    })
+    observer.observe(node)
+    return () => { observer.disconnect() }
+  }, [releasedHeight])
+
   return (
-    <div className="oh-dsh-multi-diff-mounted">
-      <div className="oh-dsh-multi-diff-file-header">
-        <span title={file.path}>{file.path}</span>
-        <small>
-          <b>+{file.additions}</b> −{file.deletions}
-        </small>
-        <span className="oh-dsh-multi-diff-actions">
-          {onExpandContext !== undefined ? (
-            <button type="button" onClick={() => { onExpandContext(file) }}>
-              {t('diff.expand-context-file')}
-            </button>
-          ) : null}
-          {onCollapse !== undefined ? (
-            <button type="button" onClick={() => { onCollapse(file.path) }}>
-              {t('source-control.view-all')}
-            </button>
-          ) : null}
-        </span>
-      </div>
-      <div className="oh-dsh-multi-diff-lines">
-        {/*
-          Pierre rendering with natural per-file sizing: the outer list
-          scrolls the whole stack. Previously deadlocked because buildPatch
-          emitted no @@ headers for review-style documents, so Pierre parsed
-          0 hunks and rendered nothing — fixed in file-diff.ts.
-        */}
-        <DiffViewer
-          document={document}
-          theme={theme}
-          t={t}
-          virtualize={false}
-          layout={layout}
-          wordWrap={wordWrap}
-          hideMeta
-          cacheBust={`multi:${file.path}`}
+    <section
+      ref={sectionRef}
+      className="oh-dsh-multi-diff-block"
+      data-path={file.path}
+      data-mounted="true"
+      data-doc-key={`${file.additions}:${file.deletions}:${file.lines.length}`}
+    >
+      {releasedHeight === null ? (
+        <div className="oh-dsh-multi-diff-mounted">
+          <div className="oh-dsh-multi-diff-file-header">
+            <span title={file.path}>{file.path}</span>
+            <small>
+              <b>+{file.additions}</b> −{file.deletions}
+            </small>
+            <span className="oh-dsh-multi-diff-actions">
+              {onExpandContext !== undefined ? (
+                <button type="button" onClick={() => { onExpandContext(file) }}>
+                  {t('diff.expand-context-file')}
+                </button>
+              ) : null}
+              {onCollapse !== undefined ? (
+                <button type="button" onClick={() => { onCollapse(file.path) }}>
+                  {t('source-control.view-all')}
+                </button>
+              ) : null}
+            </span>
+          </div>
+          <div className="oh-dsh-multi-diff-lines">
+            {/*
+              Pierre rendering with natural per-file sizing: the outer list
+              scrolls the whole stack. Previously deadlocked because buildPatch
+              emitted no @@ headers for review-style documents, so Pierre
+              parsed 0 hunks and rendered nothing — fixed in file-diff.ts.
+            */}
+            <DiffViewer
+              document={document}
+              theme={theme}
+              t={t}
+              virtualize={false}
+              layout={layout}
+              wordWrap={wordWrap}
+              hideMeta
+              cacheBust={`multi:${file.path}`}
+            />
+          </div>
+        </div>
+      ) : (
+        <div
+          className="oh-dsh-multi-diff-released"
+          style={{ height: releasedHeight }}
+          aria-hidden="true"
         />
-      </div>
-    </div>
+      )}
+    </section>
   )
 }
 

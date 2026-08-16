@@ -151,6 +151,7 @@ export type WorkspaceMessage =
   | 'diff.layout.split'
   | 'diff.wrap'
   | 'diff.too-large'
+  | 'diff.truncated'
   | 'diff.expand-context'
   | 'diff.expand-context-file'
   | 'editor.save'
@@ -318,6 +319,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'diff.layout.split': 'Side-by-side view',
     'diff.wrap': 'Wrap long lines',
     'diff.too-large': 'Diff too large to render inline ({lines} lines).',
+    'diff.truncated': 'Diff truncated to {lines} lines.',
     'diff.expand-context': 'Expand context ({current} → {next})',
     'diff.expand-context-file': 'Expand context',
     'editor.save': 'Save',
@@ -484,6 +486,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'diff.layout.split': '分栏视图',
     'diff.wrap': '自动换行',
     'diff.too-large': '差异过大，无法内联渲染（{lines} 行）。',
+    'diff.truncated': '差异已截断（仅显示 {lines} 行）。',
     'diff.expand-context': '展开上下文（{current} → {next}）',
     'diff.expand-context-file': '展开上下文',
     'editor.save': '保存',

@@ -26,6 +26,8 @@ export type DiffDocument = Readonly<{
   additions: number
   deletions: number
   lines: ReadonlyArray<DiffLine>
+  /** True when the line list is capped (renderer shows a truncation note). */
+  truncated?: boolean
 }>
 
 export interface DiffDocumentInput {

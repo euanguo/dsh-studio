@@ -154,3 +154,11 @@ button.oh-dsh-diff-raw-row:hover {
   overflow-wrap: anywhere;
 }
 
+
+/* Truncation note for capped commit diffs (DiffDocument.truncated). */
+.oh-dsh-diff-truncated {
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-3);
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 4%));
+}
