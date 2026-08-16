@@ -451,6 +451,14 @@ ${gate([...TRIGGER_LABEL, ...TRIGGER_EFFORT, ...WORKSPACE_LABEL])} {
   align-items: center !important;
   line-height: var(--gw-skin-row-lh) !important;
 }
+/* ui-settings-general 设置触发（.wizCq_trigger 展开行 / .wizCq_rail 折叠座）：
+   官方折叠态把图标放大到 18px，与全应用 16px 图标不一致——钉回 16px。 */
+body[data-oh-dsh-skin] .wizCq_trigger svg,
+body[data-oh-dsh-skin] .wizCq_rail svg {
+  width: 16px !important;
+  height: 16px !important;
+}
+
 /* 菜单分组标签（Group by/Order by）：统一 ChatGPT 规范 13px tertiary + 4px 8px */
 ${gate(GROUP_LABEL)} {
   padding: 4px 8px !important;

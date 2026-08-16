@@ -776,15 +776,15 @@ test('marketplace navigation matches the Settings seat geometry and row radius',
   assert.doesNotMatch(client, /SIDEBAR_BOTTOM_INSET/)
   assert.doesNotMatch(css, /data-oh-dsh-marketplace-sidebar-root/)
   // The foot area stacks two options (marketplace + Settings): the entry
-  // mirrors the official Settings trigger geometry — full-width icon +
-  // label row at 34px in the expanded sidebar, 36px icon seat collapsed,
-  // skin row radius (12.5px superellipse) in both states.
+  // is a full-width icon + label row at the tree-row height
+  // (--gw-skin-row-h) in the expanded sidebar, 36px icon seat collapsed,
+  // skin row radius (12.5px superellipse) and a 16px glyph in both states.
   assert.match(css, /\.oh-marketplace-nav \{[\s\S]*width: calc\(100% \+ 8px\);/)
-  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*height: 34px;/)
+  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*height: var\(--gw-skin-row-h, 30px\);/)
   assert.match(css, /\.oh-marketplace-nav \{[\s\S]*border-radius: 12\.5px;/)
   assert.match(css, /\.oh-marketplace-nav \{[\s\S]*corner-shape: superellipse\(1\.5\);/)
   assert.match(css, /\.oh-marketplace-nav\[data-collapsed='true'\] \{[\s\S]*width: 36px;[\s\S]*height: 36px;/)
-  assert.match(css, /\.oh-marketplace-nav\[data-collapsed='true'\] svg \{[\s\S]*width: 18px;[\s\S]*height: 18px;/)
+  assert.doesNotMatch(css, /data-collapsed='true'\] svg \{[\s\S]*width: 18px/)
   assert.match(css, /\.oh-marketplace-nav svg \{[\s\S]*width: 16px;[\s\S]*height: 16px;/)
   assert.match(client, /\{wide && <span>\{label\}<\/span>\}/)
   assert.match(css, /data-oh-dsh-marketplace-footer-stack='true'/)

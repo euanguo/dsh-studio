@@ -1,15 +1,15 @@
 .oh-marketplace-nav {
-  /* Foot-area entry: the same full-width icon + label row geometry as the
-     official Settings trigger (34px row, skin row radius + superellipse);
-     the collapsed rail renders the bare 36px icon seat. */
+  /* Foot-area entry: full-width icon + label row at the same height as the
+     tree rows (--gw-skin-row-h, 28.59px under a skin), row radius +
+     superellipse; the collapsed rail renders the bare 36px icon seat. */
   box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 8px;
   width: calc(100% + 8px);
-  height: 34px;
+  height: var(--gw-skin-row-h, 30px);
   margin: 4px -4px 4px;
-  padding: 6px 2px 6px 10px;
+  padding: 0 2px 0 10px;
   border: 0;
   border-radius: 12.5px;
   corner-shape: superellipse(1.5);
@@ -49,12 +49,7 @@
   padding: 0;
 }
 
-/* The Settings seat renders an 18px glyph in the collapsed rail; the
-   marketplace icon follows so the two foot options stay equal. */
-.oh-marketplace-nav[data-collapsed='true'] svg {
-  width: 18px;
-  height: 18px;
-}
+
 
 [data-oh-dsh-marketplace-footer-stack='true']:has(
   .oh-marketplace-nav[data-collapsed='true']
