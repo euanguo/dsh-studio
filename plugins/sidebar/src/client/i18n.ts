@@ -154,8 +154,8 @@ export type WorkspaceMessage =
   | 'diff.truncated'
   | 'diff.expand-context'
   | 'diff.expand-context-file'
-  | 'editor.save'
-  | 'editor.saving'
+  | 'file.save'
+  | 'file.saving'
   | 'files.view'
   | 'files.edit'
   | 'files.viewer.source'
@@ -322,8 +322,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'diff.truncated': 'Diff truncated to {lines} lines.',
     'diff.expand-context': 'Expand context ({current} → {next})',
     'diff.expand-context-file': 'Expand context',
-    'editor.save': 'Save',
-    'editor.saving': 'Saving…',
+    'file.save': 'Save',
+    'file.saving': 'Saving…',
     'files.view': 'View',
     'files.edit': 'Edit in built-in editor',
     'files.viewer.source': 'Source',
@@ -489,8 +489,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'diff.truncated': '差异已截断（仅显示 {lines} 行）。',
     'diff.expand-context': '展开上下文（{current} → {next}）',
     'diff.expand-context-file': '展开上下文',
-    'editor.save': '保存',
-    'editor.saving': '保存中…',
+    'file.save': '保存',
+    'file.saving': '保存中…',
     'files.view': '查看',
     'files.edit': '在编辑器内编辑',
     'files.viewer.source': '源代码',

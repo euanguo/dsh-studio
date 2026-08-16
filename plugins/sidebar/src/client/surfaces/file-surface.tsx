@@ -227,7 +227,7 @@ export function FileSurfaceView({
               disabled={editable.saving || !editable.dirty}
               onClick={() => { void editable.save() }}
             >
-              {editable.saving ? t('editor.saving') : t('editor.save')}
+              {editable.saving ? t('file.saving') : t('file.save')}
             </button>
             <button type="button" onClick={editable.exitToView}>
               {t('files.view')}
