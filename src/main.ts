@@ -823,6 +823,18 @@ function buildMenu(): void {
 
 function installIpc(): void {
   ipcMain.handle('desktop:choose-workspace', async () => await selectWorkspacePaths())
+  ipcMain.handle('desktop:chrome-geometry', () => {
+    // The unified top rail's left reservation: the traffic-light anchor
+    // (trafficLightPosition) plus the exact macOS cluster width — three
+    // 12px buttons with 8px gaps (Apple HIG) = 52px. The renderer adds
+    // its breathing gap and turns this into `--oh-dsh-traffic-left`.
+    const platform = process.platform
+    return {
+      platform,
+      trafficLight: platform === 'darwin' ? { x: 16, y: 14 } : null,
+      trafficLightWidth: 52,
+    }
+  })
   ipcMain.handle('desktop:update:get-state', async event => {
     assertUpdateWindowSender(event)
     return (await getUpdateManager()).getState()
