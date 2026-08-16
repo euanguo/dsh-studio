@@ -131,6 +131,24 @@ async function resolveGitPath(cwd: string, raw: string): Promise<string> {
   return requireAbsolute(join(root, raw))
 }
 
+/** Narrow the optional `paths` array the client sends for bulk git ops. */
+function pathsOf(payload: unknown): string[] | undefined {
+  const record = payload as { paths?: unknown } | null
+  const value = record?.paths
+  if (value === undefined) return undefined
+  if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || item === '')) {
+    throw new SidebarError('bad-request', 'invalid "paths"')
+  }
+  return value as string[]
+}
+
+/** Refuse mutating fs operations outside the session working directory. */
+function assertWithinSession(cwd: string, path: string, op: string): void {
+  if (!isWithin(cwd, path)) {
+    throw new SidebarError('fs-error', `${op} path outside the session working directory`, 403)
+  }
+}
+
 /** How many leading bytes a binary read returns for client-side detect sniffing. */
 const READ_HEAD_LIMIT = 4096
 
@@ -310,6 +328,7 @@ function buildApi(
     'fs.write': async (payload) => {
       const { cwd } = cwdOf(payload)
       const path = requireAbsolute(requireString(payload, 'path'))
+      assertWithinSession(cwd, path, 'write')
       const content = requireString(payload, 'content')
       const tmp = `${path}.dsh-sidebar-tmp-${process.pid}`
       try {
@@ -325,6 +344,7 @@ function buildApi(
     'fs.create': async (payload) => {
       const { cwd } = cwdOf(payload)
       const path = requireAbsolute(requireString(payload, 'path'))
+      assertWithinSession(cwd, path, 'create')
       const record = payload as { directory?: unknown }
       try {
         if (record.directory === true) {
@@ -341,6 +361,8 @@ function buildApi(
       const { cwd } = cwdOf(payload)
       const from = requireAbsolute(requireString(payload, 'from'))
       const to = requireAbsolute(requireString(payload, 'to'))
+      assertWithinSession(cwd, from, 'rename')
+      assertWithinSession(cwd, to, 'rename')
       try {
         await rename(from, to)
       } catch (error) {
@@ -351,6 +373,7 @@ function buildApi(
     'fs.delete': async (payload) => {
       const { cwd } = cwdOf(payload)
       const path = requireAbsolute(requireString(payload, 'path'))
+      assertWithinSession(cwd, path, 'delete')
       try {
         await rm(path, { recursive: true, force: false })
       } catch (error) {
@@ -362,6 +385,8 @@ function buildApi(
       const { cwd } = cwdOf(payload)
       const from = requireAbsolute(requireString(payload, 'from'))
       const to = requireAbsolute(requireString(payload, 'to'))
+      assertWithinSession(cwd, from, 'copy')
+      assertWithinSession(cwd, to, 'copy')
       try {
         await copyFile(from, to)
       } catch (error) {
@@ -437,16 +462,12 @@ function buildApi(
     },
     'git.stage': async (payload) => {
       const { cwd } = cwdOf(payload)
-      const record = payload as { path?: unknown }
-      const path = record.path === undefined ? undefined : requireString(payload, 'path')
-      await git.stage(cwd, path)
+      await git.stage(cwd, pathsOf(payload))
       return { ok: true }
     },
     'git.unstage': async (payload) => {
       const { cwd } = cwdOf(payload)
-      const record = payload as { path?: unknown }
-      const path = record.path === undefined ? undefined : requireString(payload, 'path')
-      await git.unstage(cwd, path)
+      await git.unstage(cwd, pathsOf(payload))
       return { ok: true }
     },
     'git.commit': async (payload) => {
@@ -481,7 +502,11 @@ function buildApi(
     },
     'git.discard': async (payload) => {
       const { cwd } = cwdOf(payload)
-      await git.discard(cwd, await resolveGitPath(cwd, requireString(payload, 'path')))
+      const paths = pathsOf(payload)
+      if (paths === undefined || paths.length === 0) {
+        throw new SidebarError('bad-request', 'discard requires at least one path')
+      }
+      await git.discard(cwd, await Promise.all(paths.map(raw => resolveGitPath(cwd, raw))))
       return { ok: true }
     },
     'git.revert': async (payload) => {

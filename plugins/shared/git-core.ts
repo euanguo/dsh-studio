@@ -76,12 +76,19 @@ export interface RunGitOptions {
   maxOutputBytes?: number
   /** Let non-zero exits resolve to `{ code, stdout, stderr }` instead of rejecting. */
   allowNonZeroExit?: boolean
+  /** Abort the child when this signal fires (rejects with code `git-aborted`). */
+  signal?: AbortSignal
 }
 
 export interface GitRunResult {
   code: number
   stdout: string
   stderr: string
+}
+
+/** Reject with an abort error whose code the caller can distinguish. */
+function abortError(args: readonly string[]): GitCommandError {
+  return new GitCommandError('git command aborted', 'git-aborted', args.join(' '))
 }
 
 /** Run one git command; resolves with stdout, rejects with GitCommandError. */
@@ -110,6 +117,10 @@ export function runGitResult(
   // machine-readable format (porcelain, numstat, log).
   const full = ['-C', cwd, '--no-pager', '-c', 'color.ui=false', '-c', 'core.quotePath=false', ...args]
   return new Promise<GitRunResult>((resolvePromise, reject) => {
+    if (options.signal?.aborted) {
+      reject(abortError(args))
+      return
+    }
     const child = spawn('git', full, {
       stdio: ['ignore', 'pipe', 'pipe'],
       env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
@@ -118,14 +129,34 @@ export function runGitResult(
     let stderr = ''
     let stdoutBytes = 0
     let killedForLimit = false
+    let settled = false
+
+    const cleanup = (): void => {
+      clearTimeout(timer)
+      options.signal?.removeEventListener('abort', onAbort)
+    }
+    const finish = (error: GitCommandError | null, result?: GitRunResult): void => {
+      if (settled) return
+      settled = true
+      cleanup()
+      if (error !== null) reject(error)
+      else resolvePromise(result as GitRunResult)
+    }
+
     const timer = setTimeout(() => {
       child.kill('SIGKILL')
-      reject(new GitCommandError(
+      finish(new GitCommandError(
         `git ${args[0] ?? ''} timed out after ${timeoutMs}ms`,
         'git-error',
         args.join(' '),
       ))
     }, timeoutMs)
+    const onAbort = (): void => {
+      child.kill('SIGKILL')
+      finish(abortError(args))
+    }
+    options.signal?.addEventListener('abort', onAbort)
+
     child.stdout.on('data', (chunk: Buffer) => {
       stdoutBytes += chunk.byteLength
       if (stdoutBytes > maxOutputBytes) {
@@ -137,20 +168,18 @@ export function runGitResult(
     })
     child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8') })
     child.on('error', (error) => {
-      clearTimeout(timer)
-      reject(new GitCommandError(`cannot run git: ${error.message}`, 'git-error', args.join(' ')))
+      finish(new GitCommandError(`cannot run git: ${error.message}`, 'git-error', args.join(' ')))
     })
     child.on('close', (code) => {
-      clearTimeout(timer)
       if (killedForLimit) {
-        reject(new GitCommandError(
+        finish(new GitCommandError(
           `git ${args[0] ?? ''} output exceeded ${maxOutputBytes} bytes`,
           'git-output-limit',
           args.join(' '),
         ))
         return
       }
-      resolvePromise({ code: code ?? -1, stdout, stderr })
+      finish(null, { code: code ?? -1, stdout, stderr })
     })
   })
 }
@@ -263,10 +292,10 @@ export function parsePorcelainV2(output: string): GitStatusV2Result {
 }
 
 /** Working-tree status via one porcelain v2 subprocess (non-repo → isRepo:false). */
-export async function statusV2(cwd: string): Promise<GitStatusV2Result> {
+export async function statusV2(cwd: string, options: { signal?: AbortSignal } = {}): Promise<GitStatusV2Result> {
   let result: GitRunResult
   try {
-    result = await runGitResult(cwd, ['status', '--porcelain=2', '--branch'])
+    result = await runGitResult(cwd, ['status', '--porcelain=2', '--branch'], options.signal === undefined ? {} : { signal: options.signal })
   } catch (error) {
     if (error instanceof GitCommandError) throw error
     return { isRepo: false, ahead: 0, behind: 0, entries: [] }
@@ -455,14 +484,21 @@ export async function numstat(cwd: string, staged: boolean): Promise<GitNumstatE
   return parseNumstatZ(await runGit(cwd, args))
 }
 
-/** Stage paths (all when path is undefined). */
-export async function stage(cwd: string, path: string | undefined): Promise<void> {
-  await runGit(cwd, ['add', '-A', ...(path !== undefined ? ['--', path] : [])])
+/** Normalize `path | paths[] | undefined` into `--`-prefixed args (empty = act on all). */
+function pathsArgs(paths: string | readonly string[] | undefined): string[] {
+  if (paths === undefined) return []
+  const list = typeof paths === 'string' ? [paths] : [...paths]
+  return list.length === 0 ? [] : ['--', ...list]
 }
 
-/** Unstage paths (all when path is undefined). */
-export async function unstage(cwd: string, path: string | undefined): Promise<void> {
-  await runGit(cwd, ['reset', '-q', ...(path !== undefined ? ['--', path] : [])])
+/** Stage paths (all when paths is undefined/empty). */
+export async function stage(cwd: string, paths: string | readonly string[] | undefined): Promise<void> {
+  await runGit(cwd, ['add', '-A', ...pathsArgs(paths)])
+}
+
+/** Unstage paths (all when paths is undefined/empty). */
+export async function unstage(cwd: string, paths: string | readonly string[] | undefined): Promise<void> {
+  await runGit(cwd, ['reset', '-q', ...pathsArgs(paths)])
 }
 
 /** Commit the staged changes with a message (global identity untouched). */
@@ -513,9 +549,120 @@ export async function commitDiff(cwd: string, hash: string): Promise<string> {
   return runGit(cwd, ['show', '--no-ext-diff', '--no-color', '--format=', '-m', '--first-parent', hash])
 }
 
-/** Discard the worktree changes of one path (`git checkout -- <path>`; the index is untouched). */
-export async function discard(cwd: string, path: string): Promise<void> {
-  await runGit(cwd, ['checkout', '--', path])
+/** One file touched by a commit (`git show --name-status` + numstat). */
+export interface GitCommitFileEntry {
+  path: string
+  /** Status letter (A/M/D/R/C/T). */
+  status: string
+  additions: number
+  deletions: number
+}
+
+/**
+ * Parse `git show --name-status -z` output. With `-z` the status letter and
+ * each path are SEPARATE NUL-terminated fields (NOT `status\tpath`):
+ *   M\0path\0            (add/modify/delete/typechange)
+ *   R100\0oldPath\0newPath\0   (rename/copy: old path first, new path second)
+ * The new path is what the file is called now — the display path.
+ */
+export function parseCommitFilesZ(output: string): GitCommitFileEntry[] {
+  const tokens = output.split('\0')
+  const files: GitCommitFileEntry[] = []
+  let index = 0
+  while (index < tokens.length) {
+    const statusToken = tokens[index]
+    index += 1
+    if (statusToken === undefined || statusToken === '') continue
+    const letter = statusToken.charAt(0).toUpperCase()
+    const first = tokens[index]
+    if (first === undefined || first === '') {
+      index += 1
+      continue
+    }
+    index += 1
+    let path = first
+    // Rename/copy carry the new path as the SECOND path field.
+    if (letter === 'R' || letter === 'C') {
+      const second = tokens[index]
+      if (second !== undefined && second !== '') {
+        path = second
+        index += 1
+      }
+    }
+    files.push({ path, status: letter, additions: 0, deletions: 0 })
+  }
+  return files
+}
+
+/** Merge `--numstat -z` +N/−M counts into name-status entries by path. */
+function mergeCommitNumstat(
+  files: readonly GitCommitFileEntry[],
+  stats: readonly GitNumstatEntry[],
+): GitCommitFileEntry[] {
+  const byPath = new Map(stats.map(stat => [stat.path, stat] as const))
+  return files.map(file => {
+    const stat = byPath.get(file.path)
+    return { ...file, additions: stat?.additions ?? 0, deletions: stat?.deletions ?? 0 }
+  })
+}
+
+/** The files touched by one commit (newest-path order), for the inline file
+ *  list shown when a history row expands. */
+export async function commitFiles(cwd: string, hash: string): Promise<GitCommitFileEntry[]> {
+  const [nameStatus, numstat] = await Promise.all([
+    runGit(cwd, [
+      'show', '--no-ext-diff', '--no-color', '--format=', '-m', '--first-parent',
+      '--name-status', '-z', '-M', hash,
+    ]),
+    runGit(cwd, [
+      'show', '--no-ext-diff', '--no-color', '--format=', '-m', '--first-parent',
+      '--numstat', '-z', '-M', hash,
+    ]),
+  ])
+  return mergeCommitNumstat(parseCommitFilesZ(nameStatus), parseNumstatZ(numstat))
+}
+
+/** Patch of a single file within one commit (`git show <hash> -- <path>`). */
+export async function commitFileDiff(cwd: string, hash: string, path: string): Promise<string> {
+  return runGit(cwd, [
+    'show', '--no-ext-diff', '--no-color', '--format=', '-m', '--first-parent', hash, '--', path,
+  ])
+}
+
+/** The current branch's upstream (e.g. `origin/main`); null when it tracks none. */
+export async function upstreamRef(cwd: string): Promise<string | null> {
+  try {
+    const out = await runGit(cwd, ['rev-parse', '--abbrev-ref', '@{upstream}'])
+    const ref = out.trim()
+    return ref === '' || ref === 'HEAD' ? null : ref
+  } catch {
+    return null
+  }
+}
+
+/** Files changed in the local commits ahead of `baseRef` (three-dot diff). */
+export async function committedFiles(cwd: string, baseRef: string): Promise<GitCommitFileEntry[]> {
+  const [nameStatus, numstat] = await Promise.all([
+    runGit(cwd, [
+      'diff', '--no-ext-diff', '--no-color', '--name-status', '-z', '-M', `${baseRef}...HEAD`,
+    ]),
+    runGit(cwd, [
+      'diff', '--no-ext-diff', '--no-color', '--numstat', '-z', '-M', `${baseRef}...HEAD`,
+    ]),
+  ])
+  return mergeCommitNumstat(parseCommitFilesZ(nameStatus), parseNumstatZ(numstat))
+}
+
+/** Diff of the local commits ahead of `baseRef` (optionally a single file). */
+export async function committedDiff(cwd: string, baseRef: string, path?: string): Promise<string> {
+  const args = ['diff', '--no-ext-diff', '--no-color', '-U3', `${baseRef}...HEAD`]
+  if (path !== undefined) args.push('--', path)
+  return runGit(cwd, args)
+}
+
+/** Discard the worktree changes of the given paths (`git checkout <paths>`; the index is untouched). */
+export async function discard(cwd: string, paths: string | readonly string[]): Promise<void> {
+  await runGit(cwd, ['checkout', ...pathsArgs(paths)])
 }
 
 /** Revert one commit onto the current branch with an auto-generated message. */
