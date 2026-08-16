@@ -20,8 +20,10 @@
 //        # 校验但产物缺失时跳过（build.mjs 在 clean checkout 下使用：
 //        # CI 的 `pnpm run build` 先于 build:dsh 运行，此时无 .cache）
 //   node scripts/generate-skin-selectors.mjs --list     # 打印命中统计，不写文件
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { spawnSync } from 'node:child_process'
 import { dirname, join, relative } from 'node:path'
+import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { resolveDshSource, resolveDshSourceIfPresent } from './dsh-source.mjs'
 
@@ -212,6 +214,15 @@ function main() {
   if (checkOnly) {
     const committed = existsSync(outputPath) ? readFileSync(outputPath, 'utf8') : ''
     if (committed !== rendered) {
+      // Print the exact drift before failing so CI logs show what the
+      // build artifacts expect (git is available on every runner).
+      const renderedPath = join(tmpdir(), `generated-selectors-rendered-${process.pid}.ts`)
+      writeFileSync(renderedPath, rendered)
+      const drift = spawnSync('git', ['diff', '--no-index', '--', outputPath, renderedPath], {
+        encoding: 'utf8',
+      })
+      if (drift.stdout || drift.stderr) console.error(drift.stdout + drift.stderr)
+      rmSync(renderedPath, { force: true })
       throw new Error(
         'generated-selectors.ts is out of sync with the DSH build artifacts; '
         + 'run `pnpm run generate:selectors` and commit the diff',
