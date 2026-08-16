@@ -25,6 +25,7 @@ import type { Translate } from '../../../shared/i18n.ts'
 import { copyText } from '../../../shared/copy-text.ts'
 import { toast } from '../../../shared/toast.tsx'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
+import { confirmDialog } from './kit/dialog.tsx'
 import {
   IconBranch,
   IconChevronDown,
@@ -622,8 +623,14 @@ export function WorkspacePanel({
     }
   }
 
-  const requestDiscard = (paths: readonly string[], label: string): void => {
-    const confirmed = window.confirm(t('source-control.discard-confirm', { paths: label }))
+  const requestDiscard = async (paths: readonly string[], label: string): Promise<void> => {
+    const confirmed = await confirmDialog({
+      title: t('source-control.discard'),
+      message: t('source-control.discard-confirm', { paths: label }),
+      confirmLabel: t('source-control.discard'),
+      cancelLabel: t('dialog.cancel'),
+      danger: true,
+    })
     if (confirmed) void runPaths('discard', paths)
   }
 

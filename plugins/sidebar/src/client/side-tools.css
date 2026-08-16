@@ -419,3 +419,86 @@ body > div[role='menu'] {
   transform: scale(1.36);
   transform-origin: center;
 }
+
+/* Styled app dialogs (kit/dialog.tsx) — replace window.confirm/prompt/alert. */
+.oh-dsh-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 40%);
+}
+
+.oh-dsh-dialog {
+  display: grid;
+  gap: var(--oh-dsh-space-2);
+  width: min(360px, calc(100vw - 48px));
+  padding: var(--oh-dsh-space-4);
+  border: 1px solid var(--oh-dsh-overlay-border);
+  border-radius: var(--oh-dsh-radius-xl);
+  background: var(--oh-dsh-overlay-bg);
+  box-shadow: var(--oh-dsh-overlay-shadow);
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+.oh-dsh-dialog-title {
+  font-size: var(--oh-dsh-font-lg);
+  font-weight: 600;
+}
+
+.oh-dsh-dialog-message {
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-md);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.oh-dsh-dialog-input {
+  width: 100%;
+  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-2);
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 14%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  color: var(--dsw-alias-label-primary, #1f2328);
+  font: inherit;
+  font-size: var(--oh-dsh-font-md);
+}
+
+.oh-dsh-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--oh-dsh-space-2);
+  margin-top: var(--oh-dsh-space-1);
+}
+
+.oh-dsh-dialog-cancel,
+.oh-dsh-dialog-confirm {
+  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-3);
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 14%));
+  border-radius: var(--oh-dsh-radius-md);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--oh-dsh-font-md);
+}
+
+.oh-dsh-dialog-cancel:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+}
+
+.oh-dsh-dialog-confirm {
+  border-color: transparent;
+  background: var(--oh-dsh-accent);
+  color: #fff;
+}
+
+.oh-dsh-dialog-confirm.is-danger {
+  background: var(--dsw-alias-state-error-primary, #cf222e);
+}
+
+.oh-dsh-dialog-confirm:hover {
+  filter: brightness(1.05);
+}

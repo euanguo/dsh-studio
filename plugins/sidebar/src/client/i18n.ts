@@ -48,6 +48,9 @@ export type WorkspaceMessage =
   | 'files.delete'
   | 'files.delete-confirm'
   | 'files.search-placeholder'
+  | 'files.op-failed'
+  | 'dialog.ok'
+  | 'dialog.cancel'
   | 'files.viewer.binary'
   | 'files.viewer.html'
   | 'files.viewer.markdown'
@@ -211,6 +214,9 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.delete': 'Delete',
     'files.delete-confirm': 'Delete "{path}"?',
     'files.search-placeholder': 'Search files…',
+    'files.op-failed': 'Operation failed',
+    'dialog.ok': 'OK',
+    'dialog.cancel': 'Cancel',
     'files.viewer.binary': 'Binary file',
     'files.viewer.html': 'HTML preview',
     'files.viewer.markdown': 'Markdown preview',
@@ -373,6 +379,9 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.delete': '删除',
     'files.delete-confirm': '确定删除 "{path}"？',
     'files.search-placeholder': '搜索文件…',
+    'files.op-failed': '操作失败',
+    'dialog.ok': '确定',
+    'dialog.cancel': '取消',
     'files.viewer.binary': '二进制文件',
     'files.viewer.html': 'HTML 预览',
     'files.viewer.markdown': 'Markdown 预览',

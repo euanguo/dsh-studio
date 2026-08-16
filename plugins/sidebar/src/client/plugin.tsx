@@ -37,6 +37,7 @@ import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { useTranslate } from '../../../shared/use-i18n.ts'
 import themeCss from '../../../shared/theme.css'
 import { ToastHost } from '../../../shared/toast.tsx'
+import { DialogHost } from './kit/dialog.tsx'
 import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'
 import {
   CenterSurfaceHost,
@@ -247,7 +248,12 @@ ${diffViewerCss}`
     this.toastElement.id = 'oh-dsh-toast-root'
     document.body.append(this.toastElement)
     this.toastRoot = createRoot(this.toastElement)
-    this.toastRoot.render(<ToastHost />)
+    this.toastRoot.render(
+      <>
+        <ToastHost />
+        <DialogHost />
+      </>,
+    )
     this.narrowViewport.addEventListener('change', this.handleViewportChange)
     this.stopKeymap = installKeymap()
     // Global (panel-level) shortcuts: registered for the app lifetime.

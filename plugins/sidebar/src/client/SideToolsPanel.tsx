@@ -60,6 +60,7 @@ import {
 import { useSidebarChromeStore } from './runtimes/chrome-store.ts'
 import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
 import { binding, formatKeymapHint } from './kit/keymap.ts'
+import { alertDialog, confirmDialog, promptDialog } from './kit/dialog.tsx'
 import type {
   DesktopSidebar,
   DesktopSidebarRenderProps,
@@ -245,7 +246,6 @@ export function FilesView({
     [chrome?.explorer.expandedPaths],
   )
   const selectedPath = chrome?.explorer.selectedPath ?? null
-  const [refreshKey, setRefreshKey] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchHits, setSearchHits] = useState<Array<{ path: string; line: number; text: string }> | null>(null)
   const [searching, setSearching] = useState(false)
@@ -279,7 +279,16 @@ export function FilesView({
   useEffect(() => {
     if (runtime === null || cwd === undefined) return
     void runtime.ensureListing(null)
-  }, [cwd, refreshKey, runtime])
+  }, [cwd, runtime])
+
+  // Drop cached listings (root + expanded dirs) and reload them — the
+  // refresh button and every fs mutation share this path, because
+  // ensureListing alone short-circuits on cached Ready listings.
+  const refreshListings = useCallback((): void => {
+    if (runtime === null) return
+    const keys = [...runtime.getListingsSnapshot().keys()]
+    void Promise.all(keys.map(key => runtime.refresh(key)))
+  }, [runtime])
 
   const ensureLoaded = useCallback(async (directory: string): Promise<boolean> => {
     if (runtime === null || cwd === undefined) return false
@@ -346,50 +355,87 @@ export function FilesView({
   const createFsEntry = async (directory: boolean): Promise<void> => {
     if (cwd === undefined || scope === undefined) return
     const base = selectedPath ?? cwd
-    const name = window.prompt(directory ? t('files.new-folder-name') : t('files.new-file-name'))
+    const name = await promptDialog({
+      title: directory ? t('files.new-folder-name') : t('files.new-file-name'),
+      confirmLabel: t('dialog.ok'),
+      cancelLabel: t('dialog.cancel'),
+    })
     if (name === null || name.trim() === '') return
     try {
       await betterSidebarApi.fsCreate(scope, `${base.replace(/\/+$/, '')}/${name.trim()}`, directory)
-      setRefreshKey(value => value + 1)
+      refreshListings()
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : String(cause))
+      await alertDialog({
+        title: t('files.op-failed'),
+        message: cause instanceof Error ? cause.message : String(cause),
+        confirmLabel: t('dialog.ok'),
+      })
     }
   }
 
   const renameFsEntry = async (): Promise<void> => {
     if (cwd === undefined || scope === undefined || selectedPath === null) return
-    const name = window.prompt(t('files.rename-to'), selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath)
+    const name = await promptDialog({
+      title: t('files.rename-to'),
+      defaultValue: selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath,
+      confirmLabel: t('dialog.ok'),
+      cancelLabel: t('dialog.cancel'),
+    })
     if (name === null || name.trim() === '') return
     const parent = selectedPath.replace(/\\/g, '/').replace(/\/+$/, '').split('/').slice(0, -1).join('/') || cwd
     try {
       await betterSidebarApi.fsRename(scope, selectedPath, `${parent.replace(/\/+$/, '')}/${name.trim()}`)
-      setRefreshKey(value => value + 1)
+      refreshListings()
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : String(cause))
+      await alertDialog({
+        title: t('files.op-failed'),
+        message: cause instanceof Error ? cause.message : String(cause),
+        confirmLabel: t('dialog.ok'),
+      })
     }
   }
 
   const deleteFsEntry = async (): Promise<void> => {
     if (cwd === undefined || scope === undefined || selectedPath === null) return
-    if (!window.confirm(t('files.delete-confirm', { path: selectedPath }))) return
+    const confirmed = await confirmDialog({
+      title: t('files.delete'),
+      message: t('files.delete-confirm', { path: selectedPath }),
+      confirmLabel: t('files.delete'),
+      cancelLabel: t('dialog.cancel'),
+      danger: true,
+    })
+    if (!confirmed) return
     try {
       await betterSidebarApi.fsDelete(scope, selectedPath)
-      setRefreshKey(value => value + 1)
+      refreshListings()
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : String(cause))
+      await alertDialog({
+        title: t('files.op-failed'),
+        message: cause instanceof Error ? cause.message : String(cause),
+        confirmLabel: t('dialog.ok'),
+      })
     }
   }
 
   const copyFsEntry = async (): Promise<void> => {
     if (cwd === undefined || scope === undefined || selectedPath === null) return
     const base = selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath
-    const target = window.prompt(t('files.copy-to'), `${base}.copy`)
+    const target = await promptDialog({
+      title: t('files.copy-to'),
+      defaultValue: `${base}.copy`,
+      confirmLabel: t('dialog.ok'),
+      cancelLabel: t('dialog.cancel'),
+    })
     if (target === null || target.trim() === '') return
     try {
       await betterSidebarApi.fsCopy(scope, selectedPath, target.trim())
-      setRefreshKey(value => value + 1)
+      refreshListings()
     } catch (cause) {
-      window.alert(cause instanceof Error ? cause.message : String(cause))
+      await alertDialog({
+        title: t('files.op-failed'),
+        message: cause instanceof Error ? cause.message : String(cause),
+        confirmLabel: t('dialog.ok'),
+      })
     }
   }
 
@@ -409,7 +455,7 @@ export function FilesView({
           type="button"
           aria-label={t('files.refresh')}
           title={t('files.refresh')}
-          onClick={() => { setRefreshKey(value => value + 1) }}
+          onClick={refreshListings}
         ><IconRefresh size={16} /></button>
       </div>
       <div className="oh-dsh-files-search">
@@ -468,8 +514,16 @@ export function FilesView({
               style={{ '--tree-depth': row.depth } as CSSProperties}
               aria-expanded={row.kind === 'directory' ? row.expanded : undefined}
               onClick={() => {
-                if (row.kind === 'directory') void toggleDirectory(row.path)
-                else openFileInCenter(row.path, row.name, true)
+                if (row.kind === 'directory') {
+                  void toggleDirectory(row.path)
+                } else {
+                  // Select the file (drives rename/copy/delete) and preview
+                  // it in the center; double click pins the tab.
+                  if (scopeKey !== null) {
+                    useSidebarChromeStore.getState().setExplorerSelectedPath(scopeKey, row.path)
+                  }
+                  openFileInCenter(row.path, row.name, true)
+                }
               }}
               onDoubleClick={() => {
                 if (row.kind !== 'directory') {
