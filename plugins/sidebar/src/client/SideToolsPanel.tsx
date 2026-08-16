@@ -59,12 +59,22 @@ import {
 } from './runtimes/registry.ts'
 import { useSidebarChromeStore } from './runtimes/chrome-store.ts'
 import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
+import { binding, formatKeymapHint } from './kit/keymap.ts'
 import type {
   DesktopSidebar,
   DesktopSidebarRenderProps,
   DesktopSidebarTabDescriptor,
 } from './sidebar-service.ts'
 import type { WorkspaceMessage } from './i18n.ts'
+
+/** Tab descriptor icon size (px). */
+const DESCRIPTOR_ICON_SIZE = 21
+/** File search debounce (ms) before hitting the runtime. */
+const SEARCH_DEBOUNCE_MS = 250
+/** File search result rows shown per query. */
+const SEARCH_RESULT_LIMIT = 100
+/** Bytes sniffed from a file head for viewer detection. */
+const VIEWER_SNIFF_BYTES = 512
 
 /** Absolute path → repo-relative path for the explorer runtime keys. */
 function relativePathOf(cwd: string, absolute: string): string {
@@ -125,7 +135,7 @@ function DescriptorIcon({ descriptor }: {
   descriptor: DesktopSidebarTabDescriptor
 }): JSX.Element {
   const icon = typeof descriptor.icon === 'function'
-    ? descriptor.icon(21)
+    ? descriptor.icon(DESCRIPTOR_ICON_SIZE)
     : descriptor.icon
   return <>{icon ?? <ToolIcon kind={defaultIcon(descriptor.id)} />}</>
 }
@@ -257,7 +267,7 @@ export function FilesView({
         setSearchHits([])
         setSearching(false)
       })
-    }, 250)
+    }, SEARCH_DEBOUNCE_MS)
     return () => {
       window.clearTimeout(timer)
       controller.abort()
@@ -336,7 +346,7 @@ export function FilesView({
   const createFsEntry = async (directory: boolean): Promise<void> => {
     if (cwd === undefined || scope === undefined) return
     const base = selectedPath ?? cwd
-    const name = window.prompt(directory ? 'New folder name' : 'New file name')
+    const name = window.prompt(directory ? t('files.new-folder-name') : t('files.new-file-name'))
     if (name === null || name.trim() === '') return
     try {
       await betterSidebarApi.fsCreate(scope, `${base.replace(/\/+$/, '')}/${name.trim()}`, directory)
@@ -348,7 +358,7 @@ export function FilesView({
 
   const renameFsEntry = async (): Promise<void> => {
     if (cwd === undefined || scope === undefined || selectedPath === null) return
-    const name = window.prompt('Rename to', selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath)
+    const name = window.prompt(t('files.rename-to'), selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath)
     if (name === null || name.trim() === '') return
     const parent = selectedPath.replace(/\\/g, '/').replace(/\/+$/, '').split('/').slice(0, -1).join('/') || cwd
     try {
@@ -361,7 +371,7 @@ export function FilesView({
 
   const deleteFsEntry = async (): Promise<void> => {
     if (cwd === undefined || scope === undefined || selectedPath === null) return
-    if (!window.confirm(`Delete ${selectedPath}?`)) return
+    if (!window.confirm(t('files.delete-confirm', { path: selectedPath }))) return
     try {
       await betterSidebarApi.fsDelete(scope, selectedPath)
       setRefreshKey(value => value + 1)
@@ -373,7 +383,7 @@ export function FilesView({
   const copyFsEntry = async (): Promise<void> => {
     if (cwd === undefined || scope === undefined || selectedPath === null) return
     const base = selectedPath.split(/[\\/]/).filter(Boolean).pop() ?? selectedPath
-    const target = window.prompt('Copy to', `${base}.copy`)
+    const target = window.prompt(t('files.copy-to'), `${base}.copy`)
     if (target === null || target.trim() === '') return
     try {
       await betterSidebarApi.fsCopy(scope, selectedPath, target.trim())
@@ -390,11 +400,11 @@ export function FilesView({
     <div className="oh-dsh-files-view">
       <div className="oh-dsh-files-path" title={cwd}>
         <span>{cwd.split(/[\\/]/).filter(Boolean).pop() ?? cwd}</span>
-        <button type="button" title="New file" onClick={() => { void createFsEntry(false) }}>+F</button>
-        <button type="button" title="New folder" onClick={() => { void createFsEntry(true) }}>+D</button>
-        <button type="button" title="Rename" disabled={selectedPath === null} onClick={() => { void renameFsEntry() }}>↳</button>
-        <button type="button" title="Copy" disabled={selectedPath === null} onClick={() => { void copyFsEntry() }}>⧉</button>
-        <button type="button" title="Delete" disabled={selectedPath === null} onClick={() => { void deleteFsEntry() }}>✕</button>
+        <button type="button" title={t('files.new-file')} onClick={() => { void createFsEntry(false) }}>+F</button>
+        <button type="button" title={t('files.new-folder')} onClick={() => { void createFsEntry(true) }}>+D</button>
+        <button type="button" title={t('files.rename')} disabled={selectedPath === null} onClick={() => { void renameFsEntry() }}>↳</button>
+        <button type="button" title={t('files.copy')} disabled={selectedPath === null} onClick={() => { void copyFsEntry() }}>⧉</button>
+        <button type="button" title={t('files.delete')} disabled={selectedPath === null} onClick={() => { void deleteFsEntry() }}>✕</button>
         <button
           type="button"
           aria-label={t('files.refresh')}
@@ -405,7 +415,7 @@ export function FilesView({
       <div className="oh-dsh-files-search">
         <input
           type="search"
-          placeholder="Search files…"
+          placeholder={t('files.search-placeholder')}
           value={searchQuery}
           onChange={event => { setSearchQuery(event.target.value) }}
           onKeyDown={event => {
@@ -419,7 +429,7 @@ export function FilesView({
           {!searching && searchHits.length === 0 ? (
             <EmptyView title={t('files.search-no-matches')} />
           ) : null}
-          {searchHits.slice(0, 100).map(hit => (
+          {searchHits.slice(0, SEARCH_RESULT_LIMIT).map(hit => (
             <button
               key={`${hit.path}:${hit.line}`}
               type="button"
@@ -535,7 +545,7 @@ export function FileView({
   }
   const head = snapshot.binary
     ? new Uint8Array([0])
-    : new TextEncoder().encode((snapshot.content ?? '').slice(0, 512))
+    : new TextEncoder().encode((snapshot.content ?? '').slice(0, VIEWER_SNIFF_BYTES))
   const viewer = sidebar.matchViewer(path, head)
   if (viewer?.render !== undefined) {
     return <>{viewer.render({
@@ -728,7 +738,7 @@ function PanelActions({
         type="button"
         aria-label={t('terminal.toggle')}
         aria-pressed={terminalOpen}
-        title={`${t('terminal.title')} (⌘J)`}
+        title={`${t('terminal.title')} (${formatKeymapHint(binding({ mod: true, key: 'j' }))})`}
         onClick={() => { panels.toggleBottomPanel() }}
       >
         <svg viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2.5" /><path d="M3.5 13.5h13" /></svg>
@@ -737,7 +747,7 @@ function PanelActions({
         type="button"
         aria-label={t('side.toggle')}
         aria-pressed={open}
-        title={`${t('side.title')} (⌥⌘B)`}
+        title={`${t('side.title')} (${formatKeymapHint(binding({ mod: true, alt: true, key: 'b' }))})`}
         onClick={onToggleSide}
       >
         <svg viewBox="0 0 20 20"><rect x="3" y="3" width="14" height="14" rx="2.5" /><path d="M12.5 3.5v13" /></svg>

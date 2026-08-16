@@ -8,6 +8,7 @@ import {
   binding,
   bindingToString,
   eventMatchesBinding,
+  formatKeymapHint,
   parseBindingString,
 } from '../plugins/sidebar/src/client/kit/keymap.ts'
 
@@ -85,4 +86,14 @@ test('F7 vs Shift+F7 are distinct bindings', () => {
   assert.equal(eventMatchesBinding(prev, event({ shiftKey: true, key: 'F7' })), false)
   assert.equal(eventMatchesBinding(next, event({ shiftKey: true, key: 'F7' })), true)
   assert.equal(eventMatchesBinding(next, event({ key: 'F7' })), false)
+})
+
+test('formatKeymapHint renders platform-styled hints', () => {
+  assert.equal(formatKeymapHint(binding({ mod: true, shift: true, key: 'p' }), 'MacIntel'), '⇧⌘P')
+  assert.equal(formatKeymapHint(binding({ mod: true, shift: true, key: 'p' }), 'Win32'), 'Ctrl+Shift+P')
+  assert.equal(formatKeymapHint(binding({ ctrl: true, shift: true, key: 'g' }), 'MacIntel'), '⌃⇧G')
+  assert.equal(formatKeymapHint(binding({ ctrl: true, shift: true, key: 'g' }), 'Linux x86_64'), 'Ctrl+Shift+G')
+  assert.equal(formatKeymapHint(binding({ mod: true, alt: true, key: 's' }), 'MacIntel'), '⌥⌘S')
+  assert.equal(formatKeymapHint(binding({ key: 'F7' }), 'MacIntel'), 'F7')
+  assert.equal(formatKeymapHint(binding({ shift: true, key: 'F7' }), 'Win32'), 'Shift+F7')
 })

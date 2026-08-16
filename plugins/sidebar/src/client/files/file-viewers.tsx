@@ -1,27 +1,11 @@
 /**
- * Built-in file viewers of the desktop sidebar (text / binary / sandboxed
- * HTML). Extracted from plugin.tsx.
+ * Built-in file viewers of the desktop sidebar (binary / sandboxed HTML).
+ * Text and markdown render through the unified ContentViewer (Pierre
+ * family) — no separate plain-text renderer. Extracted from plugin.tsx.
  */
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { EmptyView } from '../kit/status.tsx'
-
-export function TextFileViewer({
-  content,
-  path,
-  title,
-}: {
-  content: string
-  path: string
-  title: string
-}): JSX.Element {
-  return (
-    <div className="oh-dsh-file-preview">
-      <div><strong title={path}>{title}</strong></div>
-      <pre>{content}</pre>
-    </div>
-  )
-}
 
 export function BinaryFileViewer({
   onOpen,

@@ -11,6 +11,11 @@ import {
   IconList,
 } from '../../../../shared/tabler-icons.tsx'
 import { useDiffViewPreferences } from './diff-view-preferences.ts'
+import { binding, formatKeymapHint } from '../kit/keymap.ts'
+
+/** F7 / Shift+F7 change-navigation hints (match the keymap registrations). */
+const PREV_CHANGE_HINT = formatKeymapHint(binding({ key: 'F7' }))
+const NEXT_CHANGE_HINT = formatKeymapHint(binding({ shift: true, key: 'F7' }))
 
 export function DiffToolbar({
   leading,
@@ -33,12 +38,12 @@ export function DiffToolbar({
       <div className="oh-dsh-diff-toolbar-leading">{leading}</div>
       <div className="oh-dsh-diff-toolbar-actions">
         {onPrevChange !== undefined ? (
-          <button type="button" onClick={onPrevChange} title="Previous change (F7)">
+          <button type="button" onClick={onPrevChange} title={`Previous change (${PREV_CHANGE_HINT})`}>
             <IconChevronDown size={14} />
           </button>
         ) : null}
         {onNextChange !== undefined ? (
-          <button type="button" onClick={onNextChange} title="Next change (Shift+F7)">
+          <button type="button" onClick={onNextChange} title={`Next change (${NEXT_CHANGE_HINT})`}>
             <IconChevronRight size={14} />
           </button>
         ) : null}

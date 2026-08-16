@@ -38,7 +38,6 @@ import { useTranslate } from '../../../shared/use-i18n.ts'
 import themeCss from '../../../shared/theme.css'
 import { ToastHost } from '../../../shared/toast.tsx'
 import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'
-import ReactMarkdown from 'react-markdown'
 import {
   CenterSurfaceHost,
   centerSurfaceRendererRegistry,
@@ -81,11 +80,11 @@ import { WorkspacePanel } from './workspace-panel.tsx'
 import {
   BinaryFileViewer,
   HtmlFileViewer,
-  TextFileViewer,
 } from './files/file-viewers.tsx'
+import { ContentViewer } from './files/content-viewer.tsx'
 import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
 import { disposeSidebarRuntimes } from './runtimes/registry.ts'
-import { binding, installKeymap, registerKeymapAction } from './kit/keymap.ts'
+import { binding, formatKeymapHint, installKeymap, registerKeymapAction } from './kit/keymap.ts'
 import {
   acquireOpenPathPatch,
   registerLinkHandler,
@@ -149,7 +148,11 @@ class WorkspaceToolsService implements WorkspaceTools {
 
   openBrowserUrl(url: string): void {
     let title = url
-    try { title = new URL(url).hostname || url } catch {}
+    try {
+      title = new URL(url).hostname || url
+    } catch {
+      // Non-URL resource labels (plain names) keep the raw string as title.
+    }
     this.pinnedSummary.setOpen(false)
     this.sidebar.openTab({ resource: url, title, type: 'browser' })
     this.sidebar.setOpen(true)
@@ -454,7 +457,7 @@ function registerBuiltinSidebarTools(options: {
         />
       ),
       requiresWorkspace: true,
-      shortcut: '⌃⇧G',
+      shortcut: formatKeymapHint(binding({ ctrl: true, shift: true, key: 'g' })),
       single: true,
       title: () => t('review'),
     }),
@@ -463,7 +466,7 @@ function registerBuiltinSidebarTools(options: {
       icon: <ToolIcon kind="terminal" />,
       id: 'terminal',
       order: 20,
-      shortcut: '⌘J',
+      shortcut: formatKeymapHint(binding({ mod: true, key: 'j' })),
       title: () => t('terminal'),
     }),
     sidebar.registerTab({
@@ -480,7 +483,7 @@ function registerBuiltinSidebarTools(options: {
         />
       ),
       requiresWorkspace: true,
-      shortcut: '⌘P',
+      shortcut: formatKeymapHint(binding({ mod: true, key: 'p' })),
       title: () => t('files'),
     }),
     sidebar.registerTab({
@@ -505,7 +508,7 @@ function registerBuiltinSidebarTools(options: {
       icon: <ToolIcon kind="chat" />,
       id: 'side-chat',
       order: 50,
-      shortcut: '⌥⌘S',
+      shortcut: formatKeymapHint(binding({ mod: true, alt: true, key: 's' })),
       title: () => t('side-chat'),
     }),
     sidebar.registerTab({
@@ -552,9 +555,12 @@ function registerBuiltinSidebarTools(options: {
       id: 'markdown',
       order: 20,
       render: input => (
-        <div className="oh-dsh-content-markdown">
-          <ReactMarkdown>{input.content ?? ''}</ReactMarkdown>
-        </div>
+        <ContentViewer
+          path={input.path}
+          content={input.content ?? null}
+          binary={false}
+          t={t}
+        />
       ),
       title: () => t('files.viewer.markdown'),
     }),
@@ -564,10 +570,11 @@ function registerBuiltinSidebarTools(options: {
       id: 'text',
       order: -100,
       render: input => (
-        <TextFileViewer
-          content={input.content ?? ''}
+        <ContentViewer
           path={input.path}
-          title={input.title}
+          content={input.content ?? null}
+          binary={false}
+          t={t}
         />
       ),
       title: () => t('files.viewer.text'),

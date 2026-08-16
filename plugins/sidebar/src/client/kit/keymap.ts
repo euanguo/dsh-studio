@@ -42,6 +42,34 @@ export function bindingToString(value: KeyBinding): string {
 }
 
 /**
+ * Platform-styled shortcut hint for kbd labels: `⇧⌘P` on macOS,
+ * `Ctrl+Shift+P` elsewhere. The platform comes from `navigator.platform`
+ * unless overridden (tests pass an explicit value).
+ */
+export function formatKeymapHint(
+  value: KeyBinding,
+  platform: string = typeof navigator === 'undefined' ? '' : navigator.platform,
+): string {
+  const isMac = /mac/i.test(platform)
+  const key = value.key.length === 1 ? value.key.toUpperCase() : value.key
+  if (isMac) {
+    const parts: string[] = []
+    if (value.ctrl) parts.push('⌃')
+    if (value.alt) parts.push('⌥')
+    if (value.shift) parts.push('⇧')
+    if (value.mod) parts.push('⌘')
+    parts.push(key)
+    return parts.join('')
+  }
+  const parts: string[] = []
+  if (value.mod || value.ctrl) parts.push('Ctrl')
+  if (value.alt) parts.push('Alt')
+  if (value.shift) parts.push('Shift')
+  parts.push(key)
+  return parts.join('+')
+}
+
+/**
  * Parse a binding string produced by {@link bindingToString} (modifier
  * order-independent). Returns null on unknown modifiers or a missing key.
  */
