@@ -203,10 +203,10 @@ try {
     'dsh-runtime',
     'node_modules',
     '@oh-dsh',
-    'better-sidebar-runtime',
+    'sidebar-host',
     'dist',
     'index.js',
-  )), '@oh-dsh/better-sidebar-runtime Host bundle is missing')
+  )), '@oh-dsh/sidebar-host Host bundle is missing')
   assert.ok(existsSync(join(
     resources,
     'dsh-runtime',

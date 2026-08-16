@@ -19,7 +19,7 @@
       name: '@oh-dsh/web'
 
     - id: oh-better-sidebar-runtime
-      name: '@oh-dsh/better-sidebar-runtime'
+      name: '@oh-dsh/sidebar-host'
 
     - id: oh-vision
       name: '@oh-dsh/vision'
