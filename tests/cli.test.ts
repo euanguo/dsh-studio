@@ -91,7 +91,7 @@ test('layered distributions list and reject unavailable surfaces', async () => {
     stderr.stream,
   ), 0)
   assert.match(stdout.text(), /web\s+Start Oh-DSH Web/)
-  assert.doesNotMatch(stdout.text(), /Start Oh-DSH Desktop/)
+  assert.doesNotMatch(stdout.text(), /Start Oh-DSH-Desktop/)
   assert.doesNotMatch(stdout.text(), /Start Oh-DSH TUI/)
 
   assert.equal(await main(
@@ -112,13 +112,13 @@ test('layered distributions list and reject unavailable surfaces', async () => {
 
 test('desktop launch keeps source and installed macOS paths distinct', () => {
   assert.deepEqual(desktopLaunchSpec([], {
-    OH_DSH_DESKTOP_APP: '/Applications/Oh-DSH Desktop.app',
+    OH_DSH_DESKTOP_APP: '/Applications/Oh-DSH-Desktop.app',
   }, 'darwin'), {
-    args: ['/Applications/Oh-DSH Desktop.app'],
+    args: ['/Applications/Oh-DSH-Desktop.app'],
     command: '/usr/bin/open',
   })
   assert.deepEqual(desktopLaunchSpec([], {}, 'darwin'), {
-    args: ['-a', 'Oh-DSH Desktop'],
+    args: ['-a', 'Oh-DSH-Desktop'],
     command: '/usr/bin/open',
   })
 })
@@ -127,17 +127,17 @@ test('macOS installed launches inherit the shared Oh-DSH state root', () => {
   assert.deepEqual(desktopLaunchSpec([], {
     OH_DSH_HOME: '/data/oh-dsh',
   }, 'darwin'), {
-    args: ['--env', 'OH_DSH_HOME=/data/oh-dsh', '-a', 'Oh-DSH Desktop'],
+    args: ['--env', 'OH_DSH_HOME=/data/oh-dsh', '-a', 'Oh-DSH-Desktop'],
     command: '/usr/bin/open',
   })
   assert.deepEqual(desktopLaunchSpec(['--inspect'], {
-    OH_DSH_DESKTOP_APP: '/Applications/Oh-DSH Desktop.app',
+    OH_DSH_DESKTOP_APP: '/Applications/Oh-DSH-Desktop.app',
     OH_DSH_HOME: '/data/oh-dsh',
   }, 'darwin'), {
     args: [
       '--env',
       'OH_DSH_HOME=/data/oh-dsh',
-      '/Applications/Oh-DSH Desktop.app',
+      '/Applications/Oh-DSH-Desktop.app',
       '--args',
       '--inspect',
     ],
@@ -150,7 +150,7 @@ test('macOS installed launches inherit the shared Oh-DSH state root', () => {
       '--env',
       `OH_DSH_HOME=${posix.resolve('./relative-state')}`,
       '-a',
-      'Oh-DSH Desktop',
+      'Oh-DSH-Desktop',
     ],
     command: '/usr/bin/open',
   })
@@ -158,9 +158,9 @@ test('macOS installed launches inherit the shared Oh-DSH state root', () => {
 
 test('desktop launch resolves paths with target platform semantics', () => {
   assert.deepEqual(desktopLaunchSpec(['--inspect'], {
-    OH_DSH_DESKTOP_APP: 'C:\\Tools\\Oh-DSH Desktop.exe',
+    OH_DSH_DESKTOP_APP: 'C:\\Tools\\Oh-DSH-Desktop.exe',
   }, 'win32'), {
     args: ['--inspect'],
-    command: 'C:\\Tools\\Oh-DSH Desktop.exe',
+    command: 'C:\\Tools\\Oh-DSH-Desktop.exe',
   })
 })

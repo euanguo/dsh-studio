@@ -20,7 +20,7 @@ async function makeBundle(path: string, marker: string): Promise<void> {
     'Electron Framework.framework',
   ), { recursive: true })
   await mkdir(join(path, 'Contents', 'Resources'), { recursive: true })
-  await writeFile(join(path, 'Contents', 'MacOS', 'Oh-DSH Desktop'), marker)
+  await writeFile(join(path, 'Contents', 'MacOS', 'Oh-DSH-Desktop'), marker)
   await writeFile(join(
     path,
     'Contents',
@@ -34,7 +34,7 @@ async function makeBundle(path: string, marker: string): Promise<void> {
 test('local mac install never exposes a partially copied app bundle', async () => {
   const root = await mkdtemp(join(tmpdir(), 'oh-dsh-install-'))
   const source = join(root, 'source.app')
-  const destination = join(root, 'Applications', 'Oh-DSH Desktop.app')
+  const destination = join(root, 'Applications', 'Oh-DSH-Desktop.app')
   const backups = join(root, 'Trash')
   await makeBundle(source, 'new')
   await makeBundle(destination, 'old')
@@ -72,7 +72,7 @@ test('local mac install never exposes a partially copied app bundle', async () =
 
 async function makeBundleValidation(path: string): Promise<void> {
   const values = await Promise.all([
-    readFile(join(path, 'Contents', 'MacOS', 'Oh-DSH Desktop'), 'utf8'),
+    readFile(join(path, 'Contents', 'MacOS', 'Oh-DSH-Desktop'), 'utf8'),
     readFile(join(
       path,
       'Contents',

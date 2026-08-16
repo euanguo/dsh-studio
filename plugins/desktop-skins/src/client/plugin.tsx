@@ -1,6 +1,6 @@
 import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
-import desktopSkinsCss from './skins.css'
+import desktopSkinsCss from './desktop-skins.css'
 import {
   DESKTOP_SKINS_MESSAGES,
   type DesktopSkinsMessage,
@@ -65,8 +65,8 @@ interface SkinOption {
 
 export const inject = ['locale', 'slots', 'theme']
 
-const SETTINGS_NAMESPACE = 'oh-dsh.skins'
-const SETTINGS_STYLE_ATTRIBUTE = 'data-oh-dsh-skins'
+const SETTINGS_NAMESPACE = 'oh-dsh.desktop-skins'
+const SETTINGS_STYLE_ATTRIBUTE = 'data-oh-dsh-desktop-skins'
 
 const DEFAULT_OPTION: SkinOption = {
   id: null,
@@ -155,12 +155,12 @@ export function apply(ctx: ClientContext): void {
   const theme = ctx.get('theme') as ThemeService
 
   ctx.effect(
-    () => locale.register('oh-dsh.skins', DESKTOP_SKINS_MESSAGES),
-    'oh-dsh-skins: dictionaries',
+    () => locale.register('oh-dsh.desktop-skins', DESKTOP_SKINS_MESSAGES),
+    'oh-dsh-desktop: desktop skins dictionaries',
   )
   ctx.effect(
     () => typeof document === 'undefined' ? undefined : installSettingsStyles(),
-    'oh-dsh-skins: settings styles',
+    'oh-dsh-desktop: desktop skins settings styles',
   )
 
   const storage = typeof fetch === 'undefined'
@@ -196,7 +196,7 @@ export function apply(ctx: ClientContext): void {
         try {
           await storage.load()
         } catch (error) {
-          console.error('skins: failed to load preferences', error)
+          console.error('desktop-skins: failed to load preferences', error)
         }
       }
       if (disposed) return
@@ -219,11 +219,11 @@ export function apply(ctx: ClientContext): void {
       if (started) controller.dispose()
       void removeService?.()
     }
-  }, 'oh-dsh-skins: controller')
+  }, 'oh-dsh-desktop: desktop skins controller')
 
   slots.inject('settings.general.item', () => slots.register({
     name: 'settings.general.item',
-    id: 'oh-dsh-skins',
+    id: 'oh-dsh-desktop-skins',
     order: 20,
     store,
     locale: SETTINGS_NAMESPACE,

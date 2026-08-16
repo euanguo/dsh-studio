@@ -54,7 +54,7 @@ import { resolveProductVersion } from './version.ts'
 import { DesktopUpdateManager, detectPackageType } from './update-manager.ts'
 import { scheduleImmediateUpdateInstall, singleFlight } from './update-lifecycle.ts'
 
-const PRODUCT_NAME = 'Oh-DSH Desktop'
+const PRODUCT_NAME = 'Oh-DSH-Desktop'
 const DEFAULT_UI_ZOOM_FACTOR = 1.12
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const PRODUCT_VERSION = resolveProductVersion(join(currentDir, '..'))
@@ -586,7 +586,7 @@ async function restartRuntime(message = '正在重新启动 DeepSeek Harness…'
     appendLog('desktop', error instanceof Error ? error.stack ?? error.message : String(error))
     await showSplash({
       error: true,
-      message: 'Oh-DSH Desktop 启动失败。',
+      message: 'Oh-DSH-Desktop 启动失败。',
       detail: error instanceof Error ? error.message : String(error),
     })
   } finally {
@@ -1002,9 +1002,9 @@ async function bootstrap(): Promise<void> {
 void bootstrap().catch(async (error: unknown) => {
   const detail = error instanceof Error ? error.stack ?? error.message : String(error)
   appendLog('desktop', detail)
-  if (app.isReady()) await showSplash({ error: true, message: 'Oh-DSH Desktop 启动失败。', detail })
+  if (app.isReady()) await showSplash({ error: true, message: 'Oh-DSH-Desktop 启动失败。', detail })
   else {
     await app.whenReady()
-    await showSplash({ error: true, message: 'Oh-DSH Desktop 启动失败。', detail })
+    await showSplash({ error: true, message: 'Oh-DSH-Desktop 启动失败。', detail })
   }
 })

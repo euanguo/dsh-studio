@@ -83,6 +83,22 @@ export interface SidebarGitLogEntry {
   refs: string
 }
 
+/** One file touched by a commit (`git.commit-files`). */
+export interface SidebarGitCommitFile {
+  path: string
+  /** Status letter (A/M/D/R/C/T). */
+  status: string
+  additions: number
+  deletions: number
+}
+
+/** The committed-changes projection: files in local commits ahead of the
+ *  branch upstream (`baseRef` null when there is no upstream to compare). */
+export interface SidebarGitCommitted {
+  baseRef: string | null
+  entries: SidebarGitCommitFile[]
+}
+
 /** A raw unified diff string. */
 export interface SidebarGitDiff {
   diff: string
@@ -176,10 +192,18 @@ export async function callSidebarApi<T>(
     ...(signal === undefined ? {} : { signal }),
   })
   const envelope = await response.json() as SidebarEnvelope<T>
-  if (!response.ok || envelope.ok !== true || envelope.value === undefined) {
+  // Void methods (git.stage / git.unstage / git.discard / git.checkout /
+  // git.commit) legitimately return `{ok:true}` with no `value` — JSON drops
+  // the undefined field — so success is judged by `ok === true` alone, never
+  // by the presence of `value`. Requiring `value !== undefined` made every
+  // void mutation "fail" with `HTTP 200`, flashing the error bar and skipping
+  // the post-mutation refresh (the "slow stage/unstage + red flash" bug).
+  if (!response.ok || envelope.ok !== true) {
     throw new Error(envelope.error?.message ?? `HTTP ${String(response.status)}`)
   }
-  return envelope.value
+  // On success `value` is present for value methods and absent (undefined) for
+  // void methods — the caller's `T` encodes which, so the cast is sound.
+  return envelope.value as T
 }
 
 /** POST one global (scope-less) API method and unwrap the envelope. */
@@ -195,8 +219,10 @@ export async function callSidebarGlobalApi<T>(
     ...(signal === undefined ? {} : { signal }),
   })
   const envelope = await response.json() as SidebarEnvelope<T>
-  if (!response.ok || envelope.ok !== true || envelope.value === undefined) {
+  if (!response.ok || envelope.ok !== true) {
     throw new Error(envelope.error?.message ?? `HTTP ${String(response.status)}`)
   }
-  return envelope.value
+  // On success `value` is present for value methods and absent (undefined) for
+  // void methods — the caller's `T` encodes which, so the cast is sound.
+  return envelope.value as T
 }

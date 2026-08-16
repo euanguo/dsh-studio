@@ -27,7 +27,7 @@ export function cliHelp(env: NodeJS.ProcessEnv = process.env): string {
   const aliases = Object.entries(SURFACE_ALIASES)
     .filter(([, surface]) => surfaces.includes(surface))
   const descriptions: Record<SurfaceName, string> = {
-    desktop: 'Start Oh-DSH Desktop',
+    desktop: 'Start Oh-DSH-Desktop',
     web: 'Start Oh-DSH Web',
     tui: 'Start Oh-DSH TUI',
   }
@@ -133,7 +133,7 @@ export function desktopLaunchSpec(
       args: [
         ...macOpenEnvironment(env),
         '-a',
-        'Oh-DSH Desktop',
+        'Oh-DSH-Desktop',
         ...(args.length === 0 ? [] : ['--args', ...args]),
       ],
       command: '/usr/bin/open',
@@ -141,7 +141,7 @@ export function desktopLaunchSpec(
   }
   if (platform === 'win32') {
     return {
-      args: ['/d', '/s', '/c', 'start', '""', 'Oh-DSH Desktop.exe', ...args],
+      args: ['/d', '/s', '/c', 'start', '""', 'Oh-DSH-Desktop.exe', ...args],
       command: env.ComSpec ?? 'cmd.exe',
     }
   }

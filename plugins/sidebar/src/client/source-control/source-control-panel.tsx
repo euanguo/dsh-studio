@@ -14,6 +14,8 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconCopy,
+  IconEye,
+  IconFileDiff,
   IconLayoutList,
   IconListTree,
   IconMinus,
@@ -26,6 +28,8 @@ import {
   ListRowActions,
   ListRowActionButton,
   ListRowBody,
+  ListRowLabel,
+  ListRowLabelText,
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
@@ -68,6 +72,7 @@ export interface SourceControlPanelProps {
   onStage(paths: readonly string[]): void
   onUnstage(paths: readonly string[]): void
   onDiscard(paths: readonly string[], label: string): void
+  onViewAll(id: SourceControlSectionId): void
   onCopyPath(path: string): void
 }
 
@@ -98,6 +103,7 @@ export function SourceControlPanel(props: SourceControlPanelProps): JSX.Element 
     <div className="oh-dsh-sc-list">
       <div className="oh-dsh-sc-toolbar">
         <span className="oh-dsh-sc-toolbar-title">
+          <IconFileDiff size={14} />
           {props.t('workspace.changes')}
           <em>{props.count}</em>
         </span>
@@ -131,6 +137,7 @@ export function SourceControlPanel(props: SourceControlPanelProps): JSX.Element 
           onStage={props.onStage}
           onUnstage={props.onUnstage}
           onDiscard={props.onDiscard}
+          onViewAll={props.onViewAll}
           onContextMenu={(path, x, y, capabilities) => {
             setMenu({ x, y, path, ...capabilities })
           }}
@@ -199,6 +206,7 @@ function SourceControlRow(props: {
   onStage(paths: readonly string[]): void
   onUnstage(paths: readonly string[]): void
   onDiscard(paths: readonly string[], label: string): void
+  onViewAll(id: SourceControlSectionId): void
   onContextMenu(
     path: string,
     x: number,
@@ -210,7 +218,8 @@ function SourceControlRow(props: {
   if (row.kind === 'section') {
     return (
       <SectionRowView row={row} t={props.t} onToggleSection={props.onToggleSection}
-        onStage={props.onStage} onUnstage={props.onUnstage} onDiscard={props.onDiscard} />
+        onStage={props.onStage} onUnstage={props.onUnstage} onDiscard={props.onDiscard}
+        onViewAll={props.onViewAll} />
     )
   }
   if (row.kind === 'directory') {
@@ -241,8 +250,10 @@ function SectionRowView(props: {
   onStage(paths: readonly string[]): void
   onUnstage(paths: readonly string[]): void
   onDiscard(paths: readonly string[], label: string): void
+  onViewAll(id: SourceControlSectionId): void
 }): JSX.Element {
   const { row } = props
+  const canViewAll = row.id === 'staged' || row.id === 'unstaged'
   return (
     <ListRow className="oh-dsh-sc-section-row" data-section={row.id}>
       <ListRowMain
@@ -254,35 +265,44 @@ function SectionRowView(props: {
           {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
         </ListRowLeading>
         <ListRowBody>
-          <FilenameLabel name={props.t(`source-control.section.${row.id}`)} />
+          <ListRowLabel>
+            <ListRowLabelText>{props.t(`source-control.section.${row.id}`)}</ListRowLabelText>
+            <span className="oh-dsh-workspace-count">{row.count}</span>
+          </ListRowLabel>
         </ListRowBody>
       </ListRowMain>
       <ListRowTrailing>
-        <span className="oh-dsh-sc-count">{row.count}</span>
+        {canViewAll && (
+          <ListRowActionButton
+            aria-label={props.t('source-control.view-all')}
+            title={props.t('source-control.view-all')}
+            onClick={() => { props.onViewAll(row.id) }}
+          ><IconEye size={14} /></ListRowActionButton>
+        )}
+        <span className="oh-dsh-sc-section-bulk">
+          {row.stagePaths.length > 0 && (
+            <ListRowActionButton
+              aria-label={props.t('source-control.stage-all')}
+              title={props.t('source-control.stage-all')}
+              onClick={() => { props.onStage(row.stagePaths) }}
+            ><IconPlus size={14} /></ListRowActionButton>
+          )}
+          {row.unstagePaths.length > 0 && (
+            <ListRowActionButton
+              aria-label={props.t('source-control.unstage-all')}
+              title={props.t('source-control.unstage-all')}
+              onClick={() => { props.onUnstage(row.unstagePaths) }}
+            ><IconMinus size={14} /></ListRowActionButton>
+          )}
+          {row.discardPaths.length > 0 && (
+            <ListRowActionButton
+              aria-label={props.t('source-control.discard-all')}
+              title={props.t('source-control.discard-all')}
+              onClick={() => { props.onDiscard(row.discardPaths, props.t(`source-control.section.${row.id}`)) }}
+            ><IconTrash size={14} /></ListRowActionButton>
+          )}
+        </span>
       </ListRowTrailing>
-      <ListRowActions>
-        {row.stagePaths.length > 0 && (
-          <ListRowActionButton
-            aria-label={props.t('source-control.stage-all')}
-            title={props.t('source-control.stage-all')}
-            onClick={() => { props.onStage(row.stagePaths) }}
-          ><IconPlus size={14} /></ListRowActionButton>
-        )}
-        {row.unstagePaths.length > 0 && (
-          <ListRowActionButton
-            aria-label={props.t('source-control.unstage-all')}
-            title={props.t('source-control.unstage-all')}
-            onClick={() => { props.onUnstage(row.unstagePaths) }}
-          ><IconMinus size={14} /></ListRowActionButton>
-        )}
-        {row.discardPaths.length > 0 && (
-          <ListRowActionButton
-            aria-label={props.t('source-control.discard-all')}
-            title={props.t('source-control.discard-all')}
-            onClick={() => { props.onDiscard(row.discardPaths, props.t(`source-control.section.${row.id}`)) }}
-          ><IconTrash size={14} /></ListRowActionButton>
-        )}
-      </ListRowActions>
     </ListRow>
   )
 }
@@ -297,7 +317,7 @@ function DirectoryRowView(props: {
 }): JSX.Element {
   const { row } = props
   return (
-    <ListRow title={row.path} data-path={row.path}>
+    <ListRow className="oh-dsh-sc-directory-row" title={row.path} data-path={row.path}>
       <ListRowMain
         className="oh-dsh-sc-depth-main"
         style={{ '--tree-depth': row.depth } as CSSProperties}
@@ -311,10 +331,10 @@ function DirectoryRowView(props: {
         <ListRowBody>
           <FilenameLabel name={row.name} title={row.path} />
         </ListRowBody>
-        <ListRowTrailing>
-          <span className="oh-dsh-sc-count">{row.fileCount}</span>
-        </ListRowTrailing>
       </ListRowMain>
+      <ListRowTrailing>
+        <span className="oh-dsh-workspace-count">{row.fileCount}</span>
+      </ListRowTrailing>
       <ListRowActions>
         {row.stagePaths.length > 0 && (
           <ListRowActionButton

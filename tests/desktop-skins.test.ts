@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
 import {
   DesktopSkinPreferencesStorage,
   type PreferencesFetch,
-} from '../plugins/skins/src/client/preferences-storage.ts'
+} from '../plugins/desktop-skins/src/client/preferences-storage.ts'
 import {
   ACTIVE_SKIN_KEY,
   DesktopSkinsController,
@@ -14,25 +14,20 @@ import {
   type StorageLike,
   type ThemeService,
   type ThemeSnapshot,
-} from '../plugins/skins/src/client/skin-controller.ts'
-import type { SkinDomPort } from '../plugins/skins/src/client/skin-dom.ts'
+} from '../plugins/desktop-skins/src/client/skin-controller.ts'
+import type { SkinDomPort } from '../plugins/desktop-skins/src/client/skin-dom.ts'
 import {
   DESKTOP_SKINS,
-  OH_DSH_SKINS,
   type DesktopSkin,
-} from '../plugins/skins/src/client/skins.ts'
+} from '../plugins/desktop-skins/src/client/skins.ts'
 import {
   parseSkinPreferences,
   type DesktopSkinPreferences,
-} from '../plugins/skins/src/preferences.ts'
+} from '../plugins/desktop-skins/src/preferences.ts'
 import {
   loadSkinPreferences,
   saveSkinPreferences,
-} from '../plugins/skins/src/preferences-server.ts'
-import {
-  mountTuiSkins,
-  tuiSkinPaths,
-} from '../plugins/skins/src/tui-adapter.ts'
+} from '../plugins/desktop-skins/src/preferences-server.ts'
 
 class MemoryStorage implements StorageLike {
   readonly values = new Map<string, string>()
@@ -125,63 +120,6 @@ test('desktop skins are namespaced and keep every app surface on one opaque base
   }
 })
 
-test('one skin catalog supplies browser tokens and TUI semantic palettes', () => {
-  assert.equal(DESKTOP_SKINS, OH_DSH_SKINS)
-  for (const skin of OH_DSH_SKINS) {
-    assert.ok(Object.keys(skin.tui).length >= 30)
-    assert.equal(skin.tui.claude, skin.tokens['--dsw-alias-brand-primary'])
-    assert.equal(skin.tui.text, skin.tokens['--dsw-alias-label-primary'])
-    for (const color of Object.values(skin.tui)) {
-      assert.match(color, /^#[0-9a-f]{6}$/i)
-    }
-  }
-})
-
-test('TUI adapter materializes skins and reconciles the native theme picker', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'oh-dsh-tui-skins-'))
-  const dataRoot = join(directory, 'data')
-  const configRoot = join(directory, 'config')
-  const paths = tuiSkinPaths(dataRoot, configRoot)
-  try {
-    await mkdir(dataRoot, { recursive: true })
-    await writeFile(paths.preferences, JSON.stringify({
-      activeId: 'oh-dsh-skin-jade-circuit',
-      fallbackTheme: 'system',
-    }))
-
-    const seeded = mountTuiSkins(dataRoot, configRoot)
-    assert.equal(seeded.theme, 'oh-dsh-skin-jade-circuit')
-    assert.deepEqual(JSON.parse(await readFile(paths.themePreference, 'utf8')), {
-      theme: 'oh-dsh-skin-jade-circuit',
-    })
-    for (const skin of OH_DSH_SKINS) {
-      const theme = JSON.parse(await readFile(
-        join(paths.themes, `${skin.id}.json`),
-        'utf8',
-      ))
-      assert.equal(theme.name, skin.id)
-      assert.equal(theme.base, skin.colorScheme)
-      assert.deepEqual(theme.colors, skin.tui)
-    }
-
-    await writeFile(paths.themePreference, JSON.stringify({ theme: 'oh-dsh-skin-porcelain' }))
-    mountTuiSkins(dataRoot, configRoot)
-    assert.equal(
-      JSON.parse(await readFile(paths.preferences, 'utf8')).activeId,
-      'oh-dsh-skin-porcelain',
-    )
-
-    await writeFile(paths.themePreference, JSON.stringify({ theme: 'light' }))
-    mountTuiSkins(dataRoot, configRoot)
-    assert.deepEqual(JSON.parse(await readFile(paths.preferences, 'utf8')), {
-      activeId: null,
-      fallbackTheme: 'light',
-    })
-  } finally {
-    await rm(directory, { recursive: true, force: true })
-  }
-})
-
 test('desktop skins restore a persisted choice after theme registration', () => {
   const storage = new MemoryStorage()
   storage.setItem(ACTIVE_SKIN_KEY, 'oh-dsh-skin-porcelain')
@@ -266,8 +204,8 @@ test('runtime teardown preserves the selected skin for the next launch', () => {
 })
 
 test('desktop skin preferences survive outside the changing Web origin', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'oh-dsh-skins-'))
-  const path = join(directory, 'skins.json')
+  const directory = await mkdtemp(join(tmpdir(), 'oh-dsh-desktop-skins-'))
+  const path = join(directory, 'desktop-skins.json')
   const preferences: DesktopSkinPreferences = {
     activeId: 'oh-dsh-skin-porcelain',
     fallbackTheme: 'dark',
@@ -276,26 +214,6 @@ test('desktop skin preferences survive outside the changing Web origin', async (
     await saveSkinPreferences(path, preferences)
     assert.deepEqual(await loadSkinPreferences(path), preferences)
     assert.equal((await readFile(path, 'utf8')).endsWith('\n'), true)
-  } finally {
-    await rm(directory, { recursive: true, force: true })
-  }
-})
-
-test('desktop skin preferences migrate from the pre-rename durable file', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'oh-dsh-skins-legacy-'))
-  const path = join(directory, 'skins.json')
-  const legacy = join(directory, 'desktop-skins.json')
-  const preferences: DesktopSkinPreferences = {
-    activeId: 'oh-dsh-skin-porcelain',
-    fallbackTheme: 'dark',
-  }
-  try {
-    await writeFile(legacy, `${JSON.stringify(preferences, undefined, 2)}\n`)
-    assert.deepEqual(await loadSkinPreferences(path), preferences)
-    assert.deepEqual(
-      JSON.parse(await readFile(path, 'utf8')) as DesktopSkinPreferences,
-      preferences,
-    )
   } finally {
     await rm(directory, { recursive: true, force: true })
   }

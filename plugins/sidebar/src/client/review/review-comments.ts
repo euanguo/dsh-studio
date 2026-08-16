@@ -97,10 +97,6 @@ interface ComposerBridge {
 }
 
 const STORAGE_KEY = 'oh-dsh.sidebar.review-comments.v1'
-<<<<<<<< HEAD:plugins/sidebar/src/client/review-comments.ts
-const LEGACY_STORAGE_KEY = 'oh-dsh.desktop-sidebar.review-comments.v1'
-========
->>>>>>>> c58e891 (feat(sidebar): split desktop sidebar into sidebar + sidebar-desktop and switch to the generic host):plugins/sidebar/src/client/review/review-comments.ts
 const REVIEW_SOURCE = 'oh-dsh-review'
 const REVIEW_REF = 'review-comments'
 const MAX_PERSISTED_COMMENTS = 200
@@ -123,23 +119,10 @@ function isReviewComment(value: unknown): value is ReviewComment {
 
 function readComments(storage: Storage): ReviewComment[] {
   try {
-    const current = storage.getItem(STORAGE_KEY)
-    if (current !== null) {
-      const value = JSON.parse(current) as unknown
-      return Array.isArray(value)
-        ? value.filter(isReviewComment).slice(-MAX_PERSISTED_COMMENTS)
-        : []
-    }
-    const legacy = storage.getItem(LEGACY_STORAGE_KEY)
-    if (legacy !== null) {
-      const migrated = (JSON.parse(legacy) as unknown)
-      if (Array.isArray(migrated)) {
-        const comments = migrated.filter(isReviewComment).slice(-MAX_PERSISTED_COMMENTS)
-        storage.setItem(STORAGE_KEY, JSON.stringify(comments))
-        return comments
-      }
-    }
-    return []
+    const value = JSON.parse(storage.getItem(STORAGE_KEY) ?? '[]') as unknown
+    return Array.isArray(value)
+      ? value.filter(isReviewComment).slice(-MAX_PERSISTED_COMMENTS)
+      : []
   } catch {
     return []
   }

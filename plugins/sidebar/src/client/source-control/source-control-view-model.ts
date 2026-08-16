@@ -99,6 +99,8 @@ export function buildSourceControlRows(
 
   for (const section of SECTION_ORDER) {
     const changes = changesBySection.get(section) ?? []
+    // Skip empty sections (orca parity): a clean area contributes no header row.
+    if (changes.length === 0) continue
     const expanded = !input.collapsedSections.has(section)
     const tree = buildSourceControlTree(changes)
     // Both sections can contain identical directory paths (and therefore

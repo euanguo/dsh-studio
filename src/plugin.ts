@@ -1,4 +1,4 @@
-/** Host face for the native Oh-DSH Desktop surface. */
+/** Host face for the native Oh-DSH-Desktop surface. */
 
 import {
   mountMarketplaceAgentTools,
@@ -63,12 +63,12 @@ function environmentCapability(): DesktopHostCapability {
 }
 
 function desktopPrompt(capability: DesktopHostCapability): string {
-  return `You are interacting with the user through Oh-DSH Desktop ${capability.version} on ${capability.platform}. `
-    + 'Oh-DSH Desktop is an Electron distribution backed by DeepSeek Harness. '
+  return `You are interacting with the user through Oh-DSH-Desktop ${capability.version} on ${capability.platform}. `
+    + 'Oh-DSH-Desktop is an Electron distribution backed by DeepSeek Harness. '
     + 'Native window actions, workspaces, panels, files, tools, skills, subagents, and other agent capabilities are composed through DSH plugins. '
     + 'Manage desktop plugins only with desktop_plugin_* tools: prepare every change, inspect risk, use the isolated preview, and apply only after approval. '
-    + 'When the user says “this app” without naming another target, they mean Oh-DSH Desktop. '
-    + 'Identify this surface as Oh-DSH Desktop backed by DeepSeek Harness.'
+    + 'When the user says “this app” without naming another target, they mean Oh-DSH-Desktop. '
+    + 'Identify this surface as Oh-DSH-Desktop backed by DeepSeek Harness.'
 }
 
 /** Mount the native desktop capability in the DSH graph. */
@@ -104,10 +104,10 @@ export function apply(ctx: HostContext): void {
     runtimeCtx.bashEnv.register({
       name: 'oh-dsh-desktop-runtime',
       variables: {
-        DSH_DESKTOP: { description: 'Set to 1 inside the Oh-DSH Desktop distribution.' },
-        DSH_DESKTOP_APP_DATA: { description: 'Writable application-data root owned by Oh-DSH Desktop.' },
-        DSH_DESKTOP_PROFILE: { description: 'DSH profile mounted by Oh-DSH Desktop.' },
-        DSH_DESKTOP_VERSION: { description: 'Installed Oh-DSH Desktop version.' },
+        DSH_DESKTOP: { description: 'Set to 1 inside the Oh-DSH-Desktop distribution.' },
+        DSH_DESKTOP_APP_DATA: { description: 'Writable application-data root owned by Oh-DSH-Desktop.' },
+        DSH_DESKTOP_PROFILE: { description: 'DSH profile mounted by Oh-DSH-Desktop.' },
+        DSH_DESKTOP_VERSION: { description: 'Installed Oh-DSH-Desktop version.' },
       },
       resolve: () => ({
         DSH_DESKTOP: '1',

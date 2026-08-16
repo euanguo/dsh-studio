@@ -9,7 +9,7 @@ import {
 
 test('desktop client replaces the hero title and keeps the Preview badge', () => {
   const client = readFileSync(new URL('../src/client.ts', import.meta.url), 'utf8')
-  assert.match(client, /element\.textContent = 'Oh-DSH Desktop'/)
+  assert.match(client, /element\.textContent = 'Oh-DSH-Desktop'/)
   assert.match(client, /\['Into the Unknown', '探索未知之境', '探索未至之境'\]/)
   assert.doesNotMatch(client, /data-oh-dsh-hero-preview/)
 })
@@ -30,13 +30,13 @@ test('desktop Settings stays below portaled menus and above desktop surfaces', (
   )
   assert.match(
     client,
-    /:has\(\s*#root \[role='presentation'\] > \[role='dialog'\]\s*\) \.oh-dsh-panel-toolbar,[\s\S]*#oh-dsh-sidebar-root,[\s\S]*\[data-oh-dsh-pinned-summary\],[\s\S]*#oh-dsh-plugin-marketplace-root[^}]*\{[^}]*z-index: 999 !important;/s,
+    /:has\(\s*#root \[role='presentation'\] > \[role='dialog'\]\s*\) #oh-dsh-sidebar-root,[\s\S]*\[data-oh-dsh-pinned-summary\],[\s\S]*#oh-dsh-plugin-marketplace-root[^}]*\{[^}]*z-index: 999 !important;/s,
   )
 })
 
 test('every bundled Oh-DSH client follows the native locale service', () => {
   const clients = [
-    '../plugins/skins/src/client/plugin.tsx',
+    '../plugins/desktop-skins/src/client/plugin.tsx',
     '../src/client.ts',
     '../plugins/panel-controls/src/terminal/plugin.tsx',
     '../plugins/pinned-summary/src/client.ts',
@@ -50,7 +50,7 @@ test('every bundled Oh-DSH client follows the native locale service', () => {
   }
 
   const dictionaries = [
-    '../plugins/skins/src/client/i18n.ts',
+    '../plugins/desktop-skins/src/client/i18n.ts',
     '../plugins/panel-controls/src/terminal/i18n.ts',
     '../plugins/pinned-summary/src/i18n.ts',
     '../plugins/plugin-marketplace/src/client/i18n.ts',
@@ -104,8 +104,9 @@ test('desktop Host plugin publishes capability, prompt, and bash environment', (
   process.env.DSH_DESKTOP_PROFILE = 'desktop'
   process.env.DSH_DESKTOP_VERSION = '9.8.7'
   let capability: unknown
-  const sections: { text: () => string }[] = []
+  let prompt = ''
   let resolvedEnvironment: Record<string, string> = {}
+  const sections: string[] = []
   const context = {
     effect: <T>(effect: () => T): T => effect(),
     get: () => undefined,
@@ -118,7 +119,7 @@ test('desktop Host plugin publishes capability, prompt, and bash environment', (
       if (names[0] === 'systemPrompt') {
         callback({
           systemPrompt: {
-            section: (section: { text: () => string }) => { sections.push(section) },
+            section: (section: { text: () => string }) => { sections.push(section.text()) },
           },
         })
       }
@@ -148,11 +149,8 @@ test('desktop Host plugin publishes capability, prompt, and bash environment', (
       profile: 'desktop',
       version: '9.8.7',
     })
-    const prompt = sections.map(section => section.text()).join('\n')
-    assert.match(prompt, /Oh-DSH Desktop/)
-    assert.match(prompt, /explicit approval/)
-    assert.match(prompt, /remote repositories/)
-    assert.match(prompt, /ask_user_question/)
+    prompt = sections.join('\n')
+    assert.match(prompt, /Oh-DSH-Desktop/)
     assert.doesNotMatch(prompt, /ChatGPT|OpenAI/)
     assert.deepEqual(resolvedEnvironment, {
       DSH_DESKTOP: '1',
@@ -212,7 +210,7 @@ test('desktop Agent tools share the guarded marketplace transaction owner', asyn
     await policy({ name: 'desktop_plugin_apply' }, async () => ({ kind: 'allow' })),
     {
       kind: 'ask',
-      reason: 'Apply the tested plugin preview to Oh-DSH Desktop?',
+      reason: 'Apply the tested plugin preview to Oh-DSH-Desktop?',
     },
   )
   assert.deepEqual(

@@ -77,7 +77,7 @@ export class DesktopSkinPreferencesStorage implements StorageLike {
     if (this.flushing === undefined) {
       this.flushing = this.flush().finally(() => { this.flushing = undefined })
       void this.flushing.catch(error => {
-        console.error('skins: failed to persist preferences', error)
+        console.error('desktop-skins: failed to persist preferences', error)
       })
     }
   }

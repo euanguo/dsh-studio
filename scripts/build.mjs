@@ -18,16 +18,12 @@ rmSync(dist, { recursive: true, force: true })
 mkdirSync(dist, { recursive: true })
 
 const pluginPackages = [
-  { directory: 'better-sidebar-runtime', hostOnly: true },
-  {
-    directory: 'vision',
-    id: '@oh-dsh/vision',
-    clientExternal: ['@deepseek-ai/*'],
-    external: ['@deepseek-ai/*'],
-  },
+  { directory: 'sidebar-host', hostOnly: true },
   { directory: 'tui', hostOnly: true },
-  { directory: 'skins', id: '@oh-dsh/skins' },
+  { directory: 'desktop-skins', id: '@oh-dsh/desktop-skins' },
   { directory: 'sidebar', id: '@oh-dsh/sidebar' },
+  { directory: 'sidebar-desktop', id: '@oh-dsh/sidebar-desktop' },
+  { directory: 'desktop-left-rail', id: '@oh-dsh/desktop-left-rail' },
   { directory: 'panel-controls', id: '@oh-dsh/panel-controls' },
   { directory: 'pinned-summary', id: '@oh-dsh/pinned-summary' },
   { directory: 'plugin-marketplace', id: '@oh-dsh/plugin-marketplace' },
@@ -140,16 +136,14 @@ const builds = [
 for (const plugin of pluginPackages) {
   const source = join(root, 'plugins', plugin.directory, 'src')
   const output = join(dist, 'plugins', plugin.directory)
-  const hostEntry = plugin.directory === 'better-sidebar-runtime'
-    ? join(root, 'upstream', 'DSH-better-sidebar', 'src', 'index.ts')
-    : join(source, 'index.ts')
+  const hostEntry = join(source, 'index.ts')
   builds.push(build({
     ...shared,
     entryPoints: [hostEntry],
     outfile: join(output, 'index.js'),
     platform: 'node',
     format: 'esm',
-    external: plugin.external ?? (plugin.directory === 'better-sidebar-runtime'
+    external: plugin.external ?? (plugin.directory === 'sidebar-host'
       ? ['@deepseek-ai/*', 'cordis', 'node-pty', 'schemastery', 'ws']
       : []),
   }))
@@ -170,8 +164,11 @@ for (const plugin of pluginPackages) {
         'react',
         'react-dom/client',
         'react/jsx-runtime',
-        ...(['skins', 'sidebar'].includes(plugin.directory)
+        ...(['desktop-skins', 'sidebar', 'desktop-left-rail'].includes(plugin.directory)
           ? ['@deepseek-ai/dsh-client-runtime/client']
+          : []),
+        ...(['desktop-left-rail', 'sidebar', 'sidebar-desktop'].includes(plugin.directory)
+          ? ['@deepseek-ai/dsh-client-ui-primitives']
           : []),
       ],
       banner: {
@@ -205,8 +202,4 @@ mkdirSync(join(dist, 'plugins', 'tui'), { recursive: true })
 copyFileSync(
   join(root, 'plugins', 'tui', 'cordis.patch.yml'),
   join(dist, 'plugins', 'tui', 'cordis.patch.yml'),
-)
-copyFileSync(
-  join(root, 'plugins', 'vision', 'LICENSE'),
-  join(dist, 'plugins', 'vision', 'LICENSE'),
 )

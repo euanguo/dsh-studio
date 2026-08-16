@@ -200,13 +200,13 @@ export function mountMarketplaceAgentTools(
     if (exec.name === 'desktop_plugin_apply') {
       return {
         kind: 'ask',
-        reason: 'Apply the tested plugin preview to Oh-DSH Desktop?',
+        reason: 'Apply the tested plugin preview to Oh-DSH-Desktop?',
       }
     }
     if (exec.name === 'desktop_plugin_recover') {
       return {
         kind: 'ask',
-        reason: 'Restore the previous Oh-DSH Desktop plugin profile?',
+        reason: 'Restore the previous Oh-DSH-Desktop plugin profile?',
       }
     }
     return await next()
@@ -214,7 +214,7 @@ export function mountMarketplaceAgentTools(
 
   ctx.tools.register(marketplaceTool({
     name: 'desktop_plugin_search',
-    description: 'Search public DSH plugins visible to Oh-DSH Desktop. Filter by install state or category. This is read-only.',
+    description: 'Search public DSH plugins visible to Oh-DSH-Desktop. Filter by install state or category. This is read-only.',
     parameters: {
       query: { type: 'string', description: 'Case-insensitive plugin name, description, category, or tag query.' },
       status: {

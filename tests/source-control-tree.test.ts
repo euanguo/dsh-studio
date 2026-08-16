@@ -71,12 +71,12 @@ test('flattenSourceControlTree honors collapsed directories', () => {
   )
 })
 
-test('sectionOfChange classifies into the two areas', () => {
-  // Two-area layout: everything staged → 'staged'; everything else
-  // (conflicts, untracked, worktree edits) → 'unstaged'.
+test('sectionOfChange classifies into the three areas', () => {
+  // Three-area layout: conflicts pinned, then staged / unstaged (untracked
+  // rides unstaged, distinguished by its status mark).
   assert.equal(sectionOfChange(change('x', 'modified', true)), 'staged')
   assert.equal(sectionOfChange(change('x', 'added', true)), 'staged')
-  assert.equal(sectionOfChange(change('x', 'conflicted', false)), 'unstaged')
+  assert.equal(sectionOfChange(change('x', 'conflicted', false)), 'conflict')
   assert.equal(sectionOfChange(change('x', 'untracked', false)), 'unstaged')
   assert.equal(sectionOfChange(change('x', 'modified', false)), 'unstaged')
   assert.equal(sectionOfChange(change('x', 'deleted', false)), 'unstaged')
@@ -94,7 +94,7 @@ test('capability matrix: stage / unstage / discard', () => {
   assert.equal(canUnstageChange(staged), true)
   assert.equal(canUnstageChange(modified), false)
   assert.equal(canDiscardChange(modified), true)
-  assert.equal(canDiscardChange(untracked), true)
+  assert.equal(canDiscardChange(untracked), false)
   assert.equal(canDiscardChange(staged), false)
   assert.equal(canDiscardChange(conflicted), false)
 })
@@ -110,10 +110,10 @@ test('directory batch paths aggregate the subtree', () => {
   if (dir.kind !== 'directory') return
   assert.deepEqual(collectStagePaths(dir), ['src/a.ts', 'src/c.ts'])
   assert.deepEqual(collectUnstagePaths(dir), ['src/b.ts'])
-  assert.deepEqual(collectDiscardPaths(dir), ['src/a.ts', 'src/c.ts'])
+  assert.deepEqual(collectDiscardPaths(dir), ['src/a.ts'])
 })
 
-test('buildSourceControlRows emits the two areas with tree grouping', () => {
+test('buildSourceControlRows emits the three areas with tree grouping', () => {
   const rows = buildSourceControlRows({
     changes: [
       change('conflict.txt', 'conflicted', false),
@@ -128,23 +128,19 @@ test('buildSourceControlRows emits the two areas with tree grouping', () => {
   })
   const kinds = rows.map(row => row.kind)
   assert.deepEqual(kinds, [
+    'section', 'file', // conflict
     'section', 'file', // staged
-    'section', 'directory', 'file', 'file', 'file', // unstaged: deep/nested tree + conflict + untracked
+    'section', 'directory', 'file', 'file', // unstaged (untracked merged in)
   ])
   const staged = rows.find(row => row.kind === 'file' && row.path === 'staged.txt') as FileRow
   assert.equal(staged.selected, true)
   assert.equal(staged.canUnstage, true)
 
-  const unstagedSection = rows[2]!
-  assert.equal(unstagedSection.kind, 'section')
-  if (unstagedSection.kind !== 'section') return
-  assert.equal(unstagedSection.count, 3)
-  // Conflicted files cannot be staged — only the added file and the
-  // untracked file are stage candidates.
-  assert.deepEqual(unstagedSection.stagePaths, [
-    'deep/nested/file.txt',
-    'untracked.txt',
-  ])
+  const unstagedSection = rows.find(row => row.kind === 'section' && row.id === 'unstaged')
+  assert.ok(unstagedSection)
+  if (unstagedSection?.kind !== 'section') return
+  assert.equal(unstagedSection.count, 2)
+  assert.deepEqual(unstagedSection.stagePaths, ['deep/nested/file.txt', 'untracked.txt'])
 })
 
 test('flat mode emits one plain row per change without directories', () => {
@@ -167,7 +163,7 @@ test('flat mode emits one plain row per change without directories', () => {
   assert.equal(unstaged.name, 'a.ts')
 })
 
-test('collapsed sections emit only section rows (both areas)', () => {
+test('collapsed sections emit only section rows', () => {
   const rows = buildSourceControlRows({
     changes: [change('a.ts', 'modified', false)],
     collapsedSections: new Set(['unstaged']),
@@ -176,8 +172,7 @@ test('collapsed sections emit only section rows (both areas)', () => {
     mode: 'tree',
   })
   assert.deepEqual(rows.map(row => row.kind), [
-    'section', // staged (0)
-    'section', // unstaged (1, collapsed)
+    'section', // unstaged (collapsed; empty areas are skipped)
   ])
 })
 
@@ -194,6 +189,6 @@ test('collapsed directories keep directory rows but skip files', () => {
   })
   assert.deepEqual(
     rows.map(row => row.kind === 'file' ? `file:${row.path}` : row.kind),
-    ['section', 'section', 'directory', 'file:top.ts'],
+    ['section', 'directory', 'file:top.ts'],
   )
 })

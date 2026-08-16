@@ -22,7 +22,6 @@ export const BUNDLED_DESKTOP_CLIENT_PLUGINS = [
   '@oh-dsh/panel-controls',
   '@oh-dsh/pinned-summary',
   '@oh-dsh/plugin-marketplace',
-  '@oh-dsh/vision',
 ] as const
 
 /** Host-only capability providers shipped inside the desktop runtime. */

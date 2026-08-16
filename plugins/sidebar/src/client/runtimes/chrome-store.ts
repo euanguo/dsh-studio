@@ -19,6 +19,8 @@ export interface SourceControlChromeSlice {
   collapsedSections: readonly string[]
   collapsedDirectories: readonly string[]
   selectedPath: string | null
+  /** Draft commit message, persisted per scope (session:cwd). */
+  commitMessage: string
 }
 
 export type GitListMode = 'tree' | 'flat'
@@ -31,7 +33,7 @@ export interface SidebarChromeSlice {
 
 const DEFAULT_SLICE: SidebarChromeSlice = {
   explorer: { expandedPaths: [], selectedPath: null },
-  sourceControl: { collapsedSections: [], collapsedDirectories: [], selectedPath: null },
+  sourceControl: { collapsedSections: [], collapsedDirectories: [], selectedPath: null, commitMessage: '' },
   gitListMode: 'tree',
 }
 
@@ -41,6 +43,7 @@ interface SidebarChromeState {
   setExplorerSelectedPath: (scopeKey: string, path: string | null) => void
   toggleExplorerDirectory: (scopeKey: string, path: string) => void
   setSourceControlSelectedPath: (scopeKey: string, path: string | null) => void
+  setSourceControlCommitMessage: (scopeKey: string, message: string) => void
   toggleSourceControlSection: (scopeKey: string, id: string) => void
   toggleSourceControlDirectory: (scopeKey: string, key: string) => void
   setGitListMode: (scopeKey: string, mode: GitListMode) => void
@@ -112,6 +115,19 @@ export const useSidebarChromeStore = create<SidebarChromeState>()(
             byScope: writeSlice(state, scopeKey, {
               ...slice,
               sourceControl: { ...slice.sourceControl, selectedPath: path },
+            }),
+          }
+        })
+      },
+
+      setSourceControlCommitMessage: (scopeKey, message) => {
+        set(state => {
+          const slice = readSlice(state, scopeKey)
+          if (slice.sourceControl.commitMessage === message) return state
+          return {
+            byScope: writeSlice(state, scopeKey, {
+              ...slice,
+              sourceControl: { ...slice.sourceControl, commitMessage: message },
             }),
           }
         })

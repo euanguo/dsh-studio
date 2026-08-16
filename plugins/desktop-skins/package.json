@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/skins",
-  "version": "0.1.4",
-  "description": "Built-in Oh-DSH skin gallery for TUI, Web, and Desktop",
+  "name": "@oh-dsh/desktop-skins",
+  "version": "0.1.2",
+  "description": "Built-in Oh-DSH-Desktop skin gallery and theme adapter",
   "private": true,
   "type": "module",
   "main": "dist/index.js",

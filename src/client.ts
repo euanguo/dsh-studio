@@ -1,4 +1,4 @@
-/** Browser face for the native Oh-DSH Desktop bridge. */
+/** Browser face for the native Oh-DSH-Desktop bridge. */
 
 import type { DesktopBridge, DesktopCommand } from './contracts.ts'
 import type { DesktopPanels } from '../plugins/panel-controls/src/client.ts'
@@ -204,7 +204,7 @@ function installDesktopChrome(): () => void {
   style.textContent = DESKTOP_CHROME_CSS
   document.head.append(style)
   document.documentElement.dataset.ohDshDesktop = 'true'
-  document.title = 'Oh-DSH Desktop'
+  document.title = 'Oh-DSH-Desktop'
   return () => {
     style.remove()
     delete document.documentElement.dataset.ohDshDesktop
@@ -220,7 +220,7 @@ function installHeroBranding(): () => void {
       const text = element.textContent?.trim() ?? ''
       if (!headlineCopy.has(text)) continue
       if (!originalHeadlines.has(element)) originalHeadlines.set(element, text)
-      element.textContent = 'Oh-DSH Desktop'
+      element.textContent = 'Oh-DSH-Desktop'
       element.dataset.ohDshHeroHeadline = 'true'
     }
   }
@@ -230,7 +230,7 @@ function installHeroBranding(): () => void {
   return () => {
     observer.disconnect()
     for (const [element, original] of originalHeadlines) {
-      if (element.isConnected && element.textContent === 'Oh-DSH Desktop') element.textContent = original
+      if (element.isConnected && element.textContent === 'Oh-DSH-Desktop') element.textContent = original
       delete element.dataset.ohDshHeroHeadline
     }
   }
@@ -338,7 +338,7 @@ function dispatch(
 export function apply(ctx: ClientContext): void {
   const bridge = window.dshDesktop
   if (bridge === undefined) {
-    throw new Error('oh-dsh-desktop: preload bridge is unavailable outside Oh-DSH Desktop')
+    throw new Error('oh-dsh-desktop: preload bridge is unavailable outside Oh-DSH-Desktop')
   }
   const workspaces = ctx.get('workspaces') as WorkspacesService
   const locale = ctx.get('locale') as LocaleService

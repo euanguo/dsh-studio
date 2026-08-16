@@ -1,7 +1,7 @@
 import type { DesktopSkin } from './skins.ts'
 
 const SKIN_ATTRIBUTE = 'data-oh-dsh-skin'
-const ATMOSPHERE_STYLE_ID = 'oh-dsh-skins-atmosphere'
+const ATMOSPHERE_STYLE_ID = 'oh-dsh-desktop-skins-atmosphere'
 
 export interface SkinDomPort {
   apply(skin: DesktopSkin | undefined): void

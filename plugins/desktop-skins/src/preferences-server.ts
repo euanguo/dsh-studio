@@ -16,8 +16,6 @@ import {
   type DesktopSkinPreferences,
 } from './preferences.ts'
 
-const LEGACY_SKIN_PREFERENCES_FILE = 'desktop-skins.json'
-
 export interface DesktopCapability {
   appDataPath: string
 }
@@ -33,12 +31,6 @@ export interface DesktopSkinPreferencesHostContext {
   logger: {
     warn(message: string): void
   }
-}
-
-async function readSkinPreferences(path: string): Promise<DesktopSkinPreferences> {
-  const parsed = parseSkinPreferences(JSON.parse(await readFile(path, 'utf8')) as unknown)
-  if (parsed === undefined) throw new Error('desktop skin preferences are invalid')
-  return parsed
 }
 
 function sendJson(response: ServerResponse, status: number, payload: unknown): void {
@@ -74,21 +66,13 @@ async function readJson(request: IncomingMessage): Promise<unknown> {
 
 export async function loadSkinPreferences(path: string): Promise<DesktopSkinPreferences> {
   try {
-    return await readSkinPreferences(path)
+    const parsed = parseSkinPreferences(JSON.parse(await readFile(path, 'utf8')) as unknown)
+    if (parsed === undefined) throw new Error('desktop skin preferences are invalid')
+    return parsed
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return DEFAULT_SKIN_PREFERENCES
+    throw error
   }
-  // Migrate once from the pre-rename durable file; the legacy file stays so
-  // the migration is idempotent across restarts and concurrent hosts.
-  const legacy = join(dirname(path), LEGACY_SKIN_PREFERENCES_FILE)
-  try {
-    const migrated = await readSkinPreferences(legacy)
-    await saveSkinPreferences(path, migrated)
-    return migrated
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-  }
-  return DEFAULT_SKIN_PREFERENCES
 }
 
 export async function saveSkinPreferences(
@@ -116,9 +100,9 @@ export function mountDesktopSkinPreferences(
   desktop: DesktopCapability,
 ): () => void {
   if (desktop.appDataPath.length === 0) {
-    throw new Error('skins: desktop application data path is unavailable')
+    throw new Error('desktop-skins: desktop application data path is unavailable')
   }
-  const path = join(desktop.appDataPath, 'skins.json')
+  const path = join(desktop.appDataPath, 'desktop-skins.json')
   return ctx.webServer.register({
     kind: 'exact',
     path: PREFERENCES_API_PATH,
@@ -146,7 +130,7 @@ export function mountDesktopSkinPreferences(
         response.end()
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
-        ctx.logger.warn(`[skins] ${message}`)
+        ctx.logger.warn(`[desktop-skins] ${message}`)
         sendJson(response, 500, { error: message })
       }
     },

@@ -10,16 +10,21 @@ import type { WorkspaceChange } from '../../protocol.ts'
 import { normalizePath } from '../../../../shared/path.ts'
 
 export type SourceControlSectionId =
+  | 'conflict'
   | 'staged'
   | 'unstaged'
 
-/** Two-area layout: staged on top, unstaged below (includes conflicts). */
+/** Three-area layout: conflicts pinned on top, then staged, unstaged.
+ *  Untracked files ride the unstaged section (their "U" mark + file glyph
+ *  distinguishes them) instead of a fourth section. */
 export const SECTION_ORDER: readonly SourceControlSectionId[] = [
+  'conflict',
   'staged',
   'unstaged',
 ]
 
 export function sectionOfChange(change: WorkspaceChange): SourceControlSectionId {
+  if (change.status === 'conflicted') return 'conflict'
   return change.staged ? 'staged' : 'unstaged'
 }
 
@@ -32,7 +37,9 @@ export function canUnstageChange(change: WorkspaceChange): boolean {
 }
 
 export function canDiscardChange(change: WorkspaceChange): boolean {
-  return !change.staged && change.status !== 'conflicted'
+  // Untracked files have no index/worktree baseline to "revert" to — a
+  // `git checkout --` would be a no-op. They only stage, never discard.
+  return !change.staged && change.status !== 'conflicted' && change.status !== 'untracked'
 }
 
 export type SourceControlFileNode = {

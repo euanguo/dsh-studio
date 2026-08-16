@@ -46,7 +46,7 @@ export function openOrToggleTerminal(store: DockStore): void {
   store.dispatch({ type: 'toggle-collapsed' })
 }
 
-/** Bottom dock adapted from dsh-web-panel and owned by Oh-DSH Desktop. */
+/** Bottom dock adapted from dsh-web-panel and owned by Oh-DSH-Desktop. */
 export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, active }: TerminalPanelProps): JSX.Element {
   const t = useTranslate(locale, translate)
   const state = useSyncExternalStore(store.subscribe, store.getState)
