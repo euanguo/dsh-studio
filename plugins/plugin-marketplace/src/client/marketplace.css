@@ -1,20 +1,20 @@
 .oh-marketplace-nav {
+  /* Round icon button matching the official Settings seat geometry
+     (28px expanded / 36px collapsed, centered): the foot area stacks two
+     icon options, so the marketplace entry must render the same shape. */
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: calc(100% + 8px);
-  min-height: 34px;
-  height: 34px;
-  margin: 4px -4px;
-  padding: 6px 2px 6px 10px;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
   border: 0;
-  border-radius: 12px;
+  border-radius: 50%;
   background: transparent;
   color: var(--dsw-alias-label-primary, #222);
   cursor: pointer;
   font: inherit;
-  text-align: left;
   -webkit-app-region: no-drag;
 }
 
@@ -44,10 +44,6 @@
   margin: 8px 0 10px;
   padding: 0;
   border-radius: 50%;
-}
-
-.oh-marketplace-nav[data-collapsed='true'] span {
-  display: none;
 }
 
 [data-oh-dsh-marketplace-footer-stack='true']:has(

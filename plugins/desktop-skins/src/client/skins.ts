@@ -385,6 +385,10 @@ body[data-oh-dsh-skin] [role="menuitem"],
 body[data-oh-dsh-skin] [role="menuitemradio"],
 body[data-oh-dsh-skin] [role="menuitemcheckbox"],
 body[data-oh-dsh-skin] [role="option"] {
+  /* content-box would add the 5px×2 padding on top of min-height and render
+     a 38.59px row instead of the designed 28.59px (measured in Chromium);
+     border-box makes min-height the total row height. */
+  box-sizing: border-box !important;
   height: auto !important;
   min-height: var(--gw-skin-row-h) !important;
 }
@@ -399,6 +403,7 @@ body[data-oh-dsh-skin] [role="menu"] [role="menuitem"] + [role="menuitem"] {
 }
 
 ${gate(NAV_CELL)} {
+  box-sizing: border-box !important;
   height: auto !important;
   min-height: var(--gw-skin-row-h) !important;
   padding: var(--gw-skin-row-pad) !important;
@@ -554,7 +559,8 @@ body[data-oh-dsh-skin] ._remove_1hk8w_53,
 body[data-oh-dsh-skin] ._arrow_1hk8w_90,
 body[data-oh-dsh-skin] .EBSbfa_iconButton,
 body[data-oh-dsh-skin] .bF00Jq_inspectButton,
-body[data-oh-dsh-skin] .LEwn7a_actionButton {
+body[data-oh-dsh-skin] .LEwn7a_actionButton,
+body[data-oh-dsh-skin] .oh-marketplace-nav {
   border-radius: var(--gw-skin-radius-pill) !important;
 }
 

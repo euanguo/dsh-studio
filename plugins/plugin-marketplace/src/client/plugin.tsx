@@ -217,7 +217,6 @@ function MarketplaceNavigationEntry({
       type="button"
     >
       <PluginIcon />
-      {wide && <span>{label}</span>}
     </button>
   )
 }

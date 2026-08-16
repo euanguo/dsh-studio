@@ -759,7 +759,7 @@ test('Agent gateway authenticates and defers runtime-restarting applies', async 
   }
 })
 
-test('marketplace navigation preserves the Settings footer geometry', () => {
+test('marketplace navigation renders a round icon button matching the Settings seat', () => {
   const client = readFileSync(new URL(
     '../plugins/plugin-marketplace/src/client/plugin.tsx',
     import.meta.url,
@@ -775,9 +775,14 @@ test('marketplace navigation preserves the Settings footer geometry', () => {
   assert.doesNotMatch(client, /--oh-marketplace-sidebar-height/)
   assert.doesNotMatch(client, /SIDEBAR_BOTTOM_INSET/)
   assert.doesNotMatch(css, /data-oh-dsh-marketplace-sidebar-root/)
-  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*gap: 8px;/)
-  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*padding: 6px 2px 6px 10px;/)
+  // The foot area stacks two icon options (marketplace + Settings): the
+  // entry is a round icon button with the same 28/36px geometry as the
+  // official Settings seat in both states, not a full-width row.
+  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*border-radius: 50%;/)
+  assert.match(css, /\.oh-marketplace-nav \{[\s\S]*width: 28px;[\s\S]*height: 28px;/)
+  assert.match(css, /\.oh-marketplace-nav\[data-collapsed='true'\] \{[\s\S]*width: 36px;[\s\S]*height: 36px;/)
   assert.match(css, /\.oh-marketplace-nav svg \{[\s\S]*width: 16px;[\s\S]*height: 16px;/)
+  assert.doesNotMatch(client, /\{wide && <span>\{label\}\}/)
   assert.match(css, /data-oh-dsh-marketplace-footer-stack='true'/)
   assert.match(css, /flex-direction: column !important;/)
   assert.match(client, /marketplaceFooter\(settings\)/)
