@@ -78,7 +78,9 @@
     "dist:web:quick": "pnpm run build && pnpm run stage:dsh && node scripts/build-web.mjs",
     "dist:tui": "pnpm run build && pnpm run build:dsh && pnpm run stage:dsh && node scripts/build-tui.mjs",
     "dist:tui:quick": "pnpm run build && pnpm run stage:dsh && node scripts/build-tui.mjs",
-    "check:skins": "node scripts/verify-skin-tokens.mjs"
+    "check:skins": "node scripts/verify-skin-tokens.mjs",
+    "generate:selectors": "node scripts/generate-skin-selectors.mjs",
+    "bake:skin-palette": "node scripts/bake-skin-palette.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.10.0",

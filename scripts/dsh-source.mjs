@@ -176,3 +176,15 @@ export function resolveDshSource() {
   )
   return target
 }
+
+/**
+ * 不克隆的探测：.cache 里已有钉版 checkout 且 web 产物存在时返回其路径，
+ * 否则返回 undefined。皮肤选择器对拍/官方键快照在 clean checkout（CI 的
+ * `pnpm run build` 先于 build:dsh）下用它优雅跳过，避免触发 acquirePinnedSource
+ * 的联网克隆。
+ */
+export function resolveDshSourceIfPresent() {
+  const target = join(root, '.cache', 'dsh-source', DSH_SOURCE_SPEC.revision.slice(0, 12))
+  if (!existsSync(join(target, 'apps', 'web', 'dist', 'assets'))) return undefined
+  return target
+}

@@ -1,6 +1,6 @@
 # 皮肤样式架构重构设计文档（构建期烘焙 + 精确类名生成）
 
-> 状态：**调研完成，待实现**。本文档是 2026-08 一轮纯调研的完整结论：
+> 状态：**已实现（2026-08，skin-token-completion）**。本文档是 2026-08 一轮纯调研的完整结论：
 > 先摸清 DSH 运行时 CSS 的完整交付链路（全部有实测依据），再给出长期
 > 可维护的架构决策、分阶段实施计划与可执行的验收标准。
 >
@@ -9,6 +9,24 @@
 >
 > 关联文档：`docs/SYNARA-SKINS-DESIGN.md`（皮肤 token 设计）、
 > `docs/desktop-adjustments-handoff.md`（桌面端调整交接）。
+>
+> **实现落地记录**（对照 §8 阶段一/阶段二）：
+> - 配色层烘焙 ✅：`scripts/bake-skin-palette.mjs`，挂载于 `stage-dsh.mjs`
+>   （只烘焙 stage 拷贝，不改 .cache checkout），自检 + 幂等；token 单一
+>   事实源为 `plugins/desktop-skins/src/shared-tokens.ts`（§6.3）。
+> - 精确类名 ✅：`scripts/generate-skin-selectors.mjs` 扫上游产物生成
+>   `plugins/desktop-skins/src/client/generated-selectors.ts`（入库，
+>   `pnpm run generate:selectors` 重新生成；`build.mjs` 每次构建以
+>   `--check --if-present` 对拍，漂移即失败）。
+> - 官方 89 键对拍 ✅：`scripts/verify-skin-tokens.mjs`（键快照
+>   `scripts/dsw-token-registry.mjs`，有 .cache 时与 live css 交叉核对）。
+> - 尚未实施：§8.2 控制器简化（`skin-controller.ts` 的 DEFAULT_SKINS /
+>   FALLBACK_THEME_KEY / skinForFallback 保留——任务范围外，见审计记录
+>   `.agent-workflows/skin-token-completion/audit.md`）。
+> - 关键实测教训：精确类名规则必须**逐类挂门控**（`body[data-oh-dsh-skin] .X,
+>   body[data-oh-dsh-skin] .Y`，否则特异性退化为 (0,1,0)）；`_primary` 的
+>   `:not([class*="_button_"])` 是元素级排除，类名减法表达不了，生成期把按钮
+>   类逐个钉成 `:not(._button_xxx)`。
 
 ---
 

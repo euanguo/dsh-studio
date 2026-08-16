@@ -27,6 +27,7 @@ import {
 } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
+import { bakeSkinPalette } from './bake-skin-palette.mjs'
 import { resolveNodeDistributionPlatform } from '../src/node-platform.ts'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -1028,6 +1029,18 @@ rewriteWorkspaceLinks()
 relinkInstallationWorkspacePackages()
 console.log('Installing desktop packages')
 installDesktopPackages()
+// 构建期配色烘焙（架构文档 §3.4/§8.2）：把 ChatGPT 默认配色追加到 staged
+// web 壳的 index-*.css 末尾，内置 light/dark/system 原生即 ChatGPT；
+// 只烘焙 stage 拷贝，.cache/dsh-source checkout 保持干净。幂等。
+{
+  const assets = join(runtime, 'workspace', 'apps', 'web', 'dist', 'assets')
+  if (existsSync(assets)) {
+    bakeSkinPalette(assets)
+    console.log('Baked ChatGPT default palette into staged web shell css')
+  } else {
+    throw new Error(`staged web shell assets missing at ${assets}; cannot bake skin palette`)
+  }
+}
 copyFileSync(join(dshSource, 'THIRD_PARTY_NOTICES.md'), join(runtime, 'THIRD_PARTY_NOTICES.md'))
 restoreExecutableHelpers()
 console.log('Normalizing runtime links')

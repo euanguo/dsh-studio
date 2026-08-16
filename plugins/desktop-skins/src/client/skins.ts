@@ -1,5 +1,40 @@
 import type { DesktopSkinsMessage } from './i18n.ts'
 import type { DesktopSkinId } from '../preferences.ts'
+import {
+  CHATGPT_DAY_COLOR_TOKENS,
+  CHATGPT_DAY_TOKENS,
+  CHATGPT_NIGHT_COLOR_TOKENS,
+  CHATGPT_NIGHT_TOKENS,
+} from '../shared-tokens.ts'
+import {
+  BUTTON_MD,
+  CARD,
+  DIALOG,
+  GROUP_LABEL,
+  ICON,
+  ITEM_LABEL,
+  ITEM_WRAP,
+  MENU_ITEM,
+  MENU_LIST,
+  MENU_SURFACE,
+  NAV_CELL,
+  NEW_SESSION,
+  PRIMARY_PILL,
+  PROJECT_ROW,
+  RENAME_INPUT,
+  SEAT,
+  SELECTOR,
+  SESSION_ROW,
+  THEME_CUBE,
+  TRIGGER_EFFORT,
+  TRIGGER_ICON,
+  TRIGGER_LABEL,
+  TRIGGER_PILL,
+  WORKSPACE_LABEL,
+  WORKSPACE_PILL,
+  WORKSPACE_ROW,
+  WRAP,
+} from './generated-selectors.ts'
 
 export type SkinColorScheme = 'light' | 'dark'
 
@@ -255,82 +290,33 @@ const SYNARA_DAY_TOKENS = {
   '--dsw-specific-sidebar-nav-item-hover': '#e3e3e3',
 } as const
 
-const CHATGPT_NIGHT_TOKENS = {
-  '--dsw-alias-bg-base': '#181818',
-  '--dsw-alias-bg-layer-1': '#212121',
-  '--dsw-alias-bg-layer-2': '#232323',
-  '--dsw-alias-bg-layer-3': '#282828',
-  '--dsw-alias-bg-overlay': '#2d2d2d',
-  '--dsw-alias-bg-module-platform': '#1f1f1f',
-  '--dsw-alias-border-l1': 'rgba(255, 255, 255, 0.042)',
-  '--dsw-alias-border-l2': 'rgba(255, 255, 255, 0.084)',
-  '--dsw-alias-border-l3': 'rgba(255, 255, 255, 0.156)',
-  '--dsw-alias-brand-primary': '#ffffff',
-  '--dsw-alias-brand-primary-invert': '#0d0d0d',
-  '--dsw-alias-brand-text': '#ffffff',
-  '--dsw-alias-button-primary-fill': '#ffffff',
-  '--dsw-alias-button-primary-hover': '#ececec',
-  '--dsw-alias-interactive-bg-active': 'rgba(255, 255, 255, 0.1)',
-  '--dsw-alias-interactive-bg-hover': 'rgba(255, 255, 255, 0.08)',
-  '--dsw-alias-label-primary': '#ffffff',
-  '--dsw-alias-label-secondary': '#b3b3b3',
-  '--dsw-alias-label-tertiary': '#808080',
-  '--dsw-alias-markdown-code-block': '#1f1f1f',
-  '--dsw-alias-markdown-inline-code': 'rgba(255, 255, 255, 0.08)',
-  '--dsw-alias-scrollbar-bg-l1': '#3d3d3d',
-  '--dsw-alias-scrollbar-hover-l1': 'rgba(255, 255, 255, 0.3)',
-  '--dsw-alias-state-error-primary': '#ff6764',
-  '--dsw-alias-state-success-primary': '#40c977',
-  '--dsw-alias-state-warn-primary': '#ffd240',
-  '--dsw-specific-bubble': '#2f2f2f',
-  '--dsw-specific-input-major': '#2d2d2d',
-  '--dsw-specific-menu': '#2d2d2d',
-  '--dsw-specific-sidebar-fill': '#141414',
-  '--dsw-specific-sidebar-nav-item-active': 'rgba(255, 255, 255, 0.08)',
-  '--dsw-specific-sidebar-nav-item-hover': 'rgba(255, 255, 255, 0.08)',
-} as const
+/*
+ * ChatGPT 皮肤 token 表：单一事实源在 ../shared-tokens.ts（构建期烘焙与
+ * token 校验共用同一份定义，防止值漂移）。
+ */
 
-const CHATGPT_DAY_TOKENS = {
-  '--dsw-alias-bg-base': '#ffffff',
-  '--dsw-alias-bg-layer-1': '#ffffff',
-  '--dsw-alias-bg-layer-2': '#fafafa',
-  '--dsw-alias-bg-layer-3': '#f4f4f4',
-  '--dsw-alias-bg-overlay': '#ffffff',
-  '--dsw-alias-bg-module-platform': '#f9f9f9',
-  '--dsw-alias-border-l1': 'rgba(26, 28, 31, 0.049)',
-  '--dsw-alias-border-l2': 'rgba(26, 28, 31, 0.078)',
-  '--dsw-alias-border-l3': 'rgba(26, 28, 31, 0.117)',
-  '--dsw-alias-brand-primary': '#1a1c1f',
-  '--dsw-alias-brand-primary-invert': '#ffffff',
-  '--dsw-alias-brand-text': '#1a1c1f',
-  '--dsw-alias-button-primary-fill': '#1a1c1f',
-  '--dsw-alias-button-primary-hover': '#2e3136',
-  '--dsw-alias-interactive-bg-active': 'rgba(26, 28, 31, 0.1)',
-  '--dsw-alias-interactive-bg-hover': 'rgba(26, 28, 31, 0.08)',
-  '--dsw-alias-label-primary': '#1a1c1f',
-  '--dsw-alias-label-secondary': '#5e6164',
-  '--dsw-alias-label-tertiary': '#8a8d91',
-  '--dsw-alias-markdown-code-block': '#f4f4f4',
-  '--dsw-alias-markdown-inline-code': 'rgba(26, 28, 31, 0.08)',
-  '--dsw-alias-scrollbar-bg-l1': '#e3e4e5',
-  '--dsw-alias-scrollbar-hover-l1': 'rgba(26, 28, 31, 0.2)',
-  '--dsw-alias-state-error-primary': '#ba2623',
-  '--dsw-alias-state-success-primary': '#00a240',
-  '--dsw-alias-state-warn-primary': '#e0ac00',
-  '--dsw-specific-bubble': '#f4f4f4',
-  '--dsw-specific-input-major': '#ffffff',
-  '--dsw-specific-menu': '#ffffff',
-  '--dsw-specific-sidebar-fill': '#f6f6f6',
-  '--dsw-specific-sidebar-nav-item-active': 'rgba(26, 28, 31, 0.08)',
-  '--dsw-specific-sidebar-nav-item-hover': 'rgba(26, 28, 31, 0.08)',
-} as const
+function renderColorCss(selector: string, tokens: Readonly<Record<string, string>>): string {
+  const declarations = Object.entries(tokens)
+    .map(([key, value]) => `  ${key}: ${value};`)
+    .join('\n')
+  return `${selector} {\n${declarations}\n}\n`
+}
 
+/** 给每个精确类名单独挂皮肤门控：body[data-oh-dsh-skin] .X, body[data-oh-dsh-skin] .Y
+ *  —— 每个选择器都必须自带门控，否则特异性退化为 (0,1,0)，会输给通用按钮/
+ *  menuitem 等门控规则（实测 .uNlE1G_trigger 圆角被 button 规则盖掉）。 */
+const gate = (classes: readonly string[]): string =>
+  classes.map(selector => `body[data-oh-dsh-skin] ${selector}`).join(',')
 
 const CHATGPT_GEOMETRY_CSS = `
 /* ================================================================
    ChatGPT 皮肤 · 尺寸/材质规范（CSS token 体系，实测对照）
    原则：所有尺寸来自 token；行高 = 字号 × 1.43 + padding 垂直 × 2，
    由间距体系自然形成，不写死高度。
+
+   选择器来源：全部是构建期生成的精确哈希类名（generated-selectors.ts，
+   见 docs/SKINS-BUILD-TIME-ARCHITECTURE.md §5），类名子串匹配已全部退役
+   （_triggerEffort 这类误命中不会再复发）。
    ================================================================ */
 body[data-oh-dsh-skin*="chatgpt"] {
   --gw-skin-row-fs: 13px;
@@ -367,9 +353,8 @@ body[data-oh-dsh-skin] [role="tab"] {
   corner-shape: superellipse(1.5);
 }
 
-body[data-oh-dsh-skin] [class*="_list_"],
-body[data-oh-dsh-skin] [class*="_submenu_"],
-body[data-oh-dsh-skin] [class*="_menu"]:not([class*="menuOpen"]):not([class*="menuStatus"]),
+${gate(MENU_LIST)},
+${gate(MENU_SURFACE)},
 body[data-oh-dsh-skin] [role="listbox"],
 body[data-oh-dsh-skin] [role="menu"] {
   background: var(--gw-skin-menu-bg) !important;
@@ -381,7 +366,7 @@ body[data-oh-dsh-skin] [role="menu"] {
   box-shadow: 0 0 0 .5px var(--gw-skin-hairline), var(--gw-skin-elevation) !important;
 }
 
-body[data-oh-dsh-skin] [class*="_item_"]:not([class*="_itemWrap"]):not([class*="_itemLabel"]):not([class*="_itemAction"]),
+${gate(MENU_ITEM)},
 body[data-oh-dsh-skin] [role="menuitem"],
 body[data-oh-dsh-skin] [role="menuitemradio"],
 body[data-oh-dsh-skin] [role="menuitemcheckbox"],
@@ -401,8 +386,7 @@ body[data-oh-dsh-skin] [role="menuitemcheckbox"],
 body[data-oh-dsh-skin] [role="option"] {
   height: var(--gw-skin-row-h) !important;
 }
-body[data-oh-dsh-skin] [class*="_itemWrap"],
-body[data-oh-dsh-skin] [class*="_itemLabel"] {
+${gate([...ITEM_WRAP, ...ITEM_LABEL])} {
   padding: 0 !important;
   line-height: inherit !important;
 }
@@ -412,7 +396,7 @@ body[data-oh-dsh-skin] [role="menu"] [role="menuitem"] + [role="menuitem"] {
   margin-top: var(--gw-skin-gap-item);
 }
 
-body[data-oh-dsh-skin] [class*="_navCell"] {
+${gate(NAV_CELL)} {
   height: auto !important;
   min-height: var(--gw-skin-row-h) !important;
   padding: var(--gw-skin-row-pad) !important;
@@ -431,40 +415,36 @@ body[data-oh-dsh-skin] button {
 /* 弹出触发/选择器按钮（aria-haspopup、trigger/seat/workspace 类）：
    ChatGPT 选择器形态 —— pill 胶囊 + 行高。
    排除菜单项（带 submenu 的 menuitem 也挂 aria-haspopup，但保持行按钮形态）；
-   排除 workspaceLabel 等内部文本容器（避免行高强加导致文本顶对齐）。 */
+   workspaceLabel/triggerLabel/triggerEffort 等内部文本容器不在
+   TRIGGER_PILL/WORKSPACE_PILL 精确清单里（生成器已按排除规则剔除）。 */
 body[data-oh-dsh-skin] button[aria-haspopup]:not([role="menuitem"]),
-body[data-oh-dsh-skin] [class*="_trigger"]:not([class*="_triggerLabel"]):not([class*="_triggerEffort"]),
-body[data-oh-dsh-skin] [class*="_seat"],
-body[data-oh-dsh-skin] [class*="_workspace"]:not([class*="_workspaceLabel"]) {
+${gate([...TRIGGER_PILL, ...SEAT, ...WORKSPACE_PILL])} {
   height: var(--gw-skin-row-h) !important;
   border-radius: var(--gw-skin-radius-pill) !important;
   corner-shape: round;
 }
 /* 触发器内部图标容器：强制居中（DSH triggerIcon 无 align-items，高度变化后 svg 贴顶） */
-body[data-oh-dsh-skin] [class*="_triggerIcon"],
-body[data-oh-dsh-skin] [class*="_icon"] {
+${gate([...TRIGGER_ICON, ...ICON])} {
   align-items: center !important;
   justify-content: center !important;
 }
 /* 触发器/选择器文本 label：block 内文本贴顶 → flex 垂直居中
    （修复文字偏上 4-5px；workspaceLabel 同款问题一并覆盖；
      triggerEffort 是思考强度字样，同标号对待，避免整行拔高）。 */
-body[data-oh-dsh-skin] [class*="_triggerLabel"],
-body[data-oh-dsh-skin] [class*="_triggerEffort"],
-body[data-oh-dsh-skin] [class*="_workspaceLabel"] {
+${gate([...TRIGGER_LABEL, ...TRIGGER_EFFORT, ...WORKSPACE_LABEL])} {
   display: flex !important;
   align-items: center !important;
   line-height: var(--gw-skin-row-lh) !important;
 }
 /* 菜单分组标签（Group by/Order by）：统一 ChatGPT 规范 13px tertiary + 4px 8px */
-body[data-oh-dsh-skin] [class*="_label_"] {
+${gate(GROUP_LABEL)} {
   padding: 4px 8px !important;
   font-size: 13px !important;
   line-height: 18.57px !important;
   color: var(--dsw-alias-label-tertiary) !important;
 }
 
-body[data-oh-dsh-skin] [class*="_selector"] {
+${gate(SELECTOR)} {
   height: 28px !important;
   min-height: 28px;
   padding: 0 12px !important;
@@ -472,7 +452,7 @@ body[data-oh-dsh-skin] [class*="_selector"] {
   border-radius: var(--gw-skin-radius-row) !important;
 }
 
-body[data-oh-dsh-skin] [class*="_newSession"]:not([class*="_newSessionLabel"]) {
+${gate(NEW_SESSION)} {
   min-height: var(--gw-skin-row-h);
   padding: var(--gw-skin-row-pad) !important;
   font-size: var(--gw-skin-row-fs) !important;
@@ -480,23 +460,19 @@ body[data-oh-dsh-skin] [class*="_newSession"]:not([class*="_newSessionLabel"]) {
 }
 
 /* 会话/项目行：尺寸交给 DSH 自身行高（32/34px，content-box 下勿加 padding），仅统一圆角 */
-body[data-oh-dsh-skin] [class*="_sessionRow"],
-body[data-oh-dsh-skin] [class*="_projectRow"],
-body[data-oh-dsh-skin] [class*="_workspaceRow"],
-body[data-oh-dsh-skin] [class*="_treeRow"] {
+${gate([...SESSION_ROW, ...PROJECT_ROW, ...WORKSPACE_ROW])} {
   border-radius: var(--gw-skin-radius-row) !important;
 }
 
-body[data-oh-dsh-skin] [class*="_card"],
-body[data-oh-dsh-skin] [class*="_dialog"] {
+${gate([...CARD, ...DIALOG])} {
   border-radius: var(--gw-skin-radius-card) !important;
 }
-body[data-oh-dsh-skin] [class*="_dialog"] {
+${gate(DIALOG)} {
   border: 0 !important;
   box-shadow: 0 0 0 .5px var(--gw-skin-hairline), 0 3px 7.5px rgba(0, 0, 0, .06), 0 0 20px rgba(0, 0, 0, .06) !important;
 }
 
-body[data-oh-dsh-skin] [class*="_renameInput"] {
+${gate(RENAME_INPUT)} {
   font-size: var(--gw-skin-row-fs) !important;
   line-height: var(--gw-skin-row-lh) !important;
   padding: var(--gw-skin-row-pad) !important;
@@ -504,24 +480,25 @@ body[data-oh-dsh-skin] [class*="_renameInput"] {
   border: 1px solid var(--dsw-alias-border-l2) !important;
   background: var(--dsw-specific-input-major) !important;
 }
-body[data-oh-dsh-skin] [class*="_renameInput"]:focus {
+${gate(RENAME_INPUT)}:focus {
   border-color: var(--dsw-alias-state-business-primary) !important;
   box-shadow: none !important;
 }
 
-body[data-oh-dsh-skin] [class*="_themeCube"],
-body[data-oh-dsh-skin] [class*="skins-tile"] {
+/* themeCube 是上游 Appearance 的圆角色块；.oh-dsh-skins-tile 是本插件
+   皮肤画廊自己的字面类名（非 CSS Modules，无需生成）。 */
+${gate([...THEME_CUBE, '.oh-dsh-skins-tile'])} {
   border-radius: var(--gw-skin-radius-menu) !important;
 }
 
 /* Button 组件 md 规格（ruleset 2.2 对话框按钮）：32px 高 + 6×16 padding。 */
-body[data-oh-dsh-skin] [class*="_button_"][class*="_md"] {
+${gate(BUTTON_MD)} {
   height: 32px !important;
   padding: 6px 16px !important;
 }
 
 /* 实心主操作键（发送键等非 Button 组件体系）：全圆 pill。 */
-body[data-oh-dsh-skin] [class*="_primary"]:not([class*="_button_"]) {
+${gate(PRIMARY_PILL)} {
   border-radius: var(--gw-skin-radius-pill) !important;
   corner-shape: round;
 }
@@ -533,8 +510,8 @@ body[data-oh-dsh-skin] [role="option"] {
   transition: var(--gw-skin-hover-transition);
 }
 
-body[data-oh-dsh-skin] [class*="_wrap"]:focus-within,
-body[data-oh-dsh-skin] [class*="_card"]:focus-within {
+${gate(WRAP)}:focus-within,
+${gate(CARD)}:focus-within {
   box-shadow: none !important;
   border-color: var(--dsw-alias-state-business-primary, #339cff) !important;
 }

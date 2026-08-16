@@ -1,8 +1,15 @@
-// 最终核对：从 Synara theme-tokens.css 源码推导每个皮肤 token 的期望值，
-// 与 plugins/desktop-skins/src/client/skins.ts 实际值比对。
-import { readFileSync } from 'node:fs'
+// 皮肤 token 最终核对：
+//   A. 从 Synara theme-tokens.css 源码推导每个皮肤 token 的期望值，与
+//      plugins/desktop-skins/src/client/skins.ts 实际值比对（既有校验）；
+//   B. 官方 design-platform.css 89 键（78 alias + 11 specific）覆盖率对拍：
+//      两个 ChatGPT 皮肤（shared-tokens.ts 75 键 + skins.ts 颜色修正 CSS
+//      覆盖的 14 键）必须零缺失；颜色修正块里的 --dsw-shadow-* /
+//      --dsw-mask-blur 是官方静态 sheet 之外的补充键，一并纳入覆盖集合。
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { OFFICIAL_DSW_KEYS } from './dsw-token-registry.mjs'
+import { resolveDshSourceIfPresent } from './dsh-source.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -43,25 +50,31 @@ const mix = (c1, c2, p1) => { // p1 = c1 的百分比
   const p = p1 / 100
   return fromOklab(L1 * p + L2 * (1 - p), a1 * p + a2 * (1 - p), b1 * p + b2 * (1 - p))
 }
-// color-mix(A p%, transparent) → alpha=p% 的 A（oklab premultiplied 语义 = A 的 RGB 不变 + alpha）
-// 但浏览器实际渲染为 "oklab 插值到透明(黑)再还原" 的近似，用 A 与黑 oklab 插值再除以 alpha 还原
-const mixTransparent = (c, p) => {
-  // CSS Color 5: transparent 插值为 premultiplied 0 → 结果 un-premultiply 后 RGB = 原色
-  return { rgb: hexToRgb(c), alpha: p / 100 }
-}
 
 // ---- 皮肤文件提取 ----
-const skinsSrc = readFileSync(join(root, 'plugins', 'desktop-skins', 'src', 'client', 'skins.ts'), 'utf8')
-function extract(name) {
-  const block = skinsSrc.split(`const ${name} = {`)[1].split('} as const')[0]
+function extractConst(source, name) {
+  const block = source.split(`const ${name} = {`)[1]?.split('} as const')[0]
+  if (block === undefined) throw new Error(`cannot extract const ${name}`)
   const tokens = {}
   for (const m of block.matchAll(/'([^']+)': '([^']+)'/g)) tokens[m[1]] = m[2]
   return tokens
 }
-const night = extract('SYNARA_NIGHT_TOKENS')
-const day = extract('SYNARA_DAY_TOKENS')
 
-// ---- 期望值计算 ----
+function extractCssKeys(source, name) {
+  const block = source.split(`const ${name} = \``)[1]?.split('\n`')[0]
+  if (block === undefined) throw new Error(`cannot extract const ${name}`)
+  const keys = new Set()
+  for (const m of block.matchAll(/--dsw-[a-zA-Z0-9-]+/g)) keys.add(m[0])
+  return [...keys]
+}
+
+const skinsSrc = readFileSync(join(root, 'plugins', 'desktop-skins', 'src', 'client', 'skins.ts'), 'utf8')
+const sharedSrc = readFileSync(join(root, 'plugins', 'desktop-skins', 'src', 'shared-tokens.ts'), 'utf8')
+
+// ---- A. Synara 期望值计算（既有校验，保持不变） ----
+const nightSynara = extractConst(skinsSrc, 'SYNARA_NIGHT_TOKENS')
+const daySynara = extractConst(skinsSrc, 'SYNARA_DAY_TOKENS')
+
 const N = {
   surface: '#181818', under: '#141414', ink: '#ffffff', accent: '#339cff',
 }
@@ -161,7 +174,53 @@ function checks(skin, name, s) {
   return errs.length
 }
 
+// ---- B. 官方 89 键覆盖率对拍（ChatGPT 两套） ----
+function coverageCheck(tokensName, colorTokensName, skinLabel) {
+  const tokens = extractConst(sharedSrc, tokensName)
+  const colorTokens = extractConst(sharedSrc, colorTokensName)
+  const covered = new Set([...Object.keys(tokens), ...Object.keys(colorTokens)])
+  const missing = OFFICIAL_DSW_KEYS.filter(key => !covered.has(key))
+  const officialCount = OFFICIAL_DSW_KEYS.length
+  console.log(
+    `${missing.length === 0 ? '✓' : '✗'} ${skinLabel}: 官方 ${officialCount} / 覆盖 ${covered.size} / 缺失 ${missing.length}`,
+  )
+  if (missing.length > 0) {
+    console.log(`  缺失键:\n${missing.map(k => `    ${k}`).join('\n')}`)
+  }
+  return missing.length
+}
+
+function registryDriftCheck() {
+  // 官方键快照与 live design-platform.css 交叉核对（有 .cache 时；
+  // 探测不克隆，clean checkout 直接跳过）。
+  const source = resolveDshSourceIfPresent()
+  if (source === undefined) {
+    console.log('· dsw-token-registry 快照交叉核对：跳过（无 .cache/dsh-source 产物）')
+    return 0
+  }
+  const path = join(source, 'packages', 'client', 'ui-theme', 'src', 'styles', 'design-platform.css')
+  if (!existsSync(path)) {
+    console.log('· dsw-token-registry 快照交叉核对：跳过（design-platform.css 缺失）')
+    return 0
+  }
+  const css = readFileSync(path, 'utf8')
+  const live = [...new Set(css.match(/--dsw-(?:alias|specific)-[a-zA-Z0-9-]+/g))].sort()
+  const snapshot = [...OFFICIAL_DSW_KEYS].sort()
+  if (snapshot.length !== live.length || snapshot.some((key, i) => key !== live[i])) {
+    console.log(
+      `✗ dsw-token-registry 快照与 design-platform.css 漂移（快照 ${snapshot.length} vs 实际 ${live.length}）——按 dsw-token-registry.mjs 头部说明刷新快照`,
+    )
+    return 1
+  }
+  console.log(`✓ dsw-token-registry 快照与 design-platform.css 一致（${live.length} 键）`)
+  return 0
+}
+
 let bad = 0
-bad += checks(night, 'dark', N)
-bad += checks(day, 'light', L)
+bad += checks(nightSynara, 'dark', N)
+bad += checks(daySynara, 'light', L)
+bad += registryDriftCheck()
+bad += coverageCheck('CHATGPT_NIGHT_TOKENS', 'CHATGPT_NIGHT_COLOR_TOKENS', 'chatgpt-night')
+bad += coverageCheck('CHATGPT_DAY_TOKENS', 'CHATGPT_DAY_COLOR_TOKENS', 'chatgpt-day')
 console.log(bad === 0 ? '\n全部通过' : `\n${bad} 处需修正`)
+process.exitCode = bad === 0 ? 0 : 1

@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,6 +15,26 @@ const nodeEsmRequireBanner = [
   "import { createRequire as __ohDshCreateRequire } from 'node:module';",
   'const require = __ohDshCreateRequire(import.meta.url);',
 ].join('\n')
+
+// 皮肤门禁（构建期自检，见 docs/SKINS-BUILD-TIME-ARCHITECTURE.md §5.2/§9.1.3）：
+//   1. token 校验 —— 官方 design-platform.css 89 键零缺失（含 Synara 既有推导）；
+//   2. 精确类名对拍 —— generated-selectors.ts 与上游产物必须一致（上游 bump
+//      后先跑 `pnpm run generate:selectors` 并提交 diff）；clean checkout 下
+//      （.cache 未生成）跳过对拍，token 校验的官方键快照依然生效。
+runNode(join('scripts', 'verify-skin-tokens.mjs'))
+runNode(join('scripts', 'generate-skin-selectors.mjs'), ['--check', '--if-present'])
+
+function runNode(script, args = []) {
+  const result = spawnSync(process.execPath, [join(root, script), ...args], {
+    cwd: root,
+    stdio: 'inherit',
+  })
+  if (result.error !== undefined) throw result.error
+  if (result.status !== 0) {
+    throw new Error(`${script} failed with status ${String(result.status)}`)
+  }
+}
+
 rmSync(dist, { recursive: true, force: true })
 mkdirSync(dist, { recursive: true })
 
