@@ -521,70 +521,113 @@ body[data-oh-dsh-skin] button[disabled] {
   cursor: not-allowed;
 }
 
-`
-const CHATGPT_NIGHT_COLOR_CSS = `
-body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-night"] {
-  --dsw-alias-label-primary-foreground: #0d0d0d;
-  --dsw-alias-button-primary-dimmed: rgba(255, 255, 255, .45);
-  --dsw-alias-state-business-primary: #339cff;
-  --dsw-alias-button-info-fill: #0d0d0d;
-  --dsw-alias-button-info-hover: rgba(255, 255, 255, .12);
-  --dsw-alias-brand-primary-new-colorprimary-new-color: #339cff;
-  --dsw-specific-selector: rgba(255, 255, 255, .078);
-  --dsw-alias-tooltip-bg: #212121;
-  --dsw-alias-toast-bg: #212121;
-  --dsw-alias-button-contrast-fill: #e3e3e3;
-  --dsw-alias-scrollbar-bg-l2: rgba(255, 255, 255, .156);
-  --dsw-alias-scrollbar-hover-l2: rgba(255, 255, 255, .3);
-  --dsw-alias-bg-mask-1: rgba(0, 0, 0, .133);
-  --dsw-alias-bg-mask-2: rgba(0, 0, 0, .08);
-  --dsw-shadow-lv1: 0 1px 2px -1px rgba(0, 0, 0, .08);
-  --dsw-shadow-lv2: 0 2px 4px -1px rgba(0, 0, 0, .08), 0 0 0 .5px rgba(255, 255, 255, .08);
-  --dsw-shadow-lv3: 0 8px 16px -4px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(255, 255, 255, .1);
-  --dsw-mask-blur: blur(6px);
-  --shiki-foreground: #e6e6e6;
-  --shiki-background: #181818;
-  --shiki-token-keyword: #ff8583;
-  --shiki-token-function: #99ceff;
-  --shiki-token-string: #66d492;
-  --shiki-token-comment: rgba(255, 255, 255, .498);
-  --shiki-token-constant: #ffd240;
-  --shiki-token-parameter: #e6e6e6;
-  --shiki-token-punctuation: rgba(255, 255, 255, .71);
-}
-`
+/* ================================================================
+   2026-08 全量组件审计补充（scripts/audit-skin-styles.mjs + 四组人工
+   过审，报告 docs/SKINS-COMPONENT-AUDIT.md）。全部为上游精确类名。
+   ================================================================ */
 
-const CHATGPT_DAY_COLOR_CSS = `
-body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-day"] {
-  --dsw-alias-label-primary-foreground: #ffffff;
-  --dsw-alias-button-primary-dimmed: rgba(26, 28, 31, .45);
-  --dsw-alias-state-business-primary: #339cff;
-  --dsw-alias-button-info-fill: #1a1c1f;
-  --dsw-alias-button-info-hover: rgba(26, 28, 31, .8);
-  --dsw-alias-brand-primary-new-colorprimary-new-color: #339cff;
-  --dsw-specific-selector: rgba(26, 28, 31, .06);
-  --dsw-alias-tooltip-bg: #212121;
-  --dsw-alias-toast-bg: #212121;
-  --dsw-alias-button-contrast-fill: #141414;
-  --dsw-alias-scrollbar-bg-l2: rgba(26, 28, 31, .117);
-  --dsw-alias-scrollbar-hover-l2: rgba(26, 28, 31, .2);
-  --dsw-alias-bg-mask-1: rgba(0, 0, 0, .133);
-  --dsw-alias-bg-mask-2: rgba(0, 0, 0, .08);
-  --dsw-shadow-lv1: 0 1px 2px -1px rgba(0, 0, 0, .08);
-  --dsw-shadow-lv2: 0 2px 4px -1px rgba(0, 0, 0, .08), 0 0 0 .5px rgba(255, 255, 255, .5);
-  --dsw-shadow-lv3: 0 8px 16px -4px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(255, 255, 255, .6);
-  --dsw-mask-blur: blur(6px);
-  --shiki-foreground: #1a1c1f;
-  --shiki-background: #ffffff;
-  --shiki-token-keyword: #ba2623;
-  --shiki-token-function: #0169cc;
-  --shiki-token-string: #008635;
-  --shiki-token-comment: rgba(26, 28, 31, .498);
-  --shiki-token-constant: #b9480d;
-  --shiki-token-parameter: #1a1c1f;
-  --shiki-token-punctuation: rgba(26, 28, 31, .71);
+/* 组件自带的圆形按钮：通用 button 12.5px 规则会把它们压成方角
+   （实测 .SIlZCq_close 28×28 被压），恢复 pill。 */
+body[data-oh-dsh-skin] .SIlZCq_close,
+body[data-oh-dsh-skin] .Sqg4Fa_action,
+body[data-oh-dsh-skin] .d4tJKG_action,
+body[data-oh-dsh-skin] .zNtrCa_toBottom,
+body[data-oh-dsh-skin] .VfOgWa_iconButton,
+body[data-oh-dsh-skin] ._64ccDW_iconBtn,
+body[data-oh-dsh-skin] ._close_18d3q_30,
+body[data-oh-dsh-skin] ._remove_1hk8w_53,
+body[data-oh-dsh-skin] ._arrow_1hk8w_90,
+body[data-oh-dsh-skin] .EBSbfa_iconButton,
+body[data-oh-dsh-skin] .bF00Jq_inspectButton,
+body[data-oh-dsh-skin] .LEwn7a_actionButton {
+  border-radius: var(--gw-skin-radius-pill) !important;
 }
+
+/* 行形态统一圆角（jobs/subagent/commands/目录/附件编辑器）：行高 DSH
+   自管（32/50px 等），皮肤只统一 12.5px，与行规则同一纪律。 */
+body[data-oh-dsh-skin] .wI0qGa_row,
+body[data-oh-dsh-skin] .vGKOra_row,
+body[data-oh-dsh-skin] .vGKOra_clickarea,
+body[data-oh-dsh-skin] .kxQ7mG_row,
+body[data-oh-dsh-skin] .saFVAG_row,
+body[data-oh-dsh-skin] .Sqg4Fa_header,
+body[data-oh-dsh-skin] .Sqg4Fa_row {
+  border-radius: var(--gw-skin-radius-row) !important;
+}
+
+/* 插件清单卡片的保存/放弃动作键（QtPdFG 自有类，非 Button 组件）：
+   对齐对话框动作键 md 规格（32px 高 + 6×16 padding）。 */
+body[data-oh-dsh-skin] .QtPdFG_save,
+body[data-oh-dsh-skin] .QtPdFG_discard {
+  height: 32px !important;
+  padding: 6px 16px !important;
+}
+
+/* goal 目标输入框：输入框规范（12.5px + token 行高） */
+body[data-oh-dsh-skin] ._64ccDW_objectiveInput {
+  height: var(--gw-skin-row-h) !important;
+  border-radius: var(--gw-skin-radius-row) !important;
+}
+
+/* 分组标题（模型列表 LqtciG / Commands gtvCtq）：与 GROUP_LABEL 同规范 */
+body[data-oh-dsh-skin] .LqtciG_groupTitle,
+body[data-oh-dsh-skin] .gtvCtq_groupTitle {
+  padding: 4px 8px !important;
+  font-size: 13px !important;
+  line-height: 18.57px !important;
+  color: var(--dsw-alias-label-tertiary) !important;
+}
+
+/* 过滤 pill（Pill 组件 e3ygd）：pill + 行规格（官方 24px/12px 方角） */
+body[data-oh-dsh-skin] ._pill_e3ygd_1 {
+  height: var(--gw-skin-row-h) !important;
+  padding: var(--gw-skin-row-pad) !important;
+  font-size: var(--gw-skin-row-fs) !important;
+  line-height: var(--gw-skin-row-lh) !important;
+  border-radius: var(--gw-skin-radius-pill) !important;
+}
+
+/* toast：官方用 button-contrast-fill（night 浅底）与语义错配；改用
+   toast-bg（两套深 #212121）。day 的 label-primary-inverted 已是白字；
+   night 的 inverted 是主按钮深字，需显式改白。 */
+body[data-oh-dsh-skin] ._toast_fvpz7_7 {
+  background: var(--dsw-alias-toast-bg) !important;
+}
+body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-night"] ._toast_fvpz7_7 {
+  color: var(--dsw-alias-label-primary) !important;
+}
+
+/* 引用 chips（会话上下文）：硬编码 #6187d838 → accent hover token，
+   圆角 12.5px、13px 行字（.85em 相对字号不稳）；错误态 #d8616133 →
+   danger hover token。 */
+body[data-oh-dsh-skin] .lbz_ZG_chip,
+body[data-oh-dsh-skin] ._3-lYmW_refChip {
+  background: var(--dsw-alias-interactive-bg-hover-accent) !important;
+  border-radius: var(--gw-skin-radius-row) !important;
+  font-size: var(--gw-skin-row-fs) !important;
+  line-height: var(--gw-skin-row-lh) !important;
+}
+body[data-oh-dsh-skin] .lbz_ZG_chipInvalid {
+  background: var(--dsw-alias-interactive-bg-hover-danger) !important;
+}
+
+/* onboarding 遮罩：硬编码 #0000003d + blur 2px → mask token + 皮肤 blur */
+body[data-oh-dsh-skin] ._onboardingMask_1cfrq_10 {
+  background: var(--dsw-alias-bg-mask-1) !important;
+  backdrop-filter: var(--dsw-mask-blur) !important;
+  -webkit-backdrop-filter: var(--dsw-mask-blur) !important;
+}
+
 `
+const CHATGPT_NIGHT_COLOR_CSS = renderColorCss(
+  'body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-night"]',
+  CHATGPT_NIGHT_COLOR_TOKENS,
+)
+
+const CHATGPT_DAY_COLOR_CSS = renderColorCss(
+  'body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-day"]',
+  CHATGPT_DAY_COLOR_TOKENS,
+)
 
 export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
   Object.freeze({
