@@ -95,14 +95,19 @@ export function parseBindingString(text: string): KeyBinding | null {
 }
 
 /**
- * Whether a keyboard event carries this binding. `mod` matches Meta-or-Ctrl
- * (the platform primary); `ctrl` matches a held Control key (Meta may be
- * held too, mirroring the legacy handler); a binding with neither never
- * matches while any of the two is held.
+ * Whether a keyboard event carries this binding. `mod` matches the platform
+ * primary modifier (Meta on macOS, Ctrl elsewhere); `ctrl` matches a held
+ * Control key (Meta may be held too, mirroring the legacy handler); a
+ * binding with neither never matches while either of the two is held.
  */
-export function eventMatchesBinding(value: KeyBinding, event: KeyboardEvent): boolean {
+export function eventMatchesBinding(
+  value: KeyBinding,
+  event: KeyboardEvent,
+  platform: string = typeof navigator === 'undefined' ? '' : navigator.platform,
+): boolean {
+  const primaryHeld = /mac/i.test(platform) ? event.metaKey : event.ctrlKey
   if (value.mod) {
-    if (!(event.metaKey || event.ctrlKey)) return false
+    if (!primaryHeld) return false
   } else if (value.ctrl) {
     if (!event.ctrlKey) return false
   } else if (event.metaKey || event.ctrlKey) {

@@ -54,10 +54,15 @@ test('parseBindingString rejects unknown modifiers and empty keys', () => {
   assert.deepEqual(parseBindingString('Mod++S'), { mod: true, ctrl: false, shift: false, alt: false, key: 's' })
 })
 
-test('mod bindings match Meta or Ctrl, and nothing else', () => {
+test('mod bindings match the platform primary modifier only', () => {
   const bindingValue = binding({ mod: true, key: 's' })
-  assert.equal(eventMatchesBinding(bindingValue, event({ metaKey: true, key: 's' })), true)
-  assert.equal(eventMatchesBinding(bindingValue, event({ ctrlKey: true, key: 's' })), true)
+  // macOS: Cmd only — Ctrl+S must NOT trigger Mod+S.
+  assert.equal(eventMatchesBinding(bindingValue, event({ metaKey: true, key: 's' }), 'MacIntel'), true)
+  assert.equal(eventMatchesBinding(bindingValue, event({ ctrlKey: true, key: 's' }), 'MacIntel'), false)
+  // Windows / Linux: Ctrl only.
+  assert.equal(eventMatchesBinding(bindingValue, event({ ctrlKey: true, key: 's' }), 'Win32'), true)
+  assert.equal(eventMatchesBinding(bindingValue, event({ metaKey: true, key: 's' }), 'Win32'), false)
+  // No modifier never matches.
   assert.equal(eventMatchesBinding(bindingValue, event({ key: 's' })), false)
   assert.equal(eventMatchesBinding(bindingValue, event({ metaKey: true, shiftKey: true, key: 'S' })), false)
   assert.equal(eventMatchesBinding(bindingValue, event({ metaKey: true, key: 'p' })), false)
