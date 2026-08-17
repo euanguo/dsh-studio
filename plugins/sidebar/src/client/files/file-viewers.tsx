@@ -3,9 +3,16 @@
  * Text and markdown render through the unified ContentViewer (Pierre
  * family) — no separate plain-text renderer. Extracted from plugin.tsx.
  */
+import { useState, useSyncExternalStore } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { EmptyView } from '../kit/status.tsx'
+import type { SidebarRuntimeSettingsService } from '../runtime-settings.ts'
+import {
+  htmlIframeSandboxAttribute,
+  resolveHtmlSurfaceUnsafe,
+  type HtmlSurfaceUnsafeOverride,
+} from './html-sandbox.ts'
 
 export function BinaryFileViewer({
   onOpen,
@@ -31,19 +38,57 @@ export function BinaryFileViewer({
   )
 }
 
+/**
+ * Sandboxed HTML preview with a per-surface escape hatch. The iframe is
+ * opaque-origin sandboxed by default; the status row offers a one-tap
+ * "解锁/恢复" for THIS file, gated on the runtime preferences — the global
+ * `htmlViewerNoSandbox` switch wins unconditionally, otherwise the surface
+ * starts from `htmlViewerDefaultUnsafe` and the user's explicit toggle
+ * overrides it. The unsandboxed state shows a red warning: the previewed
+ * page then runs with the GUI's own origin.
+ */
 export function HtmlFileViewer({
   content,
   path,
   title,
+  runtime,
+  t,
 }: {
   content: string
   path: string
   title: string
+  runtime: SidebarRuntimeSettingsService
+  t: Translate<WorkspaceMessage>
 }): JSX.Element {
+  const prefs = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot).preferences
+  const [override, setOverride] = useState<HtmlSurfaceUnsafeOverride>(null)
+  const unsandboxed = resolveHtmlSurfaceUnsafe(
+    prefs.htmlViewerNoSandbox,
+    prefs.htmlViewerDefaultUnsafe,
+    override,
+  )
   return (
     <div className="oh-dsh-file-preview oh-dsh-html-preview">
-      <div><strong title={path}>{title}</strong></div>
-      <iframe title={title} sandbox="" srcDoc={content} />
+      <div className="oh-dsh-html-toolbar">
+        <strong title={path}>{title}</strong>
+        <button
+          type="button"
+          onClick={() => { setOverride(!unsandboxed) }}
+          title={unsandboxed ? t('files.viewer.html-restore') : t('files.viewer.html-unlock')}
+        >
+          {unsandboxed ? t('files.viewer.html-restore') : t('files.viewer.html-unlock')}
+        </button>
+      </div>
+      {unsandboxed && (
+        <p className="oh-dsh-html-warning" role="alert">
+          {t('files.viewer.html-unsandboxed-warning')}
+        </p>
+      )}
+      <iframe
+        title={title}
+        sandbox={htmlIframeSandboxAttribute(unsandboxed)}
+        srcDoc={content}
+      />
     </div>
   )
 }

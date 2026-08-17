@@ -15,6 +15,7 @@ import {
   FileView,
 } from '../SideToolsPanel.tsx'
 import { WorkspacePanel } from '../workspace-panel.tsx'
+import { SubagentPanel } from '../subagent/subagent-panel.tsx'
 import type { SidebarTabDescriptor } from '../contract.ts'
 import type { SidebarBuiltinDeps } from './deps.ts'
 
@@ -59,6 +60,26 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
           key: 'bottomPanelAutoTerminal',
           title: () => t('settings.bottom-terminal'),
           desc: () => t('settings.bottom-terminal-description'),
+        }, {
+          key: 'terminalFontFamily',
+          title: () => t('settings.terminal-font-family'),
+          desc: () => t('settings.terminal-font-family-description'),
+          type: 'text',
+          placeholder: t('settings.terminal-font-family-placeholder'),
+        }, {
+          key: 'terminalFontSize',
+          title: () => t('settings.terminal-font-size'),
+          desc: () => t('settings.terminal-font-size-description'),
+          type: 'number',
+          min: 9,
+          max: 32,
+          unit: 'px',
+        }, {
+          key: 'terminalShell',
+          title: () => t('settings.terminal-shell'),
+          desc: () => t('settings.terminal-shell-description'),
+          type: 'text',
+          placeholder: t('settings.terminal-shell-placeholder'),
         }],
       },
       title: () => t('terminal'),
@@ -88,6 +109,7 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
         <FileView
           {...props}
           onOpenPath={deps.openExternalPath}
+          reviewComments={deps.reviewComments}
           sidebar={deps.sidebar}
           t={t}
         />
@@ -110,6 +132,35 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
       order: 60,
       requiresWorkspace: true,
       title: () => t('trajectory'),
+    },
+    {
+      icon: <ToolIcon kind="subagent" />,
+      id: 'subagent',
+      order: 30,
+      single: true,
+      render: () => (
+        <SubagentPanel
+          sidebar={deps.sidebar}
+          sessions={deps.sessions}
+          runtime={deps.runtimeSettings}
+          t={t}
+        />
+      ),
+      // Declarative settings: the auto-open toggles render under this tab's
+      // card in the settings page (opening the sidebar on new subagents /
+      // new background jobs).
+      settings: {
+        toggles: [{
+          key: 'autoOpenSubagent',
+          title: () => t('settings.auto-open-subagent'),
+          desc: () => t('settings.auto-open-subagent-description'),
+        }, {
+          key: 'autoOpenJobs',
+          title: () => t('settings.auto-open-jobs'),
+          desc: () => t('settings.auto-open-jobs-description'),
+        }],
+      },
+      title: () => t('subagent'),
     },
   ]
 }

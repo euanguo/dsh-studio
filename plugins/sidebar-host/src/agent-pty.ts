@@ -14,6 +14,7 @@
 import { randomUUID } from 'node:crypto'
 import * as nodePty from 'node-pty'
 import { ensureSpawnHelper } from './pty-manager.ts'
+import { shellSpawnArgs } from './shell-resolver.ts'
 import { SidebarError } from '../../shared/wire.ts'
 
 /** Per-agent-terminal transcript bound (bytes kept for replay and reads). */
@@ -180,16 +181,17 @@ export function snapshotOf(handle: AgentTerminalHandle): AgentTerminalSnapshot {
 }
 
 /**
- * The agent terminal registry. The constructor takes the resolved shell
- * binary (the same `defaultShell()` the UI-tab registry uses) and runs the
- * spawn-helper chmod fix once at construction so the first agent terminal
- * does not race a lazy fixer.
+ * The agent terminal registry. The constructor takes a shell RESOLVER
+ * (the same thunk the UI-tab registry uses, so both sides always spawn the
+ * same shell — resolved at create time, so a settings change affects new
+ * agent terminals only) and runs the spawn-helper chmod fix once at
+ * construction so the first agent terminal does not race a lazy fixer.
  */
 export class AgentPtyRegistry {
   private readonly sessions = new Map<string, AgentTerminalHandle>()
   private readonly changeListeners = new Set<() => void>()
 
-  constructor(private readonly shell: string) {
+  constructor(private readonly getShell: () => string) {
     ensureSpawnHelper()
   }
 
@@ -211,7 +213,7 @@ export class AgentPtyRegistry {
   ): string {
     const uuid = randomUUID()
     const dims = clampDims(cols, rows)
-    const pty = nodePty.spawn(this.shell, [], {
+    const pty = nodePty.spawn(this.getShell(), shellSpawnArgs(), {
       name: 'xterm-256color',
       cols: dims.cols,
       rows: dims.rows,

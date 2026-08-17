@@ -18,6 +18,14 @@ export interface PersistedSidebarSession {
   activeId: string | null
   lastUsed: number
   tabs: PersistedSidebarTab[]
+  /**
+   * Tabs docked into the BOTTOM workbench (the second pane above the
+   * terminal dock). Optional in the persisted document: legacy sessions
+   * without the field parse to an empty workbench.
+   */
+  bottomTabs?: PersistedSidebarTab[]
+  /** The active bottom-workbench tab id (null = nothing active there). */
+  bottomActiveId?: string | null
 }
 
 export interface DesktopSidebarPreferences {
@@ -137,7 +145,29 @@ function parseSession(value: unknown): PersistedSidebarSession | undefined {
   }
   const activeId = input.activeId as string | null
   if (activeId !== null && !ids.has(activeId)) return undefined
-  return { activeId, lastUsed: Number(input.lastUsed), tabs }
+  // The bottom workbench is additive and optional: legacy sessions (or
+  // malformed extras) resolve to an empty workbench — never a parse error,
+  // so old documents migrate non-destructively.
+  const bottomTabs: PersistedSidebarTab[] = []
+  const bottomIds = new Set<string>()
+  if (Array.isArray(input.bottomTabs) && input.bottomTabs.length <= SIDEBAR_MAX_TABS) {
+    for (const candidate of input.bottomTabs) {
+      const tab = parseTab(candidate)
+      if (tab === undefined || bottomIds.has(tab.id) || ids.has(tab.id)) return undefined
+      bottomIds.add(tab.id)
+      bottomTabs.push(tab)
+    }
+  }
+  const bottomActiveId = input.bottomActiveId as string | null | undefined
+  if (bottomActiveId !== null && bottomActiveId !== undefined
+    && !bottomIds.has(bottomActiveId)) return undefined
+  return {
+    activeId,
+    lastUsed: Number(input.lastUsed),
+    tabs,
+    bottomTabs,
+    ...(bottomActiveId === undefined ? { bottomActiveId: null } : { bottomActiveId }),
+  }
 }
 
 export function clampSidebarWidth(value: number): number {

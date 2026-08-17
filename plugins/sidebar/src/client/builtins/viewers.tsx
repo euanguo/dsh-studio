@@ -35,11 +35,27 @@ export function builtinViewers(deps: SidebarBuiltinDeps): readonly SidebarViewer
       fetchStrategy: 'fsRead',
       id: 'html',
       priority: 30,
+      // Declarative settings: the global no-sandbox switch and the
+      // default-unsandboxed flag render under this viewer's card in the
+      // settings page (both are dangerous — the copy warns).
+      settings: {
+        toggles: [{
+          key: 'htmlViewerNoSandbox',
+          title: () => t('settings.html-no-sandbox'),
+          desc: () => t('settings.html-no-sandbox-description'),
+        }, {
+          key: 'htmlViewerDefaultUnsafe',
+          title: () => t('settings.html-default-unsafe'),
+          desc: () => t('settings.html-default-unsafe-description'),
+        }],
+      },
       render: input => (
         <HtmlFileViewer
           content={input.content ?? ''}
           path={input.path}
           title={input.title}
+          runtime={deps.runtimeSettings}
+          t={t}
         />
       ),
       title: () => t('files.viewer.html'),
@@ -54,6 +70,8 @@ export function builtinViewers(deps: SidebarBuiltinDeps): readonly SidebarViewer
           path={input.path}
           content={input.content ?? null}
           binary={false}
+          {...(input.scope?.cwd === undefined ? {} : { cwd: input.scope.cwd })}
+          reviewComments={deps.reviewComments}
           t={t}
         />
       ),
@@ -69,6 +87,8 @@ export function builtinViewers(deps: SidebarBuiltinDeps): readonly SidebarViewer
           path={input.path}
           content={input.content ?? null}
           binary={false}
+          {...(input.scope?.cwd === undefined ? {} : { cwd: input.scope.cwd })}
+          reviewComments={deps.reviewComments}
           t={t}
         />
       ),

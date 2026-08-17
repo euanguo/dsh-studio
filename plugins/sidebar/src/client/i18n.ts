@@ -14,6 +14,18 @@ export type WorkspaceMessage =
   | 'files'
   | 'side-chat'
   | 'trajectory'
+  | 'subagent'
+  | 'subagent.topology'
+  | 'subagent.jobs'
+  | 'subagent.no-topology'
+  | 'subagent.no-jobs'
+  | 'subagent.main-session'
+  | 'subagent.current'
+  | 'subagent.refresh'
+  | 'subagent.output'
+  | 'subagent.kill'
+  | 'subagent.job-output-empty'
+  | 'subagent.job-output-failed'
   | 'browser.enter-url'
   | 'browser.http-only'
   | 'browser.page-failed'
@@ -55,6 +67,11 @@ export type WorkspaceMessage =
   | 'files.viewer.html'
   | 'files.viewer.markdown'
   | 'files.viewer.text'
+  | 'files.viewer.html-unlock'
+  | 'files.viewer.html-restore'
+  | 'files.viewer.html-unsandboxed-warning'
+  | 'files.selection-add'
+  | 'files.selection-over-limit'
   | 'files.refresh'
   | 'side.close'
   | 'side.git'
@@ -69,6 +86,9 @@ export type WorkspaceMessage =
   | 'side.tab-limit'
   | 'side.tool-disabled'
   | 'side.tool-missing'
+  | 'bottom-workbench.title'
+  | 'bottom-workbench.tabs'
+  | 'bottom-workbench.empty'
   | 'settings.title'
   | 'settings.description'
   | 'settings.reset'
@@ -90,6 +110,26 @@ export type WorkspaceMessage =
   | 'settings.open-files-description'
   | 'settings.open-links'
   | 'settings.open-links-description'
+  | 'settings.open-links-http'
+  | 'settings.open-links-http-description'
+  | 'settings.open-links-https'
+  | 'settings.open-links-https-description'
+  | 'settings.html-no-sandbox'
+  | 'settings.html-no-sandbox-description'
+  | 'settings.html-default-unsafe'
+  | 'settings.html-default-unsafe-description'
+  | 'settings.terminal-font-family'
+  | 'settings.terminal-font-family-description'
+  | 'settings.terminal-font-family-placeholder'
+  | 'settings.terminal-font-size'
+  | 'settings.terminal-font-size-description'
+  | 'settings.terminal-shell'
+  | 'settings.terminal-shell-description'
+  | 'settings.terminal-shell-placeholder'
+  | 'settings.auto-open-subagent'
+  | 'settings.auto-open-subagent-description'
+  | 'settings.auto-open-jobs'
+  | 'settings.auto-open-jobs-description'
   | 'settings.runtime-load-failed'
   | 'settings.runtime-save-failed'
   | 'settings.feature-settings'
@@ -186,6 +226,18 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     files: 'Files',
     'side-chat': 'Side chat',
     trajectory: 'Trajectory',
+    subagent: 'Subagents',
+    'subagent.topology': 'Subagent topology',
+    'subagent.jobs': 'Background jobs',
+    'subagent.no-topology': 'No subagent topology available for this runtime.',
+    'subagent.no-jobs': 'No background jobs in this conversation.',
+    'subagent.main-session': 'Main agent',
+    'subagent.current': 'current',
+    'subagent.refresh': 'Refresh',
+    'subagent.output': 'Output',
+    'subagent.kill': 'Kill',
+    'subagent.job-output-empty': '(no output read yet)',
+    'subagent.job-output-failed': 'Could not read the job output.',
     'browser.enter-url': 'Enter a URL',
     'browser.http-only': 'Only HTTP and HTTPS URLs are supported',
     'browser.page-failed': 'Page failed to load',
@@ -227,6 +279,11 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.viewer.html': 'HTML preview',
     'files.viewer.markdown': 'Markdown preview',
     'files.viewer.text': 'Text preview',
+    'files.viewer.html-unlock': 'Unlock HTML preview',
+    'files.viewer.html-restore': 'Restore sandbox',
+    'files.viewer.html-unsandboxed-warning': 'Unsandboxed preview — the page can read session files and act as the GUI. Only for trusted local content.',
+    'files.selection-add': 'Add to conversation',
+    'files.selection-over-limit': 'Selection too large — inserting path only',
     'files.refresh': 'Refresh',
     'side.close': 'Close side panel',
     'side.git': 'Git',
@@ -241,6 +298,9 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.tab-limit': 'Close an existing tab before opening another.',
     'side.tool-disabled': 'This side panel tool is disabled.',
     'side.tool-missing': 'This side panel tool is no longer registered.',
+    'bottom-workbench.title': 'Bottom workbench',
+    'bottom-workbench.tabs': 'Bottom workbench tabs',
+    'bottom-workbench.empty': 'Drag a tab here to open a second workbench at the bottom',
     'settings.title': 'Side panel',
     'settings.description': 'Choose which tools and file previews are available in the desktop side panel.',
     'settings.reset': 'Reset',
@@ -262,6 +322,26 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.open-files-description': 'Open workspace file links from messages and tool results in the desktop file viewer.',
     'settings.open-links': 'Open external links in the side browser',
     'settings.open-links-description': 'Open plain HTTP and HTTPS link clicks in the desktop browser. Cmd/Ctrl-click still opens them externally.',
+    'settings.open-links-http': 'Open http links in the side browser',
+    'settings.open-links-http-description': 'Route plain http links into the desktop browser.',
+    'settings.open-links-https': 'Open https links in the side browser',
+    'settings.open-links-https-description': 'Route plain https links into the desktop browser. Off by default: most https sites refuse iframe embedding.',
+    'settings.html-no-sandbox': 'Run HTML previews unsandboxed',
+    'settings.html-no-sandbox-description': 'Drop the sandbox for every HTML preview. The previewed page can then read session files and internal APIs — only for trusted local content.',
+    'settings.html-default-unsafe': 'Open new HTML previews unsandboxed',
+    'settings.html-default-unsafe-description': 'Start every preview in the unsandboxed state; the status row still offers a one-tap restore.',
+    'settings.terminal-font-family': 'Terminal font family',
+    'settings.terminal-font-family-description': 'A CSS font-family stack for terminal tabs; empty follows the theme monospace font.',
+    'settings.terminal-font-family-placeholder': 'Follow the theme font',
+    'settings.terminal-font-size': 'Terminal font size',
+    'settings.terminal-font-size-description': 'Font size in px for terminal tabs (9–32).',
+    'settings.terminal-shell': 'Terminal shell',
+    'settings.terminal-shell-description': 'Explicit shell for terminal tabs; empty follows DSH_SIDEBAR_SHELL, then the platform default. New terminals only.',
+    'settings.terminal-shell-placeholder': 'Follow the platform default',
+    'settings.auto-open-subagent': 'Open on new subagents',
+    'settings.auto-open-subagent-description': 'Automatically open the sidebar on the subagent page when the current conversation spawns a subagent.',
+    'settings.auto-open-jobs': 'Open on new background jobs',
+    'settings.auto-open-jobs-description': 'Automatically open the sidebar on the jobs page when a new background job appears.',
     'settings.runtime-load-failed': 'Could not load the runtime settings.',
     'settings.runtime-save-failed': 'Could not save the runtime settings.',
     'settings.feature-settings': 'Settings',
@@ -357,6 +437,18 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     files: '文件',
     'side-chat': '侧边对话',
     trajectory: '轨迹',
+    subagent: '子代理',
+    'subagent.topology': '子代理拓扑',
+    'subagent.jobs': '后台任务',
+    'subagent.no-topology': '当前运行时没有可用的子代理拓扑数据。',
+    'subagent.no-jobs': '此对话暂无后台任务。',
+    'subagent.main-session': '主代理',
+    'subagent.current': '当前',
+    'subagent.refresh': '刷新',
+    'subagent.output': '输出',
+    'subagent.kill': '终止',
+    'subagent.job-output-empty': '（暂无已读取的输出）',
+    'subagent.job-output-failed': '无法读取任务输出。',
     'browser.enter-url': '输入 URL',
     'browser.http-only': '仅支持 HTTP 和 HTTPS URL',
     'browser.page-failed': '页面加载失败',
@@ -398,6 +490,11 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.viewer.html': 'HTML 预览',
     'files.viewer.markdown': 'Markdown 预览',
     'files.viewer.text': '文本预览',
+    'files.viewer.html-unlock': '解锁 HTML 预览',
+    'files.viewer.html-restore': '恢复沙箱',
+    'files.viewer.html-unsandboxed-warning': '非沙箱预览 — 页面可读取会话文件并以 GUI 身份操作。仅用于受信任的本地内容。',
+    'files.selection-add': '添加到对话',
+    'files.selection-over-limit': '选区过大 — 仅插入路径行',
     'files.refresh': '刷新',
     'side.close': '关闭侧边栏',
     'side.git': 'Git',
@@ -412,6 +509,9 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.tab-limit': '请先关闭一个已有标签页。',
     'side.tool-disabled': '此侧边栏工具已被禁用。',
     'side.tool-missing': '此侧边栏工具已不再注册。',
+    'bottom-workbench.title': '底部工作台',
+    'bottom-workbench.tabs': '底部工作台标签页',
+    'bottom-workbench.empty': '将标签页拖到这里，在底部打开第二个工作台',
     'settings.title': '侧边栏',
     'settings.description': '选择桌面侧边栏中可用的工具和文件预览。',
     'settings.reset': '恢复默认',
@@ -433,6 +533,26 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.open-files-description': '消息和工具结果中的工作区文件链接，会在桌面文件预览器中打开。',
     'settings.open-links': '外部链接在侧边浏览器打开',
     'settings.open-links-description': '普通 HTTP/HTTPS 链接会在桌面浏览器中打开；Cmd/Ctrl 点击仍使用外部浏览器。',
+    'settings.open-links-http': 'http 链接在侧边浏览器打开',
+    'settings.open-links-http-description': '普通 http 链接在桌面浏览器中打开。',
+    'settings.open-links-https': 'https 链接在侧边浏览器打开',
+    'settings.open-links-https-description': '普通 https 链接在桌面浏览器中打开。默认关闭：多数 https 站点拒绝 iframe 嵌入。',
+    'settings.html-no-sandbox': 'HTML 预览以非沙箱方式运行',
+    'settings.html-no-sandbox-description': '去掉所有 HTML 预览的沙箱。预览页面随后可读取会话文件与内部 API — 仅用于受信任的本地内容。',
+    'settings.html-default-unsafe': '新打开 HTML 预览默认非沙箱',
+    'settings.html-default-unsafe-description': '每个预览默认以非沙箱状态打开；状态行仍提供一键恢复。',
+    'settings.terminal-font-family': '终端字体族',
+    'settings.terminal-font-family-description': '终端标签页的 CSS font-family；留空跟随主题等宽字体。',
+    'settings.terminal-font-family-placeholder': '跟随主题字体',
+    'settings.terminal-font-size': '终端字号',
+    'settings.terminal-font-size-description': '终端标签页的字号（px，9–32）。',
+    'settings.terminal-shell': '终端 shell',
+    'settings.terminal-shell-description': '终端标签页的显式 shell；留空则跟随 DSH_SIDEBAR_SHELL，再跟随平台默认。仅对新终端生效。',
+    'settings.terminal-shell-placeholder': '跟随平台默认',
+    'settings.auto-open-subagent': '出现新子代理时自动打开',
+    'settings.auto-open-subagent-description': '当前会话派生子代理时，自动在侧边栏打开子代理页。',
+    'settings.auto-open-jobs': '出现新后台任务时自动打开',
+    'settings.auto-open-jobs-description': '出现新的后台任务时，自动在侧边栏打开任务页。',
     'settings.runtime-load-failed': '无法加载运行时设置。',
     'settings.runtime-save-failed': '无法保存运行时设置。',
     'settings.feature-settings': '设置',

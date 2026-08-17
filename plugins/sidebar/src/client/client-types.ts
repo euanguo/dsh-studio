@@ -28,11 +28,57 @@ export interface SessionSummary {
   title?: string
   /** Human-facing label: durable title, project basename, then session id. */
   displayTitle?: string
+  /** Durable direct parent session id (present on subagent children). */
+  parentId?: string
+  /** Coarse durable origin for navigation filtering (subagent children). */
+  origin?: 'subagent'
+  /** Whether the session's agent is currently running. */
+  running?: boolean
+}
+
+/** One healthy subagent catalog child row (structural mirror of the host). */
+export interface SubagentChildEntry {
+  kind: 'child'
+  id: string
+  activity: 'running' | 'inactive'
+  hasChildren: boolean
+  mode: 'one-shot' | 'continuable'
+  label?: string
+}
+
+/** The per-parent lazy catalog delivered through the sessions list feed. */
+export interface SubagentCatalog {
+  entries: Array<SubagentChildEntry | { kind: 'diagnostic'; id: string; reason: string }>
+  parentAvailable: boolean
+  state: 'loading' | 'ready' | 'error'
+  error: { code?: string; message?: string } | null
+}
+
+/** One background job as the client mirror sees it (wire `JobView` shape). */
+export interface SidebarJobView {
+  id: string
+  kind: string
+  label: string
+  status: 'running' | 'stopping' | 'completed' | 'killed' | 'failed'
+  detail?: string
+  startedAt: number
+  finishedAt?: number
 }
 
 export interface SessionListState {
   current?: string
   byId: Record<string, SessionSummary>
+  /**
+   * Direct subagent catalogs keyed by their selected parent address
+   * (absent on runtime snapshots without the mirror — the panel degrades
+   * to the jobs list).
+   */
+  subagentsByParent?: Readonly<Record<string, SubagentCatalog>>
+  /**
+   * Background jobs per session, last-wins from the harness's
+   * `session/jobs` push (a missing key is an empty set).
+   */
+  jobsBySession?: Readonly<Record<string, readonly SidebarJobView[]>>
 }
 
 export interface RunningToolCall {
@@ -55,6 +101,10 @@ export interface SessionsService extends ReviewSessionsService {
   binding(id: string): SessionBinding | undefined
   fork(options: { sessionId: string; increaseTitle?: boolean }): Promise<string>
   open(id: string): void
+  /** Open a healthy catalog child through its exact direct-parent address. */
+  setSubagentCatalogOpen?(parentSessionId: string, open: boolean): void
+  /** Resolve an already discovered direct-parent address without opening it. */
+  refreshSubagents?(parentSessionId: string): Promise<void>
 }
 
 export interface WorkspaceView {

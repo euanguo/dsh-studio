@@ -7,7 +7,7 @@
  * checkboxes report their 0-based checkbox index; the caller maps that to a
  * source line through `findTaskMarkerSourceLines`.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type Ref } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { codeToHtml } from '@pierre/diffs'
@@ -20,19 +20,22 @@ export interface MarkdownViewerProps {
   onTaskToggle?(input: { sourceLine: number; checked: boolean }): void
   /** When false, all checkboxes render disabled. */
   taskTogglesEnabled?: boolean
+  /** Forwarded to the scroll host (the selection-insert popup host). */
+  containerRef?: Ref<HTMLDivElement>
 }
 
 export function MarkdownViewer({
   content,
   onTaskToggle,
   taskTogglesEnabled = true,
+  containerRef,
 }: MarkdownViewerProps): JSX.Element {
   const sourceLines = onTaskToggle === undefined ? [] : findTaskMarkerSourceLines(content)
   const headings = useMemo(() => extractHeadings(content), [content])
   let taskCursor = -1
 
   return (
-    <div className="oh-dsh-content-markdown" data-testid="markdown-viewer">
+    <div ref={containerRef} className="oh-dsh-content-markdown" data-testid="markdown-viewer">
       {headings.length > 1 ? (
         <nav className="oh-dsh-markdown-toc" aria-label="Table of contents">
           {headings.map(heading => (

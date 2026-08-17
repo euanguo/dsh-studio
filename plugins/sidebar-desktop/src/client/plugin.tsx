@@ -36,13 +36,21 @@ export function apply(ctx: ClientContext): void {
       order: 30,
       render: (props: SidebarRenderProps) => <BrowserView {...props} t={t} />,
       shortcut: '⌘T',
-      // Declarative settings: the link-takeover MASTER switch renders under
-      // this tab's card in the settings page.
+      // Declarative settings: the link-takeover MASTER switch and the two
+      // per-protocol flags render under this tab's card in the settings page.
       settings: {
         toggles: [{
           key: 'browserInterceptLinks',
           title: () => t('settings.open-links'),
           desc: () => t('settings.open-links-description'),
+        }, {
+          key: 'browserInterceptHttp',
+          title: () => t('settings.open-links-http'),
+          desc: () => t('settings.open-links-http-description'),
+        }, {
+          key: 'browserInterceptHttps',
+          title: () => t('settings.open-links-https'),
+          desc: () => t('settings.open-links-https-description'),
         }],
       },
       title: () => t('browser'),

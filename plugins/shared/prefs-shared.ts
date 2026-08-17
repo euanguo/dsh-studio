@@ -81,6 +81,15 @@ export interface SidebarPrefs {
    */
   browserInterceptLinks: boolean
   /**
+   * Explicit shell executable for the sidebar terminals (UI tabs + the
+   * model-facing terminal tools). Empty follows the resolution chain
+   * (deployment `shell` config → this setting → `DSH_SIDEBAR_SHELL` →
+   * platform probe/login-shell chain → fallback); see
+   * `plugins/sidebar-host/src/shell-resolver.ts`. Takes effect for NEW
+   * terminals; already-running processes keep their shell.
+   */
+  terminalShell: string
+  /**
    * Per-tab enable switches, keyed by tab descriptor id (`'explorer'`,
    * `'my-plugin:db'`). An ABSENT key means enabled — only an explicit
    * `false` disables a tab type (hidden from the + menu, `openTab` refuses,
@@ -117,6 +126,7 @@ export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
   htmlViewerDefaultUnsafe: false,
   browserNoSandbox: false,
   browserInterceptLinks: true,
+  terminalShell: '',
   tabsEnabled: {},
   viewersEnabled: {},
 }

@@ -40,13 +40,8 @@ import type {
 import { registerBuiltins } from './builtins/index.ts'
 import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
 import { disposeSidebarRuntimes } from './runtimes/registry.ts'
-import {
-  acquireOpenPathPatch,
-  registerLinkHandler,
-  registerLinkInterception,
-  registerOpenPathHandler,
-  releaseOpenPathPatch,
-} from './intercept.ts'
+import { acquireOpenPathPatch, isLinkProtocolIntercepted, registerLinkHandler, registerLinkInterception, registerOpenPathHandler, releaseOpenPathPatch } from './intercept.ts'
+import { registerImeGuard } from './ime-guard.ts'
 
 export const inject = [
   'desktopPanels',
@@ -116,6 +111,7 @@ export function apply(ctx: ClientContext): void {
     openExternalPath,
     panels,
     reviewComments,
+    runtimeSettings,
     service,
     sessions,
     sidebar: desktopSidebar,
@@ -167,9 +163,9 @@ export function apply(ctx: ClientContext): void {
       syncSidebarSettings(settingsActions, desktopSidebar.getSnapshot())
     })
     const syncRuntime = (): void => {
-      panels.setAutoOpenTerminal(
-        runtimeSettings.getSnapshot().preferences.bottomPanelAutoTerminal,
-      )
+      const prefs = runtimeSettings.getSnapshot().preferences
+      panels.setAutoOpenTerminal(prefs.bottomPanelAutoTerminal)
+      panels.setTerminalFontPreferences(prefs.terminalFontFamily, prefs.terminalFontSize)
     }
     const stopRuntime = runtimeSettings.subscribe(syncRuntime)
     // openPath interception through the registry: the patch is installed
@@ -193,6 +189,14 @@ export function apply(ctx: ClientContext): void {
       const runtime = runtimeSettings.getSnapshot().preferences
       const snapshot = desktopSidebar.getSnapshot()
       if (!runtime.browserInterceptLinks || !snapshot.ready) return false
+      // Per-protocol gate: the http/https flags sit between the master
+      // switch and the urlTarget claims, so a claimed target is only opened
+      // when its protocol is eligible too (upstream `browserInterceptHttp` /
+      // `browserInterceptHttps` semantics).
+      if (!isLinkProtocolIntercepted(url.protocol, {
+        browserInterceptHttp: runtime.browserInterceptHttp,
+        browserInterceptHttps: runtime.browserInterceptHttps,
+      })) return false
       const claimed = desktopSidebar.resolveUrlTarget(url)
       if (claimed !== undefined) {
         if (!desktopSidebar.isTabEnabled(claimed.id)) return false
@@ -212,6 +216,10 @@ export function apply(ctx: ClientContext): void {
     })
     acquireOpenPathPatch(workspaces)
     const stopLinkDom = registerLinkInterception()
+    // IME-composition guard: document capture phase, before React delegation
+    // and any inlined third-party component (the HTML preview's iframe), so
+    // composition keys keep their IME meaning (see ime-guard.ts).
+    const stopImeGuard = registerImeGuard()
     syncRuntime()
     void runtimeSettings.start()
     void desktopSidebar.start()
@@ -233,6 +241,7 @@ export function apply(ctx: ClientContext): void {
       stopOpenPath()
       stopLink()
       stopLinkDom()
+      stopImeGuard()
       releaseOpenPathPatch(workspaces)
       centerSurfaceHost.dispose()
       service.dispose()

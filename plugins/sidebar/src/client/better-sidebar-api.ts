@@ -246,6 +246,25 @@ export const betterSidebarApi = {
     patch,
     ...(expectedRevision === undefined ? {} : { expectedRevision }),
   }),
+  jobOutput: (
+    scope: BetterSidebarScope,
+    id: string,
+    signal?: AbortSignal,
+  ): Promise<{ text: string; truncated: boolean; read: boolean }> => callSidebarApi(
+    'jobs.output',
+    scope,
+    { id },
+    signal,
+  ),
+  jobKill: (
+    scope: BetterSidebarScope,
+    id: string,
+    reason?: string,
+  ): Promise<{ ok: true; outcome: 'requested' | 'already-finished' }> => {
+    const payload: SidebarApiRequests['jobs.kill'] = { id }
+    if (reason !== undefined && reason !== '') payload.reason = reason
+    return callSidebarApi('jobs.kill', scope, payload)
+  },
 }
 
 function statusFromCode(code: string): WorkspaceChange['status'] {

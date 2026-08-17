@@ -6,6 +6,7 @@ import {
   useState,
   useSyncExternalStore,
   type CSSProperties,
+  type DragEvent as ReactDragEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
@@ -61,6 +62,16 @@ import {
 } from '../../../shared/list-row.tsx'
 import { FilenameLabel } from '../../../shared/filename-label.tsx'
 import { SurfaceTab } from '../../../shared/surface-tab.tsx'
+import { bindTabStripWheel } from '../../../shared/tab-strip-wheel.ts'
+import {
+  fullTabDropIndex,
+  parseTabDrag,
+  reorderIndexAfterRemoval,
+  serializeTabDrag,
+  TAB_DRAG_MIME,
+  tabDropSideOf,
+  type TabDropSide,
+} from './tab-drag.ts'
 import {
   getExplorerRuntime,
   sidebarScopeKey,
@@ -76,6 +87,7 @@ import type {
   SidebarTab,
   SidebarTabDescriptor,
 } from './contract.ts'
+import type { ReviewCommentsService } from './review/review-comments.ts'
 import type { WorkspaceMessage } from './i18n.ts'
 
 /** Tab descriptor icon size (px). */
@@ -107,6 +119,7 @@ type ToolIconKind =
   | 'file'
   | 'files'
   | 'review'
+  | 'subagent'
   | 'terminal'
   | 'trajectory'
 
@@ -117,12 +130,13 @@ export function ToolIcon({ kind }: { kind: ToolIconKind }): JSX.Element {
   if (kind === 'files') return <svg viewBox="0 0 24 24"><path d="M3.5 7.5A2.5 2.5 0 0 1 6 5h4l2 2h6A2.5 2.5 0 0 1 20.5 9.5v7A2.5 2.5 0 0 1 18 19H6a2.5 2.5 0 0 1-2.5-2.5z" /></svg>
   if (kind === 'file') return <svg viewBox="0 0 24 24"><path d="M6 3h8l4 4v14H6zM14 3v5h5" /></svg>
   if (kind === 'chat') return <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M11 7v8M7 11h8M16 16l4 4" /></svg>
+  if (kind === 'subagent') return <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2.5" /><circle cx="5" cy="18" r="2.5" /><circle cx="19" cy="18" r="2.5" /><path d="M12 7.5v4M5 16v-2.5h14V16M12 11.5 5 15.5M12 11.5l7 4" /></svg>
   return <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l-3 2" /></svg>
 }
 
 function defaultIcon(id: string): ToolIconKind {
   if (id === 'review' || id === 'terminal' || id === 'browser'
-    || id === 'files' || id === 'trajectory') return id
+    || id === 'files' || id === 'trajectory' || id === 'subagent') return id
   if (id === 'side-chat') return 'chat'
   return 'file'
 }
@@ -559,12 +573,14 @@ export function FilesView({
 
 export function FileView({
   onOpenPath,
+  reviewComments,
   scope,
   sidebar,
   t,
   tab,
 }: SidebarRenderProps & {
   onOpenPath(path: string): Promise<void>
+  reviewComments: ReviewCommentsService
   sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
@@ -606,6 +622,9 @@ export function FileView({
       ...(snapshot.content !== null ? { content: snapshot.content } : {}),
       path,
       title: tab.title,
+      // The viewer needs the session scope for cwd-relative payloads
+      // (the "add to conversation" selection popup).
+      ...(scope === null || scope === undefined ? {} : { scope }),
     })}</>
   }
   return (
@@ -760,17 +779,62 @@ function AddToolsMenu({ sidebar, t }: {
 }
 
 /* Extra open tools (beyond the pinned 文件 / Git entries) as shared
-   SurfaceTab chips. */
+   SurfaceTab chips. The strip hosts the right-rail side of the tab drag:
+   chips reorder inside the rail and can be dropped into the bottom
+   workbench (or receive docked tabs back). */
+const PINNED_TAB_TYPES = new Set(['files', 'review'])
+
 function TabStrip({ sidebar, t }: {
   sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
 }): JSX.Element | null {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
-  const pinnedTypes = new Set(['files', 'review'])
-  const tabs = snapshot.tabs.filter(tab => !pinnedTypes.has(tab.type))
+  const stripRef = useRef<HTMLDivElement>(null)
+  const [marker, setMarker] = useState<{ id: string; side: TabDropSide } | null>(null)
+  const draggingRef = useRef(false)
+  useEffect(() => {
+    const el = stripRef.current
+    if (el === null) return
+    // Wheel over the overflowed tab row scrolls it horizontally (the
+    // surface-tab strip helper; non-passive so the page does not scroll).
+    return bindTabStripWheel(el)
+  }, [])
+  const tabs = snapshot.tabs.filter(tab => !PINNED_TAB_TYPES.has(tab.type))
   if (tabs.length === 0) return null
+
+  const acceptDrag = (event: ReactDragEvent): boolean => {
+    if (!event.dataTransfer.types.includes(TAB_DRAG_MIME)) return false
+    event.preventDefault()
+    return true
+  }
+  const dropTargetOf = (hoverId: string, side: TabDropSide): number =>
+    fullTabDropIndex(snapshot.tabs, PINNED_TAB_TYPES, hoverId, side)
+
+  const handleStripDrop = (event: ReactDragEvent<HTMLDivElement>): void => {
+    const payload = parseTabDrag(event.dataTransfer.getData(TAB_DRAG_MIME))
+    setMarker(null)
+    if (payload === null) return
+    event.preventDefault()
+    // A docked tab dropped on the rail's empty space returns to the rail
+    // (append). A rail tab dropped on its own strip background is a no-op.
+    if (payload.source === 'bottom') sidebar.moveBottomTabToSide(payload.tabId)
+  }
+
   return (
-    <div className="oh-dsh-side-tabs" role="tablist">
+    <div
+      ref={stripRef}
+      className="oh-dsh-side-tabs"
+      role="tablist"
+      onDragOver={event => {
+        if (!acceptDrag(event)) return
+        // Background (not a chip): clear the chip marker (append target).
+        if ((event.target as HTMLElement).closest('[data-slot="surface-tab"]') === null) {
+          setMarker(null)
+        }
+      }}
+      onDrop={handleStripDrop}
+      onDragLeave={() => { setMarker(null) }}
+    >
       {tabs.map(tab => (
         <SurfaceTab
           key={tab.id}
@@ -778,7 +842,49 @@ function TabStrip({ sidebar, t }: {
           title={tab.title}
           active={tab.id === snapshot.activeId}
           badge={tabBadge(sidebar, tab)}
-          onSelect={() => { sidebar.activateTab(tab.id) }}
+          draggable
+          {...(marker !== null && marker.id === tab.id
+            ? { className: `is-drop-${marker.side}` }
+            : {})}
+          onDragStart={event => {
+            draggingRef.current = true
+            event.dataTransfer.effectAllowed = 'move'
+            event.dataTransfer.setData(TAB_DRAG_MIME, serializeTabDrag({
+              kind: 'sidebar-tab',
+              tabId: tab.id,
+              source: 'side',
+            }))
+          }}
+          onDragOver={event => {
+            if (!acceptDrag(event)) return
+            setMarker({
+              id: tab.id,
+              side: tabDropSideOf(event.nativeEvent.offsetX, event.currentTarget.clientWidth),
+            })
+          }}
+          onDrop={event => {
+            const payload = parseTabDrag(event.dataTransfer.getData(TAB_DRAG_MIME))
+            setMarker(null)
+            if (payload === null) return
+            event.preventDefault()
+            const side = marker !== null && marker.id === tab.id ? marker.side : 'before'
+            const target = dropTargetOf(tab.id, side)
+            if (payload.source === 'bottom') {
+              sidebar.moveBottomTabToSide(payload.tabId, target)
+              return
+            }
+            const from = snapshot.tabs.findIndex(candidate => candidate.id === payload.tabId)
+            if (from === -1) return
+            sidebar.moveTab(payload.tabId, reorderIndexAfterRemoval(from, target))
+          }}
+          onDragEnd={() => {
+            draggingRef.current = false
+            setMarker(null)
+          }}
+          onSelect={() => {
+            if (draggingRef.current) return
+            sidebar.activateTab(tab.id)
+          }}
           onClose={() => { sidebar.closeTab(tab.id) }}
           closeLabel={t('side.close-named-tab', { title: tab.title })}
         />

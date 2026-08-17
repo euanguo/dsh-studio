@@ -69,6 +69,23 @@ export type LinkHandler = (url: URL) => boolean
 
 const linkHandlers = new Set<LinkHandler>()
 
+/**
+ * The per-protocol gate of the external-link takeover (mirrors the upstream
+ * `browserInterceptHttp` / `browserInterceptHttps` split): only protocols
+ * whose flag is on may be taken over into the sidebar. The DOM listener only
+ * reaches handlers with `http:`/`https:` links, so every other protocol is
+ * conservatively refused here. Pure — the unit tests cover the matrix
+ * without a DOM.
+ */
+export function isLinkProtocolIntercepted(
+  protocol: string,
+  prefs: { browserInterceptHttp: boolean; browserInterceptHttps: boolean },
+): boolean {
+  if (protocol === 'https:') return prefs.browserInterceptHttps
+  if (protocol === 'http:') return prefs.browserInterceptHttp
+  return false
+}
+
 export function registerLinkHandler(handler: LinkHandler): () => void {
   linkHandlers.add(handler)
   return () => { linkHandlers.delete(handler) }

@@ -9,6 +9,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
+import { BottomWorkbench } from './bottom-workbench.tsx'
 import type { DesktopPanels } from '../../../panel-controls/src/client.ts'
 import type { PinnedSummary } from '../../../pinned-summary/src/client.ts'
 import { basename } from '../../../shared/path.ts'
@@ -60,6 +61,11 @@ export class WorkspaceToolsService implements WorkspaceTools {
   private stopKeymap: (() => void) | undefined
   private stopChromeGeometry: (() => void) | undefined
   private readonly disposeKeymapActions: Array<() => void> = []
+  // The bottom workbench (second pane) lives in the conversation column,
+  // above the terminal dock — its own root, like panel-controls'.
+  private workbenchElement: HTMLDivElement | undefined
+  private workbenchRoot: Root | undefined
+  private stopWorkbenchObserver: (() => void) | undefined
 
   constructor(
     readonly sidebar: DesktopSidebarService,
@@ -212,6 +218,7 @@ ${diffViewerCss}`
     this.stopChromeGeometry = applyChromeGeometry()
     // Global (panel-level) shortcuts: registered for the app lifetime.
     // Surface-scoped shortcuts register from their mounted views.
+    this.mountBottomWorkbench()
     this.disposeKeymapActions.push(
       registerKeymapAction('panel.toggle', binding({ mod: true, alt: true, key: 'b' }), () => {
         this.toggleSidePanel()
@@ -250,6 +257,12 @@ ${diffViewerCss}`
     this.stopKeymap = undefined
     this.stopChromeGeometry?.()
     this.stopChromeGeometry = undefined
+    this.stopWorkbenchObserver?.()
+    this.stopWorkbenchObserver = undefined
+    this.workbenchRoot?.unmount()
+    this.workbenchRoot = undefined
+    this.workbenchElement?.remove()
+    this.workbenchElement = undefined
     this.narrowViewport.removeEventListener('change', this.handleViewportChange)
     this.root?.unmount()
     this.element?.remove()
@@ -296,6 +309,44 @@ ${diffViewerCss}`
       delete document.documentElement.dataset.ohDshPanelMaximized
     }
     this.applyLayout()
+  }
+
+  /**
+   * Mount the bottom workbench into the conversation column, ABOVE the
+   * terminal dock (panel-controls keeps the dock last; the workbench
+   * inserts before `#oh-dsh-terminal-root` when it exists, appends
+   * otherwise). A MutationObserver re-asserts the position when DSH
+   * replaces the column subtree (same self-heal pattern as panel-controls).
+   */
+  private mountBottomWorkbench(): void {
+    const column = (() => {
+      const phase = document.querySelector<HTMLElement>('[data-phase]')
+      return phase?.parentElement ?? null
+    })()
+    if (column === null) return
+    let element = this.workbenchElement
+    if (element === undefined) {
+      element = document.createElement('div')
+      element.id = 'oh-dsh-bottom-workbench-root'
+      element.style.display = 'contents'
+      this.workbenchElement = element
+    }
+    let root = this.workbenchRoot
+    if (root === undefined) {
+      root = createRoot(element)
+      this.workbenchRoot = root
+    }
+    const place = (): void => {
+      if (element.isConnected && element.parentElement === column) return
+      column.insertBefore(element, column.querySelector('#oh-dsh-terminal-root'))
+    }
+    place()
+    root.render(
+      <BottomWorkbench sidebar={this.sidebar} t={this.t} />,
+    )
+    const observer = new MutationObserver(() => { place() })
+    observer.observe(document.body, { childList: true, subtree: true })
+    this.stopWorkbenchObserver = () => { observer.disconnect() }
   }
 
   private applyLayout(): void {

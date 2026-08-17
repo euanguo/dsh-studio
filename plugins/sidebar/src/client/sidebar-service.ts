@@ -94,6 +94,12 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
+/** Clamp a reorder destination into `0..limit-1` (limit 0 → 0). */
+function clampIndex(index: number, limit: number): number {
+  if (limit <= 0) return 0
+  return Math.min(limit - 1, Math.max(0, Math.round(index)))
+}
+
 /** Run one plugin callback; a throw is logged and never breaks the caller. */
 function safeCall(fn: () => void): void {
   try {
@@ -120,7 +126,13 @@ function clonePreferences(
     ...preferences,
     defaultWidth: clampSidebarWidth(preferences.defaultWidth),
     sessions: Object.fromEntries(Object.entries(preferences.sessions).map(
-      ([id, session]) => [id, { ...session, tabs: session.tabs.map(tab => ({ ...tab })) }],
+      ([id, session]) => [id, {
+        ...session,
+        tabs: session.tabs.map(tab => ({ ...tab })),
+        ...(session.bottomTabs === undefined
+          ? {}
+          : { bottomTabs: session.bottomTabs.map(tab => ({ ...tab })) }),
+      }],
     )),
     tabsEnabled: { ...preferences.tabsEnabled },
     viewersEnabled: { ...preferences.viewersEnabled },
@@ -145,6 +157,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   private readonly storage: SidebarPreferencesStorage
   private snapshot: SidebarSnapshot = {
     activeId: null,
+    bottomActiveId: null,
+    bottomTabs: [],
     error: null,
     maximized: false,
     open: false,
@@ -406,6 +420,31 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       this.focusExisting(target, existing, scope)
       return { kind: 'focused', tab: existing }
     }
+    // The bottom workbench holds the same tab vocabulary: a dedupe hit
+    // there focuses the DOCKED tab (the pane shows it without duplicating).
+    const bottomTabs = this.sessionOf(target.sessionId).bottomTabs ?? []
+    const docked = bottomTabs.find(candidate => {
+      if (candidate.id === tab.id) return true
+      if (candidate.type !== tab.type || key === undefined) return false
+      const candidateKey = descriptor.dedupeKey?.(candidate)
+        ?? (descriptor.single === true ? descriptor.id : undefined)
+      return candidateKey === key
+    })
+    if (docked !== undefined) {
+      this.writeTarget(
+        target,
+        tabs,
+        this.sessionOf(target.sessionId).activeId,
+        { activeId: docked.id },
+      )
+      safeCall(() => descriptor.onActivate?.(docked, scope ?? {
+        sessionId: target.sessionId,
+        ...(this.snapshot.scope?.cwd === undefined
+          ? {}
+          : { cwd: this.snapshot.scope.cwd }),
+      }))
+      return { kind: 'focused', tab: docked }
+    }
     if (tabs.length >= SIDEBAR_MAX_TABS) return { kind: 'limit' }
     const nextTabs = created?.patch?.tabs !== undefined
       ? [...created.patch.tabs]
@@ -507,6 +546,140 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     }, scope)
   }
 
+  /* ── bottom workbench + tab drag layout ─────────────────────── */
+
+  moveTab(tabId: string, toIndex: number): void {
+    const target = this.targetOf()
+    if (target === null) return
+    const session = this.sessionOf(target.sessionId)
+    const tabs = [...session.tabs]
+    const index = tabs.findIndex(tab => tab.id === tabId)
+    if (index === -1) return
+    const clamped = clampIndex(toIndex, tabs.length)
+    if (clamped === index) return
+    const [moved] = tabs.splice(index, 1)
+    tabs.splice(clamped, 0, moved!)
+    this.writeTarget(target, tabs, session.activeId)
+  }
+
+  moveTabToBottom(tabId: string, toIndex?: number): void {
+    const target = this.targetOf()
+    if (target === null) return
+    const session = this.sessionOf(target.sessionId)
+    const tabs = [...session.tabs]
+    const index = tabs.findIndex(tab => tab.id === tabId)
+    if (index === -1) return
+    const [moved] = tabs.splice(index, 1)
+    if (moved === undefined) return
+    // The rail activates the moved tab's neighbor when the mover was its
+    // active tab.
+    const nextActive = session.activeId === tabId
+      ? tabs[Math.min(index, tabs.length - 1)]?.id ?? null
+      : session.activeId
+    const bottomTabs = [...(session.bottomTabs ?? [])]
+    const at = toIndex === undefined
+      ? bottomTabs.length
+      : clampIndex(toIndex, bottomTabs.length + 1)
+    bottomTabs.splice(at, 0, moved)
+    // The dropped tab becomes the workbench's active tab (the split
+    // gesture lands the user on the moved content).
+    this.writeTarget(target, tabs, nextActive, { tabs: bottomTabs, activeId: moved.id })
+  }
+
+  moveBottomTabToSide(bottomTabId: string, toIndex?: number): void {
+    const target = this.targetOf()
+    if (target === null) return
+    const session = this.sessionOf(target.sessionId)
+    const bottomTabs = [...(session.bottomTabs ?? [])]
+    const index = bottomTabs.findIndex(tab => tab.id === bottomTabId)
+    if (index === -1) return
+    const [moved] = bottomTabs.splice(index, 1)
+    if (moved === undefined) return
+    const nextBottomActive = session.bottomActiveId === bottomTabId
+      ? bottomTabs[Math.min(index, bottomTabs.length - 1)]?.id ?? null
+      : session.bottomActiveId
+    const tabs = [...session.tabs]
+    const at = toIndex === undefined
+      ? tabs.length
+      : clampIndex(toIndex, tabs.length + 1)
+    tabs.splice(at, 0, moved)
+    // Undocking lands the user on the moved tab in the rail.
+    this.writeTarget(target, tabs, moved.id, {
+      tabs: bottomTabs,
+      activeId: nextBottomActive ?? null,
+    })
+  }
+
+  moveBottomTab(bottomTabId: string, toIndex: number): void {
+    const target = this.targetOf()
+    if (target === null) return
+    const session = this.sessionOf(target.sessionId)
+    const bottomTabs = [...(session.bottomTabs ?? [])]
+    const index = bottomTabs.findIndex(tab => tab.id === bottomTabId)
+    if (index === -1) return
+    const clamped = clampIndex(toIndex, bottomTabs.length)
+    if (clamped === index) return
+    const [moved] = bottomTabs.splice(index, 1)
+    bottomTabs.splice(clamped, 0, moved!)
+    this.writeTarget(target, session.tabs, session.activeId, {
+      tabs: bottomTabs,
+      activeId: session.bottomActiveId ?? null,
+    })
+  }
+
+  activateBottomTab(bottomTabId: string | null): void {
+    const target = this.targetOf()
+    if (target === null) return
+    const session = this.sessionOf(target.sessionId)
+    const bottomTabs = session.bottomTabs ?? []
+    if (bottomTabId !== null
+      && !bottomTabs.some(tab => tab.id === bottomTabId)) return
+    if (session.bottomActiveId === bottomTabId) return
+    this.writeTarget(target, session.tabs, session.activeId, {
+      tabs: bottomTabs,
+      activeId: bottomTabId,
+    })
+    if (bottomTabId !== null) {
+      const activated = bottomTabs.find(tab => tab.id === bottomTabId)
+      const descriptor = activated === undefined
+        ? undefined
+        : this.tabDescriptors.get(activated.type)
+      const callbackScope: SidebarScope = {
+        sessionId: target.sessionId,
+        ...(this.snapshot.scope?.cwd === undefined
+          ? {}
+          : { cwd: this.snapshot.scope.cwd }),
+      }
+      safeCall(() => descriptor?.onActivate?.(activated!, callbackScope))
+    }
+  }
+
+  closeBottomTab(bottomTabId: string): void {
+    const target = this.targetOf()
+    if (target === null) return
+    const session = this.sessionOf(target.sessionId)
+    const bottomTabs = [...(session.bottomTabs ?? [])]
+    const index = bottomTabs.findIndex(tab => tab.id === bottomTabId)
+    if (index === -1) return
+    const closed = bottomTabs[index]!
+    const next = bottomTabs.filter(tab => tab.id !== bottomTabId)
+    const nextActive = session.bottomActiveId === bottomTabId
+      ? next[Math.min(index, next.length - 1)]?.id ?? null
+      : session.bottomActiveId
+    this.writeTarget(target, session.tabs, session.activeId, {
+      tabs: next,
+      activeId: nextActive ?? null,
+    })
+    const descriptor = this.tabDescriptors.get(closed.type)
+    const callbackScope: SidebarScope = {
+      sessionId: target.sessionId,
+      ...(this.snapshot.scope?.cwd === undefined
+        ? {}
+        : { cwd: this.snapshot.scope.cwd }),
+    }
+    safeCall(() => descriptor?.onClose?.(closed, callbackScope))
+  }
+
   setOpen(open: boolean): void {
     if (this.snapshot.open === open) return
     this.publish({
@@ -599,6 +772,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       activeId: null,
       lastUsed: 0,
       tabs: [],
+      bottomTabs: [],
+      bottomActiveId: null,
     }
   }
 
@@ -606,11 +781,22 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     target: TabTarget,
     tabs: readonly SidebarTab[],
     activeId: string | null,
+    bottom?: {
+      tabs?: readonly SidebarTab[]
+      activeId?: string | null
+    },
   ): void {
+    const session = this.sessionOf(target.sessionId)
+    const bottomTabs = bottom?.tabs ?? session.bottomTabs ?? []
+    const bottomActiveId = bottom?.activeId !== undefined
+      ? bottom.activeId
+      : session.bottomActiveId ?? null
     this.preferences.sessions[target.sessionId] = {
       activeId,
       lastUsed: Date.now(),
       tabs: tabs.map(tab => ({ ...tab })),
+      bottomTabs: bottomTabs.map(tab => ({ ...tab })),
+      ...(bottomActiveId === null ? {} : { bottomActiveId }),
     }
     this.pruneSessions()
     this.schedulePersist()
@@ -618,6 +804,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       this.publish({
         ...this.snapshot,
         activeId,
+        bottomActiveId,
+        bottomTabs: bottomTabs.map(tab => ({ ...tab })),
         revision: this.snapshot.revision + 1,
         tabs: tabs.map(tab => ({ ...tab })),
       })
@@ -648,13 +836,15 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
 
   private sessionSnapshot(sessionId: string | null): Pick<
     SidebarSnapshot,
-    'activeId' | 'tabs'
+    'activeId' | 'bottomActiveId' | 'bottomTabs' | 'tabs'
   > {
     const session = sessionId === null
       ? undefined
       : this.preferences.sessions[sessionId]
     return {
       activeId: session?.activeId ?? null,
+      bottomActiveId: session?.bottomActiveId ?? null,
+      bottomTabs: session?.bottomTabs?.map(tab => ({ ...tab })) ?? [],
       tabs: session?.tabs.map(tab => ({ ...tab })) ?? [],
     }
   }

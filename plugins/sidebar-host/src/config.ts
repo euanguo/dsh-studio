@@ -36,6 +36,10 @@ export interface SidebarConfig {
   terminalsPerSession?: number
   /** How long a disconnected terminal process survives awaiting a reconnect. */
   reconnectGraceMs?: number
+  /** Explicit shell executable for the sidebar terminals (deployment
+   *  override). Wins over the settings `terminalShell` and every automatic
+   *  source; empty/unset follows the resolution chain (shell-resolver.ts). */
+  shell?: string
 }
 
 /** Schemastery schema for the plugin configuration. */
@@ -45,6 +49,9 @@ export const Config: z<SidebarConfig> = z.object({
   listLimit: z.number().step(1).min(1).default(1000),
   terminalsPerSession: z.number().step(1).min(1).default(3),
   reconnectGraceMs: z.number().step(1).min(0).default(30_000),
+  // schemastery object fields are optional by default; an absent `shell`
+  // stays undefined and the resolution chain falls through.
+  shell: z.string(),
 })
 
 /** Fully defaulted sidebar host settings. */
@@ -54,6 +61,8 @@ export interface ResolvedSidebarConfig {
   listLimit: number
   terminalsPerSession: number
   reconnectGraceMs: number
+  /** The explicit shell override, or undefined when unset. */
+  shell: string | undefined
 }
 
 /**
@@ -63,12 +72,14 @@ export interface ResolvedSidebarConfig {
  * @returns Complete settings consumed by the host half.
  */
 export function resolveSidebarConfig(config: SidebarConfig | undefined): ResolvedSidebarConfig {
+  const trimmedShell = config?.shell?.trim() ?? ''
   return {
     readLimit: config?.readLimit ?? 1024 * 1024,
     mediaLimit: config?.mediaLimit ?? 20 * 1024 * 1024,
     listLimit: config?.listLimit ?? 1000,
     terminalsPerSession: config?.terminalsPerSession ?? 3,
     reconnectGraceMs: config?.reconnectGraceMs ?? 30_000,
+    shell: trimmedShell === '' ? undefined : trimmedShell,
   }
 }
 
@@ -87,6 +98,7 @@ export const PrefsSchema: z<SidebarPrefs> = z.object({
   htmlViewerDefaultUnsafe: z.boolean().default(false),
   browserNoSandbox: z.boolean().default(false),
   browserInterceptLinks: z.boolean().default(true),
+  terminalShell: z.string().default(''),
   // Per-feature enable switches are OPEN maps (any tab/viewer id, built-in or
   // external): an absent key means enabled, so old documents resolve to {}
   // (everything on) with no migration. Non-boolean values fail validation.

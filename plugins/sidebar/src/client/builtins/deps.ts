@@ -7,6 +7,7 @@
 import type { DesktopPanels } from '../../../../panel-controls/src/client.ts'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
+import type { SidebarRuntimeSettingsService } from '../runtime-settings.ts'
 import type { ReviewCommentsService } from '../review/review-comments.ts'
 import type { WorkspaceToolsService } from '../workspace-tools.ts'
 import type {
@@ -19,6 +20,8 @@ export interface SidebarBuiltinDeps {
   openExternalPath(path: string): Promise<void>
   panels: DesktopPanels
   reviewComments: ReviewCommentsService
+  /** Live user preferences (the runtime settings service). */
+  runtimeSettings: SidebarRuntimeSettingsService
   service: WorkspaceToolsService
   sessions: SessionsService
   sidebar: DesktopSidebarService

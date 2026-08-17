@@ -43,6 +43,41 @@ function scopedStorageKey(base: string, scope: string | undefined): string {
   return scope === undefined ? base : `${base}:session:${encodeURIComponent(scope)}`
 }
 
+/** Whether any persisted dock state exists for a scope (fresh = no state
+ *  has ever been written, so the GLOBAL terminal font prefs may seed it).
+ *  Mirrors the `createDockStore` read chain (current key first, then the
+ *  legacy keys). */
+export function hasPersistedDockState(storage: Storage, scope?: string): boolean {
+  if (storage.getItem(scopedStorageKey(STORAGE_KEY, scope)) !== null) return true
+  for (const legacyKey of LEGACY_STORAGE_KEYS) {
+    if (storage.getItem(scopedStorageKey(legacyKey, scope)) !== null) return true
+  }
+  return false
+}
+
+/**
+ * The store actions a pair of GLOBAL terminal font prefs produces
+ * (`terminalFontFamily` / `terminalFontSize` from the sidebar settings
+ * page): an empty family means "follow the theme" (no override), and the
+ * size is clamped into the supported 9–32 range. Pure — the service
+ * dispatches the result, the unit tests cover the mapping without a store.
+ */
+export function terminalFontPrefActions(
+  family: string,
+  size: number,
+): TerminalPanelAction[] {
+  const actions: TerminalPanelAction[] = []
+  if (family.trim() !== '') {
+    actions.push({ type: 'set-font-family', fontFamily: family })
+  }
+  // The default size equals the dock default: applying it would be a
+  // redundant write that also clobbers a persisted per-dock font at mount.
+  if (Number.isFinite(size) && size !== DEFAULT_TERMINAL_FONT_SIZE) {
+    actions.push({ type: 'set-font-size', fontSize: clampFontSize(size) })
+  }
+  return actions
+}
+
 export function clampSize(size: number): number {
   return Math.min(MAX_PANEL_SIZE, Math.max(MIN_PANEL_SIZE, Math.round(size)))
 }

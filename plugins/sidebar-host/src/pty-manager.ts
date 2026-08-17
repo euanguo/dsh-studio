@@ -11,6 +11,7 @@ import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
 import * as nodePty from 'node-pty'
 import { SidebarError } from '../../shared/wire.ts'
+import { resolveShell, shellSpawnArgs, type ShellResolutionOptions } from './shell-resolver.ts'
 
 /** Per-terminal transcript bound (bytes kept for replay). */
 const TRANSCRIPT_LIMIT = 1 << 20
@@ -67,8 +68,15 @@ export class PtyManager {
   private readonly sessions = new Map<string, SidebarPty>()
   private readonly pendingCloses = new Map<string, ReturnType<typeof setTimeout>>()
 
+  /**
+   * @param getShell - resolves the shell AT SPAWN TIME (a thunk, not a fixed
+   *   value): a later terminalShell preference change takes effect for NEW
+   *   terminals while already-open processes keep their shell, matching the
+   *   upstream "new terminals only" contract.
+   * @param maxPerSession - concurrent process bound per conversation.
+   */
   constructor(
-    private readonly shell: string,
+    private readonly getShell: () => string,
     private readonly maxPerSession: number,
   ) {}
 
@@ -118,7 +126,7 @@ export class PtyManager {
       sessionId,
       tabId,
       cwd,
-      pty: nodePty.spawn(this.shell, [], {
+      pty: nodePty.spawn(this.getShell(), shellSpawnArgs(), {
         name: 'xterm-256color',
         cols: Math.max(2, Math.floor(cols)),
         rows: Math.max(2, Math.floor(rows)),
@@ -191,9 +199,14 @@ export class PtyManager {
   }
 }
 
-/** The interactive shell for this platform (empty SHELL falls back). */
-export function defaultShell(): string {
-  if (process.platform === 'win32') return 'powershell.exe'
-  const shell = process.env.SHELL
-  return shell !== undefined && shell.trim() !== '' ? shell : '/bin/bash'
+/**
+ * The interactive shell for this platform — compatibility wrapper over
+ * {@link resolveShell} for callers that do not need injectable options
+ * (the plugin body resolves through the settings-aware thunk instead).
+ * Chain: deployment `shell` config → settings `terminalShell` →
+ * `DSH_SIDEBAR_SHELL` → Windows pwsh probe / POSIX login-shell chain →
+ * platform fallback. See shell-resolver.ts for the full contract.
+ */
+export function defaultShell(options?: ShellResolutionOptions): string {
+  return resolveShell(options)
 }

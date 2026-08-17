@@ -72,6 +72,252 @@
 .oh-dsh-side-tabs::-webkit-scrollbar { display: none; }
 .oh-dsh-side-tabs .oh-dsh-surface-tab { max-width: 140px; }
 
+/* Tab drag layout: drop markers on the right-rail strip and the bottom
+   workbench chips (before/after insertion guides). */
+.oh-dsh-surface-tab.is-drop-before::before,
+.oh-dsh-surface-tab.is-drop-after::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--oh-dsh-accent, var(--dsw-alias-brand-primary-new-colorprimary-new-color, #0969da));
+}
+.oh-dsh-surface-tab.is-drop-before { position: relative; }
+.oh-dsh-surface-tab.is-drop-before::before { left: -3px; }
+.oh-dsh-surface-tab.is-drop-after { position: relative; }
+.oh-dsh-surface-tab.is-drop-after::after { right: -3px; }
+.oh-dsh-surface-tab[draggable='true'] { cursor: grab; }
+.oh-dsh-surface-tab[draggable='true']:active { cursor: grabbing; }
+
+/* The bottom workbench: the second pane above the terminal dock. A slim
+   hint row while empty (still a drop target), the tab strip + the active
+   tab's content when docked. Token colors only; the strip chrome matches
+   the right rail. */
+.oh-dsh-bottom-workbench {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 96%, transparent);
+  box-sizing: border-box;
+  flex: none;
+}
+.oh-dsh-bottom-workbench.is-empty {
+  align-items: center;
+  justify-content: center;
+  min-height: 26px;
+  padding: 0 var(--oh-dsh-space-2);
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+  cursor: default;
+}
+.oh-dsh-bottom-workbench.is-empty[data-dragging='true'] {
+  background: color-mix(in srgb, var(--oh-dsh-accent, #0969da) 8%, transparent);
+}
+.oh-dsh-bottom-workbench-strip {
+  flex: none;
+  min-height: 28px;
+  padding: var(--oh-dsh-space-0-5) var(--oh-dsh-space-1);
+  box-sizing: border-box;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+.oh-dsh-bottom-workbench-strip::-webkit-scrollbar { display: none; }
+.oh-dsh-bottom-workbench-body {
+  flex: none;
+  max-height: 320px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.oh-dsh-bottom-workbench-body > * {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Subagent panel: the topology tree + the background-jobs list. Token
+   colors only; status colors follow the diff-family state aliases. */
+.oh-dsh-subagent-panel {
+  padding: var(--oh-dsh-space-2);
+  overflow-y: auto;
+}
+.oh-dsh-subagent-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--oh-dsh-space-2);
+  margin: var(--oh-dsh-space-2) 0 var(--oh-dsh-space-1);
+}
+.oh-dsh-subagent-head strong {
+  font-size: var(--oh-dsh-font-md);
+}
+.oh-dsh-subagent-head button {
+  padding: 2px var(--oh-dsh-space-2);
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-sm);
+  cursor: pointer;
+}
+.oh-dsh-subagent-tree,
+.oh-dsh-subagent-jobs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.oh-dsh-subagent-tree .oh-dsh-subagent-tree {
+  margin-left: var(--oh-dsh-space-3);
+  border-left: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  padding-left: var(--oh-dsh-space-1);
+}
+.oh-dsh-subagent-node {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1-5);
+  min-height: 30px;
+}
+.oh-dsh-subagent-node-row {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1-5);
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.oh-dsh-subagent-node-row:hover strong {
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+.oh-dsh-subagent-node-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dsw-alias-label-tertiary, #8c959f);
+}
+.oh-dsh-subagent-node-dot[data-running='true'] {
+  background: var(--dsw-alias-state-success-primary, #2da44e);
+}
+.oh-dsh-subagent-node[data-activity='running'] .oh-dsh-subagent-node-dot {
+  background: var(--dsw-alias-state-success-primary, #2da44e);
+}
+.oh-dsh-subagent-node-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.oh-dsh-subagent-node-main strong {
+  overflow: hidden;
+  font-size: var(--oh-dsh-font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-dsh-subagent-node-main code {
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-dsh-subagent-node-mode {
+  flex: none;
+  margin-left: auto;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+}
+.oh-dsh-subagent-node-current {
+  flex: none;
+  margin-left: auto;
+  padding: 1px var(--oh-dsh-space-1);
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-xs);
+}
+.oh-dsh-subagent-node.is-diagnostic {
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+}
+.oh-dsh-subagent-job {
+  display: flex;
+  flex-direction: column;
+  gap: var(--oh-dsh-space-1);
+  padding: var(--oh-dsh-space-1-5) 0;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 6%));
+}
+.oh-dsh-subagent-job-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.oh-dsh-subagent-job-label {
+  overflow: hidden;
+  font-size: var(--oh-dsh-font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-dsh-subagent-job-main code,
+.oh-dsh-subagent-job-main small {
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--oh-dsh-font-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-dsh-subagent-job-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-1);
+}
+.oh-dsh-subagent-job-status {
+  flex: none;
+  padding: 1px var(--oh-dsh-space-1);
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-xs);
+  text-transform: capitalize;
+}
+.oh-dsh-subagent-job[data-status='failed'] .oh-dsh-subagent-job-status {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 12%, transparent);
+  color: var(--dsw-alias-state-error-primary, #cf222e);
+}
+.oh-dsh-subagent-job-actions button {
+  padding: 2px var(--oh-dsh-space-2);
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-xs);
+  cursor: pointer;
+}
+.oh-dsh-subagent-job-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.oh-dsh-subagent-job-output {
+  margin: 0;
+  max-height: 160px;
+  overflow: auto;
+  padding: var(--oh-dsh-space-1-5);
+  box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 90%, transparent);
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font: var(--oh-dsh-font-sm)/1.5 var(--oh-dsh-font-mono);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* Flush-right window controls in the top row — plain icon buttons, no
    floating styling. */
 .oh-dsh-side-tabs-actions {
@@ -252,6 +498,73 @@
 .oh-dsh-file-preview pre { margin: 0; font: var(--oh-dsh-font-sm)/1.55 var(--oh-dsh-font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .oh-dsh-html-preview { display: flex; flex-direction: column; }
 .oh-dsh-html-preview iframe { flex: 1; min-height: 280px; border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%)); border-radius: var(--oh-dsh-radius-md); background: #fff; }
+
+/* HTML preview unsandboxed escape hatch: the unlock/restore button in the
+   toolbar and the red warning row (tokens only; the diff family uses the
+   same state-error aliases). */
+.oh-dsh-html-toolbar button {
+  flex: none;
+  padding: 2px var(--oh-dsh-space-2);
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-sm);
+  cursor: pointer;
+}
+.oh-dsh-html-toolbar button:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 8%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+.oh-dsh-html-warning {
+  margin: 0 0 var(--oh-dsh-space-2) 0;
+  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-2);
+  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 40%, transparent);
+  border-radius: var(--oh-dsh-radius-sm);
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 10%, transparent);
+  color: var(--dsw-alias-state-error-primary, #cf222e);
+  font-size: var(--oh-dsh-font-sm);
+  line-height: 1.45;
+}
+
+/* Selection → "add to conversation" popup: floats over the viewer at the
+   caret, elevated surface + border tokens. z-index stays inside the panel
+   stacking context (P3-9a consolidates the panel stack). */
+.oh-dsh-selection-insert {
+  position: fixed;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: var(--oh-dsh-space-2);
+  max-width: 320px;
+  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
+  box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-md);
+  background: var(--dsw-alias-bg-layer-1, #ffffff);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 14%);
+  font-size: var(--oh-dsh-font-sm);
+  user-select: none;
+}
+.oh-dsh-selection-insert-meta {
+  overflow: hidden;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.oh-dsh-selection-insert button {
+  flex: none;
+  padding: 3px var(--oh-dsh-space-2);
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+  font-size: var(--oh-dsh-font-sm);
+  cursor: pointer;
+}
+.oh-dsh-selection-insert button:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 9%));
+}
 .oh-dsh-side-empty,
 .oh-dsh-side-muted { padding: 18px; color: var(--dsw-alias-label-tertiary, #8c959f); font-size: var(--oh-dsh-font-sm); }
 

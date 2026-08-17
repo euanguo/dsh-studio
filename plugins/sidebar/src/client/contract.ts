@@ -62,6 +62,11 @@ export interface SidebarTabSeed {
 /** The snapshot the service publishes (geometry + open tabs + prefs). */
 export interface SidebarSnapshot {
   activeId: string | null
+  /** The active tab of the BOTTOM workbench (the second pane above the
+   *  terminal dock); null when nothing is docked/active there. */
+  bottomActiveId: string | null
+  /** Tabs docked into the bottom workbench, in dock order. */
+  bottomTabs: readonly SidebarTab[]
   error: string | null
   maximized: boolean
   open: boolean
@@ -78,6 +83,18 @@ export interface SidebarSnapshot {
   /** Plugin-owned settings blobs keyed by descriptor id. */
   pluginSettings: Readonly<Record<string, Record<string, unknown>>>
   width: number
+}
+
+/**
+ * The HTML5 drag payload of one open tab moving between the right rail and
+ * the bottom workbench (`application/x-oh-dsh-tab` dataTransfer slot).
+ */
+export interface SidebarTabDragPayload {
+  kind: 'sidebar-tab'
+  /** The open tab's id (unique per session). */
+  tabId: string
+  /** Which pane the drag started from. */
+  source: 'side' | 'bottom'
 }
 
 /** The outcome of one `openTab` call. */
@@ -320,7 +337,8 @@ export interface DesktopSidebarService {
    * Open a tab (+ menu and external triggers both use it). `scope` targets
    * a specific session: the open lands in THAT session's state without
    * switching the UI's active session; absent, the open lands in the
-   * currently active session. A disabled tab type is a no-op.
+   * currently active session. A disabled tab type is a no-op. A dedupe hit
+   * in the BOTTOM workbench focuses the docked tab there.
    */
   openTab(seed: SidebarTabSeed, scope?: SidebarScope): OpenTabResult
   /** Close a tab by id (fires descriptor.onClose). Unknown ids are a no-op. */
@@ -331,6 +349,25 @@ export interface DesktopSidebarService {
   updateTab(tabId: string, patch: { resource?: string; title?: string; meta?: unknown }): void
   /** Open a file in the sidebar of `scope`'s session (title defaults to the file name). */
   openFile(scope: SidebarScope, path: string, title?: string): void
+
+  /* ── bottom workbench + tab drag layout (Oh-DSH extension) ─── */
+  /** Reorder one right-rail tab to `toIndex` (index in the full tab list;
+   *  the panel maps its visible-strip position through the pinned tabs).
+   *  A no-op for unknown ids / out-of-range indexes. */
+  moveTab(tabId: string, toIndex: number): void
+  /** Dock a right-rail tab into the bottom workbench at `toIndex` (default
+   *  append). The moved tab becomes the bottom workbench's active tab; the
+   *  rail activates the moved tab's neighbor when it was active. */
+  moveTabToBottom(tabId: string, toIndex?: number): void
+  /** Undock a bottom-workbench tab back into the right rail at `toIndex`
+   *  (default append). The moved tab becomes the rail's active tab. */
+  moveBottomTabToSide(bottomTabId: string, toIndex?: number): void
+  /** Reorder one bottom-workbench tab to `toIndex` (workbench order). */
+  moveBottomTab(bottomTabId: string, toIndex: number): void
+  /** Activate one bottom-workbench tab (null clears the pane). */
+  activateBottomTab(bottomTabId: string | null): void
+  /** Close one bottom-workbench tab (fires descriptor.onClose). */
+  closeBottomTab(bottomTabId: string): void
 
   /* ── state ────────────────────────────────────────────────── */
   getSnapshot(): SidebarSnapshot
@@ -375,6 +412,9 @@ export const SIDEBAR_SERVICE_VERSION = '0.1.2'
  * - 'pluginSettings': SidebarSettingsDeclaration.pluginToggles/render
  * - 'urlTarget': SidebarTabDescriptor.urlTarget (external-link claims)
  * - 'surfaceRenderer': registerSurfaceRenderer (Oh-DSH extension)
+ * - 'bottomWorkbench': bottom workbench + tab drag layout (moveTab /
+ *   moveTabToBottom / moveBottomTabToSide / moveBottomTab /
+ *   activateBottomTab / closeBottomTab + snapshot bottomTabs/bottomActiveId)
  */
 export const SIDEBAR_FEATURES = [
   'badge',
@@ -387,6 +427,7 @@ export const SIDEBAR_FEATURES = [
   'pluginSettings',
   'urlTarget',
   'surfaceRenderer',
+  'bottomWorkbench',
 ] as const
 
 export type SidebarFeature = typeof SIDEBAR_FEATURES[number]

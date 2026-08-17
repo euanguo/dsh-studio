@@ -26,6 +26,8 @@ import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
 import { MarkdownViewer } from './markdown-viewer.tsx'
 import { IpynbViewer } from './ipynb-viewer.tsx'
 import { MermaidViewer } from './mermaid-viewer.tsx'
+import { SelectionInsertPopup } from './selection-insert-popup.tsx'
+import type { ReviewCommentsService } from '../review/review-comments.ts'
 import type { DiffComment } from '../diff/diff-comments-store.ts'
 
 type ContentKind = 'text' | 'csv' | 'markdown' | 'html' | 'image' | 'pdf' | 'ipynb' | 'mermaid' | 'binary'
@@ -94,6 +96,11 @@ export interface ContentViewerProps {
   markdownPreview?: boolean
   /** Line comments shown as annotation rows in Pierre code views. */
   comments?: readonly DiffComment[]
+  /** Session cwd (relative "add to conversation" payloads). */
+  cwd?: string
+  /** When given, text/markdown selections offer an "add to conversation"
+   *  popup appended into the composer through this service. */
+  reviewComments?: ReviewCommentsService
   onTaskToggle?(input: { sourceLine: number; checked: boolean }): void
   onOpenExternal?(): void
   onShowInFolder?(): void
@@ -109,6 +116,8 @@ export function ContentViewer({
   data,
   markdownPreview = true,
   comments,
+  cwd,
+  reviewComments,
   onTaskToggle,
   onOpenExternal,
   onShowInFolder,
@@ -116,6 +125,21 @@ export function ContentViewer({
 }: ContentViewerProps): JSX.Element {
   const kind = detectKind(path, binary)
   const name = basename(path)
+  // The selection-insert popup host: the markdown preview (its scroll host)
+  // and the Pierre code/plain rows share ONE ref — only one branch renders
+  // at a time. Rendered inline so its document listeners reset when the
+  // opened file changes.
+  const textRootRef = useRef<HTMLDivElement | null>(null)
+  const selectionInsert = reviewComments === undefined || content === null ? null : (
+    <SelectionInsertPopup
+      containerRef={textRootRef}
+      path={path}
+      cwd={cwd}
+      content={content}
+      onAddSelection={text => reviewComments.appendToComposer(text)}
+      t={t}
+    />
+  )
 
   // Heavy per-content derivations, computed once per content change instead
   // of once per render (rail resizes / tab switches re-render this view).
@@ -215,11 +239,15 @@ export function ContentViewer({
   if (kind === 'markdown') {
     if (markdownPreview) {
       return (
-        <MarkdownViewer
-          content={content}
-          taskTogglesEnabled={!truncated}
-          {...(onTaskToggle === undefined ? {} : { onTaskToggle })}
-        />
+        <>
+          <MarkdownViewer
+            containerRef={textRootRef}
+            content={content}
+            taskTogglesEnabled={!truncated}
+            {...(onTaskToggle === undefined ? {} : { onTaskToggle })}
+          />
+          {selectionInsert}
+        </>
       )
     }
     const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
@@ -263,7 +291,7 @@ export function ContentViewer({
   const language = languageForPath(path)
   const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
   return (
-    <div className="oh-dsh-content-root oh-dsh-content-root-fill">
+    <div ref={textRootRef} className="oh-dsh-content-root oh-dsh-content-root-fill">
       <div className="oh-dsh-content-meta">
         <span>{name}</span>
         <span>{isPlainLanguage(language) ? `${lineCount} lines` : `${language} · ${lineCount} lines`}</span>
@@ -277,6 +305,7 @@ export function ContentViewer({
         cacheKey={path}
         {...(comments === undefined ? {} : { comments })}
       />
+      {selectionInsert}
     </div>
   )
 }

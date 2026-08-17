@@ -33,7 +33,8 @@ import { isTrustedApiRequest, isLoopbackHostname } from './trust-fence.ts'
 import { registerBundleRoute } from './bundle-route.ts'
 import { buildSidebarRoutes, sessionCwdOf, type SidebarSettingsFace } from './routes.ts'
 import { settingsNamespace, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
-import { defaultShell, ensureSpawnHelper, PtyManager } from './pty-manager.ts'
+import { ensureSpawnHelper, PtyManager } from './pty-manager.ts'
+import { resolveShell } from './shell-resolver.ts'
 import { AgentPtyRegistry, clampDims, type AgentTerminalHandle } from './agent-pty.ts'
 import { registerTools } from './tools.ts'
 import {
@@ -114,13 +115,23 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   const resolved = resolveSidebarConfig(config)
   const trustedHosts = trustedHostsOf(ctx)
   const fence = (req: IncomingMessage): boolean => isTrustedApiRequest(req, trustedHosts)
-  const ptyManager = new PtyManager(defaultShell(), resolved.terminalsPerSession)
+  // The terminal shell is resolved AT SPAWN TIME through the shared chain
+  // (deployment config → settings `terminalShell` → env/probe/login chains),
+  // so a settings change takes effect for NEW terminals while already-open
+  // processes keep their shell. Both registries share the same thunk — the
+  // model-facing terminal tools and the UI tabs always run the same shell.
+  let settingsShell: string | undefined
+  const getShell = (): string => resolveShell({
+    ...(resolved.shell === undefined ? {} : { explicit: resolved.shell }),
+    ...(settingsShell === undefined ? {} : { configured: settingsShell }),
+  })
+  const ptyManager = new PtyManager(getShell, resolved.terminalsPerSession)
   // The agent-owned terminal registry: parallel to the UI-tab ptyManager,
   // keyed by uuid (the model's opaque handle) instead of `${sessionId}:${tabId}`,
   // uncapped, and torn down with the plugin. The model creates terminals here
   // through the terminal_create tool; the sidebar view attaches through the
   // same /sidebar/ws/terminal upgrade with ?uuid=... instead of ?tab=...
-  const agentPtyRegistry = new AgentPtyRegistry(defaultShell())
+  const agentPtyRegistry = new AgentPtyRegistry(getShell)
 
   // ── User-facing "Side card" preferences ──────────────────────────────────
   // Register the namespace with the settings provider so the Settings page
@@ -173,9 +184,14 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
       },
     }
     // Register (or unregister) the terminal tools from the current setting,
-    // and keep them in sync with every settings commit.
+    // and keep them in sync with every settings commit. The terminalShell
+    // preference feeds the shared shell resolver live.
+    settingsShell = scope.get().terminalShell
     syncToolsGate(scope)
-    scope.watch(() => { syncToolsGate(scope) })
+    scope.watch((next) => {
+      settingsShell = next.terminalShell
+      syncToolsGate(scope)
+    })
   })
 
   // ── JSON API ────────────────────────────────────────────────────────────

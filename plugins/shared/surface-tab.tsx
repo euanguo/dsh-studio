@@ -4,9 +4,16 @@
  * Ported from the reference project's `components/ui/surface-tab.tsx`.
  * Preview tabs render italic titles and can be pinned via double-click.
  */
-import type { KeyboardEvent, MouseEvent, PointerEvent, ReactNode } from 'react'
-import { useRef } from 'react'
+import type {
+  DragEvent as ReactDragEvent,
+  KeyboardEvent,
+  MouseEvent,
+  PointerEvent,
+  ReactNode,
+} from 'react'
+import { useEffect, useRef } from 'react'
 import { IconClose } from './tabler-icons.tsx'
+import { bindTabStripWheel } from './tab-strip-wheel.ts'
 
 const SURFACE_TAB_ACTION_SELECTOR = '[data-surface-tab-action]'
 
@@ -28,6 +35,13 @@ export type SurfaceTabProps = Readonly<{
   onClose?: () => void
   onPin?: () => void
   className?: string
+  /* HTML5 drag support (the right rail / bottom workbench reordering and
+     cross-pane moves). The center strip passes none of these. */
+  draggable?: boolean
+  onDragStart?: (event: ReactDragEvent<HTMLDivElement>) => void
+  onDragOver?: (event: ReactDragEvent<HTMLDivElement>) => void
+  onDrop?: (event: ReactDragEvent<HTMLDivElement>) => void
+  onDragEnd?: (event: ReactDragEvent<HTMLDivElement>) => void
 }>
 
 export function SurfaceTab({
@@ -42,6 +56,11 @@ export function SurfaceTab({
   onClose,
   onPin,
   className,
+  draggable = false,
+  onDragStart,
+  onDragOver,
+  onDrop,
+  onDragEnd,
 }: SurfaceTabProps): JSX.Element {
   const selectedOnPointerDownRef = useRef(false)
   const canClose = onClose !== undefined
@@ -109,11 +128,16 @@ export function SurfaceTab({
       data-state={active ? 'active' : 'idle'}
       data-preview={isPreview || undefined}
       aria-selected={onSelect !== undefined ? active : undefined}
+      draggable={draggable || undefined}
       className={`oh-dsh-surface-tab${active ? ' is-active' : ''}${className === undefined ? '' : ` ${className}`}`}
       onPointerDown={handlePointerDown}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragEnd={onDragEnd}
     >
       {icon !== undefined && icon !== null ? (
         <span className="oh-dsh-surface-tab-icon" aria-hidden="true">{icon}</span>
@@ -141,8 +165,15 @@ export function SurfaceTabStrip({
   className,
   'aria-label': ariaLabel,
 }: SurfaceTabStripProps): JSX.Element {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = ref.current
+    if (el === null) return
+    return bindTabStripWheel(el)
+  }, [])
   return (
     <div
+      ref={ref}
       role="tablist"
       aria-label={ariaLabel}
       data-slot="surface-tab-strip"

@@ -159,6 +159,8 @@ export interface SidebarApiRequests {
   'settings.get': Record<string, never>
   'settings.update': { patch: Record<string, unknown>; expectedRevision?: number }
   'browser.probe': { url: string }
+  'jobs.output': { id: string }
+  'jobs.kill': { id: string; reason?: string }
 }
 
 export type SidebarApiMethod = keyof SidebarApiRequests

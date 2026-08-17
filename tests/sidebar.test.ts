@@ -57,6 +57,10 @@ test('desktop sidebar validates the durable preference envelope', () => {
         activeId: 'file:a',
         lastUsed: 42,
         tabs: [{ id: 'file:a', type: 'file', title: 'a', resource: '/a' }],
+        // The bottom workbench is additive: the canonical parsed shape
+        // carries the defaults (legacy documents migrate to them).
+        bottomTabs: [],
+        bottomActiveId: null,
       },
     },
     tabsEnabled: { browser: false },

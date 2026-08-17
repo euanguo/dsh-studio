@@ -91,6 +91,12 @@ type ScopeKey = string | null
 
 interface ComposerBridge {
   addComment(text: string, id: string, branch: string): InjectionResult
+  /**
+   * Append raw text into the ACTIVE composer draft (the selection →
+   * "add to conversation" channel). Returns 'unavailable' when no active
+   * conversation input is reachable.
+   */
+  appendText(text: string): InjectionResult
   dispose(): void
   removeComment(id: string): void
   setScope(branch: string | null): void
@@ -377,6 +383,13 @@ function createComposerBridge(
       comments.set(id, text)
       return reconcile()
     },
+    appendText(text) {
+      const value = current()
+      if (value === null) return 'unavailable'
+      const state = value.input.state.getSnapshot()
+      value.input.setDraft(state.draft === '' ? text : `${state.draft}\n\n${text}`)
+      return 'inserted'
+    },
     removeComment(id) {
       let removed = comments.delete(id)
       for (const scoped of commentsByScope.values()) removed = scoped.delete(id) || removed
@@ -428,6 +441,15 @@ export class ReviewCommentsService {
   subscribe = (listener: () => void): (() => void) => {
     this.listeners.add(listener)
     return () => { this.listeners.delete(listener) }
+  }
+
+  /**
+   * Append raw text into the ACTIVE composer draft (the selection →
+   * "add to conversation" channel). Returns 'unavailable' when the current
+   * session has no reachable composer input.
+   */
+  appendToComposer(text: string): 'inserted' | 'unavailable' {
+    return this.bridge.appendText(text)
   }
 
   activate(sessionId: string | null, workspacePath: string, branch: string): void {

@@ -5,7 +5,13 @@ import terminalCss from './terminal.css'
 import themeCss from '../../../shared/theme.css'
 import { TerminalPanel, openOrToggleTerminal } from './TerminalPanel.tsx'
 import { createMountScheduler, mutationNeedsMount } from './mount-utils.ts'
-import { createDockStore, type DockStore } from './panel-store.ts'
+import {
+  DEFAULT_TERMINAL_FONT_SIZE,
+  createDockStore,
+  hasPersistedDockState,
+  terminalFontPrefActions,
+  type DockStore,
+} from './panel-store.ts'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { TERMINAL_MESSAGES, type TerminalMessage } from './i18n.ts'
 
@@ -69,6 +75,14 @@ export interface DesktopPanels {
   isBottomPanelOpen(): boolean
   releaseRightPanel(ownerId: string): void
   setAutoOpenTerminal(enabled: boolean): void
+  /**
+   * Apply the GLOBAL terminal font preferences (from the sidebar settings
+   * page): an empty family keeps the dock's own font, a size within the
+   * 9–32 range applies live to the active dock; brand-new docks (no
+   * persisted per-session font) are seeded with them. Existing docks keep
+   * their per-session font until the user changes one of these prefs.
+   */
+  setTerminalFontPreferences(family: string, size: number): void
   subscribe(listener: () => void): () => void
   toggleBottomPanel(): void
   toggleSidebar(): void
@@ -104,6 +118,12 @@ class DesktopPanelService implements DesktopPanels {
   private stopActiveStoreSubscription: (() => void) | undefined
   private scheduler: ReturnType<typeof createMountScheduler> | undefined
   private autoOpenTerminal = true
+  private terminalFontFamily = ''
+  private terminalFontSize = DEFAULT_TERMINAL_FONT_SIZE
+  /** Startup sync (the very first `setTerminalFontPreferences`) only seeds
+   *  FRESH docks; live application to the active dock starts after it, so a
+   *  persisted per-dock font is never clobbered at mount. */
+  private fontsInitialized = false
 
   constructor(
     layout: LayoutService,
@@ -206,6 +226,28 @@ class DesktopPanelService implements DesktopPanels {
     this.autoOpenTerminal = enabled
   }
 
+  setTerminalFontPreferences(family: string, size: number): void {
+    this.terminalFontFamily = family
+    this.terminalFontSize = size
+    if (this.active === undefined) return
+    if (!this.fontsInitialized) {
+      // Startup read: fresh docks are seeded in surfaceFor; the active —
+      // possibly persisted — dock keeps its font.
+      this.fontsInitialized = true
+      return
+    }
+    this.applyTerminalFontTo(this.active.store)
+  }
+
+  /** Apply the stored GLOBAL font prefs to one dock store (idempotent:
+   *  default values produce no actions, so persisted per-dock fonts are
+   *  never clobbered at startup). */
+  private applyTerminalFontTo(store: DockStore): void {
+    for (const action of terminalFontPrefActions(this.terminalFontFamily, this.terminalFontSize)) {
+      store.dispatch(action)
+    }
+  }
+
   toggleBottomPanel(): void {
     if (this.active === undefined) this.syncActiveSession()
     if (this.active === undefined) return
@@ -227,10 +269,17 @@ class DesktopPanelService implements DesktopPanels {
       existing.cwd = cwd
       return existing
     }
+    const store = createDockStore(window.localStorage, scopeKey)
+    // A brand-new session dock (no persisted per-session font) is seeded
+    // with the global terminal font preferences; a dock that already has a
+    // persisted font keeps it.
+    if (!hasPersistedDockState(window.localStorage, scopeKey)) {
+      this.applyTerminalFontTo(store)
+    }
     const surface = {
       scopeKey,
       cwd,
-      store: createDockStore(window.localStorage, scopeKey),
+      store,
     }
     this.surfaces.set(scopeKey, surface)
     return surface

@@ -5,16 +5,82 @@ import {
 
 export interface SidebarRuntimePreferences {
   agentTerminalTools: boolean
+  /**
+   * Whether the sidebar auto-activates (opens the panel) and expands the
+   * subagent page when the current conversation spawns a new subagent.
+   */
+  autoOpenSubagent: boolean
+  /**
+   * Whether the sidebar auto-activates (opens the panel) and expands the
+   * Jobs page when a NEW background job appears for the current
+   * conversation (any new job id, not just the first one).
+   */
+  autoOpenJobs: boolean
   bottomPanelAutoTerminal: boolean
   browserInterceptLinks: boolean
+  /**
+   * Whether plain http EXTERNAL link clicks open in the sidebar browser
+   * instead of the system browser. On by default; gated on the
+   * `browserInterceptLinks` master and the target tab's enable switch.
+   */
+  browserInterceptHttp: boolean
+  /**
+   * Whether plain https EXTERNAL link clicks open in the sidebar browser
+   * instead of the system browser. OFF by default — most https sites
+   * refuse iframe embedding, so the system browser is the smoother default.
+   */
+  browserInterceptHttps: boolean
+  /**
+   * Whether the HTML previewer drops its sandboxed iframe. Sandbox ON (the
+   * default) renders previewed HTML in an opaque-origin iframe that cannot
+   * touch the GUI; turning it OFF runs the previewed page with the GUI's
+   * own origin — full read/write access to session files and internal
+   * APIs. Only for trusted local content; the setting copy warns.
+   */
+  htmlViewerNoSandbox: boolean
+  /**
+   * Whether a newly opened HTML preview starts UNSANDBOXED (the per-surface
+   * temporary unlock pre-applied). Off by default: previews open sandboxed
+   * and the status row offers the one-tap unlock; when on, previews open
+   * in the red unsandboxed state and the status row offers a one-tap
+   * restore for the current file.
+   */
+  htmlViewerDefaultUnsafe: boolean
+  /**
+   * Custom terminal font-family stack (a CSS font-family value, e.g.
+   * `'JetBrains Mono', monospace`). Empty string follows the dock's theme
+   * font. Applied live to the active terminal dock.
+   */
+  terminalFontFamily: string
+  /**
+   * Custom terminal font size in px (9–32, clamped). Applied live to the
+   * active terminal dock.
+   */
+  terminalFontSize: number
+  /**
+   * Explicit shell executable for the sidebar terminals (UI tabs + agent
+   * tools). Empty follows the resolution chain (deployment `shell` config →
+   * this setting → `DSH_SIDEBAR_SHELL` → platform probe/login-chain →
+   * fallback); takes effect for NEW terminals.
+   */
+  terminalShell: string
   interceptOpenPath: boolean
 }
 
 export const DEFAULT_SIDEBAR_RUNTIME_PREFERENCES:
 Readonly<SidebarRuntimePreferences> = Object.freeze({
   agentTerminalTools: false,
+  autoOpenSubagent: true,
+  autoOpenJobs: true,
   bottomPanelAutoTerminal: true,
   browserInterceptLinks: true,
+  browserInterceptHttp: true,
+  browserInterceptHttps: false,
+  htmlViewerNoSandbox: false,
+  htmlViewerDefaultUnsafe: false,
+  terminalFontFamily: '',
+  terminalFontSize: 13,
+  terminalShell: '',
   interceptOpenPath: true,
 })
 
@@ -43,6 +109,12 @@ export function parseSidebarRuntimePreferences(
     agentTerminalTools: typeof record.agentTerminalTools === 'boolean'
       ? record.agentTerminalTools
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.agentTerminalTools,
+    autoOpenSubagent: typeof record.autoOpenSubagent === 'boolean'
+      ? record.autoOpenSubagent
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.autoOpenSubagent,
+    autoOpenJobs: typeof record.autoOpenJobs === 'boolean'
+      ? record.autoOpenJobs
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.autoOpenJobs,
     bottomPanelAutoTerminal:
       typeof record.bottomPanelAutoTerminal === 'boolean'
         ? record.bottomPanelAutoTerminal
@@ -50,6 +122,27 @@ export function parseSidebarRuntimePreferences(
     browserInterceptLinks: typeof record.browserInterceptLinks === 'boolean'
       ? record.browserInterceptLinks
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptLinks,
+    browserInterceptHttp: typeof record.browserInterceptHttp === 'boolean'
+      ? record.browserInterceptHttp
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttp,
+    browserInterceptHttps: typeof record.browserInterceptHttps === 'boolean'
+      ? record.browserInterceptHttps
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttps,
+    htmlViewerNoSandbox: typeof record.htmlViewerNoSandbox === 'boolean'
+      ? record.htmlViewerNoSandbox
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.htmlViewerNoSandbox,
+    htmlViewerDefaultUnsafe: typeof record.htmlViewerDefaultUnsafe === 'boolean'
+      ? record.htmlViewerDefaultUnsafe
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.htmlViewerDefaultUnsafe,
+    terminalFontFamily: typeof record.terminalFontFamily === 'string'
+      ? record.terminalFontFamily
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalFontFamily,
+    terminalFontSize: typeof record.terminalFontSize === 'number'
+      ? record.terminalFontSize
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalFontSize,
+    terminalShell: typeof record.terminalShell === 'string'
+      ? record.terminalShell
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalShell,
     interceptOpenPath: typeof record.interceptOpenPath === 'boolean'
       ? record.interceptOpenPath
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.interceptOpenPath,

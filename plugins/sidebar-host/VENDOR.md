@@ -36,6 +36,28 @@ recorded here so upstream upgrades can be re-applied:
   upgraded to `statusV2` + per-entry `numstat` stats; added `cwdScopeOf`
   and `git.worktree-list` / `git.worktree-add` (bare-cwd scope, no session).
 - `jobs-routes.ts` — optional `text` returned conditionally (strict-mode).
+- `pty-manager.ts` — `defaultShell()` upgraded to the full resolution chain
+  (`resolveShell`, extracted into the NEW `shell-resolver.ts` below): the
+  injectable priority is deployment `shell` config → settings
+  `terminalShell` → `DSH_SIDEBAR_SHELL` → Windows pwsh.exe probe (PATH +
+  known install dirs, ProgramW6432 preferred) / POSIX login-shell passwd
+  chain → platform fallback; every value trimmed. `PtyManager` now takes a
+  shell THUNK resolved at spawn time (settings changes affect NEW terminals
+  only) and spawns POSIX shells as login shells (`-l`, upstream `76fa7df`
+  behavior).
+- `shell-resolver.ts` — **new (fork)**: the pure, injectable shell
+  resolver (`resolveShell` / `windowsPwshCandidateDirs` /
+  `shellSpawnArgs`), kept free of node-pty so the Windows chain is
+  unit-testable on POSIX runners (`tests/shell-resolution.test.ts`).
+- `agent-pty.ts` — constructor takes the same shell thunk (resolved at
+  create time) and spawns with `shellSpawnArgs()`; UI terminals and the
+  agent `terminal_*` tools always share the same shell.
+- `config.ts` — `SidebarConfig.shell` (deployment override, top priority)
+  + `PrefsSchema.terminalShell` (user setting); both feed the resolver
+  through `index.ts`.
+- `index.ts` — the terminal shell is resolved AT SPAWN TIME through the
+  shared chain (settings `terminalShell` read live from the prefs watch);
+  no behavioral drift between UI terminals and agent terminals.
 - `client/api.ts` — fetch init assembled without an optional `signal`
   spread (strict-mode overload compatibility).
 - `vendor.d.ts` — structural type shims for runtime-provided externals
