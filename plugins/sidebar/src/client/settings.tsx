@@ -12,14 +12,12 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useSyncExternalStore } from 'react'
 import {
   Button,
-  IconCheckOutline16,
-  IconSettingsOutline16,
   Input,
   Modal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconAdjustments } from '@oh-dsh/shared/tabler-icons'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from './i18n.ts'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
 import type {
   BoundSidebarSettingsActions,
   SidebarSettingsProps,
@@ -40,15 +38,6 @@ import { ErrorView } from './kit/status.tsx'
 
 export function sidebarLabel(value: string | (() => string)): string {
   return typeof value === 'function' ? value() : value
-}
-
-/** Resolve a descriptor icon (ReactNode or size function). */
-function descriptorIcon(
-  icon: ReactNode | ((size: number) => ReactNode) | undefined,
-  size: number,
-): ReactNode {
-  if (icon === undefined) return null
-  return typeof icon === 'function' ? icon(size) : icon
 }
 
 /** The host prefs fields `settings.toggles` may bind (unknown keys are
@@ -73,14 +62,14 @@ function SwitchRow(props: {
   onChange(checked: boolean): void
 }): JSX.Element {
   return (
-    <label className="oh-dsh-sidebar-settings-row">
-      <span>
+    <label className="oh-dsh-sidebar-settings-row" title={props.desc}>
+      <span className="oh-dsh-sidebar-settings-copy">
         <strong>{props.title}</strong>
-        {props.desc !== undefined && <small>{props.desc}</small>}
       </span>
       <input
         type="checkbox"
         checked={props.checked}
+        aria-label={props.desc ?? props.title}
         onChange={event => { props.onChange(event.currentTarget.checked) }}
       />
     </label>
@@ -110,10 +99,9 @@ function InputRow(props: {
     props.onCommit(value)
   }
   return (
-    <label className="oh-dsh-sidebar-settings-row">
-      <span>
+    <label className="oh-dsh-sidebar-settings-row" title={props.desc}>
+      <span className="oh-dsh-sidebar-settings-copy">
         <strong>{props.title}</strong>
-        {props.desc !== undefined && <small>{props.desc}</small>}
       </span>
       <span className="oh-dsh-sidebar-settings-input">
         <Input
@@ -261,13 +249,15 @@ function FeatureSettingsPopup(props: {
       title={sidebarLabel(feature.title ?? feature.id)}
       description={feature.id}
       closeLabel={t('settings.done')}
+      className="oh-dsh-sidebar-settings-popup"
+      contentClassName="oh-dsh-sidebar-settings-popup-content"
       footer={(
         <Button variant="primary" size="sm" onClick={onClose}>
           {t('settings.done')}
         </Button>
       )}
     >
-      <Scrollable className="oh-dsh-sidebar-settings-popup-body">{body}</Scrollable>
+      <div className="oh-dsh-sidebar-settings-popup-body">{body}</div>
     </Modal>
   )
 }
@@ -285,48 +275,32 @@ function FeatureCard(props: {
 }): JSX.Element {
   const { feature, enabled, onToggle, onOpenSettings, hasSettings, meta, t } = props
   const id = feature.id
+  const label = sidebarLabel(feature.title ?? id)
+  const detail = meta === '' ? id : `${id} · ${meta}`
   return (
-    <div
-      className={`oh-dsh-sidebar-feature-card${enabled ? ' is-enabled' : ''}`}
-      data-feature-id={id}
-      role="checkbox"
-      aria-checked={enabled}
-      tabIndex={0}
-      onClick={() => { onToggle(!enabled) }}
-      onKeyDown={event => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onToggle(!enabled)
-        }
-      }}
-    >
-      <span className="oh-dsh-sidebar-feature-icon" aria-hidden="true">
-        {descriptorIcon(feature.icon, 18)}
+    <div className="oh-dsh-sidebar-settings-row" data-feature-id={id} title={detail}>
+      <span className="oh-dsh-sidebar-settings-copy">
+        <strong>{label}</strong>
       </span>
-      <span className="oh-dsh-sidebar-feature-main">
-        <strong>{sidebarLabel(feature.title ?? id)}</strong>
-        <code>{id}{meta === '' ? '' : ` · ${meta}`}</code>
-      </span>
-      {enabled && (
-        <span className="oh-dsh-sidebar-feature-check" aria-hidden="true">
-          <IconCheckOutline16 size={14} />
-        </span>
-      )}
-      {hasSettings && enabled && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="oh-dsh-sidebar-feature-gear"
-          aria-label={t('settings.feature-settings')}
-          title={t('settings.feature-settings')}
-          icon={<IconSettingsOutline16 size={14} />}
-          onClick={event => {
-            event.stopPropagation()
-            onOpenSettings()
-          }}
+      <span className="oh-dsh-sidebar-settings-controls">
+        {hasSettings && enabled && (
+          <button
+            type="button"
+            className="oh-dsh-sidebar-feature-gear"
+            aria-label={t('settings.feature-settings')}
+            title={t('settings.feature-settings')}
+            onClick={() => { onOpenSettings() }}
+          >
+            <IconAdjustments size={16} />
+          </button>
+        )}
+        <input
+          type="checkbox"
+          checked={enabled}
+          aria-label={sidebarLabel(feature.title ?? id)}
+          onChange={event => { onToggle(event.currentTarget.checked) }}
         />
-      )}
+      </span>
     </div>
   )
 }
@@ -373,7 +347,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
   return (
     <div className="oh-dsh-sidebar-settings">
       <div className="oh-dsh-sidebar-settings-heading">
-        <div>
+        <div className="oh-dsh-sidebar-settings-copy">
           <strong>{props.t('settings.title')}</strong>
           <p>{props.t('settings.description')}</p>
         </div>
@@ -381,34 +355,37 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           {props.t('settings.reset')}
         </Button>
       </div>
-      <label className="oh-dsh-sidebar-settings-row">
-        <span>
-          <strong>{props.t('settings.open-by-default')}</strong>
-          <small>{props.t('settings.open-by-default-description')}</small>
-        </span>
-        <input
-          type="checkbox"
-          checked={state.openByDefault}
-          onChange={event => { props.setOpenByDefault(event.currentTarget.checked) }}
-        />
-      </label>
-      <label className="oh-dsh-sidebar-settings-size">
-        <span>
-          <strong>{props.t('settings.width')}</strong>
-          <small>{props.t('settings.width-value', { width: state.width })}</small>
-        </span>
-        <input
-          type="range"
-          min={SIDEBAR_MIN_WIDTH}
-          max={SIDEBAR_MAX_WIDTH}
-          step="10"
-          value={state.width}
-          onChange={event => { props.setWidth(Number(event.currentTarget.value)) }}
-        />
-      </label>
+      <div className="oh-dsh-sidebar-settings-grid">
+        <label className="oh-dsh-sidebar-settings-row" title={props.t('settings.open-by-default-description')}>
+          <span className="oh-dsh-sidebar-settings-copy">
+            <strong>{props.t('settings.open-by-default')}</strong>
+          </span>
+          <input
+            type="checkbox"
+            checked={state.openByDefault}
+            onChange={event => { props.setOpenByDefault(event.currentTarget.checked) }}
+          />
+        </label>
+        <label className="oh-dsh-sidebar-settings-row oh-dsh-sidebar-settings-size" title={props.t('settings.width-value', { width: state.width })}>
+          <span className="oh-dsh-sidebar-settings-copy">
+            <strong>{props.t('settings.width')}</strong>
+          </span>
+          <input
+            type="range"
+            min={SIDEBAR_MIN_WIDTH}
+            max={SIDEBAR_MAX_WIDTH}
+            step="10"
+            value={state.width}
+            onChange={event => { props.setWidth(Number(event.currentTarget.value)) }}
+          />
+        </label>
+      </div>
       <section>
-        <h4>{props.t('settings.runtime')}</h4>
-        <p>{props.t('settings.runtime-description')}</p>
+        <div className="oh-dsh-sidebar-settings-copy oh-dsh-sidebar-settings-section-head">
+          <strong>{props.t('settings.runtime')}</strong>
+          <p>{props.t('settings.runtime-description')}</p>
+        </div>
+        <div className="oh-dsh-sidebar-settings-grid">
         <SwitchRow
           title={props.t('settings.agent-terminal-tools')}
           desc={props.t('settings.agent-terminal-tools-description')}
@@ -437,6 +414,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           checked={runtimeState.preferences.browserInterceptLinks}
           onChange={checked => { updateRuntime('browserInterceptLinks', checked) }}
         />
+        </div>
         {runtimeState.error !== null && (
           <ErrorView
             message={props.t(runtimeState.error === 'load'
@@ -446,9 +424,11 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         )}
       </section>
       <section>
-        <h4>{props.t('settings.tools')}</h4>
-        <p>{props.t('settings.tools-description')}</p>
-        <div className="oh-dsh-sidebar-feature-grid">
+        <div className="oh-dsh-sidebar-settings-copy oh-dsh-sidebar-settings-section-head">
+          <strong>{props.t('settings.tools')}</strong>
+          <p>{props.t('settings.tools-description')}</p>
+        </div>
+        <div className="oh-dsh-sidebar-settings-grid">
           {tabs.map(descriptor => (
             <FeatureCard
               key={descriptor.id}
@@ -464,9 +444,11 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         </div>
       </section>
       <section>
-        <h4>{props.t('settings.viewers')}</h4>
-        <p>{props.t('settings.viewers-description')}</p>
-        <div className="oh-dsh-sidebar-feature-grid">
+        <div className="oh-dsh-sidebar-settings-copy oh-dsh-sidebar-settings-section-head">
+          <strong>{props.t('settings.viewers')}</strong>
+          <p>{props.t('settings.viewers-description')}</p>
+        </div>
+        <div className="oh-dsh-sidebar-settings-grid">
           {viewers.map(descriptor => (
             <FeatureCard
               key={descriptor.id}

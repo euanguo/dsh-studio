@@ -5,13 +5,11 @@
 import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
-  IconChevronDownOutline14,
-  IconChevronRightOutline14,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import {
+  IconChevronDown,
+  IconChevronRight,
   IconLayoutList,
   IconList,
-} from '@oh-dsh/shared/icons'
+} from '@oh-dsh/shared/tabler-icons'
 import { useDiffViewPreferences } from './diff-view-preferences.ts'
 import { binding, formatKeymapHint } from '../kit/keymap.ts'
 
@@ -41,12 +39,12 @@ export function DiffToolbar({
       <div className="oh-dsh-diff-toolbar-actions">
         {onPrevChange !== undefined ? (
           <button type="button" onClick={onPrevChange} title={`Previous change (${PREV_CHANGE_HINT})`}>
-            <IconChevronDownOutline14 size={14} />
+            <IconChevronDown size={14} />
           </button>
         ) : null}
         {onNextChange !== undefined ? (
           <button type="button" onClick={onNextChange} title={`Next change (${NEXT_CHANGE_HINT})`}>
-            <IconChevronRightOutline14 size={14} />
+            <IconChevronRight size={14} />
           </button>
         ) : null}
         <button

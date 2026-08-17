@@ -11,15 +11,13 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
-  Button,
-  IconPlusOutline16,
-  IconRightUpOutline16,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import {
+  IconExternalLink,
   IconFileText,
   IconMinus,
-} from '@oh-dsh/shared/icons'
+  IconPlus,
+} from '@oh-dsh/shared/tabler-icons'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import { basename } from '@oh-dsh/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -396,12 +394,12 @@ function ImageViewer({
             </button>
             <span>{`${Math.round(zoom * 100)}%`}</span>
             <button type="button" onClick={() => setZoom(value => Math.min(8, value + 0.25))} aria-label={t('files.zoom-in')}>
-              <IconPlusOutline16 size={14} />
+              <IconPlus size={14} />
             </button>
             <Button variant="ghost" size="sm" onClick={() => setZoom(1)}>{t('files.zoom-reset')}</Button>
             {onOpenExternal !== undefined ? (
               <button type="button" onClick={onOpenExternal} aria-label={t('files.open-externally')}>
-                <IconRightUpOutline16 size={14} />
+                <IconExternalLink size={14} />
               </button>
             ) : null}
           </div>
@@ -439,7 +437,7 @@ function PdfViewer({
         <span title={path}>{name}</span>
         {onOpenExternal !== undefined ? (
           <button type="button" onClick={onOpenExternal} aria-label="Open externally">
-            <IconRightUpOutline16 size={14} />
+            <IconExternalLink size={14} />
           </button>
         ) : null}
       </div>

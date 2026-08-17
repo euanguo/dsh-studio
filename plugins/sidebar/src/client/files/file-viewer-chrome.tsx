@@ -9,14 +9,12 @@ import type { Translate } from '@oh-dsh/shared/i18n'
 import { basename } from '@oh-dsh/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
-  IconChevronRightOutline14,
-  IconEditOutline16,
-  IconRightUpOutline16,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import {
+  IconChevronRight,
+  IconEdit,
+  IconExternalLink,
   IconEye,
   IconFileText,
-} from '@oh-dsh/shared/icons'
+} from '@oh-dsh/shared/tabler-icons'
 
 export type MarkdownViewMode = 'source' | 'preview'
 
@@ -68,7 +66,7 @@ export function FileViewerChrome({
           {prefixSegments.map(segment => (
             <Fragment key={segment.key}>
               <span className="oh-dsh-file-viewer-breadcrumb-segment">{segment.name}</span>
-              <IconChevronRightOutline14 className="oh-dsh-file-viewer-breadcrumb-chevron" size={12} />
+              <IconChevronRight className="oh-dsh-file-viewer-breadcrumb-chevron" size={12} />
             </Fragment>
           ))}
         </span>
@@ -119,7 +117,7 @@ export function FileViewerChrome({
           title={t('files.edit')}
           onClick={onEdit}
         >
-          <IconEditOutline16 size={14} />
+          <IconEdit size={14} />
         </button>
       ) : null}
 
@@ -130,7 +128,7 @@ export function FileViewerChrome({
           title={t('files.open-externally')}
           onClick={onOpenExternal}
         >
-          <IconRightUpOutline16 size={14} />
+          <IconExternalLink size={14} />
         </button>
       ) : null}
     </div>

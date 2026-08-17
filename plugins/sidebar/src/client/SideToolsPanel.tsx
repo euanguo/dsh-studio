@@ -11,31 +11,29 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  IconBranchOutline16,
-  IconBrowseOutline16,
-  IconChevronDownOutline14,
-  IconChevronRightOutline14,
-  IconCloseOutline16,
-  IconCodeOutline16,
-  IconEllipsisOutline16,
-  IconFolderOpenOutline16,
-  IconFullscreenOutline16,
-  IconListPenOutline16,
-  IconNewChatOutline16,
-  IconPlusOutline16,
-  IconRefreshOutline16,
   Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
-import {
-  IconMinus,
-  IconRestore,
-  IconSidebarRightFilled,
-} from '@oh-dsh/shared/icons'
+import { IconRestore } from '@oh-dsh/shared/icons'
 import {
   FileGlyph,
+  IconChevronDown,
+  IconChevronRight,
+  IconClose,
+  IconDots,
+  IconFolderOpen,
+  IconGitBranch,
+  IconList,
+  IconMaximize,
+  IconMessagePlus,
+  IconMinus,
+  IconPlus,
+  IconRefresh,
+  IconSidebarRightFilled,
+  IconTerminal,
+  IconWorld,
 } from '@oh-dsh/shared/tabler-icons'
 import {
   basename,
@@ -201,7 +199,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
         className="oh-dsh-side-menu-close"
         aria-label={props.t('side.close')}
         onClick={props.onClose}
-      ><IconCloseOutline16 size={16} /></button>
+      ><IconClose size={16} /></button>
     </Scrollable>
   )
 }
@@ -456,7 +454,7 @@ export function FilesView({
           aria-label={t('files.refresh')}
           title={t('files.refresh')}
           onClick={refreshListings}
-        ><IconRefreshOutline16 size={16} /></button>
+        ><IconRefresh size={16} /></button>
       </div>
       <div className="oh-dsh-files-search">
         <input
@@ -533,7 +531,7 @@ export function FilesView({
             >
               <ListRowLeading aria-hidden="true">
                 {row.kind === 'directory'
-                  ? row.expanded ? <IconChevronDownOutline14 size={14} /> : <IconChevronRightOutline14 size={14} />
+                  ? row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />
                   : null}
               </ListRowLeading>
               <FileGlyph path={row.path} kind={row.kind} expanded={row.expanded} />
@@ -700,12 +698,12 @@ function PinnedTabs({ sidebar, t }: {
 /* [+] menu rows use the official outline-16 icon set (the same set the left
    rail's picker menu uses); unknown descriptors fall back to the ellipsis. */
 const TOOL_MENU_ICONS: Readonly<Record<string, ReactNode>> = {
-  browser: <IconBrowseOutline16 />,
-  files: <IconFolderOpenOutline16 />,
-  review: <IconBranchOutline16 />,
-  'side-chat': <IconNewChatOutline16 />,
-  terminal: <IconCodeOutline16 />,
-  trajectory: <IconListPenOutline16 />,
+  browser: <IconWorld />,
+  files: <IconFolderOpen />,
+  review: <IconGitBranch />,
+  'side-chat': <IconMessagePlus />,
+  terminal: <IconTerminal />,
+  trajectory: <IconList />,
 }
 
 /* [+] menu: every enabled tool that is not open yet, as an anchored
@@ -734,7 +732,7 @@ function AddToolsMenu({ sidebar, t }: {
     : descriptors.map(descriptor => ({
       id: descriptor.id,
       label: descriptorTitle(descriptor),
-      icon: TOOL_MENU_ICONS[descriptor.id] ?? <IconEllipsisOutline16 />,
+      icon: TOOL_MENU_ICONS[descriptor.id] ?? <IconDots />,
     }))
   return (
     <div className="oh-dsh-add-tools">
@@ -745,7 +743,7 @@ function AddToolsMenu({ sidebar, t }: {
         aria-expanded={open}
         title={t('side.add-tool')}
         onClick={() => { setOpen(value => !value) }}
-      ><IconPlusOutline16 size={14} /></button>
+      ><IconPlus size={14} /></button>
       <Menu
         open={open}
         anchor={null}
@@ -915,7 +913,7 @@ function PanelActions({
         aria-pressed={maximized}
         title={maximized ? t('side.restore') : t('side.expand')}
         onClick={onToggleMaximized}
-      >{maximized ? <IconRestore size={16} /> : <IconFullscreenOutline16 size={16} />}</button>
+      >{maximized ? <IconRestore size={16} /> : <IconMaximize size={16} />}</button>
       <button
         type="button"
         aria-label={t('side.toggle')}

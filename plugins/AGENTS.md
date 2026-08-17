@@ -25,7 +25,6 @@ preserves a retired Oh-DSH name or prop list.
 | Transient banner | `Toast` |
 | Chip / filter / badge | `Pill` |
 | Session or tab status | `StateDot` |
-| Icon | `Icon*Outline*` / `Icon*Fill*` |
 | Clipboard write | `writeClipboard` |
 
 `DisclosureRow`, `TerminalBlock`, `ReadBlock`, `DiffBlock`,
@@ -35,12 +34,11 @@ marketplace chrome.
 
 ## Icons
 
-Prefer the official `Icon*` set. `@oh-dsh/shared/icons` holds only glyphs
-the official set does not ship. `@oh-dsh/shared/tabler-icons` is
-`FileGlyph` only (extension-colored file icons).
-
-Do not add Tabler chrome icons. Do not inline a close / plus / search
-SVG when an official icon exists.
+Icons are not required to come from official primitives. Sidebar and
+other Oh-DSH chrome use the installed `@tabler/icons-react` set via
+`@oh-dsh/shared/tabler-icons` (16px, stroke 1.5). File trees use
+`FileGlyph`. Official `Icon*` glyphs are optional for left-rail and
+other surfaces that already match the official product.
 
 ## Tokens
 
@@ -63,6 +61,8 @@ Compose through `ctx.slots`. Cross-plugin value imports are forbidden.
 ## Settings and slots
 
 Settings rows contributed through `settings.section` or
-`settings.general.item` use `Button`, `Input`, `Modal`, and official
-icons for their controls. Feature cards and skin tiles may keep a
-product layout; their actions and glyphs still come from primitives.
+`settings.general.item` follow the official General-row layout: 14px
+title, 12px tertiary description, 16px vertical padding, hairline
+separator, control on the right. Use official `Button` / `Input` /
+`Modal` for those controls. Do not wrap options in a second card
+language (accent borders, two-column feature tiles).

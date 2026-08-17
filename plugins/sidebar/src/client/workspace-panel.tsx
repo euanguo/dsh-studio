@@ -23,10 +23,6 @@ import type { Translate } from '@oh-dsh/shared/i18n'
 import { basename } from '@oh-dsh/shared/path'
 import {
   Button,
-  IconBranchOutline16,
-  IconChevronDownOutline14,
-  IconChevronRightOutline14,
-  IconPlusOutline16,
   Input,
   writeClipboard,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -35,12 +31,14 @@ import { toast } from '@oh-dsh/shared/toast'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import { confirmDialog } from './kit/dialog.tsx'
 import {
-  IconCommit,
-  IconEye,
-  IconHistory,
-} from '@oh-dsh/shared/icons'
-import {
   FileGlyph,
+  IconChevronDown,
+  IconChevronRight,
+  IconEye,
+  IconGitBranch,
+  IconGitCommit,
+  IconHistory,
+  IconPlus,
 } from '@oh-dsh/shared/tabler-icons'
 import { FilenameLabel } from '@oh-dsh/shared/filename-label'
 import type { WorkspaceMessage } from './i18n.ts'
@@ -247,7 +245,7 @@ function CommitFilesBody({
           style={{ '--tree-depth': row.depth } as CSSProperties}
           onClick={() => { onToggleDir(row.key) }}
         >
-          {row.expanded ? <IconChevronDownOutline14 size={14} /> : <IconChevronRightOutline14 size={14} />}
+          {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
           <span className="oh-dsh-review-commit-dir-name">{row.name}</span>
           <span className="oh-dsh-workspace-count">{row.fileCount}</span>
         </button>
@@ -652,7 +650,7 @@ export function WorkspacePanel({
             {snapshot?.kind === 'repository' && (
               <section className="oh-dsh-commit-area">
                 <label className="oh-dsh-workspace-fact">
-                  <span className="oh-dsh-workspace-fact-icon"><IconBranchOutline16 size={16} /></span>
+                  <span className="oh-dsh-workspace-fact-icon"><IconGitBranch size={16} /></span>
                   <select
                     value={snapshot?.branch ?? ''}
                     disabled={busy}
@@ -661,7 +659,7 @@ export function WorkspacePanel({
                   >
                     {(snapshot?.branches ?? []).map(branch => <option key={branch} value={branch}>{branch}</option>)}
                   </select>
-                  <span className="oh-dsh-workspace-chevron"><IconChevronDownOutline14 size={14} /></span>
+                  <span className="oh-dsh-workspace-chevron"><IconChevronDown size={14} /></span>
                 </label>
                 <textarea
                   value={commitMessage}
@@ -746,7 +744,7 @@ export function WorkspacePanel({
                   onClick={() => { setCommittedCollapsed(collapsed => !collapsed) }}
                 >
                   <span className="oh-dsh-sc-toolbar-title">
-                    <IconCommit size={14} />
+                    <IconGitCommit size={14} />
                     {t('workspace.committed')}
                     <em>{committed.entries.length}</em>
                   </span>
@@ -759,7 +757,7 @@ export function WorkspacePanel({
                         openCommittedAllInCenter(committed.baseRef)
                       }}
                     ><IconEye size={14} /></ListRowActionButton>
-                    <IconChevronDownOutline14
+                    <IconChevronDown
                       size={14}
                       className={committedCollapsed ? 'oh-dsh-history-chevron is-collapsed' : 'oh-dsh-history-chevron'}
                     />
@@ -802,7 +800,7 @@ export function WorkspacePanel({
             <section className="oh-dsh-workspace-directory">
               <span>{snapshot?.name ?? basename(cwd)}</span>
               <small title={cwd}>{cwd}</small>
-              <button type="button" onClick={() => { void chooseWorkspace() }} aria-label={t('workspace.add')}><IconPlusOutline16 size={16} /></button>
+              <button type="button" onClick={() => { void chooseWorkspace() }} aria-label={t('workspace.add')}><IconPlus size={16} /></button>
             </section>
           </Scrollable>
 
@@ -828,7 +826,7 @@ export function WorkspacePanel({
                   {t('workspace.review-history')}
                   <em>{history.length}</em>
                 </span>
-                <IconChevronDownOutline14
+                <IconChevronDown
                   size={14}
                   className={historyCollapsed ? 'oh-dsh-history-chevron is-collapsed' : 'oh-dsh-history-chevron'}
                 />
@@ -853,7 +851,7 @@ export function WorkspacePanel({
                             onClick={() => { toggleCommitFiles(entry) }}
                           >
                             <ListRowLeading aria-hidden="true">
-                              {isExpanded ? <IconChevronDownOutline14 size={14} /> : <IconChevronRightOutline14 size={14} />}
+                              {isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
                             </ListRowLeading>
                             <ListRowBody>
                               <ListRowLabel>

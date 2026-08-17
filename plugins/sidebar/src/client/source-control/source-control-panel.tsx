@@ -11,22 +11,22 @@
 import { useState, type CSSProperties } from 'react'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import {
-  IconChevronDownOutline14,
-  IconChevronRightOutline14,
-  IconCopyOutline16,
-  IconPlusOutline16,
-  IconTrashOutline16,
   Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
+  FileGlyph,
+  IconChevronDown,
+  IconChevronRight,
+  IconCopy,
   IconEye,
   IconFileDiff,
   IconLayoutList,
   IconListTree,
   IconMinus,
-} from '@oh-dsh/shared/icons'
-import { FileGlyph } from '@oh-dsh/shared/tabler-icons'
+  IconPlus,
+  IconTrash,
+} from '@oh-dsh/shared/tabler-icons'
 import {
   ListRow,
   ListRowActions,
@@ -93,10 +93,10 @@ export function SourceControlPanel(props: SourceControlPanelProps): JSX.Element 
   const [menu, setMenu] = useState<MenuState | null>(null)
 
   const menuItems: MenuEntry[] = menu === null ? [] : [
-    { id: 'copy-path', label: props.t('source-control.copy-path'), icon: <IconCopyOutline16 size={14} /> },
-    ...(menu.canStage ? [{ id: 'stage', label: props.t('source-control.stage'), icon: <IconPlusOutline16 size={14} /> }] : []),
+    { id: 'copy-path', label: props.t('source-control.copy-path'), icon: <IconCopy size={14} /> },
+    ...(menu.canStage ? [{ id: 'stage', label: props.t('source-control.stage'), icon: <IconPlus size={14} /> }] : []),
     ...(menu.canUnstage ? [{ id: 'unstage', label: props.t('source-control.unstage'), icon: <IconMinus size={14} /> }] : []),
-    ...(menu.canDiscard ? [{ id: 'discard', label: props.t('source-control.discard'), icon: <IconTrashOutline16 size={14} />, danger: true }] : []),
+    ...(menu.canDiscard ? [{ id: 'discard', label: props.t('source-control.discard'), icon: <IconTrash size={14} />, danger: true }] : []),
   ]
   const handleMenuSelect = (id: string): void => {
     if (menu === null) return
@@ -231,7 +231,7 @@ function SectionRowView(props: {
         onClick={() => { props.onToggleSection(row.id) }}
       >
         <ListRowLeading aria-hidden="true">
-          {row.expanded ? <IconChevronDownOutline14 size={14} /> : <IconChevronRightOutline14 size={14} />}
+          {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
         </ListRowLeading>
         <ListRowBody>
           <ListRowLabel>
@@ -254,7 +254,7 @@ function SectionRowView(props: {
               aria-label={props.t('source-control.stage-all')}
               title={props.t('source-control.stage-all')}
               onClick={() => { props.onStage(row.stagePaths) }}
-            ><IconPlusOutline16 size={14} /></ListRowActionButton>
+            ><IconPlus size={14} /></ListRowActionButton>
           )}
           {row.unstagePaths.length > 0 && (
             <ListRowActionButton
@@ -268,7 +268,7 @@ function SectionRowView(props: {
               aria-label={props.t('source-control.discard-all')}
               title={props.t('source-control.discard-all')}
               onClick={() => { props.onDiscard(row.discardPaths, props.t(`source-control.section.${row.id}`)) }}
-            ><IconTrashOutline16 size={14} /></ListRowActionButton>
+            ><IconTrash size={14} /></ListRowActionButton>
           )}
         </span>
       </ListRowTrailing>
@@ -294,7 +294,7 @@ function DirectoryRowView(props: {
         onClick={() => { props.onToggleDirectory(row.key) }}
       >
         <ListRowLeading aria-hidden="true">
-          {row.expanded ? <IconChevronDownOutline14 size={14} /> : <IconChevronRightOutline14 size={14} />}
+          {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
         </ListRowLeading>
         <FileGlyph path={row.path} kind="directory" expanded={row.expanded} />
         <ListRowBody>
@@ -310,7 +310,7 @@ function DirectoryRowView(props: {
             aria-label={props.t('source-control.stage-all')}
             title={props.t('source-control.stage-all')}
             onClick={() => { props.onStage(row.stagePaths) }}
-          ><IconPlusOutline16 size={14} /></ListRowActionButton>
+          ><IconPlus size={14} /></ListRowActionButton>
         )}
         {row.unstagePaths.length > 0 && (
           <ListRowActionButton
@@ -324,7 +324,7 @@ function DirectoryRowView(props: {
             aria-label={props.t('source-control.discard-all')}
             title={props.t('source-control.discard-all')}
             onClick={() => { props.onDiscard(row.discardPaths, row.path) }}
-          ><IconTrashOutline16 size={14} /></ListRowActionButton>
+          ><IconTrash size={14} /></ListRowActionButton>
         )}
       </ListRowActions>
     </ListRow>
@@ -401,7 +401,7 @@ function FileRowView(props: {
             title={props.t('source-control.stage')}
             disabled={props.pending !== null}
             onClick={() => { props.onStage([row.path]) }}
-          ><IconPlusOutline16 size={14} /></ListRowActionButton>
+          ><IconPlus size={14} /></ListRowActionButton>
         )}
         {row.canUnstage && (
           <ListRowActionButton
@@ -417,7 +417,7 @@ function FileRowView(props: {
             title={props.t('source-control.discard')}
             disabled={props.pending !== null}
             onClick={() => { props.onDiscard([row.path], row.path) }}
-          ><IconTrashOutline16 size={14} /></ListRowActionButton>
+          ><IconTrash size={14} /></ListRowActionButton>
         )}
       </ListRowActions>
     </ListRow>
