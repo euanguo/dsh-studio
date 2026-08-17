@@ -5,6 +5,7 @@ import terminalCss from './terminal.css'
 import themeCss from '../../../shared/theme.css'
 import { TerminalPanel, openOrToggleTerminal } from './TerminalPanel.tsx'
 import { createMountScheduler, mutationNeedsMount } from './mount-utils.ts'
+import { findConversationColumn } from '../../../shared/column-mount.ts'
 import {
   DEFAULT_TERMINAL_FONT_SIZE,
   createDockStore,
@@ -99,10 +100,6 @@ function currentSession(sessions: SessionsService): { scopeKey: string; cwd: str
   }
 }
 
-function findConversationColumn(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('[data-phase]')?.parentElement ?? null
-}
-
 class DesktopPanelService implements DesktopPanels {
   private readonly listeners = new Set<() => void>()
   private readonly layout: LayoutService
@@ -145,7 +142,9 @@ class DesktopPanelService implements DesktopPanels {
     this.stopSessionSubscription = this.sessions.list.subscribe(() => { this.syncActiveSession() })
     this.mountAll()
     this.observer = new MutationObserver(records => {
-      if (records.some(mutationNeedsMount)) this.scheduler?.schedule()
+      if (records.some(record => mutationNeedsMount(record, '#oh-dsh-terminal-root'))) {
+        this.scheduler?.schedule()
+      }
     })
     this.observer.observe(document.body, {
       attributes: true,

@@ -14,7 +14,9 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
+  afterSelectionCommit,
   buildSelectionInsert,
+  containsNodeAcrossShadow,
   linesOfSelection,
   SELECTION_LIMIT,
 } from './file-selection-reference.ts'
@@ -71,11 +73,18 @@ export function SelectionInsertPopup({
     const close = (): void => { setPopup(null) }
     const insidePopup = (target: EventTarget | null): boolean =>
       target instanceof Node && popupRef.current !== null && popupRef.current.contains(target)
-    const onMouseUp = (event: MouseEvent): void => {
-      if (insidePopup(event.target)) return
+    // The selection is NOT committed yet while the mouseup event runs — a
+    // shadow-tree selection (the Pierre viewers render their rows in an
+    // open shadow root) lands in the rendering step AFTER the event. The
+    // gesture records its anchor point and reads the committed selection
+    // through `afterSelectionCommit` (selectionchange + rAF fallback).
+    let stopPendingRead: (() => void) | null = null
+    const readCommittedSelection = (
+      selection: Selection,
+      anchor: { x: number; y: number },
+    ): void => {
       const container = containerRef.current
-      const selection = window.getSelection()
-      if (selection === null || selection.isCollapsed || selection.rangeCount === 0) {
+      if (selection.isCollapsed || selection.rangeCount === 0) {
         close()
         return
       }
@@ -87,20 +96,32 @@ export function SelectionInsertPopup({
       if (container !== null) {
         const range = selection.getRangeAt(0)
         const met = range.commonAncestorContainer
-        if (!(met === container || container.contains(met))) {
+        // The container check must climb shadow-DOM boundaries: Pierre
+        // code/markdown-source viewers render their rows in a shadow root,
+        // where `container.contains(met)` is always false.
+        if (!(met === container || containsNodeAcrossShadow(container, met))) {
           close()
           return
         }
       }
       // Purely positional calls (keyboard selection, programmatic focus)
       // carry a zero client point; anchor above the target then.
-      const x = event.clientX !== 0 || event.clientY !== 0
-        ? event.clientX
+      const x = anchor.x !== 0 || anchor.y !== 0
+        ? anchor.x
         : 0
-      const y = event.clientY !== 0
-        ? event.clientY + 16
+      const y = anchor.y !== 0
+        ? anchor.y + 16
         : 0
       setPopup({ x, y, text })
+    }
+    const onMouseUp = (event: MouseEvent): void => {
+      if (insidePopup(event.target)) return
+      const anchor = { x: event.clientX, y: event.clientY }
+      stopPendingRead?.()
+      stopPendingRead = afterSelectionCommit(selection => {
+        stopPendingRead = null
+        readCommittedSelection(selection, anchor)
+      })
     }
     const onScroll = (event: Event): void => {
       // Scrolling the content under a floating popup leaves a stale caret
@@ -116,6 +137,8 @@ export function SelectionInsertPopup({
     document.addEventListener('scroll', onScroll, true)
     window.addEventListener('blur', close)
     return () => {
+      stopPendingRead?.()
+      stopPendingRead = null
       document.removeEventListener('mouseup', onMouseUp, true)
       document.removeEventListener('scroll', onScroll, true)
       window.removeEventListener('blur', close)

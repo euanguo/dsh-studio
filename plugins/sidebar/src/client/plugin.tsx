@@ -42,6 +42,7 @@ import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
 import { disposeSidebarRuntimes } from './runtimes/registry.ts'
 import { acquireOpenPathPatch, isLinkProtocolIntercepted, registerLinkHandler, registerLinkInterception, registerOpenPathHandler, releaseOpenPathPatch } from './intercept.ts'
 import { registerImeGuard } from './ime-guard.ts'
+import { registerPierreVisibilityRecovery } from './pierre-visibility.ts'
 
 export const inject = [
   'desktopPanels',
@@ -220,6 +221,9 @@ export function apply(ctx: ClientContext): void {
     // and any inlined third-party component (the HTML preview's iframe), so
     // composition keys keep their IME meaning (see ime-guard.ts).
     const stopImeGuard = registerImeGuard()
+    // Pierre's rAF-driven render loop pauses while the window is hidden;
+    // re-queue window builds when the app returns to the foreground.
+    const stopPierreVisibility = registerPierreVisibilityRecovery()
     syncRuntime()
     void runtimeSettings.start()
     void desktopSidebar.start()
@@ -242,6 +246,7 @@ export function apply(ctx: ClientContext): void {
       stopLink()
       stopLinkDom()
       stopImeGuard()
+      stopPierreVisibility()
       releaseOpenPathPatch(workspaces)
       centerSurfaceHost.dispose()
       service.dispose()

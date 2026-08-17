@@ -32,8 +32,9 @@ import { Scrollable } from '../../../../shared/scrollable.tsx'
 import { ErrorView, LoadingView } from '../kit/status.tsx'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
+import type { ReviewCommentsService } from '../review/review-comments.ts'
 import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
-import { formatFileSelectionReference, getLineSelectionWithin } from '../files/file-selection-reference.ts'
+import { afterSelectionCommit, formatFileSelectionReference, getLineSelectionWithin } from '../files/file-selection-reference.ts'
 import { useEditableFile } from '../files/use-editable-file.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { useDiffCommentsStore, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
@@ -48,9 +49,12 @@ function createPierreEditor<LAnnotation>(options: EditorOptions<LAnnotation>): E
 export function FileSurfaceView({
   surface,
   t,
+  reviewComments,
 }: {
   surface: FileCenterSurface
   t: Translate<WorkspaceMessage>
+  /** Selection → "add to conversation" channel (wired by builtins). */
+  reviewComments?: ReviewCommentsService
 }): JSX.Element {
   const runtime = useMemo(
     () => getFileRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
@@ -170,15 +174,20 @@ export function FileSurfaceView({
       setSelectionAction(null)
       return
     }
-    const selection = getLineSelectionWithin(event.currentTarget)
-    if (selection === null) {
-      setSelectionAction(null)
-      return
-    }
-    setSelectionAction({
-      left: event.clientX,
-      top: event.clientY,
-      label: formatFileSelectionReference({ path: surface.filePath, selection }),
+    const { clientX, clientY, currentTarget } = event
+    // The selection is not committed while mouseup runs (shadow-tree rows
+    // commit in the following rendering step) — read it once committed.
+    afterSelectionCommit(() => {
+      const selection = getLineSelectionWithin(currentTarget)
+      if (selection === null) {
+        setSelectionAction(null)
+        return
+      }
+      setSelectionAction({
+        left: clientX,
+        top: clientY,
+        label: formatFileSelectionReference({ path: surface.filePath, selection }),
+      })
     })
   }, [isMarkdown, markdownMode, surface.filePath])
 
@@ -195,7 +204,12 @@ export function FileSurfaceView({
       const content = snapshot?.kind === 'text' ? snapshot.content : null
       return content === null ? 0 : content.split('\n').length
     },
-    [runtime, surface.filePath],
+    // `runtime` and `surface.filePath` are stable across the surface's
+    // lifetime, so the memo would otherwise never recompute after the
+    // snapshot loads (and stay at 0). `fingerprint` changes whenever the
+    // runtime cache entry mutates (load / invalidate / persist), so it is
+    // the correct trigger for recalculating the derived line count.
+    [runtime, surface.filePath, fingerprint],
   )
 
   const file = useMemo<FileContents>(() => ({
@@ -310,6 +324,8 @@ export function FileSurfaceView({
           truncated={snapshot.truncated}
           markdownPreview={markdownMode === 'preview'}
           comments={comments}
+          cwd={surface.cwd}
+          {...(reviewComments === undefined ? {} : { reviewComments })}
           onTaskToggle={onTaskToggle}
           onOpenExternal={onOpenExternal}
           {...(snapshot.data === undefined ? {} : { data: snapshot.data })}

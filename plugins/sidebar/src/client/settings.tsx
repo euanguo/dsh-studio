@@ -115,6 +115,7 @@ function InputRow(props: {
           min={props.min}
           max={props.max}
           placeholder={props.placeholder}
+          onChange={event => { setDraft(event.currentTarget.value) }}
           onBlur={commit}
           onKeyDown={event => {
             if (event.key === 'Enter') {

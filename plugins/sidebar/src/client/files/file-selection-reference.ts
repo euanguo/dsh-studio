@@ -26,9 +26,65 @@ export function formatFileSelectionReference(input: {
 }
 
 /**
+ * True when `node` is `container` itself or nested inside it, across shadow
+ * DOM boundaries. A selection anchored inside a custom element's open
+ * shadow root (the Pierre file/diff viewers render their rows in one)
+ * reports a commonAncestorContainer in that shadow tree, which the plain
+ * `Node.contains` does not see through the boundary — the shadow HOST (a
+ * light-DOM child of the container) is what must be checked instead.
+ */
+export function containsNodeAcrossShadow(container: Node, node: Node): boolean {
+  let current: Node | null = node
+  while (current !== null) {
+    if (current === container || container.contains(current)) return true
+    const root = current.getRootNode()
+    // `typeof` gate keeps the helper importable in non-DOM environments
+    // (unit tests run under node:test without jsdom).
+    current = typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot
+      ? root.host
+      : null
+  }
+  return false
+}
+
+/**
+ * Run `callback` once the browser has COMMITTED the current selection.
+ *
+ * A mouseup handler reads a stale selection: the browser lands the new
+ * selection (especially a shadow-tree one — the Pierre viewers render their
+ * rows in an open shadow root) in the rendering step that follows the
+ * event. Two rAF ticks are guaranteed to run after that commit (the
+ * selectionchange event is NOT used: shadow-tree selection changes are not
+ * reported to the document, and the document's own collapse changes fire
+ * too early). Returns a canceller so the owner can drop a pending read
+ * (e.g. when the popup closes for another reason).
+ *
+ * Note: the callback only runs while the window is foregrounded — rAF is
+ * paused for hidden windows, and a hidden window cannot receive the mouse
+ * gesture this helper settles anyway.
+ */
+export function afterSelectionCommit(
+  callback: (selection: Selection) => void,
+): () => void {
+  let cancelled = false
+  const frame1 = requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (cancelled) return
+      const selection = globalThis.getSelection?.()
+      if (selection !== null && selection !== undefined) callback(selection)
+    })
+  })
+  return () => {
+    cancelled = true
+    cancelAnimationFrame(frame1)
+  }
+}
+
+/**
  * Resolve a browser selection to line numbers when anchors live under `.line`
- * elements (Prism / plain numbered source). Falls back to null when the
- * selection is empty or outside `container`.
+ * elements (Prism / plain numbered source) or Pierre rows (`data-column-
+ * number` in the viewer's shadow root). Falls back to null when the
+ * selection is empty or outside `container` (shadow-aware).
  */
 export function getLineSelectionWithin(container: HTMLElement): FileLineSelection | null {
   const selection = window.getSelection()
@@ -36,7 +92,7 @@ export function getLineSelectionWithin(container: HTMLElement): FileLineSelectio
     return null
   }
   const range = selection.getRangeAt(0)
-  if (!container.contains(range.commonAncestorContainer)) {
+  if (!containsNodeAcrossShadow(container, range.commonAncestorContainer)) {
     return null
   }
   const text = selection.toString().replace(/\u00a0/g, ' ')
@@ -58,17 +114,35 @@ export function getLineSelectionWithin(container: HTMLElement): FileLineSelectio
 function lineNumberFromNode(container: HTMLElement, node: Node, offset: number): number | null {
   let el: Element | null =
     node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement
-  while (el !== null && el !== container) {
-    // Pierre File rows carry `data-line` = 1-based line number.
-    const dataLine = el.getAttribute('data-line')
-    if (dataLine !== null) {
-      const parsed = Number.parseInt(dataLine, 10)
-      if (Number.isFinite(parsed)) return parsed
+  while (el !== null) {
+    if (el !== container) {
+      // Pierre File rows carry `data-column-number` (1-based, the number
+      // painted in the gutter) — resolvable inside the viewer's shadow
+      // root without crossing into light DOM.
+      const dataColumn = el.getAttribute('data-column-number')
+      if (dataColumn !== null) {
+        const parsed = Number.parseInt(dataColumn, 10)
+        if (Number.isFinite(parsed)) return parsed
+      }
+      const dataLine = el.getAttribute('data-line')
+      if (dataLine !== null) {
+        const parsed = Number.parseInt(dataLine, 10)
+        if (Number.isFinite(parsed)) return parsed
+      }
+      if (el.classList.contains('line')) {
+        const lines = Array.from(container.querySelectorAll('.line'))
+        const index = lines.indexOf(el)
+        if (index >= 0) return index + 1
+      }
     }
-    if (el.classList.contains('line')) {
-      const lines = Array.from(container.querySelectorAll('.line'))
-      const index = lines.indexOf(el)
-      if (index >= 0) return index + 1
+    if (el === container) break
+    // Cross the shadow boundary upward: the selection lives inside a
+    // viewer shadow root, so hop to its host (a light-DOM child) and keep
+    // walking toward the container.
+    const root = el.getRootNode()
+    if (typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot && root.host !== null) {
+      el = root.host
+      continue
     }
     el = el.parentElement
   }

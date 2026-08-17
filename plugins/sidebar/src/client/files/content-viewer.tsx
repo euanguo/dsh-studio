@@ -253,7 +253,7 @@ export function ContentViewer({
     }
     const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
     return (
-      <div className="oh-dsh-content-root oh-dsh-content-root-fill">
+      <div ref={textRootRef} className="oh-dsh-content-root oh-dsh-content-root-fill">
         <div className="oh-dsh-content-meta">
           <span>{name}</span>
           <span>{`markdown · ${lineCount} lines`}</span>
@@ -267,6 +267,7 @@ export function ContentViewer({
           cacheKey={path}
           {...(comments === undefined ? {} : { comments })}
         />
+        {selectionInsert}
       </div>
     )
   }

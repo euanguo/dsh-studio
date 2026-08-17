@@ -26,7 +26,7 @@ export function registerBuiltins(
   for (const viewer of builtinViewers(deps)) {
     disposers.push(sidebar.registerViewer(viewer))
   }
-  disposers.push(registerBuiltinSurfaces(sidebar, deps.t))
+  disposers.push(registerBuiltinSurfaces(sidebar, deps.t, deps.reviewComments))
   return () => {
     for (const dispose of disposers.reverse()) dispose()
   }

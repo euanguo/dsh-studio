@@ -10,6 +10,11 @@ import {
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { BottomWorkbench } from './bottom-workbench.tsx'
+import {
+  createMountScheduler,
+  findConversationColumn,
+  mutationNeedsMount,
+} from '../../../shared/column-mount.ts'
 import type { DesktopPanels } from '../../../panel-controls/src/client.ts'
 import type { PinnedSummary } from '../../../pinned-summary/src/client.ts'
 import { basename } from '../../../shared/path.ts'
@@ -316,15 +321,16 @@ ${diffViewerCss}`
    * Mount the bottom workbench into the conversation column, ABOVE the
    * terminal dock (panel-controls keeps the dock last; the workbench
    * inserts before `#oh-dsh-terminal-root` when it exists, appends
-   * otherwise). A MutationObserver re-asserts the position when DSH
-   * replaces the column subtree (same self-heal pattern as panel-controls).
+   * otherwise).
+   *
+   * The column (`[data-phase]`'s parent) is rendered by DSH after this
+   * plugin's own `mount()` runs, so a single eager attempt would silently
+   * fail — the same self-healing scheduler + document observer pattern
+   * panel-controls uses for the terminal dock retries on every relevant DOM
+   * mutation until the column exists and the element stays in position.
    */
   private mountBottomWorkbench(): void {
-    const column = (() => {
-      const phase = document.querySelector<HTMLElement>('[data-phase]')
-      return phase?.parentElement ?? null
-    })()
-    if (column === null) return
+    const ownedRoot = '#oh-dsh-bottom-workbench-root'
     let element = this.workbenchElement
     if (element === undefined) {
       element = document.createElement('div')
@@ -337,17 +343,34 @@ ${diffViewerCss}`
       root = createRoot(element)
       this.workbenchRoot = root
     }
-    const place = (): void => {
+    const mount = (): void => {
+      const column = findConversationColumn()
+      if (column === null) return
       if (element.isConnected && element.parentElement === column) return
       column.insertBefore(element, column.querySelector('#oh-dsh-terminal-root'))
+      root.render(
+        <BottomWorkbench sidebar={this.sidebar} t={this.t} />,
+      )
     }
-    place()
-    root.render(
-      <BottomWorkbench sidebar={this.sidebar} t={this.t} />,
-    )
-    const observer = new MutationObserver(() => { place() })
-    observer.observe(document.body, { childList: true, subtree: true })
-    this.stopWorkbenchObserver = () => { observer.disconnect() }
+    mount()
+    const scheduler = createMountScheduler(mount)
+    const observer = new MutationObserver(records => {
+      // Ignore our own DOM writes (the element itself) so the observer does
+      // not wake itself in an endless loop.
+      if (records.some(record => mutationNeedsMount(record, ownedRoot))) {
+        scheduler.schedule()
+      }
+    })
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ['data-details-collapsed', 'data-sidebar-collapsed', 'data-phase'],
+      childList: true,
+      subtree: true,
+    })
+    this.stopWorkbenchObserver = () => {
+      observer.disconnect()
+      scheduler.cancel()
+    }
   }
 
   private applyLayout(): void {

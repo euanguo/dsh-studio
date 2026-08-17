@@ -9,6 +9,7 @@ import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { DesktopSidebarService } from '../contract.ts'
 import type { CenterSurface } from '../surfaces/types.ts'
+import type { ReviewCommentsService } from '../review/review-comments.ts'
 import { FileSurfaceView } from '../surfaces/file-surface.tsx'
 import {
   DiffAllSurfaceView,
@@ -25,11 +26,18 @@ import { ConflictSurfaceView } from '../surfaces/conflict-renderer.tsx'
 export function registerBuiltinSurfaces(
   sidebar: DesktopSidebarService,
   t: Translate<WorkspaceMessage>,
+  reviewComments?: ReviewCommentsService,
 ): () => void {
   const disposers = [
     sidebar.registerSurfaceRenderer('file', surface => {
       if (surface.kind !== 'file') return null
-      return <FileSurfaceView surface={surface} t={t} />
+      return (
+        <FileSurfaceView
+          surface={surface}
+          t={t}
+          {...(reviewComments === undefined ? {} : { reviewComments })}
+        />
+      )
     }),
     sidebar.registerSurfaceRenderer('diff', surface => {
       if (surface.kind !== 'diff') return null

@@ -793,14 +793,20 @@ function TabStrip({ sidebar, t }: {
   const stripRef = useRef<HTMLDivElement>(null)
   const [marker, setMarker] = useState<{ id: string; side: TabDropSide } | null>(null)
   const draggingRef = useRef(false)
+  const tabs = snapshot.tabs.filter(tab => !PINNED_TAB_TYPES.has(tab.type))
   useEffect(() => {
+    // The wheel binding depends on the strip element being in the DOM.
+    // When tabs.length is 0 the component returns null before the element
+    // mounts, and the []-only effect would never bind after tabs appear.
+    // This dependency ensures the effect re-runs when tabs appear (or
+    // disappear), binding the wheel handler to the now-mounted strip.
+    if (tabs.length === 0) return
     const el = stripRef.current
     if (el === null) return
     // Wheel over the overflowed tab row scrolls it horizontally (the
     // surface-tab strip helper; non-passive so the page does not scroll).
     return bindTabStripWheel(el)
-  }, [])
-  const tabs = snapshot.tabs.filter(tab => !PINNED_TAB_TYPES.has(tab.type))
+  }, [tabs.length])
   if (tabs.length === 0) return null
 
   const acceptDrag = (event: ReactDragEvent): boolean => {
