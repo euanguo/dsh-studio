@@ -113,14 +113,19 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   display: flex;
   flex-direction: column;
   flex: 1;
-  /* All four insets come from the Scrollable host (default 8px); sections
-     below own zero padding. */
+  /* Multi-layer host: the scrollable owns only the scrollbar seat (right
+     edge); the sections below own their own padding (top/bottom/left) so
+     content keeps breathing room from each section's divider. The seat
+     stays at the default 8px. */
+  --oh-dsh-scrollable-inset: 0;
 }
 
 .oh-dsh-workspace-content section {
-  /* Section = pure content shell: no padding of its own — all four insets
-     live on the Scrollable host, so the scrollbar lane never stacks on a
-     section's side padding. */
+  /* Section = the inset owner for its own content: 8px on top/bottom/left
+     (right is left to the scrollable's seat, so the lane never stacks on
+     section padding). The bottom divider runs from the container's left
+     edge to the seat's left edge. */
+  padding: var(--oh-dsh-space-2) 0 var(--oh-dsh-space-2) var(--oh-dsh-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
@@ -191,11 +196,12 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 /* The history header is the collapse/expand toggle — a plain static row
    matching the "changes" header (no hover wash), only the chevron hints the
-   expand/collapse interaction. Its own horizontal inset aligns it with the
-   change-list rows (8px). */
+   expand/collapse interaction. Its own 8px inset on every side aligns it
+   with the change-list rows and keeps it off the strip's top border and
+   the commit list below. */
 .oh-dsh-history-toggle {
   cursor: pointer;
-  padding: 0 var(--oh-dsh-space-2);
+  padding: var(--oh-dsh-space-2);
 }
 
 .oh-dsh-history-chevron {

@@ -25,10 +25,16 @@
 
 .oh-dsh-scrollable {
   /* Uniform inset on all four sides — the single inset every consumer
-     gets. Defaults to the shared 8px step; override on your own class. */
+     gets. Defaults to the shared 8px step; override on your own class.
+     Multi-layer consumers (a scroll host whose children are bordered
+     sections, e.g. the review panel) set this to 0 and let each section
+     own its own padding instead. */
   --oh-dsh-scrollable-inset: var(--oh-dsh-space-2, 8px);
-  /* Scrollbar seat geometry — derived from the inset, never hardcoded by
-     consumers. */
+  /* Scrollbar seat total width (bar + offset + gap), independent of the
+     content inset so a multi-layer host can drop its own padding while
+     keeping the seat. */
+  --oh-dsh-scrollable-seat: var(--oh-dsh-space-2, 8px);
+  /* Scrollbar seat geometry — derived, never hardcoded by consumers. */
   --oh-dsh-scrollbar-width: 6px;
   --oh-dsh-scrollbar-offset: 1px;
 
@@ -42,12 +48,12 @@
      divider) is never clobbered. */
   margin-right: var(--oh-dsh-scrollbar-offset);
   padding: var(--oh-dsh-scrollable-inset);
-  /* Content gap to the bar: the inset minus the bar lane and offset —
-     with the default 8px inset that leaves 1px. When content does not
+  /* Content gap to the bar: the seat minus the bar lane and offset —
+     with the default 8px seat that leaves 1px. When content does not
      overflow, scrollbar-gutter:stable reserves the bar width so the
      right edge does not move. */
   padding-right: calc(
-    var(--oh-dsh-scrollable-inset)
+    var(--oh-dsh-scrollable-seat)
     - var(--oh-dsh-scrollbar-width)
     - var(--oh-dsh-scrollbar-offset)
   );
