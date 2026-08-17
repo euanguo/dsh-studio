@@ -16,6 +16,18 @@ const STORAGE_KEY = 'oh-dsh-desktop.sidebar-preferences'
  * open, per-tab/viewer enable switches, per-session tab layouts). Stored in
  * localStorage so the sidebar needs no host file system / appDataPath — this
  * is what lets the sidebar run as a generic DSH plugin outside the desktop.
+ *
+ * STORE BOUNDARY (deliberate, do not merge with runtime-settings): the
+ * sidebar intentionally persists to TWO stores with different ownership —
+ *   - HERE (localStorage): per-BROWSER UI session state. Tab layouts are
+ *     window-local; two browsers on the same profile keep independent
+ *     layouts, and a corrupted layout never touches the host.
+ *   - runtime-settings (host settings namespace via /sidebar/api
+ *     settings.*): FEATURE preferences (interception switches, terminal
+ *     font/shell, agent tools) that must follow the user across browsers
+ *     and surfaces.
+ * Folding either into the other is a regression: layouts on the host lose
+ * browser isolation; feature prefs in localStorage stop syncing.
  */
 export class LocalStorageSidebarPreferencesStorage
 implements SidebarPreferencesStorage {

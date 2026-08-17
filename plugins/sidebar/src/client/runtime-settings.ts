@@ -3,6 +3,14 @@ import {
   type SidebarSettingsView,
 } from './sidebar-api.ts'
 
+/**
+ * Host-synced FEATURE preferences (the Side card namespace). These ride the
+ * host settings service through /sidebar/api settings.* so they follow the
+ * user across browsers and surfaces — the OTHER half of the sidebar's
+ * deliberate two-store split; per-browser UI layouts stay in
+ * sidebar-storage's localStorage (see the store-boundary note there).
+ */
+
 export interface SidebarRuntimePreferences {
   agentTerminalTools: boolean
   /**
