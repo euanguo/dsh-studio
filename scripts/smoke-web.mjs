@@ -216,7 +216,7 @@ try {
   }
 
   // The skins preferences server mounts on the web server.
-  const preferencesUrl = new URL('/oh-dsh/skins/preferences', base)
+  const preferencesUrl = new URL('/oh-dsh-desktop/skins/preferences', base)
   const initialResponse = await fetch(preferencesUrl)
   const initial = await initialResponse.json()
   assert.equal(initialResponse.status, 200)
