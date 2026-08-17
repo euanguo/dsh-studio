@@ -3,7 +3,7 @@
 import {
   OH_DSH_SURFACE_VIEW_SERVICE,
   type OhDshSurfaceView,
-} from '../../plugins/shared/surface.ts'
+} from '@oh-dsh/shared/surface'
 
 interface ClientContext {
   effect(effect: () => (() => void) | void, label?: string): void
