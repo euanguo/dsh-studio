@@ -64,11 +64,7 @@ function fileNameFromPath(filePath: string): string {
 
 /** File-type icon matching the right-panel file tree (VSCode Material style). */
 function fileTypeIcon(filePath: string): JSX.Element {
-  return (
-    <span aria-hidden="true" data-icon-vendor="react-symbols">
-      {getIconForFile({ fileName: fileNameFromPath(filePath), autoAssign: true, width: 13, height: 13 })}
-    </span>
-  )
+  return getIconForFile({ fileName: fileNameFromPath(filePath), autoAssign: true, width: 13, height: 13 })
 }
 
 function surfaceIcon(surface: CenterSurface): JSX.Element | null {
