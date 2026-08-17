@@ -168,7 +168,7 @@ export function FileGlyph({
 }): JSX.Element {
   const name = path.split(/[\\/]/).filter(Boolean).pop() ?? 'file'
   const wrap = (icon: ReactNode): JSX.Element => (
-    <span className={className} aria-hidden="true" data-icon-vendor="react-symbols">
+    <span className={className} aria-hidden="true" data-icon-vendor="react-symbols" style={{ display: 'inline-flex', alignItems: 'center' }}>
       {icon}
     </span>
   )
@@ -184,7 +184,7 @@ export function FileGlyph({
   }
   if (kind === 'symlink') {
     return (
-      <span className={className} aria-hidden="true">
+      <span className={className} aria-hidden="true" style={{ display: 'inline-flex', alignItems: 'center' }}>
         <TbLink size={DEFAULT_SIZE} stroke={DEFAULT_STROKE} />
       </span>
     )
