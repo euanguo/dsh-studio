@@ -438,11 +438,13 @@ ${gate([...TRIGGER_PILL, ...SEAT, ...WORKSPACE_PILL])} {
   border-radius: var(--gw-skin-radius-pill) !important;
   corner-shape: round;
 }
-/* ui-settings-general 的设置触发（.-wizCq_trigger，full-width row seat）
-   同时命中上方的 button[aria-haspopup] 胶囊门控（0,3,1 特异性）：
-   用槽位限定把特异性提到 0,4,1，拉回行规范（12.5px superellipse，
-   与列表/市场一致）。 */
-body[data-oh-dsh-skin] [data-slot='sidebar.settings'] button.-wizCq_trigger {
+/* ui-settings-general 的设置触发（xuwxfG_trigger，full-width row seat）
+   同时命中上方的 button[aria-haspopup] 胶囊门控与 TRIGGER_PILL
+   （0,3,1 特异性）：:has 把特异性提到 0,3,2，拉回行规范（12.5px
+   superellipse，与列表/市场一致）。类名随 DSH 上游哈希变更——rc.7
+   由原来的 -wizCq_trigger 重哈希为 xuwxfG_trigger（见 generated-selectors
+   TRIGGER_PILL）。 */
+body[data-oh-dsh-skin] button.xuwxfG_trigger:has([data-slot='settings.trigger']) {
   border-radius: var(--gw-skin-radius-row) !important;
   corner-shape: superellipse(1.5) !important;
 }
@@ -460,10 +462,10 @@ ${gate([...TRIGGER_LABEL, ...TRIGGER_EFFORT, ...WORKSPACE_LABEL])} {
   align-items: center !important;
   line-height: var(--gw-skin-row-lh) !important;
 }
-/* ui-settings-general 设置触发（.wizCq_trigger 展开行 / .wizCq_rail 折叠座）：
+/* ui-settings-general 设置触发（xuwxfG_trigger 展开行 / xuwxfG_rail 折叠座）：
    官方折叠态把图标放大到 18px，与全应用 16px 图标不一致——钉回 16px。 */
-body[data-oh-dsh-skin] .wizCq_trigger svg,
-body[data-oh-dsh-skin] .wizCq_rail svg {
+body[data-oh-dsh-skin] .xuwxfG_trigger svg,
+body[data-oh-dsh-skin] .xuwxfG_rail svg {
   width: 16px !important;
   height: 16px !important;
 }
@@ -561,64 +563,20 @@ body[data-oh-dsh-skin] button[disabled] {
 /* ================================================================
    2026-08 全量组件审计补充（scripts/audit-skin-styles.mjs + 四组人工
    过审，报告 docs/SKINS-COMPONENT-AUDIT.md）。全部为上游精确类名。
+
+   DSH rc.7 升级说明：审计期的 webpack 风格哈希类名（SIlZCq_close、
+   Sqg4Fa_action、wI0qGa_row、lbz_ZG_chip 等）在 rc.5 时已被上游重哈希
+   而整体失效（此前 pin 下即为死选择器），本轮随 rc.7 一并移除；设计
+   意图保留在该审计文档。仍存活于 rc.7 的 Vite 风格类（模块源码未变）
+   保留如下。
    ================================================================ */
 
 /* 组件自带的圆形按钮：通用 button 12.5px 规则会把它们压成方角
-   （实测 .SIlZCq_close 28×28 被压），恢复 pill。ui-sidebar 的 iconButton
-   （rail 顶部 + 底部 Settings 座位）刻意不在清单里：侧栏的按钮与左侧
-   列表统一为 --gw-skin-radius-row（12.5px superellipse），不保留正圆。 */
-body[data-oh-dsh-skin] .SIlZCq_close,
-body[data-oh-dsh-skin] .Sqg4Fa_action,
-body[data-oh-dsh-skin] .d4tJKG_action,
-body[data-oh-dsh-skin] .zNtrCa_toBottom,
-body[data-oh-dsh-skin] .VfOgWa_iconButton,
-body[data-oh-dsh-skin] ._64ccDW_iconBtn,
+   （实测 28×28 关闭钮被压），恢复 pill。 */
 body[data-oh-dsh-skin] ._close_18d3q_30,
 body[data-oh-dsh-skin] ._remove_1hk8w_53,
-body[data-oh-dsh-skin] ._arrow_1hk8w_90,
-body[data-oh-dsh-skin] .EBSbfa_iconButton,
-body[data-oh-dsh-skin] .bF00Jq_inspectButton,
-body[data-oh-dsh-skin] .LEwn7a_actionButton {
+body[data-oh-dsh-skin] ._arrow_1hk8w_90 {
   border-radius: var(--gw-skin-radius-pill) !important;
-}
-
-/* 行形态统一圆角（jobs/subagent/commands/目录/附件编辑器）：行高 DSH
-   自管（32/50px 等），皮肤只统一 12.5px，与行规则同一纪律。 */
-body[data-oh-dsh-skin] .wI0qGa_row,
-body[data-oh-dsh-skin] .vGKOra_row,
-body[data-oh-dsh-skin] .vGKOra_clickarea,
-body[data-oh-dsh-skin] .kxQ7mG_row,
-body[data-oh-dsh-skin] .saFVAG_row,
-body[data-oh-dsh-skin] .Sqg4Fa_header,
-body[data-oh-dsh-skin] .Sqg4Fa_row {
-  border-radius: var(--gw-skin-radius-row) !important;
-}
-
-/* 插件清单卡片的保存/放弃动作键（QtPdFG 自有类，非 Button 组件）：
-   对齐对话框动作键 md 规格（32px 高 + 6×16 padding，规格钉死见
-   BUTTON_MD 注释）。 */
-body[data-oh-dsh-skin] .QtPdFG_save,
-body[data-oh-dsh-skin] .QtPdFG_discard {
-  height: 32px !important;
-  padding: 6px 16px !important;
-}
-
-/* goal 目标输入框：输入框规范（12.5px + token 行高）。
-   注意：input 元素的高度由 UA 内部渲染模型决定（line-height 不参与
-   高度计算），padding + line-height 无法自然撑到 28.59（实测 auto 下
-   30.59px）——input 属规格控件，保留钉死并注明（与 BUTTON_MD 同类）。 */
-body[data-oh-dsh-skin] ._64ccDW_objectiveInput {
-  height: var(--gw-skin-row-h) !important;
-  border-radius: var(--gw-skin-radius-row) !important;
-}
-
-/* 分组标题（模型列表 LqtciG / Commands gtvCtq）：与 GROUP_LABEL 同规范 */
-body[data-oh-dsh-skin] .LqtciG_groupTitle,
-body[data-oh-dsh-skin] .gtvCtq_groupTitle {
-  padding: 4px 8px !important;
-  font-size: 13px !important;
-  line-height: 18.57px !important;
-  color: var(--dsw-alias-label-tertiary) !important;
 }
 
 /* 过滤 pill（Pill 组件 e3ygd）：pill + 行规格（官方 24px/12px 方角）。
@@ -640,20 +598,6 @@ body[data-oh-dsh-skin] ._toast_fvpz7_7 {
 }
 body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-night"] ._toast_fvpz7_7 {
   color: var(--dsw-alias-label-primary) !important;
-}
-
-/* 引用 chips（会话上下文）：硬编码 #6187d838 → accent hover token，
-   圆角 12.5px、13px 行字（.85em 相对字号不稳）；错误态 #d8616133 →
-   danger hover token。 */
-body[data-oh-dsh-skin] .lbz_ZG_chip,
-body[data-oh-dsh-skin] ._3-lYmW_refChip {
-  background: var(--dsw-alias-interactive-bg-hover-accent) !important;
-  border-radius: var(--gw-skin-radius-row) !important;
-  font-size: var(--gw-skin-row-fs) !important;
-  line-height: var(--gw-skin-row-lh) !important;
-}
-body[data-oh-dsh-skin] .lbz_ZG_chipInvalid {
-  background: var(--dsw-alias-interactive-bg-hover-danger) !important;
 }
 
 /* onboarding 遮罩：硬编码 #0000003d + blur 2px → mask token + 皮肤 blur */

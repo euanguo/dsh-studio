@@ -8,6 +8,13 @@ importers:
 
   .:
     dependencies:
+      '@upsetjs/venn.js':
+        specifier: ^2.0.0
+        version: 2.0.0
+      semver:
+        specifier: 7.7.4
+        version: 7.7.4
+    devDependencies:
       '@oh-dsh/panel-controls':
         specifier: workspace:*
         version: link:plugins/panel-controls
@@ -20,13 +27,6 @@ importers:
       '@oh-dsh/sidebar':
         specifier: workspace:*
         version: link:plugins/sidebar
-      '@upsetjs/venn.js':
-        specifier: ^2.0.0
-        version: 2.0.0
-      semver:
-        specifier: 7.7.4
-        version: 7.7.4
-    devDependencies:
       '@types/node':
         specifier: ^24.10.0
         version: 24.13.3

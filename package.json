@@ -84,6 +84,10 @@
     "smoke:pack": "node scripts/smoke-pack.mjs"
   },
   "devDependencies": {
+    "@oh-dsh/panel-controls": "workspace:*",
+    "@oh-dsh/pinned-summary": "workspace:*",
+    "@oh-dsh/shared": "workspace:*",
+    "@oh-dsh/sidebar": "workspace:*",
     "@types/node": "^24.10.0",
     "@types/semver": "7.8.0",
     "cordis": "4.0.0-rc.8",
@@ -218,10 +222,6 @@
     "artifactName": "Oh-DSH-Desktop-${version}-${arch}.${ext}"
   },
   "dependencies": {
-    "@oh-dsh/panel-controls": "workspace:*",
-    "@oh-dsh/pinned-summary": "workspace:*",
-    "@oh-dsh/shared": "workspace:*",
-    "@oh-dsh/sidebar": "workspace:*",
     "@upsetjs/venn.js": "^2.0.0",
     "semver": "7.7.4"
   }

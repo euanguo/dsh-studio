@@ -111,7 +111,7 @@
 
   <!-- electron shell -->
   <rect x="900" y="224" width="780" height="46" rx="9" class="shell"/>
-  <text x="920" y="248" class="box-line">Electron 壳 + 固定 DSH runtime（pin 0.1.0-rc.5）· cordis.patch.yml 挂载 8 个插件</text>
+  <text x="920" y="248" class="box-line">Electron 壳 + 固定 DSH runtime（pin 0.1.0-rc.7）· cordis.patch.yml 挂载 8 个插件</text>
   <line x1="1290" y1="270" x2="1290" y2="288" class="arrowline" marker-end="url(#arrow)"/>
 
   <!-- vendored host -->

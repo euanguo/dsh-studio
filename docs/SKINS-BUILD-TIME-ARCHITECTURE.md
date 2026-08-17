@@ -81,7 +81,7 @@
 
 ### 2.1 上游源码从哪里来
 
-`dsh-source.json` 钉死上游 commit（当前 `47f943859bef`，`0.1.0-rc.5`）：
+`dsh-source.json` 钉死上游 commit（当前 `99f6f02fecdb`，`0.1.0-rc.7`）：
 
 ```
 dsh-source.json
@@ -321,7 +321,7 @@ const css = ".LqtciG_triggerLabel{text-overflow:ellipsis;…}.LqtciG_triggerEffo
 | 物 | 路径 |
 | --- | --- |
 | 上游钉版 | `dsh-source.json`（repo 根） |
-| 上游 checkout | `.cache/dsh-source/47f943859bef/` |
+| 上游 checkout | `.cache/dsh-source/99f6f02fecdb/` |
 | 上游构建脚本 | `scripts/build-dsh.mjs`（vision 补丁先例在 `withVisionSettingsNamespace`） |
 | staging 脚本 | `scripts/stage-dsh.mjs` |
 | 插件构建脚本 | `scripts/build.mjs`（esbuild，`scripts/build-config.mjs` 共享配置） |

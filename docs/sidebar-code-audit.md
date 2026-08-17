@@ -374,7 +374,7 @@ desktop client 只调自己 host 的 `/oh-dsh-desktop/sidebar/api`。真正被�
   `react-markdown` 却放在 `dependencies`。因 `private:true` 无功能影响，但方向互相矛盾。
 - 🟡 `pnpm-workspace.yaml` 有两处重复/失效配置：`allowBuilds` 是 pnpm 11 不认的旧字段（与
   `onlyBuiltDependencies` 重复且被静默忽略）；`minimumReleaseAgeExclude` 与 `.npmrc` 重复。
-- 🟡 `tests/dsh-source.test.ts:8-14` 对 `0.1.0-rc.5` 版本字符串**硬编码**，每升级 DSH 源就得改测试。
+- 🟡 `tests/dsh-source.test.ts:8-14` 对 `0.1.0-rc.7` 版本字符串**硬编码**，每升级 DSH 源就得改测试。
 - 🟡 大量**字符串/正则快照式测试**（`desktop-chrome.test.ts`、`plugin.test.ts`、`right-panel-layout.test.ts`、
   `terminal-style.test.ts`、`plugin-marketplace.test.ts` 的 footer 段）直接 `assert.match` 源码文本/CSS；
   git `7981b38` 已显示这类测试在重构中被迫反复改——典型的"实现一改、测试跟着改仍绿"的失效风险源。

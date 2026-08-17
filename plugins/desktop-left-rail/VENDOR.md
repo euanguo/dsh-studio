@@ -7,8 +7,8 @@ project → worktree → session tree.
 
 - Upstream: <https://github.com/deepseek-ai/deepseek-harness> (MIT),
   `packages/client/ui-workspace`
-- Pinned DSH revision: `47f943859bef60e4160492346772ded9b24f765a`
-  (`dsh-source.json`, upstream version `0.1.0-rc.5`)
+- Pinned DSH revision: `99f6f02fecdb7dff40c3fbc9470f5907c29f74ca`
+  (`dsh-source.json`, upstream version `0.1.0-rc.7`)
 - Fork commit: `ed5a97f` ("left-rail: fork official ui-workspace into a
   project→worktree→session tree")
 - License: MIT — see THIRD_PARTY_NOTICES.md

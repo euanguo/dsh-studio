@@ -105,7 +105,9 @@ for (const row of [
   assert.match(dump.stdout, new RegExp(`\\b${row}\\b`), `composed web profile is missing row ${row}`)
 }
 for (const row of ['oh-desktop', 'oh-plugin-marketplace']) {
-  assert.doesNotMatch(dump.stdout, new RegExp(`\\b${row}\\b`), `composed web profile must not mount desktop row ${row}`)
+  // Anchor to the composed row id: a plain \b match would also hit the
+  // hyphen-delimited prefix of the unrelated `oh-desktop-skins` row.
+  assert.doesNotMatch(dump.stdout, new RegExp(`^- id: ${row}$`, 'm'), `composed web profile must not mount desktop row ${row}`)
 }
 
 // 2. Boot the web profile and verify the served UI and client graph.

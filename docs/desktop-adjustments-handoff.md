@@ -6,8 +6,8 @@
 >
 > 基准状态：本地 `main` @ `79a275d`（含 **75 个**未推送提交，其中最后 5 个——
 > `43e0833`/`a53f287`/`8c3506c`/`78b7405`/`79a275d`——是本文写作后新增的
-> chrome 重构，已并入下文），DSH runtime 锁定 `0.1.0-rc.5`
-> （`dsh-source.json` @ `47f94385`）。
+> chrome 重构，已并入下文），DSH runtime 锁定 `0.1.0-rc.7`
+> （`dsh-source.json` @ `99f6f02f`）。
 
 ---
 
@@ -357,7 +357,7 @@ writes from the DSH runtime origin"）。
 | `smoke-client.cjs` | 运行时冒烟 |
 
 - DSH runtime 锁定：`dsh-source.json` → deepseek-harness
-  `47f943859bef60e4160492346772ded9b24f765a`（0.1.0-rc.5）。升级 DSH 前先过
+  `99f6f02fecdb7dff40c3fbc9470f5907c29f74ca`（0.1.0-rc.7）。升级 DSH 前先过
   `tests/`（`pnpm test`）。
 
 ---

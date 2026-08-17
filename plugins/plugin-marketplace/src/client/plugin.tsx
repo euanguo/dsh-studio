@@ -191,10 +191,17 @@ function sidebarBox(sidebar: HTMLElement): HTMLElement | null {
 function PluginIcon(): JSX.Element {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8.2 5.3a7.5 7.5 0 1 0 9.9 2.1" />
-      <path d="M15.7 3.4v4.8h4.8" />
-      <circle cx="10" cy="11" r="1.7" />
-      <path d="M11.5 12.2l2.8 2.3M7.8 15.8l2.3-2.9" />
+      {/* The puzzle paths occupy ~16×15.9 of the 24-unit viewBox, so the
+         16px-rendered artwork (~10.7px) reads far smaller than the settings
+         gear (IconSettingsOutline16, ~15px artwork) it sits beside in the
+         rail footer. Scale to the gear's optical size and re-center; the
+         runtime smoke asserts the two footer icons stay within 1px. */}
+      <g transform="translate(-5.8368 -4.1702) scale(1.42687)">
+        <path d="M8.2 5.3a7.5 7.5 0 1 0 9.9 2.1" />
+        <path d="M15.7 3.4v4.8h4.8" />
+        <circle cx="10" cy="11" r="1.7" />
+        <path d="M11.5 12.2l2.8 2.3M7.8 15.8l2.3-2.9" />
+      </g>
     </svg>
   )
 }

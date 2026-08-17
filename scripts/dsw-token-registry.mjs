@@ -1,6 +1,6 @@
 // 官方 design-platform.css 的 --dsw-alias-*/--dsw-specific-* 键全集快照。
-// 来源：.cache/dsh-source/47f943859bef/packages/client/ui-theme/src/styles/design-platform.css
-// （DSH 0.1.0-rc.5，pinned rev 47f943859bef）。
+// 来源：.cache/dsh-source/99f6f02fecdb/packages/client/ui-theme/src/styles/design-platform.css
+// （DSH 0.1.0-rc.7，pinned rev 99f6f02fecdb）。
 // 上游 bump 后刷新（需先跑 build:dsh，输出到 stdout 后覆盖本文件）：
 //   node -e "const fs=require('fs');const css=fs.readFileSync(require('./scripts/dsh-source.mjs').resolveDshSource()+'/packages/client/ui-theme/src/styles/design-platform.css','utf8');console.log([...new Set(css.match(/--dsw-(?:alias|specific)-[a-zA-Z0-9-]+/g))].sort().map(k=>\"  '\"+k+\"',\").join('\n'))"
 // verify-skin-tokens.mjs 会用 .cache/ 里的实时文件交叉核对本快照，漂移即报错。

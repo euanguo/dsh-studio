@@ -3,7 +3,7 @@
  *
  * Source: `@deepseek-ai/dsh-client-runtime` client — `packages/client/runtime/
  * src/client/sessions/subagent-lineage.ts` at the pinned DSH revision
- * `47f943859bef60e4160492346772ded9b24f765a` (see `dsh-source.json`).
+ * `99f6f02fecdb7dff40c3fbc9470f5907c29f74ca` (see `dsh-source.json`).
  *
  * Vendored here (with the upstream license notice retained) so the
  * derivation module (`tree.ts`) carries no runtime bare import and stays

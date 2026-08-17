@@ -4,7 +4,7 @@
 > 而不是为每个插件手写垫片。本文是官方机制的第一手梳理 + 迁移配方。
 >
 > 官方源码：`.cache/dsh-source/<commit>/`（完整 monorepo 克隆，dsh-root
-> 0.1.0-rc.5，commit `47f943859bef60e4160492346772ded9b24f765a`）。
+> 0.1.0-rc.7，commit `99f6f02fecdb7dff40c3fbc9470f5907c29f74ca`）。
 > web-app bundle 锁定该版本，迁移必须针对同一 commit 进行。
 
 ---
