@@ -26,7 +26,7 @@
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-ui-layout",
-        "@oh-dsh/skins",
+        "@oh-dsh/desktop-skins",
         "@oh-dsh/pinned-summary",
         "@oh-dsh/sidebar",
         "@oh-dsh/panel-controls"

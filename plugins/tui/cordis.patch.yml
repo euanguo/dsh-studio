@@ -1,6 +1,8 @@
 # Oh-DSH's downstream layer for the pinned dsh-TUI bundle. The upstream
-# renderer keeps its implementation, while these rows establish the shared
-# surface contract, install @oh-dsh/skins, and then mount the renderer.
+# renderer keeps its implementation; these rows establish the shared
+# surface contract and then mount the renderer. (The former @oh-dsh/skins
+# and @oh-dsh/vision inserts referenced plugin trees the desktop
+# reconciliation removed — no TUI adapter survives, so the rows are gone.)
 
 - id: cc-tui
   disabled: true
@@ -8,12 +10,6 @@
 - insert:
   - id: oh-tui
     name: '@oh-dsh/tui'
-
-  - id: oh-skins
-    name: '@oh-dsh/skins'
-
-  - id: oh-vision
-    name: '@oh-dsh/vision'
 
   - id: oh-tui-renderer
     name: 'dsh-cc-tui'

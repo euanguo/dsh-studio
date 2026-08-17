@@ -97,8 +97,7 @@ assert.equal(dump.status, 0, dump.stderr || dump.stdout)
 for (const row of [
   'oh-web',
   'oh-better-sidebar-runtime',
-  'oh-vision',
-  'oh-skins',
+  'oh-desktop-skins',
   'oh-pinned-summary',
   'oh-sidebar',
   'oh-panel-controls',
@@ -168,11 +167,10 @@ try {
   const loaded = []
   for (const pluginId of [
     '@oh-dsh/web',
-    '@oh-dsh/skins',
+    '@oh-dsh/desktop-skins',
     '@oh-dsh/pinned-summary',
     '@oh-dsh/sidebar',
     '@oh-dsh/panel-controls',
-    '@oh-dsh/vision',
   ]) {
     const row = bootEntries.find(entry => entry.id === pluginId)
     assert.ok(row, `${pluginId} Host entry did not activate in the DSH client graph`)
@@ -207,15 +205,6 @@ try {
     'dist',
     'index.js',
   )), '@oh-dsh/sidebar-host Host bundle is missing')
-  assert.ok(existsSync(join(
-    resources,
-    'dsh-runtime',
-    'node_modules',
-    '@oh-dsh',
-    'vision',
-    'dist',
-    'index.js',
-  )), '@oh-dsh/vision Host bundle is missing')
 
   // Electron-bound surfaces must stay out of the web client graph.
   for (const pluginId of ['@oh-dsh/desktop', '@oh-dsh/plugin-marketplace']) {

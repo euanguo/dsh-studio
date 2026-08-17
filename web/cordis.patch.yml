@@ -8,11 +8,13 @@
 # Oh-DSH surface: the web identity plugin and the web-capable Oh-DSH plugins.
 #
 # Web keeps the same browser client graph as the desktop distribution
-# wherever the host services exist: skins, pinned summary, the sidebar
-# (workspace, Git, review, preferences — its host is pure Node), the PTY
-# terminal dock (better-sidebar-runtime is also pure Node), and the
-# browser-side panel layout. Only the Electron-bound surfaces stay out: the
-# desktop shell chrome and the marketplace bridge.
+# wherever the host services exist: skins (the one skins provider,
+# desktop-skins, reads its durable preferences through the shared
+# ohDshSurface contract — web's data root on this shell), pinned summary,
+# the sidebar (workspace, Git, review, preferences — its host is pure
+# Node), the PTY terminal dock (sidebar-host is also pure Node), and the
+# browser-side panel layout. Only the Electron-bound surfaces stay out:
+# the desktop shell chrome and the marketplace bridge.
 
 - insert:
     - id: oh-web
@@ -21,11 +23,8 @@
     - id: oh-better-sidebar-runtime
       name: '@oh-dsh/sidebar-host'
 
-    - id: oh-vision
-      name: '@oh-dsh/vision'
-
-    - id: oh-skins
-      name: '@oh-dsh/skins'
+    - id: oh-desktop-skins
+      name: '@oh-dsh/desktop-skins'
 
     - id: oh-pinned-summary
       name: '@oh-dsh/pinned-summary'

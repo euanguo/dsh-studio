@@ -112,18 +112,17 @@ test('web bundle patch mounts the web-capable Oh-DSH plugins', () => {
   for (const row of [
     'oh-web',
     'oh-better-sidebar-runtime',
-    'oh-vision',
-    'oh-skins',
+    'oh-desktop-skins',
     'oh-pinned-summary',
     'oh-sidebar',
     'oh-panel-controls',
   ]) {
     assert.match(patch, new RegExp(`- id: ${row}`))
   }
-  // Electron-bound surfaces stay out of the web composition.
-  for (const desktopRow of ['oh-desktop', 'oh-plugin-marketplace']) {
-    assert.doesNotMatch(patch, new RegExp(`- id: ${desktopRow}\\b`))
-  }
+  // Electron-bound surfaces stay out of the web composition. The desktop
+  // SHELL row must be absent while the desktop-SKINS provider rides along.
+  assert.doesNotMatch(patch, /- id: oh-desktop\n/)
+  assert.doesNotMatch(patch, /- id: oh-plugin-marketplace\n/)
 })
 
 test('web launcher defaults match the dsh-web-app bundle surface', () => {

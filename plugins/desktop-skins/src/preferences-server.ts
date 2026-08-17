@@ -15,10 +15,7 @@ import {
   parseSkinPreferences,
   type DesktopSkinPreferences,
 } from './preferences.ts'
-
-export interface DesktopCapability {
-  appDataPath: string
-}
+import type { OhDshSurface } from '@oh-dsh/shared/surface'
 
 export interface DesktopSkinPreferencesHostContext {
   webServer: {
@@ -97,12 +94,12 @@ export async function saveSkinPreferences(
 
 export function mountDesktopSkinPreferences(
   ctx: DesktopSkinPreferencesHostContext,
-  desktop: DesktopCapability,
+  surface: OhDshSurface,
 ): () => void {
-  if (desktop.appDataPath.length === 0) {
-    throw new Error('desktop-skins: desktop application data path is unavailable')
+  if (surface.dataRoot.length === 0) {
+    throw new Error('desktop-skins: surface data root is unavailable')
   }
-  const path = join(desktop.appDataPath, 'desktop-skins.json')
+  const path = join(surface.dataRoot, 'desktop-skins.json')
   return ctx.webServer.register({
     kind: 'exact',
     path: PREFERENCES_API_PATH,
