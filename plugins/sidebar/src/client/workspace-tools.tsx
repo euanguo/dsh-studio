@@ -20,6 +20,7 @@ import type { PinnedSummary } from '../../../pinned-summary/src/client.ts'
 import { basename } from '../../../shared/path.ts'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { useTranslate } from '../../../shared/use-i18n.ts'
+import { ensureStyle } from '../../../shared/style-injector.ts'
 import { ToastHost } from '../../../shared/toast.tsx'
 import { DialogHost } from './kit/dialog.tsx'
 import { SideToolsPanel } from './SideToolsPanel.tsx'
@@ -53,7 +54,7 @@ import themeCss from '../../../shared/theme.css'
 export class WorkspaceToolsService implements WorkspaceTools {
   private state: WorkspaceToolsState
   private readonly listeners = new Set<() => void>()
-  private style: HTMLStyleElement | undefined
+  private stopStyle: (() => void) | undefined
   private element: HTMLDivElement | undefined
   private root: Root | undefined
   // The toast host mounts on its own document.body element (the sidebar
@@ -183,12 +184,19 @@ export class WorkspaceToolsService implements WorkspaceTools {
   mount(): void {
     if (this.state.open) this.pinnedSummary.setOpen(false)
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
-    this.style = document.createElement('style')
-    this.style.dataset.ohDshDesktopSidebarStyles = 'true'
-    this.style.textContent = `${themeCss}\n${listRowCss}\n${scrollableCss}\n${filenameLabelCss}\n${surfaceTabCss}\n${toastCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
-${centerSurfaceCss}
-${diffViewerCss}`
-    document.head.append(this.style)
+    this.stopStyle = ensureStyle('oh-dsh-desktop-sidebar', [
+      themeCss,
+      listRowCss,
+      scrollableCss,
+      filenameLabelCss,
+      surfaceTabCss,
+      toastCss,
+      workspaceCss,
+      sideToolsCss,
+      sourceControlCss,
+      centerSurfaceCss,
+      diffViewerCss,
+    ].join('\n'))
     this.element = document.createElement('div')
     this.element.id = 'oh-dsh-sidebar-root'
     // The sidebar is a fixed overlay; #root is left in place (no wrapper, no
@@ -274,7 +282,8 @@ ${diffViewerCss}`
     this.element?.remove()
     this.toastRoot?.unmount()
     this.toastElement?.remove()
-    this.style?.remove()
+    this.stopStyle?.()
+    this.stopStyle = undefined
     delete document.documentElement.dataset.ohDshDesktopSidebarOpen
     delete document.documentElement.dataset.ohDshPanelMaximized
     document.documentElement.style.removeProperty('--oh-dsh-sidebar-width')

@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { DesktopBridge } from '../../../shared/desktop-contracts.ts'
+import { ensureStyle } from '../../../shared/style-injector.ts'
 import { Scrollable } from '../../../shared/scrollable.tsx'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { localeTag } from '../../../shared/i18n.ts'
@@ -231,7 +232,7 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
   readonly #listeners = new Set<() => void>()
   #state: MarketplaceViewState = { available: false, open: readOpen() }
   #element: HTMLDivElement | null = null
-  #style: HTMLStyleElement | null = null
+  #stopStyle: (() => void) | null = null
   #root: Root | null = null
   #observer: MutationObserver | null = null
   #resizeObserver: ResizeObserver | null = null
@@ -279,15 +280,12 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
 
   mount(): void {
     this.#sessionNavigationState = initialSessionNavigationState()
-    this.#style = document.createElement('style')
-    this.#style.dataset.ohDshPluginMarketplaceStyles = 'true'
     /* scrollable.css is injected once by the sidebar's workspace-tools
        chain (this plugin always co-loads with the sidebar); re-injecting
        it here duplicated every rule and let the later style tag clobber
        consumer borders (the diff-tree divider). Only marketplace's own
        styles are injected here. */
-    this.#style.textContent = marketplaceCss
-    document.head.append(this.#style)
+    this.#stopStyle = ensureStyle('oh-dsh-plugin-marketplace', marketplaceCss)
 
     this.#element = document.createElement('div')
     this.#element.id = 'oh-dsh-plugin-marketplace-root'
@@ -339,7 +337,8 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
     this.#footerStack?.removeAttribute(FOOTER_STACK_ATTRIBUTE)
     this.#footerStack = null
     this.#element?.remove()
-    this.#style?.remove()
+    this.#stopStyle?.()
+    this.#stopStyle = null
     this.#state = { available: false, open: false }
     for (const listener of this.#listeners) listener()
     delete document.documentElement.dataset.ohDshMarketplaceOpen

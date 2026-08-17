@@ -3,6 +3,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import xtermCss from '@xterm/xterm/css/xterm.css'
 import terminalCss from './terminal.css'
 import themeCss from '../../../shared/theme.css'
+import { ensureStyle } from '../../../shared/style-injector.ts'
 import { TerminalPanel, openOrToggleTerminal } from './TerminalPanel.tsx'
 import {
   createMountScheduler,
@@ -112,7 +113,7 @@ class DesktopPanelService implements DesktopPanels {
   private readonly rightPanelOrder: string[] = []
   private active: SessionSurface | undefined
   private readonly dock: ReactMount = { element: null, root: null }
-  private style: HTMLStyleElement | undefined
+  private stopStyle: (() => void) | undefined
   private observer: MutationObserver | undefined
   private stopSessionSubscription: (() => void) | undefined
   private stopActiveStoreSubscription: (() => void) | undefined
@@ -136,10 +137,7 @@ class DesktopPanelService implements DesktopPanels {
   }
 
   mount(): void {
-    this.style = document.createElement('style')
-    this.style.dataset.ohDshTerminalStyles = 'true'
-    this.style.textContent = `${themeCss}\n${xtermCss}\n${terminalCss}`
-    document.head.append(this.style)
+    this.stopStyle = ensureStyle('oh-dsh-terminal', [themeCss, xtermCss, terminalCss].join('\n'))
     this.scheduler = createMountScheduler(() => { this.mountAll() })
     this.syncActiveSession()
     this.stopSessionSubscription = this.sessions.list.subscribe(() => { this.syncActiveSession() })
@@ -164,7 +162,8 @@ class DesktopPanelService implements DesktopPanels {
     this.scheduler?.cancel()
     this.dock.root?.unmount()
     this.dock.element?.remove()
-    this.style?.remove()
+    this.stopStyle?.()
+    this.stopStyle = undefined
     this.surfaces.clear()
     this.active = undefined
     this.rightPanelClaims.clear()
