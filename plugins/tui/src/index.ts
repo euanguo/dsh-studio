@@ -3,8 +3,8 @@
 import {
   OH_DSH_SURFACE_SERVICE,
   type OhDshSurface,
-} from '../../shared/surface.ts'
-import { humanApprovalGuidance } from '../../shared/guardrails.ts'
+} from '@oh-dsh/shared/surface'
+import { humanApprovalGuidance } from '@oh-dsh/shared/guardrails'
 
 interface SystemPromptService {
   section(entry: { name: string; order: number; text: () => string }): unknown

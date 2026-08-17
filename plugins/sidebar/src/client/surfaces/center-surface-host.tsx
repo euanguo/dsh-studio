@@ -14,7 +14,7 @@
 import { Component, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import type { Translate } from '../../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import {
   IconExternalLink,
   IconFile,
@@ -24,7 +24,7 @@ import {
   IconHistory,
   IconSidebarLeftFilled,
   IconSidebarRightFilled,
-} from '../../../../shared/tabler-icons.tsx'
+} from '@oh-dsh/shared/tabler-icons'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { ErrorView } from '../kit/status.tsx'
 import { centerColumnElement, leftRailToggleButton, readLeftRailOpen } from './dsh-dom.ts'
@@ -44,7 +44,7 @@ import {
 import {
   SurfaceTab,
   SurfaceTabStrip,
-} from '../../../../shared/surface-tab.tsx'
+} from '@oh-dsh/shared/surface-tab'
 import {
   DiffThemeSync,
   DiffWorkerPoolProvider,

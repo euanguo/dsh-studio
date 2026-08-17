@@ -17,8 +17,8 @@ import {
   type DragEvent as ReactDragEvent,
   type ReactNode,
 } from 'react'
-import { SurfaceTab, SurfaceTabStrip } from '../../../shared/surface-tab.tsx'
-import type { Translate } from '../../../shared/i18n.ts'
+import { SurfaceTab, SurfaceTabStrip } from '@oh-dsh/shared/surface-tab'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from './i18n.ts'
 import type {
   DesktopSidebarService,

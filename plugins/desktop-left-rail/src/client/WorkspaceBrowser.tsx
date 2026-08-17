@@ -35,8 +35,8 @@ import { WorkspacePickFlow } from './WorkspacePicker.tsx'
 import { ProjectTreeBody } from './WorkspaceBrowserProjectTree.tsx'
 import { createWorktree, useWorktreeLayouts, fetchBranches } from './worktree-api.ts'
 import { loadLeftRailSettings, saveLeftRailSettings } from './left-rail-settings.ts'
-import { copyText } from '../../../shared/copy-text.ts'
-import { toast } from '../../../shared/toast.tsx'
+import { copyText } from '@oh-dsh/shared/copy-text'
+import { toast } from '@oh-dsh/shared/toast'
 // Identity class map + scoped stylesheet (build-time generated from the
 // forked CSS Modules — see scripts/left-rail-styles.mjs). The scope
 // attribute is mounted on the region root below.

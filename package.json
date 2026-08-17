@@ -218,6 +218,7 @@
     "artifactName": "Oh-DSH-Desktop-${version}-${arch}.${ext}"
   },
   "dependencies": {
+    "@oh-dsh/shared": "workspace:*",
     "@upsetjs/venn.js": "^2.0.0",
     "semver": "7.7.4"
   }

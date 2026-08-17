@@ -34,5 +34,8 @@
       "platform": "web",
       "immediately": true
     }
+  },
+  "dependencies": {
+    "@oh-dsh/shared": "workspace:*"
   }
 }

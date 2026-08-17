@@ -13,7 +13,7 @@ import remarkGfm from 'remark-gfm'
 import { codeToHtml } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { findTaskMarkerSourceLines } from './markdown-task-list.ts'
-import { Scrollable } from '../../../../shared/scrollable.tsx'
+import { Scrollable } from '@oh-dsh/shared/scrollable'
 
 export interface MarkdownViewerProps {
   content: string

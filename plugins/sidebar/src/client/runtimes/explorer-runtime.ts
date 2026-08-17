@@ -13,7 +13,7 @@
  * The runtime owns DATA only; UI chrome (expanded/selected) lives in the
  * chrome store. Views subscribe via `useSyncExternalStore`.
  */
-import { RevisionedStore, GenerationGate } from '../../../../shared/runtime.ts'
+import { RevisionedStore, GenerationGate } from '@oh-dsh/shared/runtime'
 
 export type ExplorerListingPhase = 'loading' | 'ready' | 'empty' | 'error'
 

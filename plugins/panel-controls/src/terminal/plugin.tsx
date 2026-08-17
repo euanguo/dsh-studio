@@ -2,14 +2,14 @@ import { Fragment } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import xtermCss from '@xterm/xterm/css/xterm.css'
 import terminalCss from './terminal.css'
-import themeCss from '../../../shared/theme.css'
-import { ensureStyle } from '../../../shared/style-injector.ts'
+import themeCss from '@oh-dsh/shared/theme.css'
+import { ensureStyle } from '@oh-dsh/shared/style-injector'
 import { TerminalPanel, openOrToggleTerminal } from './TerminalPanel.tsx'
 import {
   createMountScheduler,
   findConversationColumn,
   mutationNeedsMount,
-} from '../../../shared/column-mount.ts'
+} from '@oh-dsh/shared/column-mount'
 import {
   DEFAULT_TERMINAL_FONT_SIZE,
   createDockStore,
@@ -17,7 +17,7 @@ import {
   terminalFontPrefActions,
   type DockStore,
 } from './panel-store.ts'
-import type { LocaleService, Translate } from '../../../shared/i18n.ts'
+import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
 import { TERMINAL_MESSAGES, type TerminalMessage } from './i18n.ts'
 
 interface ObservableSnapshot<T> {

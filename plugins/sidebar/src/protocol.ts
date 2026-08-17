@@ -9,13 +9,13 @@ import type {
   SidebarWorkspaceFacts,
   SidebarWorkspaceMutation,
   SidebarWorkspaceMutationResponse,
-} from '../../shared/sidebar-api.ts'
+} from '@oh-dsh/shared/sidebar-api'
 
 export type {
   SidebarWorkspaceFacts as WorkspaceFacts,
   SidebarWorkspaceMutation as WorkspaceHostMutation,
   SidebarWorkspaceMutationResponse as WorkspaceHostMutationResponse,
-} from '../../shared/sidebar-api.ts'
+} from '@oh-dsh/shared/sidebar-api'
 export type WorkspaceFileKind = 'directory' | 'file' | 'symlink'
 
 export interface WorkspaceFileEntry {

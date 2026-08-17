@@ -21,7 +21,7 @@ import {
   Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { Translate } from '../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { DesktopPanels } from '../../../panel-controls/src/client.ts'
 import {
   IconClose,
@@ -29,7 +29,7 @@ import {
   IconMinus,
   IconRefresh,
   IconRestore,
-} from '../../../shared/icons.tsx'
+} from '@oh-dsh/shared/icons'
 import {
   IconChevronDown,
   IconChevronRight,
@@ -37,7 +37,7 @@ import {
   FileGlyph,
   IconBottombarFilled,
   IconSidebarRightFilled,
-} from '../../../shared/tabler-icons.tsx'
+} from '@oh-dsh/shared/tabler-icons'
 import {
   basename,
   dirname,
@@ -45,7 +45,7 @@ import {
   joinPath,
   relativePathOf,
   resolveSidebarPath,
-} from '../../../shared/path.ts'
+} from '@oh-dsh/shared/path'
 import type { WorkspaceFilesResponse, WorkspaceFileEntry, WorkspaceFileKind } from '../protocol.ts'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import {
@@ -59,10 +59,10 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
-} from '../../../shared/list-row.tsx'
-import { FilenameLabel } from '../../../shared/filename-label.tsx'
-import { SurfaceTab } from '../../../shared/surface-tab.tsx'
-import { bindTabStripWheel } from '../../../shared/tab-strip-wheel.ts'
+} from '@oh-dsh/shared/list-row'
+import { FilenameLabel } from '@oh-dsh/shared/filename-label'
+import { SurfaceTab } from '@oh-dsh/shared/surface-tab'
+import { bindTabStripWheel } from '@oh-dsh/shared/tab-strip-wheel'
 import {
   fullTabDropIndex,
   parseTabDrag,
@@ -72,7 +72,7 @@ import {
   tabDropSideOf,
   type TabDropSide,
 } from './tab-drag.ts'
-import { Scrollable } from '../../../shared/scrollable.tsx'
+import { Scrollable } from '@oh-dsh/shared/scrollable'
 import {
   getExplorerRuntime,
   sidebarScopeKey,

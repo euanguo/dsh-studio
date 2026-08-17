@@ -9,7 +9,7 @@
  * only disposed on LRU overflow or explicit delete — unmounting a view
  * never clears the cache.
  */
-import { ScopedRuntimeRegistry } from '../../../../shared/runtime.ts'
+import { ScopedRuntimeRegistry } from '@oh-dsh/shared/runtime'
 import {
   WorkspaceExplorerRuntime,
   type WorkspaceExplorerTransport,
@@ -27,7 +27,7 @@ import {
   type WorkspaceDiffTransport,
 } from './diff-runtime.ts'
 import { sidebarApi } from '../sidebar-api.ts'
-import { resolveSidebarPath } from '../../../../shared/path.ts'
+import { resolveSidebarPath } from '@oh-dsh/shared/path'
 import { parseGitReviewDiff, type GitReviewFile } from '../diff/git-review-diff.ts'
 
 /**

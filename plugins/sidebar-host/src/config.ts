@@ -13,7 +13,7 @@ import {
   WIDTH_PERCENT_MAX,
   WIDTH_PERCENT_MIN,
   type SidebarPrefs,
-} from '../../shared/prefs-shared.ts'
+} from '@oh-dsh/shared/prefs-shared'
 
 export {
   SIDEBAR_PREFS_DEFAULTS,
@@ -22,7 +22,7 @@ export {
   WIDTH_PERCENT_MAX,
   WIDTH_PERCENT_MIN,
   type SidebarPrefs,
-} from '../../shared/prefs-shared.ts'
+} from '@oh-dsh/shared/prefs-shared'
 
 /** Tunable sidebar host limits (every field optional; defaults fill in). */
 export interface SidebarConfig {

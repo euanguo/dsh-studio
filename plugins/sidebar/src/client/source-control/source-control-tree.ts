@@ -7,7 +7,7 @@
  * collapsed-directory key set flattens the tree into a stable row stream.
  */
 import type { WorkspaceChange } from '../../protocol.ts'
-import { normalizePath } from '../../../../shared/path.ts'
+import { normalizePath } from '@oh-dsh/shared/path'
 
 export type SourceControlSectionId =
   | 'conflict'

@@ -43,6 +43,7 @@
     "zustand": "^5.0.15"
   },
   "dependencies": {
+    "@oh-dsh/shared": "workspace:*",
     "@tanstack/react-virtual": "^3.14.9",
     "mermaid": "^11.16.1",
     "react-markdown": "^10.1.0",

@@ -23,5 +23,8 @@
     "dist/index.js",
     "dist/client.js",
     "dist/client.js.map"
-  ]
+  ],
+  "dependencies": {
+    "@oh-dsh/shared": "workspace:*"
+  }
 }

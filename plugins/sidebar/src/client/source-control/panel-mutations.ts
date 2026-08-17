@@ -5,7 +5,7 @@
  * through the workspace-scoped workspace.mutate method (branch / push) —
  * all through the single /sidebar/api channel behind one trust fence.
  */
-import type { Translate } from '../../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi, type SidebarScope } from '../sidebar-api.ts'
 import type { WorkspaceMutation } from '../../protocol.ts'

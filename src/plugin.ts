@@ -7,8 +7,8 @@ import {
 import {
   OH_DSH_SURFACE_SERVICE,
   type OhDshSurface,
-} from '../plugins/shared/surface.ts'
-import { humanApprovalGuidance } from '../plugins/shared/guardrails.ts'
+} from '@oh-dsh/shared/surface'
+import { humanApprovalGuidance } from '@oh-dsh/shared/guardrails'
 
 interface SystemPromptService {
   section(entry: {

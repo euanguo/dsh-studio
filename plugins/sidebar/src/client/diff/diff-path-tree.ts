@@ -1,5 +1,5 @@
 import type { DiffPathTreeRow } from './path-tree-nav.tsx'
-import { basename, dirname } from '../../../../shared/path.ts'
+import { basename, dirname } from '@oh-dsh/shared/path'
 
 /**
  * Builds the flattened rows for a diff path tree in depth-first order:

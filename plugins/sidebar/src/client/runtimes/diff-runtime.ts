@@ -9,7 +9,7 @@
  * loads after a scope reset; LRU caps the retained entries. UI chrome
  * (tree selection / collapsed directories) lives in the chrome store.
  */
-import { GenerationGate, RevisionedStore } from '../../../../shared/runtime.ts'
+import { GenerationGate, RevisionedStore } from '@oh-dsh/shared/runtime'
 import { parseGitReviewDiff, type GitReviewFile } from '../diff/git-review-diff.ts'
 
 export type DiffEntryPhase = 'loading' | 'ready' | 'error'

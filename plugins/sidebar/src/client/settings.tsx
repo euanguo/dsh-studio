@@ -10,9 +10,9 @@
  */
 import { useMemo, useState, type ReactNode } from 'react'
 import { useSyncExternalStore } from 'react'
-import type { Translate } from '../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from './i18n.ts'
-import { Scrollable } from '../../../shared/scrollable.tsx'
+import { Scrollable } from '@oh-dsh/shared/scrollable'
 import type {
   BoundSidebarSettingsActions,
   SidebarSettingsProps,

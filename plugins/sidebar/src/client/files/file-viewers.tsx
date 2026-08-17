@@ -4,10 +4,10 @@
  * family) — no separate plain-text renderer. Extracted from plugin.tsx.
  */
 import { useState, useSyncExternalStore } from 'react'
-import type { Translate } from '../../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { EmptyView } from '../kit/status.tsx'
-import { Scrollable } from '../../../../shared/scrollable.tsx'
+import { Scrollable } from '@oh-dsh/shared/scrollable'
 import type { SidebarRuntimeSettingsService } from '../runtime-settings.ts'
 import {
   htmlIframeSandboxAttribute,

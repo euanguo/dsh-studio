@@ -19,11 +19,11 @@ import type {
   WorkspaceMutation,
   WorkspaceSnapshot,
 } from '../protocol.ts'
-import type { Translate } from '../../../shared/i18n.ts'
-import { basename } from '../../../shared/path.ts'
-import { copyText } from '../../../shared/copy-text.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
+import { basename } from '@oh-dsh/shared/path'
+import { copyText } from '@oh-dsh/shared/copy-text'
 import { runPanelMutation } from './source-control/panel-mutations.ts'
-import { toast } from '../../../shared/toast.tsx'
+import { toast } from '@oh-dsh/shared/toast'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import { confirmDialog } from './kit/dialog.tsx'
 import {
@@ -31,14 +31,14 @@ import {
   IconChevronDown,
   IconHistory,
   IconPlus,
-} from '../../../shared/icons.tsx'
+} from '@oh-dsh/shared/icons'
 import {
   FileGlyph,
   IconChevronRight,
   IconEye,
   IconGitCommit,
-} from '../../../shared/tabler-icons.tsx'
-import { FilenameLabel } from '../../../shared/filename-label.tsx'
+} from '@oh-dsh/shared/tabler-icons'
+import { FilenameLabel } from '@oh-dsh/shared/filename-label'
 import type { WorkspaceMessage } from './i18n.ts'
 import {
   sidebarApi,
@@ -67,8 +67,8 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
-} from '../../../shared/list-row.tsx'
-import { Scrollable } from '../../../shared/scrollable.tsx'
+} from '@oh-dsh/shared/list-row'
+import { Scrollable } from '@oh-dsh/shared/scrollable'
 import {
   buildSourceControlRows,
   type SourceControlListMode,

@@ -22,8 +22,8 @@ import {
   type SidebarWorkspaceFacts,
   type SidebarWorkspaceMutation,
   type SidebarWorkspaceMutationResponse,
-} from '../../../shared/sidebar-api.ts'
-import { normalizePath } from '../../../shared/path.ts'
+} from '@oh-dsh/shared/sidebar-api'
+import { normalizePath } from '@oh-dsh/shared/path'
 
 /**
  * The client face of the sidebar API. All calls go to the generic host's
@@ -45,7 +45,7 @@ export type {
   SidebarWorkspaceFacts,
   SidebarWorkspaceMutation,
   SidebarWorkspaceMutationResponse,
-} from '../../../shared/sidebar-api.ts'
+} from '@oh-dsh/shared/sidebar-api'
 
 /**
  * Wire call typed by the shared request DTOs: the method name and its

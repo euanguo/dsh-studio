@@ -13,7 +13,7 @@ import { useMemo } from 'react'
 import { File as PierreFile, Virtualizer } from '@pierre/diffs/react'
 import type { FileContents, LineAnnotation } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
-import { basename } from '../../../../shared/path.ts'
+import { basename } from '@oh-dsh/shared/path'
 import type { DiffComment } from '../diff/diff-comments-store.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 

@@ -11,7 +11,7 @@
  * (`ReviewCommentsService.appendToComposer`).
  */
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import type { Translate } from '../../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
   afterSelectionCommit,

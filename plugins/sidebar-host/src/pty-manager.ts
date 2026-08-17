@@ -10,7 +10,7 @@ import { chmodSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
 import * as nodePty from 'node-pty'
-import { SidebarError } from '../../shared/wire.ts'
+import { SidebarError } from '@oh-dsh/shared/wire'
 import { resolveShell, shellSpawnArgs, type ShellResolutionOptions } from './shell-resolver.ts'
 
 /** Per-terminal transcript bound (bytes kept for replay). */

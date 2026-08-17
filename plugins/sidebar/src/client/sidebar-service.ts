@@ -22,7 +22,7 @@
  *   the pluginSettings blobs; writes are throttled through one flush queue.
  */
 import type { ReactNode } from 'react'
-import { basename } from '../../../shared/path.ts'
+import { basename } from '@oh-dsh/shared/path'
 import type { CenterSurface, CenterSurfaceKind } from './surfaces/types.ts'
 import {
   clampSidebarWidth,

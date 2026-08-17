@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react'
 import type { TerminalTabStatus } from './panel-store.ts'
 import { TerminalSocket } from './terminal-socket.ts'
 import { resolveTerminalTheme } from './terminal-theme.ts'
-import type { Translate } from '../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { TerminalMessage } from './i18n.ts'
 
 export interface TerminalViewProps {

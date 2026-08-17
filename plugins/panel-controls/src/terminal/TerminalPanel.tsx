@@ -17,14 +17,14 @@ import {
   type DockStore,
 } from './panel-store.ts'
 import { DEFAULT_TAB_LABEL } from './panel-store.ts'
-import type { LocaleService, Translate } from '../../../shared/i18n.ts'
-import { useTranslate } from '../../../shared/use-i18n.ts'
+import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
+import { useTranslate } from '@oh-dsh/shared/use-i18n'
 import {
   IconChevronDown,
   IconChevronUp,
   IconClose,
   IconPlus,
-} from '../../../shared/icons.tsx'
+} from '@oh-dsh/shared/icons'
 import type { TerminalMessage } from './i18n.ts'
 
 export interface TerminalPanelProps {

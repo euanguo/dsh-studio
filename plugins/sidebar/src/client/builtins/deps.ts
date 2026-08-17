@@ -5,7 +5,7 @@
  * the real services in.
  */
 import type { DesktopPanels } from '../../../../panel-controls/src/client.ts'
-import type { Translate } from '../../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { SidebarRuntimeSettingsService } from '../runtime-settings.ts'
 import type { ReviewCommentsService } from '../review/review-comments.ts'

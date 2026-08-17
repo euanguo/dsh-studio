@@ -26,7 +26,7 @@ import {
   type SidebarConfig,
   type SidebarPrefs,
 } from './config.ts'
-import { isWithin, requireAbsolute } from '../../shared/fs-tree.ts'
+import { isWithin, requireAbsolute } from '@oh-dsh/shared/fs-tree'
 import { decodeHtmlUrl } from './html-route.ts'
 import { extractFrameAncestors } from './browser-probe.ts'
 import { isTrustedApiRequest, isLoopbackHostname } from './trust-fence.ts'
@@ -44,7 +44,7 @@ import {
   writeError,
   writeJson,
   writeOk,
-} from '../../shared/wire.ts'
+} from '@oh-dsh/shared/wire'
 
 export { Config }
 export type { SidebarConfig, ResolvedSidebarConfig }

@@ -34,5 +34,8 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "@oh-dsh/shared": "workspace:*"
+  }
 }

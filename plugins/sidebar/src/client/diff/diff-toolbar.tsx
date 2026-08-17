@@ -2,14 +2,14 @@
  * Diff toolbar: Unified/Split layout + word wrap + change navigation.
  * Shared by single-file and multi-file diff surfaces.
  */
-import type { Translate } from '../../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
   IconChevronDown,
   IconChevronRight,
   IconLayoutList,
   IconList,
-} from '../../../../shared/tabler-icons.tsx'
+} from '@oh-dsh/shared/tabler-icons'
 import { useDiffViewPreferences } from './diff-view-preferences.ts'
 import { binding, formatKeymapHint } from '../kit/keymap.ts'
 

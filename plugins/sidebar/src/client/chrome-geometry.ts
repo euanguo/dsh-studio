@@ -19,7 +19,7 @@
  *
  * Outside the desktop both variables keep their CSS fallbacks.
  */
-import type { ChromeGeometry } from '../../../shared/desktop-contracts.ts'
+import type { ChromeGeometry } from '@oh-dsh/shared/desktop-contracts'
 
 /** The WCO surface as Chromium exposes it on Electron 42 (macOS returns an
  *  empty rect and visible=false — only Windows/Linux report the overlay). */

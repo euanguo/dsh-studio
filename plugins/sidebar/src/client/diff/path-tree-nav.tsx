@@ -12,9 +12,9 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   IconChevronDown,
   IconChevronRight,
-} from '../../../../shared/tabler-icons.tsx'
-import { FileGlyph } from '../../../../shared/tabler-icons.tsx'
-import { Scrollable } from '../../../../shared/scrollable.tsx'
+} from '@oh-dsh/shared/tabler-icons'
+import { FileGlyph } from '@oh-dsh/shared/tabler-icons'
+import { Scrollable } from '@oh-dsh/shared/scrollable'
 import {
   ListRow,
   ListRowLabel,
@@ -22,7 +22,7 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowMeta,
-} from '../../../../shared/list-row.tsx'
+} from '@oh-dsh/shared/list-row'
 
 export interface DiffPathTreeRow {
   key: string

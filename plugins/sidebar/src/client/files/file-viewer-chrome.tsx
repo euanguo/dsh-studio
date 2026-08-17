@@ -5,8 +5,8 @@
  * CSS-token environment (no Tailwind classes).
  */
 import { Fragment, useMemo } from 'react'
-import type { Translate } from '../../../../shared/i18n.ts'
-import { basename } from '../../../../shared/path.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
+import { basename } from '@oh-dsh/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
   IconChevronRight,
@@ -14,7 +14,7 @@ import {
   IconExternalLink,
   IconEye,
   IconFileText,
-} from '../../../../shared/tabler-icons.tsx'
+} from '@oh-dsh/shared/tabler-icons'
 
 export type MarkdownViewMode = 'source' | 'preview'
 

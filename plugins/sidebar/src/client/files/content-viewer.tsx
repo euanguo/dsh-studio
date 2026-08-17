@@ -16,11 +16,11 @@ import {
   IconFileText,
   IconMinus,
   IconPlus,
-} from '../../../../shared/tabler-icons.tsx'
-import type { Translate } from '../../../../shared/i18n.ts'
-import { basename } from '../../../../shared/path.ts'
+} from '@oh-dsh/shared/tabler-icons'
+import type { Translate } from '@oh-dsh/shared/i18n'
+import { basename } from '@oh-dsh/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { Scrollable } from '../../../../shared/scrollable.tsx'
+import { Scrollable } from '@oh-dsh/shared/scrollable'
 import { isPlainLanguage, languageForPath, MAX_NUMBERED_LINES } from './language.ts'
 import { PierreFileView } from './pierre-file-view.tsx'
 import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'

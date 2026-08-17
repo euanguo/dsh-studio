@@ -12,8 +12,8 @@ import type { Context } from './context-types.ts'
 import { isLoopbackHostname } from './trust-fence.ts'
 import { extractFrameAncestors } from './browser-probe.ts'
 import type { ResolvedSidebarConfig } from './config.ts'
-import { isWithin, requireAbsolute, listDirectory, parentOf, rootLabel } from '../../shared/fs-tree.ts'
-import * as git from '../../shared/git-core.ts'
+import { isWithin, requireAbsolute, listDirectory, parentOf, rootLabel } from '@oh-dsh/shared/fs-tree'
+import * as git from '@oh-dsh/shared/git-core'
 import { SettingsConflictError } from '@deepseek-ai/dsh-settings'
 import type { PtyManager } from './pty-manager.ts'
 import type { AgentPtyRegistry } from './agent-pty.ts'
@@ -30,7 +30,7 @@ import {
   optionalString,
   requireString,
   SidebarError,
-} from '../../shared/wire.ts'
+} from '@oh-dsh/shared/wire'
 
 export type ApiMethod = (payload: unknown) => Promise<unknown> | unknown
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import type { Translate } from '../../../shared/i18n.ts'
-import { IconArrowLeft, IconRefresh } from '../../../shared/icons.tsx'
+import type { Translate } from '@oh-dsh/shared/i18n'
+import { IconArrowLeft, IconRefresh } from '@oh-dsh/shared/icons'
 import type { SidebarRenderProps } from '../../../sidebar/src/client/contract.ts'
 import type { BrowserCenterSurface } from '../../../sidebar/src/client/surfaces/types.ts'
 import type { WorkspaceMessage } from '../../../sidebar/src/client/i18n.ts'

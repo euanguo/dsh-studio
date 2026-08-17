@@ -19,8 +19,8 @@
  *   and stays in edit state when that flush fails.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Translate } from '../../../../shared/i18n.ts'
-import { toast } from '../../../../shared/toast.tsx'
+import type { Translate } from '@oh-dsh/shared/i18n'
+import { toast } from '@oh-dsh/shared/toast'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import type { WorkspaceFileRuntime } from '../runtimes/file-runtime.ts'

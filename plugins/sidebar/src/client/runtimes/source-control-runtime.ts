@@ -13,7 +13,7 @@
  * The runtime owns DATA only; UI chrome (collapsed sections/directories,
  * selection, mode) lives in the chrome store.
  */
-import { RevisionedStore, GenerationGate } from '../../../../shared/runtime.ts'
+import { RevisionedStore, GenerationGate } from '@oh-dsh/shared/runtime'
 import type { WorkspaceFacts, WorkspaceSnapshot } from '../../protocol.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import type {

@@ -4,7 +4,7 @@
  * as the sidebar preferences — NOT browser localStorage. The grouping is view
  * state (tab/group/alias), while projects/worktrees stay derived from git.
  */
-import { callSidebarGlobalApi } from '../../../shared/sidebar-api.ts'
+import { callSidebarGlobalApi } from '@oh-dsh/shared/sidebar-api'
 
 const NS = 'oh-dsh.left-rail'
 

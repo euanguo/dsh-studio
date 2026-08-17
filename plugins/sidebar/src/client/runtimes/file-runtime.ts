@@ -3,7 +3,7 @@
  * `cache/workspace-file-runtime.ts` pattern): caches file reads per path so
  * previews/tabs opened before render instantly from the retained snapshot.
  */
-import { RevisionedStore } from '../../../../shared/runtime.ts'
+import { RevisionedStore } from '@oh-dsh/shared/runtime'
 
 export interface WorkspaceFileSnapshot {
   kind: 'text' | 'binary'

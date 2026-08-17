@@ -9,7 +9,7 @@
  * — the same row geometry as the file browser and every other list.
  */
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
-import type { Translate } from '../../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import {
   IconChevronDown,
   IconChevronRight,
@@ -22,7 +22,7 @@ import {
   IconPlus,
   IconTrash,
   FileGlyph,
-} from '../../../../shared/tabler-icons.tsx'
+} from '@oh-dsh/shared/tabler-icons'
 import {
   ListRow,
   ListRowActions,
@@ -33,8 +33,8 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
-} from '../../../../shared/list-row.tsx'
-import { FilenameLabel } from '../../../../shared/filename-label.tsx'
+} from '@oh-dsh/shared/list-row'
+import { FilenameLabel } from '@oh-dsh/shared/filename-label'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { WorkspaceChangeStatus } from '../../protocol.ts'
 import {

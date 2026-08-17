@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto'
 import * as nodePty from 'node-pty'
 import { ensureSpawnHelper } from './pty-manager.ts'
 import { shellSpawnArgs } from './shell-resolver.ts'
-import { SidebarError } from '../../shared/wire.ts'
+import { SidebarError } from '@oh-dsh/shared/wire'
 
 /** Per-agent-terminal transcript bound (bytes kept for replay and reads). */
 const TRANSCRIPT_LIMIT = 1 << 20

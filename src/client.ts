@@ -8,11 +8,11 @@ import type {
   LocaleMessages,
   LocaleService,
   Translate,
-} from '../plugins/shared/i18n.ts'
+} from '@oh-dsh/shared/i18n'
 import {
   OH_DSH_SURFACE_VIEW_SERVICE,
   type OhDshSurfaceView,
-} from '../plugins/shared/surface.ts'
+} from '@oh-dsh/shared/surface'
 
 interface WorkspaceView {
   workspaceId: string

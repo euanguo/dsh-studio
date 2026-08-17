@@ -8,7 +8,7 @@
  * the outer scroll position) and re-mounts when the user scrolls back.
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { Translate } from '../../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { DiffViewer } from './diff-viewer.tsx'
 import { reviewFileToDiffDocument, type GitReviewFile } from './git-review-diff.ts'

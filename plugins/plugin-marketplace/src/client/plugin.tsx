@@ -6,12 +6,12 @@ import {
   useSyncExternalStore,
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import type { DesktopBridge } from '../../../shared/desktop-contracts.ts'
-import { ensureStyle } from '../../../shared/style-injector.ts'
-import { Scrollable } from '../../../shared/scrollable.tsx'
-import type { LocaleService, Translate } from '../../../shared/i18n.ts'
-import { localeTag } from '../../../shared/i18n.ts'
-import { useTranslate } from '../../../shared/use-i18n.ts'
+import type { DesktopBridge } from '@oh-dsh/shared/desktop-contracts'
+import { ensureStyle } from '@oh-dsh/shared/style-injector'
+import { Scrollable } from '@oh-dsh/shared/scrollable'
+import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
+import { localeTag } from '@oh-dsh/shared/i18n'
+import { useTranslate } from '@oh-dsh/shared/use-i18n'
 import type {
   MarketplaceCommand,
   MarketplaceConfirmation,

@@ -7,7 +7,7 @@
  * owns nothing but the collapsed sets and the selection.
  */
 import type { WorkspaceChange } from '../../protocol.ts'
-import { basename } from '../../../../shared/path.ts'
+import { basename } from '@oh-dsh/shared/path'
 import {
   buildSourceControlTree,
   canDiscardChange,

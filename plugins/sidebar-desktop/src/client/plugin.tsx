@@ -1,4 +1,4 @@
-import type { LocaleService, Translate } from '../../../shared/i18n.ts'
+import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
 import type {
   DesktopSidebarService,
   SidebarRenderProps,

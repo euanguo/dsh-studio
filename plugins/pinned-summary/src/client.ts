@@ -1,8 +1,8 @@
 /** Layout-reserving pinned summary derived from the active DSH session. */
 
-import type { LocaleService, Translate } from '../../shared/i18n.ts'
-import { localeTag } from '../../shared/i18n.ts'
-import themeCss from '../../shared/theme.css'
+import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
+import { localeTag } from '@oh-dsh/shared/i18n'
+import themeCss from '@oh-dsh/shared/theme.css'
 import type { DesktopPanels } from '../../panel-controls/src/client.ts'
 import {
   PINNED_SUMMARY_MESSAGES,

@@ -10,20 +10,20 @@
  */
 import { existsSync, statSync } from 'node:fs'
 import { basename, isAbsolute } from 'node:path'
-import { runGit } from '../../shared/git-core.ts'
+import { runGit } from '@oh-dsh/shared/git-core'
 import type {
   SidebarWorkspaceFacts,
   SidebarWorkspaceMutation,
   SidebarWorkspaceMutationResponse,
-} from '../../shared/sidebar-api.ts'
+} from '@oh-dsh/shared/sidebar-api'
 
 export type {
   SidebarWorkspaceFacts,
   SidebarWorkspaceMutation,
   SidebarWorkspaceMutationResponse,
-} from '../../shared/sidebar-api.ts'
+} from '@oh-dsh/shared/sidebar-api'
 
-export { isSidebarWorkspaceMutation } from '../../shared/sidebar-api.ts'
+export { isSidebarWorkspaceMutation } from '@oh-dsh/shared/sidebar-api'
 
 function normalizeWorkspacePath(raw: string | undefined): string {
   const cwd = raw?.trim()

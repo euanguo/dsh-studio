@@ -25,5 +25,8 @@
       "package": "dsh-cc-tui",
       "repository": "https://github.com/ccch1mneyyy/dsh-TUI"
     }
+  },
+  "dependencies": {
+    "@oh-dsh/shared": "workspace:*"
   }
 }

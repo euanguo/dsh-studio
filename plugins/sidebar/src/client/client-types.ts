@@ -3,8 +3,8 @@
  * (extracted from the former single-file plugin.tsx so the panel, settings,
  * interceptors, and the plugin assembly each import what they need).
  */
-import type { DesktopBridge } from '../../../shared/desktop-contracts.ts'
-import type { Translate } from '../../../shared/i18n.ts'
+import type { DesktopBridge } from '@oh-dsh/shared/desktop-contracts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { ReviewSessionsService } from './review/review-comments.ts'
 import type { SidebarRuntimeSettingsService } from './runtime-settings.ts'
 import type { DesktopSidebarService } from './contract.ts'

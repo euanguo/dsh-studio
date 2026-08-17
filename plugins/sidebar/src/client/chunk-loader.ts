@@ -4,7 +4,7 @@
  * `name` is the shared ChunkName union — the servable set (host) and the
  * requested set (client) come from the same list.
  */
-import type { ChunkName } from '../../../shared/bundle-names.ts'
+import type { ChunkName } from '@oh-dsh/shared/bundle-names'
 
 const loaded = new Map<string, Promise<void>>()
 

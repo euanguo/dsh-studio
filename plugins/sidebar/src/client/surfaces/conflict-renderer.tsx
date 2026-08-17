@@ -5,14 +5,14 @@
  * plain file view.
  */
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import type { Translate } from '../../../../shared/i18n.ts'
-import { toast } from '../../../../shared/toast.tsx'
+import type { Translate } from '@oh-dsh/shared/i18n'
+import { toast } from '@oh-dsh/shared/toast'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import type { FileContents, MergeConflictResolution } from '@pierre/diffs'
 import { UnresolvedFile, Virtualizer } from '@pierre/diffs/react'
 import { getFileRuntime, getSourceControlRuntime } from '../runtimes/registry.ts'
-import { basename, resolveSidebarPath } from '../../../../shared/path.ts'
+import { basename, resolveSidebarPath } from '@oh-dsh/shared/path'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { ErrorView, LoadingView } from '../kit/status.tsx'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'

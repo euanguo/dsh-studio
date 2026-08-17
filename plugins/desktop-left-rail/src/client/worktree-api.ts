@@ -5,7 +5,7 @@
  * file/git routes — see plugins/sidebar/src/sidebar-api.ts).
  */
 import { useEffect, useState } from 'react'
-import { callSidebarGlobalApi } from '../../../shared/sidebar-api.ts'
+import { callSidebarGlobalApi } from '@oh-dsh/shared/sidebar-api'
 import type { GitWorktreeLayout, WorktreeLayoutMap } from './tree.ts'
 
 /** One worktree list response (null = cwd is not a git work tree). */

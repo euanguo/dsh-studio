@@ -22,7 +22,7 @@ import {
   useSyncExternalStore,
 } from 'react'
 import { sidebarApi } from '../sidebar-api.ts'
-import type { Translate } from '../../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type {
   SessionsService,

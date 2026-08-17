@@ -5,7 +5,7 @@
  * with the source-control panel).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import type { Translate } from '../../../../shared/i18n.ts'
+import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import { getDiffRuntime, sidebarScopeKey } from '../runtimes/registry.ts'
@@ -15,7 +15,7 @@ import { binding, registerKeymapAction } from '../kit/keymap.ts'
 import { EmptyView, ErrorView, LoadingView } from '../kit/status.tsx'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffToolbar } from '../diff/diff-toolbar.tsx'
-import { Scrollable } from '../../../../shared/scrollable.tsx'
+import { Scrollable } from '@oh-dsh/shared/scrollable'
 import { useDiffViewPreferences } from '../diff/diff-view-preferences.ts'
 import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx'
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
