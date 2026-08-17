@@ -264,20 +264,8 @@ try {
   git('commit', '-m', 'web smoke baseline')
   writeFileSync(join(smokeRoot, 'web-smoke.txt'), 'after\n')
 
-  const workspaceFactsResponse = await fetch(new URL(
-    `/oh-dsh/workspace?cwd=${encodeURIComponent(smokeRoot)}`,
-    base,
-  ))
-  const workspaceFacts = await workspaceFactsResponse.json()
-  assert.equal(workspaceFactsResponse.status, 200)
-  assert.equal(workspaceFacts.kind, 'repository')
-  const actualRoot = statSync(workspaceFacts.root)
-  const expectedRoot = statSync(smokeRoot)
-  assert.equal(actualRoot.dev, expectedRoot.dev)
-  assert.equal(actualRoot.ino, expectedRoot.ino)
-
-  // The better-sidebar host serves session, Files, and Git through the same
-  // /sidebar API the desktop distribution uses.
+  // The better-sidebar host serves session, Files, Git, and workspace facts
+  // through the same /sidebar API the desktop distribution uses.
   const sidebarCall = async (method, payload) => {
     const response = await fetch(new URL(`/sidebar/api/${method}`, base), {
       method: 'POST',
@@ -305,6 +293,13 @@ try {
     skip: 0,
   })
   assert.equal(gitLog[0]?.subject, 'web smoke baseline')
+
+  const workspaceFacts = await sidebarCall('workspace.facts', { cwd: smokeRoot })
+  assert.equal(workspaceFacts.kind, 'repository')
+  const actualRoot = statSync(workspaceFacts.root)
+  const expectedRoot = statSync(smokeRoot)
+  assert.equal(actualRoot.dev, expectedRoot.dev)
+  assert.equal(actualRoot.ino, expectedRoot.ino)
 
   // The PTY terminal host answers over the same websocket on the web server.
   const terminalUrl = new URL('/sidebar/ws/terminal', base)

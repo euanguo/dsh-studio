@@ -7,7 +7,10 @@ import { test } from 'node:test'
 import {
   mutateWorkspace,
   readWorkspaceFacts,
-} from '../plugins/sidebar/src/git-workspace.ts'
+} from '../plugins/sidebar-host/src/workspace-git.ts'
+import {
+  isSidebarWorkspaceMutation,
+} from '../plugins/shared/sidebar-api.ts'
 import {
   mapSidebarFile,
   mapSidebarTree,
@@ -19,6 +22,15 @@ function git(cwd: string, args: string[]): string {
   assert.equal(result.status, 0, result.stderr || result.stdout)
   return result.stdout
 }
+
+test('workspace mutation wire guard accepts the host vocabulary only', () => {
+  assert.equal(isSidebarWorkspaceMutation({ action: 'push' }), true)
+  assert.equal(isSidebarWorkspaceMutation({ action: 'create-branch', branch: 'x' }), true)
+  assert.equal(isSidebarWorkspaceMutation({ action: 'checkout', branch: 'x' }), false)
+  assert.equal(isSidebarWorkspaceMutation({ action: 'create-branch' }), false)
+  assert.equal(isSidebarWorkspaceMutation(null), false)
+  assert.equal(isSidebarWorkspaceMutation('push'), false)
+})
 
 test('workspace extension provides repository facts and branch creation', async () => {
   const workspace = mkdtempSync(join(tmpdir(), 'oh-dsh-workspace-tools-'))

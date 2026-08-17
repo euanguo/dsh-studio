@@ -15,7 +15,6 @@
  */
 import { RevisionedStore, GenerationGate } from '../../../../shared/runtime.ts'
 import type { WorkspaceFacts, WorkspaceSnapshot } from '../../protocol.ts'
-import { WORKSPACE_API_PATH } from '../../protocol.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import type {
   SidebarGitLogEntry,
@@ -259,22 +258,12 @@ export class SourceControlRuntime {
   }
 }
 
-/** Default transport over the desktop sidebar API + workspace facts route. */
+/** Default transport over the sidebar API (git.* + workspace.facts). */
 export function sidebarSourceControlTransport(): SourceControlTransport {
   return {
     gitStatus: (scope, signal) => sidebarApi.gitStatus(scope, signal),
     gitBranch: (scope, signal) => sidebarApi.gitBranch(scope, signal),
     gitLog: (scope, signal) => sidebarApi.gitLog(scope, 30, 0, signal),
-    workspaceFacts: async (cwd: string, signal?: AbortSignal) => {
-      const url = new URL(WORKSPACE_API_PATH, window.location.origin)
-      url.searchParams.set('cwd', cwd)
-      const init: RequestInit = { ...(signal === undefined ? {} : { signal }) }
-      const response = await fetch(url.href, init)
-      const payload = await response.json() as WorkspaceFacts & { error?: string }
-      if (!response.ok) {
-        throw new Error(payload.error ?? `workspace facts failed (${String(response.status)})`)
-      }
-      return payload
-    },
+    workspaceFacts: (cwd, signal) => sidebarApi.workspaceFacts(cwd, signal),
   }
 }

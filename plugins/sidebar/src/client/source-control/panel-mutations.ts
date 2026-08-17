@@ -1,36 +1,14 @@
 /**
  * Source-control panel mutations (M3): the mutation dispatch hub, extracted
  * from the panel component. One place that knows which actions ride the
- * sidebar git API (checkout / commit) and which POST to the workspace host
- * route (stage / unstage / discard / branch / push / worktree …).
+ * session-scoped git methods (checkout / stage / commit) and which go
+ * through the workspace-scoped workspace.mutate method (branch / push) —
+ * all through the single /sidebar/api channel behind one trust fence.
  */
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi, type SidebarScope } from '../sidebar-api.ts'
-import {
-  WORKSPACE_API_PATH,
-  type WorkspaceHostMutationResponse,
-  type WorkspaceMutation,
-} from '../../protocol.ts'
-
-async function responseJson<T>(
-  response: Response,
-  t: Translate<WorkspaceMessage>,
-): Promise<T> {
-  const payload = await response.json() as T & { error?: string }
-  if (!response.ok) {
-    throw new Error(payload.error ?? t('workspace.request-failed', {
-      status: response.status,
-    }))
-  }
-  return payload
-}
-
-function workspaceUrl(cwd: string): string {
-  const url = new URL(WORKSPACE_API_PATH, window.location.origin)
-  url.searchParams.set('cwd', cwd)
-  return url.href
-}
+import type { WorkspaceMutation } from '../../protocol.ts'
 
 export interface PanelMutationHooks {
   /** Called after a successful commit (the draft message is consumed). */
@@ -51,6 +29,7 @@ export async function runPanelMutation(
   } & PanelMutationHooks,
 ): Promise<void> {
   const { scope, cwd, t, onCommitted, refresh, reportError } = hooks
+  void t
   try {
     if (mutation.action === 'checkout') {
       await sidebarApi.gitCheckout(scope, mutation.branch)
@@ -59,12 +38,10 @@ export async function runPanelMutation(
       await sidebarApi.gitCommit(scope, mutation.message)
       onCommitted()
     } else {
-      const response = await fetch(workspaceUrl(cwd), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(mutation),
-      })
-      await responseJson<WorkspaceHostMutationResponse>(response, t)
+      // create-branch / push: workspace-scoped, keyed on the bare cwd.
+      // Wire errors (not a repo, no remote, detached HEAD…) arrive through
+      // the shared envelope and surface via reportError below.
+      await sidebarApi.workspaceMutate(cwd, mutation)
     }
     await refresh()
   } catch (cause) {

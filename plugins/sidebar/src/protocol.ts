@@ -1,4 +1,21 @@
-export const WORKSPACE_API_PATH = '/oh-dsh/workspace'
+/**
+ * UI-facing view types for the sidebar panels. The workspace Git facts and
+ * mutation shapes are wire contracts owned by @oh-dsh/shared
+ * (`SidebarWorkspace*`) and served through /sidebar/api; they are aliased
+ * here under their historical names so the panel code keeps one import
+ * site.
+ */
+import type {
+  SidebarWorkspaceFacts,
+  SidebarWorkspaceMutation,
+  SidebarWorkspaceMutationResponse,
+} from '../../shared/sidebar-api.ts'
+
+export type {
+  SidebarWorkspaceFacts as WorkspaceFacts,
+  SidebarWorkspaceMutation as WorkspaceHostMutation,
+  SidebarWorkspaceMutationResponse as WorkspaceHostMutationResponse,
+} from '../../shared/sidebar-api.ts'
 export type WorkspaceFileKind = 'directory' | 'file' | 'symlink'
 
 export interface WorkspaceFileEntry {
@@ -38,17 +55,7 @@ export interface WorkspaceChange {
   deletions: number
 }
 
-export interface WorkspaceFacts {
-  kind: 'directory' | 'repository'
-  cwd: string
-  root: string
-  name: string
-  ahead: number
-  behind: number
-  hasRemote: boolean
-}
-
-export interface WorkspaceSnapshot extends WorkspaceFacts {
+export interface WorkspaceSnapshot extends SidebarWorkspaceFacts {
   branch: string | null
   branches: string[]
   changes: WorkspaceChange[]
@@ -65,14 +72,4 @@ export type WorkspaceMutation = {
   message: string
 } | {
   action: 'push'
-}
-
-export type WorkspaceHostMutation = Extract<
-  WorkspaceMutation,
-  { action: 'create-branch' | 'push' }
->
-
-export interface WorkspaceHostMutationResponse {
-  message: string
-  facts: WorkspaceFacts
 }

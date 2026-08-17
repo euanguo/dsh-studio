@@ -19,6 +19,11 @@ import type { PtyManager } from './pty-manager.ts'
 import type { AgentPtyRegistry } from './agent-pty.ts'
 import { buildJobsApi, type SidebarJobsRoutes } from './jobs-routes.ts'
 import {
+  isSidebarWorkspaceMutation,
+  mutateWorkspace,
+  readWorkspaceFacts,
+} from './workspace-git.ts'
+import {
   optionalBoolean,
   optionalInteger,
   optionalPathList,
@@ -472,6 +477,22 @@ export function buildSidebarRoutes(
       const path = requireAbsolute(requireString(payload, 'path'))
       const branch = requireString(payload, 'branch')
       return git.worktreeAdd(cwd, path, branch, optionalBoolean(payload, 'createBranch') === true)
+    },
+    // Workspace-level facts/mutations (fork): the same bare-cwd scope as the
+    // worktree endpoints, serving the source-control panel's repository
+    // snapshot and its branch-create/push actions. Folding them here (from
+    // the former self-hosted /oh-dsh/workspace route) keeps ONE host API
+    // surface behind ONE trust fence for every panel data channel.
+    'workspace.facts': (payload) => {
+      return readWorkspaceFacts(cwdScopeOf(payload))
+    },
+    'workspace.mutate': (payload) => {
+      const cwd = cwdScopeOf(payload)
+      const record = payload as { mutation?: unknown }
+      if (!isSidebarWorkspaceMutation(record.mutation)) {
+        throw new SidebarError('bad-request', 'invalid workspace mutation')
+      }
+      return mutateWorkspace(cwd, record.mutation)
     },
     // Release a terminal immediately. The WebSocket close frame already does
     // this while the socket is open; this route covers the tab-close that

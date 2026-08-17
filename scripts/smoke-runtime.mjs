@@ -245,12 +245,7 @@ try {
   })
   assert.match(commitDiff.diff, /review-smoke\.txt/)
 
-  const workspaceFactsResponse = await fetch(new URL(
-    `/oh-dsh/workspace?cwd=${encodeURIComponent(smokeRoot)}`,
-    base,
-  ))
-  const workspaceFacts = await workspaceFactsResponse.json()
-  assert.equal(workspaceFactsResponse.status, 200)
+  const workspaceFacts = await sidebarCall('workspace.facts', { cwd: smokeRoot })
   assert.equal(workspaceFacts.kind, 'repository')
   assert.equal(realpathSync(workspaceFacts.root), realpathSync(smokeRoot))
 

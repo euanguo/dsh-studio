@@ -104,6 +104,47 @@ export interface SidebarGitDiff {
   diff: string
 }
 
+/**
+ * Workspace-level Git facts (repository identity + ahead/behind counts).
+ * Unlike the session-scoped git.* methods, the workspace.* methods key on
+ * a bare absolute cwd (the left rail / source-control panel operate on a
+ * directory, not a conversation).
+ */
+export interface SidebarWorkspaceFacts {
+  kind: 'directory' | 'repository'
+  cwd: string
+  root: string
+  name: string
+  ahead: number
+  behind: number
+  hasRemote: boolean
+}
+
+/**
+ * One workspace-level mutation the host applies verbatim: branch creation
+ * and push. The panel-local mutations (checkout / stage / commit) dispatch
+ * through the session-scoped git.* methods instead.
+ */
+export type SidebarWorkspaceMutation =
+  | { action: 'create-branch'; branch: string }
+  | { action: 'push' }
+
+/** Wire validation for one workspace mutation payload. */
+export function isSidebarWorkspaceMutation(
+  value: unknown,
+): value is SidebarWorkspaceMutation {
+  if (typeof value !== 'object' || value === null) return false
+  const input = value as Record<string, unknown>
+  if (input.action === 'push') return true
+  return input.action === 'create-branch' && typeof input.branch === 'string'
+}
+
+/** The workspace mutation result (human-readable message + fresh facts). */
+export interface SidebarWorkspaceMutationResponse {
+  message: string
+  facts: SidebarWorkspaceFacts
+}
+
 /** The side card settings namespace view (value + revision). */
 export interface SidebarSettingsView {
   revision?: number
@@ -154,6 +195,8 @@ export interface SidebarApiRequests {
   'git.show': { path: string; rev: string }
   'git.worktree-list': Record<string, never>
   'git.worktree-add': { path: string; branch: string; createBranch?: boolean }
+  'workspace.facts': { cwd: string }
+  'workspace.mutate': { cwd: string; mutation: SidebarWorkspaceMutation }
   'pty.close': { sessionId: string; tab: string }
   'agent-pty.close': { uuid: string }
   'settings.get': Record<string, never>

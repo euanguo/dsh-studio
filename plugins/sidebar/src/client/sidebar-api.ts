@@ -19,6 +19,9 @@ import {
   type SidebarGitStatusEntry,
   type SidebarScope,
   type SidebarSettingsView,
+  type SidebarWorkspaceFacts,
+  type SidebarWorkspaceMutation,
+  type SidebarWorkspaceMutationResponse,
 } from '../../../shared/sidebar-api.ts'
 import { normalizePath } from '../../../shared/path.ts'
 
@@ -39,6 +42,9 @@ export type {
   SidebarGitStatusEntry,
   SidebarScope,
   SidebarSettingsView,
+  SidebarWorkspaceFacts,
+  SidebarWorkspaceMutation,
+  SidebarWorkspaceMutationResponse,
 } from '../../../shared/sidebar-api.ts'
 
 /**
@@ -235,6 +241,21 @@ export const sidebarApi = {
     scope: SidebarScope,
     signal?: AbortSignal,
   ): Promise<SidebarGitStatus> => callSidebarApi('git.status', scope, {}, signal),
+  workspaceFacts: (
+    cwd: string,
+    signal?: AbortSignal,
+  ): Promise<SidebarWorkspaceFacts> => callSidebarGlobalApi(
+    'workspace.facts',
+    { cwd },
+    signal,
+  ),
+  workspaceMutate: (
+    cwd: string,
+    mutation: SidebarWorkspaceMutation,
+  ): Promise<SidebarWorkspaceMutationResponse> => callSidebarGlobalApi(
+    'workspace.mutate',
+    { cwd, mutation },
+  ),
   settingsGet: (
     signal?: AbortSignal,
   ): Promise<SidebarSettingsView> => callSidebarGlobalApi(

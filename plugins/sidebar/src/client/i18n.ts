@@ -136,7 +136,6 @@ export type WorkspaceMessage =
   | 'settings.plugin-settings'
   | 'settings.no-feature-settings'
   | 'settings.done'
-  | 'workspace.request-failed'
   | 'workspace.title'
   | 'workspace.add'
   | 'workspace.select'
@@ -348,7 +347,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.plugin-settings': 'Plugin settings',
     'settings.no-feature-settings': 'This feature has no additional settings.',
     'settings.done': 'Done',
-    'workspace.request-failed': 'Workspace request failed ({status})',
     'workspace.title': 'Workspace',
     'workspace.add': 'Add workspace',
     'workspace.select': 'Select a DSH workspace to inspect changes.',
@@ -559,7 +557,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.plugin-settings': '插件设置',
     'settings.no-feature-settings': '该功能没有附加设置。',
     'settings.done': '完成',
-    'workspace.request-failed': '工作区请求失败（{status}）',
     'workspace.title': '工作区',
     'workspace.add': '添加工作区',
     'workspace.select': '选择 DSH 工作区以检查变更。',

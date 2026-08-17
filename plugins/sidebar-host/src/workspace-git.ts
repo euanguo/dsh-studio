@@ -1,13 +1,31 @@
+/**
+ * Workspace-level Git operations for the /sidebar/api workspace.* methods
+ * (fork addition; the upstream host has no equivalent).
+ *
+ * These operate on a bare absolute cwd — the directory IS the scope, with
+ * no session binding — and cover the facts snapshot (repository identity,
+ * ahead/behind, remote presence) plus the two mutations the source-control
+ * panel routes here (branch creation and push). Every other git operation
+ * stays in the session-scoped git.* methods over `shared/git-core.ts`.
+ */
 import { existsSync, statSync } from 'node:fs'
 import { basename, isAbsolute } from 'node:path'
 import { runGit } from '../../shared/git-core.ts'
 import type {
-  WorkspaceFacts,
-  WorkspaceHostMutation,
-  WorkspaceHostMutationResponse,
-} from './protocol.ts'
+  SidebarWorkspaceFacts,
+  SidebarWorkspaceMutation,
+  SidebarWorkspaceMutationResponse,
+} from '../../shared/sidebar-api.ts'
 
-export function normalizeWorkspacePath(raw: string | undefined): string {
+export type {
+  SidebarWorkspaceFacts,
+  SidebarWorkspaceMutation,
+  SidebarWorkspaceMutationResponse,
+} from '../../shared/sidebar-api.ts'
+
+export { isSidebarWorkspaceMutation } from '../../shared/sidebar-api.ts'
+
+function normalizeWorkspacePath(raw: string | undefined): string {
   const cwd = raw?.trim()
   if (cwd === undefined || cwd === '' || cwd.length > 4096
     || !isAbsolute(cwd)) {
@@ -49,7 +67,7 @@ async function repositoryRoot(cwd: string): Promise<string | null> {
 
 export async function readWorkspaceFacts(
   rawCwd: string | undefined,
-): Promise<WorkspaceFacts> {
+): Promise<SidebarWorkspaceFacts> {
   const cwd = normalizeWorkspacePath(rawCwd)
   const root = await repositoryRoot(cwd)
   if (root === null) {
@@ -97,8 +115,8 @@ function requiredText(value: string, label: string, maxLength: number): string {
 
 export async function mutateWorkspace(
   rawCwd: string | undefined,
-  mutation: WorkspaceHostMutation,
-): Promise<WorkspaceHostMutationResponse> {
+  mutation: SidebarWorkspaceMutation,
+): Promise<SidebarWorkspaceMutationResponse> {
   const before = await readWorkspaceFacts(rawCwd)
   if (before.kind !== 'repository') {
     throw new Error('workspace is not a Git repository')

@@ -49,6 +49,14 @@ recorded here so upstream upgrades can be re-applied:
   resolver (`resolveShell` / `windowsPwshCandidateDirs` /
   `shellSpawnArgs`), kept free of node-pty so the Windows chain is
   unit-testable on POSIX runners (`tests/shell-resolution.test.ts`).
+- `workspace-git.ts` — **new (fork)**: workspace-level Git operations
+  (`readWorkspaceFacts` / `mutateWorkspace` + the shared
+  `isSidebarWorkspaceMutation` wire guard) serving the NEW
+  `workspace.facts` / `workspace.mutate` API methods. Folded in from the
+  Oh-DSH sidebar's former self-hosted `/oh-dsh/workspace` route so every
+  panel data channel rides one API surface behind one trust fence;
+  `routes.ts` wires both methods through the existing bare-cwd
+  `cwdScopeOf` (the worktree scope).
 - `agent-pty.ts` — constructor takes the same shell thunk (resolved at
   create time) and spawns with `shellSpawnArgs()`; UI terminals and the
   agent `terminal_*` tools always share the same shell.
