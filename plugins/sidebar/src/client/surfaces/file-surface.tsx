@@ -24,7 +24,7 @@ import { copyText } from '../../../../shared/copy-text.ts'
 import { basename } from '../../../../shared/path.ts'
 import { toast } from '../../../../shared/toast.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { betterSidebarApi } from '../better-sidebar-api.ts'
+import { sidebarApi } from '../sidebar-api.ts'
 import { getFileRuntime } from '../runtimes/registry.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
@@ -144,7 +144,7 @@ export function FileSurfaceView({
     if (next === null) return
     setWriteError('')
     writeQueueRef.current = writeQueueRef.current
-      .then(() => betterSidebarApi.fsWrite(
+      .then(() => sidebarApi.fsWrite(
         { sessionId: surface.sessionId, cwd: surface.cwd },
         surface.filePath,
         next,

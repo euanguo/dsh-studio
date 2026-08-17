@@ -1,7 +1,7 @@
 import {
-  betterSidebarApi,
-  type BetterSidebarSettingsView,
-} from './better-sidebar-api.ts'
+  sidebarApi,
+  type SidebarSettingsView,
+} from './sidebar-api.ts'
 
 export interface SidebarRuntimePreferences {
   agentTerminalTools: boolean
@@ -92,11 +92,11 @@ export interface SidebarRuntimeSettingsSnapshot {
 }
 
 interface SidebarRuntimeSettingsApi {
-  settingsGet(signal?: AbortSignal): Promise<BetterSidebarSettingsView>
+  settingsGet(signal?: AbortSignal): Promise<SidebarSettingsView>
   settingsUpdate(
     patch: Record<string, unknown>,
     expectedRevision?: number,
-  ): Promise<BetterSidebarSettingsView>
+  ): Promise<SidebarSettingsView>
 }
 
 export function parseSidebarRuntimePreferences(
@@ -150,7 +150,7 @@ export function parseSidebarRuntimePreferences(
 }
 
 function snapshotFromView(
-  view: BetterSidebarSettingsView,
+  view: SidebarSettingsView,
 ): SidebarRuntimeSettingsSnapshot {
   return {
     busy: false,
@@ -171,7 +171,7 @@ export class SidebarRuntimeSettingsService {
     revision: undefined,
   }
 
-  constructor(api: SidebarRuntimeSettingsApi = betterSidebarApi) {
+  constructor(api: SidebarRuntimeSettingsApi = sidebarApi) {
     this.api = api
   }
 

@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { betterSidebarApi } from '../better-sidebar-api.ts'
+import { sidebarApi } from '../sidebar-api.ts'
 import { getDiffRuntime, sidebarScopeKey } from '../runtimes/registry.ts'
 import { useSidebarChromeStore } from '../runtimes/chrome-store.ts'
 import { worktreeDocKey, worktreeListKey } from '../runtimes/diff-runtime.ts'
@@ -119,7 +119,7 @@ export function DiffSurfaceView({
     }
     let alive = true
     setImageDiff(null)
-    void betterSidebarApi.gitImageDiff(
+    void sidebarApi.gitImageDiff(
       { sessionId: surface.sessionId, cwd: surface.cwd },
       surface.filePath,
       surface.staged,

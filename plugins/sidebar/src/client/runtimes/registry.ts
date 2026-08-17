@@ -26,11 +26,16 @@ import {
   WorkspaceDiffRuntime,
   type WorkspaceDiffTransport,
 } from './diff-runtime.ts'
-import type { BetterSidebarScope } from '../better-sidebar-api.ts'
-import { betterSidebarApi } from '../better-sidebar-api.ts'
+import { sidebarApi } from '../sidebar-api.ts'
 import { resolveSidebarPath } from '../../../../shared/path.ts'
 import { parseGitReviewDiff, type GitReviewFile } from '../diff/git-review-diff.ts'
 
+/**
+ * The runtime scope: one session + its RESOLVED cwd. Unlike the wire
+ * `SidebarScope` (cwd optional — the API resolves the authoritative cwd on
+ * the host), the retained runtimes need the concrete cwd to key their
+ * caches, so it is mandatory here.
+ */
 export interface SidebarScope {
   sessionId: string
   cwd: string
@@ -66,7 +71,7 @@ export function getExplorerRuntime(scope: SidebarScope): WorkspaceExplorerRuntim
   }
   const transport: WorkspaceExplorerTransport = {
     listDirectory: (relativePath, signal) =>
-      betterSidebarApi.fsTree(scope, resolveSidebarPath(scope.cwd, relativePath), signal)
+      sidebarApi.fsTree(scope, resolveSidebarPath(scope.cwd, relativePath), signal)
         .then(listing => listing.entries.map(entry => ({
           name: entry.name,
           path: entry.path,
@@ -135,7 +140,7 @@ export function getFileRuntime(scope: SidebarScope): WorkspaceFileRuntime {
     fileRuntimeRegistry.delete(scopeKey)
   }
   const transport: WorkspaceFileTransport = {
-    read: (path, signal) => betterSidebarApi.fsRead(scope, path, signal).then(result => ({
+    read: (path, signal) => sidebarApi.fsRead(scope, path, signal).then(result => ({
       kind: result.kind,
       content: result.kind === 'text' ? result.content : null,
       binary: result.kind === 'binary',
@@ -173,7 +178,7 @@ export function getDiffRuntime(scope: SidebarScope): WorkspaceDiffRuntime {
   }
   const transport: WorkspaceDiffTransport = {
     loadWorktreeList: (staged, signal) =>
-      betterSidebarApi.gitDiff(scope, undefined, staged, signal).then(async result => {
+      sidebarApi.gitDiff(scope, undefined, staged, signal).then(async result => {
         const parsed = parseGitReviewDiff(result.diff)
         if (staged) return parsed
         // Untracked files produce no git diff output — synthesize added-file
@@ -181,7 +186,7 @@ export function getDiffRuntime(scope: SidebarScope): WorkspaceDiffRuntime {
         // the file runtime cache (M6: one file-read path).
         let untrackedFiles: GitReviewFile[] = []
         try {
-          const status = await betterSidebarApi.gitStatus(scope, signal)
+          const status = await sidebarApi.gitStatus(scope, signal)
           const fileRuntime = getFileRuntime(scope)
           const synthesized: Array<GitReviewFile | null> = await Promise.all(status.entries
             .filter(entry => entry.xy === '??')
@@ -214,16 +219,16 @@ export function getDiffRuntime(scope: SidebarScope): WorkspaceDiffRuntime {
         return [...parsed, ...untrackedFiles]
       }),
     loadWorktreeDoc: (staged, filePath, context, signal) =>
-      betterSidebarApi.gitDiff(scope, filePath, staged, signal, context).then(result => result.diff),
+      sidebarApi.gitDiff(scope, filePath, staged, signal, context).then(result => result.diff),
     loadCommitList: (hash, signal) =>
-      betterSidebarApi.gitCommitDiff(scope, hash, signal).then(result => parseGitReviewDiff(result.diff)),
+      sidebarApi.gitCommitDiff(scope, hash, signal).then(result => parseGitReviewDiff(result.diff)),
     loadCommitDoc: (hash, filePath, signal) =>
-      betterSidebarApi.gitCommitFileDiff(scope, hash, filePath, signal).then(result => result.diff),
+      sidebarApi.gitCommitFileDiff(scope, hash, filePath, signal).then(result => result.diff),
     loadCommittedList: (baseRef, signal) =>
-      betterSidebarApi.gitCommittedDiff(scope, baseRef, undefined, signal)
+      sidebarApi.gitCommittedDiff(scope, baseRef, undefined, signal)
         .then(result => parseGitReviewDiff(result.diff)),
     loadCommittedDoc: (baseRef, filePath, signal) =>
-      betterSidebarApi.gitCommittedDiff(scope, baseRef, filePath, signal).then(result => result.diff),
+      sidebarApi.gitCommittedDiff(scope, baseRef, filePath, signal).then(result => result.diff),
   }
   const runtime = new WorkspaceDiffRuntime(transport)
   runtime.setScope(scopeKey)
@@ -238,5 +243,3 @@ export function disposeSidebarRuntimes(): void {
   fileRuntimeRegistry.clear()
   diffRuntimeRegistry.clear()
 }
-
-export type { BetterSidebarScope }

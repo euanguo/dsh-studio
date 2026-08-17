@@ -41,11 +41,11 @@ import {
 import { FilenameLabel } from '../../../shared/filename-label.tsx'
 import type { WorkspaceMessage } from './i18n.ts'
 import {
-  betterSidebarApi,
-  type BetterSidebarGitCommitFile,
-  type BetterSidebarGitLogEntry,
-  type BetterSidebarScope,
-} from './better-sidebar-api.ts'
+  sidebarApi,
+  type SidebarGitCommitFile,
+  type SidebarGitLogEntry,
+  type SidebarScope,
+} from './sidebar-api.ts'
 import {
   type SessionsService,
   type WorkspaceTools,
@@ -101,7 +101,7 @@ export function errorMessage(error: unknown): string {
 type CommitFilesState =
   | { status: 'loading' }
   | { status: 'error'; error: string }
-  | { status: 'ready'; entries: readonly BetterSidebarGitCommitFile[] }
+  | { status: 'ready'; entries: readonly SidebarGitCommitFile[] }
 
 /** The committed-changes projection (files in local commits ahead of the
  *  branch upstream). `none` = no upstream to compare against. */
@@ -109,7 +109,7 @@ type CommittedState =
   | { status: 'none' }
   | { status: 'loading' }
   | { status: 'error'; error: string }
-  | { status: 'ready'; baseRef: string; entries: readonly BetterSidebarGitCommitFile[] }
+  | { status: 'ready'; baseRef: string; entries: readonly SidebarGitCommitFile[] }
 
 function commitFileName(path: string): string {
   return basename(path)
@@ -131,7 +131,7 @@ type CommitFileRow =
  *  flat/tree mode (directory grouping is re-used from the source-control
  *  tree model so both lists indent identically). */
 function commitFileRows(
-  files: readonly BetterSidebarGitCommitFile[],
+  files: readonly SidebarGitCommitFile[],
   mode: SourceControlListMode,
   collapsedDirs: ReadonlySet<string>,
   keyPrefix: string,
@@ -404,7 +404,7 @@ export function WorkspacePanel({
     }),
     [collapsedDirectories, collapsedSections, listMode, selectedPath, visibleChanges],
   )
-  const scope = useMemo<BetterSidebarScope | undefined>(
+  const scope = useMemo<SidebarScope | undefined>(
     () => sessionId === undefined || cwd === undefined
       ? undefined
       : { sessionId, cwd },
@@ -420,7 +420,7 @@ export function WorkspacePanel({
   const refreshCommitted = useCallback(async (): Promise<void> => {
     if (scope === undefined) return
     try {
-      const result = await betterSidebarApi.gitCommittedFiles(scope)
+      const result = await sidebarApi.gitCommittedFiles(scope)
       if (result.baseRef === null) {
         setCommitted({ status: 'none' })
         return
@@ -473,14 +473,14 @@ export function WorkspacePanel({
 
   // Clicking a history row toggles its inline file list (lazy-loaded, orca
   // parity) instead of jumping straight to the whole-commit diff.
-  const toggleCommitFiles = (entry: BetterSidebarGitLogEntry): void => {
+  const toggleCommitFiles = (entry: SidebarGitLogEntry): void => {
     if (scope === undefined) return
     const hash = entry.hashFull
     const loaded = commitFiles.has(hash)
     setExpandedCommitId(current => current === hash ? null : hash)
     if (loaded) return
     setCommitFiles(current => new Map(current).set(hash, { status: 'loading' }))
-    void betterSidebarApi.gitCommitFiles(scope, hash).then(entries => {
+    void sidebarApi.gitCommitFiles(scope, hash).then(entries => {
       setCommitFiles(current => new Map(current).set(hash, { status: 'ready', entries }))
     }).catch((cause: unknown) => {
       setCommitFiles(current => new Map(current).set(hash, { status: 'error', error: errorMessage(cause) }))
@@ -488,7 +488,7 @@ export function WorkspacePanel({
   }
 
   // The commit row's "view all" icon → whole-commit diff in the center.
-  const openCommitDiffInCenter = (entry: BetterSidebarGitLogEntry): void => {
+  const openCommitDiffInCenter = (entry: SidebarGitLogEntry): void => {
     if (cwd === undefined) return
     useCenterSurfaceStore.getState().openCommit({
       sessionId: sessionId ?? '',
@@ -500,7 +500,7 @@ export function WorkspacePanel({
   }
 
   // A file in a commit's inline list → that single file's diff in the center.
-  const openCommitFileInCenter = (entry: BetterSidebarGitLogEntry, filePath: string): void => {
+  const openCommitFileInCenter = (entry: SidebarGitLogEntry, filePath: string): void => {
     if (cwd === undefined) return
     useCenterSurfaceStore.getState().openCommitFile({
       sessionId: sessionId ?? '',
@@ -596,9 +596,9 @@ export function WorkspacePanel({
     for (const path of paths) pending.set(path, action)
     setPendingByPath(pending)
     try {
-      if (action === 'stage') await betterSidebarApi.gitStage(scope, paths)
-      else if (action === 'unstage') await betterSidebarApi.gitUnstage(scope, paths)
-      else await betterSidebarApi.gitDiscard(scope, paths)
+      if (action === 'stage') await sidebarApi.gitStage(scope, paths)
+      else if (action === 'unstage') await sidebarApi.gitUnstage(scope, paths)
+      else await sidebarApi.gitDiscard(scope, paths)
       if (action === 'discard') toast('success', t('toast.discarded'))
       await refresh()
     } catch (nextError) {

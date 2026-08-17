@@ -9,10 +9,10 @@ import {
   readWorkspaceFacts,
 } from '../plugins/sidebar/src/git-workspace.ts'
 import {
-  mapBetterSidebarFile,
-  mapBetterSidebarTree,
-  workspaceChangesFromBetterSidebar,
-} from '../plugins/sidebar/src/client/better-sidebar-api.ts'
+  mapSidebarFile,
+  mapSidebarTree,
+  workspaceChangesFromWire,
+} from '../plugins/sidebar/src/client/sidebar-api.ts'
 
 function git(cwd: string, args: string[]): string {
   const result = spawnSync('git', args, { cwd, encoding: 'utf8' })
@@ -43,7 +43,7 @@ test('workspace extension provides repository facts and branch creation', async 
 })
 
 test('Better Sidebar status maps into the Oh-DSH workspace model', () => {
-  assert.deepEqual(workspaceChangesFromBetterSidebar([
+  assert.deepEqual(workspaceChangesFromWire([
     { path: 'staged.ts', xy: 'M ' },
     { path: 'renamed.ts', xy: 'R ' },
     { path: 'loose.txt', xy: '??' },
@@ -57,7 +57,7 @@ test('Better Sidebar status maps into the Oh-DSH workspace model', () => {
 test('porcelain v2 XY codes map staged/unstaged correctly', () => {
   // v2 uses '.' for the unmodified index slot — `.M` is an UNSTAGED change,
   // `M.` is staged. Both must land in the right section (and diff side).
-  assert.deepEqual(workspaceChangesFromBetterSidebar([
+  assert.deepEqual(workspaceChangesFromWire([
     { path: 'unstaged.ts', xy: '.M' },
     { path: 'staged.ts', xy: 'M.' },
     { path: 'both.ts', xy: 'MM' },
@@ -69,7 +69,7 @@ test('porcelain v2 XY codes map staged/unstaged correctly', () => {
 })
 
 test('workspace files adapt Better Sidebar responses to the Oh-DSH UI', () => {
-  const root = mapBetterSidebarTree('/workspace', {
+  const root = mapSidebarTree('/workspace', {
     path: '/workspace/src',
     entries: [
       { name: 'nested', path: '/workspace/src/nested', isDir: true, hidden: false },
@@ -84,7 +84,7 @@ test('workspace files adapt Better Sidebar responses to the Oh-DSH UI', () => {
     ['nested', 'directory'],
     ['index.ts', 'file'],
   ])
-  const preview = mapBetterSidebarFile('/workspace', '/workspace/src/index.ts', {
+  const preview = mapSidebarFile('/workspace', '/workspace/src/index.ts', {
     kind: 'text',
     content: 'export const ready = true\n',
     truncated: false,

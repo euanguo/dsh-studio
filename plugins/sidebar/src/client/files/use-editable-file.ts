@@ -22,7 +22,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import { toast } from '../../../../shared/toast.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { betterSidebarApi } from '../better-sidebar-api.ts'
+import { sidebarApi } from '../sidebar-api.ts'
 import type { WorkspaceFileRuntime } from '../runtimes/file-runtime.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
 
@@ -102,7 +102,7 @@ export function useEditableFile(options: {
     pendingWritesRef.current += 1
     setSaving(true)
     const run = writeQueueRef.current
-      .then(() => betterSidebarApi.fsWrite(scope, filePath, value))
+      .then(() => sidebarApi.fsWrite(scope, filePath, value))
       .then(() => {
         if (!aliveRef.current) return true
         // Typing during the write keeps the content ahead of the file —

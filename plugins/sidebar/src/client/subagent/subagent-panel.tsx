@@ -21,7 +21,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
-import { betterSidebarApi } from '../better-sidebar-api.ts'
+import { sidebarApi } from '../sidebar-api.ts'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type {
@@ -95,7 +95,7 @@ export function SubagentPanel({
   const readOutput = (jobId: string): void => {
     if (scope === null) return
     setOutputs(prev => ({ ...prev, [jobId]: 'loading' }))
-    void betterSidebarApi.jobOutput(scope, jobId).then(
+    void sidebarApi.jobOutput(scope, jobId).then(
       result => {
         setOutputs(prev => ({
           ...prev,
@@ -111,7 +111,7 @@ export function SubagentPanel({
   const killJob = (jobId: string): void => {
     if (scope === null) return
     setKilling(prev => ({ ...prev, [jobId]: true }))
-    void betterSidebarApi.jobKill(scope, jobId).finally(() => {
+    void sidebarApi.jobKill(scope, jobId).finally(() => {
       setKilling(prev => ({ ...prev, [jobId]: false }))
     })
   }

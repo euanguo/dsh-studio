@@ -16,14 +16,13 @@
 import { RevisionedStore, GenerationGate } from '../../../../shared/runtime.ts'
 import type { WorkspaceFacts, WorkspaceSnapshot } from '../../protocol.ts'
 import { WORKSPACE_API_PATH } from '../../protocol.ts'
-import { betterSidebarApi } from '../better-sidebar-api.ts'
+import { sidebarApi } from '../sidebar-api.ts'
 import type {
-  BetterSidebarGitLogEntry,
-  BetterSidebarScope,
-  BetterSidebarGitBranch,
-  BetterSidebarGitStatus,
-} from '../better-sidebar-api.ts'
-import { workspaceChangesFromBetterSidebar } from '../better-sidebar-api.ts'
+  SidebarGitLogEntry,
+  SidebarGitBranch,
+  SidebarGitStatus,
+} from '../sidebar-api.ts'
+import { workspaceChangesFromWire } from '../sidebar-api.ts'
 
 export type SourceControlRuntimePhase =
   | 'idle'
@@ -35,7 +34,7 @@ export type SourceControlRuntimePhase =
 /** The Git panel snapshot plus the commit history (history is per-scope
  *  runtime data, not part of the wire WorkspaceSnapshot). */
 export interface SourceControlWorkspaceSnapshot extends WorkspaceSnapshot {
-  history: BetterSidebarGitLogEntry[]
+  history: SidebarGitLogEntry[]
 }
 
 export interface SourceControlRuntimeSnapshot {
@@ -45,17 +44,17 @@ export interface SourceControlRuntimeSnapshot {
   snapshot: SourceControlWorkspaceSnapshot | null
 }
 
-export interface SourceControlTransport {
-  gitStatus(scope: BetterSidebarScope, signal?: AbortSignal): Promise<BetterSidebarGitStatus>
-  gitBranch(scope: BetterSidebarScope, signal?: AbortSignal): Promise<BetterSidebarGitBranch>
-  gitLog(scope: BetterSidebarScope, signal?: AbortSignal): Promise<BetterSidebarGitLogEntry[]>
-  workspaceFacts(cwd: string, signal?: AbortSignal): Promise<WorkspaceFacts>
-}
-
 /** The scope shape the runtime requires (cwd is mandatory here). */
 export interface SourceControlScope {
   sessionId: string
   cwd: string
+}
+
+export interface SourceControlTransport {
+  gitStatus(scope: SourceControlScope, signal?: AbortSignal): Promise<SidebarGitStatus>
+  gitBranch(scope: SourceControlScope, signal?: AbortSignal): Promise<SidebarGitBranch>
+  gitLog(scope: SourceControlScope, signal?: AbortSignal): Promise<SidebarGitLogEntry[]>
+  workspaceFacts(cwd: string, signal?: AbortSignal): Promise<WorkspaceFacts>
 }
 
 export interface SourceControlRuntimeOptions {
@@ -63,17 +62,17 @@ export interface SourceControlRuntimeOptions {
   /** Merge the workspace facts + git status into a WorkspaceSnapshot. */
   buildSnapshot?(input: {
     facts: WorkspaceFacts
-    status: BetterSidebarGitStatus
-    branch: BetterSidebarGitBranch
-    history: BetterSidebarGitLogEntry[]
+    status: SidebarGitStatus
+    branch: SidebarGitBranch
+    history: SidebarGitLogEntry[]
   }): SourceControlWorkspaceSnapshot
 }
 
 function defaultBuildSnapshot(input: {
   facts: WorkspaceFacts
-  status: BetterSidebarGitStatus
-  branch: BetterSidebarGitBranch
-  history: BetterSidebarGitLogEntry[]
+  status: SidebarGitStatus
+  branch: SidebarGitBranch
+  history: SidebarGitLogEntry[]
 }): SourceControlWorkspaceSnapshot {
   const { facts, status, branch, history } = input
   if (facts.kind !== 'repository' || !status.isRepo) {
@@ -91,7 +90,7 @@ function defaultBuildSnapshot(input: {
     kind: 'repository',
     branch: status.branch ?? branch.current,
     branches: branch.names,
-    changes: workspaceChangesFromBetterSidebar(status.entries, status.stats),
+    changes: workspaceChangesFromWire(status.entries, status.stats),
     history,
   }
 }
@@ -231,8 +230,8 @@ export class SourceControlRuntime {
         this.transport.gitStatus(scope, controller.signal),
       ])
       if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
-      let history: BetterSidebarGitLogEntry[] = []
-      let branch: BetterSidebarGitBranch = { current: 'HEAD', names: [] }
+      let history: SidebarGitLogEntry[] = []
+      let branch: SidebarGitBranch = { current: 'HEAD', names: [] }
       if (status.isRepo && facts.kind === 'repository') {
         const [nextBranch, nextHistory] = await Promise.all([
           this.transport.gitBranch(scope, controller.signal).catch(() => branch),
@@ -263,9 +262,9 @@ export class SourceControlRuntime {
 /** Default transport over the desktop sidebar API + workspace facts route. */
 export function sidebarSourceControlTransport(): SourceControlTransport {
   return {
-    gitStatus: (scope, signal) => betterSidebarApi.gitStatus(scope, signal),
-    gitBranch: (scope, signal) => betterSidebarApi.gitBranch(scope, signal),
-    gitLog: (scope, signal) => betterSidebarApi.gitLog(scope, 30, 0, signal),
+    gitStatus: (scope, signal) => sidebarApi.gitStatus(scope, signal),
+    gitBranch: (scope, signal) => sidebarApi.gitBranch(scope, signal),
+    gitLog: (scope, signal) => sidebarApi.gitLog(scope, 30, 0, signal),
     workspaceFacts: async (cwd: string, signal?: AbortSignal) => {
       const url = new URL(WORKSPACE_API_PATH, window.location.origin)
       url.searchParams.set('cwd', cwd)

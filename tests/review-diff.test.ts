@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   parseGitReviewDiff,
-  reviewCommitFromBetterSidebar,
+  reviewCommitFromWire,
 } from '../plugins/sidebar/src/client/diff/git-review-diff.ts'
 import {
   formatReviewComment,
@@ -32,7 +32,7 @@ test('Better Sidebar commit patches become line-addressable reviews', () => {
     ['addition', null, 1],
     ['context', 2, 2],
   ])
-  const commit = reviewCommitFromBetterSidebar({
+  const commit = reviewCommitFromWire({
     hash: 'abc1234',
     hashFull: 'abc1234567890',
     subject: 'fix value',

@@ -86,7 +86,7 @@ test('desktop sidebar exposes one configurable tool registry in settings', () =>
   assert.doesNotMatch(client, /defineStore<SidebarSettingsState>/)
   assert.match(client, /slots\.inject\('settings\.section'/)
   assert.match(client, /new SidebarRuntimeSettingsService/)
-  assert.match(runtimeSettings, /betterSidebarApi/)
+  assert.match(runtimeSettings, /sidebarApi/)
   assert.match(runtimeSettings, /settingsUpdate\(patch, previous\.revision\)/)
   assert.match(client, /desktopSidebar\.setTabEnabled/)
   assert.match(client, /desktopSidebar\.setViewerEnabled/)

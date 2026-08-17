@@ -27,25 +27,28 @@ import { normalizePath } from '../../../shared/path.ts'
  * /sidebar/api route; the wire contract, DTOs, and call helpers are shared
  * through @oh-dsh/shared so the two halves cannot drift.
  */
-export type BetterSidebarScope = SidebarScope
-export type BetterSidebarFsEntry = SidebarFsEntry
-export type BetterSidebarFsTree = SidebarFsTree
-export type BetterSidebarGitStatusEntry = SidebarGitStatusEntry
-export type BetterSidebarGitStatus = SidebarGitStatus
-export type BetterSidebarGitBranch = SidebarGitBranch
-export type BetterSidebarGitLogEntry = SidebarGitLogEntry
-export type BetterSidebarGitCommitFile = SidebarGitCommitFile
-export type BetterSidebarSettingsView = SidebarSettingsView
-export type BetterSidebarFsRead = SidebarFsRead
+export type {
+  SidebarFsEntry,
+  SidebarFsRead,
+  SidebarFsTree,
+  SidebarGitBranch,
+  SidebarGitCommitFile,
+  SidebarGitCommitted,
+  SidebarGitLogEntry,
+  SidebarGitStatus,
+  SidebarGitStatusEntry,
+  SidebarScope,
+  SidebarSettingsView,
+} from '../../../shared/sidebar-api.ts'
 
 /**
- * Wire call typed by the shared request DTOs (M4): the method name and its
+ * Wire call typed by the shared request DTOs: the method name and its
  * payload shape come from the same SidebarApiRequests map the host parses
  * against, so a client/host drift is a compile error, not a runtime bug.
  */
 function callSidebarApi<M extends SidebarApiMethod, T>(
   method: M,
-  scope: BetterSidebarScope,
+  scope: SidebarScope,
   payload: SidebarApiRequests[M],
   signal?: AbortSignal,
 ): Promise<T> {
@@ -61,38 +64,38 @@ function callSidebarGlobalApi<M extends SidebarApiMethod, T>(
   return sharedCallSidebarGlobalApi(method, payload as Record<string, unknown>, signal)
 }
 
-export const betterSidebarApi = {
+export const sidebarApi = {
   fsRead: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     path: string,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarFsRead> => callSidebarApi('fs.read', scope, { path }, signal),
+  ): Promise<SidebarFsRead> => callSidebarApi('fs.read', scope, { path }, signal),
   fsWrite: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     path: string,
     content: string,
   ): Promise<{ ok: boolean }> => callSidebarApi('fs.write', scope, { path, content }),
   fsCreate: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     path: string,
     directory: boolean,
   ): Promise<{ ok: boolean }> => callSidebarApi('fs.create', scope, { path, directory }),
   fsRename: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     from: string,
     to: string,
   ): Promise<{ ok: boolean }> => callSidebarApi('fs.rename', scope, { from, to }),
   fsDelete: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     path: string,
   ): Promise<{ ok: boolean }> => callSidebarApi('fs.delete', scope, { path }),
   fsCopy: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     from: string,
     to: string,
   ): Promise<{ ok: boolean }> => callSidebarApi('fs.copy', scope, { from, to }),
   fsSearch: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     pattern: string,
     caseSensitive: boolean,
     signal?: AbortSignal,
@@ -103,7 +106,7 @@ export const betterSidebarApi = {
     signal,
   ),
   fsTail: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     path: string,
     maxBytes?: number,
     signal?: AbortSignal,
@@ -114,24 +117,24 @@ export const betterSidebarApi = {
     signal,
   ),
   fsTree: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     path: string,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarFsTree> => callSidebarApi('fs.tree', scope, { path }, signal),
+  ): Promise<SidebarFsTree> => callSidebarApi('fs.tree', scope, { path }, signal),
   gitBranch: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarGitBranch> => callSidebarApi('git.branch', scope, {}, signal),
+  ): Promise<SidebarGitBranch> => callSidebarApi('git.branch', scope, {}, signal),
   gitCheckout: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     branch: string,
   ): Promise<void> => callSidebarApi('git.checkout', scope, { branch }),
   gitCommit: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     message: string,
   ): Promise<void> => callSidebarApi('git.commit', scope, { message }),
   gitCommitDiff: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     hash: string,
     signal?: AbortSignal,
   ): Promise<{ diff: string }> => callSidebarApi(
@@ -141,17 +144,17 @@ export const betterSidebarApi = {
     signal,
   ),
   gitCommitFiles: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     hash: string,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarGitCommitFile[]> => callSidebarApi(
+  ): Promise<SidebarGitCommitFile[]> => callSidebarApi(
     'git.commit-files',
     scope,
     { hash },
     signal,
   ),
   gitCommitFileDiff: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     hash: string,
     path: string,
     signal?: AbortSignal,
@@ -162,7 +165,7 @@ export const betterSidebarApi = {
     signal,
   ),
   gitCommittedFiles: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     signal?: AbortSignal,
   ): Promise<SidebarGitCommitted> => callSidebarApi(
     'git.committed-files',
@@ -171,7 +174,7 @@ export const betterSidebarApi = {
     signal,
   ),
   gitCommittedDiff: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     baseRef: string,
     path: string | undefined,
     signal?: AbortSignal,
@@ -182,7 +185,7 @@ export const betterSidebarApi = {
     signal,
   ),
   gitDiff: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     path: string | undefined,
     staged: boolean,
     signal?: AbortSignal,
@@ -193,7 +196,7 @@ export const betterSidebarApi = {
     ...(context === undefined ? {} : { context }),
   }, signal),
   gitImageDiff: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     path: string,
     staged: boolean,
     signal?: AbortSignal,
@@ -202,39 +205,39 @@ export const betterSidebarApi = {
     staged,
   }, signal),
   gitLog: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     count = 30,
     skip = 0,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarGitLogEntry[]> => callSidebarApi('git.log', scope, {
+  ): Promise<SidebarGitLogEntry[]> => callSidebarApi('git.log', scope, {
     count,
     skip,
   }, signal),
   gitStage: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     paths?: string | readonly string[],
   ): Promise<void> => callSidebarApi('git.stage', scope, {
     ...(paths === undefined ? {} : { paths: toPathList(paths) }),
   }),
   gitUnstage: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     paths?: string | readonly string[],
   ): Promise<void> => callSidebarApi('git.unstage', scope, {
     ...(paths === undefined ? {} : { paths: toPathList(paths) }),
   }),
   gitDiscard: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     paths: string | readonly string[],
   ): Promise<void> => callSidebarApi('git.discard', scope, {
     paths: toPathList(paths),
   }),
   gitStatus: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     signal?: AbortSignal,
-  ): Promise<BetterSidebarGitStatus> => callSidebarApi('git.status', scope, {}, signal),
+  ): Promise<SidebarGitStatus> => callSidebarApi('git.status', scope, {}, signal),
   settingsGet: (
     signal?: AbortSignal,
-  ): Promise<BetterSidebarSettingsView> => callSidebarGlobalApi(
+  ): Promise<SidebarSettingsView> => callSidebarGlobalApi(
     'settings.get',
     {},
     signal,
@@ -242,12 +245,12 @@ export const betterSidebarApi = {
   settingsUpdate: (
     patch: Record<string, unknown>,
     expectedRevision?: number,
-  ): Promise<BetterSidebarSettingsView> => callSidebarGlobalApi('settings.update', {
+  ): Promise<SidebarSettingsView> => callSidebarGlobalApi('settings.update', {
     patch,
     ...(expectedRevision === undefined ? {} : { expectedRevision }),
   }),
   jobOutput: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     id: string,
     signal?: AbortSignal,
   ): Promise<{ text: string; truncated: boolean; read: boolean }> => callSidebarApi(
@@ -257,7 +260,7 @@ export const betterSidebarApi = {
     signal,
   ),
   jobKill: (
-    scope: BetterSidebarScope,
+    scope: SidebarScope,
     id: string,
     reason?: string,
   ): Promise<{ ok: true; outcome: 'requested' | 'already-finished' }> => {
@@ -279,8 +282,8 @@ function statusFromCode(code: string): WorkspaceChange['status'] {
   return 'modified'
 }
 
-export function workspaceChangesFromBetterSidebar(
-  entries: readonly BetterSidebarGitStatusEntry[],
+export function workspaceChangesFromWire(
+  entries: readonly SidebarGitStatusEntry[],
   stats?: readonly SidebarGitStat[],
 ): WorkspaceChange[] {
   const statsByPath = new Map(
@@ -321,9 +324,9 @@ function workspaceParent(cwd: string, path: string): string | null {
   return parent.length >= root.length ? parent : null
 }
 
-export function mapBetterSidebarTree(
+export function mapSidebarTree(
   cwd: string,
-  listing: BetterSidebarFsTree,
+  listing: SidebarFsTree,
 ): WorkspaceFilesResponse {
   return {
     kind: 'directory',
@@ -340,10 +343,10 @@ export function mapBetterSidebarTree(
   }
 }
 
-export function mapBetterSidebarFile(
+export function mapSidebarFile(
   cwd: string,
   path: string,
-  result: BetterSidebarFsRead,
+  result: SidebarFsRead,
 ): WorkspaceFilesResponse {
   if (result.kind === 'binary') {
     return {

@@ -49,9 +49,9 @@ import {
 import type { WorkspaceFilesResponse, WorkspaceFileEntry, WorkspaceFileKind } from '../protocol.ts'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import {
-  betterSidebarApi,
-  mapBetterSidebarFile,
-} from './better-sidebar-api.ts'
+  sidebarApi,
+  mapSidebarFile,
+} from './sidebar-api.ts'
 import { buildFileRows } from './files/file-tree-model.ts'
 import {
   ListRow,
@@ -276,7 +276,7 @@ export function FilesView({
     const controller = new AbortController()
     setSearching(true)
     const timer = window.setTimeout(() => {
-      void betterSidebarApi.fsSearch(scope, searchQuery, false, controller.signal).then(hits => {
+      void sidebarApi.fsSearch(scope, searchQuery, false, controller.signal).then(hits => {
         setSearchHits(hits)
         setSearching(false)
       }).catch(() => {
@@ -378,7 +378,7 @@ export function FilesView({
     })
     if (name === null || name.trim() === '') return
     try {
-      await betterSidebarApi.fsCreate(scope, joinPath(base, name.trim()), directory)
+      await sidebarApi.fsCreate(scope, joinPath(base, name.trim()), directory)
       refreshListings()
     } catch (cause) {
       await alertDialog({
@@ -400,7 +400,7 @@ export function FilesView({
     if (name === null || name.trim() === '') return
     const parent = dirname(selectedPath) || cwd
     try {
-      await betterSidebarApi.fsRename(scope, selectedPath, joinPath(parent, name.trim()))
+      await sidebarApi.fsRename(scope, selectedPath, joinPath(parent, name.trim()))
       refreshListings()
     } catch (cause) {
       await alertDialog({
@@ -422,7 +422,7 @@ export function FilesView({
     })
     if (!confirmed) return
     try {
-      await betterSidebarApi.fsDelete(scope, selectedPath)
+      await sidebarApi.fsDelete(scope, selectedPath)
       refreshListings()
     } catch (cause) {
       await alertDialog({
@@ -444,7 +444,7 @@ export function FilesView({
     })
     if (target === null || target.trim() === '') return
     try {
-      await betterSidebarApi.fsCopy(scope, selectedPath, target.trim())
+      await sidebarApi.fsCopy(scope, selectedPath, target.trim())
       refreshListings()
     } catch (cause) {
       await alertDialog({
@@ -593,9 +593,9 @@ export function FileView({
   useEffect(() => {
     if (cwd === undefined || path === undefined || scope == null) return
     const controller = new AbortController()
-    void betterSidebarApi.fsRead(scope, path, controller.signal).then(
+    void sidebarApi.fsRead(scope, path, controller.signal).then(
       result => {
-        setSnapshot(mapBetterSidebarFile(cwd, path, result))
+        setSnapshot(mapSidebarFile(cwd, path, result))
         setError('')
       },
     ).catch((next: unknown) => {

@@ -6,7 +6,7 @@
  */
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { betterSidebarApi, type BetterSidebarScope } from '../better-sidebar-api.ts'
+import { sidebarApi, type SidebarScope } from '../sidebar-api.ts'
 import {
   WORKSPACE_API_PATH,
   type WorkspaceHostMutationResponse,
@@ -45,7 +45,7 @@ export interface PanelMutationHooks {
 export async function runPanelMutation(
   mutation: WorkspaceMutation,
   hooks: {
-    scope: BetterSidebarScope
+    scope: SidebarScope
     cwd: string
     t: Translate<WorkspaceMessage>
   } & PanelMutationHooks,
@@ -53,10 +53,10 @@ export async function runPanelMutation(
   const { scope, cwd, t, onCommitted, refresh, reportError } = hooks
   try {
     if (mutation.action === 'checkout') {
-      await betterSidebarApi.gitCheckout(scope, mutation.branch)
+      await sidebarApi.gitCheckout(scope, mutation.branch)
     } else if (mutation.action === 'commit') {
-      await betterSidebarApi.gitStage(scope)
-      await betterSidebarApi.gitCommit(scope, mutation.message)
+      await sidebarApi.gitStage(scope)
+      await sidebarApi.gitCommit(scope, mutation.message)
       onCommitted()
     } else {
       const response = await fetch(workspaceUrl(cwd), {

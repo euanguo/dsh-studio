@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import type { Translate } from '../../../../shared/i18n.ts'
 import { toast } from '../../../../shared/toast.tsx'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { betterSidebarApi } from '../better-sidebar-api.ts'
+import { sidebarApi } from '../sidebar-api.ts'
 import type { FileContents, MergeConflictResolution } from '@pierre/diffs'
 import { UnresolvedFile, Virtualizer } from '@pierre/diffs/react'
 import { getFileRuntime, getSourceControlRuntime } from '../runtimes/registry.ts'
@@ -66,11 +66,11 @@ export function ConflictSurfaceView({
 
   const onResolved = useCallback((resolved: FileContents) => {
     setBusy(true)
-    betterSidebarApi.fsWrite(
+    sidebarApi.fsWrite(
       { sessionId: surface.sessionId, cwd: surface.cwd },
       absolutePath,
       resolved.contents,
-    ).then(() => betterSidebarApi.gitStage(
+    ).then(() => sidebarApi.gitStage(
       { sessionId: surface.sessionId, cwd: surface.cwd },
       surface.filePath,
     )).then(() => {
