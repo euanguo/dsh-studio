@@ -320,6 +320,28 @@ writes from the DSH runtime origin"）。
   `plugins/shared/`）。
 - 快捷键（统一 keymap，`2c00efb` 起）：面板开关 `mod+alt+b`、最大化退出
   `Escape`、review `ctrl+shift+g`、浏览器 `mod+t`、diff 内 F7 逐块跳转。
+- **2026-08 底部 dock 摘除 + 终端一等公民化**：
+  - 终端 bottom dock（`plugins/panel-controls` 的 `#oh-dsh-terminal-root`）与
+    底部工作台（`plugins/sidebar` 的 `mountBottomWorkbench`）不再挂载到对话列
+    底部（用户偏好），相关挂载代码原地注释短路（无 dock root / 无 session
+    surfaces / 无 MutationObserver / 无 React 子树）；`DesktopPanels` 的
+    右栏 claim 协调与 `inject`/`locale.register` 契约保留
+    （`plugin.test.ts` 依赖）。
+  - **终端改为一等公民**（同浏览器：右栏 tab + 中间 surface 双通道）：
+    终端 UI 组件（`TerminalView`/`TerminalSocket`/`terminal-theme`/
+    `terminal-view.css`）提升到 `plugins/shared`（panel-controls 改为
+    薄 re-export）；`plugins/sidebar/src/client/terminal-tab.tsx` 是右栏 tab
+    与中间 surface 共用的渲染组件，每个终端 tab 用唯一 `tabId` 走
+    `/sidebar/ws/terminal` 协议，**每开一个 tab 就是一个独立 pty**。
+    右栏：`builtins/tabs.tsx` 的 `terminal` 描述符（render 版）；中间：
+    store `openTerminal` 支持多实例（id `terminal:<n>`，`types.ts` 的
+    `terminalSurfaceId`），`plugin.tsx` 注册 `terminal` surface renderer。
+  - **中间 tab 条新增 "+" 菜单**（`center-surface-host.tsx` 的
+    `CenterAddMenu`）：浏览器 / 终端 / 新对话；默认点击=打开到中间，
+    按住 Alt 点击=在右栏开对应 tab；新对话=新建空白会话
+    （`workspaces.startSession()`，同项目头部的"新建对话"）。
+  - 设置页仅移除 bottom-terminal 开关；agent 终端工具开关保留
+    （`settings.tsx`）。xterm 样式随 sidebar 的 `ensureStyle` 注入。
 
 ---
 

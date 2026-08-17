@@ -6,6 +6,11 @@ export type WorkspaceMessage =
   | 'summary.title'
   | 'terminal.toggle'
   | 'terminal.title'
+  | 'terminal.process-exited'
+  | 'terminal.unknown'
+  | 'terminal.error'
+  | 'add.open'
+  | 'add.new-conversation'
   | 'side.toggle'
   | 'side.title'
   | 'review'
@@ -217,6 +222,11 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'summary.title': 'Pinned summary',
     'terminal.toggle': 'Toggle terminal panel',
     'terminal.title': 'Terminal',
+    'terminal.process-exited': 'process exited with code {code}',
+    'terminal.unknown': 'unknown',
+    'terminal.error': 'terminal error: {message}',
+    'add.open': 'Add browser, terminal or conversation',
+    'add.new-conversation': 'New conversation',
     'side.toggle': 'Toggle side panel',
     'side.title': 'Side panel',
     review: 'Review',
@@ -427,6 +437,11 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'summary.title': '固定摘要',
     'terminal.toggle': '切换终端面板',
     'terminal.title': '终端',
+    'terminal.process-exited': '进程已退出，代码 {code}',
+    'terminal.unknown': '未知',
+    'terminal.error': '终端错误：{message}',
+    'add.open': '添加浏览器、终端或新对话',
+    'add.new-conversation': '新对话',
     'side.toggle': '切换侧边栏',
     'side.title': '侧边栏',
     review: '审查',

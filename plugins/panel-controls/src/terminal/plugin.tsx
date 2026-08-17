@@ -1,46 +1,40 @@
-import { Fragment } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
-import xtermCss from '@xterm/xterm/css/xterm.css'
-import terminalCss from './terminal.css'
-import themeCss from '@oh-dsh/shared/theme.css'
-import { ensureStyle } from '@oh-dsh/shared/style-injector'
-import { TerminalPanel, openOrToggleTerminal } from './TerminalPanel.tsx'
-import {
-  createMountScheduler,
-  findConversationColumn,
-  mutationNeedsMount,
-} from '@oh-dsh/shared/column-mount'
-import {
-  DEFAULT_TERMINAL_FONT_SIZE,
-  createDockStore,
-  hasPersistedDockState,
-  terminalFontPrefActions,
-  type DockStore,
-} from './panel-store.ts'
-import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
-import { TERMINAL_MESSAGES, type TerminalMessage } from './i18n.ts'
+/**
+ * Desktop panel services (bundle: @oh-dsh/panel-controls).
+ *
+ * OH-DSH CUT (user preference): the terminal bottom dock is no longer
+ * mounted under the conversation column. The bottom-mounted terminal
+ * machinery below is commented out in place ("注释短路") — the service keeps
+ * its public surface (the right-panel claim coordinator + the DesktopPanels
+ * API) so the sidebar and other plugins keep compiling and the layout
+ * squeeze stays intact, but at runtime it creates no dock root, no session
+ * surfaces, no MutationObserver and no React subtree. The terminal toggle
+ * button, the terminal menu entry and the bottom workbench were removed
+ * alongside (see SideToolsPanel.tsx / builtins/tabs.tsx / workspace-tools.tsx).
+ * Restore by uncommenting the marked blocks below and re-adding the imports.
+ */
+import type { LocaleService } from '@oh-dsh/shared/i18n'
+import { TERMINAL_MESSAGES } from './i18n.ts'
 
-interface ObservableSnapshot<T> {
-  getSnapshot(): T
-  subscribe(listener: () => void): () => void
-}
-
-interface SessionSummary {
-  cwd?: string
-}
-
-interface SessionListState {
-  current?: string
-  byId: Record<string, SessionSummary>
-}
-
-interface SessionsService {
-  list: ObservableSnapshot<SessionListState>
-}
-
-interface LayoutService {
-  toggleSidebar(): void
-}
+// CUT (terminal dock): imports only used by the bottom-mounted dock.
+// import { Fragment } from 'react'
+// import { createRoot, type Root } from 'react-dom/client'
+// import xtermCss from '@xterm/xterm/css/xterm.css'
+// import terminalCss from './terminal.css'
+// import themeCss from '@oh-dsh/shared/theme.css'
+// import { ensureStyle } from '@oh-dsh/shared/style-injector'
+// import { TerminalPanel, openOrToggleTerminal } from './TerminalPanel.tsx'
+// import {
+//   createMountScheduler,
+//   findConversationColumn,
+//   mutationNeedsMount,
+// } from '@oh-dsh/shared/column-mount'
+// import {
+//   DEFAULT_TERMINAL_FONT_SIZE,
+//   createDockStore,
+//   hasPersistedDockState,
+//   terminalFontPrefActions,
+//   type DockStore,
+// } from './panel-store.ts'
 
 interface ClientContext {
   effect(effect: () => (() => void) | void, label?: string): void
@@ -50,16 +44,17 @@ interface ClientContext {
   }
 }
 
-interface SessionSurface {
-  scopeKey: string
-  cwd: string | null
-  store: DockStore
-}
-
-interface ReactMount {
-  element: HTMLDivElement | null
-  root: Root | null
-}
+// CUT (terminal dock): per-session surface plumbing.
+// interface SessionSurface {
+//   scopeKey: string
+//   cwd: string | null
+//   store: DockStore
+// }
+//
+// interface ReactMount {
+//   element: HTMLDivElement | null
+//   root: Root | null
+// }
 
 /**
  * One right-panel owner's footprint claim. Only the most recently claimed
@@ -86,6 +81,8 @@ export interface DesktopPanels {
    * 9–32 range applies live to the active dock; brand-new docks (no
    * persisted per-session font) are seeded with them. Existing docks keep
    * their per-session font until the user changes one of these prefs.
+   *
+   * CUT: the terminal dock no longer mounts, so this is a no-op.
    */
   setTerminalFontPreferences(family: string, size: number): void
   subscribe(listener: () => void): () => void
@@ -95,84 +92,41 @@ export interface DesktopPanels {
 
 export const inject = ['layout', 'locale', 'sessions']
 
-function currentSession(sessions: SessionsService): { scopeKey: string; cwd: string | null } {
-  const snapshot = sessions.list.getSnapshot()
-  const sessionId = snapshot.current
-  return {
-    scopeKey: sessionId ?? 'new-session',
-    cwd: sessionId === undefined ? null : snapshot.byId[sessionId]?.cwd ?? null,
-  }
-}
-
 class DesktopPanelService implements DesktopPanels {
   private readonly listeners = new Set<() => void>()
   private readonly layout: LayoutService
-  private readonly sessions: SessionsService
-  private readonly surfaces = new Map<string, SessionSurface>()
   private readonly rightPanelClaims = new Map<string, RightPanelClaim>()
   private readonly rightPanelOrder: string[] = []
-  private active: SessionSurface | undefined
-  private readonly dock: ReactMount = { element: null, root: null }
-  private stopStyle: (() => void) | undefined
-  private observer: MutationObserver | undefined
-  private stopSessionSubscription: (() => void) | undefined
-  private stopActiveStoreSubscription: (() => void) | undefined
-  private scheduler: ReturnType<typeof createMountScheduler> | undefined
-  private autoOpenTerminal = true
-  private terminalFontFamily = ''
-  private terminalFontSize = DEFAULT_TERMINAL_FONT_SIZE
-  /** Startup sync (the very first `setTerminalFontPreferences`) only seeds
-   *  FRESH docks; live application to the active dock starts after it, so a
-   *  persisted per-dock font is never clobbered at mount. */
-  private fontsInitialized = false
+  // CUT (terminal dock): dock lifecycle state.
+  // private readonly sessions: SessionsService
+  // private readonly surfaces = new Map<string, SessionSurface>()
+  // private active: SessionSurface | undefined
+  // private readonly dock: ReactMount = { element: null, root: null }
+  // private stopStyle: (() => void) | undefined
+  // private observer: MutationObserver | undefined
+  // private stopSessionSubscription: (() => void) | undefined
+  // private stopActiveStoreSubscription: (() => void) | undefined
+  // private scheduler: ReturnType<typeof createMountScheduler> | undefined
+  // private autoOpenTerminal = true
+  // private terminalFontFamily = ''
+  // private terminalFontSize = DEFAULT_TERMINAL_FONT_SIZE
+  // private fontsInitialized = false
 
-  constructor(
-    layout: LayoutService,
-    private readonly locale: LocaleService,
-    private readonly t: Translate<TerminalMessage>,
-    sessions: SessionsService,
-  ) {
+  constructor(layout: LayoutService) {
     this.layout = layout
-    this.sessions = sessions
   }
 
-  mount(): void {
-    this.stopStyle = ensureStyle('oh-dsh-terminal', [themeCss, xtermCss, terminalCss].join('\n'))
-    this.scheduler = createMountScheduler(() => { this.mountAll() })
-    this.syncActiveSession()
-    this.stopSessionSubscription = this.sessions.list.subscribe(() => { this.syncActiveSession() })
-    this.mountAll()
-    this.observer = new MutationObserver(records => {
-      if (records.some(record => mutationNeedsMount(record, '#oh-dsh-terminal-root'))) {
-        this.scheduler?.schedule()
-      }
-    })
-    this.observer.observe(document.body, {
-      attributes: true,
-      attributeFilter: ['data-details-collapsed', 'data-sidebar-collapsed'],
-      childList: true,
-      subtree: true,
-    })
-  }
+  /** CUT: the terminal dock no longer mounts; nothing to set up. */
+  mount(): void {}
 
   dispose(): void {
-    this.stopSessionSubscription?.()
-    this.stopActiveStoreSubscription?.()
-    this.observer?.disconnect()
-    this.scheduler?.cancel()
-    this.dock.root?.unmount()
-    this.dock.element?.remove()
-    this.stopStyle?.()
-    this.stopStyle = undefined
-    this.surfaces.clear()
-    this.active = undefined
-    this.rightPanelClaims.clear()
-    this.rightPanelOrder.length = 0
-    this.applyRightPanel()
+    // CUT: terminal cleanup (dock root / observer / session subscriptions)
+    // removed with the dock. Right-panel claims are released by their owners.
   }
 
+  /** CUT: the bottom panel no longer exists — always closed. */
   isBottomPanelOpen(): boolean {
-    return this.active !== undefined && !this.active.store.getState().collapsed
+    return false
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -223,146 +177,64 @@ class DesktopPanelService implements DesktopPanels {
     }
   }
 
-  setAutoOpenTerminal(enabled: boolean): void {
-    this.autoOpenTerminal = enabled
-  }
+  /** CUT: the terminal dock no longer mounts — no-op. */
+  setAutoOpenTerminal(): void {}
 
-  setTerminalFontPreferences(family: string, size: number): void {
-    this.terminalFontFamily = family
-    this.terminalFontSize = size
-    if (this.active === undefined) return
-    if (!this.fontsInitialized) {
-      // Startup read: fresh docks are seeded in surfaceFor; the active —
-      // possibly persisted — dock keeps its font.
-      this.fontsInitialized = true
-      return
-    }
-    this.applyTerminalFontTo(this.active.store)
-  }
+  /** CUT: the terminal dock no longer mounts — no-op. */
+  setTerminalFontPreferences(): void {}
 
-  /** Apply the stored GLOBAL font prefs to one dock store (idempotent:
-   *  default values produce no actions, so persisted per-dock fonts are
-   *  never clobbered at startup). */
-  private applyTerminalFontTo(store: DockStore): void {
-    for (const action of terminalFontPrefActions(this.terminalFontFamily, this.terminalFontSize)) {
-      store.dispatch(action)
-    }
-  }
-
-  toggleBottomPanel(): void {
-    if (this.active === undefined) this.syncActiveSession()
-    if (this.active === undefined) return
-    const state = this.active.store.getState()
-    if (state.tabs.length === 0 && !this.autoOpenTerminal) {
-      this.active.store.dispatch({ type: 'toggle-collapsed' })
-      return
-    }
-    openOrToggleTerminal(this.active.store)
-  }
+  /** CUT: the bottom panel no longer exists — no-op. */
+  toggleBottomPanel(): void {}
 
   toggleSidebar(): void {
     this.layout.toggleSidebar()
-  }
-
-  private surfaceFor(scopeKey: string, cwd: string | null): SessionSurface {
-    const existing = this.surfaces.get(scopeKey)
-    if (existing !== undefined) {
-      existing.cwd = cwd
-      return existing
-    }
-    const store = createDockStore(window.localStorage, scopeKey)
-    // A brand-new session dock (no persisted per-session font) is seeded
-    // with the global terminal font preferences; a dock that already has a
-    // persisted font keeps it.
-    if (!hasPersistedDockState(window.localStorage, scopeKey)) {
-      this.applyTerminalFontTo(store)
-    }
-    const surface = {
-      scopeKey,
-      cwd,
-      store,
-    }
-    this.surfaces.set(scopeKey, surface)
-    return surface
-  }
-
-  private syncActiveSession(): void {
-    const session = currentSession(this.sessions)
-    const previous = this.active
-    const previousCwd = previous?.cwd
-    const next = this.surfaceFor(session.scopeKey, session.cwd)
-    if (previous === next && previousCwd === session.cwd) return
-    if (previous !== next) {
-      this.stopActiveStoreSubscription?.()
-      this.stopActiveStoreSubscription = next.store.subscribe(() => { this.notify() })
-    }
-    this.active = next
-    this.renderDock()
-    this.scheduler?.schedule()
-    this.notify()
   }
 
   private notify(): void {
     for (const listener of this.listeners) listener()
   }
 
-  private mountAll(): void {
-    const column = findConversationColumn()
-    if (column === null) return
-    this.mountDock(column)
-  }
-
-  private mountDock(column: HTMLElement): void {
-    if (this.dock.element === null) {
-      const element = document.createElement('div')
-      element.id = 'oh-dsh-terminal-root'
-      element.style.display = 'contents'
-      this.dock.element = element
-      this.dock.root = createRoot(element)
-    }
-    if (this.dock.element.parentElement !== column || column.lastElementChild !== this.dock.element) {
-      column.append(this.dock.element)
-    }
-    this.renderDock()
-  }
-
-  private renderDock(): void {
-    const active = this.active
-    if (this.dock.root === null || active === undefined) return
-    this.dock.root.render(
-      <Fragment>
-        {[...this.surfaces.values()].map(surface => (
-          <div
-            key={surface.scopeKey}
-            style={{ display: surface === active ? 'contents' : 'none' }}
-          >
-            <TerminalPanel
-              locale={this.locale}
-              t={this.t}
-              store={surface.store}
-              scopeKey={surface.scopeKey}
-              cwd={surface.cwd}
-              active={surface === active}
-            />
-          </div>
-        ))}
-      </Fragment>,
-    )
-  }
+  // CUT (terminal dock): the following were the bottom-mounted dock's
+  // lifecycle — session sync, surface creation, dock mounting and rendering.
+  // Restore together with the imports at the top of this file.
+  //
+  // private applyTerminalFontTo(store: DockStore): void {
+  //   for (const action of terminalFontPrefActions(this.terminalFontFamily, this.terminalFontSize)) {
+  //     store.dispatch(action)
+  //   }
+  // }
+  //
+  // private surfaceFor(scopeKey: string, cwd: string | null): SessionSurface {
+  //   ...createDockStore + font seeding...
+  // }
+  //
+  // private syncActiveSession(): void {
+  //   ...surfaceFor + store subscription + renderDock()...
+  // }
+  //
+  // private mountAll(): void {
+  //   const column = findConversationColumn()
+  //   if (column === null) return
+  //   this.mountDock(column)
+  // }
+  //
+  // private mountDock(column: HTMLElement): void {
+  //   ...create #oh-dsh-terminal-root, append as last child, renderDock()...
+  // }
+  //
+  // private renderDock(): void {
+  //   ...TerminalPanel per active session...
+  // }
 }
 
 export function apply(ctx: ClientContext): void {
   const locale = ctx.get('locale') as LocaleService
-  const t: Translate<TerminalMessage> = locale.bind('oh-dsh.terminal')
   ctx.effect(
     () => locale.register('oh-dsh.terminal', TERMINAL_MESSAGES),
     'oh-dsh-desktop: terminal dictionaries',
   )
   const service = new DesktopPanelService(
     ctx.get('layout') as LayoutService,
-    locale,
-    t,
-    ctx.get('sessions') as SessionsService,
   )
   ctx.effect(() => {
     service.mount()
@@ -372,4 +244,9 @@ export function apply(ctx: ClientContext): void {
       void removeService?.()
     }
   }, 'oh-dsh-desktop: terminal panel controls')
+}
+
+/** CUT (terminal dock): session model used by the dock's per-session sync. */
+interface LayoutService {
+  toggleSidebar(): void
 }

@@ -32,6 +32,10 @@
     "./surface-tab.css": "./surface-tab.css",
     "./tab-strip-wheel": "./tab-strip-wheel.ts",
     "./tabler-icons": "./tabler-icons.tsx",
+    "./terminal-socket": "./terminal-socket.ts",
+    "./terminal-theme": "./terminal-theme.ts",
+    "./terminal-view": "./terminal-view.tsx",
+    "./terminal-view.css": "./terminal-view.css",
     "./theme.css": "./theme.css",
     "./toast": "./toast.tsx",
     "./toast.css": "./toast.css",
@@ -45,6 +49,8 @@
   },
   "dependencies": {
     "@react-symbols/icons": "^1.4.1",
-    "@tabler/icons-react": "^3.46.0"
+    "@tabler/icons-react": "^3.46.0",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0"
   }
 }

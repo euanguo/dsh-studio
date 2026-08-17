@@ -11,7 +11,7 @@
  * conversation is visible; any other surface kind renders its body over
  * the center column.
  */
-import { Component, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { Component, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '@oh-dsh/shared/i18n'
@@ -22,14 +22,20 @@ import {
   IconGitBranch,
   IconGitCommit,
   IconHistory,
+  IconPlus,
   IconSidebarLeftFilled,
   IconSidebarRightFilled,
+  IconTerminal,
 } from '@oh-dsh/shared/tabler-icons'
+import {
+  Menu,
+  type MenuEntry,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { ErrorView } from '../kit/status.tsx'
 import { centerColumnElement, leftRailToggleButton, readLeftRailOpen } from './dsh-dom.ts'
-import type { SessionsService } from '../client-types.ts'
-import type { SidebarSnapshot } from '../contract.ts'
+import type { SessionsService, WorkspacesService } from '../client-types.ts'
+import type { SidebarSnapshot, SidebarTabSeed } from '../contract.ts'
 import {
   persistCenterSurfaces,
   restoreCenterSurfaces,
@@ -59,6 +65,7 @@ function surfaceIcon(surface: CenterSurface): JSX.Element | null {
   if (surface.kind === 'commit-file') return <IconFileDiff size={13} />
   if (surface.kind === 'committed') return <IconGitCommit size={13} />
   if (surface.kind === 'browser') return <IconExternalLink size={13} />
+  if (surface.kind === 'terminal') return <IconTerminal size={13} />
   return null
 }
 
@@ -323,6 +330,8 @@ export interface CenterSurfaceHostOptions {
   t: Translate<WorkspaceMessage>
   /** The desktop sidebar service (right rail + surface renderer registry). */
   sidebar: DesktopSidebarServiceLike
+  /** Workspace/session control — the center "+" menu starts new sessions. */
+  workspaces: WorkspacesService
 }
 
 /** The subset of the sidebar service the center strip drives. */
@@ -330,13 +339,119 @@ export interface DesktopSidebarServiceLike {
   getSnapshot(): SidebarSnapshot
   subscribe(listener: () => void): () => void
   setOpen(open: boolean): void
+  openTab(seed: SidebarTabSeed): unknown
   renderSurface(surface: CenterSurface): ReactNode
+}
+
+/**
+ * The center strip's "+" menu: opens browser / terminal / new conversation
+ * as first-class surfaces — plain click opens in the CENTER, holding Alt
+ * opens in the RIGHT RAIL instead (a new terminal/browser tab there). A
+ * new conversation always starts a fresh blank session (the project
+ * header's "new chat" behavior), which lives in the center by nature.
+ */
+function CenterAddMenu({
+  sessions,
+  sidebar,
+  workspaces,
+  t,
+}: {
+  sessions: SessionsService
+  sidebar: DesktopSidebarServiceLike
+  workspaces: WorkspacesService
+  t: Translate<WorkspaceMessage>
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [altDown, setAltDown] = useState(false)
+  const anchorRef = useRef<HTMLButtonElement | null>(null)
+  const getAnchorRect = useCallback(
+    () => anchorRef.current?.getBoundingClientRect() ?? null,
+    [],
+  )
+  // While the menu is open, track the Alt modifier (Alt+click = right rail);
+  // it resets on close / blur so a stale modifier never leaks.
+  useEffect(() => {
+    if (!open) return
+    setAltDown(false)
+    const keydown = (event: KeyboardEvent): void => { if (event.key === 'Alt') setAltDown(true) }
+    const keyup = (event: KeyboardEvent): void => { if (event.key === 'Alt') setAltDown(false) }
+    const clear = (): void => { setAltDown(false) }
+    window.addEventListener('keydown', keydown)
+    window.addEventListener('keyup', keyup)
+    window.addEventListener('blur', clear)
+    return () => {
+      window.removeEventListener('keydown', keydown)
+      window.removeEventListener('keyup', keyup)
+      window.removeEventListener('blur', clear)
+    }
+  }, [open])
+  const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
+  const cwd = sessionList.current === undefined
+    ? undefined
+    : sessionList.byId[sessionList.current]?.cwd
+  const items: MenuEntry[] = [
+    { id: 'browser', label: t('browser'), icon: <IconExternalLink size={14} /> },
+    { id: 'terminal', label: t('terminal'), icon: <IconTerminal size={14} /> },
+    { id: 'new-conversation', label: t('add.new-conversation'), icon: <IconPlus size={14} /> },
+  ]
+  const pick = (id: string): void => {
+    setOpen(false)
+    if (id === 'browser') {
+      if (altDown) {
+        sidebar.openTab({ type: 'browser' })
+        sidebar.setOpen(true)
+        return
+      }
+      if (cwd !== undefined) {
+        useCenterSurfaceStore.getState().openBrowser({ cwd, title: t('browser'), preview: false })
+      }
+      return
+    }
+    if (id === 'terminal') {
+      if (altDown) {
+        sidebar.openTab({ type: 'terminal' })
+        sidebar.setOpen(true)
+        return
+      }
+      if (cwd !== undefined) {
+        useCenterSurfaceStore.getState().openTerminal({ cwd, title: t('terminal') })
+      }
+      return
+    }
+    // New conversation: a fresh blank session in the center (same as the
+    // project header's "new chat"); a session always lives in the center,
+    // so the Alt/right-rail variant is identical.
+    workspaces.startSession()
+  }
+  return (
+    <div className="oh-dsh-center-add">
+      <button
+        ref={anchorRef}
+        type="button"
+        aria-label={t('add.open')}
+        aria-expanded={open}
+        title={t('add.open')}
+        onClick={() => { setOpen(value => !value) }}
+      ><IconPlus size={14} /></button>
+      <Menu
+        open={open}
+        anchor={null}
+        align="end"
+        items={items}
+        portal
+        getAnchorRect={getAnchorRect}
+        onSelect={pick}
+        onClose={() => { setOpen(false) }}
+      />
+    </div>
+  )
 }
 
 export class CenterSurfaceHost {
   private readonly sessions: SessionsService
   private readonly t: Translate<WorkspaceMessage>
   private readonly sidebar: DesktopSidebarServiceLike
+  private readonly workspaces: WorkspacesService
   private root: Root | null = null
   private element: HTMLDivElement | null = null
   private attachObserver: MutationObserver | null = null
@@ -347,6 +462,7 @@ export class CenterSurfaceHost {
     this.sessions = options.sessions
     this.t = options.t
     this.sidebar = options.sidebar
+    this.workspaces = options.workspaces
   }
 
   mount(): void {
@@ -381,6 +497,7 @@ export class CenterSurfaceHost {
         sessions={this.sessions}
         t={this.t}
         sidebar={this.sidebar}
+        workspaces={this.workspaces}
       />,
     )
   }
@@ -466,10 +583,12 @@ function CenterSurfaceHostView({
   sessions,
   t,
   sidebar,
+  workspaces,
 }: {
   sessions: SessionsService
   t: Translate<WorkspaceMessage>
   sidebar: DesktopSidebarServiceLike
+  workspaces: WorkspacesService
 }): JSX.Element {
   const [mounted, setMounted] = useState(false)
   const { leftRailOpen, toggleLeftRail } = useLeftRailOpenState()
@@ -497,6 +616,7 @@ function CenterSurfaceHostView({
           <div className="oh-dsh-center-tabs-scroller">
             <CenterSurfaceTabs sessions={sessions} t={t} />
           </div>
+          <CenterAddMenu sessions={sessions} sidebar={sidebar} workspaces={workspaces} t={t} />
           {!rightOpen && <RightRailReopenButton sidebar={sidebar} />}
         </div>
         <CenterSurfaceBody sessions={sessions} sidebar={sidebar} />

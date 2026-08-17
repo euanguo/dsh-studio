@@ -35,7 +35,8 @@ import {
   IconChevronRight,
   IconPlus,
   FileGlyph,
-  IconBottombarFilled,
+  // IconBottombarFilled — CUT with the terminal toggle button
+  // (see the PanelActions CUT note below); restore with the button.
   IconSidebarRightFilled,
 } from '@oh-dsh/shared/tabler-icons'
 import {
@@ -885,14 +886,17 @@ function TabStrip({ sidebar, t }: {
   )
 }
 
-/* The window-level panel controls (expand/restore, terminal, side-panel
-   toggle) live in the panel's top row, flush right — no floating toolbar. */
+/* The window-level panel controls (expand/restore, side-panel toggle) live
+   in the panel's top row, flush right — no floating toolbar. The terminal
+   toggle used to sit here and open the bottom-mounted terminal dock; the
+   dock is removed and the terminal is now a first-class surface instead:
+   open it as a right-rail tab or in the center through the middle "+" menu
+   (see builtins/tabs.tsx and center-surface-host.tsx). */
 function PanelActions({
   maximized,
   onToggleMaximized,
   onToggleSide,
   open,
-  panels,
   t,
 }: {
   maximized: boolean
@@ -902,7 +906,9 @@ function PanelActions({
   panels: DesktopPanels
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const terminalOpen = useSyncExternalStore(panels.subscribe, () => panels.isBottomPanelOpen())
+  // CUT: the terminal toggle (previously `panels.isBottomPanelOpen()` +
+  // `panels.toggleBottomPanel()`) — the bottom terminal dock no longer
+  // mounts (see plugins/panel-controls).
   return (
     <div className="oh-dsh-side-tabs-actions" role="presentation">
       <button
@@ -912,17 +918,6 @@ function PanelActions({
         title={maximized ? t('side.restore') : t('side.expand')}
         onClick={onToggleMaximized}
       >{maximized ? <IconRestore size={16} /> : <IconExpand size={16} />}</button>
-      <button
-        type="button"
-        aria-label={t('terminal.toggle')}
-        aria-pressed={terminalOpen}
-        title={`${t('terminal.title')} (${formatKeymapHint(binding({ mod: true, key: 'j' }))})`}
-        onClick={() => { panels.toggleBottomPanel() }}
-      >
-        <span className="oh-dsh-side-toggle-glyph" aria-hidden="true">
-          <IconBottombarFilled />
-        </span>
-      </button>
       <button
         type="button"
         aria-label={t('side.toggle')}

@@ -50,6 +50,8 @@ import filenameLabelCss from '@oh-dsh/shared/filename-label.css'
 import surfaceTabCss from '@oh-dsh/shared/surface-tab.css'
 import toastCss from '@oh-dsh/shared/toast.css'
 import themeCss from '@oh-dsh/shared/theme.css'
+import terminalViewCss from '@oh-dsh/shared/terminal-view.css'
+import xtermCss from '@xterm/xterm/css/xterm.css'
 
 export class WorkspaceToolsService implements WorkspaceTools {
   private state: WorkspaceToolsState
@@ -68,11 +70,11 @@ export class WorkspaceToolsService implements WorkspaceTools {
   private stopKeymap: (() => void) | undefined
   private stopChromeGeometry: (() => void) | undefined
   private readonly disposeKeymapActions: Array<() => void> = []
-  // The bottom workbench (second pane) lives in the conversation column,
-  // above the terminal dock — its own root, like panel-controls'.
-  private workbenchElement: HTMLDivElement | undefined
-  private workbenchRoot: Root | undefined
-  private stopWorkbenchObserver: (() => void) | undefined
+  // CUT (user preference): the bottom workbench (second pane) is no longer
+  // mounted under the conversation column — see mountBottomWorkbench below.
+  // private workbenchElement: HTMLDivElement | undefined
+  // private workbenchRoot: Root | undefined
+  // private stopWorkbenchObserver: (() => void) | undefined
 
   constructor(
     readonly sidebar: DesktopSidebarService,
@@ -186,6 +188,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
     this.stopStyle = ensureStyle('oh-dsh-desktop-sidebar', [
       themeCss,
+      xtermCss,
+      terminalViewCss,
       listRowCss,
       scrollableCss,
       filenameLabelCss,
@@ -232,7 +236,9 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.stopChromeGeometry = applyChromeGeometry()
     // Global (panel-level) shortcuts: registered for the app lifetime.
     // Surface-scoped shortcuts register from their mounted views.
-    this.mountBottomWorkbench()
+    // CUT: the bottom workbench no longer mounts under the conversation
+    // column (user preference); keep the panel-level shortcuts below.
+    // this.mountBottomWorkbench()
     this.disposeKeymapActions.push(
       registerKeymapAction('panel.toggle', binding({ mod: true, alt: true, key: 'b' }), () => {
         this.toggleSidePanel()
@@ -271,12 +277,14 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.stopKeymap = undefined
     this.stopChromeGeometry?.()
     this.stopChromeGeometry = undefined
-    this.stopWorkbenchObserver?.()
-    this.stopWorkbenchObserver = undefined
-    this.workbenchRoot?.unmount()
-    this.workbenchRoot = undefined
-    this.workbenchElement?.remove()
-    this.workbenchElement = undefined
+    // CUT: bottom-workbench cleanup (workbench root / element / observer)
+    // removed with the mounting chain.
+    // this.stopWorkbenchObserver?.()
+    // this.stopWorkbenchObserver = undefined
+    // this.workbenchRoot?.unmount()
+    // this.workbenchRoot = undefined
+    // this.workbenchElement?.remove()
+    // this.workbenchElement = undefined
     this.narrowViewport.removeEventListener('change', this.handleViewportChange)
     this.root?.unmount()
     this.element?.remove()
@@ -327,59 +335,55 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   /**
-   * Mount the bottom workbench into the conversation column, ABOVE the
-   * terminal dock (panel-controls keeps the dock last; the workbench
-   * inserts before `#oh-dsh-terminal-root` when it exists, appends
-   * otherwise).
-   *
-   * The column (`[data-phase]`'s parent) is rendered by DSH after this
-   * plugin's own `mount()` runs, so a single eager attempt would silently
-   * fail — the same self-healing scheduler + document observer pattern
-   * panel-controls uses for the terminal dock retries on every relevant DOM
-   * mutation until the column exists and the element stays in position.
+   * CUT (user preference): the bottom workbench is no longer mounted under
+   * the conversation column (its empty strip was persistent "hanging below
+   * the middle chain"). The method is kept as a documented stub; restore by
+   * uncommenting the body and the `this.mountBottomWorkbench()` call in
+   * `mount()` (plus the workbench fields and dispose cleanup above).
    */
   private mountBottomWorkbench(): void {
-    const ownedRoot = '#oh-dsh-bottom-workbench-root'
-    let element = this.workbenchElement
-    if (element === undefined) {
-      element = document.createElement('div')
-      element.id = 'oh-dsh-bottom-workbench-root'
-      element.style.display = 'contents'
-      this.workbenchElement = element
-    }
-    let root = this.workbenchRoot
-    if (root === undefined) {
-      root = createRoot(element)
-      this.workbenchRoot = root
-    }
-    const mount = (): void => {
-      const column = findConversationColumn()
-      if (column === null) return
-      if (element.isConnected && element.parentElement === column) return
-      column.insertBefore(element, column.querySelector('#oh-dsh-terminal-root'))
-      root.render(
-        <BottomWorkbench sidebar={this.sidebar} t={this.t} />,
-      )
-    }
-    mount()
-    const scheduler = createMountScheduler(mount)
-    const observer = new MutationObserver(records => {
-      // Ignore our own DOM writes (the element itself) so the observer does
-      // not wake itself in an endless loop.
-      if (records.some(record => mutationNeedsMount(record, ownedRoot))) {
-        scheduler.schedule()
-      }
-    })
-    observer.observe(document.body, {
-      attributes: true,
-      attributeFilter: ['data-details-collapsed', 'data-sidebar-collapsed', 'data-phase'],
-      childList: true,
-      subtree: true,
-    })
-    this.stopWorkbenchObserver = () => {
-      observer.disconnect()
-      scheduler.cancel()
-    }
+    // CUT:
+    // const ownedRoot = '#oh-dsh-bottom-workbench-root'
+    // let element = this.workbenchElement
+    // if (element === undefined) {
+    //   element = document.createElement('div')
+    //   element.id = 'oh-dsh-bottom-workbench-root'
+    //   element.style.display = 'contents'
+    //   this.workbenchElement = element
+    // }
+    // let root = this.workbenchRoot
+    // if (root === undefined) {
+    //   root = createRoot(element)
+    //   this.workbenchRoot = root
+    // }
+    // const mount = (): void => {
+    //   const column = findConversationColumn()
+    //   if (column === null) return
+    //   if (element.isConnected && element.parentElement === column) return
+    //   column.insertBefore(element, column.querySelector('#oh-dsh-terminal-root'))
+    //   root.render(
+    //     <BottomWorkbench sidebar={this.sidebar} t={this.t} />,
+    //   )
+    // }
+    // mount()
+    // const scheduler = createMountScheduler(mount)
+    // const observer = new MutationObserver(records => {
+    //   // Ignore our own DOM writes (the element itself) so the observer does
+    //   // not wake itself in an endless loop.
+    //   if (records.some(record => mutationNeedsMount(record, ownedRoot))) {
+    //     scheduler.schedule()
+    //   }
+    // })
+    // observer.observe(document.body, {
+    //   attributes: true,
+    //   attributeFilter: ['data-details-collapsed', 'data-sidebar-collapsed', 'data-phase'],
+    //   childList: true,
+    //   subtree: true,
+    // })
+    // this.stopWorkbenchObserver = () => {
+    //   observer.disconnect()
+    //   scheduler.cancel()
+    // }
   }
 
   private applyLayout(): void {

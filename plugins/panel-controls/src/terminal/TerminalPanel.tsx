@@ -247,7 +247,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
                   ...(exitCode === undefined ? {} : { exitCode }),
                 })
               }}
-              t={t}
+              t={(key, params) => t(key as TerminalMessage, params)}
             />
           </div>
         ))}

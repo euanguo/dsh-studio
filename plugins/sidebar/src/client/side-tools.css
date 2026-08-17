@@ -12,6 +12,19 @@
   box-shadow: none;
 }
 
+/* First-class terminal tab content in the right rail: the shared xterm view
+   fills the panel's content area (flex child of the panel column). */
+.oh-dsh-side-terminal {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 /* Top row of the panel: the shared SurfaceTab chips (pinned 文件 / Git,
    then extra open tools) plus the flush-right window controls.
    Height matches the center tab strip (42px) so the two rows and their

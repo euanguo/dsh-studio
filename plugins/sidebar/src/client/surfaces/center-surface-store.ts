@@ -33,6 +33,7 @@ import {
   fileSurfaceId,
   fileNameFromPath,
   isPreviewSurface,
+  maxTerminalInstance,
   terminalSurfaceId,
   type CenterSurface,
   type CenterSurfaceSlice,
@@ -124,7 +125,7 @@ interface CenterSurfaceState {
     resource?: string
     preview?: boolean
   }): BrowserCenterSurface
-  openTerminal(input: { cwd: string; title: string }): TerminalCenterSurface
+  openTerminal(input: { cwd: string; title: string; id?: string }): TerminalCenterSurface
   /** Clear isPreview on a surface (double-click pin). */
   pin(cwd: string, surfaceId: string): void
   activate(cwd: string, surfaceId: string): void
@@ -454,7 +455,14 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
   },
 
   openTerminal: input => {
-    const id = terminalSurfaceId()
+    // Every terminal tab is its own instance: the id (`terminal:<n>`) is
+    // unique per open set and doubles as the pty's `tab` identity, so
+    // opening N terminal tabs spins up N independent shells. An explicit
+    // `id` (restore path) re-opens that exact instance; otherwise take the
+    // next free number.
+    const id = input.id ?? terminalSurfaceId(
+      maxTerminalInstance(readSlice(get().byCwd, input.cwd).open) + 1,
+    )
     const nextSurface: TerminalCenterSurface = {
       id,
       kind: 'terminal',

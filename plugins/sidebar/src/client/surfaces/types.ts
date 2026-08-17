@@ -199,8 +199,25 @@ export function browserSurfaceId(resource: string | undefined): string {
   return `browser:${resource ?? 'blank'}`
 }
 
-export function terminalSurfaceId(): string {
-  return 'terminal'
+/** Prefix of terminal surface ids (`terminal:<n>` — one instance per tab).
+ *  Every terminal tab owns an independent pty (the id doubles as the host's
+ *  `tab` parameter on `/sidebar/ws/terminal`). */
+export const TERMINAL_SURFACE_PREFIX = 'terminal:'
+
+export function terminalSurfaceId(instance: number): string {
+  return `${TERMINAL_SURFACE_PREFIX}${instance}`
+}
+
+/** The highest terminal instance number already open in a slice (0 when
+ *  none) — the next freshly opened terminal takes max+1. */
+export function maxTerminalInstance(open: ReadonlyArray<CenterSurface>): number {
+  let max = 0
+  for (const surface of open) {
+    if (surface.kind !== 'terminal') continue
+    const match = new RegExp(`^${TERMINAL_SURFACE_PREFIX}(\\d+)$`).exec(surface.id)
+    if (match !== null) max = Math.max(max, Number(match[1]))
+  }
+  return max
 }
 
 /* ---------- selectors ---------- */

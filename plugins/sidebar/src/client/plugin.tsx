@@ -38,6 +38,7 @@ import type {
   WorkspacesService,
 } from './client-types.ts'
 import { registerBuiltins } from './builtins/index.ts'
+import { TerminalTabContent } from './terminal-tab.tsx'
 import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
 import { disposeSidebarRuntimes } from './runtimes/registry.ts'
 import { acquireOpenPathPatch, isLinkProtocolIntercepted, registerLinkHandler, registerLinkInterception, registerOpenPathHandler, releaseOpenPathPatch } from './intercept.ts'
@@ -165,8 +166,11 @@ export function apply(ctx: ClientContext): void {
     })
     const syncRuntime = (): void => {
       const prefs = runtimeSettings.getSnapshot().preferences
-      panels.setAutoOpenTerminal(prefs.bottomPanelAutoTerminal)
-      panels.setTerminalFontPreferences(prefs.terminalFontFamily, prefs.terminalFontSize)
+      // CUT (user preference): the bottom-mounted terminal dock no longer
+      // mounts (plugins/panel-controls), so the dock-wide prefs below have
+      // nothing to sync. Restore with the dock.
+      // panels.setAutoOpenTerminal(prefs.bottomPanelAutoTerminal)
+      // panels.setTerminalFontPreferences(prefs.terminalFontFamily, prefs.terminalFontSize)
     }
     const stopRuntime = runtimeSettings.subscribe(syncRuntime)
     // openPath interception through the registry: the patch is installed
@@ -230,8 +234,29 @@ export function apply(ctx: ClientContext): void {
     service.mount()
     // Center surface module: renders through the service's surface-renderer
     // registry (built-ins registered by registerBuiltins above).
-    const centerSurfaceHost = new CenterSurfaceHost({ sessions, t, sidebar: desktopSidebar })
+    const centerSurfaceHost = new CenterSurfaceHost({
+      sessions,
+      t,
+      sidebar: desktopSidebar,
+      workspaces,
+    })
     centerSurfaceHost.mount()
+    // First-class terminal: the center-surface renderer (a terminal tab
+    // opened through the middle "+" menu). The right-rail terminal tab is a
+    // built-in descriptor (tabs.tsx); both render the same shared TerminalTabContent.
+    const removeTerminalSurface = desktopSidebar.registerSurfaceRenderer('terminal', surface => {
+      if (surface.kind !== 'terminal') return null
+      const list = sessions.list.getSnapshot()
+      return (
+        <TerminalTabContent
+          sessionId={list.current ?? ''}
+          cwd={surface.cwd}
+          tabId={surface.id}
+          runtime={runtimeSettings}
+          t={t}
+        />
+      )
+    })
     const removeSidebar = ctx.reflect.provide(
       'desktopSidebar',
       desktopSidebar,
@@ -249,6 +274,7 @@ export function apply(ctx: ClientContext): void {
       stopPierreVisibility()
       releaseOpenPathPatch(workspaces)
       centerSurfaceHost.dispose()
+      removeTerminalSurface()
       service.dispose()
       unregisterBuiltins()
       reviewComments.dispose()

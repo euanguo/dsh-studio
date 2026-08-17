@@ -175,6 +175,36 @@
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
+/* The center strip's "+" menu button ("add browser / terminal /
+   conversation as a first-class surface"): the same geometry as the rail
+   toggles, pinned right of the tab scroller. */
+.oh-dsh-center-add {
+  -webkit-app-region: no-drag;
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.oh-dsh-center-add > button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--oh-dsh-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #57606a);
+  cursor: pointer;
+}
+
+.oh-dsh-center-add > button:hover,
+.oh-dsh-center-add > button[aria-expanded='true'] {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
 .oh-dsh-left-rail-toggle svg,
 .oh-dsh-right-rail-reopen svg {
   width: 16px;

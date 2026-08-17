@@ -1,9 +1,10 @@
 /**
- * The built-in sidebar tab descriptors (review / files / file / terminal /
+ * The built-in sidebar tab descriptors (review / terminal / files / file /
  * side-chat / trajectory), registered through the same
  * {@link DesktopSidebarService} external plugins use — eating our own
- * dogfood. Action-only descriptors (terminal / side-chat / trajectory) are
- * menu shortcuts: opening them runs the action instead of opening a tab.
+ * dogfood. The terminal descriptor renders a first-class xterm tab (the
+ * bottom-mounted terminal dock is removed); side-chat / trajectory are
+ * action-only menu shortcuts that run an action instead of opening a tab.
  */
 import {
   formatKeymapHint,
@@ -16,6 +17,7 @@ import {
 } from '../SideToolsPanel.tsx'
 import { WorkspacePanel } from '../workspace-panel.tsx'
 import { SubagentPanel } from '../subagent/subagent-panel.tsx'
+import { TerminalTabContent } from '../terminal-tab.tsx'
 import type { SidebarTabDescriptor } from '../contract.ts'
 import type { SidebarBuiltinDeps } from './deps.ts'
 
@@ -42,25 +44,71 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
       single: true,
       title: () => t('review'),
     },
+    // CUT (user preference): the 'terminal' menu entry opened the
+    // bottom-mounted terminal dock, which no longer mounts (see
+    // plugins/panel-controls). The entry and its settings card are removed
+    // with it; the model-facing agent-terminal-tools switch stays available
+    // in settings.tsx. Restore by uncommenting this descriptor.
+    // {
+    //   action: () => { deps.panels.toggleBottomPanel() },
+    //   icon: <ToolIcon kind="terminal" />,
+    //   id: 'terminal',
+    //   order: 20,
+    //   shortcut: formatKeymapHint(binding({ mod: true, key: 'j' })),
+    //   settings: {
+    //     toggles: [{
+    //       key: 'agentTerminalTools',
+    //       title: () => t('settings.agent-terminal-tools'),
+    //       desc: () => t('settings.agent-terminal-tools-description'),
+    //     }, {
+    //       key: 'bottomPanelAutoTerminal',
+    //       title: () => t('settings.bottom-terminal'),
+    //       desc: () => t('settings.bottom-terminal-description'),
+    //     }, {
+    //       key: 'terminalFontFamily',
+    //       title: () => t('settings.terminal-font-family'),
+    //       desc: () => t('settings.terminal-font-family-description'),
+    //       type: 'text',
+    //       placeholder: t('settings.terminal-font-family-placeholder'),
+    //     }, {
+    //       key: 'terminalFontSize',
+    //       title: () => t('settings.terminal-font-size'),
+    //       desc: () => t('settings.terminal-font-size-description'),
+    //       type: 'number',
+    //       min: 9,
+    //       max: 32,
+    //       unit: 'px',
+    //     }, {
+    //       key: 'terminalShell',
+    //       title: () => t('settings.terminal-shell'),
+    //       desc: () => t('settings.terminal-shell-description'),
+    //       type: 'text',
+    //       placeholder: t('settings.terminal-shell-placeholder'),
+    //     }],
+    //   },
+    //   title: () => t('terminal'),
+    // },
     {
-      action: () => { deps.panels.toggleBottomPanel() },
+      // First-class terminal: the rail opens a real xterm tab (one
+      // independent shell per tab) instead of the removed bottom dock.
       icon: <ToolIcon kind="terminal" />,
       id: 'terminal',
       order: 20,
+      render: props => (
+        <TerminalTabContent
+          sessionId={props.scope?.sessionId ?? ''}
+          cwd={props.scope?.cwd ?? null}
+          tabId={props.tab.id}
+          runtime={deps.runtimeSettings}
+          t={t}
+        />
+      ),
       shortcut: formatKeymapHint(binding({ mod: true, key: 'j' })),
-      // Declarative settings: the model-facing tools switch and the
-      // bottom-panel auto-terminal switch render under this tab's card in
-      // the settings page (the host gates the toolset on the first one).
+      // Declarative settings: terminal chrome (font + shell) render under
+      // this tab's card in the settings page; the agent-tools switch and
+      // the removed dock's auto-open switch live in settings.tsx instead.
       settings: {
         toggles: [{
-          key: 'agentTerminalTools',
-          title: () => t('settings.agent-terminal-tools'),
-          desc: () => t('settings.agent-terminal-tools-description'),
-        }, {
-          key: 'bottomPanelAutoTerminal',
-          title: () => t('settings.bottom-terminal'),
-          desc: () => t('settings.bottom-terminal-description'),
-        }, {
           key: 'terminalFontFamily',
           title: () => t('settings.terminal-font-family'),
           desc: () => t('settings.terminal-font-family-description'),

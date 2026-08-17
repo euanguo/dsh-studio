@@ -141,7 +141,8 @@ export function restoreCenterSurfaces(): void {
           preview: false,
         })
       } else if (surface.kind === 'terminal') {
-        state.openTerminal({ cwd, title: surface.title })
+        // Re-open the exact instance (the id is the pty's tab identity).
+        state.openTerminal({ cwd, title: surface.title, id: surface.id })
       }
     }
     const activeId = open.some(surface => surface.id === entry.activeId)
