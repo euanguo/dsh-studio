@@ -30,6 +30,7 @@ import {
   IconSidebarLeftFilled,
   IconSidebarRightFilled,
   IconTerminal,
+  getIconForFile,
 } from '@oh-dsh/shared/tabler-icons'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { ErrorView } from '../kit/status.tsx'
@@ -56,9 +57,23 @@ import {
   DiffWorkerPoolProvider,
 } from '../diff/pierre-adapter.tsx'
 
+/** Extract the file basename from a path for icon lookup. */
+function fileNameFromPath(filePath: string): string {
+  return filePath.split(/[\\/]/).filter(Boolean).pop() ?? 'file'
+}
+
+/** File-type icon matching the right-panel file tree (VSCode Material style). */
+function fileTypeIcon(filePath: string): JSX.Element {
+  return (
+    <span aria-hidden="true" data-icon-vendor="react-symbols">
+      {getIconForFile({ fileName: fileNameFromPath(filePath), autoAssign: true, width: 13, height: 13 })}
+    </span>
+  )
+}
+
 function surfaceIcon(surface: CenterSurface): JSX.Element | null {
   if (surface.kind === 'conversation') return <IconFile size={13} />
-  if (surface.kind === 'file') return <IconFile size={13} />
+  if (surface.kind === 'file') return fileTypeIcon(surface.filePath)
   if (surface.kind === 'diff') return <IconGitBranch size={13} />
   if (surface.kind === 'diff-all') return <IconGitBranch size={13} />
   if (surface.kind === 'commit') return <IconHistory size={13} />
@@ -636,10 +651,18 @@ function useCenterColumnHeight(): void {
   useEffect(() => {
     const rootElement = document.getElementById('oh-dsh-center-tabs-root')
     if (rootElement === null) return
+    let lastHeight = -1
     const apply = (): void => {
       const column = centerColumnElement()
       if (column === null) return
-      rootElement.style.setProperty('--oh-dsh-center-col-height', `${column.clientHeight}px`)
+      const next = column.clientHeight
+      // Dirty-checked: the observer fires on any width change (e.g. dragging
+      // the sidebar), but the column height is unaffected; only write the
+      // variable when the height actually changes, avoiding an element
+      // style write that cascades layout to children.
+      if (next === lastHeight) return
+      lastHeight = next
+      rootElement.style.setProperty('--oh-dsh-center-col-height', `${String(next)}px`)
     }
     apply()
     let observer: ResizeObserver | null = null

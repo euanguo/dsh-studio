@@ -330,6 +330,7 @@ export function FileSurfaceView({
           onTaskToggle={onTaskToggle}
           onOpenExternal={onOpenExternal}
           {...(snapshot.data === undefined ? {} : { data: snapshot.data })}
+          hideMeta
           t={t}
         />
       </Scrollable>

@@ -106,6 +106,9 @@ export interface ContentViewerProps {
   onTaskToggle?(input: { sourceLine: number; checked: boolean }): void
   onOpenExternal?(): void
   onShowInFolder?(): void
+  /** When true, the internal filename + metadata bar is hidden (used when
+   *  an outer chrome like FileViewerChrome already shows the same info). */
+  hideMeta?: boolean
   t: Translate<WorkspaceMessage>
 }
 
@@ -123,6 +126,7 @@ export function ContentViewer({
   onTaskToggle,
   onOpenExternal,
   onShowInFolder,
+  hideMeta = false,
   t,
 }: ContentViewerProps): JSX.Element {
   const kind = detectKind(path, binary)
@@ -255,11 +259,13 @@ export function ContentViewer({
     const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
     return (
       <div ref={textRootRef} className="oh-dsh-content-root oh-dsh-content-root-fill">
-        <div className="oh-dsh-content-meta">
-          <span>{name}</span>
-          <span>{`markdown · ${lineCount} lines`}</span>
-          {truncated ? <span>{t('files.preview-truncated')}</span> : null}
-        </div>
+        {!hideMeta && (
+          <div className="oh-dsh-content-meta">
+            <span>{name}</span>
+            <span>{`markdown · ${lineCount} lines`}</span>
+            {truncated ? <span>{t('files.preview-truncated')}</span> : null}
+          </div>
+        )}
         <PierreFileView
           path={path}
           content={content}
@@ -276,12 +282,14 @@ export function ContentViewer({
   if (kind === 'csv') {
     return (
       <div className="oh-dsh-content-root">
-        <div className="oh-dsh-content-meta">
-          <span>{csvTable.delimiter === '\t' ? 'tsv' : 'csv'}</span>
-          <span>{`${Math.max(csvTable.rows.length - 1, 0)} rows`}</span>
-          {size === undefined ? '' : formatBytes(size)}
-          {truncated ? <span>{t('files.preview-truncated')}</span> : null}
-        </div>
+        {!hideMeta && (
+          <div className="oh-dsh-content-meta">
+            <span>{csvTable.delimiter === '\t' ? 'tsv' : 'csv'}</span>
+            <span>{`${Math.max(csvTable.rows.length - 1, 0)} rows`}</span>
+            {size === undefined ? '' : formatBytes(size)}
+            {truncated ? <span>{t('files.preview-truncated')}</span> : null}
+          </div>
+        )}
         <CsvVirtualTable rows={csvTable.rows} />
       </div>
     )
@@ -295,11 +303,13 @@ export function ContentViewer({
   const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
   return (
     <div ref={textRootRef} className="oh-dsh-content-root oh-dsh-content-root-fill">
-      <div className="oh-dsh-content-meta">
-        <span>{name}</span>
-        <span>{isPlainLanguage(language) ? `${lineCount} lines` : `${language} · ${lineCount} lines`}</span>
-        {truncated ? <span>{t('files.preview-truncated')}</span> : null}
-      </div>
+      {!hideMeta && (
+        <div className="oh-dsh-content-meta">
+          <span>{name}</span>
+          <span>{isPlainLanguage(language) ? `${lineCount} lines` : `${language} · ${lineCount} lines`}</span>
+          {truncated ? <span>{t('files.preview-truncated')}</span> : null}
+        </div>
+      )}
       <PierreFileView
         path={path}
         content={content}

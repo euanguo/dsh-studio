@@ -150,6 +150,8 @@ export const IconSidebarLeftFilled = ({
 
 export type { IconProps }
 
+export { getIconForFile, getIconForFolder } from '@react-symbols/icons/utils'
+
 export type FileGlyphKind = 'directory' | 'file' | 'symlink'
 
 /** Colored file/directory glyph (VSCode Material style, 16px). */
