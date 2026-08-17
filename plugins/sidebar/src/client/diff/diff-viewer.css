@@ -20,8 +20,30 @@
   font-variant-numeric: tabular-nums;
 }
 
+.oh-dsh-diff-surface-body:has(> .oh-dsh-diff-viewer[data-virtualize='on']) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.oh-dsh-diff-surface-body:has(> .oh-dsh-diff-viewer[data-virtualize='on']) > .oh-dsh-diff-viewer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.oh-dsh-diff-surface-body:has(> .oh-dsh-diff-viewer[data-virtualize='on']) .oh-dsh-diff-viewer-meta,
+.oh-dsh-diff-surface-body:has(> .oh-dsh-diff-viewer[data-virtualize='on']) .oh-dsh-diff-truncated {
+  flex: none;
+}
+
 .oh-dsh-pierre-surface {
   min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .oh-dsh-pierre-surface-natural {

@@ -54,9 +54,9 @@ test('shared list-row, surface-tab, and commit rows consume semantic family toke
   assert.match(listRowCss, /corner-shape:\s*var\(--oh-dsh-list-row-corner-shape,\s*round\);/)
   assert.match(listRowCss, /margin-bottom:\s*var\(--oh-dsh-list-row-gap,\s*var\(--oh-dsh-space-1\)\);/)
 
-  assert.match(surfaceTabCss, /height:\s*var\(--oh-dsh-surface-tab-height,\s*26px\);/)
-  assert.match(surfaceTabCss, /border-radius:\s*var\(--oh-dsh-surface-tab-radius,\s*var\(--oh-dsh-radius-sm\)\);/)
-  assert.match(surfaceTabCss, /corner-shape:\s*var\(--oh-dsh-surface-tab-corner-shape,\s*round\);/)
+  assert.match(surfaceTabCss, /height:\s*var\(--oh-dsh-surface-tab-height,\s*var\(--oh-dsh-list-row-height,\s*28px\)\)/)
+  assert.match(surfaceTabCss, /border-radius:\s*var\(--oh-dsh-surface-tab-radius,\s*var\(--oh-dsh-list-row-radius/)
+  assert.match(surfaceTabCss, /corner-shape:\s*var\(--oh-dsh-surface-tab-corner-shape,\s*superellipse\(1\.5\)\)/)
 
   assert.match(sidebarCss, /\.oh-dsh-review-commit-file\s*\{[^}]*height:\s*var\(--oh-dsh-list-row-height/s)
   assert.match(sidebarCss, /\.oh-dsh-review-commit-file\s*\{[^}]*border-radius:\s*var\(--oh-dsh-list-row-radius/s)

@@ -608,6 +608,18 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   flex: 1;
 }
 
+.oh-dsh-file-surface-body:has(.oh-dsh-pierre-file-host) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.oh-dsh-file-surface-body:has(.oh-dsh-pierre-file-host) > .oh-dsh-content-root-fill {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
 /* ---------- text / markdown-source viewer (Pierre File + plain fallback) ---------- */
 
 .oh-dsh-content-root {
@@ -649,7 +661,8 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   min-height: 0;
   min-width: 0;
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 .oh-dsh-content-markdown {
@@ -1259,7 +1272,8 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   min-height: 0;
   min-width: 0;
   flex: 1;
-  overflow: hidden;
+  overflow: auto;
+  scrollbar-gutter: stable;
 }
 
 
