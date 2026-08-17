@@ -191,7 +191,7 @@ html[data-oh-dsh-marketplace-open='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-marketplace-main {
-  padding: 24px 28px 40px;
+  /* Insets come from the Scrollable host (default 8px). */
 }
 
 .oh-marketplace-toolbar {
@@ -431,10 +431,11 @@ html[data-oh-dsh-marketplace-open='true'] #oh-dsh-sidebar-root {
 .oh-marketplace-detail {
   border-left: 1px solid var(--dsw-alias-border-l2, #e8e8e8);
   background: var(--dsw-alias-bg-base, #fff);
+  /* Insets come from the Scrollable host (default 8px). */
 }
 
 .oh-marketplace-detail-inner {
-  padding: 25px 24px 38px;
+  /* Pure content shell: no padding of its own. */
 }
 
 .oh-marketplace-detail-close {

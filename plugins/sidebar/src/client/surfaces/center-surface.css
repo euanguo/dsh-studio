@@ -265,7 +265,7 @@
 
 .oh-dsh-diff-surface-body {
   flex: 1;
-  padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
+  /* Insets come from the Scrollable host (default 8px). */
 }
 
 /* ---------- Commit diff surface ---------- */
@@ -305,7 +305,7 @@
 
 .oh-dsh-commit-surface-body {
   flex: 1;
-  padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
+  /* Insets come from the Scrollable host (default 8px). */
 }
 
 /* Commit / committed multi-file views: left path tree + right file stack

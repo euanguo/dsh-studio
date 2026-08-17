@@ -1,11 +1,15 @@
 /* ============================================================
    Scrollable — transparent scroll host for lists & diff stacks.
 
-   The one behavior every scrolling region should share: the scrollbar
-   must never move content sideways when it appears. `scrollbar-gutter:
-   stable` reserves the bar's lane up front (it pairs with the global
-   8px webkit bar from the harness theme), so rows keep their left edge
-   whether or not content overflows.
+   Owns ALL four insets so every consumer gets the same geometry: the
+   default 8px (`--oh-dsh-space-2`) inset on every side comes from the
+   host, and inner content containers keep zero padding. The native
+   scrollbar never moves content sideways when it appears: it sits in
+   its own lane — 6px bar + 1px outer offset + 1px content gap — inside
+   the right inset, and `scrollbar-gutter: stable` reserves that lane
+   even when content does not overflow, so the row's right edge stays
+   fixed. Consumers that want a different uniform inset override
+   `--oh-dsh-scrollable-inset` on their own class.
 
    Optional fade overlays (`Fade='bottom' | 'top'`) let a full-column
    region (like the left-rail workspace list) soften the hard edge where
@@ -14,23 +18,52 @@
    padding if the last row must scroll clear of the gradient. Panel-inner
    scroll blocks (file list, diff stacks, path tree) default to no fade.
 
-   This is a layout/scroll concern only: flex roles, width, borders and
-   padding stay on the consumer's own class. `position: relative` here is
-   the fade anchor, harmless for every other case.
+   This is a layout/scroll concern only: flex roles, width and borders
+   stay on the consumer's own class. `position: relative` here is the
+   fade anchor, harmless for every other case.
    ============================================================ */
 
 .oh-dsh-scrollable {
+  /* Uniform inset on all four sides — the single inset every consumer
+     gets. Defaults to the shared 8px step; override on your own class. */
+  --oh-dsh-scrollable-inset: var(--oh-dsh-space-2, 8px);
+  /* Scrollbar seat geometry — derived from the inset, never hardcoded by
+     consumers. */
+  --oh-dsh-scrollbar-width: 6px;
+  --oh-dsh-scrollbar-offset: 1px;
+
   position: relative;
   min-height: 0;
   min-width: 0;
   overflow-y: auto;
-  /* Always reserve the scrollbar lane on both edges? No — `stable` alone
-     reserves only the side the bar would occupy, enough to stop the
-     content shift while leaving the other edge free. `both-edges` would
-     pad the non-scrolling side too, which is double the steal on wide
-     panels. */
+  /* Right offset: the bar sits flush inside the container's right edge,
+     and the container itself steps 1px off the parent rim via margin —
+     NOT border-right, so a consumer's own border (e.g. the diff-tree
+     divider) is never clobbered. */
+  margin-right: var(--oh-dsh-scrollbar-offset);
+  padding: var(--oh-dsh-scrollable-inset);
+  /* Content gap to the bar: the inset minus the bar lane and offset —
+     with the default 8px inset that leaves 1px. When content does not
+     overflow, scrollbar-gutter:stable reserves the bar width so the
+     right edge does not move. */
+  padding-right: calc(
+    var(--oh-dsh-scrollable-inset)
+    - var(--oh-dsh-scrollbar-width)
+    - var(--oh-dsh-scrollbar-offset)
+  );
   scrollbar-gutter: stable;
   box-sizing: border-box;
+}
+
+/* Component-level scrollbar skin: 6px bar (overrides the harness global
+   8px for scrollables only), radius matches half the width. */
+.oh-dsh-scrollable::-webkit-scrollbar {
+  width: var(--oh-dsh-scrollbar-width);
+  height: var(--oh-dsh-scrollbar-width);
+}
+
+.oh-dsh-scrollable::-webkit-scrollbar-thumb {
+  border-radius: calc(var(--oh-dsh-scrollbar-width) / 2);
 }
 
 /* Wide-content variant (wide images, data tables): scroll both axes. The

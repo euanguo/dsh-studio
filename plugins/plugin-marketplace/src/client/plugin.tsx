@@ -20,7 +20,6 @@ import type {
 } from '../protocol.ts'
 import { MARKETPLACE_MESSAGES, type MarketplaceMessage } from './i18n.ts'
 import marketplaceCss from './marketplace.css'
-import scrollableCss from '../../../shared/scrollable.css'
 import {
   initialSessionNavigationState,
   transitionSessionNavigation,
@@ -282,7 +281,12 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
     this.#sessionNavigationState = initialSessionNavigationState()
     this.#style = document.createElement('style')
     this.#style.dataset.ohDshPluginMarketplaceStyles = 'true'
-    this.#style.textContent = `${scrollableCss}\n${marketplaceCss}`
+    /* scrollable.css is injected once by the sidebar's workspace-tools
+       chain (this plugin always co-loads with the sidebar); re-injecting
+       it here duplicated every rule and let the later style tag clobber
+       consumer borders (the diff-tree divider). Only marketplace's own
+       styles are injected here. */
+    this.#style.textContent = marketplaceCss
     document.head.append(this.#style)
 
     this.#element = document.createElement('div')

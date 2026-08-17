@@ -113,18 +113,14 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   display: flex;
   flex-direction: column;
   flex: 1;
-  /* Scroll container only — it owns NO inset. Each <section> child is the
-     "shell" that owns its own 8px padding (with a flush bottom divider), so
-     no negative margin / cancel-then-readd dance is needed anywhere.
-     (Scrolling / stable scrollbar lane come from the shared Scrollable host.) */
+  /* All four insets come from the Scrollable host (default 8px); sections
+     below own zero padding. */
 }
 
 .oh-dsh-workspace-content section {
-  /* Section = shell: single owner of the 8px inset on all four sides. The
-     bottom border is outside the padding (border-box), so the divider runs
-     flush edge to edge with no negative margin. Inner content must not
-     re-declare this inset. */
-  padding: var(--oh-dsh-space-2);
+  /* Section = pure content shell: no padding of its own — all four insets
+     live on the Scrollable host, so the scrollbar lane never stacks on a
+     section's side padding. */
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
@@ -174,10 +170,11 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   position: relative;
   flex: none;
   /* Top border separates the docked history strip from the change list above
-     (module separator). */
+     (module separator). No inset of its own: the toggle aligns itself and
+     the commit-list scroll host owns all four insets, so row edges line up
+     with the change list above (8px). */
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: var(--dsw-alias-bg-base, #fff);
-  padding: var(--oh-dsh-space-2);
 }
 
 /* Drag the top edge of the expanded history to resize it (96–520px); the
@@ -194,9 +191,11 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 /* The history header is the collapse/expand toggle — a plain static row
    matching the "changes" header (no hover wash), only the chevron hints the
-   expand/collapse interaction. */
+   expand/collapse interaction. Its own horizontal inset aligns it with the
+   change-list rows (8px). */
 .oh-dsh-history-toggle {
   cursor: pointer;
+  padding: 0 var(--oh-dsh-space-2);
 }
 
 .oh-dsh-history-chevron {
@@ -209,9 +208,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 /* Commit history rows ride the shared ListRow family (hover/selected
    geometry + row spacing lives in list-row.css); only the hash chip is
-   Git-specific. Negative side margins let the internal scrollbar sit flush
-   against the window edge (same as the change-list scrollbar); inner padding
-   keeps the rows aligned with the section content. */
+   Git-specific. All insets come from the Scrollable host (default 8px). */
 .oh-dsh-review-commit-list {
   display: grid;
   /* Single auto column would size to the widest row's max-content, so a long
@@ -219,8 +216,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
      scrollbar. Pin the track to the panel width (min 0 keeps it shrinkable
      when the sidebar is narrow); the subject then ellipsizes instead. */
   grid-template-columns: minmax(0, 1fr);
-  margin: 0 calc(-1 * var(--oh-dsh-space-2));
-  padding: 0 var(--oh-dsh-space-2) var(--oh-dsh-space-1);
 }
 
 .oh-dsh-review-commit-hash {
@@ -639,7 +634,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-content-markdown {
-  padding: var(--oh-dsh-space-3) var(--oh-dsh-space-4);
+  /* Insets come from the Scrollable host (default 8px). */
   font-size: var(--oh-dsh-font-md);
   line-height: 1.65;
 }
@@ -761,7 +756,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   align-items: center;
   justify-content: center;
   flex: 1;
-  padding: var(--oh-dsh-space-3);
+  /* Insets come from the Scrollable host (default 8px). */
 }
 
 .oh-dsh-content-media-stage img {
@@ -923,9 +918,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   width: 220px;
   min-width: 180px;
   border-right: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  /* Same horizontal inset as the right-panel lists (8px) so the tree rows
-     never sit flush against the surface edge or the scrollbar. */
-  padding: var(--oh-dsh-space-2);
+  /* Insets come from the Scrollable host (default 8px). */
   flex: none;
 }
 
@@ -962,7 +955,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 .oh-dsh-diff-all-stack {
   min-width: 0;
   flex: 1;
-  padding: var(--oh-dsh-space-2);
+  /* Insets come from the Scrollable host (default 8px). */
 }
 
 .oh-dsh-multi-diff-list {
@@ -1066,7 +1059,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   grid-template-columns: 1fr 1fr;
   gap: var(--oh-dsh-space-2);
   flex: 1;
-  padding: var(--oh-dsh-space-2);
+  /* Insets come from the Scrollable host (default 8px). */
 }
 
 .oh-dsh-image-diff-pane {
@@ -1257,7 +1250,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-file-search-results {
-  padding: 4px var(--oh-dsh-space-2);
+  /* Insets come from the Scrollable host (default 8px). */
 }
 
 .oh-dsh-file-search-hit {
@@ -1419,7 +1412,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 /* Mermaid viewer (scrolling via the shared Scrollable host, axis both). */
 .oh-dsh-mermaid-viewer {
-  padding: var(--oh-dsh-space-3);
+  /* Insets come from the Scrollable host (default 8px). */
 }
 
 .oh-dsh-mermaid-svg {
