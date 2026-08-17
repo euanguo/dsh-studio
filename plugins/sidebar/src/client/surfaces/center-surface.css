@@ -265,8 +265,6 @@
 
 .oh-dsh-diff-surface-body {
   flex: 1;
-  min-height: 0;
-  overflow: auto;
   padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
 }
 
@@ -307,8 +305,6 @@
 
 .oh-dsh-commit-surface-body {
   flex: 1;
-  min-height: 0;
-  overflow: auto;
   padding: var(--oh-dsh-space-1) 0 var(--oh-dsh-space-3);
 }
 
@@ -350,6 +346,5 @@
 
 .oh-dsh-commit-surface-lines {
   max-height: 420px;
-  overflow: auto;
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }

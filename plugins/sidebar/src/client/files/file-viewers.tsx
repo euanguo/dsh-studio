@@ -7,6 +7,7 @@ import { useState, useSyncExternalStore } from 'react'
 import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { EmptyView } from '../kit/status.tsx'
+import { Scrollable } from '../../../../shared/scrollable.tsx'
 import type { SidebarRuntimeSettingsService } from '../runtime-settings.ts'
 import {
   htmlIframeSandboxAttribute,
@@ -26,7 +27,7 @@ export function BinaryFileViewer({
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   return (
-    <div className="oh-dsh-file-preview">
+    <Scrollable className="oh-dsh-file-preview">
       <div>
         <strong title={path}>{title}</strong>
         <button type="button" onClick={() => { void onOpen() }}>
@@ -34,7 +35,7 @@ export function BinaryFileViewer({
         </button>
       </div>
       <EmptyView title={t('files.viewer.binary')} />
-    </div>
+    </Scrollable>
   )
 }
 
@@ -68,7 +69,7 @@ export function HtmlFileViewer({
     override,
   )
   return (
-    <div className="oh-dsh-file-preview oh-dsh-html-preview">
+    <Scrollable className="oh-dsh-file-preview oh-dsh-html-preview">
       <div className="oh-dsh-html-toolbar">
         <strong title={path}>{title}</strong>
         <button
@@ -89,6 +90,6 @@ export function HtmlFileViewer({
         sandbox={htmlIframeSandboxAttribute(unsandboxed)}
         srcDoc={content}
       />
-    </div>
+    </Scrollable>
   )
 }

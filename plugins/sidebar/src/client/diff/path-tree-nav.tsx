@@ -14,6 +14,7 @@ import {
   IconChevronRight,
 } from '../../../../shared/tabler-icons.tsx'
 import { FileGlyph } from '../../../../shared/tabler-icons.tsx'
+import { Scrollable } from '../../../../shared/scrollable.tsx'
 import {
   ListRow,
   ListRowLabel,
@@ -85,7 +86,7 @@ export function DiffPathTreeNav({
   }
 
   return (
-    <div ref={containerRef} className="oh-dsh-diff-tree" data-testid="diff-path-tree">
+    <Scrollable ref={containerRef} className="oh-dsh-diff-tree" data-testid="diff-path-tree">
       <div
         className="oh-dsh-diff-tree-inner"
         style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
@@ -146,6 +147,6 @@ export function DiffPathTreeNav({
           )
         })}
       </div>
-    </div>
+    </Scrollable>
   )
 }

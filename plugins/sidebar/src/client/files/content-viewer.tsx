@@ -20,6 +20,7 @@ import {
 import type { Translate } from '../../../../shared/i18n.ts'
 import { basename } from '../../../../shared/path.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
+import { Scrollable } from '../../../../shared/scrollable.tsx'
 import { isPlainLanguage, languageForPath, MAX_NUMBERED_LINES } from './language.ts'
 import { PierreFileView } from './pierre-file-view.tsx'
 import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
@@ -125,7 +126,7 @@ export function ContentViewer({
 }: ContentViewerProps): JSX.Element {
   const kind = detectKind(path, binary)
   const name = basename(path)
-  // The selection-insert popup host: the markdown preview (its scroll host)
+  // The selection-insert popup host: the markdown preview (its Scrollable)
   // and the Pierre code/plain rows share ONE ref — only one branch renders
   // at a time. Rendered inline so its document listeners reset when the
   // opened file changes.
@@ -324,7 +325,7 @@ function CsvVirtualTable({ rows }: { rows: string[][] }): JSX.Element {
   const topSpacer = items[0]?.start ?? 0
   const bottomSpacer = Math.max(0, virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0))
   return (
-    <div className="oh-dsh-content-table-wrap" ref={parentRef}>
+    <Scrollable axis="both" className="oh-dsh-content-table-wrap" ref={parentRef}>
       <table className="oh-dsh-content-table oh-dsh-content-table-virtual">
         {header.length > 0 ? (
           <thead>
@@ -346,7 +347,7 @@ function CsvVirtualTable({ rows }: { rows: string[][] }): JSX.Element {
           {bottomSpacer > 0 ? <tr aria-hidden="true"><td style={{ height: bottomSpacer, padding: 0 }} /></tr> : null}
         </tbody>
       </table>
-    </div>
+    </Scrollable>
   )
 }
 
@@ -400,7 +401,7 @@ function ImageViewer({
               </button>
             ) : null}
           </div>
-          <div className="oh-dsh-content-media-stage">
+          <Scrollable axis="both" className="oh-dsh-content-media-stage">
             {status === 'loading' ? <span className="oh-dsh-side-muted">{t('files.image-loading')}</span> : null}
             <img
               src={`data:${mime};base64,${data}`}
@@ -411,7 +412,7 @@ function ImageViewer({
               onLoad={() => setStatus('ready')}
               onError={() => setStatus('error')}
             />
-          </div>
+          </Scrollable>
         </>
       )}
     </div>

@@ -72,6 +72,7 @@ import {
   tabDropSideOf,
   type TabDropSide,
 } from './tab-drag.ts'
+import { Scrollable } from '../../../shared/scrollable.tsx'
 import {
   getExplorerRuntime,
   sidebarScopeKey,
@@ -200,7 +201,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
     descriptor.hidden !== true && props.sidebar.isTabEnabled(descriptor.id),
   )
   return (
-    <div className="oh-dsh-side-menu">
+    <Scrollable className="oh-dsh-side-menu">
       {descriptors.map(descriptor => (
         <ToolRow
           key={descriptor.id}
@@ -217,7 +218,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
         aria-label={props.t('side.close')}
         onClick={props.onClose}
       ><IconClose size={16} /></button>
-    </div>
+    </Scrollable>
   )
 }
 
@@ -485,7 +486,7 @@ export function FilesView({
         />
       </div>
       {searchHits !== null ? (
-        <div className="oh-dsh-file-search-results">
+        <Scrollable className="oh-dsh-file-search-results">
           {searching ? <LoadingView label={t('files.loading')} /> : null}
           {!searching && searchHits.length === 0 ? (
             <EmptyView title={t('files.search-no-matches')} />
@@ -512,11 +513,11 @@ export function FilesView({
               <span className="oh-dsh-file-search-hit-text">{hit.text}</span>
             </button>
           ))}
-        </div>
+        </Scrollable>
       ) : null}
       {loading && !entriesByDir.has(cwd) && <LoadingView label={t('files.loading')} />}
       {error !== '' && <ErrorView message={error} />}
-      <div className="oh-dsh-file-list">
+      <Scrollable className="oh-dsh-file-list">
         {rows.map(row => (
           <ListRow
             key={row.key}
@@ -566,7 +567,7 @@ export function FilesView({
         {!loading && !error && rows.length === 0 && (
           <EmptyView title={t('files.empty-directory')} />
         )}
-      </div>
+      </Scrollable>
     </div>
   )
 }
@@ -628,7 +629,7 @@ export function FileView({
     })}</>
   }
   return (
-    <div className="oh-dsh-file-preview">
+    <Scrollable className="oh-dsh-file-preview">
       <div>
         <strong>{tab.title}</strong>
         <button type="button" onClick={() => { void onOpenPath(path) }}>
@@ -636,7 +637,7 @@ export function FileView({
         </button>
       </div>
       <EmptyView title={t('files.no-viewer', { size: formatSize(snapshot.size) })} />
-    </div>
+    </Scrollable>
   )
 }
 

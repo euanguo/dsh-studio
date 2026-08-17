@@ -8,6 +8,7 @@ import type { Translate } from '../../../../shared/i18n.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { loadMermaidChunk } from '../chunk-loader.ts'
 import { LoadingView } from '../kit/status.tsx'
+import { Scrollable } from '../../../../shared/scrollable.tsx'
 
 export function MermaidViewer({
   content,
@@ -39,7 +40,7 @@ export function MermaidViewer({
   }, [content])
 
   return (
-    <div className="oh-dsh-mermaid-viewer" data-testid="mermaid-viewer">
+    <Scrollable axis="both" className="oh-dsh-mermaid-viewer" data-testid="mermaid-viewer">
       {loading ? <LoadingView label={t('files.rendering-diagram')} /> : null}
       {error !== '' ? (
         <pre className="oh-dsh-mermaid-source">
@@ -48,6 +49,6 @@ export function MermaidViewer({
       ) : (
         <div ref={hostRef} className="oh-dsh-mermaid-svg" />
       )}
-    </div>
+    </Scrollable>
   )
 }

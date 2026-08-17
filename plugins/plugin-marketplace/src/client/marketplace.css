@@ -191,8 +191,6 @@ html[data-oh-dsh-marketplace-open='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-marketplace-main {
-  min-width: 0;
-  overflow: auto;
   padding: 24px 28px 40px;
 }
 
@@ -431,8 +429,6 @@ html[data-oh-dsh-marketplace-open='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-marketplace-detail {
-  min-width: 0;
-  overflow: auto;
   border-left: 1px solid var(--dsw-alias-border-l2, #e8e8e8);
   background: var(--dsw-alias-bg-base, #fff);
 }

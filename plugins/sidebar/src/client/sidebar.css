@@ -110,16 +110,13 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-workspace-content {
-  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
-  min-height: 0;
-  overflow: auto;
   /* Scroll container only — it owns NO inset. Each <section> child is the
      "shell" that owns its own 8px padding (with a flush bottom divider), so
-     no negative margin / cancel-then-readd dance is needed anywhere. */
-  box-sizing: border-box;
+     no negative margin / cancel-then-readd dance is needed anywhere.
+     (Scrolling / stable scrollbar lane come from the shared Scrollable host.) */
 }
 
 .oh-dsh-workspace-content section {
@@ -594,10 +591,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-file-surface-body {
-  min-height: 0;
-  min-width: 0;
   flex: 1;
-  overflow: auto;
 }
 
 /* ---------- text / markdown-source viewer (Pierre File + plain fallback) ---------- */
@@ -645,8 +639,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-content-markdown {
-  min-height: 0;
-  overflow: auto;
   padding: var(--oh-dsh-space-3) var(--oh-dsh-space-4);
   font-size: var(--oh-dsh-font-md);
   line-height: 1.65;
@@ -768,10 +760,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 0;
-  min-width: 0;
   flex: 1;
-  overflow: auto;
   padding: var(--oh-dsh-space-3);
 }
 
@@ -801,10 +790,9 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   width: 100%;
 }
 
-/* Sticky CSV table header */
+/* Sticky CSV table header (scrolling via the shared Scrollable host,
+   axis both — wide tables scroll horizontally too) */
 .oh-dsh-content-table-wrap {
-  overflow: auto;
-  min-height: 0;
   flex: 1;
 }
 
@@ -934,7 +922,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 .oh-dsh-diff-tree {
   width: 220px;
   min-width: 180px;
-  overflow: auto;
   border-right: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   /* Same horizontal inset as the right-panel lists (8px) so the tree rows
      never sit flush against the surface edge or the scrollbar. */
@@ -974,9 +961,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 .oh-dsh-diff-all-stack {
   min-width: 0;
-  min-height: 0;
   flex: 1;
-  overflow: auto;
   padding: var(--oh-dsh-space-2);
 }
 
@@ -1075,15 +1060,12 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 
-/* Image diff viewer */
+/* Image diff viewer (scrolling via the shared Scrollable host, axis both). */
 .oh-dsh-image-diff {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--oh-dsh-space-2);
-  min-height: 0;
-  min-width: 0;
   flex: 1;
-  overflow: auto;
   padding: var(--oh-dsh-space-2);
 }
 
@@ -1275,8 +1257,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-file-search-results {
-  min-height: 0;
-  overflow: auto;
   padding: 4px var(--oh-dsh-space-2);
 }
 
@@ -1437,10 +1417,9 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 
-/* Mermaid viewer */
+/* Mermaid viewer (scrolling via the shared Scrollable host, axis both). */
 .oh-dsh-mermaid-viewer {
   padding: var(--oh-dsh-space-3);
-  overflow: auto;
 }
 
 .oh-dsh-mermaid-svg {

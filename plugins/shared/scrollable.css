@@ -1,0 +1,68 @@
+/* ============================================================
+   Scrollable — transparent scroll host for lists & diff stacks.
+
+   The one behavior every scrolling region should share: the scrollbar
+   must never move content sideways when it appears. `scrollbar-gutter:
+   stable` reserves the bar's lane up front (it pairs with the global
+   8px webkit bar from the harness theme), so rows keep their left edge
+   whether or not content overflows.
+
+   Optional fade overlays (`Fade='bottom' | 'top'`) let a full-column
+   region (like the left-rail workspace list) soften the hard edge where
+   content meets the container rim. The overlay is `pointer-events: none`
+   and sits on top, so the container must give its content bottom (or top)
+   padding if the last row must scroll clear of the gradient. Panel-inner
+   scroll blocks (file list, diff stacks, path tree) default to no fade.
+
+   This is a layout/scroll concern only: flex roles, width, borders and
+   padding stay on the consumer's own class. `position: relative` here is
+   the fade anchor, harmless for every other case.
+   ============================================================ */
+
+.oh-dsh-scrollable {
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+  /* Always reserve the scrollbar lane on both edges? No — `stable` alone
+     reserves only the side the bar would occupy, enough to stop the
+     content shift while leaving the other edge free. `both-edges` would
+     pad the non-scrolling side too, which is double the steal on wide
+     panels. */
+  scrollbar-gutter: stable;
+  box-sizing: border-box;
+}
+
+/* Wide-content variant (wide images, data tables): scroll both axes. The
+   vertical scrollbar lane stays stable-guttered; horizontal overflow rides
+   the second axis without a reserved lane (nobody relies on it not jumping
+   the row height). */
+.oh-dsh-scrollable-xy {
+  overflow: auto;
+}
+
+.oh-dsh-scrollable-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 24px;
+  pointer-events: none;
+}
+
+.oh-dsh-scrollable-fade-bottom {
+  bottom: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    var(--oh-dsh-scrollable-fade-color, var(--dsw-alias-bg-base, #ffffff))
+  );
+}
+
+.oh-dsh-scrollable-fade-top {
+  top: 0;
+  background: linear-gradient(
+    to top,
+    transparent,
+    var(--oh-dsh-scrollable-fade-color, var(--dsw-alias-bg-base, #ffffff))
+  );
+}

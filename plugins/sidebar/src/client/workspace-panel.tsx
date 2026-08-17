@@ -68,6 +68,7 @@ import {
   ListRowMain,
   ListRowTrailing,
 } from '../../../shared/list-row.tsx'
+import { Scrollable } from '../../../shared/scrollable.tsx'
 import {
   buildSourceControlRows,
   type SourceControlListMode,
@@ -638,7 +639,7 @@ export function WorkspacePanel({
         ? <EmptyView title={t('workspace.select')} />
         : (
           <>
-            <div className="oh-dsh-workspace-content">
+            <Scrollable className="oh-dsh-workspace-content">
             {error !== '' && <ErrorView message={error} />}
 
             {/* Commit area rides the top (orca parity): branch + message +
@@ -796,7 +797,7 @@ export function WorkspacePanel({
               <small title={cwd}>{cwd}</small>
               <button type="button" onClick={() => { void chooseWorkspace() }} aria-label={t('workspace.add')}><IconPlus size={16} /></button>
             </section>
-          </div>
+          </Scrollable>
 
           {snapshot?.kind === 'repository' && (
             <section className="oh-dsh-review-history">
@@ -826,9 +827,9 @@ export function WorkspacePanel({
                 />
               </div>
               {!historyCollapsed && (
-                <div
+                <Scrollable
                   className="oh-dsh-review-commit-list"
-                  style={{ maxHeight: historyHeight, overflowY: 'auto' }}
+                  style={{ maxHeight: historyHeight }}
                 >
                   {history.map(entry => {
                     const isExpanded = expandedCommitId === entry.hashFull
@@ -882,7 +883,7 @@ export function WorkspacePanel({
                   {history.length === 0 && (
                     <EmptyView title={t('workspace.no-commits')} />
                   )}
-                </div>
+                </Scrollable>
               )}
             </section>
           )}

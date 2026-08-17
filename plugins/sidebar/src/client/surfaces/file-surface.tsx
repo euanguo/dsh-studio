@@ -28,6 +28,7 @@ import { betterSidebarApi } from '../better-sidebar-api.ts'
 import { getFileRuntime } from '../runtimes/registry.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
+import { Scrollable } from '../../../../shared/scrollable.tsx'
 import { ErrorView, LoadingView } from '../kit/status.tsx'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
@@ -300,7 +301,7 @@ export function FileSurfaceView({
       {writeError !== '' ? (
         <ErrorView message={writeError} />
       ) : null}
-      <div className="oh-dsh-file-surface-body" onMouseUp={onSourceMouseUp}>
+      <Scrollable className="oh-dsh-file-surface-body" onMouseUp={onSourceMouseUp}>
         <ContentViewer
           path={surface.filePath}
           content={content}
@@ -314,7 +315,7 @@ export function FileSurfaceView({
           {...(snapshot.data === undefined ? {} : { data: snapshot.data })}
           t={t}
         />
-      </div>
+      </Scrollable>
       {selectionAction !== null ? (
         <div
           className="oh-dsh-file-selection-action"

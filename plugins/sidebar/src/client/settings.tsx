@@ -12,6 +12,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useSyncExternalStore } from 'react'
 import type { Translate } from '../../../shared/i18n.ts'
 import type { WorkspaceMessage } from './i18n.ts'
+import { Scrollable } from '../../../shared/scrollable.tsx'
 import type {
   BoundSidebarSettingsActions,
   SidebarSettingsProps,
@@ -256,7 +257,7 @@ function FeatureSettingsPopup(props: {
         <strong>{sidebarLabel(feature.title ?? feature.id)}</strong>
         <code>{feature.id}</code>
       </div>
-      <div className="oh-dsh-sidebar-settings-popup-body">{body}</div>
+      <Scrollable className="oh-dsh-sidebar-settings-popup-body">{body}</Scrollable>
       <div className="oh-dsh-sidebar-settings-popup-foot">
         <button type="button" onClick={onClose}>{t('settings.done')}</button>
       </div>

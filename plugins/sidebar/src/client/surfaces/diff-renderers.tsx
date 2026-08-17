@@ -15,6 +15,7 @@ import { binding, registerKeymapAction } from '../kit/keymap.ts'
 import { EmptyView, ErrorView, LoadingView } from '../kit/status.tsx'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffToolbar } from '../diff/diff-toolbar.tsx'
+import { Scrollable } from '../../../../shared/scrollable.tsx'
 import { useDiffViewPreferences } from '../diff/diff-view-preferences.ts'
 import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx'
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
@@ -143,14 +144,14 @@ export function DiffSurfaceView({
       <div className="oh-dsh-diff-surface">
         <DiffToolbar t={t} />
         {imageDiff !== null ? (
-          <div className="oh-dsh-diff-surface-body">
+          <Scrollable className="oh-dsh-diff-surface-body">
             <ImageDiffViewer
               oldData={imageDiff.oldData}
               newData={imageDiff.newData}
               oldLabel={`Original · ${surface.filePath}`}
               newLabel={`Modified · ${surface.filePath}`}
             />
-          </div>
+          </Scrollable>
         ) : (
           <LoadingView label={t('workspace.loading-diff')} />
         )}
@@ -176,7 +177,7 @@ export function DiffSurfaceView({
         )}
         t={t}
       />
-      <div className="oh-dsh-diff-surface-body">
+      <Scrollable className="oh-dsh-diff-surface-body">
         <DiffViewer
           document={document}
           theme={theme}
@@ -190,7 +191,7 @@ export function DiffSurfaceView({
             : {})}
           onLineNumberClick={onLineNumberClick}
         />
-      </div>
+      </Scrollable>
       <div className="oh-dsh-diff-context-bar">
         <button
           type="button"
@@ -451,7 +452,7 @@ export function DiffAllSurfaceView({
             })
           }}
         />
-        <div className="oh-dsh-diff-all-stack" ref={listRef}>
+        <Scrollable className="oh-dsh-diff-all-stack" ref={listRef}>
           <MultiDiffFileStack
             files={files}
             renderedKeys={renderedKeys}
@@ -464,7 +465,7 @@ export function DiffAllSurfaceView({
             onExpandContext={expandContext}
           />
           {expanding.size > 0 ? <LoadingView label={t('workspace.loading-diff')} /> : null}
-        </div>
+        </Scrollable>
       </div>
     </div>
   )

@@ -7,6 +7,7 @@ import {
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { DesktopBridge } from '../../../shared/desktop-contracts.ts'
+import { Scrollable } from '../../../shared/scrollable.tsx'
 import type { LocaleService, Translate } from '../../../shared/i18n.ts'
 import { localeTag } from '../../../shared/i18n.ts'
 import { useTranslate } from '../../../shared/use-i18n.ts'
@@ -19,6 +20,7 @@ import type {
 } from '../protocol.ts'
 import { MARKETPLACE_MESSAGES, type MarketplaceMessage } from './i18n.ts'
 import marketplaceCss from './marketplace.css'
+import scrollableCss from '../../../shared/scrollable.css'
 import {
   initialSessionNavigationState,
   transitionSessionNavigation,
@@ -280,7 +282,7 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
     this.#sessionNavigationState = initialSessionNavigationState()
     this.#style = document.createElement('style')
     this.#style.dataset.ohDshPluginMarketplaceStyles = 'true'
-    this.#style.textContent = marketplaceCss
+    this.#style.textContent = `${scrollableCss}\n${marketplaceCss}`
     document.head.append(this.#style)
 
     this.#element = document.createElement('div')
@@ -506,7 +508,7 @@ function PluginDetail({
       : current.filter(entry => entry !== confirmation))
   }
   return (
-    <aside
+    <Scrollable
       className="oh-marketplace-detail"
       aria-label={t('details', { plugin: plugin.title })}
     >
@@ -661,7 +663,7 @@ function PluginDetail({
           </button>
         </div>
       </div>
-    </aside>
+    </Scrollable>
   )
 }
 
@@ -841,7 +843,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
           )}
         </div>
         <div className="oh-marketplace-layout" data-detail={String(selected !== null)}>
-          <main className="oh-marketplace-main">
+          <Scrollable axis="both" className="oh-marketplace-main">
             <div className="oh-marketplace-toolbar">
               <div className="oh-marketplace-search">
                 <SearchIcon />
@@ -910,7 +912,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
                 ))}
               </div>
             )}
-          </main>
+          </Scrollable>
           {selected !== null && snapshot !== null && (
             <PluginDetail
               bridge={bridge}

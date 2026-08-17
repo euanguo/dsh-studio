@@ -13,6 +13,7 @@ import remarkGfm from 'remark-gfm'
 import { codeToHtml } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { findTaskMarkerSourceLines } from './markdown-task-list.ts'
+import { Scrollable } from '../../../../shared/scrollable.tsx'
 
 export interface MarkdownViewerProps {
   content: string
@@ -35,7 +36,7 @@ export function MarkdownViewer({
   let taskCursor = -1
 
   return (
-    <div ref={containerRef} className="oh-dsh-content-markdown" data-testid="markdown-viewer">
+    <Scrollable ref={containerRef} className="oh-dsh-content-markdown" data-testid="markdown-viewer">
       {headings.length > 1 ? (
         <nav className="oh-dsh-markdown-toc" aria-label="Table of contents">
           {headings.map(heading => (
@@ -112,7 +113,7 @@ export function MarkdownViewer({
       >
         {content}
       </ReactMarkdown>
-    </div>
+    </Scrollable>  
   )
 }
 

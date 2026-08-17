@@ -39,6 +39,7 @@ import sourceControlCss from './source-control/source-control.css'
 import centerSurfaceCss from './surfaces/center-surface.css'
 import diffViewerCss from './diff/diff-viewer.css'
 import listRowCss from '../../../shared/list-row.css'
+import scrollableCss from '../../../shared/scrollable.css'
 import filenameLabelCss from '../../../shared/filename-label.css'
 import surfaceTabCss from '../../../shared/surface-tab.css'
 import toastCss from '../../../shared/toast.css'
@@ -179,7 +180,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
     this.style = document.createElement('style')
     this.style.dataset.ohDshDesktopSidebarStyles = 'true'
-    this.style.textContent = `${themeCss}\n${listRowCss}\n${filenameLabelCss}\n${surfaceTabCss}\n${toastCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
+    this.style.textContent = `${themeCss}\n${listRowCss}\n${scrollableCss}\n${filenameLabelCss}\n${surfaceTabCss}\n${toastCss}\n${workspaceCss}\n${sideToolsCss}\n${sourceControlCss}
 ${centerSurfaceCss}
 ${diffViewerCss}`
     document.head.append(this.style)
