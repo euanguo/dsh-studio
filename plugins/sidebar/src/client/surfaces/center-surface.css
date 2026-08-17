@@ -161,7 +161,10 @@
 }
 
 .oh-dsh-right-rail-reopen {
-  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 88%, transparent);
+  /* Opaque card token: the alpha-threshold rule (upstream 3c196ff) — any
+     translucent value below 0.9 falls back to an opaque surface so glyphs
+     never sit on the skin's backdrop pattern. */
+  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
 }
 
 .oh-dsh-left-rail-toggle:hover,
