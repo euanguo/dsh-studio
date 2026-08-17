@@ -149,7 +149,10 @@ export function apply(ctx: HostContext): void {
 | `@oh-dsh/plugin-marketplace` | `plugins/plugin-marketplace/` | `plugin-registry` + `dsh-hub` 炼化 | 插件市场的隔离预览、风险确认、TOFU 来源锁、应用与恢复 |
 | `@oh-dsh/desktop-skins` | `plugins/desktop-skins/` | `dsh-skins` 下游 | 桌面皮肤：ThemeService 扩展、设置 UI、Host 持久化 |
 
-共享模块：`plugins/shared/`（`i18n.ts` / `use-i18n.ts`，双语翻译辅助）。
+共享模块：`plugins/shared/`（i18n、ListRow、SurfaceTab 等产品组合件）。
+控件原子不在 shared 里：按钮、输入、菜单、对话框、Toast、图标一律从
+`@deepseek-ai/dsh-client-ui-primitives` 引入，规则见
+[`plugins/AGENTS.md`](../plugins/AGENTS.md)。
 
 ---
 

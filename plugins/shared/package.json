@@ -7,7 +7,6 @@
   "exports": {
     "./bundle-names": "./bundle-names.ts",
     "./column-mount": "./column-mount.ts",
-    "./copy-text": "./copy-text.ts",
     "./desktop-contracts": "./desktop-contracts.ts",
     "./filename-display": "./filename-display.ts",
     "./filename-label": "./filename-label.tsx",
@@ -38,7 +37,6 @@
     "./terminal-view.css": "./terminal-view.css",
     "./theme.css": "./theme.css",
     "./toast": "./toast.tsx",
-    "./toast.css": "./toast.css",
     "./tool-icon": "./tool-icon.tsx",
     "./use-i18n": "./use-i18n.ts",
     "./wire": "./wire.ts"
@@ -49,7 +47,6 @@
   },
   "dependencies": {
     "@react-symbols/icons": "^1.4.1",
-    "@tabler/icons-react": "^3.46.0",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0"
   }

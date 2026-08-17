@@ -188,9 +188,7 @@ for (const plugin of pluginPackages) {
         ...(['desktop-skins', 'sidebar', 'desktop-left-rail'].includes(plugin.directory)
           ? ['@deepseek-ai/dsh-client-runtime/client']
           : []),
-        ...(['desktop-left-rail', 'sidebar', 'sidebar-desktop'].includes(plugin.directory)
-          ? ['@deepseek-ai/dsh-client-ui-primitives']
-          : []),
+        '@deepseek-ai/dsh-client-ui-primitives',
       ],
       banner: {
         js: `window.__ModuleLoader__.load({ id: "${plugin.id}", factory: (require) => { var module = { exports: {} }; var exports = module.exports;`,

@@ -1,10 +1,8 @@
 /**
- * Unified loading / error / empty status views (plan P9.2). Every surface
- * and panel renders these instead of ad-hoc muted/error divs, so status
- * presentation stays consistent and gains the shared affordances (retry
- * button, title/description empty state) in one place. All copy arrives
+ * Unified loading / error / empty status views. All copy arrives
  * pre-translated from call sites — the components stay i18n-agnostic.
  */
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 
 export function LoadingView({ label }: { label: string }): JSX.Element {
   return (
@@ -27,9 +25,9 @@ export function ErrorView({ message, onRetry, retryLabel }: ErrorViewProps): JSX
     <div className="oh-dsh-side-error oh-dsh-status" data-kind="error" role="alert">
       <span className="oh-dsh-status-message">{message}</span>
       {onRetry !== undefined && (
-        <button type="button" className="oh-dsh-status-retry" onClick={onRetry}>
+        <Button variant="outline" size="sm" onClick={onRetry}>
           {retryLabel}
-        </button>
+        </Button>
       )}
     </div>
   )

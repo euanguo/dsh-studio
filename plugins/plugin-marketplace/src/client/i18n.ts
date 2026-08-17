@@ -76,6 +76,8 @@ export type MarketplaceMessage =
   | 'discard'
   | 'apply-to-desktop'
   | 'apply-action'
+  | 'apply-acknowledge'
+  | 'cancel'
   | 'reset-and-reload'
   | 'search.label'
   | 'search.placeholder'
@@ -172,6 +174,8 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     discard: 'Discard',
     'apply-to-desktop': 'Apply to desktop',
     'apply-action': 'Apply {action}',
+    'apply-acknowledge': 'I understand and acknowledge the recovery boundary above.',
+    cancel: 'Cancel',
     'reset-and-reload': 'Reset and reload',
     'search.label': 'Search plugins',
     'search.placeholder': 'Search plugins, skills, and tags…',
@@ -267,6 +271,8 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     discard: '放弃',
     'apply-to-desktop': '应用到桌面端',
     'apply-action': '应用{action}',
+    'apply-acknowledge': '我了解并同意上述恢复边界。',
+    cancel: '取消',
     'reset-and-reload': '重置并重新加载',
     'search.label': '搜索插件',
     'search.placeholder': '搜索插件、技能和标签…',

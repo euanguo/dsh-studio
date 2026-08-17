@@ -273,7 +273,7 @@ class PinnedSummaryService implements PinnedSummary {
     panel.innerHTML = `
       <header data-oh-dsh-summary-header>
         <span></span>
-        <button data-oh-dsh-summary-close type="button"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg></button>
+        <button data-oh-dsh-summary-close type="button" aria-label="Close"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M14.1168 13.197L13.197 14.1167L1.8833 2.80303L2.80309 1.88324L14.1168 13.197Z" fill="currentColor"/><path d="M13.197 1.88326L14.1168 2.80305L2.80309 14.1168L1.8833 13.197L13.197 1.88326Z" fill="currentColor"/></svg></button>
       </header>
       <div data-oh-dsh-summary-body>
         <h2 data-oh-dsh-summary-title></h2>

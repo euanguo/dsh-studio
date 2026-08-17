@@ -5,6 +5,7 @@
  * plain file view.
  */
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import { toast } from '@oh-dsh/shared/toast'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -90,7 +91,7 @@ export function ConflictSurfaceView({
       setBusy(false)
       const message = cause instanceof Error ? cause.message : String(cause)
       setError(message)
-      toast('error', t('toast.save-failed', { message }))
+      toast(t('toast.save-failed', { message }))
     })
   }, [absolutePath, surface.cwd, surface.filePath, surface.sessionId, surface.id, name, t])
 
@@ -114,7 +115,9 @@ export function ConflictSurfaceView({
         <span title={surface.filePath}>{name}</span>
         <small>Merge conflict</small>
         <span className="oh-dsh-conflict-actions">
-          <button type="button" disabled={busy}>{busy ? t('conflict.resolving') : t('conflict.resolve-and-stage')}</button>
+          <Button variant="primary" size="sm" disabled={busy}>
+            {busy ? t('conflict.resolving') : t('conflict.resolve-and-stage')}
+          </Button>
         </span>
       </div>
       <div className="oh-dsh-conflict-hint">Choose a resolution below for each conflicted region.</div>
@@ -141,9 +144,15 @@ export function ConflictSurfaceView({
             }
             return (
               <div className="oh-dsh-conflict-actions">
-                <button type="button" disabled={busy} onClick={() => { resolve('current') }}>{t('conflict.accept-current')}</button>
-                <button type="button" disabled={busy} onClick={() => { resolve('incoming') }}>{t('conflict.accept-incoming')}</button>
-                <button type="button" disabled={busy} onClick={() => { resolve('both') }}>{t('conflict.keep-both')}</button>
+                <Button variant="outline" size="sm" disabled={busy} onClick={() => { resolve('current') }}>
+                  {t('conflict.accept-current')}
+                </Button>
+                <Button variant="outline" size="sm" disabled={busy} onClick={() => { resolve('incoming') }}>
+                  {t('conflict.accept-incoming')}
+                </Button>
+                <Button variant="outline" size="sm" disabled={busy} onClick={() => { resolve('both') }}>
+                  {t('conflict.keep-both')}
+                </Button>
               </div>
             )
           }}

@@ -20,7 +20,7 @@ import { Editor } from '@pierre/diffs/edit'
 import { EditProvider, File as PierreFile, Virtualizer } from '@pierre/diffs/react'
 import type { FileContents } from '@pierre/diffs'
 import type { Translate } from '@oh-dsh/shared/i18n'
-import { copyText } from '@oh-dsh/shared/copy-text'
+import { Button, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { basename } from '@oh-dsh/shared/path'
 import { toast } from '@oh-dsh/shared/toast'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -159,7 +159,7 @@ export function FileSurfaceView({
         void runtime.ensureLoaded(surface.filePath)
         const message = cause instanceof Error ? cause.message : String(cause)
         setWriteError(message)
-        toast('error', t('toast.save-failed', { message }))
+        toast(t('toast.save-failed', { message }))
       })
   }, [runtime, surface.cwd, surface.filePath, surface.sessionId, t])
 
@@ -192,8 +192,8 @@ export function FileSurfaceView({
   }, [isMarkdown, markdownMode, surface.filePath])
 
   const onCopySelection = useCallback(async (label: string) => {
-    const ok = await copyText(label)
-    toast(ok ? 'success' : 'error', ok ? t('toast.copied') : t('toast.copy-failed'))
+    const ok = await writeClipboard(label)
+    toast(ok ? t('toast.copied') : t('toast.copy-failed'))
     setSelectionAction(null)
   }, [t])
 
@@ -241,16 +241,17 @@ export function FileSurfaceView({
           <span title={surface.filePath}>{surface.title}</span>
           {editable.dirty ? <small className="oh-dsh-editor-dirty">●</small> : null}
           <span className="oh-dsh-editor-actions">
-            <button
-              type="button"
+            <Button
+              variant="primary"
+              size="sm"
               disabled={editable.saving || !editable.dirty}
               onClick={() => { void editable.save() }}
             >
               {editable.saving ? t('file.saving') : t('file.save')}
-            </button>
-            <button type="button" onClick={editable.exitToView}>
+            </Button>
+            <Button variant="outline" size="sm" onClick={editable.exitToView}>
               {t('files.view')}
-            </button>
+            </Button>
           </span>
         </div>
         <EditProvider createEditor={createPierreEditor}>

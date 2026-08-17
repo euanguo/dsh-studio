@@ -1,10 +1,9 @@
 /**
- * Styled app dialogs (confirm / prompt / alert) replacing window.confirm /
- * prompt / alert. A tiny module store drives a single DialogHost mounted by
- * the plugin root; the promise-based helpers are callable from anywhere.
- * All labels arrive pre-translated from call sites (like kit/status.tsx).
+ * Promise-based confirm / prompt / alert. Presentation is the official
+ * Modal + Button + Input atoms. Labels arrive pre-translated from call sites.
  */
-import { useRef, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 
 type DialogKind = 'confirm' | 'prompt' | 'alert'
 
@@ -112,68 +111,53 @@ function close(value: boolean | string | null): void {
 /** Mount once next to the toast host; renders nothing while idle. */
 export function DialogHost(): JSX.Element | null {
   const current = useSyncExternalStore(subscribe, getSnapshot)
-  const inputRef = useRef<HTMLInputElement | null>(null)
+  const [draft, setDraft] = useState('')
+  const promptId = current?.kind === 'prompt' ? current.id : 0
+  const promptDefault = current?.kind === 'prompt' ? (current.defaultValue ?? '') : ''
+  useEffect(() => {
+    if (promptId !== 0) setDraft(promptDefault)
+  }, [promptId, promptDefault])
   if (current === null) return null
   const isPrompt = current.kind === 'prompt'
   return (
-    <div
-      className="oh-dsh-dialog-backdrop"
-      onMouseDown={event => {
-        if (event.target === event.currentTarget) close(null)
-      }}
-    >
-      <div
-        className="oh-dsh-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={current.title}
-        onKeyDown={event => {
-          if (event.key === 'Escape') {
-            event.stopPropagation()
-            close(null)
-          } else if (event.key === 'Enter' && !isPrompt) {
-            event.stopPropagation()
-            close(true)
-          }
-        }}
-      >
-        <div className="oh-dsh-dialog-title">{current.title}</div>
-        {current.message !== undefined && current.message !== '' ? (
-          <div className="oh-dsh-dialog-message">{current.message}</div>
-        ) : null}
-        {isPrompt ? (
-          <input
-            ref={inputRef}
-            className="oh-dsh-dialog-input"
-            autoFocus
-            defaultValue={current.defaultValue ?? ''}
-            onKeyDown={event => {
-              if (event.key === 'Enter') close(event.currentTarget.value)
-            }}
-          />
-        ) : null}
-        <div className="oh-dsh-dialog-actions">
+    <Modal
+      open
+      onClose={() => { close(null) }}
+      title={current.title}
+      closeLabel={current.cancelLabel ?? current.confirmLabel}
+      {...(current.message === undefined || current.message === ''
+        ? {}
+        : { description: current.message })}
+      footer={(
+        <>
           {current.kind !== 'alert' ? (
-            <button
-              type="button"
-              className="oh-dsh-dialog-cancel"
-              onClick={() => { close(null) }}
-            >
+            <Button variant="outline" size="sm" onClick={() => { close(null) }}>
               {current.cancelLabel ?? ''}
-            </button>
+            </Button>
           ) : null}
-          <button
-            type="button"
+          <Button
+            variant="primary"
+            size="sm"
             autoFocus={!isPrompt}
-            className={`oh-dsh-dialog-confirm${current.danger ? ' is-danger' : ''}`}
             onClick={() => {
-              close(isPrompt ? (inputRef.current?.value ?? '') : true)
+              close(isPrompt ? draft : true)
             }}
           >
             {current.confirmLabel}
-          </button>
-        </div>
-      </div>
-    </div>
+          </Button>
+        </>
+      )}
+    >
+      {isPrompt ? (
+        <Input
+          autoFocus
+          defaultValue={current.defaultValue ?? ''}
+          onChange={event => { setDraft(event.currentTarget.value) }}
+          onKeyDown={event => {
+            if (event.key === 'Enter') close(event.currentTarget.value)
+          }}
+        />
+      ) : null}
+    </Modal>
   )
 }

@@ -20,11 +20,14 @@ import { DEFAULT_TAB_LABEL } from './panel-store.ts'
 import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
 import { useTranslate } from '@oh-dsh/shared/use-i18n'
 import {
-  IconChevronDown,
-  IconChevronUp,
-  IconClose,
-  IconPlus,
-} from '@oh-dsh/shared/icons'
+  Button,
+  IconChevronDownOutline14,
+  IconChevronUpOutline14,
+  IconCloseOutline16,
+  IconPlusOutline16,
+  Input,
+  StateDot,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { TerminalMessage } from './i18n.ts'
 
 export interface TerminalPanelProps {
@@ -130,7 +133,14 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
               className={`oh-dsh-terminal-tab${tab.id === state.activeTabId ? ' is-active' : ''}`}
               onClick={() => { store.dispatch({ type: 'activate-tab', id: tab.id }) }}
             >
-              <span className={`oh-dsh-terminal-status is-${tab.status}`} aria-hidden="true" />
+              <StateDot
+                state={tab.status === 'error'
+                  ? 'error'
+                  : tab.status === 'exited'
+                    ? 'done'
+                    : 'ongoing'}
+                size={10}
+              />
               <span className="oh-dsh-terminal-tab-label">
                 {tab.label === DEFAULT_TAB_LABEL ? t('terminal.shell') : tab.label}
                 {tab.status === 'exited'
@@ -145,7 +155,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
                   event.stopPropagation()
                   store.dispatch({ type: 'remove-tab', id: tab.id })
                 }}
-              ><IconClose size={10} /></button>
+              ><IconCloseOutline16 size={10} /></button>
             </span>
           ))}
           <button
@@ -154,7 +164,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
             onClick={addTab}
             title={t('terminal.new-shell')}
             aria-label={t('terminal.new-shell')}
-          ><IconPlus size={13} /></button>
+          ><IconPlusOutline16 size={13} /></button>
           {state.tabs.length === 0 && <span className="oh-dsh-terminal-hint">{t('terminal')}</span>}
         </div>
         <div className="oh-dsh-terminal-actions">
@@ -172,18 +182,24 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
             onClick={() => { store.dispatch({ type: 'toggle-collapsed' }) }}
             title={state.collapsed ? t('terminal.expand') : t('terminal.collapse')}
             aria-label={state.collapsed ? t('terminal.expand') : t('terminal.collapse')}
-          >{state.collapsed ? <IconChevronUp size={13} /> : <IconChevronDown size={13} />}</button>
+          >{state.collapsed ? <IconChevronUpOutline14 size={13} /> : <IconChevronDownOutline14 size={13} />}</button>
         </div>
       </div>
       {settingsOpen && (
         <div className="oh-dsh-terminal-settings" role="dialog" aria-label={t('terminal.font-settings')}>
           <div className="oh-dsh-terminal-settings-header">
             <strong>{t('terminal.font')}</strong>
-            <button type="button" onClick={() => { setSettingsOpen(false) }} aria-label={t('terminal.close-settings')}>×</button>
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label={t('terminal.close-settings')}
+              icon={<IconCloseOutline16 size={12} />}
+              onClick={() => { setSettingsOpen(false) }}
+            />
           </div>
           <label>
             <span>{t('terminal.font-family')}</span>
-            <input
+            <Input
               type="text"
               list={fontPresetListId}
               value={fontFamilyDraft}
@@ -204,7 +220,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
           </label>
           <label>
             <span>{t('terminal.font-size')}</span>
-            <input
+            <Input
               type="number"
               min={MIN_TERMINAL_FONT_SIZE}
               max={MAX_TERMINAL_FONT_SIZE}
@@ -214,7 +230,9 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
           </label>
           <div className="oh-dsh-terminal-settings-footer">
             <span>{MIN_TERMINAL_FONT_SIZE}–{MAX_TERMINAL_FONT_SIZE}px</span>
-            <button type="button" onClick={() => { store.dispatch({ type: 'reset-font' }) }}>{t('terminal.reset')}</button>
+            <Button variant="outline" size="sm" onClick={() => { store.dispatch({ type: 'reset-font' }) }}>
+              {t('terminal.reset')}
+            </Button>
           </div>
         </div>
       )}

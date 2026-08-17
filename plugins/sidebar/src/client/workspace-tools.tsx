@@ -48,7 +48,7 @@ import listRowCss from '@oh-dsh/shared/list-row.css'
 import scrollableCss from '@oh-dsh/shared/scrollable.css'
 import filenameLabelCss from '@oh-dsh/shared/filename-label.css'
 import surfaceTabCss from '@oh-dsh/shared/surface-tab.css'
-import toastCss from '@oh-dsh/shared/toast.css'
+
 import themeCss from '@oh-dsh/shared/theme.css'
 import terminalViewCss from '@oh-dsh/shared/terminal-view.css'
 import xtermCss from '@xterm/xterm/css/xterm.css'
@@ -194,7 +194,6 @@ export class WorkspaceToolsService implements WorkspaceTools {
       scrollableCss,
       filenameLabelCss,
       surfaceTabCss,
-      toastCss,
       workspaceCss,
       sideToolsCss,
       sourceControlCss,

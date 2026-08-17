@@ -21,6 +21,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { sidebarApi } from '../sidebar-api.ts'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -125,9 +126,9 @@ export function SubagentPanel({
     <div className="oh-dsh-subagent-panel">
       <div className="oh-dsh-subagent-head">
         <strong>{t('subagent.topology')}</strong>
-        <button type="button" onClick={refresh} disabled={current === undefined}>
+        <Button variant="outline" size="sm" onClick={refresh} disabled={current === undefined}>
           {t('subagent.refresh')}
-        </button>
+        </Button>
       </div>
       {!hasTopology ? (
         <p className="oh-dsh-side-muted">{t('subagent.no-topology')}</p>
@@ -190,22 +191,24 @@ export function SubagentPanel({
               </div>
               <div className="oh-dsh-subagent-job-actions">
                 <span className="oh-dsh-subagent-job-status">{job.status}</span>
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => { readOutput(job.id) }}
                   disabled={scope === null}
                 >
                   {t('subagent.output')}
-                </button>
-                <button
-                  type="button"
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => { killJob(job.id) }}
                   disabled={scope === null || killing[job.id] === true
                     || job.status === 'completed' || job.status === 'killed'
                     || job.status === 'failed'}
                 >
                   {t('subagent.kill')}
-                </button>
+                </Button>
               </div>
               {outputs[job.id] !== undefined && (
                 <pre className="oh-dsh-subagent-job-output">

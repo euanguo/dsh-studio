@@ -12,7 +12,7 @@ import type {
   ReactNode,
 } from 'react'
 import { useEffect, useRef } from 'react'
-import { IconClose } from './tabler-icons.tsx'
+import { IconCloseOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { bindTabStripWheel } from './tab-strip-wheel.ts'
 
 const SURFACE_TAB_ACTION_SELECTOR = '[data-surface-tab-action]'
@@ -116,7 +116,7 @@ export function SurfaceTab({
         event.stopPropagation()
         onClose!()
       }}
-    ><IconClose size={12} /></button>
+    ><IconCloseOutline16 size={12} /></button>
   ) : null
 
   return (

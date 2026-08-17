@@ -1,163 +1,17 @@
 /**
- * Tabler 图标统一出口（@tabler/icons-react）+ 彩色文件图标
- * （@react-symbols/icons，按扩展名/目录名着色，VSCode 风格）。
- *
- * 纪律（与参考项目 components/icons.tsx 一致）：
- * - UI 操作图标：Tabler，默认 16×16、stroke 1.5（chrome 光学平衡），
- *   颜色继承 currentColor（跟随主题语义色）；
- * - 文件/目录图标：@react-symbols/icons 彩色（FileGlyph 一行接入）。
+ * Colored file/directory glyphs (VSCode Material style via
+ * `@react-symbols/icons`). Chrome icons live in official primitives or
+ * `plugins/shared/icons.tsx`.
  */
 import type { ReactNode } from 'react'
+import { IconLinkOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   DefaultFolderOpenedIcon,
   getIconForFile,
   getIconForFolder,
 } from '@react-symbols/icons/utils'
-import {
-  IconCheck as TbCheck,
-  IconChevronDown as TbChevronDown,
-  IconChevronRight as TbChevronRight,
-  IconCircleMinus as TbCircleMinus,
-  IconCirclePlus as TbCirclePlus,
-  IconCircleX as TbCircleX,
-  IconCopy as TbCopy,
-  IconEye as TbEye,
-  IconExternalLink as TbExternalLink,
-  IconFile as TbFile,
-  IconFileCode as TbFileCode,
-  IconFileDiff as TbFileDiff,
-  IconFileText as TbFileText,
-  IconAdjustments as TbAdjustments,
-  IconArchive as TbArchive,
-  IconCheck as TbCheck2,
-  IconDots as TbDots,
-  IconEdit as TbEdit,
-  IconFiles as TbFiles,
-  IconFolderPlus as TbFolderPlus,
-  IconSearch as TbSearch,
-  IconTriangle as TbTriangle,
-  IconFolder as TbFolder,
-  IconFolderOpen as TbFolderOpen,
-  IconGitBranch as TbGitBranch,
-  IconGitCommit as TbGitCommit,
-  IconGitPullRequest as TbGitPullRequest,
-  IconHistory as TbHistory,
-  IconLayoutList as TbLayoutList,
-  IconLayoutSidebarRightFilled as TbLayoutSidebarRightFilled,
-  IconLayoutBottombarFilled as TbLayoutBottombarFilled,
-  IconLink as TbLink,
-  IconList as TbList,
-  IconListTree as TbListTree,
-  IconMinus as TbMinus,
-  IconPlus as TbPlus,
-  IconRefresh as TbRefresh,
-  IconRotateClockwise as TbRotateClockwise,
-  IconSquareMinus as TbSquareMinus,
-  IconSquarePlus as TbSquarePlus,
-  IconSquareX as TbSquareX,
-  IconTerminal2 as TbTerminal2,
-  IconTrash as TbTrash,
-  IconX as TbX,
-  type Icon as TablerIcon,
-  type IconProps,
-} from '@tabler/icons-react'
 
 const DEFAULT_SIZE = 16
-const DEFAULT_STROKE = 1.5
-
-type AppIcon = (props: IconProps) => JSX.Element
-
-/** Wrap a Tabler icon with the product defaults (16px / stroke 1.5). */
-function tabler(Component: TablerIcon): AppIcon {
-  return (props) => (
-    <Component
-      size={DEFAULT_SIZE}
-      stroke={DEFAULT_STROKE}
-      aria-hidden="true"
-      {...props}
-    />
-  )
-}
-
-export const IconCheck = tabler(TbCheck)
-export const IconChevronDown = tabler(TbChevronDown)
-export const IconChevronRight = tabler(TbChevronRight)
-export const IconPlus = tabler(TbPlus)
-export const IconMinus = tabler(TbMinus)
-export const IconTrash = tabler(TbTrash)
-export const IconCopy = tabler(TbCopy)
-export const IconRefresh = tabler(TbRefresh)
-export const IconEye = tabler(TbEye)
-export const IconHistory = tabler(TbHistory)
-export const IconTerminal = tabler(TbTerminal2)
-export const IconGitBranch = tabler(TbGitBranch)
-export const IconGitCommit = tabler(TbGitCommit)
-export const IconGitPull = tabler(TbGitPullRequest)
-export const IconRotate = tabler(TbRotateClockwise)
-export const IconFiles = tabler(TbFiles)
-export const IconList = tabler(TbList)
-export const IconListTree = tabler(TbListTree)
-/** Right-panel toggle glyph (VSCode-style): a frame with a filled strip
- *  along its RIGHT edge — the same glyph for both states (state is carried
- *  by aria-pressed), mirroring the upstream better-sidebar cluster. */
-export const IconSidebarRightFilled = tabler(TbLayoutSidebarRightFilled)
-/** Bottom-panel toggle glyph: a frame with a filled strip along its BOTTOM
- *  edge — same glyph for both states. */
-export const IconBottombarFilled = tabler(TbLayoutBottombarFilled)
-/**
- * Left-panel toggle glyph: the mirror of `IconSidebarRightFilled` (a frame
- * with a filled strip along its LEFT edge) — Tabler ships only arrow-bearing
- * left variants, so the frame+strip path of `IconLayoutSidebarLeftExpandFilled`
- * (arrow segment stripped) is used. Drives the DSH left-rail control.
- */
-export const IconSidebarLeftFilled = ({
-  size = DEFAULT_SIZE,
-  className,
-}: {
-  size?: number
-  className?: string
-}): JSX.Element => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="currentColor"
-    aria-hidden="true"
-    className={className}
-  >
-    <path d="M18 3a3 3 0 0 1 2.995 2.824l.005 .176v12a3 3 0 0 1 -2.824 2.995l-.176 .005h-12a3 3 0 0 1 -2.995 -2.824l-.005 -.176v-12a3 3 0 0 1 2.824 -2.995l.176 -.005h12zm0 2h-9v14h9a1 1 0 0 0 .993 -.883l.007 -.117v-12a1 1 0 0 0 -.883 -.993l-.117 -.007z" />
-  </svg>
-)
-export const IconLayoutList = tabler(TbLayoutList)
-export const IconFolder = tabler(TbFolder)
-export const IconFolderOpen = tabler(TbFolderOpen)
-export const IconFileDiff = tabler(TbFileDiff)
-export const IconExternalLink = tabler(TbExternalLink)
-export const IconCirclePlus = tabler(TbCirclePlus)
-export const IconCircleMinus = tabler(TbCircleMinus)
-export const IconCircleX = tabler(TbCircleX)
-export const IconSquarePlus = tabler(TbSquarePlus)
-export const IconSquareMinus = tabler(TbSquareMinus)
-export const IconSquareX = tabler(TbSquareX)
-export const IconDots = tabler(TbDots)
-export const IconEdit = tabler(TbEdit)
-export const IconSearch = tabler(TbSearch)
-export const IconArchive = tabler(TbArchive)
-export const IconAdjustments = tabler(TbAdjustments)
-export const IconTriangle = tabler(TbTriangle)
-export const IconFolderPlus = tabler(TbFolderPlus)
-/** Close glyph (Tabler `X`), aliased for call sites that use IconClose. */
-export const IconClose = tabler(TbX)
-/** Text-file glyph (Tabler `FileText`). */
-export const IconFileText = tabler(TbFileText)
-export const IconFile = tabler(TbFile)
-export const IconFileCode = tabler(TbFileCode)
-
-export type { IconProps }
-
-/* ------------------------------------------------------------------ */
-/* 文件/目录图标：按扩展名映射                                          */
-/* ------------------------------------------------------------------ */
 
 export type FileGlyphKind = 'directory' | 'file' | 'symlink'
 
@@ -192,7 +46,7 @@ export function FileGlyph({
   if (kind === 'symlink') {
     return (
       <span className={className} aria-hidden="true">
-        <TbLink size={DEFAULT_SIZE} stroke={DEFAULT_STROKE} />
+        <IconLinkOutline16 size={DEFAULT_SIZE} />
       </span>
     )
   }

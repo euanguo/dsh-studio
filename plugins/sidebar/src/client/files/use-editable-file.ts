@@ -116,7 +116,7 @@ export function useEditableFile(options: {
         const message = cause instanceof Error ? cause.message : String(cause)
         if (aliveRef.current) {
           setError(message)
-          toast('error', t('toast.save-failed', { message }))
+          toast(t('toast.save-failed', { message }))
         }
         return false
       })

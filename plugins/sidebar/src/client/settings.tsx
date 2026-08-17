@@ -10,6 +10,13 @@
  */
 import { useMemo, useState, type ReactNode } from 'react'
 import { useSyncExternalStore } from 'react'
+import {
+  Button,
+  IconCheckOutline16,
+  IconSettingsOutline16,
+  Input,
+  Modal,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from './i18n.ts'
 import { Scrollable } from '@oh-dsh/shared/scrollable'
@@ -109,7 +116,7 @@ function InputRow(props: {
         {props.desc !== undefined && <small>{props.desc}</small>}
       </span>
       <span className="oh-dsh-sidebar-settings-input">
-        <input
+        <Input
           type={props.type}
           value={draft}
           min={props.min}
@@ -248,21 +255,20 @@ function FeatureSettingsPopup(props: {
   }
 
   return (
-    <div
-      className="oh-dsh-sidebar-settings-popup"
-      role="dialog"
-      aria-label={sidebarLabel(feature.title ?? feature.id)}
-      onClick={event => { event.stopPropagation() }}
+    <Modal
+      open
+      onClose={onClose}
+      title={sidebarLabel(feature.title ?? feature.id)}
+      description={feature.id}
+      closeLabel={t('settings.done')}
+      footer={(
+        <Button variant="primary" size="sm" onClick={onClose}>
+          {t('settings.done')}
+        </Button>
+      )}
     >
-      <div className="oh-dsh-sidebar-settings-popup-head">
-        <strong>{sidebarLabel(feature.title ?? feature.id)}</strong>
-        <code>{feature.id}</code>
-      </div>
       <Scrollable className="oh-dsh-sidebar-settings-popup-body">{body}</Scrollable>
-      <div className="oh-dsh-sidebar-settings-popup-foot">
-        <button type="button" onClick={onClose}>{t('settings.done')}</button>
-      </div>
-    </div>
+    </Modal>
   )
 }
 
@@ -302,19 +308,24 @@ function FeatureCard(props: {
         <code>{id}{meta === '' ? '' : ` · ${meta}`}</code>
       </span>
       {enabled && (
-        <span className="oh-dsh-sidebar-feature-check" aria-hidden="true">✓</span>
+        <span className="oh-dsh-sidebar-feature-check" aria-hidden="true">
+          <IconCheckOutline16 size={14} />
+        </span>
       )}
       {hasSettings && enabled && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           className="oh-dsh-sidebar-feature-gear"
           aria-label={t('settings.feature-settings')}
           title={t('settings.feature-settings')}
+          icon={<IconSettingsOutline16 size={14} />}
           onClick={event => {
             event.stopPropagation()
             onOpenSettings()
           }}
-        >⚙</button>
+        />
       )}
     </div>
   )
@@ -349,20 +360,15 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
     ? {}
     : state.pluginSettings[settingsFor.id] ?? {}
   const popup = settingsFor === null ? null : (
-    <div
-      className="oh-dsh-sidebar-settings-popup-backdrop"
-      onClick={() => { setSettingsFor(null) }}
-    >
-      <FeatureSettingsPopup
-        feature={settingsFor}
-        prefs={prefs}
-        pluginSettings={pluginSettings}
-        runtime={props.runtime}
-        updatePluginSetting={props.updatePluginSetting}
-        onClose={() => { setSettingsFor(null) }}
-        t={props.t}
-      />
-    </div>
+    <FeatureSettingsPopup
+      feature={settingsFor}
+      prefs={prefs}
+      pluginSettings={pluginSettings}
+      runtime={props.runtime}
+      updatePluginSetting={props.updatePluginSetting}
+      onClose={() => { setSettingsFor(null) }}
+      t={props.t}
+    />
   )
   return (
     <div className="oh-dsh-sidebar-settings">
@@ -371,7 +377,9 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           <strong>{props.t('settings.title')}</strong>
           <p>{props.t('settings.description')}</p>
         </div>
-        <button type="button" onClick={props.reset}>{props.t('settings.reset')}</button>
+        <Button variant="outline" size="sm" onClick={props.reset}>
+          {props.t('settings.reset')}
+        </Button>
       </div>
       <label className="oh-dsh-sidebar-settings-row">
         <span>

@@ -8,21 +8,25 @@
  * Rows are built on the shared ListRow primitives (plugins/shared/list-row)
  * — the same row geometry as the file browser and every other list.
  */
-import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import {
-  IconChevronDown,
-  IconChevronRight,
-  IconCopy,
+  IconChevronDownOutline14,
+  IconChevronRightOutline14,
+  IconCopyOutline16,
+  IconPlusOutline16,
+  IconTrashOutline16,
+  Menu,
+  type MenuEntry,
+} from '@deepseek-ai/dsh-client-ui-primitives'
+import {
   IconEye,
   IconFileDiff,
   IconLayoutList,
   IconListTree,
   IconMinus,
-  IconPlus,
-  IconTrash,
-  FileGlyph,
-} from '@oh-dsh/shared/tabler-icons'
+} from '@oh-dsh/shared/icons'
+import { FileGlyph } from '@oh-dsh/shared/tabler-icons'
 import {
   ListRow,
   ListRowActions,
@@ -87,17 +91,21 @@ interface MenuState {
 
 export function SourceControlPanel(props: SourceControlPanelProps): JSX.Element {
   const [menu, setMenu] = useState<MenuState | null>(null)
-  const menuRef = useRef<HTMLDivElement | null>(null)
 
-  useEffect(() => {
+  const menuItems: MenuEntry[] = menu === null ? [] : [
+    { id: 'copy-path', label: props.t('source-control.copy-path'), icon: <IconCopyOutline16 size={14} /> },
+    ...(menu.canStage ? [{ id: 'stage', label: props.t('source-control.stage'), icon: <IconPlusOutline16 size={14} /> }] : []),
+    ...(menu.canUnstage ? [{ id: 'unstage', label: props.t('source-control.unstage'), icon: <IconMinus size={14} /> }] : []),
+    ...(menu.canDiscard ? [{ id: 'discard', label: props.t('source-control.discard'), icon: <IconTrashOutline16 size={14} />, danger: true }] : []),
+  ]
+  const handleMenuSelect = (id: string): void => {
     if (menu === null) return
-    const close = (event: MouseEvent): void => {
-      if (menuRef.current?.contains(event.target as Node)) return
-      setMenu(null)
-    }
-    window.addEventListener('mousedown', close, true)
-    return () => { window.removeEventListener('mousedown', close, true) }
-  }, [menu])
+    if (id === 'copy-path') props.onCopyPath(menu.path)
+    else if (id === 'stage') props.onStage([menu.path])
+    else if (id === 'unstage') props.onUnstage([menu.path])
+    else if (id === 'discard') props.onDiscard([menu.path], menu.path)
+    setMenu(null)
+  }
 
   return (
     <div className="oh-dsh-sc-list">
@@ -143,54 +151,15 @@ export function SourceControlPanel(props: SourceControlPanelProps): JSX.Element 
           }}
         />
       ))}
-      {menu !== null && (
-        <div
-          ref={menuRef}
-          className="oh-dsh-sc-menu"
-          role="menu"
-          style={{ left: menu.x, top: menu.y }}
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              props.onCopyPath(menu.path)
-              setMenu(null)
-            }}
-          ><IconCopy size={14} />{props.t('source-control.copy-path')}</button>
-          {menu.canStage && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                props.onStage([menu.path])
-                setMenu(null)
-              }}
-            ><IconPlus size={14} />{props.t('source-control.stage')}</button>
-          )}
-          {menu.canUnstage && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                props.onUnstage([menu.path])
-                setMenu(null)
-              }}
-            ><IconMinus size={14} />{props.t('source-control.unstage')}</button>
-          )}
-          {menu.canDiscard && (
-            <button
-              type="button"
-              role="menuitem"
-              className="oh-dsh-sc-menu-danger"
-              onClick={() => {
-                props.onDiscard([menu.path], menu.path)
-                setMenu(null)
-              }}
-            ><IconTrash size={14} />{props.t('source-control.discard')}</button>
-          )}
-        </div>
-      )}
+      <Menu
+        open={menu !== null}
+        anchor={null}
+        portal
+        getAnchorRect={() => (menu === null ? null : new DOMRect(menu.x, menu.y, 0, 0))}
+        items={menuItems}
+        onSelect={handleMenuSelect}
+        onClose={() => { setMenu(null) }}
+      />
     </div>
   )
 }
@@ -262,7 +231,7 @@ function SectionRowView(props: {
         onClick={() => { props.onToggleSection(row.id) }}
       >
         <ListRowLeading aria-hidden="true">
-          {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          {row.expanded ? <IconChevronDownOutline14 size={14} /> : <IconChevronRightOutline14 size={14} />}
         </ListRowLeading>
         <ListRowBody>
           <ListRowLabel>
@@ -285,7 +254,7 @@ function SectionRowView(props: {
               aria-label={props.t('source-control.stage-all')}
               title={props.t('source-control.stage-all')}
               onClick={() => { props.onStage(row.stagePaths) }}
-            ><IconPlus size={14} /></ListRowActionButton>
+            ><IconPlusOutline16 size={14} /></ListRowActionButton>
           )}
           {row.unstagePaths.length > 0 && (
             <ListRowActionButton
@@ -299,7 +268,7 @@ function SectionRowView(props: {
               aria-label={props.t('source-control.discard-all')}
               title={props.t('source-control.discard-all')}
               onClick={() => { props.onDiscard(row.discardPaths, props.t(`source-control.section.${row.id}`)) }}
-            ><IconTrash size={14} /></ListRowActionButton>
+            ><IconTrashOutline16 size={14} /></ListRowActionButton>
           )}
         </span>
       </ListRowTrailing>
@@ -325,7 +294,7 @@ function DirectoryRowView(props: {
         onClick={() => { props.onToggleDirectory(row.key) }}
       >
         <ListRowLeading aria-hidden="true">
-          {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+          {row.expanded ? <IconChevronDownOutline14 size={14} /> : <IconChevronRightOutline14 size={14} />}
         </ListRowLeading>
         <FileGlyph path={row.path} kind="directory" expanded={row.expanded} />
         <ListRowBody>
@@ -341,7 +310,7 @@ function DirectoryRowView(props: {
             aria-label={props.t('source-control.stage-all')}
             title={props.t('source-control.stage-all')}
             onClick={() => { props.onStage(row.stagePaths) }}
-          ><IconPlus size={14} /></ListRowActionButton>
+          ><IconPlusOutline16 size={14} /></ListRowActionButton>
         )}
         {row.unstagePaths.length > 0 && (
           <ListRowActionButton
@@ -355,7 +324,7 @@ function DirectoryRowView(props: {
             aria-label={props.t('source-control.discard-all')}
             title={props.t('source-control.discard-all')}
             onClick={() => { props.onDiscard(row.discardPaths, row.path) }}
-          ><IconTrash size={14} /></ListRowActionButton>
+          ><IconTrashOutline16 size={14} /></ListRowActionButton>
         )}
       </ListRowActions>
     </ListRow>
@@ -432,7 +401,7 @@ function FileRowView(props: {
             title={props.t('source-control.stage')}
             disabled={props.pending !== null}
             onClick={() => { props.onStage([row.path]) }}
-          ><IconPlus size={14} /></ListRowActionButton>
+          ><IconPlusOutline16 size={14} /></ListRowActionButton>
         )}
         {row.canUnstage && (
           <ListRowActionButton
@@ -448,7 +417,7 @@ function FileRowView(props: {
             title={props.t('source-control.discard')}
             disabled={props.pending !== null}
             onClick={() => { props.onDiscard([row.path], row.path) }}
-          ><IconTrash size={14} /></ListRowActionButton>
+          ><IconTrashOutline16 size={14} /></ListRowActionButton>
         )}
       </ListRowActions>
     </ListRow>

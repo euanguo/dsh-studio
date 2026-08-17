@@ -16,21 +16,21 @@ import type { ErrorInfo, ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import {
-  IconExternalLink,
-  IconFile,
-  IconFileDiff,
-  IconGitBranch,
-  IconGitCommit,
-  IconHistory,
-  IconPlus,
-  IconSidebarLeftFilled,
-  IconSidebarRightFilled,
-  IconTerminal,
-} from '@oh-dsh/shared/tabler-icons'
-import {
+  IconBranchOutline16,
+  IconPanelLeftOutline16,
+  IconPlusOutline16,
+  IconRightUpOutline16,
   Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  IconCommit,
+  IconFile,
+  IconFileDiff,
+  IconHistory,
+  IconSidebarRightFilled,
+  IconTerminal,
+} from '@oh-dsh/shared/icons'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { ErrorView } from '../kit/status.tsx'
 import { centerColumnElement, leftRailToggleButton, readLeftRailOpen } from './dsh-dom.ts'
@@ -59,12 +59,12 @@ import {
 function surfaceIcon(surface: CenterSurface): JSX.Element | null {
   if (surface.kind === 'conversation') return <IconFile size={13} />
   if (surface.kind === 'file') return <IconFile size={13} />
-  if (surface.kind === 'diff') return <IconGitBranch size={13} />
-  if (surface.kind === 'diff-all') return <IconGitBranch size={13} />
+  if (surface.kind === 'diff') return <IconBranchOutline16 size={13} />
+  if (surface.kind === 'diff-all') return <IconBranchOutline16 size={13} />
   if (surface.kind === 'commit') return <IconHistory size={13} />
   if (surface.kind === 'commit-file') return <IconFileDiff size={13} />
-  if (surface.kind === 'committed') return <IconGitCommit size={13} />
-  if (surface.kind === 'browser') return <IconExternalLink size={13} />
+  if (surface.kind === 'committed') return <IconCommit size={13} />
+  if (surface.kind === 'browser') return <IconRightUpOutline16 size={13} />
   if (surface.kind === 'terminal') return <IconTerminal size={13} />
   return null
 }
@@ -240,7 +240,7 @@ function LeftRailToggleButton(props: {
       onClick={props.onToggleLeftRail}
     >
       <span className="oh-dsh-rail-toggle-glyph" aria-hidden="true">
-        <IconSidebarLeftFilled />
+        <IconPanelLeftOutline16 />
       </span>
     </button>
   )
@@ -390,9 +390,9 @@ function CenterAddMenu({
     ? undefined
     : sessionList.byId[sessionList.current]?.cwd
   const items: MenuEntry[] = [
-    { id: 'browser', label: t('browser'), icon: <IconExternalLink size={14} /> },
+    { id: 'browser', label: t('browser'), icon: <IconRightUpOutline16 size={14} /> },
     { id: 'terminal', label: t('terminal'), icon: <IconTerminal size={14} /> },
-    { id: 'new-conversation', label: t('add.new-conversation'), icon: <IconPlus size={14} /> },
+    { id: 'new-conversation', label: t('add.new-conversation'), icon: <IconPlusOutline16 size={14} /> },
   ]
   const pick = (id: string): void => {
     setOpen(false)
@@ -432,7 +432,7 @@ function CenterAddMenu({
         aria-expanded={open}
         title={t('add.open')}
         onClick={() => { setOpen(value => !value) }}
-      ><IconPlus size={14} /></button>
+      ><IconPlusOutline16 size={14} /></button>
       <Menu
         open={open}
         anchor={null}

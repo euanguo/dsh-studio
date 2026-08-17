@@ -12,11 +12,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
-  IconExternalLink,
+  Button,
+  IconPlusOutline16,
+  IconRightUpOutline16,
+} from '@deepseek-ai/dsh-client-ui-primitives'
+import {
   IconFileText,
   IconMinus,
-  IconPlus,
-} from '@oh-dsh/shared/tabler-icons'
+} from '@oh-dsh/shared/icons'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import { basename } from '@oh-dsh/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -195,7 +198,7 @@ export function ContentViewer({
         <strong>{name}</strong>
         <span>{isEmpty ? t('files.empty-file') : t('files.viewer.binary')}</span>
         {onOpenExternal !== undefined && (
-          <button type="button" onClick={onOpenExternal}>{t('files.open')}</button>
+          <Button variant="outline" size="sm" onClick={onOpenExternal}>{t('files.open')}</Button>
         )}
       </div>
     )
@@ -382,7 +385,7 @@ function ImageViewer({
           <strong>{name}</strong>
           <span>{t('files.image-load-failed')}</span>
           {onOpenExternal !== undefined && (
-            <button type="button" onClick={onOpenExternal}>{t('files.open')}</button>
+            <Button variant="outline" size="sm" onClick={onOpenExternal}>{t('files.open')}</Button>
           )}
         </div>
       ) : (
@@ -393,12 +396,12 @@ function ImageViewer({
             </button>
             <span>{`${Math.round(zoom * 100)}%`}</span>
             <button type="button" onClick={() => setZoom(value => Math.min(8, value + 0.25))} aria-label={t('files.zoom-in')}>
-              <IconPlus size={14} />
+              <IconPlusOutline16 size={14} />
             </button>
-            <button type="button" onClick={() => setZoom(1)}>{t('files.zoom-reset')}</button>
+            <Button variant="ghost" size="sm" onClick={() => setZoom(1)}>{t('files.zoom-reset')}</Button>
             {onOpenExternal !== undefined ? (
               <button type="button" onClick={onOpenExternal} aria-label={t('files.open-externally')}>
-                <IconExternalLink size={14} />
+                <IconRightUpOutline16 size={14} />
               </button>
             ) : null}
           </div>
@@ -436,7 +439,7 @@ function PdfViewer({
         <span title={path}>{name}</span>
         {onOpenExternal !== undefined ? (
           <button type="button" onClick={onOpenExternal} aria-label="Open externally">
-            <IconExternalLink size={14} />
+            <IconRightUpOutline16 size={14} />
           </button>
         ) : null}
       </div>

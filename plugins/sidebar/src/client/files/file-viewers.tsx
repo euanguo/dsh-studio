@@ -4,6 +4,7 @@
  * family) — no separate plain-text renderer. Extracted from plugin.tsx.
  */
 import { useState, useSyncExternalStore } from 'react'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { EmptyView } from '../kit/status.tsx'
@@ -30,9 +31,9 @@ export function BinaryFileViewer({
     <Scrollable className="oh-dsh-file-preview">
       <div>
         <strong title={path}>{title}</strong>
-        <button type="button" onClick={() => { void onOpen() }}>
+        <Button variant="outline" size="sm" onClick={() => { void onOpen() }}>
           {t('files.open')}
-        </button>
+        </Button>
       </div>
       <EmptyView title={t('files.viewer.binary')} />
     </Scrollable>
@@ -72,13 +73,14 @@ export function HtmlFileViewer({
     <Scrollable className="oh-dsh-file-preview oh-dsh-html-preview">
       <div className="oh-dsh-html-toolbar">
         <strong title={path}>{title}</strong>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           onClick={() => { setOverride(!unsandboxed) }}
           title={unsandboxed ? t('files.viewer.html-restore') : t('files.viewer.html-unlock')}
         >
           {unsandboxed ? t('files.viewer.html-restore') : t('files.viewer.html-unlock')}
-        </button>
+        </Button>
       </div>
       {unsandboxed && (
         <p className="oh-dsh-html-warning" role="alert">

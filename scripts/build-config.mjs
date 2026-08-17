@@ -7,6 +7,11 @@ import { join } from 'node:path'
  * @param root - repository root.
  * @returns esbuild build option list (without `watch`, which only dev.mjs adds).
  */
+const nodeEsmRequireBanner = [
+  "import { createRequire as __ohDshCreateRequire } from 'node:module';",
+  'const require = __ohDshCreateRequire(import.meta.url);',
+].join('\n')
+
 export function desktopBuilds(root) {
   const pluginPackages = [
     { directory: 'sidebar-host', hostOnly: true },
@@ -34,6 +39,7 @@ export function desktopBuilds(root) {
       platform: 'node',
       format: 'esm',
       external: ['electron'],
+      banner: { js: nodeEsmRequireBanner },
     },
     {
       ...shared,
@@ -98,14 +104,9 @@ export function desktopBuilds(root) {
           ...(['desktop-skins', 'sidebar', 'desktop-left-rail'].includes(plugin.directory)
             ? ['@deepseek-ai/dsh-client-runtime/client']
             : []),
-          ...(['desktop-left-rail', 'sidebar', 'sidebar-desktop'].includes(plugin.directory)
-            // Platform seed (frozen module table): the runtime resolves the
-            // official ui-primitives bundle — icons/menus/dialogs stay 1:1
-            // with the official web app (see docs/official-plugin-migration.md).
-            // sidebar-desktop bundles the sidebar's own client modules
-            // (SideToolsPanel), so it inherits the same external.
-            ? ['@deepseek-ai/dsh-client-ui-primitives']
-            : []),
+          // Platform seed (frozen module table): every client plugin may
+          // import official primitives. The runtime resolves one copy.
+          '@deepseek-ai/dsh-client-ui-primitives',
         ],
         banner: {
           js: `window.__ModuleLoader__.load({ id: "${plugin.id}", factory: (require) => { var module = { exports: {} }; var exports = module.exports;`,

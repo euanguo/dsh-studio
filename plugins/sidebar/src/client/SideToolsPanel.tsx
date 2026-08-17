@@ -13,31 +13,29 @@ import {
 import {
   IconBranchOutline16,
   IconBrowseOutline16,
+  IconChevronDownOutline14,
+  IconChevronRightOutline14,
+  IconCloseOutline16,
   IconCodeOutline16,
   IconEllipsisOutline16,
   IconFolderOpenOutline16,
+  IconFullscreenOutline16,
   IconListPenOutline16,
   IconNewChatOutline16,
+  IconPlusOutline16,
+  IconRefreshOutline16,
   Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
 import {
-  IconClose,
-  IconExpand,
   IconMinus,
-  IconRefresh,
   IconRestore,
+  IconSidebarRightFilled,
 } from '@oh-dsh/shared/icons'
 import {
-  IconChevronDown,
-  IconChevronRight,
-  IconPlus,
   FileGlyph,
-  // IconBottombarFilled — CUT with the terminal toggle button
-  // (see the PanelActions CUT note below); restore with the button.
-  IconSidebarRightFilled,
 } from '@oh-dsh/shared/tabler-icons'
 import {
   basename,
@@ -203,7 +201,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
         className="oh-dsh-side-menu-close"
         aria-label={props.t('side.close')}
         onClick={props.onClose}
-      ><IconClose size={16} /></button>
+      ><IconCloseOutline16 size={16} /></button>
     </Scrollable>
   )
 }
@@ -458,7 +456,7 @@ export function FilesView({
           aria-label={t('files.refresh')}
           title={t('files.refresh')}
           onClick={refreshListings}
-        ><IconRefresh size={16} /></button>
+        ><IconRefreshOutline16 size={16} /></button>
       </div>
       <div className="oh-dsh-files-search">
         <input
@@ -535,7 +533,7 @@ export function FilesView({
             >
               <ListRowLeading aria-hidden="true">
                 {row.kind === 'directory'
-                  ? row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />
+                  ? row.expanded ? <IconChevronDownOutline14 size={14} /> : <IconChevronRightOutline14 size={14} />
                   : null}
               </ListRowLeading>
               <FileGlyph path={row.path} kind={row.kind} expanded={row.expanded} />
@@ -747,7 +745,7 @@ function AddToolsMenu({ sidebar, t }: {
         aria-expanded={open}
         title={t('side.add-tool')}
         onClick={() => { setOpen(value => !value) }}
-      ><IconPlus size={14} /></button>
+      ><IconPlusOutline16 size={14} /></button>
       <Menu
         open={open}
         anchor={null}
@@ -917,7 +915,7 @@ function PanelActions({
         aria-pressed={maximized}
         title={maximized ? t('side.restore') : t('side.expand')}
         onClick={onToggleMaximized}
-      >{maximized ? <IconRestore size={16} /> : <IconExpand size={16} />}</button>
+      >{maximized ? <IconRestore size={16} /> : <IconFullscreenOutline16 size={16} />}</button>
       <button
         type="button"
         aria-label={t('side.toggle')}

@@ -10,9 +10,9 @@ import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
 import { useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import {
-  IconChevronDown,
-  IconChevronRight,
-} from '@oh-dsh/shared/tabler-icons'
+  IconChevronDownOutline14,
+  IconChevronRightOutline14,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import { FileGlyph } from '@oh-dsh/shared/tabler-icons'
 import { Scrollable } from '@oh-dsh/shared/scrollable'
 import {
@@ -115,7 +115,7 @@ export function DiffPathTreeNav({
                     onClick={() => { onToggleDirectory(row.path) }}
                   >
                     <ListRowLeading>
-                      {row.collapsed === true ? <IconChevronRight size={14} /> : <IconChevronDown size={14} />}
+                      {row.collapsed === true ? <IconChevronRightOutline14 size={14} /> : <IconChevronDownOutline14 size={14} />}
                     </ListRowLeading>
                     <FileGlyph path={row.path} kind="directory" expanded={row.collapsed !== true} />
                     <ListRowLabel>

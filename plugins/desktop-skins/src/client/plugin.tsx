@@ -1,4 +1,5 @@
 import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
+import { IconCheckOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
 import desktopSkinsCss from './desktop-skins.css'
 import {
@@ -122,7 +123,9 @@ function SkinSettingsRow({ setSkin, t, useStore }: SkinRowProps): JSX.Element {
                   <span className="oh-dsh-skins-mode">{t(option.mode)}</span>
                 </span>
                 {selected && (
-                  <span className="oh-dsh-skins-check" title={t('skins.selected')}>✓</span>
+                  <span className="oh-dsh-skins-check" title={t('skins.selected')}>
+                    <IconCheckOutline16 size={14} />
+                  </span>
                 )}
               </span>
             </button>

@@ -35,7 +35,7 @@ import { WorkspacePickFlow } from './WorkspacePicker.tsx'
 import { ProjectTreeBody } from './WorkspaceBrowserProjectTree.tsx'
 import { createWorktree, useWorktreeLayouts, fetchBranches } from './worktree-api.ts'
 import { loadLeftRailSettings, saveLeftRailSettings } from './left-rail-settings.ts'
-import { copyText } from '@oh-dsh/shared/copy-text'
+import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { toast } from '@oh-dsh/shared/toast'
 // Identity class map + scoped stylesheet (build-time generated from the
 // forked CSS Modules — see scripts/left-rail-styles.mjs). The scope
@@ -403,8 +403,8 @@ export function WorkspaceBrowser({
   // Copy-path feedback rides the shared app toast (plugins/shared/toast.tsx);
   // the sidebar plugin mounts its host, so this rail only publishes.
   const onCopy = (text: string): void => {
-    void copyText(text).then(ok => {
-      toast(ok ? 'success' : 'error', ok ? t('hover.copied') : t('copy.failed'))
+    void writeClipboard(text).then(ok => {
+      toast(ok ? t('hover.copied') : t('copy.failed'))
     })
   }
 

@@ -19,6 +19,9 @@ its subtree. Keep this file to durable rules; put explanations in `docs/`.
   Workspace. Electron-only capabilities must remain Desktop-only.
 - Treat `upstream/` as pinned source. Adapt upstream behavior in `plugins/`,
   retain attribution, and preserve the Oh-DSH UI and contracts.
+- Plugin chrome uses official `@deepseek-ai/dsh-client-ui-primitives`
+  and `--dsw-*` tokens. See `plugins/AGENTS.md`. Do not add a second
+  button, dialog, toast, or icon kit.
 - `@oh-dsh/desktop-skins` owns shared theme identities across all surfaces
   (its durable preferences root comes from the `ohDshSurface` contract, so
   one provider serves desktop and web). Surface adapters may change

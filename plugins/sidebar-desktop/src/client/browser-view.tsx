@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
+import {
+  Button,
+  IconChevronLeftOutline14,
+  IconRefreshOutline16,
+  Input,
+} from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@oh-dsh/shared/i18n'
-import { IconArrowLeft, IconRefresh } from '@oh-dsh/shared/icons'
 import type { SidebarRenderProps } from '@oh-dsh/sidebar/client/contract'
 import type { BrowserCenterSurface } from '@oh-dsh/sidebar/client/surfaces-types'
 import type { WorkspaceMessage } from '@oh-dsh/sidebar/client/i18n'
@@ -114,24 +119,30 @@ export function BrowserView({
         className="oh-dsh-browser-bar"
         onSubmit={event => { event.preventDefault(); void navigate() }}
       >
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           disabled={!canGoBack}
           aria-label={t('browser.back')}
+          icon={<IconChevronLeftOutline14 size={16} />}
           onClick={() => { webview.current?.goBack() }}
-        ><IconArrowLeft size={16} /></button>
-        <button
+        />
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           aria-label={t('browser.reload')}
+          icon={<IconRefreshOutline16 size={16} />}
           onClick={() => { webview.current?.reload() }}
-        ><IconRefresh size={16} /></button>
-        <input
+        />
+        <Input
           value={address}
           placeholder={t('browser.enter-url')}
           aria-label={t('browser.url')}
           onChange={event => { setAddress(event.currentTarget.value) }}
         />
-        <button type="submit">{t('browser.go')}</button>
+        <Button type="submit" variant="primary" size="sm">{t('browser.go')}</Button>
       </form>
       {error !== '' && <div className="oh-dsh-browser-error" role="alert">{error}</div>}
       <div ref={container} className="oh-dsh-browser-host" />
