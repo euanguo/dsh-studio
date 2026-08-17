@@ -5,7 +5,7 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
-import { defaultOhDshHome } from './data-root.ts'
+import { defaultOhDshHome, hasOhDshHomeOverride, parseOhDshChannel, resolveOhDshHome } from './data-root.ts'
 import { UsageError } from './errors.ts'
 import { ensureTuiProfile, TUI_PROFILE } from './profile.ts'
 import {
@@ -45,6 +45,7 @@ const USAGE = `usage: ohdsh tui [options]
 Options:
   --cwd <dir>            workspace directory (default: current directory)
   --data <dir>           DSH home and session store (default: ~/.ohdsh)
+  --channel <stable|dev> isolate state (default: stable; dev uses ~/.ohdsh-dev)
   --resume <session>     resume an existing session id
   --lang <zh|en>         initial interface language
   --preset <name>        initial agent preset
@@ -53,7 +54,7 @@ Options:
   --help                 show this help
 
 Environment:
-  OH_DSH_HOME, DSH_OH_TUI_HOME, DSH_OH_TUI_CWD, DSH_OH_TUI_FULLSCREEN,
+  OH_DSH_HOME, OH_DSH_CHANNEL, DSH_OH_TUI_HOME, DSH_OH_TUI_CWD, DSH_OH_TUI_FULLSCREEN,
   DSH_OH_TUI_LANG, DSH_OH_TUI_PRESET, DSH_OH_TUI_SESSION_ID
 `
 
@@ -88,7 +89,9 @@ export function parseTuiArgs(
     cwd: optionalEnv(env, 'DSH_OH_TUI_CWD') ?? defaultCwd,
     dataRoot: optionalEnv(env, 'DSH_OH_TUI_HOME')
       ?? optionalEnv(env, 'OH_DSH_HOME')
-      ?? defaultDataRoot,
+      ?? (optionalEnv(env, 'OH_DSH_CHANNEL') === undefined
+        ? defaultDataRoot
+        : resolveOhDshHome(env)),
     fullscreen: envFullscreen === undefined
       ? true
       : parseBoolean(envFullscreen, 'DSH_OH_TUI_FULLSCREEN'),
@@ -97,6 +100,9 @@ export function parseTuiArgs(
     ...(envPreset === undefined ? {} : { preset: envPreset }),
     ...(envSessionId === undefined ? {} : { sessionId: envSessionId }),
   }
+  let explicitData = optionalEnv(env, 'DSH_OH_TUI_HOME') !== undefined
+    || optionalEnv(env, 'OH_DSH_HOME') !== undefined
+  let channel: ReturnType<typeof parseOhDshChannel> | undefined
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index] ?? ''
@@ -134,6 +140,16 @@ export function parseTuiArgs(
     const data = flag('--data')
     if (data !== undefined) {
       options.dataRoot = data
+      explicitData = true
+      continue
+    }
+    const channelValue = flag('--channel')
+    if (channelValue !== undefined) {
+      try {
+        channel = parseOhDshChannel(channelValue)
+      } catch (error) {
+        throw new UsageError(error instanceof Error ? error.message : String(error))
+      }
       continue
     }
     const sessionId = flag('--resume')
@@ -152,6 +168,9 @@ export function parseTuiArgs(
       continue
     }
     throw new UsageError(`unknown option: ${argument}`)
+  }
+  if (channel !== undefined && !explicitData && !hasOhDshHomeOverride(env)) {
+    options.dataRoot = defaultOhDshHome(undefined, channel)
   }
   return options
 }

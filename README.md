@@ -118,9 +118,11 @@ ohdsh web --port 3080  # 指定 Web 端口
 ohdsh tui              # 启动 Oh-DSH TUI
 ```
 
-三端默认共同使用 `~/.ohdsh` 存放缓存、配置、会话、凭据与插件状态。
-设置 `OH_DSH_HOME` 可以统一更换数据目录；运行 `ohdsh web --help` 或
-`ohdsh tui --help` 可以查看界面专属选项。
+已安装的 Desktop、Web 和 TUI 默认共同使用 `~/.ohdsh` 存放缓存、配置、会话、
+凭据与插件状态。源码里的 `pnpm start` / `pnpm dev` 默认改用 `~/.ohdsh-dev`，
+这样正式版和验证实例可以同时开、互不抢数据。设置 `OH_DSH_HOME` 可以统一更换
+数据目录；`--channel stable|dev` 或 `OH_DSH_CHANNEL` 在默认根目录之间切换。
+运行 `ohdsh web --help` 或 `ohdsh tui --help` 可以查看界面专属选项。
 
 内置的 `@oh-dsh/vision` 为三端提供同一个 `view_image` 工具，让用户对 Workspace
 内的本地图片、HTTP(S) 图片或 image data URL 做 OCR、读图与界面诊断。图片复制、

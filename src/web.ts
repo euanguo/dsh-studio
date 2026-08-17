@@ -6,9 +6,11 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   DEFAULT_OH_DSH_HOME_DIRECTORY,
+  defaultOhDshHome,
   hasOhDshHomeOverride,
   legacyWebDataRoot,
   migrateLegacyWebState,
+  parseOhDshChannel,
   resolveOhDshHome,
 } from './data-root.ts'
 import { UsageError } from './errors.ts'
@@ -46,12 +48,13 @@ Options:
   --host <host>           bind host (default ${DEFAULT_WEB_HOST}; use 0.0.0.0 to expose the UI on the LAN)
   --port <port>           listen port (default ${DEFAULT_WEB_PORT}; 0 picks a random port)
   --data <dir>            writable data root (default ~/${DEFAULT_DATA_DIR_NAME})
+  --channel <stable|dev>  isolate state (default: stable; dev uses ~/.ohdsh-dev)
   --trusted-host <auth>   extra authority the browser-trust fence accepts; required for non-loopback hosts (repeatable)
   --open, --no-open       open the browser when ready (default: open on an interactive terminal)
   --help                  show this help
 
 Environment:
-  OH_DSH_HOME, DSH_OH_WEB_HOST, DSH_OH_WEB_PORT, DSH_OH_WEB_HOME,
+  OH_DSH_HOME, OH_DSH_CHANNEL, DSH_OH_WEB_HOST, DSH_OH_WEB_PORT, DSH_OH_WEB_HOME,
   DSH_OH_WEB_OPEN
 `
 
@@ -92,6 +95,8 @@ export function parseLaunchArgs(
     port: env.DSH_OH_WEB_PORT === undefined ? DEFAULT_WEB_PORT : parsePort(env.DSH_OH_WEB_PORT),
     trustedHosts: [],
   }
+  let explicitData = env.DSH_OH_WEB_HOME !== undefined && env.DSH_OH_WEB_HOME !== ''
+  let channel: ReturnType<typeof parseOhDshChannel> | undefined
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index] ?? ''
     if (argument === '--help' || argument === '-h') {
@@ -129,6 +134,16 @@ export function parseLaunchArgs(
     const data = flag('--data')
     if (data !== undefined) {
       options.dataRoot = data
+      explicitData = true
+      continue
+    }
+    const channelValue = flag('--channel')
+    if (channelValue !== undefined) {
+      try {
+        channel = parseOhDshChannel(channelValue)
+      } catch (error) {
+        throw new UsageError(error instanceof Error ? error.message : String(error))
+      }
       continue
     }
     const trustedHost = flag('--trusted-host')
@@ -137,6 +152,9 @@ export function parseLaunchArgs(
       continue
     }
     throw new UsageError(`unknown option: ${argument}`)
+  }
+  if (channel !== undefined && !explicitData && !hasOhDshHomeOverride(env)) {
+    options.dataRoot = defaultOhDshHome(undefined, channel)
   }
   return options
 }

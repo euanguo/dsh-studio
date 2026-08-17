@@ -110,6 +110,34 @@ test('layered distributions list and reject unavailable surfaces', async () => {
   assert.match(stderr.text(), /Surface 'gui' is not included/)
 })
 
+test('desktop launch accepts a channel and help without starting Electron', async () => {
+  const stdout = output()
+  const stderr = output()
+  const calls: Array<{ args: readonly string[]; channel?: string }> = []
+  assert.equal(await main(
+    ['desktop', '--help'],
+    {},
+    stdout.stream,
+    stderr.stream,
+    async () => {
+      calls.push({ args: ['should-not-run'] })
+      return 1
+    },
+  ), 0)
+  assert.match(stdout.text(), /--channel/)
+  assert.equal(await main(
+    ['desktop', '--channel', 'dev', '--inspect'],
+    {},
+    stdout.stream,
+    stderr.stream,
+    async (args, env) => {
+      calls.push({ args, ...(env.OH_DSH_CHANNEL === undefined ? {} : { channel: env.OH_DSH_CHANNEL }) })
+      return 0
+    },
+  ), 0)
+  assert.deepEqual(calls, [{ args: ['--inspect'], channel: 'dev' }])
+})
+
 test('desktop launch keeps source and installed macOS paths distinct', () => {
   assert.deepEqual(desktopLaunchSpec([], {
     OH_DSH_DESKTOP_APP: '/Applications/Oh-DSH-Desktop.app',
@@ -149,6 +177,20 @@ test('macOS installed launches inherit the shared Oh-DSH state root', () => {
     args: [
       '--env',
       `OH_DSH_HOME=${posix.resolve('./relative-state')}`,
+      '-a',
+      'Oh-DSH-Desktop',
+    ],
+    command: '/usr/bin/open',
+  })
+  assert.deepEqual(desktopLaunchSpec([], {
+    OH_DSH_CHANNEL: 'dev',
+    OH_DSH_HOME: '/data/oh-dsh-dev',
+  }, 'darwin'), {
+    args: [
+      '--env',
+      'OH_DSH_HOME=/data/oh-dsh-dev',
+      '--env',
+      'OH_DSH_CHANNEL=dev',
       '-a',
       'Oh-DSH-Desktop',
     ],

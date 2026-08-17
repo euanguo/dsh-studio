@@ -119,10 +119,13 @@ ohdsh web --port 3080  # Choose the Web port
 ohdsh tui              # Start Oh-DSH TUI
 ```
 
-All three surfaces use `~/.ohdsh` for caches, configuration, sessions,
-credentials, and plugin state by default. Set `OH_DSH_HOME` to move the shared
-data root. Run `ohdsh web --help` or `ohdsh tui --help` for surface-specific
-options.
+Installed Desktop, Web, and TUI use `~/.ohdsh` for caches, configuration,
+sessions, credentials, and plugin state by default. Source launches from
+`pnpm start` / `pnpm dev` use `~/.ohdsh-dev` so a packaged app and a
+verification instance can run side by side. Set `OH_DSH_HOME` to move the
+shared data root, or use `--channel stable|dev` / `OH_DSH_CHANNEL` to pick
+the default pair. Run `ohdsh web --help` or `ohdsh tui --help` for
+surface-specific options.
 
 The bundled `@oh-dsh/vision` plugin exposes one `view_image` tool on every
 surface, allowing users to perform OCR, image inspection, and UI diagnosis on

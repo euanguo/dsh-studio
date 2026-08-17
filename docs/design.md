@@ -111,6 +111,8 @@ stateDiagram-v2
 面向用户的名称是 **Oh-DSH Desktop**、**Oh-DSH Web** 和
 **Oh-DSH TUI**。内部 package id 与 bundle id 保持稳定。三个界面共同使用
 `~/.ohdsh`，通过独立 Profile 隔离组合，并共享会话、凭据、皮肤与插件缓存。
-`OH_DSH_HOME` 是统一覆盖入口；Web 与 TUI 的 `--data` 只覆盖当前进程。
+`OH_DSH_HOME` 是统一覆盖入口；`OH_DSH_CHANNEL=stable|dev` 在默认根目录旁
+选择 `~/.ohdsh` 或 `~/.ohdsh-dev`，让已安装 Desktop 与源码验证实例并行。
+Web 与 TUI 的 `--data` 只覆盖当前进程。
 
 相关操作见[安装、操作与排错](./usage.md)。

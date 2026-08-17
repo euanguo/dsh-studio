@@ -99,12 +99,14 @@ bin\ohdsh.cmd web
 | `--host` | `127.0.0.1` | 监听地址 |
 | `--port` | `3080` | 监听端口；`0` 使用随机端口 |
 | `--data` | `~/.ohdsh` | 三端共享的 Oh-DSH 数据根目录 |
+| `--channel` | `stable` | 选择 `~/.ohdsh` 或 `~/.ohdsh-dev`；`--data` / `OH_DSH_HOME` 优先 |
 | `--no-open` | 关闭 | 不自动打开浏览器 |
 | `--trusted-host` | 无 | 增加可信 authority，可重复 |
 
 等价环境变量包括 `DSH_OH_WEB_HOST`、`DSH_OH_WEB_PORT`、
 `DSH_OH_WEB_HOME` 和 `DSH_OH_WEB_OPEN`。`OH_DSH_HOME` 可以统一覆盖
-Desktop、Web 和 TUI 的数据根目录。按 `Ctrl+C` 优雅退出。
+Desktop、Web 和 TUI 的数据根目录。`OH_DSH_CHANNEL` 在未指定绝对路径时
+选择 `~/.ohdsh` 或 `~/.ohdsh-dev`。按 `Ctrl+C` 优雅退出。
 
 不要在未配置访问边界时直接监听 `0.0.0.0`。对局域网开放时，应同时配置
 `--trusted-host`，并由可信反向代理提供鉴权和 TLS。
@@ -130,6 +132,8 @@ ohdsh tui
 ```
 
 - `desktop` 启动已安装应用；源码仓库中回退到 Electron 开发入口。
+  已安装包默认使用 `stable`（`~/.ohdsh`），`pnpm start` / `pnpm dev`
+  默认使用 `dev`（`~/.ohdsh-dev`）。可用 `--channel stable|dev` 覆盖。
 - `gui` 是 `desktop` 的启动别名。
 - `web` 启动 HTTP 服务并打印访问地址。
 - `tui` 初始化独立 Profile，并在当前终端中附着运行上游 renderer。
@@ -140,6 +144,7 @@ TUI 常用选项：
 | --- | --- | --- |
 | `--cwd` | 当前目录 | Workspace |
 | `--data` | `~/.ohdsh` | 三端共享的 Oh-DSH 数据根目录 |
+| `--channel` | `stable` | 选择 `~/.ohdsh` 或 `~/.ohdsh-dev`；`--data` / `OH_DSH_HOME` 优先 |
 | `--resume` | 新会话 | 恢复指定 Session id |
 | `--lang` | 上游设置 | `zh` 或 `en` |
 | `--preset` | `standard` | 初始 Agent preset |
@@ -307,9 +312,16 @@ ad-hoc 签名包或 Windows 未签名安装器，而不会阻止 Web、TUI 和 D
 Desktop、Web 和 TUI 默认共同使用 `~/.ohdsh`，且不会加载 `~/.dsh` 中的
 全局插件配置。三端分别使用 `profiles/desktop`、`profiles/web` 和
 `profiles/tui`，但共享会话、凭据、皮肤和插件缓存；Electron 自身的数据
-位于 `~/.ohdsh/desktop`。可用 `OH_DSH_HOME` 全局覆盖，也可用 Web/TUI 的
-`--data` 临时隔离。DeepSeek API key 可以在 Models 设置中配置，或写入
-`~/.ohdsh/.env`。
+位于 `<OH_DSH_HOME>/desktop`。可用 `OH_DSH_HOME` 全局覆盖，也可用
+`OH_DSH_CHANNEL=dev` 或 `--channel dev` 切到 `~/.ohdsh-dev`。Web/TUI 的
+`--data` 只隔离当前进程。DeepSeek API key 可以在 Models 设置中配置，或写入
+当前数据根下的 `.env`。
+
+已安装的 Desktop 与源码验证实例可以同时运行：正式版写入 `~/.ohdsh`，
+`pnpm start` / `pnpm dev` 写入 `~/.ohdsh-dev`。两者 Profile、插件与工作区
+行为一致，只换数据根和单实例锁。开发窗口标题带 `(Dev)`，Dock / 窗口图标
+是同一只鲸标，右下角盖了橙色 `DEV`。要让源码实例读正式数据，启动时加
+`--channel stable` 或设置 `OH_DSH_HOME`。
 
 首次使用共享目录时，Desktop 会从系统应用数据目录中的旧
 `Oh-DSH-Desktop` 状态导入会话、凭据、插件与界面设置；Web 会导入旧

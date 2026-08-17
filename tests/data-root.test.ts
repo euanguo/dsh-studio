@@ -17,7 +17,10 @@ import {
   desktopElectronDataRoot,
   migrateLegacyDesktopState,
   migrateLegacyWebState,
+  parseOhDshChannel,
+  resolveOhDshChannel,
   resolveOhDshHome,
+  takeOhDshChannelArgs,
 } from '../src/data-root.ts'
 
 const MIGRATED = { complete: true, migrated: true }
@@ -40,6 +43,33 @@ test('all surfaces resolve one shared Oh-DSH state root', () => {
     desktopElectronDataRoot('/data/oh-dsh'),
     join('/data/oh-dsh', 'desktop'),
   )
+})
+
+test('stable and dev channels share one resolver and differ only by data root', () => {
+  assert.equal(resolveOhDshChannel({}), 'stable')
+  assert.equal(resolveOhDshChannel({}, { packaged: true }), 'stable')
+  assert.equal(resolveOhDshChannel({}, { packaged: false }), 'dev')
+  assert.equal(resolveOhDshChannel({ OH_DSH_CHANNEL: 'dev' }, { packaged: true }), 'dev')
+  assert.equal(resolveOhDshChannel({ OH_DSH_CHANNEL: 'stable' }, { packaged: false }), 'stable')
+  assert.equal(parseOhDshChannel('production'), 'stable')
+  assert.equal(parseOhDshChannel('development'), 'dev')
+  assert.equal(
+    defaultOhDshHome('/home/user', 'dev'),
+    join('/home/user', '.ohdsh-dev'),
+  )
+  assert.equal(
+    resolveOhDshHome({ OH_DSH_CHANNEL: 'dev' }, '/home/user'),
+    resolve('/home/user/.ohdsh-dev'),
+  )
+  assert.equal(
+    resolveOhDshHome({ OH_DSH_CHANNEL: 'dev', OH_DSH_HOME: '/data/oh-dsh' }, '/home/user'),
+    resolve('/data/oh-dsh'),
+  )
+  assert.deepEqual(takeOhDshChannelArgs(['--channel', 'dev', '/tmp/workspace']), {
+    channelValue: 'dev',
+    rest: ['/tmp/workspace'],
+  })
+  assert.throws(() => parseOhDshChannel('nightly'), /OH_DSH_CHANNEL/)
 })
 
 test('legacy Desktop state migrates once without replacing shared state', t => {
@@ -89,6 +119,23 @@ test('legacy Desktop state migrates once without replacing shared state', t => {
     ohDshHome: sharedRoot,
   }), NO_MIGRATION)
   assert.equal(existsSync(join(sharedRoot, 'sessions', 'late.json')), false)
+})
+
+test('dev channel skips legacy Desktop migration', t => {
+  const temporaryRoot = mkdtempSync(join(tmpdir(), 'ohdsh-desktop-dev-migrate-'))
+  t.after(() => rmSync(temporaryRoot, { recursive: true, force: true }))
+
+  const appDataRoot = join(temporaryRoot, 'app-data')
+  const legacyRoot = join(appDataRoot, 'Oh-DSH-Desktop')
+  const sharedRoot = join(temporaryRoot, '.ohdsh-dev')
+  write(join(legacyRoot, 'dsh', 'sessions', 'legacy.json'), 'legacy')
+
+  assert.deepEqual(migrateLegacyDesktopState({
+    appDataRoot,
+    env: { OH_DSH_CHANNEL: 'dev' },
+    ohDshHome: sharedRoot,
+  }), NO_MIGRATION)
+  assert.equal(existsSync(join(sharedRoot, 'sessions', 'legacy.json')), false)
 })
 
 test('legacy Web roots flatten once without replacing shared state', t => {

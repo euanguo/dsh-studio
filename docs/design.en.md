@@ -120,7 +120,9 @@ same transaction and risk approval and cannot bypass the Loader.
 User-facing names are **Oh-DSH Desktop**, **Oh-DSH Web**, and **Oh-DSH TUI**.
 Internal package ids and the bundle id remain stable. All three surfaces use
 `~/.ohdsh`, keep their compositions in separate Profiles, and share sessions,
-credentials, skins, and plugin caches. `OH_DSH_HOME` is the common override;
-the Web and TUI `--data` flags override only the current process.
+credentials, skins, and plugin caches. `OH_DSH_HOME` is the common override.
+`OH_DSH_CHANNEL=stable|dev` selects the sibling default roots `~/.ohdsh` and
+`~/.ohdsh-dev` so an installed Desktop can run beside a source verification
+instance. The Web and TUI `--data` flags override only the current process.
 
 See [installation, operations, and troubleshooting](./usage.en.md).

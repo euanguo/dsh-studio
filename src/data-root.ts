@@ -18,8 +18,26 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 /** Environment variable overriding the shared Oh-DSH state root. */
 export const OH_DSH_HOME_ENV = 'OH_DSH_HOME'
 
+/** Environment variable selecting the stable/dev data-root pair. */
+export const OH_DSH_CHANNEL_ENV = 'OH_DSH_CHANNEL'
+
+/** Installed Desktop and everyday Web/TUI state. */
+export const OH_DSH_STABLE_CHANNEL = 'stable'
+
+/** Source launches and verification instances. */
+export const OH_DSH_DEV_CHANNEL = 'dev'
+
+/** Channels that share one code path and differ only by data root. */
+export const OH_DSH_CHANNELS = [OH_DSH_STABLE_CHANNEL, OH_DSH_DEV_CHANNEL] as const
+
+/** Stable vs verification instance. Behavior is identical except the data root. */
+export type OhDshChannel = (typeof OH_DSH_CHANNELS)[number]
+
 /** Default directory shared by the Desktop, Web, and TUI surfaces. */
 export const DEFAULT_OH_DSH_HOME_DIRECTORY = '.ohdsh'
+
+/** Isolated sibling of the stable root for source and verification launches. */
+export const DEFAULT_OH_DSH_DEV_HOME_DIRECTORY = '.ohdsh-dev'
 
 /** Legacy desktop user-data directory used before the shared state root. */
 export const LEGACY_DESKTOP_DATA_DIRECTORY = 'Oh-DSH-Desktop'
@@ -63,20 +81,105 @@ const INCOMPLETE_MIGRATION: LegacyStateMigrationResult = {
   migrated: false,
 }
 
+/** Directory name under the user home for one channel. */
+export function ohDshHomeDirectory(channel: OhDshChannel = OH_DSH_STABLE_CHANNEL): string {
+  return channel === OH_DSH_DEV_CHANNEL
+    ? DEFAULT_OH_DSH_DEV_HOME_DIRECTORY
+    : DEFAULT_OH_DSH_HOME_DIRECTORY
+}
+
+/** Normalize a user-supplied channel name. */
+export function normalizeOhDshChannel(value: string): OhDshChannel | undefined {
+  const normalized = value.trim().toLowerCase()
+  if (normalized === OH_DSH_DEV_CHANNEL || normalized === 'development') {
+    return OH_DSH_DEV_CHANNEL
+  }
+  if (
+    normalized === OH_DSH_STABLE_CHANNEL
+    || normalized === 'prod'
+    || normalized === 'production'
+  ) {
+    return OH_DSH_STABLE_CHANNEL
+  }
+  return undefined
+}
+
+/** Parse a `--channel` / `OH_DSH_CHANNEL` value. */
+export function parseOhDshChannel(value: string): OhDshChannel {
+  const channel = normalizeOhDshChannel(value)
+  if (channel === undefined) {
+    throw new Error(
+      `${OH_DSH_CHANNEL_ENV} must be "${OH_DSH_STABLE_CHANNEL}" or "${OH_DSH_DEV_CHANNEL}"`,
+    )
+  }
+  return channel
+}
+
+/**
+ * Pull `--channel` out of a launch argv so it is not treated as a file path.
+ */
+export function takeOhDshChannelArgs(args: readonly string[]): {
+  channelValue: string | undefined
+  rest: string[]
+} {
+  const rest: string[] = []
+  let channelValue: string | undefined
+  for (let index = 0; index < args.length; index += 1) {
+    const argument = args[index] ?? ''
+    if (argument === '--channel') {
+      const value = args[index + 1]
+      if (value === undefined || value === '' || value.startsWith('-')) {
+        throw new Error('--channel needs a value')
+      }
+      channelValue = value
+      index += 1
+      continue
+    }
+    if (argument.startsWith('--channel=')) {
+      channelValue = argument.slice('--channel='.length)
+      continue
+    }
+    rest.push(argument)
+  }
+  return { channelValue, rest }
+}
+
+/**
+ * Resolve the instance channel.
+ *
+ * An explicit `OH_DSH_CHANNEL` always wins. Unpackaged Desktop then defaults
+ * to `dev` so a source verification instance does not share the installed
+ * app's state. Web, TUI, and packaged Desktop stay on `stable`.
+ */
+export function resolveOhDshChannel(
+  env: NodeJS.ProcessEnv = process.env,
+  options: { packaged?: boolean } = {},
+): OhDshChannel {
+  const configured = env[OH_DSH_CHANNEL_ENV]
+  if (configured !== undefined && configured !== '') return parseOhDshChannel(configured)
+  return options.packaged === false ? OH_DSH_DEV_CHANNEL : OH_DSH_STABLE_CHANNEL
+}
+
 /** Resolve the default Oh-DSH state root for one user account. */
-export function defaultOhDshHome(userHome: string = homedir()): string {
-  return join(userHome, DEFAULT_OH_DSH_HOME_DIRECTORY)
+export function defaultOhDshHome(
+  userHome: string = homedir(),
+  channel: OhDshChannel = OH_DSH_STABLE_CHANNEL,
+): string {
+  return join(userHome, ohDshHomeDirectory(channel))
 }
 
 /** Resolve the shared state root, honoring the cross-surface override. */
 export function resolveOhDshHome(
   env: NodeJS.ProcessEnv = process.env,
   userHome: string = homedir(),
+  channel?: OhDshChannel,
 ): string {
   const configured = env[OH_DSH_HOME_ENV]
-  return resolve(configured === undefined || configured === ''
-    ? defaultOhDshHome(userHome)
-    : configured)
+  if (configured !== undefined && configured !== '') return resolve(configured)
+  return resolve(defaultOhDshHome(
+    userHome,
+    channel ?? resolveOhDshChannel(env),
+  ))
 }
 
 /** Whether a caller explicitly selected a shared state root. */
@@ -85,6 +188,13 @@ export function hasOhDshHomeOverride(
 ): boolean {
   const configured = env[OH_DSH_HOME_ENV]
   return configured !== undefined && configured !== ''
+}
+
+/** Whether this process may import legacy state into the resolved root. */
+export function usesMigratableOhDshHome(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return !hasOhDshHomeOverride(env) && resolveOhDshChannel(env) === OH_DSH_STABLE_CHANNEL
 }
 
 /** Keep Electron's Chromium data contained below the shared state root. */
@@ -267,7 +377,7 @@ export function migrateLegacyDesktopState(input: {
   env?: NodeJS.ProcessEnv
   ohDshHome: string
 }): LegacyStateMigrationResult {
-  if (hasOhDshHomeOverride(input.env ?? process.env)) return NO_MIGRATION
+  if (!usesMigratableOhDshHome(input.env ?? process.env)) return NO_MIGRATION
   if (existsSync(migrationMarker(input.ohDshHome, DESKTOP_MIGRATION))) {
     return NO_MIGRATION
   }

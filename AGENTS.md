@@ -9,8 +9,10 @@ its subtree. Keep this file to durable rules; put explanations in `docs/`.
   products or plugin systems.
 - `src/profile.ts` owns surface composition. Keep the full/Desktop, Web-only,
   and TUI-only package boundaries intact.
-- `src/data-root.ts` owns shared state under `~/.ohdsh`. Use `OH_DSH_HOME` for
-  overrides; do not invent another cache, credential, or configuration root.
+- `src/data-root.ts` owns shared state under `~/.ohdsh` (stable) and
+  `~/.ohdsh-dev` (dev). Use `OH_DSH_HOME` for absolute overrides and
+  `OH_DSH_CHANNEL` to pick the sibling pair; do not invent another cache,
+  credential, or configuration root.
 - Load capabilities through the DSH Profile, Loader, and Cordis services. Do
   not add a second loader or bypass its permission boundary.
 - Keep Files, PTY, Git, and Browser access scoped to the active Session and

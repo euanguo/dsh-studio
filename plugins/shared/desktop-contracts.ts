@@ -30,6 +30,7 @@ export type DesktopCommand =
 /** Public facts exposed by the isolated Electron preload. */
 export interface DesktopInfo {
   appDataPath: string
+  channel: 'stable' | 'dev'
   dshHome: string
   platform: NodeJS.Platform
   preview: { pluginId: string; transactionId: string } | null

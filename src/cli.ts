@@ -4,7 +4,13 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { posix, win32 } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { OH_DSH_HOME_ENV } from './data-root.ts'
+import {
+  OH_DSH_CHANNEL_ENV,
+  OH_DSH_HOME_ENV,
+  parseOhDshChannel,
+  takeOhDshChannelArgs,
+  type OhDshChannel,
+} from './data-root.ts'
 import { UsageError } from './errors.ts'
 import { main as runTui } from './tui.ts'
 import { main as runWeb } from './web.ts'
@@ -46,6 +52,47 @@ Run "ohdsh <surface> --help" for surface options.
 
 export const CLI_HELP = cliHelp()
 
+export const DESKTOP_USAGE = `usage: ohdsh desktop [options]
+
+Options:
+  --channel <stable|dev>  isolate state (packaged default: stable; source default: dev)
+  --help                  show this help
+
+Environment:
+  OH_DSH_HOME, OH_DSH_CHANNEL, OH_DSH_DESKTOP_APP, OH_DSH_SOURCE_ROOT
+`
+
+export interface DesktopLaunchOptions {
+  channel?: OhDshChannel
+  help: boolean
+  rest: string[]
+}
+
+/** Resolve desktop launcher flags without starting a process. */
+export function parseDesktopLaunchArgs(args: readonly string[]): DesktopLaunchOptions {
+  let taken: ReturnType<typeof takeOhDshChannelArgs>
+  try {
+    taken = takeOhDshChannelArgs(args)
+  } catch (error) {
+    throw new UsageError(error instanceof Error ? error.message : String(error))
+  }
+  const rest: string[] = []
+  let help = false
+  for (const argument of taken.rest) {
+    if (argument === '--help' || argument === '-h') {
+      help = true
+      continue
+    }
+    rest.push(argument)
+  }
+  if (taken.channelValue === undefined) return { help, rest }
+  try {
+    return { channel: parseOhDshChannel(taken.channelValue), help, rest }
+  } catch (error) {
+    throw new UsageError(error instanceof Error ? error.message : String(error))
+  }
+}
+
 export interface DesktopLaunchSpec {
   args: string[]
   command: string
@@ -86,10 +133,16 @@ function sourceElectron(
 }
 
 function macOpenEnvironment(env: NodeJS.ProcessEnv): string[] {
+  const extras: string[] = []
   const ohDshHome = env[OH_DSH_HOME_ENV]
-  return ohDshHome === undefined || ohDshHome === ''
-    ? []
-    : ['--env', `${OH_DSH_HOME_ENV}=${posix.resolve(ohDshHome)}`]
+  if (ohDshHome !== undefined && ohDshHome !== '') {
+    extras.push('--env', `${OH_DSH_HOME_ENV}=${posix.resolve(ohDshHome)}`)
+  }
+  const channel = env[OH_DSH_CHANNEL_ENV]
+  if (channel !== undefined && channel !== '') {
+    extras.push('--env', `${OH_DSH_CHANNEL_ENV}=${channel}`)
+  }
+  return extras
 }
 
 /** Resolve one desktop launch without starting a process. */
@@ -193,7 +246,17 @@ export async function main(
     stderr.write(`Surface '${surface}' is not included in this Oh-DSH distribution.\n\n${help}`)
     return 2
   }
-  if (selectedSurface === 'desktop') return await desktopRunner(args, env)
+  if (selectedSurface === 'desktop') {
+    const parsed = parseDesktopLaunchArgs(args)
+    if (parsed.help) {
+      stdout.write(DESKTOP_USAGE)
+      return 0
+    }
+    const childEnv = parsed.channel === undefined
+      ? env
+      : { ...env, [OH_DSH_CHANNEL_ENV]: parsed.channel }
+    return await desktopRunner(parsed.rest, childEnv)
+  }
   if (selectedSurface === 'web') return await webRunner(args, env, stdout)
   if (selectedSurface === 'tui') return await tuiRunner(args, env, stdout, stderr)
   stderr.write(`Unknown surface: ${surface}\n\n${help}`)

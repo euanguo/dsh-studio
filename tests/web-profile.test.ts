@@ -166,6 +166,11 @@ test('web launcher honors environment and flag precedence', () => {
 
   const noOpen = parseLaunchArgs(['--no-open'], { DSH_OH_WEB_OPEN: '1' }, true, '/default')
   assert.equal(noOpen.open, false)
+
+  const isolated = parseLaunchArgs(['--channel', 'dev'], {}, false, '/default')
+  assert.match(isolated.dataRoot, /\.ohdsh-dev$/)
+  const explicitWins = parseLaunchArgs(['--channel', 'dev', '--data', '/flags'], {}, false, '/default')
+  assert.equal(explicitWins.dataRoot, '/flags')
 })
 
 test('web launcher rejects invalid arguments', () => {

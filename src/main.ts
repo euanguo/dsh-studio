@@ -5,7 +5,6 @@ import {
   dialog,
   ipcMain,
   Menu,
-  nativeTheme,
   session,
   shell,
   type MenuItemConstructorOptions,
@@ -39,7 +38,14 @@ import type {
 import {
   desktopElectronDataRoot,
   migrateLegacyDesktopState,
+  OH_DSH_CHANNEL_ENV,
+  OH_DSH_DEV_CHANNEL,
+  OH_DSH_HOME_ENV,
+  parseOhDshChannel,
+  resolveOhDshChannel,
   resolveOhDshHome,
+  takeOhDshChannelArgs,
+  type OhDshChannel,
 } from './data-root.ts'
 import { allowsRuntimeClipboardWrite, originOf } from './permissions.ts'
 import { BUNDLED_DESKTOP_PLUGINS, DESKTOP_PROFILE, ensureDesktopProfile } from './profile.ts'
@@ -55,6 +61,7 @@ import { DesktopUpdateManager, detectPackageType } from './update-manager.ts'
 import { scheduleImmediateUpdateInstall, singleFlight } from './update-lifecycle.ts'
 
 const PRODUCT_NAME = 'Oh-DSH-Desktop'
+const DESKTOP_APP_USER_MODEL_ID = 'ai.deepseek.oh-dsh-desktop'
 const DEFAULT_UI_ZOOM_FACTOR = 1.12
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const PRODUCT_VERSION = resolveProductVersion(join(currentDir, '..'))
@@ -102,10 +109,24 @@ function runtimePaths(): BundledRuntimePaths {
   return bundledRuntimePaths(resourcesRoot())
 }
 
+function instanceChannel(): OhDshChannel {
+  return resolveOhDshChannel(process.env)
+}
+
+function instanceProductName(channel: OhDshChannel = instanceChannel()): string {
+  return channel === OH_DSH_DEV_CHANNEL ? `${PRODUCT_NAME}-Dev` : PRODUCT_NAME
+}
+
+function instanceWindowTitle(channel: OhDshChannel = instanceChannel()): string {
+  return channel === OH_DSH_DEV_CHANNEL ? `${PRODUCT_NAME} (Dev)` : PRODUCT_NAME
+}
+
 function desktopInfo(preview: DesktopInfo['preview'] = null): DesktopInfo {
+  const channel = instanceChannel()
   const appDataPath = resolveOhDshHome(process.env)
   return {
     appDataPath,
+    channel,
     dshHome: appDataPath,
     platform: process.platform,
     preview,
@@ -231,12 +252,28 @@ function isAllowedBrowserNavigation(target: string): boolean {
 }
 
 function windowIconPath(): string | undefined {
-  // Packaged builds carry the icon beside resources/; dev falls back to the
-  // rendered set so the window shows the app icon instead of Electron's.
-  const packaged = join(process.resourcesPath, 'oh-dsh-desktop.png')
-  if (existsSync(packaged)) return packaged
+  // Packaged builds carry the official whale logo beside resources/.
+  // Source / verification instances use the DEV-stamped sibling so the
+  // two apps are distinguishable in the Dock and window switcher.
+  if (app.isPackaged) {
+    const packaged = join(process.resourcesPath, 'oh-dsh-desktop.png')
+    if (existsSync(packaged)) return packaged
+  }
+  if (instanceChannel() === OH_DSH_DEV_CHANNEL) {
+    const repoRoot = join(currentDir, '..')
+    for (const relative of ['assets/icons-dev/1024x1024.png', 'assets/icons-dev/512x512.png']) {
+      const candidate = join(repoRoot, relative)
+      if (existsSync(candidate)) return candidate
+    }
+  }
   const development = join(currentDir, '..', 'assets', 'icons', '512x512.png')
   return existsSync(development) ? development : undefined
+}
+
+function applyInstanceIcon(): void {
+  const icon = windowIconPath()
+  if (icon === undefined || process.platform !== 'darwin') return
+  app.dock?.setIcon(icon)
 }
 
 function createWindow(options: { preview?: boolean; title?: string } = {}): BrowserWindow {
@@ -248,7 +285,7 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
     minWidth: 900,
     minHeight: 620,
     show: false,
-    title: options.title ?? PRODUCT_NAME,
+    title: options.title ?? instanceWindowTitle(),
 
     // Platform chrome (mirrors the reference desktop distribution):
     // macOS keeps the inset traffic lights and sidebar vibrancy; Windows
@@ -281,7 +318,7 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
       ? {}
       : { transparent: true }),
     ...(icon === undefined ? {} : { icon }),
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#202020' : '#f7f7f5',
+    backgroundColor: '#3478F0',
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -547,7 +584,7 @@ async function startPreviewSurface(input: {
     previewOrigin = url.origin
     const window = createWindow({
       preview: true,
-      title: `Preview ${input.pluginId} — ${PRODUCT_NAME}`,
+      title: `Preview ${input.pluginId} — ${instanceWindowTitle()}`,
     })
     previewWindow = window
     await window.loadURL(url.href)
@@ -732,7 +769,7 @@ function buildMenu(): void {
   const profile = ensureDesktopProfile(info.dshHome)
   const template: MenuItemConstructorOptions[] = [
     {
-      label: PRODUCT_NAME,
+      label: instanceProductName(),
       submenu: [
         { role: 'about' },
         { type: 'separator' },
@@ -807,7 +844,9 @@ function buildMenu(): void {
           label: 'Copy Diagnostics',
           click: () => {
             clipboard.writeText([
-              `${PRODUCT_NAME} ${info.version}`,
+              `${instanceProductName(info.channel)} ${info.version}`,
+              `channel=${info.channel}`,
+              `home=${info.dshHome}`,
               `platform=${process.platform} ${process.arch}`,
               `profile=${info.profile}`,
               `runtime=${runtimeUrl?.href ?? 'stopped'}`,
@@ -880,10 +919,30 @@ function installIpc(): void {
   })
 }
 
+function applyDesktopChannelFromArgv(): string[] {
+  const raw = process.argv.slice(app.isPackaged ? 1 : 2)
+  const taken = takeOhDshChannelArgs(raw)
+  if (taken.channelValue !== undefined) {
+    process.env[OH_DSH_CHANNEL_ENV] = parseOhDshChannel(taken.channelValue)
+  }
+  return taken.rest
+}
+
 async function bootstrap(): Promise<void> {
-  app.setName(PRODUCT_NAME)
+  const launchArguments = applyDesktopChannelFromArgv()
+  const channel = resolveOhDshChannel(process.env, { packaged: app.isPackaged })
+  process.env[OH_DSH_CHANNEL_ENV] = channel
   const ohDshHome = resolveOhDshHome(process.env)
   const electronDataRoot = desktopElectronDataRoot(ohDshHome)
+  const productName = instanceProductName(channel)
+  app.setName(productName)
+  if (process.platform === 'win32') {
+    app.setAppUserModelId(
+      channel === OH_DSH_DEV_CHANNEL
+        ? `${DESKTOP_APP_USER_MODEL_ID}.dev`
+        : DESKTOP_APP_USER_MODEL_ID,
+    )
+  }
   const migration = migrateLegacyDesktopState({
     appDataRoot: app.getPath('appData'),
     env: process.env,
@@ -897,8 +956,9 @@ async function bootstrap(): Promise<void> {
   }
   mkdirSync(electronDataRoot, { recursive: true, mode: 0o700 })
   app.setPath('userData', electronDataRoot)
+  process.env[OH_DSH_HOME_ENV] = ohDshHome
   app.setAboutPanelOptions({
-    applicationName: PRODUCT_NAME,
+    applicationName: productName,
     applicationVersion: PRODUCT_VERSION,
     version: `DeepSeek Harness plugin distribution ${PRODUCT_VERSION}`,
   })
@@ -924,12 +984,16 @@ async function bootstrap(): Promise<void> {
     if (app.isReady()) flushQueuedPaths()
   })
   await app.whenReady()
+  applyInstanceIcon()
 
   const info = desktopInfo()
   const logsDir = join(info.appDataPath, 'logs')
   mkdirSync(logsDir, { recursive: true })
   logStream = createWriteStream(join(logsDir, 'desktop.log'), { flags: 'a', mode: 0o600 })
-  appendLog('desktop', `${PRODUCT_NAME} ${info.version} starting (${process.arch})`)
+  appendLog(
+    'desktop',
+    `${instanceProductName(info.channel)} ${info.version} starting (${process.arch}) channel=${info.channel} home=${info.dshHome}`,
+  )
   await getUpdateManager()
   marketplace = createPluginMarketplace()
   marketplaceAgentGateway = await startMarketplaceAgentGateway(marketplace, {
@@ -964,8 +1028,7 @@ async function bootstrap(): Promise<void> {
   buildMenu()
   mainWindow = createWindow()
   await showSplash()
-  const initialArguments = process.argv.slice(app.isPackaged ? 1 : 2)
-  queuedPaths.push(...initialArguments.filter(argument => !argument.startsWith('-')))
+  queuedPaths.push(...launchArguments.filter(argument => !argument.startsWith('-')))
   await restartRuntime()
 
   app.on('activate', () => {
@@ -1016,9 +1079,9 @@ async function bootstrap(): Promise<void> {
 void bootstrap().catch(async (error: unknown) => {
   const detail = error instanceof Error ? error.stack ?? error.message : String(error)
   appendLog('desktop', detail)
-  if (app.isReady()) await showSplash({ error: true, message: 'Oh-DSH-Desktop 启动失败。', detail })
+  if (app.isReady()) await showSplash({ error: true, message: `${instanceProductName()} 启动失败。`, detail })
   else {
     await app.whenReady()
-    await showSplash({ error: true, message: 'Oh-DSH-Desktop 启动失败。', detail })
+    await showSplash({ error: true, message: `${instanceProductName()} 启动失败。`, detail })
   }
 })

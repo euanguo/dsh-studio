@@ -107,13 +107,15 @@ Common options:
 | `--host` | `127.0.0.1` | Bind address |
 | `--port` | `3080` | Listen port; `0` selects a random port |
 | `--data` | `~/.ohdsh` | Shared Oh-DSH data root for all surfaces |
+| `--channel` | `stable` | Choose `~/.ohdsh` or `~/.ohdsh-dev`; `--data` / `OH_DSH_HOME` win |
 | `--no-open` | off | Do not open the browser automatically |
 | `--trusted-host` | none | Add a trusted authority; repeatable |
 
 Equivalent environment variables include `DSH_OH_WEB_HOST`,
 `DSH_OH_WEB_PORT`, `DSH_OH_WEB_HOME`, and `DSH_OH_WEB_OPEN`. `OH_DSH_HOME`
-overrides the data root for Desktop, Web, and TUI together. Press `Ctrl+C` for
-a graceful shutdown.
+overrides the data root for Desktop, Web, and TUI together. When no absolute
+root is set, `OH_DSH_CHANNEL` selects `~/.ohdsh` or `~/.ohdsh-dev`. Press
+`Ctrl+C` for a graceful shutdown.
 
 Do not bind to `0.0.0.0` without an access boundary. For LAN exposure, add
 `--trusted-host` and put authentication and TLS in a trusted reverse proxy.
@@ -140,7 +142,9 @@ ohdsh tui
 ```
 
 - `desktop` opens the installed app and falls back to the Electron development
-  entry when run from a source checkout.
+  entry when run from a source checkout. Packaged Desktop defaults to `stable`
+  (`~/.ohdsh`); `pnpm start` / `pnpm dev` default to `dev` (`~/.ohdsh-dev`).
+  Override with `--channel stable|dev`.
 - `gui` is an alias for `desktop`.
 - `web` starts the HTTP service and prints its URL.
 - `tui` initializes its Profile and attaches the upstream renderer to the
@@ -152,6 +156,7 @@ Common TUI options:
 | --- | --- | --- |
 | `--cwd` | Current directory | Workspace |
 | `--data` | `~/.ohdsh` | Shared Oh-DSH data root for all surfaces |
+| `--channel` | `stable` | Choose `~/.ohdsh` or `~/.ohdsh-dev`; `--data` / `OH_DSH_HOME` win |
 | `--resume` | New session | Resume a Session id |
 | `--lang` | Upstream preference | `zh` or `en` |
 | `--preset` | `standard` | Initial Agent preset |
@@ -346,9 +351,18 @@ Desktop, Web, and TUI share `~/.ohdsh` by default and do not load global plugin
 configuration from `~/.dsh`. They keep separate `profiles/desktop`,
 `profiles/web`, and `profiles/tui` compositions while sharing sessions,
 credentials, skins, and plugin caches. Electron-specific data lives under
-`~/.ohdsh/desktop`. Override all surfaces with `OH_DSH_HOME`, or isolate one
+`<OH_DSH_HOME>/desktop`. Override all surfaces with `OH_DSH_HOME`, or switch
+to `~/.ohdsh-dev` with `OH_DSH_CHANNEL=dev` / `--channel dev`. Isolate one
 Web or TUI process with `--data`. Configure the DeepSeek API key in Models
-settings or in `~/.ohdsh/.env`.
+settings or in `.env` under the active data root.
+
+An installed Desktop and a source verification instance can run together:
+the packaged app writes `~/.ohdsh`, while `pnpm start` / `pnpm dev` write
+`~/.ohdsh-dev`. Profiles, plugins, and workspace behavior stay the same; only
+the data root and single-instance lock change. The development window title
+includes `(Dev)`, and its Dock / window icon is the same whale with an orange
+`DEV` stamp in the lower-right corner. To make a source instance read
+production state, launch it with `--channel stable` or set `OH_DSH_HOME`.
 
 On first use of the shared root, Desktop imports sessions, credentials, plugins,
 and UI preferences from the old system `Oh-DSH-Desktop` application-data

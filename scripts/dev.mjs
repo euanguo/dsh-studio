@@ -145,7 +145,14 @@ function startElectron() {
   // for CDP-based inspection (chrome-use / DevTools).
   const extraArgs = (process.env.OH_DSH_ELECTRON_ARGS ?? '').split(' ').filter(Boolean)
   log(`starting electron . (${electronBinary})${extraArgs.length > 0 ? ` args=${extraArgs.join(' ')}` : ''}`)
-  electron = spawn(electronBinary, ['.', ...extraArgs], { cwd: root, stdio: 'inherit' })
+  electron = spawn(electronBinary, ['.', ...extraArgs], {
+    cwd: root,
+    env: {
+      ...process.env,
+      OH_DSH_CHANNEL: process.env.OH_DSH_CHANNEL || 'dev',
+    },
+    stdio: 'inherit',
+  })
   electron.on('exit', (code, signal) => {
     log(`electron exited (code=${String(code)} signal=${String(signal)})`)
     electron = undefined
