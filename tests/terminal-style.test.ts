@@ -21,7 +21,7 @@ test('terminal is controlled only by the shared desktop toolbar', () => {
     'utf8',
   )
   const mounts = readFileSync(
-    join(root, 'plugins/panel-controls/src/terminal/mount-utils.ts'),
+    join(root, 'plugins/shared/column-mount.ts'),
     'utf8',
   )
   const css = readFileSync(

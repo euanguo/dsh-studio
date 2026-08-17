@@ -4,8 +4,11 @@ import xtermCss from '@xterm/xterm/css/xterm.css'
 import terminalCss from './terminal.css'
 import themeCss from '../../../shared/theme.css'
 import { TerminalPanel, openOrToggleTerminal } from './TerminalPanel.tsx'
-import { createMountScheduler, mutationNeedsMount } from './mount-utils.ts'
-import { findConversationColumn } from '../../../shared/column-mount.ts'
+import {
+  createMountScheduler,
+  findConversationColumn,
+  mutationNeedsMount,
+} from '../../../shared/column-mount.ts'
 import {
   DEFAULT_TERMINAL_FONT_SIZE,
   createDockStore,
