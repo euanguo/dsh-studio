@@ -17,8 +17,6 @@ export type MarketplaceMessage =
   | 'mechanism.discover'
   | 'mechanism.unsupported'
   | 'details'
-  | 'category'
-  | 'mechanism'
   | 'updated'
   | 'unknown'
   | 'repository'
@@ -51,7 +49,6 @@ export type MarketplaceMessage =
   | 'action.enable'
   | 'action.disable'
   | 'action.uninstall'
-  | 'commit'
   | 'package'
   | 'allow-scripts'
   | 'accept-high-risk'
@@ -115,8 +112,6 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'mechanism.discover': 'Auto-detect',
     'mechanism.unsupported': 'Browse only',
     details: '{plugin} details',
-    category: 'Category',
-    mechanism: 'Mechanism',
     updated: 'Updated',
     unknown: 'Unknown',
     repository: 'Repository',
@@ -149,7 +144,6 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'action.enable': 'enable',
     'action.disable': 'disable',
     'action.uninstall': 'uninstall',
-    commit: 'commit {commit}',
     package: 'package {package}',
     'allow-scripts': 'Allow these scripts only inside the write-restricted preview.',
     'accept-high-risk': 'I understand that this plugin runs as trusted host code after apply.',
@@ -212,8 +206,6 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'mechanism.discover': '自动检测',
     'mechanism.unsupported': '仅浏览',
     details: '{plugin} 详情',
-    category: '分类',
-    mechanism: '安装机制',
     updated: '更新时间',
     unknown: '未知',
     repository: '仓库',
@@ -246,7 +238,6 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'action.enable': '启用',
     'action.disable': '停用',
     'action.uninstall': '卸载',
-    commit: '提交 {commit}',
     package: '软件包 {package}',
     'allow-scripts': '仅允许在写入受限的预览环境中运行这些脚本。',
     'accept-high-risk': '我了解应用后该插件会作为受信任主机代码运行。',

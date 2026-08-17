@@ -14,13 +14,15 @@ import { localeTag } from '@oh-dsh/shared/i18n'
 import { useTranslate } from '@oh-dsh/shared/use-i18n'
 import {
   Button,
+  IconCordisPluginOutline14,
   Input,
+  Menu,
+  Modal,
   Pill,
   RiskConfirmation,
-  IconCloseOutline16,
-  IconSearchOutline16,
-  IconCordisPluginOutline14,
+  type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDown, IconClose, IconSearch } from '@oh-dsh/shared/tabler-icons'
 import type {
   MarketplaceCommand,
   MarketplaceConfirmation,
@@ -77,9 +79,8 @@ interface SlotsService {
   }, component: (props: MarketplaceNavigationProps) => JSX.Element | null): unknown
 }
 
-export interface PluginMarketplaceView {
+interface PluginMarketplaceView {
   getSnapshot(): MarketplaceViewState
-  isOpen(): boolean
   setOpen(open: boolean): void
   subscribe(listener: () => void): () => void
   toggle(): void
@@ -120,7 +121,6 @@ function settingsButton(): HTMLButtonElement | null {
   if (slotted !== undefined) return slotted
   const labeled = [...document.querySelectorAll<HTMLButtonElement>('button')]
     .filter(button => {
-      if (button.closest('#oh-dsh-plugin-marketplace-root') !== null) return false
       if (!visible(button)) return false
       const label = [
         button.textContent,
@@ -161,42 +161,6 @@ function marketplaceFooter(settings: HTMLElement): HTMLElement | null {
   return null
 }
 
-function sidebarFor(settings: HTMLElement): HTMLElement | null {
-  const declared = document.querySelector<HTMLElement>('[data-slot="sidebar"]')
-  if (declared !== null) return declared
-  const aside = settings.closest<HTMLElement>('aside')
-  if (aside !== null) return aside
-  let candidate: HTMLElement | null = settings.parentElement
-  let best: HTMLElement | null = candidate
-  while (candidate !== null && candidate !== document.body) {
-    const rect = candidate.getBoundingClientRect()
-    if (rect.left <= 8 && rect.height > window.innerHeight * 0.55 && rect.width < window.innerWidth * 0.5) {
-      best = candidate
-    }
-    candidate = candidate.parentElement
-  }
-  return best
-}
-
-/**
- * First descendant of the sidebar slot with a real box. rc.5 renders the
- * `[data-slot="sidebar"]` wrapper as `display: contents`, whose own rect is
- * always empty; the rail state must be read from the boxed child instead.
- */
-function sidebarBox(sidebar: HTMLElement): HTMLElement | null {
-  const stack: HTMLElement[] = [sidebar]
-  while (stack.length > 0) {
-    const node = stack.pop()
-    if (node === undefined) break
-    if (node !== sidebar) {
-      const rect = node.getBoundingClientRect()
-      if (rect.width > 0 && rect.height > 0) return node
-    }
-    for (const child of [...node.children].reverse()) stack.push(child as HTMLElement)
-  }
-  return null
-}
-
 function MarketplaceNavigationEntry({
   locale,
   t,
@@ -233,12 +197,10 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
   #stopStyle: (() => void) | null = null
   #root: Root | null = null
   #observer: MutationObserver | null = null
-  #resizeObserver: ResizeObserver | null = null
   #geometryFrame: number | null = null
   #footerStack: HTMLElement | null = null
   #unsubscribeSessions: (() => void) | null = null
   #sessionNavigationState: SessionNavigationState = initialSessionNavigationState()
-  readonly #handleResize = (): void => { this.scheduleGeometry() }
   readonly #handleDocumentClick = (event: MouseEvent): void => {
     if (!this.#state.open || !(event.target instanceof Element)) return
     const button = event.target.closest('button')
@@ -264,13 +226,10 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
     return () => { this.#listeners.delete(listener) }
   }
 
-  isOpen(): boolean { return this.#state.open }
-
   setOpen(open: boolean): void {
     if (this.#state.open === open) return
     this.#state = { ...this.#state, open }
     persistOpen(open)
-    this.applyOpenState()
     for (const listener of this.#listeners) listener()
   }
 
@@ -306,9 +265,7 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
       this.scheduleGeometry()
     })
     this.#observer.observe(document.body, { childList: true, subtree: true })
-    this.#resizeObserver = new ResizeObserver(() => { this.scheduleGeometry() })
     document.addEventListener('click', this.#handleDocumentClick, true)
-    window.addEventListener('resize', this.#handleResize)
     const syncSessionNavigation = (): void => {
       const transition = transitionSessionNavigation(
         this.#sessionNavigationState,
@@ -319,18 +276,15 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
     }
     this.#unsubscribeSessions = this.#sessions.list.subscribe(syncSessionNavigation)
     syncSessionNavigation()
-    this.applyOpenState()
     this.scheduleGeometry()
   }
 
   dispose(): void {
     document.removeEventListener('click', this.#handleDocumentClick, true)
-    window.removeEventListener('resize', this.#handleResize)
     this.#unsubscribeSessions?.()
     this.#unsubscribeSessions = null
     if (this.#geometryFrame !== null) cancelAnimationFrame(this.#geometryFrame)
     this.#observer?.disconnect()
-    this.#resizeObserver?.disconnect()
     this.#root?.unmount()
     this.#footerStack?.removeAttribute(FOOTER_STACK_ATTRIBUTE)
     this.#footerStack = null
@@ -339,13 +293,6 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
     this.#stopStyle = null
     this.#state = { available: false, open: false }
     for (const listener of this.#listeners) listener()
-    delete document.documentElement.dataset.ohDshMarketplaceOpen
-    document.documentElement.style.removeProperty('--oh-marketplace-left')
-  }
-
-  private applyOpenState(): void {
-    if (this.#state.open) document.documentElement.dataset.ohDshMarketplaceOpen = 'true'
-    else delete document.documentElement.dataset.ohDshMarketplaceOpen
   }
 
   private scheduleGeometry(): void {
@@ -357,25 +304,12 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
   }
 
   private synchronizeGeometry(): void {
-    const declared = document.querySelector<HTMLElement>('[data-slot="sidebar"]')
     const settings = settingsButton()
     const footerStack = settings === null ? null : marketplaceFooter(settings)
-    if (footerStack !== this.#footerStack) {
-      this.#footerStack?.removeAttribute(FOOTER_STACK_ATTRIBUTE)
-      footerStack?.setAttribute(FOOTER_STACK_ATTRIBUTE, 'true')
-      this.#footerStack = footerStack
-    }
-    const sidebar = declared ?? (settings === null ? null : sidebarFor(settings))
-    if (sidebar === null) {
-      document.documentElement.style.setProperty('--oh-marketplace-left', '0px')
-      return
-    }
-    const box = sidebarBox(sidebar) ?? sidebar
-    this.#resizeObserver?.disconnect()
-    this.#resizeObserver?.observe(box)
-    const rect = box.getBoundingClientRect()
-    const left = rect.right > 0 && rect.right < window.innerWidth * 0.55 ? rect.right : 0
-    document.documentElement.style.setProperty('--oh-marketplace-left', `${String(Math.round(left))}px`)
+    if (footerStack === this.#footerStack) return
+    this.#footerStack?.removeAttribute(FOOTER_STACK_ATTRIBUTE)
+    footerStack?.setAttribute(FOOTER_STACK_ATTRIBUTE, 'true')
+    this.#footerStack = footerStack
   }
 }
 
@@ -413,6 +347,64 @@ function confirmationLabel(
   return t('accept-source-change')
 }
 
+function pluginMeta(
+  plugin: MarketplacePlugin,
+  t: Translate<MarketplaceMessage>,
+): string {
+  const parts = [plugin.category, mechanismLabel(plugin, t)]
+  if (plugin.installed) parts.push(plugin.enabled ? t('enabled') : t('disabled'))
+  else parts.push(t('not-installed'))
+  if (plugin.updateAvailable) parts.push(t('update-available'))
+  if (plugin.protected) parts.push(t('managed'))
+  return parts.join(' · ')
+}
+
+function CategoryMenu({
+  categories,
+  value,
+  t,
+  onChange,
+}: {
+  categories: readonly string[]
+  value: string
+  t: Translate<MarketplaceMessage>
+  onChange(value: string): void
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const items: MenuEntry[] = [
+    { id: 'all', label: t('all-categories') },
+    ...categories.map(category => ({ id: category, label: category })),
+  ]
+  return (
+    <Menu
+      open={open}
+      onClose={() => { setOpen(false) }}
+      items={items}
+      selectedId={value}
+      align="end"
+      portal
+      compact
+      onSelect={(id) => {
+        setOpen(false)
+        onChange(id)
+      }}
+      anchor={(
+        <button
+          type="button"
+          className="oh-marketplace-selector"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={t('plugin-category')}
+          onClick={() => { setOpen(current => !current) }}
+        >
+          {value === 'all' ? t('all-categories') : value}
+          <IconChevronDown size={14} />
+        </button>
+      )}
+    />
+  )
+}
+
 function PluginCard({
   plugin,
   selected,
@@ -431,23 +423,9 @@ function PluginCard({
       onClick={select}
       type="button"
     >
-      <div className="oh-marketplace-card-top">
-        <span className="oh-marketplace-card-icon">{plugin.title.slice(0, 1)}</span>
-        <div style={{ minWidth: 0 }}>
-          <h2>{plugin.title}</h2>
-          <div className="oh-marketplace-card-category">{plugin.category}</div>
-        </div>
-      </div>
+      <h2>{plugin.title}</h2>
+      <div className="oh-marketplace-card-meta">{pluginMeta(plugin, t)}</div>
       <p className="oh-marketplace-card-description">{plugin.description}</p>
-      <div className="oh-marketplace-card-footer">
-        <Pill>{mechanismLabel(plugin, t)}</Pill>
-        {plugin.installed && <Pill active>{t('installed')}</Pill>}
-        {plugin.installed && (
-          <Pill active={plugin.enabled}>{plugin.enabled ? t('enabled') : t('disabled')}</Pill>
-        )}
-        {plugin.updateAvailable && <Pill active>{t('update-available')}</Pill>}
-        {plugin.protected && <Pill>{t('managed')}</Pill>}
-      </div>
     </button>
   )
 }
@@ -485,57 +463,146 @@ function PluginDetail({
       ? [...new Set([...current, confirmation])]
       : current.filter(entry => entry !== confirmation))
   }
-  return (
-    <Scrollable
-      className="oh-marketplace-detail"
-      aria-label={t('details', { plugin: plugin.title })}
-    >
-      <div className="oh-marketplace-detail-inner">
+  const actions = (
+    <div className="oh-marketplace-detail-actions">
+      {plugin.mechanism === 'unsupported' || plugin.protected ? (
+        <Button variant="outline" size="sm" onClick={() => { void bridge.openExternal(plugin.url) }}>
+          {t('open-repository')}
+        </Button>
+      ) : plan === null ? (
+        <>
+          {!plugin.installed && (
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={pending}
+              onClick={() => { void run({
+                type: 'prepare',
+                action: 'install',
+                pluginId: plugin.id,
+              }) }}
+            >
+              {t('preview.install')}
+            </Button>
+          )}
+          {plugin.installed && plugin.updateAvailable && (
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={pending}
+              onClick={() => { void run({
+                type: 'prepare',
+                action: 'update',
+                pluginId: plugin.id,
+              }) }}
+            >
+              {t('preview.update')}
+            </Button>
+          )}
+          {plugin.installed && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={() => { void run({
+                type: 'prepare',
+                action: plugin.enabled ? 'disable' : 'enable',
+                pluginId: plugin.id,
+              }) }}
+            >
+              {plugin.enabled ? t('preview.disable') : t('preview.enable')}
+            </Button>
+          )}
+          {plugin.installed && (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={() => { void run({
+                type: 'prepare',
+                action: 'uninstall',
+                pluginId: plugin.id,
+              }) }}
+            >
+              {t('preview.uninstall')}
+            </Button>
+          )}
+        </>
+      ) : snapshot.preview === null ? (
         <Button
-          className="oh-marketplace-detail-close"
-          variant="ghost"
+          variant="primary"
           size="sm"
-          aria-label={t('close')}
-          icon={<IconCloseOutline16 size={14} />}
-          onClick={close}
-        />
-        <h2>{plugin.title}</h2>
-        <Pill active={plugin.installed}>
-          {plugin.installed ? t('installed') : mechanismLabel(plugin, t)}
-        </Pill>
-        <p className="oh-marketplace-detail-description">{plugin.description}</p>
+          disabled={pending || !readyToPreview}
+          onClick={() => { void run({ type: 'preview', confirmations }) }}
+        >
+          {t('preview.launch')}
+        </Button>
+      ) : null}
+      <Button variant="outline" size="sm" onClick={() => { void bridge.openExternal(plugin.url) }}>
+        {t('view-source')}
+      </Button>
+    </div>
+  )
+  return (
+    <Modal
+      open
+      onClose={close}
+      title={plugin.title}
+      description={pluginMeta(plugin, t)}
+      closeLabel={t('close')}
+      className="oh-marketplace-dialog"
+      contentClassName="oh-marketplace-dialog-content"
+      footer={actions}
+    >
+      <div className="oh-marketplace-detail" aria-label={t('details', { plugin: plugin.title })}>
+        <p className="oh-marketplace-detail-copy">{plugin.description}</p>
         <dl className="oh-marketplace-facts">
-          <dt>{t('category')}</dt><dd>{plugin.category}</dd>
-          <dt>{t('mechanism')}</dt><dd>{mechanismLabel(plugin, t)}</dd>
           <dt>{t('updated')}</dt>
           <dd>
             {plugin.pushedAt === null
               ? t('unknown')
               : new Date(plugin.pushedAt).toLocaleString(localeTag(locale))}
           </dd>
-          <dt>{t('repository')}</dt><dd>{plugin.url.replace('https://github.com/', '')}</dd>
-          <dt>{t('trust')}</dt><dd>{t(`trust.${plugin.trust}`)}</dd>
-          <dt>{t('runtime-boundary')}</dt><dd>{runtimeRiskLabel(plugin, t)}</dd>
+          <dt>{t('repository')}</dt>
+          <dd>{plugin.url.replace('https://github.com/', '')}</dd>
+          <dt>{t('trust')}</dt>
+          <dd>{t(`trust.${plugin.trust}`)}</dd>
+          <dt>{t('runtime-boundary')}</dt>
+          <dd>{runtimeRiskLabel(plugin, t)}</dd>
           {plugin.currentCommit !== null && (
-            <><dt>{t('current-commit')}</dt><dd>{shortCommit(plugin.currentCommit)}</dd></>
+            <>
+              <dt>{t('current-commit')}</dt>
+              <dd>{shortCommit(plugin.currentCommit)}</dd>
+            </>
           )}
           {plugin.latestCommit !== null && (
-            <><dt>{t('latest-commit')}</dt><dd>{shortCommit(plugin.latestCommit)}</dd></>
+            <>
+              <dt>{t('latest-commit')}</dt>
+              <dd>{shortCommit(plugin.latestCommit)}</dd>
+            </>
           )}
         </dl>
-
         {plan !== null && (
           <section className="oh-marketplace-plan">
+            <h3>{t('prepared-plan', { action: t(`action.${plan.action}`) })}</h3>
             <div className="oh-marketplace-flow" aria-label={t('prepared-plan', { action: t(`action.${plan.action}`) })}>
               <span data-active="true">1 · {t('flow.review')}</span>
               <span data-active={String(snapshot.preview !== null)}>2 · {t('flow.preview')}</span>
               <span>3 · {t('flow.apply')}</span>
             </div>
-            <h3>{t('prepared-plan', { action: t(`action.${plan.action}`) })}</h3>
-            <div className="oh-marketplace-plan-risk" data-risk={plan.riskLevel}>
-              <strong>{t('risk-level')}: {t(`risk-level.${plan.riskLevel}`)}</strong>
-              <span>{t('source-review')}: {t(`source-review.${plan.sourceReview}`)}</span>
-            </div>
+            <dl className="oh-marketplace-facts">
+              <dt>{t('risk-level')}</dt>
+              <dd data-risk={plan.riskLevel}>{t(`risk-level.${plan.riskLevel}`)}</dd>
+              <dt>{t('source-review')}</dt>
+              <dd>{t(`source-review.${plan.sourceReview}`)}</dd>
+              <dt>{t('repository')}</dt>
+              <dd>{plan.source}</dd>
+              <dt>{t('latest-commit')}</dt>
+              <dd>{shortCommit(plan.resolvedCommit)}</dd>
+            </dl>
+            {plan.packageName !== null && (
+              <p className="oh-marketplace-plan-line">{t('package', { package: plan.packageName })}</p>
+            )}
             {plan.riskReasons.length > 0 && (
               <ul className="oh-marketplace-risk-reasons">
                 {plan.riskReasons.map(reason => (
@@ -543,108 +610,26 @@ function PluginDetail({
                 ))}
               </ul>
             )}
-            <code>{plan.source}</code>
-            <code>{t('commit', { commit: shortCommit(plan.resolvedCommit) })}</code>
-            {plan.packageName !== null && (
-              <code>{t('package', { package: plan.packageName })}</code>
-            )}
             {hasScripts && (
-              <code>{Object.entries(plan.buildScripts).map(([name, script]) => `${name}: ${script}`).join('\n')}</code>
+              <pre className="oh-marketplace-scripts">
+                {Object.entries(plan.buildScripts).map(([name, script]) => `${name}: ${script}`).join('\n')}
+              </pre>
             )}
             {plan.requirements.map(requirement => (
               <label className="oh-marketplace-confirm" key={requirement}>
-                  <input
-                    checked={confirmations.includes(requirement)}
-                    onChange={event => { setConfirmed(requirement, event.target.checked) }}
-                    type="checkbox"
-                  />
-                  <span>{confirmationLabel(requirement, t)}</span>
+                <input
+                  checked={confirmations.includes(requirement)}
+                  onChange={event => { setConfirmed(requirement, event.target.checked) }}
+                  type="checkbox"
+                />
+                <span>{confirmationLabel(requirement, t)}</span>
               </label>
             ))}
             <p className="oh-marketplace-recovery-note">{t('recovery-note')}</p>
           </section>
         )}
-
-        <div className="oh-marketplace-detail-actions">
-          {plugin.mechanism === 'unsupported' || plugin.protected ? (
-            <Button variant="outline" size="sm" onClick={() => { void bridge.openExternal(plugin.url) }}>
-              {t('open-repository')}
-            </Button>
-          ) : plan === null ? (
-            <>
-              {!plugin.installed && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() => { void run({
-                    type: 'prepare',
-                    action: 'install',
-                    pluginId: plugin.id,
-                  }) }}
-                >
-                  {t('preview.install')}
-                </Button>
-              )}
-              {plugin.installed && plugin.updateAvailable && (
-                <Button
-                  variant="primary"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() => { void run({
-                    type: 'prepare',
-                    action: 'update',
-                    pluginId: plugin.id,
-                  }) }}
-                >
-                  {t('preview.update')}
-                </Button>
-              )}
-              {plugin.installed && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() => { void run({
-                    type: 'prepare',
-                    action: plugin.enabled ? 'disable' : 'enable',
-                    pluginId: plugin.id,
-                  }) }}
-                >
-                  {plugin.enabled ? t('preview.disable') : t('preview.enable')}
-                </Button>
-              )}
-              {plugin.installed && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pending}
-                  onClick={() => { void run({
-                    type: 'prepare',
-                    action: 'uninstall',
-                    pluginId: plugin.id,
-                  }) }}
-                >
-                  {t('preview.uninstall')}
-                </Button>
-              )}
-            </>
-          ) : snapshot.preview === null ? (
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={pending || !readyToPreview}
-              onClick={() => { void run({ type: 'preview', confirmations }) }}
-            >
-              {t('preview.launch')}
-            </Button>
-          ) : null}
-          <Button variant="outline" size="sm" onClick={() => { void bridge.openExternal(plugin.url) }}>
-            {t('view-source')}
-          </Button>
-        </div>
       </div>
-    </Scrollable>
+    </Modal>
   )
 }
 
@@ -758,6 +743,15 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
   }, [categoryFilter, search, snapshot?.catalog, statusFilter])
   const selected = plugins.find(plugin => plugin.id === selectedId) ?? null
   const error = localError ?? snapshot?.error ?? null
+  const loadedNotice = snapshot !== null
+    ? t('notice.loaded', { count: snapshot.catalog.length })
+    : null
+  const lastAction = snapshot?.lastAction ?? null
+  const lastActionNotice = lastAction === null || error !== null
+    ? null
+    : localizedHostMessage(lastAction, t)
+  const showActionNotice = lastActionNotice !== null
+    && lastActionNotice !== loadedNotice
   const resetView = (): void => {
     setSearch('')
     setStatusFilter('all')
@@ -767,164 +761,156 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
 
   useEffect(() => {
     if (viewState.open) resetView()
+    else setSelectedId(null)
   }, [viewState.open])
 
   return (
-    <div className="oh-marketplace-surface" data-open={String(viewState.open)} aria-hidden={!viewState.open}>
-      <div className="oh-marketplace-app">
-        <div>
-          <header className="oh-marketplace-header">
-            <div className="oh-marketplace-heading">
-              <h1>{t('plugins')}</h1>
-              <p>{t('subtitle')}</p>
-            </div>
-            <div className="oh-marketplace-header-actions">
-              {snapshot?.undoAvailable === true && (
-                <Button variant="outline" size="sm" disabled={pending} onClick={() => { void run({ type: 'undo' }) }}>
-                  {t('undo-last-apply')}
-                </Button>
-              )}
-              <Button variant="outline" size="sm" disabled={pending} onClick={() => { void run({ type: 'refresh', force: true }) }}>
-                {pending ? t('working') : t('refresh')}
+    <>
+      <Modal
+        open={viewState.open}
+        onClose={() => { view.setOpen(false) }}
+        title={t('plugins')}
+        description={loadedNotice === null ? t('subtitle') : `${t('subtitle')} ${loadedNotice}`}
+        closeLabel={t('close')}
+        className="oh-marketplace-shell"
+        contentClassName="oh-marketplace-shell-content"
+        footer={(
+          <div className="oh-marketplace-shell-footer">
+            <span className="oh-marketplace-count">
+              {t('plugin-count', { count: plugins.length })}
+            </span>
+            {snapshot?.undoAvailable === true && (
+              <Button variant="outline" size="sm" disabled={pending} onClick={() => { void run({ type: 'undo' }) }}>
+                {t('undo-last-apply')}
               </Button>
+            )}
+            <Button variant="outline" size="sm" disabled={pending} onClick={() => { void run({ type: 'refresh', force: true }) }}>
+              {pending ? t('working') : t('refresh')}
+            </Button>
+          </div>
+        )}
+      >
+        <div className="oh-marketplace-app">
+        {snapshot?.preview !== null && snapshot?.preview !== undefined && (
+          <div className="oh-marketplace-preview-banner">
+            <strong>{t('preview.running', { plugin: snapshot.preview.pluginId })}</strong>
+            <Button variant="outline" size="sm" disabled={pending} onClick={() => { void run({ type: 'discard' }) }}>
+              {t('discard')}
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={pending}
+              onClick={() => {
+                setApplyAcknowledged(false)
+                setApplyOpen(true)
+              }}
+            >
+              {t('apply-action', { action: t(`action.${snapshot.preview.action}`) })}
+            </Button>
+          </div>
+        )}
+        {error !== null && (
+          <div className="oh-marketplace-error">
+            <span>{error}</span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pending}
+              onClick={() => { resetView(); void run({ type: 'refresh', force: true }) }}
+            >
+              {t('reset-and-reload')}
+            </Button>
+          </div>
+        )}
+        {showActionNotice && (
+          <div className="oh-marketplace-notice">
+            {lastActionNotice}
+          </div>
+        )}
+        <div className="oh-marketplace-toolbar">
+          <div className="oh-marketplace-search">
+            <Input
+              icon={<IconSearch size={16} />}
+              aria-label={t('search.label')}
+              onChange={event => { setSearch(event.target.value) }}
+              placeholder={t('search.placeholder')}
+              value={search}
+            />
+            {search !== '' && (
               <Button
                 variant="ghost"
                 size="sm"
-                aria-label={t('close')}
-                title={t('close')}
-                icon={<IconCloseOutline16 size={14} />}
-                onClick={() => { view.setOpen(false) }}
+                aria-label={t('search.clear')}
+                icon={<IconClose size={14} />}
+                onClick={() => { setSearch('') }}
               />
-            </div>
-          </header>
-          {snapshot?.preview !== null && snapshot?.preview !== undefined && (
-            <div className="oh-marketplace-preview-banner">
-              <strong>{t('preview.running', { plugin: snapshot.preview.pluginId })}</strong>
-              <Button variant="outline" size="sm" disabled={pending} onClick={() => { void run({ type: 'discard' }) }}>
-                {t('discard')}
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={pending}
-                onClick={() => {
-                  setApplyAcknowledged(false)
-                  setApplyOpen(true)
-                }}
-              >
-                {t('apply-action', { action: t(`action.${snapshot.preview.action}`) })}
-              </Button>
-            </div>
-          )}
-          {error !== null && (
-            <div className="oh-marketplace-error">
-              <span>{error}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={pending}
-                onClick={() => { resetView(); void run({ type: 'refresh', force: true }) }}
-              >
-                {t('reset-and-reload')}
-              </Button>
-            </div>
-          )}
-          {snapshot?.lastAction !== null && snapshot?.lastAction !== undefined && error === null && (
-            <div className="oh-marketplace-notice">
-              {localizedHostMessage(snapshot.lastAction, t)}
-            </div>
-          )}
-        </div>
-        <div className="oh-marketplace-layout" data-detail={String(selected !== null)}>
-          <Scrollable axis="both" className="oh-marketplace-main">
-            <div className="oh-marketplace-toolbar">
-              <div className="oh-marketplace-search">
-                <Input
-                  icon={<IconSearchOutline16 />}
-                  aria-label={t('search.label')}
-                  onChange={event => { setSearch(event.target.value) }}
-                  placeholder={t('search.placeholder')}
-                  value={search}
-                />
-                {search !== '' && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    aria-label={t('search.clear')}
-                    icon={<IconCloseOutline16 size={12} />}
-                    onClick={() => { setSearch('') }}
-                  />
-                )}
-              </div>
-              <div className="oh-marketplace-status-tabs" role="group" aria-label={t('installation-status')}>
-                {([
-                  ['all', t('all')],
-                  ['installed', t('installed')],
-                  ['available', t('not-installed')],
-                  ['updates', t('updates')],
-                  ['disabled', t('disabled')],
-                ] as const).map(([value, label]) => (
-                  <Pill
-                    active={statusFilter === value}
-                    key={value}
-                    onClick={() => { setStatusFilter(value) }}
-                  >
-                    {label}<span>{statusCounts[value]}</span>
-                  </Pill>
-                ))}
-              </div>
-              <select
-                aria-label={t('plugin-category')}
-                className="oh-marketplace-filter"
-                onChange={event => { setCategoryFilter(event.target.value) }}
-                value={categoryFilter}
-              >
-                <option value="all">{t('all-categories')}</option>
-                {categories.map(category => <option key={category} value={category}>{category}</option>)}
-              </select>
-              <span className="oh-marketplace-count">
-                {t('plugin-count', { count: plugins.length })}
-              </span>
-            </div>
-            {snapshot === null || pending && snapshot.catalog.length === 0 ? (
-              <div className="oh-marketplace-empty">{t('loading-catalog')}</div>
-            ) : snapshot.auth.status !== 'ready' && snapshot.catalog.length === 0 ? (
-              <div className="oh-marketplace-empty">
-                <div>
-                  <strong>{t('github-auth-required')}</strong><br />
-                  {localizedAuthDetail(snapshot.auth.detail, t)}
-                </div>
-              </div>
-            ) : plugins.length === 0 ? (
-              <div className="oh-marketplace-empty">{t('no-match')}</div>
-            ) : (
-              <div className="oh-marketplace-grid">
-                {plugins.map(plugin => (
-                  <PluginCard
-                    key={plugin.id}
-                    plugin={plugin}
-                    selected={selectedId === plugin.id}
-                    select={() => { setSelectedId(plugin.id) }}
-                    t={t}
-                  />
-                ))}
-              </div>
             )}
-          </Scrollable>
-          {selected !== null && snapshot !== null && (
-            <PluginDetail
-              bridge={bridge}
-              pending={pending}
-              plugin={selected}
-              snapshot={snapshot}
-              locale={locale}
-              t={t}
-              close={() => { setSelectedId(null) }}
-              run={run}
-            />
-          )}
+          </div>
+          <div className="oh-marketplace-status-tabs" role="group" aria-label={t('installation-status')}>
+            {([
+              ['all', t('all')],
+              ['installed', t('installed')],
+              ['available', t('not-installed')],
+              ['updates', t('updates')],
+              ['disabled', t('disabled')],
+            ] as const).map(([value, label]) => (
+              <Pill
+                active={statusFilter === value}
+                key={value}
+                onClick={() => { setStatusFilter(value) }}
+              >
+                {label}<span>{statusCounts[value]}</span>
+              </Pill>
+            ))}
+          </div>
+          <CategoryMenu
+            categories={categories}
+            value={categoryFilter}
+            t={t}
+            onChange={setCategoryFilter}
+          />
         </div>
-      </div>
+        <Scrollable className="oh-marketplace-main">
+          {snapshot === null || pending && snapshot.catalog.length === 0 ? (
+            <div className="oh-marketplace-empty">{t('loading-catalog')}</div>
+          ) : snapshot.auth.status !== 'ready' && snapshot.catalog.length === 0 ? (
+            <div className="oh-marketplace-empty">
+              <div>
+                <strong>{t('github-auth-required')}</strong><br />
+                {localizedAuthDetail(snapshot.auth.detail, t)}
+              </div>
+            </div>
+          ) : plugins.length === 0 ? (
+            <div className="oh-marketplace-empty">{t('no-match')}</div>
+          ) : (
+            <div className="oh-marketplace-grid">
+              {plugins.map(plugin => (
+                <PluginCard
+                  key={plugin.id}
+                  plugin={plugin}
+                  selected={selectedId === plugin.id}
+                  select={() => { setSelectedId(plugin.id) }}
+                  t={t}
+                />
+              ))}
+            </div>
+          )}
+        </Scrollable>
+        </div>
+      </Modal>
+      {viewState.open && selected !== null && snapshot !== null && (
+        <PluginDetail
+          bridge={bridge}
+          pending={pending}
+          plugin={selected}
+          snapshot={snapshot}
+          locale={locale}
+          t={t}
+          close={() => { setSelectedId(null) }}
+          run={run}
+        />
+      )}
       {snapshot?.preview !== null && snapshot?.preview !== undefined && (
         <RiskConfirmation
           open={applyOpen}
@@ -943,7 +929,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
           }}
         />
       )}
-    </div>
+    </>
   )
 }
 
