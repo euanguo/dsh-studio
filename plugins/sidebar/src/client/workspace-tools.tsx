@@ -15,8 +15,8 @@ import {
   findConversationColumn,
   mutationNeedsMount,
 } from '@oh-dsh/shared/column-mount'
-import type { DesktopPanels } from '../../../panel-controls/src/client.ts'
-import type { PinnedSummary } from '../../../pinned-summary/src/client.ts'
+import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
+import type { PinnedSummary } from '@oh-dsh/pinned-summary/client'
 import { basename } from '@oh-dsh/shared/path'
 import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
 import { useTranslate } from '@oh-dsh/shared/use-i18n'

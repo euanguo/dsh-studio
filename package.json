@@ -218,7 +218,10 @@
     "artifactName": "Oh-DSH-Desktop-${version}-${arch}.${ext}"
   },
   "dependencies": {
+    "@oh-dsh/panel-controls": "workspace:*",
+    "@oh-dsh/pinned-summary": "workspace:*",
     "@oh-dsh/shared": "workspace:*",
+    "@oh-dsh/sidebar": "workspace:*",
     "@upsetjs/venn.js": "^2.0.0",
     "semver": "7.7.4"
   }

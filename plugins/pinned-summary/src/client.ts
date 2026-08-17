@@ -3,7 +3,7 @@
 import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
 import { localeTag } from '@oh-dsh/shared/i18n'
 import themeCss from '@oh-dsh/shared/theme.css'
-import type { DesktopPanels } from '../../panel-controls/src/client.ts'
+import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
 import {
   PINNED_SUMMARY_MESSAGES,
   type PinnedSummaryMessage,

@@ -1,9 +1,9 @@
 /** Browser face for the native Oh-DSH-Desktop bridge. */
 
 import type { DesktopBridge, DesktopCommand } from './contracts.ts'
-import type { DesktopPanels } from '../plugins/panel-controls/src/client.ts'
-import type { PinnedSummary } from '../plugins/pinned-summary/src/client.ts'
-import type { WorkspaceTools } from '../plugins/sidebar/src/client.ts'
+import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
+import type { PinnedSummary } from '@oh-dsh/pinned-summary/client'
+import type { WorkspaceTools } from '@oh-dsh/sidebar/client/types'
 import type {
   LocaleMessages,
   LocaleService,

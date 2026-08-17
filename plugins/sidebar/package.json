@@ -9,10 +9,22 @@
     ".": "./dist/index.js",
     "./client": "./dist/client.js",
     "./client/contract": {
-      "types": "./dist/plugins/sidebar/types/sidebar/src/client/contract.d.ts",
+      "types": "./src/client/contract.ts",
       "default": "./dist/client.js"
     },
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./client/i18n": {
+      "types": "./src/client/i18n.ts",
+      "default": "./dist/client.js"
+    },
+    "./client/surfaces-types": {
+      "types": "./src/client/surfaces/types.ts",
+      "default": "./dist/client.js"
+    },
+    "./client/types": {
+      "types": "./src/client.ts",
+      "default": "./dist/client.js"
+    }
   },
   "dsh": {
     "client": {
@@ -47,6 +59,8 @@
     "@tanstack/react-virtual": "^3.14.9",
     "mermaid": "^11.16.1",
     "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "@oh-dsh/panel-controls": "workspace:*",
+    "@oh-dsh/pinned-summary": "workspace:*"
   }
 }

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import { IconArrowLeft, IconRefresh } from '@oh-dsh/shared/icons'
-import type { SidebarRenderProps } from '../../../sidebar/src/client/contract.ts'
-import type { BrowserCenterSurface } from '../../../sidebar/src/client/surfaces/types.ts'
-import type { WorkspaceMessage } from '../../../sidebar/src/client/i18n.ts'
+import type { SidebarRenderProps } from '@oh-dsh/sidebar/client/contract'
+import type { BrowserCenterSurface } from '@oh-dsh/sidebar/client/surfaces-types'
+import type { WorkspaceMessage } from '@oh-dsh/sidebar/client/i18n'
 
 /**
  * Electron `<webview>` browser surface. This is a DESKTOP-ONLY capability

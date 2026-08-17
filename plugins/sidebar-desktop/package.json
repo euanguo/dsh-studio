@@ -32,6 +32,7 @@
     "react-dom": "^18.2.0"
   },
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*"
+    "@oh-dsh/shared": "workspace:*",
+    "@oh-dsh/sidebar": "workspace:*"
   }
 }

@@ -7,7 +7,10 @@
   "main": "dist/index.js",
   "exports": {
     ".": "./dist/index.js",
-    "./client": "./dist/client.js",
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./dist/client.js"
+    },
     "./package.json": "./package.json"
   },
   "dsh": {
@@ -25,6 +28,7 @@
     "dist/client.js.map"
   ],
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*"
+    "@oh-dsh/shared": "workspace:*",
+    "@oh-dsh/panel-controls": "workspace:*"
   }
 }

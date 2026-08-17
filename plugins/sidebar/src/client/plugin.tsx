@@ -14,8 +14,8 @@
  *   - contract.ts               — the public registry protocol
  */
 import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
-import type { DesktopPanels } from '../../../panel-controls/src/client.ts'
-import type { PinnedSummary } from '../../../pinned-summary/src/client.ts'
+import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
+import type { PinnedSummary } from '@oh-dsh/pinned-summary/client'
 import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
 import { isUnderRoot } from '@oh-dsh/shared/path'
 import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'

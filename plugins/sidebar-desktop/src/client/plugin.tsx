@@ -1,11 +1,11 @@
 import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
+import { ToolIcon } from '@oh-dsh/shared/tool-icon'
 import type {
   DesktopSidebarService,
   SidebarRenderProps,
-} from '../../../sidebar/src/client/contract.ts'
-import type { WorkspaceMessage } from '../../../sidebar/src/client/i18n.ts'
-import { ToolIcon } from '../../../sidebar/src/client/SideToolsPanel.tsx'
-import type { BrowserCenterSurface } from '../../../sidebar/src/client/surfaces/types.ts'
+} from '@oh-dsh/sidebar/client/contract'
+import type { WorkspaceMessage } from '@oh-dsh/sidebar/client/i18n'
+import type { BrowserCenterSurface } from '@oh-dsh/sidebar/client/surfaces-types'
 import { BrowserView, BrowserSurfaceView } from './browser-view.tsx'
 
 interface ClientContext {

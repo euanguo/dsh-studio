@@ -132,3 +132,57 @@ test('tui: every patch insert resolves to a real plugin tree', () => {
   })
   assert.deepEqual(missing, [], 'tui patch inserts without a plugin tree')
 })
+
+/* ---------- build & staging lists (inventory #4 and #5) ---------- */
+
+/** The esbuild driver's pluginPackages array: directory names it builds. */
+function buildDirectories(): string[] {
+  const source = readFileSync(join(root, 'scripts', 'build.mjs'), 'utf8')
+  return [...source.matchAll(/\{ directory: '([a-z-]+)'/g)].map(match => match[1]!)
+}
+
+/** The stage-dsh browser-plugin staging list: directory names it stages. */
+function stageDirectories(): string[] {
+  const source = readFileSync(join(root, 'scripts', 'stage-dsh.mjs'), 'utf8')
+  const marker = '].map(directory => ({'
+  const markerAt = source.indexOf(marker)
+  assert.ok(markerAt > 0, 'stage-dsh browser-plugin list found')
+  const start = source.lastIndexOf('...[', markerAt)
+  const body = source.slice(start, markerAt)
+  return [...body.matchAll(/'([a-z-]+)'/g)].map(match => match[1]!)
+}
+
+test('build script compiles every browser plugin the patches can mount', () => {
+  const built = new Set(buildDirectories())
+  const mounted = new Set([
+    ...patchInserts('cordis.patch.yml'),
+    ...patchInserts('web/cordis.patch.yml'),
+    ...patchInserts('plugins/tui/cordis.patch.yml').filter(name => name.startsWith('@oh-dsh/')),
+  ])
+  // The root shell packages build through their own esbuild entries, not
+  // the pluginPackages loop.
+  mounted.delete('@oh-dsh/desktop')
+  mounted.delete('@oh-dsh/web')
+  const missing = [...mounted].filter(name => !built.has(name.replace('@oh-dsh/', '')))
+  assert.deepEqual(
+    missing,
+    [],
+    'patch-mounted plugins without a build.mjs entry (no dist output — runtime load failure)',
+  )
+})
+
+test('stage script ships every desktop browser plugin the profile bundles', () => {
+  const staged = new Set(stageDirectories())
+  const bundled = bundledConstant('BUNDLED_DESKTOP_CLIENT_PLUGINS')
+  // sidebar-host (host-only) and the shell package stage through their own
+  // dedicated file blocks in stage-dsh.mjs.
+  const shellOrHost = new Set(['@oh-dsh/desktop', '@oh-dsh/sidebar-host'])
+  const missing = bundled.filter(
+    name => !shellOrHost.has(name) && !staged.has(name.replace('@oh-dsh/', '')),
+  )
+  assert.deepEqual(
+    missing,
+    [],
+    'BUNDLED_DESKTOP_CLIENT_PLUGINS entries the stage script never ships',
+  )
+})

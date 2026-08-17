@@ -8,9 +8,18 @@ importers:
 
   .:
     dependencies:
+      '@oh-dsh/panel-controls':
+        specifier: workspace:*
+        version: link:plugins/panel-controls
+      '@oh-dsh/pinned-summary':
+        specifier: workspace:*
+        version: link:plugins/pinned-summary
       '@oh-dsh/shared':
         specifier: workspace:*
         version: link:plugins/shared
+      '@oh-dsh/sidebar':
+        specifier: workspace:*
+        version: link:plugins/sidebar
       '@upsetjs/venn.js':
         specifier: ^2.0.0
         version: 2.0.0
@@ -114,6 +123,9 @@ importers:
 
   plugins/pinned-summary:
     dependencies:
+      '@oh-dsh/panel-controls':
+        specifier: workspace:*
+        version: link:../panel-controls
       '@oh-dsh/shared':
         specifier: workspace:*
         version: link:../shared
@@ -155,6 +167,12 @@ importers:
 
   plugins/sidebar:
     dependencies:
+      '@oh-dsh/panel-controls':
+        specifier: workspace:*
+        version: link:../panel-controls
+      '@oh-dsh/pinned-summary':
+        specifier: workspace:*
+        version: link:../pinned-summary
       '@oh-dsh/shared':
         specifier: workspace:*
         version: link:../shared
@@ -195,6 +213,9 @@ importers:
       '@oh-dsh/shared':
         specifier: workspace:*
         version: link:../shared
+      '@oh-dsh/sidebar':
+        specifier: workspace:*
+        version: link:../sidebar
     devDependencies:
       '@types/react':
         specifier: ~18.3.1

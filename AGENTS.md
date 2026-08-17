@@ -17,8 +17,10 @@ its subtree. Keep this file to durable rules; put explanations in `docs/`.
   Workspace. Electron-only capabilities must remain Desktop-only.
 - Treat `upstream/` as pinned source. Adapt upstream behavior in `plugins/`,
   retain attribution, and preserve the Oh-DSH UI and contracts.
-- `@oh-dsh/skins` owns shared theme identities across all surfaces. Surface
-  adapters may change rendering, not theme ownership.
+- `@oh-dsh/desktop-skins` owns shared theme identities across all surfaces
+  (its durable preferences root comes from the `ohDshSurface` contract, so
+  one provider serves desktop and web). Surface adapters may change
+  rendering, not theme ownership.
 - Human and Agent marketplace actions use the same preview, approval, apply,
   and recovery transaction.
 - Derive displayed versions from the repository version resolver. Do not
