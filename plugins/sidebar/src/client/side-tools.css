@@ -485,10 +485,6 @@
 
 .oh-dsh-files-path span { flex: 1; min-width: 0; overflow: hidden; color: var(--dsw-alias-label-secondary, #57606a); font-size: var(--oh-dsh-font-sm); text-overflow: ellipsis; white-space: nowrap; }
 .oh-dsh-file-list { flex: 1; }
-.oh-dsh-file-list > button { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: var(--oh-dsh-space-1-5); width: 100%; min-height: 32px; padding: 0 var(--oh-dsh-space-1-5); border: 0; border-radius: var(--oh-dsh-radius-sm); background: transparent; color: inherit; cursor: pointer; font: inherit; text-align: left; }
-.oh-dsh-file-list > button:hover { background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%)); }
-.oh-dsh-file-list > button span:nth-child(2) { overflow: hidden; font-size: var(--oh-dsh-font-md); text-overflow: ellipsis; white-space: nowrap; }
-.oh-dsh-file-list small { color: var(--dsw-alias-label-tertiary, #8c959f); font-size: var(--oh-dsh-font-xs); }
 .oh-dsh-file-preview { flex: 1; }
 .oh-dsh-file-preview > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: var(--oh-dsh-space-2); margin-bottom: var(--oh-dsh-space-2); }
 .oh-dsh-file-preview strong { overflow: hidden; font-size: var(--oh-dsh-font-md); text-overflow: ellipsis; white-space: nowrap; }

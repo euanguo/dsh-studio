@@ -330,6 +330,19 @@ body[data-oh-dsh-skin] {
   --gw-skin-radius-card: 25px;
   --gw-skin-radius-pill: 999px;
   --gw-skin-gap-item: 4px;
+
+  /* Shared semantic bridges consumed by sidebar/list surfaces. The skin owns
+     the values; shared CSS only supplies non-skin fallbacks. */
+  --oh-dsh-list-row-height: var(--gw-skin-row-h);
+  --oh-dsh-list-row-gap: var(--gw-skin-gap-item);
+  --oh-dsh-list-row-radius: var(--gw-skin-radius-row);
+  --oh-dsh-list-row-corner-shape: superellipse(1.5);
+  --oh-dsh-list-row-padding-inline: var(--gw-skin-row-px);
+  --oh-dsh-surface-tab-height: var(--gw-skin-row-h);
+  --oh-dsh-surface-tab-radius: var(--gw-skin-radius-row);
+  --oh-dsh-surface-tab-bg-active: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  --oh-dsh-surface-tab-bg-hover: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  --oh-dsh-surface-tab-corner-shape: superellipse(1.5);
   --gw-skin-menu-pad: 4px;
   --gw-skin-blur: 8px;
   --gw-skin-menu-bg: rgba(45, 45, 45, .9);
@@ -558,6 +571,33 @@ ${gate(CARD)}:focus-within {
 body[data-oh-dsh-skin] button[disabled] {
   opacity: var(--gw-skin-disabled-opacity);
   cursor: not-allowed;
+}
+
+/* 显式支持右栏/通用插件容器的悬浮与选中态（避免纯 CSS token 特异性不够） */
+body[data-oh-dsh-skin] .oh-dsh-list-row:hover,
+body[data-oh-dsh-skin] .oh-dsh-list-row:focus-within,
+body[data-oh-dsh-skin] .oh-dsh-list-row:has([data-popup-open]),
+body[data-oh-dsh-skin] .oh-dsh-list-row[data-active],
+body[data-oh-dsh-skin] .oh-dsh-list-row[data-selected],
+body[data-oh-dsh-skin] .oh-dsh-surface-tab:hover,
+body[data-oh-dsh-skin] .oh-dsh-surface-tab:focus-visible,
+body[data-oh-dsh-skin] .oh-dsh-surface-tab.is-active,
+body[data-oh-dsh-skin] .oh-dsh-review-commit-file:hover,
+body[data-oh-dsh-skin] .oh-dsh-review-commit-dir:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgba(255, 255, 255, 0.08)) !important;
+}
+
+body[data-oh-dsh-skin] .oh-dsh-list-row:hover .oh-dsh-list-row-main,
+body[data-oh-dsh-skin] .oh-dsh-list-row:focus-within .oh-dsh-list-row-main,
+body[data-oh-dsh-skin] .oh-dsh-list-row[data-selected] .oh-dsh-list-row-main,
+body[data-oh-dsh-skin] .oh-dsh-list-row[data-active] .oh-dsh-list-row-main {
+  background: transparent !important;
+}
+
+body[data-oh-dsh-skin] .oh-dsh-surface-tab {
+  height: var(--gw-skin-row-h) !important;
+  border-radius: var(--gw-skin-radius-row) !important;
+  corner-shape: superellipse(1.5) !important;
 }
 
 /* ================================================================

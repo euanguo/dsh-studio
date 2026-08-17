@@ -12,13 +12,14 @@
   min-width: 0;
   align-items: center;
   gap: var(--oh-dsh-space-1);
-  height: var(--oh-dsh-size-row);
-  min-height: var(--oh-dsh-size-row);
+  height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
+  min-height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
   /* Uniform breathing room between adjacent rows — owned here, not per-list,
-     so every list built on ListRow gets the same 4px rhythm. */
-  margin-bottom: var(--oh-dsh-space-1);
+     so every list built on ListRow gets the same semantic rhythm. */
+  margin-bottom: var(--oh-dsh-list-row-gap, var(--oh-dsh-space-1));
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--oh-dsh-list-row-radius, var(--oh-dsh-radius-sm));
+  corner-shape: var(--oh-dsh-list-row-corner-shape, round);
   background: transparent;
   overflow: hidden;
   color: var(--dsw-alias-label-primary, #1f2328);
@@ -35,12 +36,17 @@
 /* Menu portals live outside the row, so :hover/:focus-within drop; the
    in-row trigger keeps data-popup-open for the whole open lifetime. */
 .oh-dsh-list-row:has([data-popup-open]),
-.oh-dsh-list-row[data-active] {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+.oh-dsh-list-row[data-active],
+.oh-dsh-list-row[data-selected] {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) !important;
 }
 
-.oh-dsh-list-row[data-selected] {
-  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+/* Ensure child main button doesn't clip or block the row hover wash */
+.oh-dsh-list-row:hover .oh-dsh-list-row-main,
+.oh-dsh-list-row:focus-within .oh-dsh-list-row-main,
+.oh-dsh-list-row[data-selected] .oh-dsh-list-row-main,
+.oh-dsh-list-row[data-active] .oh-dsh-list-row-main {
+  background: transparent !important;
 }
 
 .oh-dsh-list-row-main {
@@ -54,7 +60,7 @@
   background: transparent;
   color: inherit;
   text-align: left;
-  padding: 0 var(--oh-dsh-space-1-5);
+  padding: 0 var(--oh-dsh-list-row-padding-inline, var(--oh-dsh-space-1-5));
   font-size: var(--oh-dsh-font-sm);
   font-family: inherit;
   cursor: pointer;
@@ -181,7 +187,7 @@
 .oh-dsh-list-row-nested {
   display: flex;
   flex-direction: column;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--oh-dsh-list-row-gap, var(--oh-dsh-space-1));
   padding: 0;
   min-width: 0;
 }

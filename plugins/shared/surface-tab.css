@@ -10,8 +10,9 @@
 .oh-dsh-surface-tab-strip {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--oh-dsh-surface-tab-gap, var(--oh-dsh-space-1));
   min-width: 0;
+  height: 100%;
 }
 
 .oh-dsh-surface-tab {
@@ -20,11 +21,12 @@
   align-items: center;
   gap: var(--oh-dsh-space-1);
   flex: none;
-  height: 26px;
+  height: var(--oh-dsh-surface-tab-height, var(--oh-dsh-list-row-height, 28px)) !important;
   max-width: 180px;
-  padding: 0 var(--oh-dsh-space-1-5);
+  padding: 0 var(--oh-dsh-space-2);
   box-sizing: border-box;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--oh-dsh-surface-tab-radius, var(--oh-dsh-list-row-radius, 12.5px)) !important;
+  corner-shape: var(--oh-dsh-surface-tab-corner-shape, superellipse(1.5)) !important;
   color: var(--dsw-alias-label-secondary, #57606a);
   font-size: var(--oh-dsh-font-sm);
   cursor: pointer;
@@ -33,15 +35,11 @@
 }
 
 .oh-dsh-surface-tab:hover,
-.oh-dsh-surface-tab:focus-visible {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+.oh-dsh-surface-tab:focus-visible,
+.oh-dsh-surface-tab.is-active {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) !important;
   color: var(--dsw-alias-label-primary, #1f2328);
   outline: none;
-}
-
-.oh-dsh-surface-tab.is-active {
-  background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
-  color: var(--dsw-alias-label-primary, #1f2328);
 }
 
 .oh-dsh-surface-tab-icon {
@@ -58,10 +56,10 @@
   align-items: center;
   justify-content: center;
   flex: none;
-  min-width: 16px;
-  height: 16px;
+  min-width: var(--oh-dsh-surface-tab-badge-height, 16px);
+  height: var(--oh-dsh-surface-tab-badge-height, 16px);
   padding: 0 4px;
-  border-radius: 8px;
+  border-radius: var(--oh-dsh-surface-tab-badge-radius, 8px);
   background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
   color: var(--dsw-alias-label-tertiary, #8c959f);
   font-size: 10px;
@@ -97,12 +95,12 @@
 .oh-dsh-surface-tab-action {
   display: grid;
   place-items: center;
-  width: 18px;
-  height: 18px;
+  width: var(--oh-dsh-surface-tab-action-size, 18px);
+  height: var(--oh-dsh-surface-tab-action-size, 18px);
   padding: 0;
   flex: none;
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--oh-dsh-surface-tab-action-radius, var(--oh-dsh-radius-sm));
   background: transparent;
   color: var(--dsw-alias-label-tertiary, #8c959f);
   cursor: pointer;

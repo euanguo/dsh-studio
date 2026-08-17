@@ -522,23 +522,24 @@
 
 .tab {
   flex: none;
-  height: 24px;
+  height: var(--gw-skin-row-h, 28px);
   padding: 0 12px;
   border: none;
-  border-radius: 12px;
+  border-radius: var(--gw-skin-radius-row, 12.5px);
+  corner-shape: superellipse(1.5);
   background: transparent;
   cursor: pointer;
   font-size: 12px;
-  line-height: 24px;
+  line-height: var(--gw-skin-row-h, 28px);
   color: var(--dsw-alias-label-secondary);
 }
 
 .tab:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
+  background: var(--dsw-alias-interactive-bg-hover) !important;
 }
 
 .tabActive {
-  background: var(--dsw-alias-interactive-bg-hover);
+  background: var(--dsw-alias-interactive-bg-hover) !important;
   color: var(--dsw-alias-label-primary);
 }
 

@@ -157,13 +157,20 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-workspace-count {
-  min-width: 20px;
-  padding: var(--oh-dsh-space-0) var(--oh-dsh-space-1-5);
-  border-radius: var(--oh-dsh-radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--oh-dsh-badge-min-width, 17px);
+  height: var(--oh-dsh-badge-height, 17px);
+  padding: 0 var(--oh-dsh-badge-padding-inline, var(--oh-dsh-space-1));
+  box-sizing: border-box;
+  border-radius: var(--oh-dsh-badge-radius, var(--oh-dsh-radius-pill));
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-secondary, #57606a);
   text-align: center;
   font-size: var(--oh-dsh-font-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
 
 .oh-dsh-change-list { padding: 0; }
@@ -246,7 +253,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 .oh-dsh-review-commit-files {
   display: flex;
   flex-direction: column;
-  padding-bottom: var(--oh-dsh-space-1);
+  padding-bottom: var(--oh-dsh-list-row-gap, var(--oh-dsh-space-1));
 }
 
 .oh-dsh-review-commit-file {
@@ -255,7 +262,9 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   gap: var(--oh-dsh-space-1);
   width: 100%;
   min-width: 0;
-  min-height: var(--oh-dsh-size-row);
+  height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
+  min-height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
+  margin-bottom: var(--oh-dsh-list-row-gap, var(--oh-dsh-space-1));
   /* Align with the commit subject (chevron column + depth inset + gap), then
      indent one more step per directory depth in tree mode — the same ladder
      the change list uses. */
@@ -264,7 +273,8 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
     + var(--oh-dsh-tree-indent) * var(--tree-depth, 0)
   );
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--oh-dsh-list-row-radius, var(--oh-dsh-radius-sm));
+  corner-shape: var(--oh-dsh-list-row-corner-shape, round);
   background: transparent;
   color: inherit;
   font: var(--oh-dsh-font-sm) system-ui;
@@ -273,7 +283,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-review-commit-file:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) !important;
 }
 
 .oh-dsh-review-commit-file .oh-dsh-list-row-label {
@@ -292,13 +302,16 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   gap: var(--oh-dsh-space-1);
   width: 100%;
   min-width: 0;
-  min-height: var(--oh-dsh-size-row);
+  height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
+  min-height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
+  margin-bottom: var(--oh-dsh-list-row-gap, var(--oh-dsh-space-1));
   padding: 0 var(--oh-dsh-space-2) 0 calc(
     var(--oh-dsh-space-1-5) + 16px + var(--oh-dsh-space-2)
     + var(--oh-dsh-tree-indent) * var(--tree-depth, 0)
   );
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--oh-dsh-list-row-radius, var(--oh-dsh-radius-sm));
+  corner-shape: var(--oh-dsh-list-row-corner-shape, round);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
   font: var(--oh-dsh-font-sm) system-ui;
@@ -307,7 +320,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 }
 
 .oh-dsh-review-commit-dir:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) !important;
 }
 
 .oh-dsh-review-commit-dir-name {
@@ -681,7 +694,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 .oh-dsh-content-markdown th,
 .oh-dsh-content-markdown td {
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  padding: 6px 10px;
+  padding: var(--oh-dsh-content-table-cell-padding-block, 6px) var(--oh-dsh-content-table-cell-padding-inline, 10px);
   text-align: left;
 }
 
@@ -795,6 +808,19 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
    axis both — wide tables scroll horizontally too) */
 .oh-dsh-content-table-wrap {
   flex: 1;
+  border-radius: var(--oh-dsh-content-table-radius, var(--oh-dsh-radius-md));
+}
+
+.oh-dsh-content-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.oh-dsh-content-table th,
+.oh-dsh-content-table td {
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  padding: var(--oh-dsh-content-table-cell-padding-block, 6px) var(--oh-dsh-content-table-cell-padding-inline, 10px);
+  text-align: left;
 }
 
 .oh-dsh-content-table thead th {

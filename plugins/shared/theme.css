@@ -45,6 +45,34 @@
   --oh-dsh-size-row: 28px;
   --oh-dsh-tree-indent: 10px;
 
+  /* Semantic surface families. Keep these separate from the generic ladder so
+     a list-row alignment does not silently resize tabs, controls, or cards. */
+  --oh-dsh-list-row-height: var(--oh-dsh-size-row);
+  --oh-dsh-list-row-gap: var(--oh-dsh-space-1);
+  --oh-dsh-list-row-radius: var(--oh-dsh-radius-sm);
+  --oh-dsh-list-row-corner-shape: round;
+  --oh-dsh-list-row-padding-inline: var(--oh-dsh-space-1-5);
+
+  --oh-dsh-surface-tab-height: 26px;
+  --oh-dsh-surface-tab-radius: var(--oh-dsh-radius-sm);
+  --oh-dsh-surface-tab-gap: var(--oh-dsh-space-1);
+  --oh-dsh-surface-tab-bg-hover: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  --oh-dsh-surface-tab-bg-active: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+  --oh-dsh-surface-tab-corner-shape: round;
+  --oh-dsh-surface-tab-badge-height: 16px;
+  --oh-dsh-surface-tab-badge-radius: 8px;
+  --oh-dsh-surface-tab-action-size: 18px;
+  --oh-dsh-surface-tab-action-radius: var(--oh-dsh-radius-sm);
+
+  --oh-dsh-badge-height: 17px;
+  --oh-dsh-badge-min-width: 17px;
+  --oh-dsh-badge-padding-inline: var(--oh-dsh-space-1);
+  --oh-dsh-badge-radius: var(--oh-dsh-radius-pill);
+
+  --oh-dsh-content-table-radius: var(--oh-dsh-radius-md);
+  --oh-dsh-content-table-cell-padding-block: var(--oh-dsh-space-1-5);
+  --oh-dsh-content-table-cell-padding-inline: 10px;
+
   /* diff 语义色桥：从 DSW 官方状态色派生，暗色主题自动跟随
      （DSW 没有 diff 语义别名，这里只做桥接，不定义新色板） */
   --oh-dsh-diff-add-bg: color-mix(in srgb, var(--dsw-alias-state-success-primary, #2da44e) 14%, transparent);
