@@ -1,8 +1,12 @@
 #!/bin/sh
+# Render the official macOS .icns from the blue-backed whale plate.
+# PNG sets (official + DEV) come from:
+#   python3 scripts/generate-icon-assets.py
 set -eu
 
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
-source_png="$root/assets/dsh-whale.png"
+python3 "$root/scripts/generate-icon-assets.py"
+source_png="$root/assets/icons/1024x1024.png"
 target="$root/assets/Oh-DSH-Desktop.icns"
 work=$(mktemp -d /tmp/dsh-desktop-icon.XXXXXX)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
