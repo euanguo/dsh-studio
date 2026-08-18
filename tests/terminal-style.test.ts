@@ -9,10 +9,22 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 test('terminal viewport cannot expose xterm default black behind the themed screen', () => {
   const css = readFileSync(join(root, 'plugins/panel-controls/src/terminal/terminal.css'), 'utf8')
   assert.match(css, /\.oh-dsh-terminal-view \.xterm-viewport[\s\S]*background-color:[^;]+!important/)
-  // The viewport stays padded with theme tokens (never 0 — xterm black must
-  // not show through), and .xterm itself must not get its own padding.
-  assert.match(css, /\.oh-dsh-terminal-view \{[\s\S]*padding: var\(--oh-dsh-space-2\) var\(--oh-dsh-space-3\);/)
+  // The host is a full-bleed surface: zero padding (padding would inset the
+  // xterm viewport/scrollbar and create asymmetric gaps between the text
+  // block and the pane edges), and .xterm itself must not get its own
+  // padding either.
+  assert.doesNotMatch(css, /\.oh-dsh-terminal-view \{[\s\S]*padding:/)
   assert.doesNotMatch(css, /\.oh-dsh-terminal-view \.xterm \{[^}]*padding:/)
+})
+
+test('terminal scrollbar is a rounded DOM slider, not the native square one', () => {
+  const shared = readFileSync(join(root, 'plugins/shared/terminal-view.css'), 'utf8')
+  assert.match(
+    shared,
+    /\.oh-dsh-terminal-view \.xterm \.xterm-scrollable-element > \.xterm-scrollbar > \.xterm-slider \{[\s\S]*border-radius: 4px;/,
+  )
+  const dock = readFileSync(join(root, 'plugins/panel-controls/src/terminal/terminal.css'), 'utf8')
+  assert.match(dock, /\.xterm-slider \{[^}]*border-radius: 4px;/)
 })
 
 test('terminal is controlled only by the shared desktop toolbar', () => {

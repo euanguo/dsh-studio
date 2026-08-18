@@ -38,6 +38,40 @@ test('embedded terminal environment removes parent emulator capabilities', () =>
   ])
 })
 
+test('embedded terminal cannot inherit the parent color-suppression policy', () => {
+  const result = createTerminalSpawnEnvironment({
+    PATH: '/bin',
+    NO_COLOR: '1',
+    FORCE_COLOR: '0',
+    CLICOLOR: '0',
+    CLICOLOR_FORCE: 'false',
+  })
+  assert.equal(result.env.NO_COLOR, undefined)
+  assert.equal(result.env.FORCE_COLOR, undefined)
+  assert.equal(result.env.CLICOLOR_FORCE, undefined)
+  // Color capability is re-asserted: this terminal is always a real TTY.
+  assert.equal(result.env.CLICOLOR, '1')
+  assert.deepEqual(result.profile.removedKeys.sort(), [
+    'CLICOLOR',
+    'CLICOLOR_FORCE',
+    'FORCE_COLOR',
+    'NO_COLOR',
+  ])
+})
+
+test('embedded terminal keeps an explicit user color override', () => {
+  const result = createTerminalSpawnEnvironment({
+    PATH: '/bin',
+    FORCE_COLOR: '1',
+    CLICOLOR: '1',
+    CLICOLOR_FORCE: 'true',
+  })
+  assert.equal(result.env.FORCE_COLOR, '1')
+  assert.equal(result.env.CLICOLOR, '1')
+  assert.equal(result.env.CLICOLOR_FORCE, 'true')
+  assert.deepEqual(result.profile.removedKeys, [])
+})
+
 test('environment overrides cannot reintroduce a parent terminal identity', () => {
   const result = mergeTerminalSpawnEnvironment(
     { TERM: 'xterm', PATH: '/bin' },

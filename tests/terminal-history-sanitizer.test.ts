@@ -11,6 +11,33 @@ test('sanitizer strips cursor/erase controls but preserves SGR styling', () => {
     '\u001b[2J\u001b[H\u001b[31mred\u001b[0m\u001b[K',
   )
   assert.equal(result.visibleText, '\u001b[31mred\u001b[0m')
+  assert.equal(result.clearScreen, true)
+})
+
+test('sanitizer drops pre-clear text on erase-screen (ED 2)', () => {
+  const result = sanitizeTerminalHistoryChunk('', 'before\x1b[2Jafter')
+  assert.equal(result.clearScreen, true)
+  assert.equal(result.visibleText, 'after')
+})
+
+test('sanitizer treats clear -x (ED 3) as a full erase', () => {
+  const result = sanitizeTerminalHistoryChunk('', 'old\x1b[3J$ ')
+  assert.equal(result.clearScreen, true)
+  assert.equal(result.visibleText, '$ ')
+})
+
+test('sanitizer does not clear on partial erases or SGR styling', () => {
+  const result = sanitizeTerminalHistoryChunk('', 'keep\x1b[K\x1b[1J\x1b[2m still')
+  assert.equal(result.clearScreen, false)
+  assert.equal(result.visibleText, 'keep\x1b[2m still')
+})
+
+test('sanitizer propagates an erase-screen split across chunks', () => {
+  const sanitizer = new TerminalHistorySanitizer()
+  assert.equal(sanitizer.feed('old output\x1b[2').visibleText, 'old output')
+  const result = sanitizer.feed('Jfresh')
+  assert.equal(result.clearScreen, true)
+  assert.equal(result.visibleText, 'fresh')
 })
 
 test('sanitizer carries incomplete escape sequences across chunks', () => {

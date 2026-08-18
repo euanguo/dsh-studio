@@ -1,5 +1,5 @@
 import { FitAddon } from '@xterm/addon-fit'
-import { LigaturesAddon } from '@xterm/addon-ligatures/lib/addon-ligatures.mjs'
+import { LigaturesAddon } from '@xterm/addon-ligatures/lib/addon-ligatures.js'
 import { SearchAddon } from '@xterm/addon-search'
 import { SerializeAddon } from '@xterm/addon-serialize'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
@@ -67,7 +67,9 @@ interface OwnerCallbacks {
   t: TerminalRuntimeOwnerT
 }
 
-const MAX_STABILITY_FRAMES = 8
+const FIT_MIN_STABLE_FRAMES = 2
+/** Minimum spacing between applied PTY resizes (SIGWINCH rate cap). */
+const PTY_RESIZE_MIN_INTERVAL_MS = 50
 
 /**
  * Module-level terminal owner. React surfaces attach a DOM host temporarily;
@@ -135,6 +137,13 @@ export class TerminalRuntimeOwner {
         options.scrollbackRows ?? DESKTOP_TERMINAL_SCROLLBACK_ROWS_DEFAULT,
       ),
       scrollSensitivity: normalizeWheel(options.mouseWheelMultiplier),
+      // xterm 6.1 renders its own DOM scrollbar; the width reserves a gutter
+      // that FitAddon accounts for, so the bar never covers content (same
+      // choice as Orca/VS Code: 7px).
+      scrollbar: {
+        width: 7,
+        showArrows: false,
+      },
       theme: resolveTerminalTheme(),
     })
     this.webLinksAddon = new WebLinksAddon((_event, uri) => {
@@ -157,7 +166,7 @@ export class TerminalRuntimeOwner {
     })
     this.resizeHold = new TerminalResizeHold(dimensions => {
       this.socket.sendResize(dimensions.cols, dimensions.rows)
-    })
+    }, undefined, PTY_RESIZE_MIN_INTERVAL_MS)
   }
 
   update(options: TerminalRuntimeOwnerOptions): void {
@@ -369,8 +378,9 @@ export class TerminalRuntimeOwner {
           lastProposed = null
           return
         }
+        // Two consecutive identical proposals: the layout settled — fit now.
         if (lastProposed !== null && lastProposed.cols === proposed.cols
-          && lastProposed.rows === proposed.rows && stableFrame >= 1) {
+          && lastProposed.rows === proposed.rows && stableFrame >= FIT_MIN_STABLE_FRAMES - 1) {
           stableFrame = 0
           lastProposed = null
           this.fitNow()
@@ -378,12 +388,13 @@ export class TerminalRuntimeOwner {
         }
         lastProposed = proposed
         stableFrame += 1
-        if (stableFrame >= MAX_STABILITY_FRAMES) {
-          stableFrame = 0
-          lastProposed = null
-          this.fitNow()
-          return
-        }
+        // Continuous resize (sidebar/split drag): the proposal changes every
+        // frame, and each fit re-rasterizes the canvas and SIGWINCHes the
+        // shell — which reads as screen flicker. While the size keeps
+        // changing NO fit is issued (mirrors the resize-debounce strategy of
+        // VS Code / Orca); the stable-proposal path above fits immediately
+        // the moment the drag stops, so the terminal snaps to the final grid
+        // without flashing through every intermediate size.
         scheduleStableFit()
       })
     }

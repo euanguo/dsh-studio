@@ -283,6 +283,9 @@ export class AgentPtyRegistry {
     handle.dataSubscription = pty.onData((data) => {
       handle.history.append(data)
       const sanitized = handle.replaySanitizer.feed(data)
+      // Erase-screen: the retained projection must not resurrect text the
+      // user cleared (same contract as PtyManager).
+      if (sanitized.clearScreen) handle.replayHistory.reset()
       handle.replayHistory.append(sanitized.visibleText)
     })
     handle.exitSubscription = pty.onExit(({ exitCode, signal }) => {

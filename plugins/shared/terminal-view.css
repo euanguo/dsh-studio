@@ -1,18 +1,24 @@
 /* Shared terminal view chrome (right-rail terminal tab + center-surface
    terminal). Token colors only; the xterm base styles come from
-   `@xterm/xterm/css/xterm.css`, injected by the consumer. */
+   `@xterm/xterm/css/xterm.css`, injected by the consumer.
+
+   Layout contract: the terminal host is a FULL-BLEED surface — zero padding.
+   Padding on the host would push the absolutely-positioned
+   `.xterm-viewport` (and its scrollbar) inward and create asymmetric gaps
+   between the text block and the pane edges; xterm's fit grid then snaps
+   the bottom row to the padded box, so top/left/right end up inset while
+   the bottom looks flush. A terminal fills its pane (VS Code / iTerm
+   convention); any breathing room belongs to the parent surface, not the
+   terminal view itself. */
 
 .oh-dsh-terminal-view {
+  position: relative;
   flex: 1;
   min-width: 0;
   min-height: 0;
   width: 100%;
   height: 100%;
   overflow: hidden;
-}
-
-.oh-dsh-terminal-view {
-  padding: var(--oh-dsh-space-2) var(--oh-dsh-space-3);
   box-sizing: border-box;
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
   font-family: ui-monospace, "SF Mono", "Menlo", "Monaco", "Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Liberation Mono", "Symbols Nerd Font Mono", "MesloLGS Nerd Font", "JetBrainsMono Nerd Font", "FiraCode Nerd Font", "Hack Nerd Font", monospace;
@@ -26,4 +32,13 @@
 
 .oh-dsh-terminal-view .xterm-viewport {
   background-color: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff)) !important;
+}
+
+/* Terminal scrollbar skin (xterm 6.1+ DOM scrollbar): the slider is rendered
+   by xterm inside `.xterm-scrollable-element > .xterm-scrollbar`, and its
+   colors are injected from the terminal THEME (scrollbarSlider* fields bound
+   to the `--dsw-alias-scrollbar-*` tokens in terminal-theme.ts). Only the
+   shape is left to CSS: xterm's slider has square corners by default. */
+.oh-dsh-terminal-view .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {
+  border-radius: 4px;
 }

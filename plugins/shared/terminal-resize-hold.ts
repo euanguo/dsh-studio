@@ -5,34 +5,51 @@ export interface TerminalDimensions {
 
 export interface TerminalResizeHoldScheduler {
   schedule(callback: () => void): unknown
+  scheduleAfter(callback: () => void, delayMs: number): unknown
   cancel(handle: unknown): void
+  now(): number
 }
 
 const DEFAULT_SCHEDULER: TerminalResizeHoldScheduler = {
   schedule: callback => setTimeout(callback, 0),
+  scheduleAfter: (callback, delayMs) => setTimeout(callback, Math.max(0, delayMs)),
   cancel: handle => { clearTimeout(handle as ReturnType<typeof setTimeout>) },
+  now: () => Date.now(),
 }
 
 /**
  * Coalesces PTY resize requests and supports explicit structural-layout holds.
  * During a hold only the final dimensions are retained; without a hold a burst
  * is still reduced to one request per scheduler turn, avoiding SIGWINCH storms.
+ *
+ * `minIntervalMs` additionally rate-limits the APPLIED stream: consecutive
+ * applies are spaced at least `minIntervalMs` apart, so a live drag (which
+ * emits a resize per frame) cannot push a resize per animation frame into the
+ * shell. The latest dimensions always win — a deferred request is re-deferred
+ * to the rate-cap boundary, never dropped.
  */
 export class TerminalResizeHold {
   private readonly apply: (dimensions: TerminalDimensions) => void
   private readonly scheduler: TerminalResizeHoldScheduler
+  private readonly minIntervalMs: number
   private depth = 0
   private pending: TerminalDimensions | null = null
   private scheduled: unknown = null
   private applied: TerminalDimensions | null = null
+  private lastAppliedAt = 0
   private disposed = false
 
   constructor(
     apply: (dimensions: TerminalDimensions) => void,
     scheduler: TerminalResizeHoldScheduler = DEFAULT_SCHEDULER,
+    minIntervalMs = 0,
   ) {
     this.apply = apply
     this.scheduler = scheduler
+    this.minIntervalMs = Math.max(0, minIntervalMs)
+    // The first request applies immediately: treat the interval as already
+    // elapsed (a zero interval keeps this exact).
+    this.lastAppliedAt = -this.minIntervalMs
   }
 
   begin(): void {
@@ -45,10 +62,7 @@ export class TerminalResizeHold {
     if (this.applied !== null && sameDimensions(this.applied, next)) return
     this.pending = next
     if (this.depth > 0 || this.scheduled !== null) return
-    this.scheduled = this.scheduler.schedule(() => {
-      this.scheduled = null
-      if (this.depth === 0) this.flush()
-    })
+    this.scheduleFlush()
   }
 
   end(): void {
@@ -84,12 +98,43 @@ export class TerminalResizeHold {
     return this.pending === null ? null : { ...this.pending }
   }
 
+  private scheduleFlush(): void {
+    const wait = Math.max(
+      0,
+      this.minIntervalMs - (this.scheduler.now() - this.lastAppliedAt),
+    )
+    this.scheduled = wait > 0
+      ? this.scheduler.scheduleAfter(() => {
+          this.scheduled = null
+          this.flush()
+        }, wait)
+      : this.scheduler.schedule(() => {
+          this.scheduled = null
+          this.flush()
+        })
+  }
+
   private flush(): void {
     const next = this.pending
     this.pending = null
     if (next === null || this.disposed) return
+    if (this.depth > 0) {
+      // A hold is still active (e.g. end() raced a re-entrant request):
+      // keep the latest dimensions until the hold actually releases.
+      this.pending = next
+      return
+    }
     if (this.applied !== null && sameDimensions(this.applied, next)) return
+    const wait = this.minIntervalMs - (this.scheduler.now() - this.lastAppliedAt)
+    if (wait > 0) {
+      // Inside the rate-cap window: defer to the boundary, keeping the
+      // latest dimensions (never dropping a resize that is still desired).
+      this.pending = next
+      if (this.scheduled === null) this.scheduleFlush()
+      return
+    }
     this.applied = next
+    this.lastAppliedAt = this.scheduler.now()
     this.apply(next)
   }
 }

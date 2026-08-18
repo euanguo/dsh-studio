@@ -219,6 +219,11 @@ export class PtyManager {
       handle.modeReplay?.feed(data)
       handle.history.append(data)
       const sanitized = handle.replaySanitizer.feed(data)
+      // Erase-screen (clear / Ctrl+L / clear -x): the retained projection is
+      // what a reconnect replays into a fresh xterm — text the user erased
+      // must not resurface there. Reset to the post-clear state; the live
+      // screen needs nothing (xterm already processed the erase).
+      if (sanitized.clearScreen) handle.replayHistory.reset()
       handle.replayHistory.append(sanitized.visibleText)
       this.store.queueUpdate(key, () => ({
         rawHistory: handle.transcript,
