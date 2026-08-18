@@ -23,7 +23,7 @@ type HeadlessTerminalInternals = {
   _core?: {
     _writeBuffer?: { writeSync(data: string | Uint8Array): void }
     coreService?: { isCursorHidden?: boolean }
-    coreMouseService?: { activeEncoding?: string }
+    mouseStateService?: { activeEncoding?: string }
     optionsService?: { rawOptions: { vtExtensions?: { kittyKeyboard?: boolean } } }
   }
 }
@@ -160,8 +160,8 @@ export function createTerminalModeReplayTracker(cols: number, rows: number): Ter
       if (modes.mouseTrackingMode === 'vt200') parts.push('\u001b[?1000h')
       if (modes.mouseTrackingMode === 'drag') parts.push('\u001b[?1002h')
       if (modes.mouseTrackingMode === 'any') parts.push('\u001b[?1003h')
-      if (internals._core?.coreMouseService?.activeEncoding === 'SGR') parts.push('\u001b[?1006h')
-      if (internals._core?.coreMouseService?.activeEncoding === 'SGR_PIXELS') parts.push('\u001b[?1016h')
+      if (internals._core?.mouseStateService?.activeEncoding === 'SGR') parts.push('\u001b[?1006h')
+      if (internals._core?.mouseStateService?.activeEncoding === 'SGR_PIXELS') parts.push('\u001b[?1016h')
       if (!modes.wraparoundMode) parts.push('\u001b[?7l')
       if (internals._core?.coreService?.isCursorHidden === true) parts.push('\u001b[?25l')
       if (kittyKeyboardState.flags > 0) parts.push(`\u001b[=${kittyKeyboardState.flags};1u`)

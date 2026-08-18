@@ -6,6 +6,14 @@ const TOKENS = {
   cursor: '--dsw-alias-label-primary',
   selectionBackground: '--dsw-alias-interactive-bg-active',
   selectionForeground: '--dsw-alias-label-primary-inverted',
+  // xterm 6.1 renders its own DOM scrollbar; the slider colors come from the
+  // theme (JS-injected), so bind them to the same scrollbar token chain as
+  // the rest of the surface chrome. The overview ruler border (enabled with
+  // scrollbar.width) is hidden to avoid an extra hairline beside the bar.
+  scrollbarSliderBackground: '--dsw-alias-scrollbar-bg-l1',
+  scrollbarSliderHoverBackground: '--dsw-alias-scrollbar-hover-l1',
+  scrollbarSliderActiveBackground: '--dsw-alias-scrollbar-hover-l1',
+  overviewRulerBorder: 'transparent',
 } as const
 
 const FALLBACK = {
@@ -14,6 +22,10 @@ const FALLBACK = {
   cursor: '#1f2328',
   selectionBackground: '#d0d7de',
   selectionForeground: '#1f2328',
+  scrollbarSliderBackground: 'rgb(0 0 0 / 20%)',
+  scrollbarSliderHoverBackground: 'rgb(0 0 0 / 40%)',
+  scrollbarSliderActiveBackground: 'rgb(0 0 0 / 50%)',
+  overviewRulerBorder: 'transparent',
 }
 
 const DARK_ANSI = {
