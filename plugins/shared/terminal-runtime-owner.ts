@@ -10,6 +10,12 @@ import { TerminalSocket } from './terminal-socket.ts'
 import { TerminalOutputScheduler } from './terminal-output-scheduler.ts'
 import { TerminalResizeHold } from './terminal-resize-hold.ts'
 import { buildTerminalFontFamily } from './terminal-font.ts'
+import { registerWebglAtlasTarget } from './terminal-webgl-atlas.ts'
+import { RecentPtyOutputBuffer } from './recent-pty-output-buffer.ts'
+import {
+  armTerminalFitContinuationRetry,
+  clearTerminalFitContinuationRetry,
+} from './terminal-fit-retry.ts'
 import {
   captureTerminalScrollState,
   restoreTerminalScrollState,
@@ -83,6 +89,8 @@ export class TerminalRuntimeOwner {
   private readonly socket = new TerminalSocket()
   private readonly outputScheduler: TerminalOutputScheduler
   private readonly resizeHold: TerminalResizeHold
+  private readonly recentBuffer = new RecentPtyOutputBuffer()
+  private unregisterAtlasTarget: (() => void) | null = null
   private callbacks: OwnerCallbacks
   private container: HTMLDivElement | null = null
   private attached = false
@@ -197,6 +205,7 @@ export class TerminalRuntimeOwner {
       this.installPersistentListeners()
       this.socket.connect(this.terminal.cols, this.terminal.rows, {
         onOutput: (data, acknowledge) => {
+          this.recentBuffer.append(data)
           this.publishActivity(transitionTerminalActivity(this.activity, {
             type: 'output',
             attached: this.attached,
@@ -243,6 +252,7 @@ export class TerminalRuntimeOwner {
     this.resizeSubscription?.dispose()
     this.resizeSubscription = null
     this.resizeHold.cancel()
+    clearTerminalFitContinuationRetry(this)
     if (this.compositionHandler !== null) {
       this.terminal.element?.removeEventListener('compositionstart', this.compositionHandler)
       this.terminal.element?.removeEventListener('compositionupdate', this.compositionHandler)
@@ -258,6 +268,10 @@ export class TerminalRuntimeOwner {
     if (this.disposed) return
     this.disposed = true
     this.detach()
+    this.unregisterAtlasTarget?.()
+    this.unregisterAtlasTarget = null
+    clearTerminalFitContinuationRetry(this)
+    this.recentBuffer.clear()
     this.socket.terminate()
     this.outputScheduler.dispose()
     this.titleSubscription?.dispose()
@@ -389,17 +403,31 @@ export class TerminalRuntimeOwner {
     this.resizeObserver.observe(container)
   }
 
-  private fitNow(): void {
+  get recentOutputTranscript(): string {
+    return this.recentBuffer.read()
+  }
+
+  private fitNow(): boolean {
     if (!this.attached || this.container === null
-      || this.container.clientWidth === 0 || this.container.clientHeight === 0) return
+      || this.container.clientWidth === 0 || this.container.clientHeight === 0) {
+      armTerminalFitContinuationRetry(this, {
+        retry: () => this.fitNow(),
+      })
+      return false
+    }
+    clearTerminalFitContinuationRetry(this)
     try {
       const proposed = this.fitAddon.proposeDimensions()
-      if (proposed === undefined || (proposed.cols === this.terminal.cols && proposed.rows === this.terminal.rows)) return
+      if (proposed === undefined || (proposed.cols === this.terminal.cols && proposed.rows === this.terminal.rows)) return true
       const snapshot = captureTerminalScrollState(this.terminal)
       this.fitAddon.fit()
       restoreTerminalScrollState(this.terminal, snapshot)
+      return true
     } catch {
-      // A hidden or not-yet-laid-out surface retries on reveal.
+      armTerminalFitContinuationRetry(this, {
+        retry: () => this.fitNow(),
+      })
+      return false
     }
   }
 
@@ -436,14 +464,26 @@ export class TerminalRuntimeOwner {
       addon.onContextLoss(() => {
         if (this.webglAddon !== addon) return
         this.webglAddon = null
+        this.unregisterAtlasTarget?.()
+        this.unregisterAtlasTarget = null
         try { addon.dispose() } catch { /* fallback */ }
         try { this.terminal.refresh(0, this.terminal.rows - 1) } catch { /* disposed */ }
       })
       this.terminal.loadAddon(addon)
       this.webglAddon = addon
+      this.unregisterAtlasTarget = registerWebglAtlasTarget({
+        resetWebglTextureAtlas: () => {
+          try { (addon as unknown as { clearTextureAtlas?(): void }).clearTextureAtlas?.() } catch { /* best effort */ }
+        },
+        refreshTerminal: () => {
+          try { this.terminal.refresh(0, this.terminal.rows - 1) } catch { /* disposed */ }
+        },
+      })
       this.terminal.refresh(0, this.terminal.rows - 1)
     } catch {
       this.webglAddon = null
+      this.unregisterAtlasTarget?.()
+      this.unregisterAtlasTarget = null
     }
   }
 

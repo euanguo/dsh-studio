@@ -96,7 +96,9 @@ licenses remain in the installed dependency tree.
 - Project reference: `myade/orca`
 - Declared license: MIT
 - Oh-DSH components: `@oh-dsh/shared` (`terminal-scrollback-policy.ts`,
-  `stable-pane-id.ts`, `terminal-scroll-snapshot.ts`, `terminal-view.tsx` stable-fit)
+  `stable-pane-id.ts`, `terminal-scroll-snapshot.ts`, `terminal-font.ts`,
+  `terminal-fit-retry.ts`, `terminal-webgl-atlas.ts`,
+  `recent-pty-output-buffer.ts`, `terminal-view.tsx` stable-fit)
 
 Oh-DSH adapts orca's pure algorithms for desktop scrollback row/backlog
 normalization, stable-fit consecutive-frame settlement, scroll intent
