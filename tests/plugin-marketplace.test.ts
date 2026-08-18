@@ -116,28 +116,34 @@ class FakePlatform implements MarketplacePlatform {
 
   async readRepositoryFile(repository: string, path: string): Promise<string | null> {
     const pluginId = repository.split('/').at(-1) ?? repository
-    if (pluginId === 'bundle-demo' && path === 'package.json') {
-      return JSON.stringify({
+    const bundlePackages: Record<string, { name: string; description?: string; prepare?: string }> = {
+      'bundle-demo': {
         name: this.bundleName,
         description: this.bundleDescription,
-        dsh: { bundle: { patch: './cordis.patch.yml' } },
-        scripts: { prepare: 'node build.mjs', test: 'node test.mjs' },
-      })
+        prepare: 'node build.mjs',
+      },
+      'safe-demo': { name: '@example/safe-demo' },
+      'oh-dsh-desktop': { name: '@oh-dsh/desktop' },
+      'changing-plugin': { name: this.bundleName },
     }
-    if (pluginId === 'safe-demo' && path === 'package.json') {
-      return JSON.stringify({
-        name: '@example/safe-demo',
-        dsh: { bundle: { patch: './cordis.patch.yml' } },
-      })
-    }
-    if (pluginId === 'oh-dsh-desktop' && path === 'package.json') {
-      return JSON.stringify({
-        name: '@oh-dsh/desktop',
-        dsh: { bundle: { patch: './cordis.patch.yml' } },
-      })
+    const bundle = bundlePackages[pluginId]
+    if (bundle !== undefined) {
+      if (path === 'package.json') {
+        return JSON.stringify({
+          name: bundle.name,
+          description: bundle.description,
+          dsh: { bundle: { patch: './cordis.patch.yml' } },
+          license: 'MIT',
+          main: './index.js',
+          scripts: bundle.prepare === undefined ? {} : { prepare: bundle.prepare, test: 'node test.mjs' },
+          version: '1.0.0',
+        })
+      }
+      if (path === 'cordis.patch.yml') return '- insert:\n    - id: fixture-row\n      name: ./index.js\n'
+      if (path === 'index.js') return 'export function apply() {}\n'
     }
     if (pluginId === 'repository-demo' && path === '.dsh-plugin/package.json') {
-      return JSON.stringify({ name: '@example/repository-demo', scripts: { prepack: 'dsh-plugin-prepare' } })
+      return JSON.stringify({ name: '@example/repository-demo', license: 'MIT', version: '1.0.0', scripts: { prepack: 'dsh-plugin-prepare' } })
     }
     return null
   }
@@ -804,7 +810,7 @@ test('marketplace navigation matches the Settings seat geometry and row radius',
   assert.match(client, /confirmations\.includes\(requirement\)/)
   assert.match(client, /snapshot\.auth\.status !== 'ready' && snapshot\.catalog\.length === 0/)
   assert.match(client, /source-review\.\$\{plan\.sourceReview\}/)
-  assert.match(client, /risk-level\.\$\{plan\.riskLevel\}/)
+  assert.match(client, /risk-level\.\$\{(?:approval\?\.riskLevel \?\? )?plan\.riskLevel\}/)
   assert.match(messages, /installed: '已安装'/)
   assert.match(messages, /'not-installed': '未安装'/)
   assert.match(messages, /'accept-high-risk': '我了解/)
@@ -990,6 +996,32 @@ test('bundle preview remains isolated until apply and supports undo', async () =
   }
 })
 
+test('direct public repository input enters the same plan and isolated preview without catalog refresh', async () => {
+  const setup = fixture()
+  try {
+    let snapshot = await setup.manager.dispatch({
+      type: 'prepare',
+      action: 'install',
+      sourceRef: { kind: 'repository', input: 'dsh-external/bundle-demo' },
+    })
+    assert.equal(snapshot.error, null)
+    assert.equal(snapshot.candidate?.identity.packageName, '@example/bundle-demo')
+    assert.equal(snapshot.plan?.execution, 'installable')
+    assert.equal(snapshot.plan?.source, `github:dsh-external/bundle-demo#${COMMIT}`)
+    assert.equal(snapshot.preview, null)
+
+    snapshot = await setup.manager.dispatch({
+      type: 'preview',
+      confirmations: ['accept-high-risk', 'allow-build-scripts'],
+    })
+    assert.equal(snapshot.error, null)
+    assert.equal(snapshot.preview?.pluginId, 'bundle-demo')
+    assert.equal(readFileSync(join(setup.profileDir, 'package.json'), 'utf8').includes('@example/bundle-demo'), false)
+  } finally {
+    setup.cleanup()
+  }
+})
+
 test('safe actions prepare an isolated candidate in one transaction', async () => {
   const setup = fixture()
   try {
@@ -1047,9 +1079,9 @@ test('risky plans require explicit acknowledgements before preview', async () =>
       action: 'install',
       pluginId: 'repository-demo',
     })
-    assert.equal(snapshot.plan?.riskLevel, 'high')
-    assert.ok(snapshot.plan?.riskReasons.includes('trusted-host-code'))
-    assert.ok(snapshot.plan?.requirements.includes('accept-high-risk'))
+    assert.match(snapshot.error ?? '', /guide-only or blocked/)
+    assert.equal(snapshot.plan, null)
+    assert.equal(snapshot.preview, null)
   } finally {
     setup.cleanup()
   }
@@ -1246,7 +1278,7 @@ test('installed bundles keep enabled state and update through isolated previews'
       action: 'update',
       pluginId: 'bundle-demo',
     })
-    await setup.manager.dispatch({ type: 'preview', allowBuildScripts: true })
+    await setup.manager.dispatch({ type: 'preview', confirmations: ['allow-build-scripts', 'accept-source-change'] })
     snapshot = await setup.manager.dispatch({ type: 'apply' })
     plugin = snapshot.catalog.find(entry => entry.id === 'bundle-demo')
     assert.equal(plugin?.currentCommit, UPDATED_COMMIT)
@@ -1261,91 +1293,26 @@ test('installed bundles keep enabled state and update through isolated previews'
   }
 })
 
-test('repository preview can be discarded without changing the live patch', async () => {
+test('repository plugin candidates are blocked before profile mutation', async () => {
   const setup = fixture()
   try {
     await setup.manager.dispatch({ type: 'refresh' })
-    let snapshot = await setup.manager.dispatch({
-      type: 'inspect',
+    const snapshot = await setup.manager.dispatch({
+      type: 'prepare',
       action: 'install',
       pluginId: 'repository-demo',
     })
-    assert.equal(snapshot.plan?.mechanism, 'repository')
-    snapshot = await setup.manager.dispatch({
-      type: 'preview',
-      confirmations: ['allow-build-scripts', 'accept-high-risk'],
-    })
-    assert.equal(snapshot.preview?.pluginId, 'repository-demo')
-    assert.equal(readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'), '[]\n')
-    const previewHome = setup.runtime.previewStarts[0]?.dshHome
-    assert.ok(previewHome)
-    const previewPatch = readFileSync(join(previewHome, 'profiles', 'desktop', 'cordis.patch.yml'), 'utf8')
-    assert.doesNotMatch(previewPatch, /^\[\]\s*\n- id:/m)
-    assert.match(previewPatch, /- id: repository-plugins/)
-    snapshot = await setup.manager.dispatch({ type: 'discard' })
+    assert.match(snapshot.error ?? '', /guide-only or blocked/)
+    assert.equal(snapshot.plan, null)
     assert.equal(snapshot.preview, null)
-    assert.deepEqual(snapshot.installed, [])
+    assert.equal(setup.platform.commands.length, 0)
     assert.equal(readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'), '[]\n')
   } finally {
     setup.cleanup()
   }
 })
 
-test('repository plugins can be disabled without losing their install receipt', async () => {
-  const setup = fixture()
-  try {
-    await setup.manager.dispatch({ type: 'refresh' })
-    await setup.manager.dispatch({
-      type: 'inspect',
-      action: 'install',
-      pluginId: 'repository-demo',
-    })
-    await setup.manager.dispatch({
-      type: 'preview',
-      confirmations: ['allow-build-scripts', 'accept-high-risk'],
-    })
-    let snapshot = await setup.manager.dispatch({ type: 'apply' })
-    let plugin = snapshot.catalog.find(entry => entry.id === 'repository-demo')
-    assert.equal(plugin?.installed, true)
-    assert.equal(plugin?.enabled, true)
-
-    await setup.manager.dispatch({
-      type: 'inspect',
-      action: 'disable',
-      pluginId: 'repository-demo',
-    })
-    await setup.manager.dispatch({ type: 'preview', allowBuildScripts: false })
-    snapshot = await setup.manager.dispatch({ type: 'apply' })
-    plugin = snapshot.catalog.find(entry => entry.id === 'repository-demo')
-    assert.equal(plugin?.installed, true)
-    assert.equal(plugin?.enabled, false)
-    assert.doesNotMatch(
-      readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'),
-      /github:vlln\/repository-demo/,
-    )
-
-    await setup.manager.dispatch({
-      type: 'inspect',
-      action: 'enable',
-      pluginId: 'repository-demo',
-    })
-    await setup.manager.dispatch({
-      type: 'preview',
-      confirmations: ['accept-high-risk'],
-    })
-    snapshot = await setup.manager.dispatch({ type: 'apply' })
-    plugin = snapshot.catalog.find(entry => entry.id === 'repository-demo')
-    assert.equal(plugin?.enabled, true)
-    assert.match(
-      readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'),
-      /github:vlln\/repository-demo/,
-    )
-  } finally {
-    setup.cleanup()
-  }
-})
-
-test('legacy dsh-external repository receipts remain manageable', async () => {
+test('legacy repository state is readable but remains blocked', async () => {
   const setup = fixture()
   try {
     const source = `github:dsh-external/legacy-plugin#${COMMIT}&path:/.dsh-plugin`
@@ -1361,34 +1328,18 @@ test('legacy dsh-external repository receipts remain manageable', async () => {
         source,
       }],
     }))
-    writeFileSync(join(setup.profileDir, 'cordis.patch.yml'), [
-      '# >>> Oh-DSH-Desktop plugin marketplace',
-      '- id: repository-plugins',
-      '  config:',
-      '    repositories:',
-      `      - '${source}'`,
-      '# <<< Oh-DSH-Desktop plugin marketplace',
-      '',
-    ].join('\n'))
-
-    let snapshot = setup.manager.getSnapshot()
-    assert.equal(snapshot.installed[0]?.pluginId, 'legacy-plugin')
-    assert.equal(snapshot.installed[0]?.source, source)
-    snapshot = await setup.manager.dispatch({ type: 'prepare', action: 'disable', pluginId: 'legacy-plugin' })
-    assert.equal(snapshot.preview?.pluginId, 'legacy-plugin')
-    snapshot = await setup.manager.dispatch({ type: 'apply' })
-    assert.doesNotMatch(readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'), /legacy-plugin/)
-    snapshot = await setup.manager.dispatch({ type: 'prepare', action: 'enable', pluginId: 'legacy-plugin' })
+    const before = readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8')
+    const snapshot = await setup.manager.dispatch({ type: 'prepare', action: 'enable', pluginId: 'legacy-plugin' })
+    assert.match(snapshot.error ?? '', /guide-only or blocked/)
+    assert.equal(snapshot.plan?.execution, 'guide-only')
     assert.equal(snapshot.preview, null)
-    assert.ok(snapshot.plan?.requirements.includes('accept-high-risk'))
-    snapshot = await setup.manager.dispatch({ type: 'preview', confirmations: ['accept-high-risk'] })
-    assert.equal(snapshot.preview?.pluginId, 'legacy-plugin')
+    assert.equal(readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'), before)
   } finally {
     setup.cleanup()
   }
 })
 
-test('legacy receipts require confirmation before changing repository identity', async () => {
+test('legacy source identity changes cannot re-enable repository plugins', async () => {
   const setup = fixture()
   try {
     const source = `github:dsh-external/legacy-plugin#${COMMIT}&path:/.dsh-plugin`
@@ -1404,50 +1355,15 @@ test('legacy receipts require confirmation before changing repository identity',
         source,
       }],
     }))
-    writeFileSync(join(setup.profileDir, 'cordis.patch.yml'), [
-      '# >>> Oh-DSH-Desktop plugin marketplace',
-      '- id: repository-plugins',
-      '  config:',
-      '    repositories:',
-      `      - '${source}'`,
-      '# <<< Oh-DSH-Desktop plugin marketplace',
-      '',
-    ].join('\n'))
-    setup.platform.latestCommit = UPDATED_COMMIT
-    setup.platform.readRepositoryFile = async (_repository, path): Promise<string | null> =>
-      path === '.dsh-plugin/package.json'
-        ? JSON.stringify({ name: '@legacy/plugin' })
-        : null
-    const repositoryCatalog = (repository: string): unknown => ({
-      schema: 'omdsh-registry/v1',
-      entries: [{
-        id: 'legacy-plugin',
-        displayName: 'Legacy plugin',
-        description: 'Legacy plugin',
-        kind: 'plugin',
-        source: { repository },
-        install: { mode: 'repository-plugin' },
-        listing: { state: 'reviewed' },
-      }],
-    })
-
-    setup.platform.loadCatalog = async (): Promise<unknown> => repositoryCatalog('dsh-external/legacy-plugin')
-    await setup.manager.dispatch({ type: 'refresh' })
-    let snapshot = await setup.manager.dispatch({ type: 'inspect', action: 'update', pluginId: 'legacy-plugin' })
-    assert.equal(snapshot.plan?.sourceReview, 'matched')
-    assert.ok(!snapshot.plan?.requirements.includes('accept-source-change'))
-
-    setup.platform.loadCatalog = async (): Promise<unknown> => repositoryCatalog('vlln/legacy-plugin')
-    await setup.manager.dispatch({ type: 'refresh' })
-    snapshot = await setup.manager.dispatch({ type: 'inspect', action: 'update', pluginId: 'legacy-plugin' })
-    assert.equal(snapshot.plan?.sourceReview, 'changed')
-    assert.ok(snapshot.plan?.requirements.includes('accept-source-change'))
+    const snapshot = await setup.manager.dispatch({ type: 'prepare', action: 'enable', pluginId: 'legacy-plugin' })
+    assert.match(snapshot.error ?? '', /guide-only or blocked/)
+    assert.equal(snapshot.preview, null)
   } finally {
     setup.cleanup()
   }
 })
 
-test('discover updates remove an old bundle before switching to a repository plugin', async () => {
+test('catalog updates that become repository plugins are blocked', async () => {
   const setup = fixture()
   try {
     let repositoryMode = false
@@ -1467,43 +1383,31 @@ test('discover updates remove an old bundle before switching to a repository plu
         return JSON.stringify({
           name: '@example/changing-plugin',
           dsh: { bundle: { patch: './cordis.patch.yml' } },
+          license: 'MIT',
+          main: './index.js',
+          version: '1.0.0',
         })
       }
-      if (repositoryMode && path === '.dsh-plugin/package.json') {
-        return JSON.stringify({ name: '@example/changing-plugin' })
-      }
+      if (!repositoryMode && path === 'cordis.patch.yml') return '- insert:\n    - id: changing-plugin\n      name: ./index.js\n'
+      if (!repositoryMode && path === 'index.js') return 'export function apply() {}\n'
+      if (repositoryMode && path === 'package.json') return JSON.stringify({ name: '@example/changing-plugin', license: 'MIT', version: '1.0.0' })
+      if (repositoryMode && path === '.dsh-plugin/package.json') return JSON.stringify({ name: '@example/changing-plugin' })
       return null
     }
 
     await setup.manager.dispatch({ type: 'refresh' })
     await setup.manager.dispatch({ type: 'prepare', action: 'install', pluginId: 'changing-plugin' })
-    let snapshot = await setup.manager.dispatch({ type: 'apply' })
-    assert.equal(snapshot.installed[0]?.mechanism, 'bundle')
-    let manifest = JSON.parse(readFileSync(join(setup.profileDir, 'package.json'), 'utf8'))
-    assert.equal(typeof manifest.dependencies['@example/changing-plugin'], 'string')
+    const applied = await setup.manager.dispatch({ type: 'apply' })
+    assert.equal(applied.installed[0]?.mechanism, 'bundle')
+    const before = readFileSync(join(setup.profileDir, 'package.json'), 'utf8')
 
     repositoryMode = true
     setup.platform.latestCommit = UPDATED_COMMIT
     await setup.manager.dispatch({ type: 'refresh' })
-    snapshot = await setup.manager.dispatch({ type: 'inspect', action: 'update', pluginId: 'changing-plugin' })
-    assert.equal(snapshot.plan?.mechanism, 'repository')
-    assert.ok(snapshot.plan?.requirements.includes('accept-source-change'))
-    await setup.manager.dispatch({
-      type: 'preview',
-      confirmations: ['accept-high-risk', 'accept-source-change'],
-    })
-    snapshot = await setup.manager.dispatch({ type: 'apply' })
-
-    assert.equal(snapshot.installed[0]?.mechanism, 'repository')
-    manifest = JSON.parse(readFileSync(join(setup.profileDir, 'package.json'), 'utf8'))
-    assert.equal(manifest.dependencies['@example/changing-plugin'], undefined)
-    assert.ok(!manifest.dsh.profile.bundles.includes('@example/changing-plugin'))
-    assert.match(
-      readFileSync(join(setup.profileDir, 'cordis.patch.yml'), 'utf8'),
-      /github:omdsh-dev\/changing-plugin/,
-    )
-    assert.ok(setup.platform.commands.some(command =>
-      command.args.join(' ') === 'plugin --profile desktop remove @example/changing-plugin'))
+    const blocked = await setup.manager.dispatch({ type: 'prepare', action: 'update', pluginId: 'changing-plugin' })
+    assert.match(blocked.error ?? '', /guide-only or blocked/)
+    assert.equal(blocked.preview, null)
+    assert.equal(readFileSync(join(setup.profileDir, 'package.json'), 'utf8'), before)
   } finally {
     setup.cleanup()
   }
