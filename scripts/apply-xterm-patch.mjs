@@ -18,6 +18,11 @@
  * viewport and makes "scrollbar appears" coincide with "content fills the
  * screen".
  *
+ * Update: the terminal insets `.xterm` with 8px padding (a uniform breathing
+ * inset that FitAddon subtracts). The scrollable height must therefore be the
+ * host's CONTENT height (clientHeight − top/bottom padding), or the scrollbar
+ * region would overflow the padded box by 8px.
+ *
  * Also patches lib/xterm.mjs (ESM twin) so both entries carry the fix.
  */
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs'
@@ -26,8 +31,16 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-const OLD = 'setScrollDimensions({height:this._renderService.dimensions.css.canvas.height,scrollHeight:this._renderService.dimensions.css.cell.height*this._bufferService.buffer.lines.length})'
-const NEW = 'setScrollDimensions({height:(this._scrollableElement.getDomNode().parentElement&&this._scrollableElement.getDomNode().parentElement.clientHeight>0?this._scrollableElement.getDomNode().parentElement.clientHeight:this._renderService.dimensions.css.canvas.height),scrollHeight:this._renderService.dimensions.css.cell.height*this._bufferService.buffer.lines.length})'
+// Original upstream code.
+const ORIGINAL = 'setScrollDimensions({height:this._renderService.dimensions.css.canvas.height,scrollHeight:this._renderService.dimensions.css.cell.height*this._bufferService.buffer.lines.length})'
+// First patch version (viewport height, no padding subtraction) — still present
+// in installs that predate the .xterm padding work; upgraded in place.
+const OLD_PATCH = 'setScrollDimensions({height:(this._scrollableElement.getDomNode().parentElement&&this._scrollableElement.getDomNode().parentElement.clientHeight>0?this._scrollableElement.getDomNode().parentElement.clientHeight:this._renderService.dimensions.css.canvas.height),scrollHeight:this._renderService.dimensions.css.cell.height*this._bufferService.buffer.lines.length})'
+// Current patch: scrollable height = host CONTENT height (clientHeight minus
+// top/bottom padding) so it matches the 8px .xterm inset.
+const NEW_PATCH = 'setScrollDimensions({height:(this._scrollableElement.getDomNode().parentElement&&this._scrollableElement.getDomNode().parentElement.clientHeight>0?(this._scrollableElement.getDomNode().parentElement.clientHeight-((parseInt(getComputedStyle(this._scrollableElement.getDomNode().parentElement).paddingTop)||0)+(parseInt(getComputedStyle(this._scrollableElement.getDomNode().parentElement).paddingBottom)||0))):this._renderService.dimensions.css.canvas.height),scrollHeight:this._renderService.dimensions.css.cell.height*this._bufferService.buffer.lines.length})'
+
+const PRESETS = [ORIGINAL, OLD_PATCH]
 
 function locatePackage() {
   const pnpmDir = join(root, 'node_modules', '.pnpm')
@@ -58,17 +71,18 @@ for (const file of ['lib/xterm.js', 'lib/xterm.mjs']) {
   const path = join(pkgRoot, file)
   if (!existsSync(path)) continue
   const src = readFileSync(path, 'utf8')
-  if (src.includes(NEW)) {
+  if (src.includes(NEW_PATCH)) {
     console.log(`[apply-xterm-patch] ${file}: already patched`)
     continue
   }
-  if (!src.includes(OLD)) {
+  const preset = PRESETS.find(p => src.includes(p))
+  if (preset === undefined) {
     console.warn(`[apply-xterm-patch] ${file}: target pattern not found — xterm version changed? SKIPPED`)
     continue
   }
-  writeFileSync(path, src.replace(OLD, NEW))
+  writeFileSync(path, src.replace(preset, NEW_PATCH))
   changed = true
-  console.log(`[apply-xterm-patch] ${file}: patched`)
+  console.log(`[apply-xterm-patch] ${file}: ${preset === ORIGINAL ? 'patched' : 'upgraded to padding-aware patch'}`)
 }
 
 if (!changed) console.log('[apply-xterm-patch] done (no changes)')

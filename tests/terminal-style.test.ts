@@ -9,12 +9,13 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 test('terminal viewport cannot expose xterm default black behind the themed screen', () => {
   const css = readFileSync(join(root, 'plugins/panel-controls/src/terminal/terminal.css'), 'utf8')
   assert.match(css, /\.oh-dsh-terminal-view \.xterm-viewport[\s\S]*background-color:[^;]+!important/)
-  // The host is a full-bleed surface: zero padding (padding would inset the
-  // xterm viewport/scrollbar and create asymmetric gaps between the text
-  // block and the pane edges), and .xterm itself must not get its own
-  // padding either.
-  assert.doesNotMatch(css, /\.oh-dsh-terminal-view \{[\s\S]*padding:/)
-  assert.doesNotMatch(css, /\.oh-dsh-terminal-view \.xterm \{[^}]*padding:/)
+  // The host stays zero-padding (padding on the host would sit OUTSIDE
+  // xterm's fit measurement and desync the grid); breathing room lives on
+  // `.xterm` itself as a uniform 8px inset that FitAddon genuinely
+  // subtracts, so the right edge is no longer the only gapped side.
+  assert.doesNotMatch(css, /\.oh-dsh-terminal-view \{[^}]*padding:/)
+  assert.match(css, /\.oh-dsh-terminal-view \.xterm \{[^}]*padding: var\(--oh-dsh-space-2\);/)
+  assert.match(css, /\.oh-dsh-terminal-view \.xterm \{[^}]*box-sizing: border-box;/)
 })
 
 test('terminal scrollbar is a rounded DOM slider, not the native square one', () => {

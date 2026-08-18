@@ -259,6 +259,10 @@
 
 .oh-dsh-terminal-view .xterm {
   height: 100%;
+  /* Uniform breathing inset on all four sides (subtracted by FitAddon so the
+     grid stays in sync); same contract as the shared terminal-view.css. */
+  padding: var(--oh-dsh-space-2);
+  box-sizing: border-box;
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
   font-family: inherit;
 }

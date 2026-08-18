@@ -2,14 +2,18 @@
    terminal). Token colors only; the xterm base styles come from
    `@xterm/xterm/css/xterm.css`, injected by the consumer.
 
-   Layout contract: the terminal host is a FULL-BLEED surface — zero padding.
-   Padding on the host would push the absolutely-positioned
-   `.xterm-viewport` (and its scrollbar) inward and create asymmetric gaps
-   between the text block and the pane edges; xterm's fit grid then snaps
-   the bottom row to the padded box, so top/left/right end up inset while
-   the bottom looks flush. A terminal fills its pane (VS Code / iTerm
-   convention); any breathing room belongs to the parent surface, not the
-   terminal view itself. */
+   Layout contract: the terminal HOST is a full-bleed surface (zero padding)
+   — extra padding on the host would sit OUTSIDE xterm's fit measurement
+   (FitAddon only subtracts the `.xterm` element's own padding), pushing the
+   computed rows/cols out of sync with the real content box.
+
+   Breathing room lives on `.xterm` itself: a uniform 8px inset that
+   FitAddon natively subtracts, so the rendered grid stays accurate while
+   the content gets even spacing on all four sides. The `.xterm` background
+   matches the terminal (and host) token, so the inset reads as seamless
+   padding, not a border. The scrollbar's own 7px gutter (scrollbar.width)
+   sits inside that inset, so the right side is no longer the only gapped
+   edge. */
 
 .oh-dsh-terminal-view {
   position: relative;
@@ -26,6 +30,11 @@
 
 .oh-dsh-terminal-view .xterm {
   height: 100%;
+  /* Uniform breathing inset on all four sides, subtracted by FitAddon so the
+     grid (and the scrollbar's scrollable height) stay in sync with the
+     actual content box. */
+  padding: var(--oh-dsh-space-2);
+  box-sizing: border-box;
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
   font-family: inherit;
 }
