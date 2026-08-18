@@ -1,17 +1,16 @@
 /**
  * Client half of the desktop worktree API. The left rail has no session
- * binding, so it calls the desktop host's `/sidebar/api`
- * worktree endpoints with a bare cwd (same-origin POST, same fence as the
- * file/git routes — see plugins/sidebar/src/sidebar-api.ts).
+ * binding, so it calls the desktop host's `/sidebar/api` worktree endpoints
+ * with a bare cwd through the same-origin capability fence.
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { callSidebarGlobalApi } from '@oh-dsh/shared/sidebar-api'
-import type { GitWorktreeLayout, WorktreeLayoutMap } from './tree.ts'
+import type { GitWorktreeLayout, WorktreeFactState, WorktreeLayoutMap } from './tree.ts'
 
-/** One worktree list response (null = cwd is not a git work tree). */
+/** One worktree list response (null = confirmed non-git directory). */
 export type WorktreeLayoutResult = GitWorktreeLayout | null
 
-/** `git.worktree-list` for one cwd; null when not in a git work tree. */
+/** `git.worktree-list` for one cwd; null when it is confirmed non-git. */
 export async function fetchWorktreeLayout(cwd: string, signal?: AbortSignal): Promise<WorktreeLayoutResult> {
   return callSidebarGlobalApi<WorktreeLayoutResult>('git.worktree-list', { cwd }, signal)
 }
@@ -26,44 +25,83 @@ export async function createWorktree(
   await callSidebarGlobalApi('git.worktree-add', { cwd, path, branch, createBranch })
 }
 
+/** One guarded linked-worktree removal preview. */
+export interface WorktreeRemovalPreview {
+  repoRoot: string
+  path: string
+  branch: string | null
+  main: boolean
+  locked: boolean
+  prunable: string | null
+  dirty: boolean
+  statusEntries: readonly { path: string; xy: string }[]
+}
+
+/** Inspect one linked worktree before asking for destructive confirmation. */
+export async function previewWorktreeRemoval(cwd: string, path: string, signal?: AbortSignal): Promise<WorktreeRemovalPreview> {
+  return callSidebarGlobalApi<WorktreeRemovalPreview>('git.worktree-remove-preview', { cwd, path }, signal)
+}
+
+/** Remove one non-primary linked worktree through the Host Git fence. */
+export async function removeWorktree(cwd: string, path: string, force = false): Promise<WorktreeLayoutResult> {
+  const result = await callSidebarGlobalApi<{ layout: WorktreeLayoutResult }>('git.worktree-remove', { cwd, path, force })
+  return result.layout
+}
+
 /** The repository's branches (`git.branch` → { current, names }). */
 export async function fetchBranches(cwd: string, signal?: AbortSignal): Promise<{ current: string; names: string[] }> {
   return callSidebarGlobalApi<{ current: string; names: string[] }>('git.branch', { cwd }, signal)
 }
 
 /**
- * Batch-fetch the worktree layout for every unique workspace cwd. Results are
- * cached per cwd until the cwd roster changes (new worktrees refresh via a
- * manual `refresh`); regaining window focus or tab visibility also refreshes
- * so layouts created or branches switched outside the app do not stay stale.
- * Layouts are pure derivation input — a failed lookup degrades that cwd to a
- * non-git directory project.
+ * Batch-fetch the worktree layout for every unique workspace cwd. A lookup
+ * failure retains its last-known layout and is never represented as a
+ * confirmed non-Git directory.
  */
 export function useWorktreeLayouts(cwds: readonly string[]): {
   layouts: WorktreeLayoutMap
+  facts: ReadonlyMap<string, WorktreeFactState>
   refresh: () => void
   loading: boolean
 } {
   const unique = Array.from(new Set(cwds)).sort()
-  const [layouts, setLayouts] = useState<Map<string, WorktreeLayoutResult>>(new Map())
+  const [facts, setFacts] = useState<Map<string, WorktreeFactState>>(new Map())
   const [revision, setRevision] = useState(0)
   const [loading, setLoading] = useState(false)
   const key = unique.join('\n')
   useEffect(() => {
     let cancelled = false
     const controller = new AbortController()
+    const previous = facts
+    const initial = new Map<string, WorktreeFactState>()
+    for (const cwd of unique) {
+      const old = previous.get(cwd)
+      const lastKnown = old?.status === 'ready' && old.layout !== null
+        ? old.layout
+        : old?.status === 'loading' || old?.status === 'error' ? old.lastKnown : undefined
+      initial.set(cwd, lastKnown === undefined ? { status: 'loading' } : { status: 'loading', lastKnown })
+    }
+    setFacts(initial)
     const run = async (): Promise<void> => {
-      setLoading(true)
-      const next = new Map<string, WorktreeLayoutResult>()
-      await Promise.all(unique.map(async (cwd) => {
+      setLoading(unique.length > 0)
+      const next = new Map(initial)
+      await Promise.all(unique.map(async cwd => {
         try {
-          next.set(cwd, await fetchWorktreeLayout(cwd, controller.signal))
-        } catch {
-          if (!cancelled) next.set(cwd, null)
+          next.set(cwd, { status: 'ready', layout: await fetchWorktreeLayout(cwd, controller.signal) })
+        } catch (error) {
+          const old = previous.get(cwd)
+          const lastKnown = old?.status === 'ready' && old.layout !== null
+            ? old.layout
+            : old?.status === 'loading' || old?.status === 'error' ? old.lastKnown : undefined
+          next.set(cwd, {
+            status: 'error',
+            ...(lastKnown === undefined ? {} : { lastKnown }),
+            error: error instanceof Error ? error.message : String(error),
+          })
         }
       }))
       if (!cancelled) {
-        setLayouts(next)
+        setFacts(next)
         setLoading(false)
       }
     }
@@ -72,14 +110,11 @@ export function useWorktreeLayouts(cwds: readonly string[]): {
       cancelled = true
       controller.abort()
     }
-    // `key` is the roster; `revision` forces a refetch after a worktree add.
+    // `key` is the cwd roster; `revision` forces a refetch after a mutation.
   }, [key, revision])
   useEffect(() => {
-    // External changes (a terminal, another surface, another user) can add
-    // worktrees or switch branches: refetch when the window regains focus or
-    // becomes visible again.
     const refreshIfVisible = (): void => {
-      if (document.visibilityState === 'visible') setRevision(v => v + 1)
+      if (document.visibilityState === 'visible') setRevision(value => value + 1)
     }
     window.addEventListener('focus', refreshIfVisible)
     document.addEventListener('visibilitychange', refreshIfVisible)
@@ -88,6 +123,16 @@ export function useWorktreeLayouts(cwds: readonly string[]): {
       document.removeEventListener('visibilitychange', refreshIfVisible)
     }
   }, [])
-  const refresh = (): void => { setRevision(v => v + 1) }
-  return { layouts, refresh, loading }
+  const layouts = useMemo<WorktreeLayoutMap>(() => ({
+    get(cwd) {
+      const fact = facts.get(cwd)
+      if (fact === undefined) return undefined
+      if (fact.status === 'ready') return fact.layout
+      return fact.lastKnown
+    },
+    getFact(cwd) {
+      return facts.get(cwd)
+    },
+  }), [facts])
+  return { layouts, facts, refresh: () => { setRevision(value => value + 1) }, loading }
 }

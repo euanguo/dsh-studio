@@ -6,6 +6,8 @@
  * share from the return type.
  */
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
+import type { ProjectIconPreference } from './domain/project-icon.ts'
+import { sanitizeProjectIconPreference } from './domain/project-icon.ts'
 
 /** Browser-local order account for the hierarchy-free flat Session list. */
 export const FLAT_SESSION_ORDER_KEY = '__flat_session_order__'
@@ -35,6 +37,8 @@ type WorkspaceViewState = {
   groupLabels: Record<string, string>
   /** repoRoot → user alias (display name overriding the directory basename). */
   projectAlias: Record<string, string>
+  /** repoRoot → explicit project icon preference; absence means auto-resolve. */
+  projectIconOverrides: Record<string, ProjectIconPreference>
 }
 
 /**
@@ -59,7 +63,8 @@ type WorkspaceViewActions = {
   renameGroup: (draft: WorkspaceViewState, id: string, label: string) => void
   removeGroup: (draft: WorkspaceViewState, id: string) => void
   setProjectAlias: (draft: WorkspaceViewState, repoRoot: string, alias: string | undefined) => void
-  hydrateGrouping: (draft: WorkspaceViewState, settings: { activeTab?: string; projectGroup?: Record<string, string>; groupIds?: string[]; groupLabels?: Record<string, string>; projectAlias?: Record<string, string> }) => void
+  setProjectIconOverride: (draft: WorkspaceViewState, repoRoot: string, preference: ProjectIconPreference | undefined) => void
+  hydrateGrouping: (draft: WorkspaceViewState, settings: { activeTab?: string; projectGroup?: Record<string, string>; groupIds?: string[]; groupLabels?: Record<string, string>; projectAlias?: Record<string, string>; projectIconOverrides?: Record<string, ProjectIconPreference> }) => void
 }
 
 /**
@@ -79,6 +84,7 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
       groupIds: [],
       groupLabels: {},
       projectAlias: {},
+      projectIconOverrides: {},
     }),
     actions: {
       setGroupBy: (d, mode: SessionGroupBy) => { d.groupBy = mode },
@@ -124,12 +130,24 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
         if (alias === undefined || alias.trim() === '') delete d.projectAlias[repoRoot]
         else d.projectAlias[repoRoot] = alias.trim()
       },
+      setProjectIconOverride: (d, repoRoot: string, preference: ProjectIconPreference | undefined) => {
+        const sanitized = sanitizeProjectIconPreference(preference)
+        if (sanitized === undefined) delete d.projectIconOverrides[repoRoot]
+        else d.projectIconOverrides[repoRoot] = sanitized
+      },
       hydrateGrouping: (d, settings) => {
         if (typeof settings.activeTab === 'string') d.activeTab = settings.activeTab
         if (settings.projectGroup !== undefined) d.projectGroup = settings.projectGroup
         if (Array.isArray(settings.groupIds)) d.groupIds = settings.groupIds
         if (settings.groupLabels !== undefined) d.groupLabels = settings.groupLabels
         if (settings.projectAlias !== undefined) d.projectAlias = settings.projectAlias
+        if (settings.projectIconOverrides !== undefined) {
+          d.projectIconOverrides = Object.fromEntries(
+            Object.entries(settings.projectIconOverrides)
+              .map(([root, preference]) => [root, sanitizeProjectIconPreference(preference)] as const)
+              .filter((entry): entry is readonly [string, ProjectIconPreference] => entry[1] !== undefined),
+          )
+        }
       },
     },
   })

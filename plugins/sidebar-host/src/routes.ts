@@ -18,6 +18,7 @@ import { SettingsConflictError } from '@deepseek-ai/dsh-settings'
 import type { PtyManager } from './pty-manager.ts'
 import type { AgentPtyRegistry } from './agent-pty.ts'
 import { buildJobsApi, type SidebarJobsRoutes } from './jobs-routes.ts'
+import { detectProjectIcon } from './project-icon.ts'
 import {
   isSidebarWorkspaceMutation,
   mutateWorkspace,
@@ -477,6 +478,44 @@ export function buildSidebarRoutes(
       const path = requireAbsolute(requireString(payload, 'path'))
       const branch = requireString(payload, 'branch')
       return git.worktreeAdd(cwd, path, branch, optionalBoolean(payload, 'createBranch') === true)
+    },
+    'git.worktree-remove-preview': async (payload) => {
+      const cwd = cwdScopeOf(payload)
+      const path = requireAbsolute(requireString(payload, 'path'))
+      try {
+        const preview = await git.worktreeRemovalPreview(cwd, path)
+        return {
+          repoRoot: preview.repoRoot,
+          path: preview.worktree.path,
+          branch: preview.worktree.branch,
+          main: preview.worktree.main,
+          locked: preview.worktree.locked === true,
+          prunable: preview.worktree.prunable ?? null,
+          dirty: preview.dirty,
+          statusEntries: preview.statusEntries,
+        }
+      } catch (error) {
+        if (error instanceof git.GitCommandError) {
+          throw new SidebarError('git-error', error.message, 409)
+        }
+        throw error
+      }
+    },
+    'git.worktree-remove': async (payload) => {
+      const cwd = cwdScopeOf(payload)
+      const path = requireAbsolute(requireString(payload, 'path'))
+      try {
+        return { layout: await git.worktreeRemove(cwd, path, optionalBoolean(payload, 'force') === true) }
+      } catch (error) {
+        if (error instanceof git.GitCommandError) {
+          throw new SidebarError('git-error', error.message, 409)
+        }
+        throw error
+      }
+    },
+    'project.icon-detect': async (payload) => {
+      const cwd = cwdScopeOf(payload)
+      return detectProjectIcon(cwd)
     },
     // Workspace-level facts/mutations (fork): the same bare-cwd scope as the
     // worktree endpoints, serving the source-control panel's repository

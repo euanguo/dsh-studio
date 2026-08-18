@@ -11,10 +11,11 @@
  * menu in between; the flow and its error dialog live in WorkspacePicker
  * (same package — direct composition, no slot between them).
  */
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cn } from './shim/cn.ts'
 import {
   Button, Menu, Modal, Tooltip,
+  RiskConfirmation,
   IconChevronDownOutline14, IconCloseFill14, IconFolderClose16,
   IconProjectAddOutline16, IconSearchOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -22,10 +23,12 @@ import type {
   SessionId, SessionListState, SessionSearchResultItem, WorkspaceId, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
-import type { ProjectNode, ProjectTreeView, SessionNode, SessionOrderBy } from './tree.ts'
+import type { ProjectNode, ProjectTreeView, SessionNode, SessionOrderBy, ProjectIconNode } from './tree.ts'
+import type { ActionSelection } from './domain/commands.ts'
+import type { ProjectIconPreference } from './domain/project-icon.ts'
 import {
   DEFAULT_GROUP_ID, repoExpansionKey, UNGROUPED_EXPANSION_KEY, UNGROUPED_KEY,
-  workspaceExpansionKey, worktreeExpansionKey,
+  workspaceExpansionKey, worktreeExpansionKey, workspaceLabel,
 } from './tree.ts'
 import { ProjectSearchResults } from './ProjectSearchResults.tsx'
 import { FlatList, RemoteSearchState, SearchResults, ViewOptionsMenu } from './workspace-browser-views.tsx'
@@ -33,7 +36,12 @@ import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.t
 import { FLAT_SESSION_ORDER_KEY } from './stores.ts'
 import { WorkspacePickFlow } from './WorkspacePicker.tsx'
 import { ProjectTreeBody } from './WorkspaceBrowserProjectTree.tsx'
-import { createWorktree, useWorktreeLayouts, fetchBranches } from './worktree-api.ts'
+import { createWorktree, useWorktreeLayouts, fetchBranches, previewWorktreeRemoval, removeWorktree } from './worktree-api.ts'
+import { detectProjectIcon, type ProjectIconDetection } from './project-icon-api.ts'
+import { projectIconNodeOf } from './project-icon-model.ts'
+import { deriveLeftRailSnapshot } from './project-tree-model.ts'
+import { createRailController } from './rail-controller.ts'
+import { isPathWithin } from './domain/identities.ts'
 import { loadLeftRailSettings, saveLeftRailSettings } from './left-rail-settings.ts'
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { toast } from '@oh-dsh/shared/toast'
@@ -88,6 +96,7 @@ export function WorkspaceBrowser({
   t,
 }: WorkspaceBrowserProps) {
   const workspaces = useWorkspaces(state => state.items)
+  const sessionList = useSessions(state => state)
   const workspacePhase = useWorkspaces(state => state.phase)
   const archivedSessionIds = useWorkspaces(state => state.archivedSessionIds)
   // Live occupancy of this surface's directory-flow hole (the same source the
@@ -103,8 +112,52 @@ export function WorkspaceBrowser({
   const groupIds = useStore(s => s.groupIds)
   const groupLabels = useStore(s => s.groupLabels)
   const projectAlias = useStore(s => s.projectAlias)
+  const projectIconOverrides = useStore(s => s.projectIconOverrides)
   // Three-level tree worktree layouts (fetched per cwd, cached by roster).
   const worktreeLayouts = useWorktreeLayouts(workspaces.map(workspace => workspace.path))
+  // The controller keeps topology mutations serialized by canonical Worktree identity.
+  const railController = useMemo(() => createRailController({
+    preview: previewWorktreeRemoval,
+    remove: removeWorktree,
+    refresh: worktreeLayouts.refresh,
+  }), [])
+  const [iconRevision, setIconRevision] = useState(0)
+
+  const projectRoots = useMemo(() => Array.from(new Set(
+    workspaces.map(workspace => worktreeLayouts.layouts.get(workspace.path)?.repoRoot ?? workspace.path),
+  )).sort(), [workspaces, worktreeLayouts.layouts])
+  const [projectIconDetections, setProjectIconDetections] = useState<Map<string, ProjectIconDetection['icon']>>(new Map())
+  const projectRootKey = projectRoots.join('\n')
+  useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    const run = async (): Promise<void> => {
+      const next = new Map<string, ProjectIconDetection['icon']>()
+      await Promise.all(projectRoots.map(async root => {
+        try {
+          const detection = await detectProjectIcon(root, controller.signal)
+          next.set(detection.repoRoot, detection.icon)
+        } catch {
+          // Icon enrichment is best effort; the model keeps its glyph fallback.
+        }
+      }))
+      if (!cancelled) setProjectIconDetections(next)
+    }
+    void run()
+    return () => { cancelled = true; controller.abort() }
+  }, [projectRootKey, projectRoots, iconRevision])
+  const projectIcons = useMemo(() => {
+    const icons = new Map<string, ProjectIconNode>()
+    for (const root of projectRoots) {
+      const isGit = workspaces.some(workspace => worktreeLayouts.layouts.get(workspace.path)?.repoRoot === root)
+      icons.set(root, projectIconNodeOf({
+        isGit,
+        preference: projectIconOverrides[root],
+        detection: projectIconDetections.get(root),
+      }))
+    }
+    return icons
+  }, [projectIconDetections, projectIconOverrides, projectRoots, workspaces, worktreeLayouts.layouts])
   // Grouping persisted through the host settings service (not localStorage).
   const settingsRevision = useRef<number>(0)
   const settingsHydrated = useRef(false)
@@ -128,7 +181,7 @@ export function WorkspaceBrowser({
       // revision and retry once — a conflict must never wedge persistence
       // until reload.
       const persist = async (): Promise<void> => {
-        const patch = { activeTab, projectGroup, groupIds, groupLabels, projectAlias }
+        const patch = { activeTab, projectGroup, groupIds, groupLabels, projectAlias, projectIconOverrides }
         try {
           const view = await saveLeftRailSettings(patch, settingsRevision.current)
           settingsRevision.current = view.revision
@@ -147,7 +200,7 @@ export function WorkspaceBrowser({
       void persist()
     }, 300)
     return () => { window.clearTimeout(timer) }
-  }, [activeTab, projectGroup, groupIds, groupLabels, projectAlias])
+  }, [activeTab, projectGroup, groupIds, groupLabels, projectAlias, projectIconOverrides])
   useEffect(() => {
     if (workspacePhase !== 'ready') return
     // Retain the session-order accounts (workspace ids + ungrouped/flat) and
@@ -295,6 +348,7 @@ export function WorkspaceBrowser({
     if (renameBlocked) return
     setRenaming(true)
     setRenameError(null)
+
     renameWorkspace(renameTarget.workspaceId, renameTrimmed).then(() => {
       setRenaming(false)
       setRenameTarget(null)
@@ -371,6 +425,7 @@ export function WorkspaceBrowser({
     setDeleting(true)
     setDeleteCommittedId(null)
     setDeleteError(null)
+
     deleteWorkspace(deleteTarget.workspaceId).then(() => {
       // Keep the confirmation pending until this component has rendered the
       // committed list projection without the deleted id. Closing earlier
@@ -400,6 +455,12 @@ export function WorkspaceBrowser({
   const [removeProjectTarget, setRemoveProjectTarget] = useState<{ repoRoot: string; label: string; count: number } | null>(null)
   const [removeProjectPending, setRemoveProjectPending] = useState(false)
   const [removeProjectError, setRemoveProjectError] = useState<string | null>(null)
+  const [physicalRemoveTarget, setPhysicalRemoveTarget] = useState<{ repoRoot: string; path: string; workspaceCount: number; sessionCount: number } | null>(null)
+  const [physicalRemovePreview, setPhysicalRemovePreview] = useState<Awaited<ReturnType<typeof previewWorktreeRemoval>> | null>(null)
+  const [physicalRemovePending, setPhysicalRemovePending] = useState(false)
+  const [physicalRemoveAcknowledged, setPhysicalRemoveAcknowledged] = useState(false)
+  const [physicalRemoveError, setPhysicalRemoveError] = useState<string | null>(null)
+
   // Copy-path feedback rides the shared app toast (plugins/shared/toast.tsx);
   // the sidebar plugin mounts its host, so this rail only publishes.
   const onCopy = (text: string): void => {
@@ -420,6 +481,17 @@ export function WorkspaceBrowser({
     groupLabels,
     projectAlias,
   }
+  const projectRailSnapshot = useMemo(
+    () => deriveLeftRailSnapshot({
+      list: sessionList,
+      workspaces,
+      layouts: worktreeLayouts.layouts,
+      archivedSessionIds,
+      view: projectTreeView,
+      projectIcons,
+    }),
+    [archivedSessionIds, projectIconDetections, projectIcons, projectTreeView, sessionList, workspaces, worktreeLayouts.layouts],
+  )
   /** Jump to a matched project: switch to its tab, expand it, clear the search. */
   const jumpToProject = (project: ProjectNode): void => {
     const assigned = projectGroup[project.repoRoot] ?? DEFAULT_GROUP_ID
@@ -544,6 +616,99 @@ export function WorkspaceBrowser({
     })
   }
 
+  const dispatchProjectTreeAction = (selection: ActionSelection): void => {
+    if (selection.target.kind === 'project') {
+      const id = selection.target.id
+      const repoRoot = id.kind === 'git' ? id.repoRoot : id.path
+      if (selection.action === 'project.create-worktree') openNewWorktree(repoRoot)
+      else if (selection.action === 'project.rename-alias') openRenameProject(repoRoot, projectAlias[repoRoot] ?? workspaceLabel(repoRoot))
+      else if (selection.action === 'project.set-icon' && selection.iconData !== undefined) {
+        actions.setProjectIconOverride(repoRoot, { kind: 'upload', mime: 'image/png', data: selection.iconData })
+      } else if (selection.action === 'project.set-icon' && selection.iconName !== undefined) {
+        actions.setProjectIconOverride(repoRoot, { kind: 'builtin', name: selection.iconName })
+      } else if (selection.action === 'project.refresh-icon') {
+        setIconRevision(revision => revision + 1)
+      } else if (selection.action === 'project.reset-icon') {
+        actions.setProjectIconOverride(repoRoot, undefined)
+      } else if (selection.action === 'project.move-group') {
+        if (selection.groupId === '__new__') {
+          setPendingMoveProject(repoRoot)
+          openNewGroup()
+        } else {
+          actions.moveProjectToGroup(repoRoot, selection.groupId === '__default__' ? undefined : selection.groupId)
+        }
+      } else if (selection.action === 'project.copy-path') onCopy(repoRoot)
+      else if (selection.action === 'project.open-directory') void openPath(repoRoot)
+      else if (selection.action === 'project.remove-registration') onRemoveProjectRequest(repoRoot, projectAlias[repoRoot] ?? workspaceLabel(repoRoot))
+      return
+    }
+
+    if (selection.target.kind === 'worktree') {
+      const worktree = selection.target.id
+      const path = worktree.path
+      const repoRoot = worktree.project.kind === 'git' ? worktree.project.repoRoot : worktree.project.path
+      if (selection.action === 'worktree.create-session') {
+        actions.setGroupExpanded(worktreeExpansionKey(path), true)
+        startSession(selection.workspaceId as WorkspaceId | undefined)
+      } else if (selection.action === 'worktree.rename' && selection.workspaceId !== undefined) {
+        const workspace = workspaces.find(item => String(item.workspaceId) === selection.workspaceId)
+        setRenameTarget({ workspaceId: selection.workspaceId as WorkspaceId, currentTitle: workspace?.title ?? workspaceLabel(path) })
+        setRenameDraft(workspace?.title ?? workspaceLabel(path))
+        setRenameError(null)
+      } else if (selection.action === 'worktree.remove-registration' && selection.workspaceId !== undefined) {
+        const workspace = workspaces.find(item => String(item.workspaceId) === selection.workspaceId)
+        setDeleteTarget({ workspaceId: selection.workspaceId as WorkspaceId, title: workspace?.title ?? workspaceLabel(path) })
+
+      } else if (selection.action === 'worktree.copy-path') onCopy(path)
+      else if (selection.action === 'worktree.open-directory') void openPath(path)
+      else if (selection.action === 'worktree.remove-physical') {
+        const affectedWorkspaces = workspaces.filter(workspace => isPathWithin(path, workspace.path))
+        const affectedSessionIds = affectedWorkspaces.flatMap(workspace => workspace.sessionIds)
+        const hasRunning = affectedSessionIds.some(id => sessionList.byId[id]?.running === true)
+        if (hasRunning) {
+          toast(t('worktree.remove.active'))
+          return
+        }
+        setPhysicalRemoveTarget({ repoRoot, path, workspaceCount: affectedWorkspaces.length, sessionCount: affectedSessionIds.length })
+        setPhysicalRemovePreview(null)
+        setPhysicalRemoveAcknowledged(false)
+        setPhysicalRemoveError(null)
+        void railController.previewPhysicalWorktree(repoRoot, path).then(preview => {
+          setPhysicalRemovePreview(preview)
+        }).catch(reason => {
+          setPhysicalRemoveError(reason instanceof Error ? reason.message : String(reason))
+        })
+      }
+    }
+  }
+
+  const closePhysicalRemove = (): void => {
+    if (physicalRemovePending) return
+    setPhysicalRemoveTarget(null)
+    setPhysicalRemovePreview(null)
+    setPhysicalRemoveError(null)
+    setPhysicalRemoveAcknowledged(false)
+  }
+  const confirmPhysicalRemove = (): void => {
+    if (physicalRemovePending || physicalRemoveTarget === null || physicalRemovePreview === null) return
+    setPhysicalRemovePending(true)
+    setPhysicalRemoveError(null)
+    void railController.removePhysicalWorktree(
+      physicalRemoveTarget.repoRoot,
+      physicalRemoveTarget.path,
+      physicalRemovePreview.dirty || physicalRemovePreview.locked,
+    ).then(() => {
+      setPhysicalRemovePending(false)
+      setPhysicalRemoveTarget(null)
+      setPhysicalRemovePreview(null)
+      setPhysicalRemoveError(null)
+      setPhysicalRemoveAcknowledged(false)
+    }).catch(reason => {
+      setPhysicalRemovePending(false)
+      setPhysicalRemoveError(reason instanceof Error ? reason.message : String(reason))
+    })
+  }
+
   return (
     <div className={cn(css.root, !wide && css.rail)}>
       <div className={css.sectionHeader}>
@@ -572,8 +737,8 @@ export function WorkspaceBrowser({
                   onClick={() => {
                     setWsPickerOpen(false)
                     setSearchExpanded(true)
-                  }}
-                >
+                 }}
+                 >
                   <IconSearchOutline16 size={searchExpanded ? 11 : 14} />
                 </button>
               </Tooltip>
@@ -590,7 +755,7 @@ export function WorkspaceBrowser({
                   if (e.key !== 'Escape') return
                   setQuery('')
                   setSearchExpanded(false)
-                }}
+                 }}
               />
               {searchExpanded && (
                 <button
@@ -601,8 +766,8 @@ export function WorkspaceBrowser({
                     e.stopPropagation()
                     setQuery('')
                     setSearchExpanded(false)
-                  }}
-                >
+                 }}
+                 >
                   <IconCloseFill14 />
                 </button>
               )}
@@ -613,7 +778,8 @@ export function WorkspaceBrowser({
           {wide && (
             <ViewOptionsMenu
               groupBy={groupBy}
-              orderBy={orderBy}
+
+               orderBy={orderBy}
               onGroupPick={(mode) => { actions.setGroupBy(mode) }}
               onOrderPick={(mode) => { actions.setOrderBy(mode) }}
               t={t}
@@ -631,7 +797,7 @@ export function WorkspaceBrowser({
                 aria-label={t('workspace.add')}
                 onClick={() => {
                   setWsPickerOpen(v => !v)
-                }}
+                 }}
               >
                 <IconProjectAddOutline16 size={wide ? 16 : 18} />
               </button>
@@ -681,21 +847,28 @@ export function WorkspaceBrowser({
         {wide && (normalizedQuery !== ''
           ? (
             <SearchResults
-              useSessions={useSessions}
+               useSessions={useSessions}
+
               open={open}
-              workspaces={workspaces}
-              archivedSessionIds={archivedSessionIds}
+
+
               query={normalizedQuery}
-              remote={remoteSearch}
+
+               archivedSessionIds={archivedSessionIds}
+               workspaces={workspaces}
+               remote={remoteSearch}
               resultLimit={searchResultLimit}
               header={groupBy === 'workspace' ? (
                 <ProjectSearchResults
-                  useSessions={useSessions}
-                  workspaces={workspaces}
-                  layouts={worktreeLayouts.layouts}
-                  archivedSessionIds={archivedSessionIds}
+                   snapshot={projectRailSnapshot}
+
+
+
+
                   query={normalizedQuery}
-                  view={projectTreeView}
+
+
+
                   onJump={jumpToProject}
                   t={t}
                 />
@@ -706,11 +879,14 @@ export function WorkspaceBrowser({
           : groupBy === 'flat'
             ? (
               <FlatList
-                useSessions={useSessions} open={open} forkSession={forkSession}
+                 useSessions={useSessions}
+                 open={open} forkSession={forkSession}
                 onSessionRename={onSessionRename} onSessionArchive={onSessionArchive}
+
+
+               orderBy={orderBy}
                 archivedSessionIds={archivedSessionIds}
-                orderBy={orderBy}
-                sessionOrderByAccount={sessionOrderByAccount}
+                 sessionOrderByAccount={sessionOrderByAccount}
                 sessionUpdatedAtByAccount={sessionUpdatedAtByAccount}
                 syncSessionOrderAccount={actions.syncSessionOrderAccount}
                 setSessionOrder={actions.setSessionOrder}
@@ -719,46 +895,47 @@ export function WorkspaceBrowser({
             )
             : (
               <ProjectTreeBody
-                useSessions={useSessions}
+                 snapshot={projectRailSnapshot}
+
                 open={open}
                 forkSession={forkSession}
-                startSession={startSession}
+
+
+
+
+
+
                 workspaces={workspaces}
-                layouts={worktreeLayouts.layouts}
-                archivedSessionIds={archivedSessionIds}
-                view={projectTreeView}
-                onToggleProject={(key, expanded) => { actions.setGroupExpanded(repoExpansionKey(key), expanded) }}
+                 onToggleProject={(key, expanded) => { actions.setGroupExpanded(repoExpansionKey(key), expanded) }}
                 onToggleWorktree={(key, expanded) => { actions.setGroupExpanded(worktreeExpansionKey(key), expanded) }}
                 onSetTab={actions.setActiveTab}
-                onNewWorktree={openNewWorktree}
-                onRemoveProject={onRemoveProjectRequest}
-                onMoveProject={(repoRoot, groupId) => {
-                  // "New group" opens the create dialog and moves the
-                  // project into the group once it exists.
-                  if (groupId === '__new__') {
-                    setPendingMoveProject(repoRoot)
-                    openNewGroup()
-                  } else {
-                    actions.moveProjectToGroup(repoRoot, groupId)
-                  }
-                }}
+                 onAction={dispatchProjectTreeAction}
+
+
+
+
+
+
+
+
+
+
+
                 onNewGroup={openNewGroup}
                 onRenameGroup={(tab) => { openRenameGroup(tab.id) }}
                 onRemoveGroup={(tab) => { actions.removeGroup(tab.id) }}
-                onRenameWorktree={(workspaceId, title) => {
-                  setRenameTarget({ workspaceId: workspaceId as WorkspaceId, currentTitle: title })
-                  setRenameDraft(title)
-                  setRenameError(null)
-                }}
-                onDeleteWorktree={(workspaceId, title) => {
-                  setDeleteTarget({ workspaceId: workspaceId as WorkspaceId, title })
-                  setDeleteError(null)
-                }}
+
+
+
+
+
+
+
                 onSessionRename={onSessionRename}
                 onSessionArchive={onSessionArchive}
-                onRenameProject={openRenameProject}
-                onOpenPath={(path) => { void openPath(path) }}
-                onCopy={onCopy}
+
+
+
                 loading={worktreeLayouts.loading}
                 t={t}
               />
@@ -784,7 +961,7 @@ export function WorkspaceBrowser({
           autoFocus
           disabled={renaming}
           onFocus={(e) => { e.target.select() }}
-          onChange={(e) => { setRenameDraft(e.target.value); setRenameError(null) }}
+          onChange={(e) => { setRenameDraft(e.target.value);  }}
           onCompositionStart={() => { composingRef.current = true }}
           onCompositionEnd={() => { composingRef.current = false }}
           onKeyDown={(e) => {
@@ -916,7 +1093,7 @@ export function WorkspaceBrowser({
                   const branch = id === '__new__' ? newWtNewBranch : id
                   if (newWtPath.trim() === '' && newWtTarget !== null) setNewWtPath(defaultWtPath(newWtTarget.repoRoot, branch))
                 }}
-                portal
+                 portal
                 anchor={(
                   <button
                     type="button"
@@ -940,9 +1117,9 @@ export function WorkspaceBrowser({
                   disabled={newWtPending}
                   onChange={(e) => {
                     setNewWtNewBranch(e.target.value)
-                    if (newWtPath.trim() === '' && newWtTarget !== null) setNewWtPath(defaultWtPath(newWtTarget.repoRoot, e.target.value))
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') confirmNewWorktree() }}
+                   }}
+
+                   onKeyDown={(e) => { if (e.key === 'Enter') confirmNewWorktree() }}
                 />
               )}
             </div>
@@ -1010,6 +1187,37 @@ export function WorkspaceBrowser({
         />
       </Modal>
 
+      <RiskConfirmation
+        open={physicalRemoveTarget !== null && physicalRemovePreview !== null}
+        title={t('worktree.removePhysical')}
+        description={physicalRemoveTarget === null || physicalRemovePreview === null
+          ? ''
+          : t('worktree.removePhysical.desc', {
+            path: physicalRemoveTarget.path,
+            workspaces: physicalRemoveTarget.workspaceCount,
+            sessions: physicalRemoveTarget.sessionCount,
+            dirty: physicalRemovePreview.dirty ? t('worktree.removePhysical.dirty') : '',
+          })}
+        acknowledgeLabel={t('worktree.removePhysical.ack')}
+        cancelLabel={t('cancel')}
+        confirmLabel={physicalRemovePending ? t('worktree.removePhysical.pending') : t('worktree.removePhysical.confirm')}
+        acknowledged={physicalRemoveAcknowledged}
+        disabled={physicalRemovePending}
+        onAcknowledgedChange={setPhysicalRemoveAcknowledged}
+        onCancel={closePhysicalRemove}
+        onConfirm={confirmPhysicalRemove}
+      />
+      {physicalRemoveTarget !== null && physicalRemovePreview === null && physicalRemoveError !== null && (
+        <Modal
+          open
+          onClose={closePhysicalRemove}
+          closeLabel={t('close')}
+          title={t('worktree.removePhysical')}
+          footer={<Button variant="outline" onClick={closePhysicalRemove}>{t('close')}</Button>}
+        >
+          <div className={css.renameError} role="alert">{physicalRemoveError}</div>
+        </Modal>
+      )}
       {/* Remove project */}
       <Modal
         open={removeProjectTarget !== null}

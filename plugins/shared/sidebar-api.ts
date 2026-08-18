@@ -195,6 +195,9 @@ export interface SidebarApiRequests {
   'git.show': { path: string; rev: string }
   'git.worktree-list': Record<string, never>
   'git.worktree-add': { path: string; branch: string; createBranch?: boolean }
+  'git.worktree-remove-preview': { path: string }
+  'git.worktree-remove': { path: string; force?: boolean }
+  'project.icon-detect': { cwd: string }
   'workspace.facts': { cwd: string }
   'workspace.mutate': { cwd: string; mutation: SidebarWorkspaceMutation }
   'pty.close': { sessionId: string; tab: string }

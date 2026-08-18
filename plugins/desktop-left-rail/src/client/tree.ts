@@ -117,6 +117,16 @@ export interface GroupTab {
   pinned: boolean
 }
 
+/** One project icon resolved by the rail model. */
+export interface ProjectIconNode {
+  /** Automatic source or explicit user override. */
+  source: 'override' | 'local-png' | 'entry-declaration' | 'homepage-favicon' | 'git-provider-avatar' | 'fallback'
+  /** Built-in glyph name or a validated image/data URL. */
+  value: string
+  /** Stable fallback kind when `value` cannot be rendered. */
+  fallback: 'project' | 'directory'
+}
+
 /** One worktree row: a linked worktree (or the sole dir of a non-git project). */
 export interface WorktreeNode {
   key: string
@@ -126,6 +136,8 @@ export interface WorktreeNode {
   label: string
   /** Short branch name; null when detached or a non-git directory. */
   branch: string | null
+  /** Whether this is a real Git Worktree; false/absent means synthetic directory. */
+  isGit?: boolean
   /** The repository's main worktree (repo root). */
   main: boolean
   /**
@@ -148,6 +160,8 @@ export interface ProjectNode {
   repoRoot: string
   label: string
   isGit: boolean
+  /** Project-level icon shared by all of its worktrees. */
+  icon?: ProjectIconNode
   /** Short branch of the main worktree (null for non-git projects). */
   mainBranch: string | null
   worktrees: readonly WorktreeNode[]
@@ -168,9 +182,17 @@ export interface ProjectTree {
 
 /** Worktree layout lookup result for one workspace cwd. */
 export interface WorktreeLayoutMap {
-  /** null = not a git work tree. */
+  /** null = confirmed non-git; undefined = unavailable or not observed. */
   get(cwd: string): GitWorktreeLayout | null | undefined
+  /** Freshness-aware fact when the adapter can provide one. */
+  getFact?(cwd: string): WorktreeFactState | undefined
 }
+
+/** Freshness-aware result of one Host worktree lookup. */
+export type WorktreeFactState =
+  | { status: 'ready'; layout: GitWorktreeLayout | null }
+  | { status: 'loading'; lastKnown?: GitWorktreeLayout }
+  | { status: 'error'; lastKnown?: GitWorktreeLayout; error: string }
 
 /** Placeholder — replaced by the concrete git module contract. */
 export interface GitWorktreeLayout {
@@ -401,6 +423,7 @@ export function deriveProjectTree(
   layouts: WorktreeLayoutMap,
   archivedSessionIds: readonly SessionId[],
   view: ProjectTreeView,
+  projectIcons?: ReadonlyMap<string, ProjectIconNode>,
 ): ProjectTree {
   const archived = new Set(archivedSessionIds)
   const descendants = indexSubagentDescendants(list.byId)
@@ -494,9 +517,14 @@ export function deriveProjectTree(
     const containsCurrent = wts.some(wt => wt.members.some(m => m.id === current))
     return {
       key, repoRoot: proj.repoRoot, label: view.projectAlias[proj.repoRoot] ?? workspaceLabel(proj.repoRoot), isGit: proj.isGit,
+      icon: projectIcons?.get(key) ?? {
+        source: 'fallback',
+        value: proj.isGit ? 'project' : 'directory',
+        fallback: proj.isGit ? 'project' : 'directory',
+      },
       mainBranch: wts[0]?.branch ?? null,
       worktrees: wts.map(wt => ({
-        key: wt.path, path: wt.path, label: wt.label, branch: wt.branch, main: wt.main,
+        key: wt.path, path: wt.path, label: wt.label, branch: wt.branch, isGit: proj.isGit, main: wt.main,
         workspaceIds: wt.workspaceIds,
         // Sessions always carry the full member list; the renderer decides
         // the collapsed preview (first five) vs the full expanded run.

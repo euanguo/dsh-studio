@@ -18,6 +18,7 @@
  * user.name/user.email).
  */
 import { spawn } from 'node:child_process'
+import { resolve as resolvePath } from 'node:path'
 
 /** A parsed `git status --porcelain=v1 -z` entry. */
 export interface GitStatusEntry {
@@ -371,6 +372,10 @@ export interface GitWorktreeEntry {
   branch: string | null
   /** The main worktree (the first `worktree` block). */
   main: boolean
+  /** Git has locked this worktree against pruning/removal. */
+  locked?: boolean
+  /** Git reported a prunable reason for this worktree. */
+  prunable?: string
 }
 
 /** The worktree layout of one repository. */
@@ -391,15 +396,29 @@ export function parseWorktreeList(output: string): GitWorktreeEntry[] {
     let path: string | undefined
     let head: string | null = null
     let branch: string | null = null
+    let locked = false
+    let prunable: string | undefined
     for (const line of block.split('\n')) {
       if (line.startsWith('worktree ')) path = line.slice('worktree '.length)
       else if (line.startsWith('HEAD ')) head = line.slice('HEAD '.length)
       else if (line.startsWith('branch ')) {
         branch = line.slice('branch '.length).replace(/^refs\/heads\//, '')
+      } else if (line === 'locked' || line.startsWith('locked ')) {
+        // `locked` may carry a human-readable reason after the marker.
+        locked = true
+      } else if (line.startsWith('prunable ')) {
+        prunable = line.slice('prunable '.length)
       }
     }
     if (path !== undefined) {
-      entries.push({ path, head, branch, main: entries.length === 0 })
+      entries.push({
+        path,
+        head,
+        branch,
+        main: entries.length === 0,
+        ...(locked ? { locked: true } : {}),
+        ...(prunable === undefined ? {} : { prunable }),
+      })
     }
   }
   return entries
@@ -467,6 +486,66 @@ export async function worktreeAdd(cwd: string, path: string, branch: string, cre
     ? ['worktree', 'add', '-b', branch, path]
     : ['worktree', 'add', path, branch]
   await runGit(cwd, args)
+}
+
+/** Facts required before a linked worktree can be removed. */
+export interface GitWorktreeRemovalPreview {
+  repoRoot: string
+  worktree: GitWorktreeEntry
+  dirty: boolean
+  statusEntries: GitStatusEntry[]
+}
+
+function worktreeEntryAt(
+  layout: GitWorktreeLayout | null,
+  path: string,
+): GitWorktreeEntry | undefined {
+  if (layout === null) return undefined
+  const target = resolvePath(path)
+  return layout.worktrees.find(entry => resolvePath(entry.path) === target)
+}
+
+/** Resolve and inspect one currently registered linked worktree. */
+export async function worktreeRemovalPreview(cwd: string, path: string): Promise<GitWorktreeRemovalPreview> {
+  const layout = await worktreeList(cwd)
+  if (layout === null) {
+    throw new GitCommandError('not a git worktree', 'git-worktree-not-found', 'worktree list')
+  }
+  const worktree = worktreeEntryAt(layout, path)
+  if (worktree === undefined) {
+    throw new GitCommandError('worktree is not registered by git', 'git-worktree-not-found', 'worktree list')
+  }
+  if (worktree.main) {
+    throw new GitCommandError('the primary worktree cannot be removed', 'git-worktree-primary', 'worktree remove')
+  }
+  const statusResult = await status(worktree.path)
+  return {
+    repoRoot: layout.repoRoot,
+    worktree,
+    dirty: statusResult.entries.length > 0,
+    statusEntries: statusResult.entries,
+  }
+}
+
+/** Remove one non-primary linked worktree after a fresh host-side revalidation. */
+export async function worktreeRemove(
+  cwd: string,
+  path: string,
+  force = false,
+): Promise<GitWorktreeLayout | null> {
+  const preview = await worktreeRemovalPreview(cwd, path)
+  if (preview.worktree.locked && !force) {
+    throw new GitCommandError('worktree is locked', 'git-worktree-locked', 'worktree remove')
+  }
+  if (preview.dirty && !force) {
+    throw new GitCommandError('worktree has uncommitted changes', 'git-worktree-dirty', 'worktree remove')
+  }
+  await runGit(cwd, [
+    'worktree', 'remove',
+    ...(force ? ['--force'] : []),
+    '--', preview.worktree.path,
+  ])
+  return worktreeList(cwd)
 }
 
 /** Diff text of the worktree (unstaged) or the index (staged). */

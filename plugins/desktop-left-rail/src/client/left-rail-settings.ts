@@ -5,6 +5,7 @@
  * state (tab/group/alias), while projects/worktrees stay derived from git.
  */
 import { callSidebarGlobalApi } from '@oh-dsh/shared/sidebar-api'
+import type { ProjectIconPreference } from './domain/project-icon.ts'
 
 const NS = 'oh-dsh.left-rail'
 
@@ -15,6 +16,8 @@ export interface LeftRailSettings {
   groupIds?: string[]
   groupLabels?: Record<string, string>
   projectAlias?: Record<string, string>
+  /** repoRoot → explicit icon preference; auto-detected icons are not persisted. */
+  projectIconOverrides?: Record<string, ProjectIconPreference>
 }
 
 /** A settings response envelope (namespace value + revision for CAS). */

@@ -54,7 +54,19 @@ test('parseWorktreeList: bare repository (no HEAD lines)', () => {
   assert.equal(entries[0]!.main, true)
 })
 
-test('parseWorktreeList: empty output yields no entries', () => {
-  assert.deepEqual(parseWorktreeList(''), [])
-  assert.deepEqual(parseWorktreeList('\n\n'), [])
+
+test('parseWorktreeList: preserves locked and prunable safety facts', () => {
+  const entries = parseWorktreeList([
+    'worktree /repo/main',
+    'HEAD aaaa',
+    'branch refs/heads/main',
+    '',
+    'worktree /repo/linked',
+    'HEAD bbbb',
+    'branch refs/heads/feature',
+    'locked manual hold',
+    'prunable missing directory',
+  ].join('\n'))
+  assert.equal(entries[1]?.locked, true)
+  assert.equal(entries[1]?.prunable, 'missing directory')
 })

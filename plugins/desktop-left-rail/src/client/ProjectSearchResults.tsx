@@ -6,12 +6,11 @@
  * the project — the session-only search could not address projects at all.
  */
 import { useMemo } from 'react'
-import { IconFolderClose16, IconFolderOpen16 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { SessionId, WorkspaceView } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
-import type { ProjectNode, ProjectTreeView, WorktreeLayoutMap } from './tree.ts'
-import { deriveProjectTree } from './tree.ts'
+import type { LeftRailSnapshot } from './project-tree-model.ts'
+import type { ProjectNode } from './tree.ts'
 import { WorkspaceBrowserCss as css } from './styles.js'
+import { ProjectIconGlyph } from './ProjectIconGlyph.tsx'
 
 /** Whether a project matches the search query (label, root, worktrees, branches). */
 export function projectMatchesQuery(project: ProjectNode, query: string): boolean {
@@ -24,25 +23,15 @@ export function projectMatchesQuery(project: ProjectNode, query: string): boolea
 }
 
 interface ProjectSearchResultsProps {
-  useSessions: WorkspaceBrowserProps['useSessions']
-  workspaces: readonly WorkspaceView[]
-  layouts: WorktreeLayoutMap
-  archivedSessionIds: readonly SessionId[]
+  snapshot: LeftRailSnapshot
   query: string
-  view: ProjectTreeView
   /** Jump to the project's tab and expand it (also clears the query). */
   onJump: (project: ProjectNode) => void
   t: WorkspaceBrowserProps['t']
 }
 
-export function ProjectSearchResults({
-  useSessions, workspaces, layouts, archivedSessionIds, query, view, onJump, t,
-}: ProjectSearchResultsProps) {
-  const list = useSessions(s => s)
-  const tree = useMemo(
-    () => deriveProjectTree(list, workspaces, layouts, archivedSessionIds, view),
-    [list, workspaces, layouts, archivedSessionIds, view],
-  )
+export function ProjectSearchResults({ snapshot, query, onJump, t }: ProjectSearchResultsProps) {
+  const tree = snapshot.tree
   const matches = useMemo(
     () => tree.allProjects.filter(project => projectMatchesQuery(project, query)),
     [tree.allProjects, query],
@@ -59,7 +48,7 @@ export function ProjectSearchResults({
           onClick={() => { onJump(project) }}
         >
           <span className={css.projectMatchIcon}>
-            {project.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
+            <ProjectIconGlyph icon={project.icon} size={16} />
           </span>
           <span className={css.projectMatchText}>
             <span className={css.projectMatchTitle}>{project.label}</span>
