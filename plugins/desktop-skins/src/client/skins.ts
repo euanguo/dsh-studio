@@ -308,6 +308,32 @@ function renderColorCss(selector: string, tokens: Readonly<Record<string, string
 const gate = (classes: readonly string[]): string =>
   classes.map(selector => `body[data-oh-dsh-skin] ${selector}`).join(',')
 
+/** 同 gate，但把伪类挂到**每个**选择器上。gate() 返回逗号连串后追加
+ *  ``:focus-within`` 只会保护组内最后一个元素（其余无条件命中），必须
+ *  逐类各自拼接（实测 CARD 全量卡片因此被无条件涂上品牌蓝框）。 */
+const gatePseudo = (classes: readonly string[], pseudo: string): string =>
+  classes.map(selector => `body[data-oh-dsh-skin] ${selector}${pseudo}`).join(',')
+
+/** CARD 只含卡片**外壳**容器类：剔除内部内容/修饰子节点。CARD 的 34 个类里
+ *  cardBody/cardContent/cardDesc/cardFoot/cardMain/cardHead……全是卡片内部节点，
+ *  把它们当外壳套 radius/focus 会误伤——尤其 overflow:hidden 的文案节点会被
+ *  25px 圆角切边（实测 agent-preset 卡片描述被圆角切割）。类名有两种 CSS
+ *  Module 哈希约定（_<hash>_card 与 _card_<hash>_<line>），按语义子串判定：
+ *  含 card 后接内容词的剔除，纯 _card / _cards 结尾保留。 */
+const CARD_CONTENT_SUFFIX = [
+  'cardBody', 'cardContent', 'cardDesc', 'cardDetails', 'cardFoot', 'cardHead',
+  'cardId', 'cardMain', 'cardName', 'cardTitle', 'cardTrailing',
+  'cardBrokenReason', 'cardWorkspaceTrigger', 'cardOpen', 'cardMinimized',
+  'cardActive', 'cardBroken',
+] as const
+const CARD_SHELL = CARD.filter(sel =>
+  !CARD_CONTENT_SUFFIX.some(word => sel.includes(word)))
+
+/** DIALOG 同理只留弹窗**外壳**：对话框内部字段容器（*_dialogFields）不承担
+ *  卡片圆角，别把它当外壳套 25px radius。 */
+const DIALOG_SHELL = DIALOG.filter(sel =>
+  !sel.includes('dialogFields'))
+
 const CHATGPT_GEOMETRY_CSS = `
 /* ================================================================
    ChatGPT 皮肤 · 尺寸/材质规范（CSS token 体系，实测对照）
@@ -514,10 +540,10 @@ ${gate([...SESSION_ROW, ...PROJECT_ROW, ...WORKSPACE_ROW])} {
   border-radius: var(--gw-skin-radius-row) !important;
 }
 
-${gate([...CARD, ...DIALOG])} {
+${gate([...CARD_SHELL, ...DIALOG_SHELL])} {
   border-radius: var(--gw-skin-radius-card) !important;
 }
-${gate(DIALOG)} {
+${gate(DIALOG_SHELL)} {
   border: 0 !important;
   box-shadow: 0 0 0 .5px var(--gw-skin-hairline), 0 3px 7.5px rgba(0, 0, 0, .06), 0 0 20px rgba(0, 0, 0, .06) !important;
 }
@@ -530,7 +556,7 @@ ${gate(RENAME_INPUT)} {
   border: 1px solid var(--dsw-alias-border-l2) !important;
   background: var(--dsw-specific-input-major) !important;
 }
-${gate(RENAME_INPUT)}:focus {
+${gatePseudo(RENAME_INPUT, ':focus')} {
   border-color: var(--dsw-alias-state-business-primary) !important;
   box-shadow: none !important;
 }
@@ -562,8 +588,8 @@ body[data-oh-dsh-skin] [role="option"] {
   transition: var(--gw-skin-hover-transition);
 }
 
-${gate(WRAP)}:focus-within,
-${gate(CARD)}:focus-within {
+${gatePseudo(CARD_SHELL, ':focus-within')},
+${gatePseudo(WRAP, ':focus-within')} {
   box-shadow: none !important;
   border-color: var(--dsw-alias-state-business-primary, #339cff) !important;
 }
