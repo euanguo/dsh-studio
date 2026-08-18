@@ -7,6 +7,7 @@ import {
   readFileSync,
   realpathSync,
   renameSync,
+  rmSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -26,6 +27,7 @@ import {
   MARKETPLACE_CATALOG_PATH,
   MARKETPLACE_CATALOG_REPOSITORY,
 } from '../protocol.ts'
+import { GitHubSourceAdapter } from './github-source-adapter.ts'
 
 export interface MarketplaceAuthResult {
   detail: string
@@ -58,7 +60,7 @@ export interface MarketplacePlatform {
   cloneRepository(repository: string, commit: string, target: string): Promise<void>
   loadCatalog(options?: LoadCatalogOptions): Promise<unknown>
   readRepositoryFile(repository: string, path: string, commit: string): Promise<string | null>
-  resolveCommit(repository: string): Promise<string>
+  resolveCommit(repository: string, requestedRef?: string | null): Promise<string>
   runDsh(input: DshCommandInput): Promise<void>
 }
 
@@ -106,7 +108,8 @@ function validateRepository(repository: string): void {
 }
 
 function repositoryPathSegments(path: string): string[] {
-  const segments = path.split('/').filter(Boolean)
+  const normalized = path.startsWith('./') ? path.slice(2) : path
+  const segments = normalized.split('/').filter(Boolean)
   if (segments.length === 0 || segments.some(segment => segment === '.' || segment === '..')) {
     throw new Error(`invalid repository file path: ${JSON.stringify(path)}`)
   }
@@ -355,10 +358,12 @@ export function previewScriptCommand(
 export class ProductionMarketplacePlatform implements MarketplacePlatform {
   readonly #ghPath: string | null
   readonly #options: ProductionMarketplacePlatformOptions
+  readonly #publicGitHub: GitHubSourceAdapter
 
   constructor(options: ProductionMarketplacePlatformOptions) {
     this.#options = options
     this.#ghPath = findGitHubCli(options.env)
+    this.#publicGitHub = new GitHubSourceAdapter(options.fetch === undefined ? {} : { fetch: options.fetch })
   }
 
   async authStatus(): Promise<MarketplaceAuthResult> {
@@ -532,42 +537,74 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
     throw new Error(`failed to load public marketplace catalog: ${String(publicError)}`)
   }
 
-  async resolveCommit(repository: string): Promise<string> {
+  async resolveCommit(repository: string, requestedRef: string | null = null): Promise<string> {
     validateRepository(repository)
-    const gh = this.requireGitHubCli()
-    const result = await runCommand(gh, [
-      'api',
-      `repos/${repository}/commits/HEAD`,
-      '--jq',
-      '.sha',
-    ], { env: this.#options.env, timeoutMs: 30_000 })
-    const commit = result.stdout.trim()
-    if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error(`GitHub returned an invalid commit for ${repository}`)
-    return commit
+    try {
+      return await this.#publicGitHub.resolveCommit(repository, requestedRef)
+    } catch (publicError) {
+      if (this.#ghPath === null) throw publicError
+      const result = await runCommand(this.#ghPath, [
+        'api',
+        `repos/${repository}/commits/${requestedRef ?? 'HEAD'}`,
+        '--jq',
+        '.sha',
+      ], { env: this.#options.env, timeoutMs: 30_000 })
+      const commit = result.stdout.trim()
+      if (!/^[0-9a-f]{40}$/.test(commit)) {
+        throw new Error(`GitHub returned an invalid commit for ${repository}: ${String(publicError)}`)
+      }
+      return commit
+    }
   }
 
   async readRepositoryFile(repository: string, path: string, commit: string): Promise<string | null> {
     if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error('repository commit must be a full SHA')
-    const gh = this.requireGitHubCli()
     try {
-      const result = await runCommand(gh, [
-        'api',
-        `${repositoryContentPath(repository, path)}?ref=${commit}`,
-        '--jq',
-        '.content',
-      ], { env: this.#options.env, timeoutMs: 30_000 })
-      return Buffer.from(result.stdout.replaceAll(/\s/g, ''), 'base64').toString('utf8')
-    } catch (error) {
-      if (error instanceof Error && /404|Not Found/i.test(error.message)) return null
-      throw error
+      return await this.#publicGitHub.readFile(repository, path, commit)
+    } catch (publicError) {
+      if (this.#ghPath === null) throw publicError
+      try {
+        const result = await runCommand(this.#ghPath, [
+          'api',
+          `${repositoryContentPath(repository, path)}?ref=${commit}`,
+          '--jq',
+          '.content',
+        ], { env: this.#options.env, timeoutMs: 30_000 })
+        return Buffer.from(result.stdout.replaceAll(/\s/g, ''), 'base64').toString('utf8')
+      } catch (authenticatedError) {
+        if (authenticatedError instanceof Error && /404|Not Found/i.test(authenticatedError.message)) return null
+        throw new Error(`failed to read ${repository}/${path} at ${commit} anonymously (${String(publicError)}) or with GitHub CLI (${String(authenticatedError)})`)
+      }
     }
   }
 
   async cloneRepository(repository: string, commit: string, target: string): Promise<void> {
     validateRepository(repository)
     if (!/^[0-9a-f]{40}$/.test(commit)) throw new Error('repository commit must be a full SHA')
-    const gh = this.requireGitHubCli()
     mkdirSync(dirname(target), { recursive: true, mode: 0o700 })
+    try {
+      await runCommand('git', [
+        'clone',
+        '--filter=blob:none',
+        '--no-checkout',
+        '--no-tags',
+        `https://github.com/${repository}.git`,
+        target,
+      ], { env: this.#options.env, timeoutMs: 120_000 })
+      await runCommand('git', ['-C', target, 'fetch', '--depth=1', 'origin', commit], {
+        env: this.#options.env,
+        timeoutMs: 120_000,
+      })
+      await runCommand('git', ['-C', target, 'checkout', '--detach', commit], {
+        env: this.#options.env,
+        timeoutMs: 60_000,
+      })
+      return
+    } catch (publicError) {
+      if (this.#ghPath === null) throw publicError
+      rmSync(target, { force: true, recursive: true })
+    }
+    const gh = this.requireGitHubCli()
     await runCommand(gh, [
       'repo',
       'clone',

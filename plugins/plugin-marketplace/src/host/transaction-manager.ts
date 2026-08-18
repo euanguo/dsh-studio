@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import {
   chmodSync,
   cpSync,
@@ -12,9 +12,9 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join, relative, resolve, sep } from 'node:path'
-import { parseMarketplaceCatalog } from '../catalog.ts'
 import type {
   MarketplaceAction,
+  MarketplaceCandidate,
   MarketplaceCommand,
   MarketplaceConfirmation,
   MarketplaceInstalledPlugin,
@@ -26,24 +26,39 @@ import type {
   MarketplaceSnapshot,
   MarketplaceSourceLock,
   MarketplaceSourceReview,
+  SourceRef,
 } from '../protocol.ts'
 import {
   isProtectedMarketplacePlugin,
 } from '../protocol.ts'
 import type { MarketplacePlatform } from './platform.ts'
+import { CatalogSourceManager } from './catalog-source-manager.ts'
+import {
+  DefaultMarketplaceSourceResolver,
+  makeMarketplaceApprovalDecision,
+  platformRepositoryAdapter,
+} from './source-resolver.ts'
+import {
+  MARKETPLACE_STATE_VERSION,
+  migrateMarketplaceLocks,
+  sourceLockFromCandidate,
+  validateMarketplaceSourceLock,
+} from './source-lock.ts'
+import {
+  PINNED_DSH_VERSION,
+  type MarketplaceSourceResolver,
+} from './source-types.ts'
 
-const STATE_VERSION = 2
+const STATE_VERSION = MARKETPLACE_STATE_VERSION
 const MANAGED_DIRECTORY = '.oh-dsh'
 const STATE_FILE = 'marketplace.json'
-const PATCH_BEGIN = '# >>> Oh-DSH-Desktop plugin marketplace'
-const PATCH_END = '# <<< Oh-DSH-Desktop plugin marketplace'
 const BUILD_BEGIN = '# >>> Oh-DSH-Desktop allowed plugin builds'
 const BUILD_END = '# <<< Oh-DSH-Desktop allowed plugin builds'
 
 interface MarketplaceStateFile {
   entries: MarketplaceInstalledPlugin[]
   locks: MarketplaceSourceLock[]
-  version: 2
+  version: 3
 }
 
 interface RollbackState {
@@ -81,6 +96,7 @@ export interface PluginMarketplaceOptions {
   onWarn?: (message: string) => void
   platform: MarketplacePlatform
   profile: string
+  resolver?: MarketplaceSourceResolver
   runtime: MarketplaceRuntime
 }
 
@@ -125,22 +141,6 @@ function validateInstalledEntry(value: unknown): value is MarketplaceInstalledPl
     && typeof value.installedAt === 'string'
 }
 
-function validateSourceLock(value: unknown): value is MarketplaceSourceLock {
-  if (!isRecord(value)) return false
-  return typeof value.canonicalSource === 'string'
-    && typeof value.firstSeenCommit === 'string'
-    && /^[0-9a-f]{40}$/.test(value.firstSeenCommit)
-    && typeof value.manifestHash === 'string'
-    && /^[0-9a-f]{64}$/.test(value.manifestHash)
-    && (value.mechanism === 'bundle' || value.mechanism === 'repository')
-    && typeof value.packageName === 'string'
-    && typeof value.pluginId === 'string'
-    && /^[A-Za-z0-9_.-]{1,100}$/.test(value.pluginId)
-    && typeof value.recordedAt === 'string'
-    && typeof value.resolvedCommit === 'string'
-    && /^[0-9a-f]{40}$/.test(value.resolvedCommit)
-}
-
 function readMarketplaceState(profileDir: string): MarketplaceStateFile {
   const path = join(profileDir, MANAGED_DIRECTORY, STATE_FILE)
   if (!existsSync(path)) return { entries: [], locks: [], version: STATE_VERSION }
@@ -156,12 +156,12 @@ function readMarketplaceState(profileDir: string): MarketplaceStateFile {
         version: STATE_VERSION,
       }
     }
-    if (parsed.version !== STATE_VERSION || !Array.isArray(parsed.locks)) {
+    if ((parsed.version !== 2 && parsed.version !== STATE_VERSION) || !Array.isArray(parsed.locks)) {
       throw new Error('unsupported marketplace state version')
     }
     return {
       entries: parsed.entries.filter(validateInstalledEntry),
-      locks: parsed.locks.filter(validateSourceLock),
+      locks: migrateMarketplaceLocks(parsed.locks).filter(validateMarketplaceSourceLock),
       version: STATE_VERSION,
     }
   } catch (error) {
@@ -175,123 +175,6 @@ function writeMarketplaceState(profileDir: string, state: MarketplaceStateFile):
     locks: state.locks,
     version: STATE_VERSION,
   } satisfies MarketplaceStateFile)
-}
-
-function manifestHash(text: string): string {
-  return createHash('sha256').update(text).digest('hex')
-}
-
-function canonicalSource(repository: string): string {
-  return `github:${repository}`
-}
-
-function sourceReview(
-  lock: MarketplaceSourceLock | undefined,
-  input: Pick<MarketplacePlan,
-    'manifestHash' | 'mechanism' | 'packageName' | 'pluginId' | 'repository' | 'resolvedCommit'>,
-  installed?: MarketplaceInstalledPlugin,
-): MarketplaceSourceReview {
-  if (lock === undefined) {
-    if (installed === undefined) return 'first-use'
-    return repositoryFromSource(installed.source) === input.repository
-      && installed.mechanism === input.mechanism
-      && installed.packageName === input.packageName
-      ? 'matched'
-      : 'changed'
-  }
-  if (lock.resolvedCommit === input.resolvedCommit
-    && lock.manifestHash !== input.manifestHash) {
-    throw new Error(`${input.pluginId} changed content at pinned commit ${input.resolvedCommit}`)
-  }
-  return lock.canonicalSource === canonicalSource(input.repository)
-    && lock.mechanism === input.mechanism
-    && lock.packageName === input.packageName
-    ? 'matched'
-    : 'changed'
-}
-
-function assessRisk(input: {
-  action: MarketplaceAction
-  buildScripts: Record<string, string>
-  mechanism: MarketplacePlan['mechanism']
-  protectedPlugin: boolean
-  sourceReview: MarketplaceSourceReview
-}): {
-  requirements: MarketplaceConfirmation[]
-  riskLevel: MarketplaceRiskLevel
-  riskReasons: MarketplaceRiskReason[]
-} {
-  if (input.protectedPlugin) {
-    return {
-      requirements: [],
-      riskLevel: 'blocked',
-      riskReasons: ['protected-plugin'],
-    }
-  }
-  const reasons: MarketplaceRiskReason[] = []
-  const requirements: MarketplaceConfirmation[] = []
-  const activatesCode = input.action === 'install'
-    || input.action === 'update'
-    || input.action === 'enable'
-  if (activatesCode && input.mechanism === 'repository') {
-    reasons.push('trusted-host-code')
-    requirements.push('accept-high-risk')
-  }
-  if (activatesCode && Object.keys(input.buildScripts).length > 0) {
-    reasons.push('install-scripts')
-    requirements.push('allow-build-scripts')
-  }
-  if (input.sourceReview === 'changed') {
-    reasons.push('source-change')
-    requirements.push('accept-source-change')
-  }
-  const riskLevel: MarketplaceRiskLevel = reasons.includes('source-change')
-    || reasons.includes('trusted-host-code')
-    ? 'high'
-    : reasons.length > 0 ? 'elevated' : 'low'
-  return { requirements, riskLevel, riskReasons: reasons }
-}
-
-function sourceLockFromPlan(
-  plan: MarketplacePlan,
-  previous: MarketplaceSourceLock | undefined,
-): MarketplaceSourceLock {
-  if (plan.packageName === null) throw new Error('source lock requires a package name')
-  return {
-    canonicalSource: canonicalSource(plan.repository),
-    firstSeenCommit: previous?.firstSeenCommit ?? plan.resolvedCommit,
-    manifestHash: plan.manifestHash,
-    mechanism: plan.mechanism,
-    packageName: plan.packageName,
-    pluginId: plan.pluginId,
-    recordedAt: previous?.recordedAt ?? new Date().toISOString(),
-    resolvedCommit: plan.resolvedCommit,
-  }
-}
-
-function parsePackageManifest(text: string, path: string): PackageManifest {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(text) as unknown
-  } catch (error) {
-    throw new Error(`${path} is not valid JSON: ${message(error)}`)
-  }
-  if (!isRecord(parsed)) throw new Error(`${path} must contain an object`)
-  return parsed as PackageManifest
-}
-
-function buildScripts(manifest: PackageManifest): Record<string, string> {
-  if (!isRecord(manifest.scripts)) return {}
-  const executable = new Set(['preinstall', 'install', 'postinstall', 'prepare', 'prepack'])
-  return Object.fromEntries(Object.entries(manifest.scripts)
-    .filter((entry): entry is [string, string] => executable.has(entry[0]) && typeof entry[1] === 'string'))
-}
-
-function packageName(manifest: PackageManifest, path: string): string {
-  if (typeof manifest.name !== 'string' || !/^(@[a-z0-9_.-]+\/)?[a-z0-9_.-]+$/i.test(manifest.name)) {
-    throw new Error(`${path} must declare a valid package name`)
-  }
-  return manifest.name
 }
 
 function profileManifest(profileDir: string): PackageManifest {
@@ -344,82 +227,20 @@ function removeMarkedBlock(text: string, begin: string, end: string): string {
   return `${text.slice(0, start).trimEnd()}\n${text.slice(after).trimStart()}`.trimEnd() + '\n'
 }
 
-function repositorySources(text: string): string[] {
-  const result = new Set<string>()
-  for (const match of text.matchAll(/github:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#[^\s'"\]]+/g)) {
-    result.add(match[0])
-  }
-  return [...result]
-}
-
 function repositoryFromSource(source: string): string | null {
   const match = /^github:([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)#/.exec(source)
   return match?.[1] ?? null
-}
-
-function repositoryEnabled(
-  profileDir: string,
-  entry: MarketplaceInstalledPlugin,
-): boolean {
-  const path = join(profileDir, 'cordis.patch.yml')
-  const patch = existsSync(path) ? readFileSync(path, 'utf8') : ''
-  return repositorySources(patch).includes(entry.source)
 }
 
 function installedEntryEnabled(
   profileDir: string,
   entry: MarketplaceInstalledPlugin,
 ): boolean {
-  return entry.mechanism === 'bundle'
-    ? bundleEnabled(profileDir, entry.packageName)
-    : repositoryEnabled(profileDir, entry)
+  return entry.mechanism === 'bundle' ? bundleEnabled(profileDir, entry.packageName) : false
 }
 
 function yamlString(value: string): string {
   return `'${value.replaceAll("'", "''")}'`
-}
-
-function patchWithRootList(text: string, addingEntries: boolean): string {
-  const lines = text.trimEnd().split('\n')
-  if (addingEntries) {
-    return lines.filter(line => line.trim() !== '[]').join('\n').trimEnd()
-  }
-  const semantic = lines.filter(line => line.trim() !== '' && !line.trimStart().startsWith('#'))
-  if (semantic.length > 0) return lines.join('\n').trimEnd() + '\n'
-  return [...lines, '[]'].join('\n').trim() + '\n'
-}
-
-function updateRepositoryPatch(
-  profileDir: string,
-  entries: readonly MarketplaceInstalledPlugin[],
-  enabledOverrides: ReadonlyMap<string, boolean> = new Map(),
-): void {
-  const path = join(profileDir, 'cordis.patch.yml')
-  const original = existsSync(path) ? readFileSync(path, 'utf8') : '[]\n'
-  const withoutManaged = removeMarkedBlock(original, PATCH_BEGIN, PATCH_END)
-  const enabledSources = new Set(repositorySources(original))
-  const marketplaceSources = entries
-    .filter(entry => entry.mechanism === 'repository')
-    .filter(entry => enabledOverrides.get(entry.pluginId)
-      ?? enabledSources.has(entry.source))
-    .map(entry => entry.source)
-  if (marketplaceSources.length === 0) {
-    writeFileSync(path, patchWithRootList(withoutManaged, false), { mode: 0o600 })
-    return
-  }
-  const sources = [...new Set([...repositorySources(withoutManaged), ...marketplaceSources])]
-  const block = [
-    PATCH_BEGIN,
-    '- id: repository-plugins',
-    '  config:',
-    '    repositories:',
-    ...sources.map(source => `      - ${yamlString(source)}`),
-    PATCH_END,
-    '',
-  ].join('\n')
-  const normalizedBase = patchWithRootList(withoutManaged, true)
-  const base = normalizedBase === '' ? '' : normalizedBase + '\n\n'
-  writeFileSync(path, base + block, { mode: 0o600 })
 }
 
 function allowBuild(profileDir: string, packageNameValue: string): void {
@@ -571,12 +392,14 @@ function cloneSnapshot(snapshot: MarketplaceSnapshot): MarketplaceSnapshot {
 export class PluginMarketplaceManager {
   readonly #options: PluginMarketplaceOptions
   readonly #profileDir: string
+  readonly #resolver: MarketplaceSourceResolver
   readonly #root: string
   readonly #previewsRoot: string
   readonly #rollbacksRoot: string
   readonly #rollbackStatePath: string
   #active: ActivePreview | null = null
   #busy = false
+  #candidate: MarketplaceCandidate | null = null
   #catalog: MarketplacePlugin[] = []
   #catalogGeneratedAt: string | null = null
   #auth: MarketplaceSnapshot['auth'] = {
@@ -594,6 +417,14 @@ export class PluginMarketplaceManager {
     this.#options = options
     this.#warn = options.onWarn ?? defaultWarn
     this.#profileDir = join(options.dshHome, 'profiles', options.profile)
+    this.#resolver = options.resolver ?? new DefaultMarketplaceSourceResolver({
+      dshVersion: PINNED_DSH_VERSION,
+      findInstalled: candidate => readMarketplaceState(this.#profileDir).entries.find(entry =>
+        entry.pluginId === candidate.identity.pluginId || entry.packageName === candidate.identity.packageName),
+      findSourceLock: candidate => readMarketplaceState(this.#profileDir).locks.find(lock =>
+        lock.pluginId === candidate.identity.pluginId || lock.packageName === candidate.identity.packageName),
+      repository: platformRepositoryAdapter(options.platform),
+    })
     this.#root = join(options.appDataPath, 'plugin-marketplace')
     this.#previewsRoot = join(this.#root, 'previews')
     this.#rollbacksRoot = join(this.#root, 'rollbacks')
@@ -611,8 +442,10 @@ export class PluginMarketplaceManager {
       || bundleInstalled(this.#profileDir, entry.packageName))
     const installedById = new Map(installed.map(entry => [entry.pluginId, entry]))
     return cloneSnapshot({
+      approval: makeMarketplaceApprovalDecision(this.#plan, this.#active !== null, this.#rollback !== null),
       auth: this.#auth,
       busy: this.#busy,
+      candidate: this.#candidate,
       catalog: this.#catalog.map(plugin => {
         const receipt = installedById.get(plugin.id)
         const latestCommit = this.#latestCommits.get(plugin.id) ?? null
@@ -620,7 +453,7 @@ export class PluginMarketplaceManager {
           ? false
           : receipt.mechanism === 'bundle'
             ? bundleEnabled(this.#profileDir, receipt.packageName)
-            : repositoryEnabled(this.#profileDir, receipt)
+            : false
         return {
           ...plugin,
           currentCommit: receipt?.resolvedCommit ?? null,
@@ -665,10 +498,10 @@ export class PluginMarketplaceManager {
           await this.refresh(command.force === true)
           break
         case 'inspect':
-          await this.inspect(command.action, command.pluginId)
+          await this.inspect(command.action, command.pluginId, command.sourceRef)
           break
         case 'prepare':
-          await this.prepare(command.action, command.pluginId)
+          await this.prepare(command.action, command.pluginId, command.sourceRef)
           break
         case 'preview':
           await this.preview(command.confirmations
@@ -702,12 +535,28 @@ export class PluginMarketplaceManager {
   private async refresh(force = false): Promise<void> {
     this.#auth = await this.#options.platform.authStatus()
     const installed = readMarketplaceState(this.#profileDir).entries
-    const catalog = parseMarketplaceCatalog(await this.#options.platform.loadCatalog({ force }), installed)
-    this.#catalog = catalog.plugins
-    this.#catalogGeneratedAt = catalog.generatedAt
+    const sourceManager = new CatalogSourceManager((_source, options) =>
+      this.#options.platform.loadCatalog(options))
+    const snapshot = await sourceManager.resolveCatalogSource({
+      digest: null,
+      etag: null,
+      enabled: true,
+      id: 'builtin',
+      kind: 'builtin',
+      label: 'Oh-DSH built-in catalog',
+      lastCommit: null,
+      lastError: null,
+      lastSuccessfulFetchAt: null,
+      locator: 'whyihaveyou/dsh-suite/data/plugins.json',
+      priority: 0,
+      signature: null,
+      trust: 'builtin',
+    }, { force })
+    this.#catalog = snapshot.plugins
+    this.#catalogGeneratedAt = snapshot.generatedAt
     this.#latestCommits.clear()
-    const available = new Map(catalog.plugins
-      .filter(plugin => plugin.mechanism !== 'unsupported')
+    const available = new Map(this.#catalog
+      .filter(plugin => plugin.mechanism !== 'unsupported' && plugin.mechanism !== 'repository')
       .map(plugin => [plugin.id, plugin.repository]))
     await Promise.all(installed
       .filter(entry => available.has(entry.pluginId))
@@ -721,174 +570,163 @@ export class PluginMarketplaceManager {
           // A failed update check must not hide the installed plugin catalog.
         }
       }))
-    this.#lastAction = `Loaded ${String(catalog.plugins.length)} catalog plugins.`
+    this.#lastAction = `Loaded ${String(this.#catalog.length)} catalog plugins.`
   }
 
-  private async prepare(action: MarketplaceAction, pluginId: string): Promise<void> {
-    await this.inspect(action, pluginId)
-    if (this.#plan?.riskLevel === 'blocked') {
-      throw new Error(`${pluginId} is protected by the desktop and cannot be modified by its own marketplace`)
+  private async prepare(
+    action: MarketplaceAction,
+    pluginId?: string,
+    sourceRef?: SourceRef,
+  ): Promise<void> {
+    await this.inspect(action, pluginId, sourceRef)
+    if (this.#plan === null) throw new Error('marketplace inspection did not produce a plan')
+    if (this.#plan.execution !== 'installable' || this.#plan.riskLevel === 'blocked') {
+      throw new Error(`${this.#plan.pluginId} is guide-only or blocked by the pinned DSH runtime`)
     }
-    if (this.#plan?.requirements.length === 0) await this.preview([])
+    if (this.#plan.requirements.length === 0) await this.preview([])
   }
 
-  private async inspect(action: MarketplaceAction, pluginId: string): Promise<void> {
+  private async inspect(
+    action: MarketplaceAction,
+    pluginId?: string,
+    sourceRef?: SourceRef,
+  ): Promise<void> {
     if (this.#active !== null) throw new Error('Apply or discard the current preview first.')
+    this.#candidate = null
+    this.#plan = null
     const state = readMarketplaceState(this.#profileDir)
-    const installed = state.entries
-    const current = installed.find(entry => entry.pluginId === pluginId)
-    const catalogPlugin = this.#catalog.find(plugin => plugin.id === pluginId)
-    if (isProtectedMarketplacePlugin(pluginId, catalogPlugin?.repository)
-      || catalogPlugin?.protected === true) {
-      throw new Error(`${pluginId} is protected by the desktop and cannot be modified by its own marketplace`)
-    }
+    const requestedPluginId = pluginId ?? (sourceRef?.kind === 'catalog' ? sourceRef.pluginId : undefined)
     if (action === 'uninstall' || action === 'enable' || action === 'disable') {
-      if (current === undefined) throw new Error(`${pluginId} was not installed by this marketplace`)
+      if (requestedPluginId === undefined) throw new Error(`${action} requires a marketplace plugin id`)
+      const current = state.entries.find(entry => entry.pluginId === requestedPluginId)
+      if (current === undefined) throw new Error(`${requestedPluginId} was not installed by this marketplace`)
       const enabled = installedEntryEnabled(this.#profileDir, current)
-      if (action === 'enable' && enabled) throw new Error(`${pluginId} is already enabled`)
-      if (action === 'disable' && !enabled) throw new Error(`${pluginId} is already disabled`)
-      const review: MarketplaceSourceReview = state.locks.some(lock => lock.pluginId === pluginId)
-        ? 'matched'
-        : 'first-use'
-      const risk = assessRisk({
-        action,
-        buildScripts: {},
-        mechanism: current.mechanism,
-        protectedPlugin: false,
-        sourceReview: review,
-      })
-      this.#plan = {
-        action,
-        buildScripts: {},
-        description: catalogPlugin?.description ?? `Manage ${pluginId} in the desktop profile.`,
-        mechanism: current.mechanism,
-        packageName: current.packageName,
-        pluginId,
-        manifestHash: state.locks.find(lock => lock.pluginId === pluginId)?.manifestHash ?? '',
-        requirements: risk.requirements,
-        repository: catalogPlugin?.repository ?? repositoryFromSource(current.source)
-          ?? (() => { throw new Error(`${pluginId} has an invalid repository source`) })(),
-        resolvedCommit: current.resolvedCommit,
-        riskLevel: risk.riskLevel,
-        riskReasons: risk.riskReasons,
-        source: current.source,
-        sourceReview: review,
+      if (action === 'enable' && enabled) throw new Error(`${requestedPluginId} is already enabled`)
+      if (action === 'disable' && !enabled) throw new Error(`${requestedPluginId} is already disabled`)
+      if (current.mechanism !== 'bundle') {
+        this.#candidate = null
+        this.#plan = {
+          action,
+          artifactDigest: '',
+          buildScripts: {},
+          catalogSourceId: null,
+          description: `Manage ${requestedPluginId} in the desktop profile.`,
+          entryTargets: [],
+          execution: 'guide-only',
+          installSpec: current.source,
+          license: null,
+          manifestHash: '',
+          manifestPath: '.dsh-plugin/package.json',
+          mechanism: 'repository',
+          packageName: current.packageName,
+          patchHash: null,
+          pluginId: requestedPluginId,
+          requirements: [],
+          repository: repositoryFromSource(current.source) ?? 'unknown/unknown',
+          resolvedCommit: current.resolvedCommit,
+          riskLevel: 'blocked',
+          riskReasons: ['unsupported-runtime'],
+          source: current.source,
+          sourceReview: 'matched',
+          subpath: null,
+          version: null,
+        }
+        return
       }
+      const lock = state.locks.find(entry => entry.pluginId === requestedPluginId)
+      if (isProtectedMarketplacePlugin(requestedPluginId, repositoryFromSource(current.source), current.packageName)) {
+        throw new Error(`${requestedPluginId} is protected by the desktop and cannot be modified by its own marketplace`)
+      }
+      const candidate: MarketplaceCandidate = {
+        buildScripts: {},
+        description: `Manage ${requestedPluginId} in the desktop profile.`,
+        diagnostics: [],
+        evidence: {
+          compatibility: null,
+          filesPresent: lock === undefined ? [] : [lock.manifestPath],
+          license: null,
+          release: null,
+          signature: null,
+        },
+        execution: 'installable',
+        identity: {
+          packageName: current.packageName ?? '',
+          pluginId: requestedPluginId,
+          repository: repositoryFromSource(current.source) ?? 'unknown/unknown',
+          subpath: lock?.subpath ?? null,
+        },
+        manifest: {
+          artifactDigest: lock?.artifactDigest ?? '',
+          bundlePatch: null,
+          entryTargets: [],
+          hash: lock?.manifestHash ?? '',
+          license: null,
+          patchHash: lock?.patchHash ?? null,
+          path: lock?.manifestPath ?? 'package.json',
+          version: null,
+        },
+        mechanism: 'bundle',
+        risk: { level: 'low', reasons: [], requiredConfirmations: [] },
+        source: {
+          catalogSourceId: lock?.catalogSourceId ?? null,
+          installSpec: lock?.installSpec ?? current.source,
+          kind: lock?.catalogSourceId === null ? 'direct-repository' : 'catalog',
+          locator: `https://github.com/${repositoryFromSource(current.source) ?? 'unknown/unknown'}`,
+          requestedRef: lock?.requestedRef ?? null,
+          resolvedCommit: current.resolvedCommit,
+        },
+      }
+      this.#candidate = candidate
+      this.#plan = this.#resolver.makePlan(candidate, action)
       return
     }
-    if (action === 'install' && current !== undefined) {
-      throw new Error(`${pluginId} is already installed`)
+
+    if (requestedPluginId !== undefined) {
+      const current = state.entries.find(entry => entry.pluginId === requestedPluginId)
+      if (action === 'install' && current !== undefined) throw new Error(`${requestedPluginId} is already installed`)
+      if (action === 'update' && current === undefined) throw new Error(`${requestedPluginId} is not installed`)
     }
-    if (action === 'update' && current === undefined) {
-      throw new Error(`${pluginId} is not installed`)
-    }
-    if (catalogPlugin === undefined) throw new Error(`plugin is not present in the loaded catalog: ${pluginId}`)
-    if (catalogPlugin.mechanism === 'unsupported') {
-      throw new Error(`${pluginId} does not use a preview-safe bundle or repository package`)
-    }
-    const commit = await this.#options.platform.resolveCommit(catalogPlugin.repository)
-    this.#latestCommits.set(pluginId, commit)
-    if (action === 'update' && current?.resolvedCommit === commit) {
-      throw new Error(`${pluginId} is already at the latest commit`)
-    }
-    let resolvedMechanism: MarketplacePlan['mechanism'] | null =
-      catalogPlugin.mechanism === 'bundle' || catalogPlugin.mechanism === 'repository'
-        ? catalogPlugin.mechanism
-        : null
-    let manifestPath = resolvedMechanism === 'repository'
-      ? '.dsh-plugin/package.json'
-      : 'package.json'
-    let manifestText = await this.#options.platform.readRepositoryFile(
-      catalogPlugin.repository,
-      manifestPath,
-      commit,
-    )
-    if (catalogPlugin.mechanism === 'discover') {
-      const bundleText = manifestText
-      if (bundleText !== null) {
-        const bundleManifest = parsePackageManifest(bundleText, `${pluginId}/package.json`)
-        if (isRecord(bundleManifest.dsh) && isRecord(bundleManifest.dsh.bundle)
-          && typeof bundleManifest.dsh.bundle.patch === 'string') {
-          resolvedMechanism = 'bundle'
-        } else {
-          manifestPath = '.dsh-plugin/package.json'
-          manifestText = await this.#options.platform.readRepositoryFile(
-            catalogPlugin.repository,
-            manifestPath,
-            commit,
-          )
-          resolvedMechanism = manifestText === null ? null : 'repository'
-        }
-      } else {
-        manifestPath = '.dsh-plugin/package.json'
-        manifestText = await this.#options.platform.readRepositoryFile(
-          catalogPlugin.repository,
-          manifestPath,
-          commit,
-        )
-        resolvedMechanism = manifestText === null ? null : 'repository'
+    let repositoryRef: Extract<SourceRef, { kind: 'repository' }>
+    let catalogPlugin: MarketplacePlugin | undefined
+    if (sourceRef?.kind === 'repository') {
+      repositoryRef = sourceRef
+    } else {
+      if (requestedPluginId === undefined) throw new Error('install/update requires a plugin id or repository sourceRef')
+      catalogPlugin = this.#catalog.find(plugin => plugin.id === requestedPluginId)
+      if (catalogPlugin === undefined) throw new Error(`plugin is not present in the loaded catalog: ${requestedPluginId}`)
+      if (catalogPlugin.mechanism === 'unsupported' || catalogPlugin.mechanism === 'repository') {
+        throw new Error(`${requestedPluginId} is guide-only or blocked by the pinned DSH runtime`)
+      }
+      if (catalogPlugin.protected || isProtectedMarketplacePlugin(requestedPluginId, catalogPlugin.repository)) {
+        throw new Error(`${requestedPluginId} is protected by the desktop and cannot be modified by its own marketplace`)
+      }
+      repositoryRef = {
+        catalogSourceId: catalogPlugin.catalogSourceId ?? 'builtin',
+        input: catalogPlugin.repository,
+        kind: 'repository',
+        requestedRef: null,
+        subpath: null,
       }
     }
-    if (resolvedMechanism === null) {
-      throw new Error(`${pluginId} has no DSH bundle or .dsh-plugin manifest at ${commit}`)
-    }
-    if (manifestText === null) throw new Error(`${pluginId} is missing ${manifestPath} at ${commit}`)
-    const manifest = parsePackageManifest(manifestText, `${pluginId}/${manifestPath}`)
-    const resolvedPackage = packageName(manifest, manifestPath)
+    const candidate = await this.#resolver.resolveRepository(repositoryRef)
+    if (catalogPlugin !== undefined) candidate.identity.pluginId = catalogPlugin.id
     if (isProtectedMarketplacePlugin(
-      pluginId,
-      catalogPlugin.repository,
-      resolvedPackage,
+      candidate.identity.pluginId,
+      candidate.identity.repository,
+      candidate.identity.packageName,
     )) {
-      throw new Error(
-        `${pluginId} is protected by the desktop and cannot be modified by its own marketplace`,
-      )
+      throw new Error(`${candidate.identity.pluginId} is protected by the desktop and cannot be modified by its own marketplace`)
     }
-    if (resolvedMechanism === 'bundle'
-      && (!isRecord(manifest.dsh) || !isRecord(manifest.dsh.bundle)
-        || typeof manifest.dsh.bundle.patch !== 'string')) {
-      throw new Error(`${pluginId} does not declare dsh.bundle.patch`)
+    const current = state.entries.find(entry => entry.pluginId === candidate.identity.pluginId
+      || entry.packageName === candidate.identity.packageName)
+    if (action === 'install' && current !== undefined) throw new Error(`${candidate.identity.pluginId} is already installed`)
+    if (action === 'update' && current === undefined) throw new Error(`${candidate.identity.pluginId} is not installed`)
+    if (action === 'update' && current?.resolvedCommit === candidate.source.resolvedCommit) {
+      throw new Error(`${candidate.identity.pluginId} is already at the latest commit`)
     }
-    const source = resolvedMechanism === 'repository'
-      ? `github:${catalogPlugin.repository}#${commit}&path:/.dsh-plugin`
-      : `github:${catalogPlugin.repository}#${commit}`
-    const hash = manifestHash(manifestText)
-    const review = sourceReview(
-      state.locks.find(lock => lock.pluginId === pluginId),
-      {
-        manifestHash: hash,
-        mechanism: resolvedMechanism,
-        packageName: resolvedPackage,
-        pluginId,
-        repository: catalogPlugin.repository,
-        resolvedCommit: commit,
-      },
-      current,
-    )
-    const scripts = buildScripts(manifest)
-    const risk = assessRisk({
-      action,
-      buildScripts: scripts,
-      mechanism: resolvedMechanism,
-      protectedPlugin: catalogPlugin.protected,
-      sourceReview: review,
-    })
-    this.#plan = {
-      action,
-      buildScripts: scripts,
-      description: catalogPlugin.description,
-      manifestHash: hash,
-      mechanism: resolvedMechanism,
-      packageName: resolvedPackage,
-      pluginId,
-      requirements: risk.requirements,
-      repository: catalogPlugin.repository,
-      resolvedCommit: commit,
-      riskLevel: risk.riskLevel,
-      riskReasons: risk.riskReasons,
-      source,
-      sourceReview: review,
-    }
+    this.#latestCommits.set(candidate.identity.pluginId, candidate.source.resolvedCommit)
+    this.#candidate = candidate
+    this.#plan = this.#resolver.makePlan(candidate, action)
   }
 
   private async preview(confirmations: readonly MarketplaceConfirmation[]): Promise<void> {
@@ -898,6 +736,12 @@ export class PluginMarketplaceManager {
     const missing = plan.requirements.filter(requirement => !confirmations.includes(requirement))
     if (missing.length > 0) {
       throw new Error(`Preview requires explicit confirmation: ${missing.join(', ')}`)
+    }
+    if (plan.execution !== 'installable' || plan.mechanism !== 'bundle') {
+      throw new Error('only installable DSH bundle candidates can enter preview')
+    }
+    if (plan.installSpec !== `github:${plan.repository}#${plan.resolvedCommit}`) {
+      throw new Error('bundle preview requires an exact commit-pinned installSpec')
     }
     const transactionId = randomUUID()
     const root = join(this.#previewsRoot, transactionId)
@@ -918,8 +762,10 @@ export class PluginMarketplaceManager {
       }
       const candidateState = readMarketplaceState(candidateProfile)
       const current = candidateState.entries
-      const remaining = current.filter(entry => entry.pluginId !== plan.pluginId)
-      const existing = current.find(entry => entry.pluginId === plan.pluginId)
+      const remaining = current.filter(entry => entry.pluginId !== plan.pluginId
+        && (plan.packageName === null || entry.packageName !== plan.packageName))
+      const existing = current.find(entry => entry.pluginId === plan.pluginId
+        || (plan.packageName !== null && entry.packageName === plan.packageName))
       if (plan.action === 'install' || plan.action === 'update') {
         const preserveEnabled = existing === undefined
           ? true
@@ -988,15 +834,12 @@ export class PluginMarketplaceManager {
         }
         const next = [...remaining, installed]
         const previousLock = candidateState.locks.find(lock => lock.pluginId === plan.pluginId)
+        const candidate = this.#candidate
+        if (candidate === null) throw new Error('bundle preview is missing its source candidate')
         const locks = [
           ...candidateState.locks.filter(lock => lock.pluginId !== plan.pluginId),
-          sourceLockFromPlan(plan, previousLock),
+          sourceLockFromCandidate(candidate, previousLock),
         ]
-        updateRepositoryPatch(
-          candidateProfile,
-          next,
-          new Map([[plan.pluginId, preserveEnabled]]),
-        )
         writeMarketplaceState(candidateProfile, {
           entries: next,
           locks,
@@ -1005,10 +848,10 @@ export class PluginMarketplaceManager {
       } else if (plan.action === 'uninstall') {
         const installed = existing
         if (installed === undefined) throw new Error(`${plan.pluginId} is no longer installed`)
-        if (installed.mechanism === 'bundle') {
-          await this.removeBundle(candidateHome, candidateProfile, root, installed)
+        if (installed.mechanism !== 'bundle') {
+          throw new Error('repository-plugin receipts are guide-only and cannot be changed')
         }
-        updateRepositoryPatch(candidateProfile, remaining)
+        await this.removeBundle(candidateHome, candidateProfile, root, installed)
         writeMarketplaceState(candidateProfile, {
           entries: remaining,
           locks: candidateState.locks,
@@ -1017,19 +860,11 @@ export class PluginMarketplaceManager {
       } else {
         const installed = existing
         if (installed === undefined) throw new Error(`${plan.pluginId} is no longer installed`)
-        const enabled = plan.action === 'enable'
-        if (installed.mechanism === 'bundle') {
-          if (installed.packageName === null) {
-            throw new Error('installed bundle is missing its package name')
-          }
-          setBundleEnabled(candidateProfile, installed.packageName, enabled)
-        } else {
-          updateRepositoryPatch(
-            candidateProfile,
-            current,
-            new Map([[plan.pluginId, enabled]]),
-          )
+        if (installed.mechanism !== 'bundle' || installed.packageName === null) {
+          throw new Error('repository-plugin receipts are guide-only and cannot be changed')
         }
+        const enabled = plan.action === 'enable'
+        setBundleEnabled(candidateProfile, installed.packageName, enabled)
         writeMarketplaceState(candidateProfile, {
           entries: current,
           locks: candidateState.locks,
@@ -1082,12 +917,14 @@ export class PluginMarketplaceManager {
     const active = this.#active
     if (active === null) {
       this.#plan = null
+      this.#candidate = null
       return
     }
     await this.#options.runtime.stopPreview()
     removeWithin(this.#previewsRoot, active.root, this.#warn)
     this.#active = null
     this.#plan = null
+    this.#candidate = null
     this.#lastAction = `Discarded the ${active.preview.pluginId} preview without changing the desktop profile.`
   }
 
@@ -1104,12 +941,6 @@ export class PluginMarketplaceManager {
       renameSync(this.#profileDir, backupProfile)
       renameSync(active.candidateProfile, this.#profileDir)
       candidateInstalled = true
-      const candidateCache = join(active.candidateHome, 'cache', 'repository-plugins')
-      if (existsSync(candidateCache)) {
-        const liveCache = join(this.#options.dshHome, 'cache', 'repository-plugins')
-        mkdirSync(dirname(liveCache), { recursive: true, mode: 0o700 })
-        cpSync(candidateCache, liveCache, { recursive: true, preserveTimestamps: true })
-      }
       // The applied profile's node_modules was linked from the preview's
       // store, which is deleted with the preview root below. Re-home it
       // against the persistent home store (unsandboxed) so the live profile
@@ -1149,6 +980,7 @@ export class PluginMarketplaceManager {
     removeWithin(this.#previewsRoot, active.root, this.#warn)
     this.#active = null
     this.#plan = null
+    this.#candidate = null
     this.#lastAction = `Applied ${active.preview.pluginId}; the previous profile remains available for Undo.`
     this.remapCatalogInstalled()
   }
@@ -1179,6 +1011,7 @@ export class PluginMarketplaceManager {
     rmSync(this.#rollbackStatePath, { force: true })
     removeWithin(this.#rollbacksRoot, rollbackRoot, this.#warn)
     this.#rollback = null
+    this.#candidate = null
     this.#lastAction = `Restored the profile from before ${rollback.pluginId} was applied.`
     this.remapCatalogInstalled()
   }
