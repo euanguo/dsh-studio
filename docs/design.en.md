@@ -118,6 +118,7 @@ The mandatory static fixture is
 This repository is verified by source and isolated fixture tests only; this
 checkout does not install or run it.
 
+
 ## Security boundaries
 
 - Web binds to loopback by default; LAN exposure requires trusted authorities.
