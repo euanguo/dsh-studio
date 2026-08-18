@@ -381,14 +381,13 @@ export function SessionNodeItem({ node, currentId, now, onOpen, onRename, onFork
   const showStatus = primaryStatus.state !== 'done' || row.completed
   const [menuOpen, setMenuOpen] = useState(false)
   // Archive hides the row through the registry-global archive set and never
-  // touches the session log, so it is not styled as destructive and needs no
-  // confirmation dialog. Keyboard reorder (up/down) is the accessibility
-  // twin of mouse drag-and-drop.
+  // touches the session log, so it needs no confirmation dialog; it is still
+  // styled as destructive so the row reads as a removal action.
   const sessionMenuItems = [
     { id: 'rename', label: t('rename'), icon: <IconEditOutline16 /> },
     { id: 'fork', label: t('menu.fork'), icon: <IconBranchOutline16 /> },
     // 20-native glyph in the menu's 16px icon slot (Menu.module.css .itemIcon).
-    { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutline20 size={16} /> },
+    { id: 'archive', label: t('menu.archiveSession'), icon: <IconArchiveOutline20 size={16} />, danger: true },
     ...(onMove === undefined
       ? []
       : [

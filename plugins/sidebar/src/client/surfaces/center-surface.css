@@ -205,15 +205,16 @@
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-/* Center add portal menu styling and interactive highlights */
-body > div[role='menu'] [role='menuitem']:not([aria-disabled='true']):not([disabled]),
-body > div[role='menu'] button:not(:disabled):not([aria-disabled='true']) {
+/* Center add portal menu styling and interactive highlights. Danger rows
+   keep the official Menu danger styling (red text + red hover fill). */
+body > div[role='menu'] [role='menuitem']:not([aria-disabled='true']):not([disabled]):not([class*='danger']),
+body > div[role='menu'] button:not(:disabled):not([aria-disabled='true']):not([class*='danger']) {
   cursor: pointer;
 }
 
-body > div[role='menu'] [role='menuitem']:not([aria-disabled='true']):not([disabled]):hover,
-body > div[role='menu'] button:not(:disabled):not([aria-disabled='true']):hover,
-body > div[role='menu'] div:hover > [role='menuitem']:not([aria-disabled='true']):not([disabled]) {
+body > div[role='menu'] [role='menuitem']:not([aria-disabled='true']):not([disabled]):not([class*='danger']):hover,
+body > div[role='menu'] button:not(:disabled):not([aria-disabled='true']):not([class*='danger']):hover,
+body > div[role='menu'] div:hover > [role='menuitem']:not([aria-disabled='true']):not([disabled]):not([class*='danger']) {
   background-color: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06)) !important;
   color: var(--dsw-alias-label-primary, #1f2328) !important;
 }

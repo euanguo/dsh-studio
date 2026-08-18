@@ -39,6 +39,7 @@ import { ProjectTreeBody } from './WorkspaceBrowserProjectTree.tsx'
 import { createWorktree, useWorktreeLayouts, fetchBranches, previewWorktreeRemoval, removeWorktree } from './worktree-api.ts'
 import { detectProjectIcon, type ProjectIconDetection } from './project-icon-api.ts'
 import { projectIconNodeOf } from './project-icon-model.ts'
+import { ProjectIconModal } from './ProjectIconModal.tsx'
 import { deriveLeftRailSnapshot } from './project-tree-model.ts'
 import { createRailController } from './rail-controller.ts'
 import { isPathWithin } from './domain/identities.ts'
@@ -112,6 +113,7 @@ export function WorkspaceBrowser({
   const groupIds = useStore(s => s.groupIds)
   const groupLabels = useStore(s => s.groupLabels)
   const projectAlias = useStore(s => s.projectAlias)
+  const worktreeAlias = useStore(s => s.worktreeAlias)
   const projectIconOverrides = useStore(s => s.projectIconOverrides)
   // Three-level tree worktree layouts (fetched per cwd, cached by roster).
   const worktreeLayouts = useWorktreeLayouts(workspaces.map(workspace => workspace.path))
@@ -181,7 +183,7 @@ export function WorkspaceBrowser({
       // revision and retry once — a conflict must never wedge persistence
       // until reload.
       const persist = async (): Promise<void> => {
-        const patch = { activeTab, projectGroup, groupIds, groupLabels, projectAlias, projectIconOverrides }
+        const patch = { activeTab, projectGroup, groupIds, groupLabels, projectAlias, worktreeAlias, projectIconOverrides }
         try {
           const view = await saveLeftRailSettings(patch, settingsRevision.current)
           settingsRevision.current = view.revision
@@ -200,7 +202,7 @@ export function WorkspaceBrowser({
       void persist()
     }, 300)
     return () => { window.clearTimeout(timer) }
-  }, [activeTab, projectGroup, groupIds, groupLabels, projectAlias, projectIconOverrides])
+  }, [activeTab, projectGroup, groupIds, groupLabels, projectAlias, worktreeAlias, projectIconOverrides])
   useEffect(() => {
     if (workspacePhase !== 'ready') return
     // Retain the session-order accounts (workspace ids + ungrouped/flat) and
@@ -446,6 +448,9 @@ export function WorkspaceBrowser({
   const [newWtPath, setNewWtPath] = useState('')
   const [newWtPending, setNewWtPending] = useState(false)
   const [newWtError, setNewWtError] = useState<string | null>(null)
+  const [iconModalProject, setIconModalProject] = useState<ProjectNode | null>(null)
+  const [worktreeAliasTarget, setWorktreeAliasTarget] = useState<{ worktreePath: string } | null>(null)
+  const [worktreeAliasDraft, setWorktreeAliasDraft] = useState('')
   const [projectAliasTarget, setProjectAliasTarget] = useState<{ repoRoot: string } | null>(null)
   const [projectAliasDraft, setProjectAliasDraft] = useState('')
   const [groupModal, setGroupModal] = useState<{ mode: 'create' } | { mode: 'rename'; id: string } | null>(null)
@@ -480,6 +485,7 @@ export function WorkspaceBrowser({
     groupIds,
     groupLabels,
     projectAlias,
+    worktreeAlias,
   }
   const projectRailSnapshot = useMemo(
     () => deriveLeftRailSnapshot({
@@ -560,6 +566,18 @@ export function WorkspaceBrowser({
     setProjectAliasTarget(null)
   }
 
+  const openRenameWorktree = (worktreePath: string, currentLabel: string): void => {
+    setWorktreeAliasTarget({ worktreePath })
+    setWorktreeAliasDraft(worktreeAlias[worktreePath] ?? currentLabel)
+  }
+  const closeRenameWorktree = (): void => { setWorktreeAliasTarget(null) }
+  const confirmRenameWorktree = (): void => {
+    if (worktreeAliasTarget === null) return
+    const alias = worktreeAliasDraft.trim()
+    actions.setWorktreeAlias(worktreeAliasTarget.worktreePath, alias === '' ? undefined : alias)
+    setWorktreeAliasTarget(null)
+  }
+
   const openNewGroup = (): void => {
     setGroupModal({ mode: 'create' })
     setGroupDraft('')
@@ -622,10 +640,9 @@ export function WorkspaceBrowser({
       const repoRoot = id.kind === 'git' ? id.repoRoot : id.path
       if (selection.action === 'project.create-worktree') openNewWorktree(repoRoot)
       else if (selection.action === 'project.rename-alias') openRenameProject(repoRoot, projectAlias[repoRoot] ?? workspaceLabel(repoRoot))
-      else if (selection.action === 'project.set-icon' && selection.iconData !== undefined) {
-        actions.setProjectIconOverride(repoRoot, { kind: 'upload', mime: 'image/png', data: selection.iconData })
-      } else if (selection.action === 'project.set-icon' && selection.iconName !== undefined) {
-        actions.setProjectIconOverride(repoRoot, { kind: 'builtin', name: selection.iconName })
+      else if (selection.action === 'project.set-icon') {
+        const found = projectRailSnapshot.tree.allProjects.find(p => p.repoRoot === repoRoot) ?? null
+        setIconModalProject(found)
       } else if (selection.action === 'project.refresh-icon') {
         setIconRevision(revision => revision + 1)
       } else if (selection.action === 'project.reset-icon') {
@@ -650,6 +667,8 @@ export function WorkspaceBrowser({
       if (selection.action === 'worktree.create-session') {
         actions.setGroupExpanded(worktreeExpansionKey(path), true)
         startSession(selection.workspaceId as WorkspaceId | undefined)
+      } else if (selection.action === 'worktree.rename-alias') {
+        openRenameWorktree(path, worktreeAlias[path] ?? workspaceLabel(path))
       } else if (selection.action === 'worktree.rename' && selection.workspaceId !== undefined) {
         const workspace = workspaces.find(item => String(item.workspaceId) === selection.workspaceId)
         setRenameTarget({ workspaceId: selection.workspaceId as WorkspaceId, currentTitle: workspace?.title ?? workspaceLabel(path) })
@@ -1163,6 +1182,47 @@ export function WorkspaceBrowser({
           onKeyDown={(e) => { if (e.key === 'Enter') confirmRenameProject() }}
         />
       </Modal>
+
+      {/* Rename worktree alias */}
+      <Modal
+        open={worktreeAliasTarget !== null}
+        onClose={closeRenameWorktree}
+        closeLabel={t('close')}
+        title={t('worktree.rename')}
+        footer={(
+          <>
+            <Button variant="outline" onClick={closeRenameWorktree}>{t('cancel')}</Button>
+            <Button variant="primary" onClick={confirmRenameWorktree}>{t('rename')}</Button>
+          </>
+        )}
+      >
+        <input
+          className={css.renameInput}
+          value={worktreeAliasDraft}
+          aria-label={t('field.workspaceName')}
+          autoFocus
+          onChange={(e) => { setWorktreeAliasDraft(e.target.value) }}
+          onKeyDown={(e) => { if (e.key === 'Enter') confirmRenameWorktree() }}
+        />
+      </Modal>
+
+      {/* Project icon modal */}
+      <ProjectIconModal
+        open={iconModalProject !== null}
+        project={iconModalProject}
+        onClose={() => { setIconModalProject(null) }}
+        onSetBuiltin={(name) => {
+          if (iconModalProject !== null) actions.setProjectIconOverride(iconModalProject.repoRoot, { kind: 'builtin', name })
+        }}
+        onUploadPng={(dataUrl) => {
+          if (iconModalProject !== null) actions.setProjectIconOverride(iconModalProject.repoRoot, { kind: 'upload', mime: 'image/png', data: dataUrl })
+        }}
+        onRefresh={() => { setIconRevision(r => r + 1) }}
+        onReset={() => {
+          if (iconModalProject !== null) actions.setProjectIconOverride(iconModalProject.repoRoot, undefined)
+        }}
+        t={t}
+      />
 
       {/* New / rename group */}
       <Modal

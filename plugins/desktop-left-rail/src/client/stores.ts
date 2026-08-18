@@ -37,6 +37,8 @@ type WorkspaceViewState = {
   groupLabels: Record<string, string>
   /** repoRoot → user alias (display name overriding the directory basename). */
   projectAlias: Record<string, string>
+  /** worktreePath → user alias (display name overriding the directory basename or branch). */
+  worktreeAlias: Record<string, string>
   /** repoRoot → explicit project icon preference; absence means auto-resolve. */
   projectIconOverrides: Record<string, ProjectIconPreference>
 }
@@ -63,8 +65,9 @@ type WorkspaceViewActions = {
   renameGroup: (draft: WorkspaceViewState, id: string, label: string) => void
   removeGroup: (draft: WorkspaceViewState, id: string) => void
   setProjectAlias: (draft: WorkspaceViewState, repoRoot: string, alias: string | undefined) => void
+  setWorktreeAlias: (draft: WorkspaceViewState, worktreePath: string, alias: string | undefined) => void
   setProjectIconOverride: (draft: WorkspaceViewState, repoRoot: string, preference: ProjectIconPreference | undefined) => void
-  hydrateGrouping: (draft: WorkspaceViewState, settings: { activeTab?: string; projectGroup?: Record<string, string>; groupIds?: string[]; groupLabels?: Record<string, string>; projectAlias?: Record<string, string>; projectIconOverrides?: Record<string, ProjectIconPreference> }) => void
+  hydrateGrouping: (draft: WorkspaceViewState, settings: { activeTab?: string; projectGroup?: Record<string, string>; groupIds?: string[]; groupLabels?: Record<string, string>; projectAlias?: Record<string, string>; worktreeAlias?: Record<string, string>; projectIconOverrides?: Record<string, ProjectIconPreference> }) => void
 }
 
 /**
@@ -84,6 +87,7 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
       groupIds: [],
       groupLabels: {},
       projectAlias: {},
+      worktreeAlias: {},
       projectIconOverrides: {},
     }),
     actions: {
@@ -130,6 +134,10 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
         if (alias === undefined || alias.trim() === '') delete d.projectAlias[repoRoot]
         else d.projectAlias[repoRoot] = alias.trim()
       },
+      setWorktreeAlias: (d, worktreePath: string, alias: string | undefined) => {
+        if (alias === undefined || alias.trim() === '') delete d.worktreeAlias[worktreePath]
+        else d.worktreeAlias[worktreePath] = alias.trim()
+      },
       setProjectIconOverride: (d, repoRoot: string, preference: ProjectIconPreference | undefined) => {
         const sanitized = sanitizeProjectIconPreference(preference)
         if (sanitized === undefined) delete d.projectIconOverrides[repoRoot]
@@ -141,6 +149,7 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
         if (Array.isArray(settings.groupIds)) d.groupIds = settings.groupIds
         if (settings.groupLabels !== undefined) d.groupLabels = settings.groupLabels
         if (settings.projectAlias !== undefined) d.projectAlias = settings.projectAlias
+        if (settings.worktreeAlias !== undefined) d.worktreeAlias = settings.worktreeAlias
         if (settings.projectIconOverrides !== undefined) {
           d.projectIconOverrides = Object.fromEntries(
             Object.entries(settings.projectIconOverrides)

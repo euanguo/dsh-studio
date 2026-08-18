@@ -211,6 +211,8 @@ export interface ProjectTreeView {
   groupLabels: Readonly<Record<string, string>>
   /** repoRoot → user alias (display name overriding the basename). */
   projectAlias: Readonly<Record<string, string>>
+  /** worktreePath → user alias (display name overriding the directory basename or branch). */
+  worktreeAlias?: Readonly<Record<string, string>>
 }
 
 interface Group {
@@ -524,7 +526,12 @@ export function deriveProjectTree(
       },
       mainBranch: wts[0]?.branch ?? null,
       worktrees: wts.map(wt => ({
-        key: wt.path, path: wt.path, label: wt.label, branch: wt.branch, isGit: proj.isGit, main: wt.main,
+        key: wt.path,
+        path: wt.path,
+        label: view.worktreeAlias?.[wt.path] ?? (wt.branch ?? wt.label),
+        branch: wt.branch,
+        isGit: proj.isGit,
+        main: wt.main,
         workspaceIds: wt.workspaceIds,
         // Sessions always carry the full member list; the renderer decides
         // the collapsed preview (first five) vs the full expanded run.

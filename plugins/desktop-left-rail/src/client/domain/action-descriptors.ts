@@ -21,7 +21,9 @@ export function projectActionDescriptors(project: ProjectNode): readonly ActionD
 /** Build Worktree actions while keeping physical-removal policy centralized. */
 export function worktreeActionDescriptors(project: ProjectNode, worktree: WorktreeNode): readonly ActionDescriptor[] {
   const target = { kind: 'worktree' as const, id: worktreeIdOf(project, worktree) }
-  const actions: ActionDescriptor[] = []
+  const actions: ActionDescriptor[] = [
+    { id: 'worktree.rename-alias', target, enabled: true },
+  ]
   const memberIds = worktree.workspaceIds.map(id => String(id))
   for (const workspaceId of memberIds) {
     actions.push(

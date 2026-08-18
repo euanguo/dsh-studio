@@ -14,6 +14,7 @@ export type RailActionId =
   | 'project.remove-registration'
   | 'worktree.create-session'
   | 'worktree.rename'
+  | 'worktree.rename-alias'
   | 'worktree.remove-registration'
   | 'worktree.copy-path'
   | 'worktree.open-directory'

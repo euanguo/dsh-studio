@@ -16,6 +16,8 @@ export interface LeftRailSettings {
   groupIds?: string[]
   groupLabels?: Record<string, string>
   projectAlias?: Record<string, string>
+  /** worktreePath → user alias (display name overriding the directory basename or branch). */
+  worktreeAlias?: Record<string, string>
   /** repoRoot → explicit icon preference; auto-detected icons are not persisted. */
   projectIconOverrides?: Record<string, ProjectIconPreference>
 }

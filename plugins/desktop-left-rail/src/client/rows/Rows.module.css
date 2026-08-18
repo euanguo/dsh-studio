@@ -161,12 +161,9 @@
 }
 
 
-/* Project leading slot: folder by default, expand arrow on row hover. */
+/* Project leading slot: project folder/icon always visible. */
 .projectRow .chevron { display: none; }
-.projectRow:hover .chevron { display: inline-flex; }
-.projectRow:hover .folder { display: none; }
 
-/* Expand arrow (filled triangle): points right closed, rotates to point down open. */
 .arrow {
   transition: transform 150ms var(--ds-ease-in-out);
 }
@@ -181,12 +178,6 @@
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-/* The project title shrinks first so the main-branch badge stays on the
-   same row instead of wrapping to a second line. */
-.projectText .title {
-  flex: 1;
 }
 
 .title {
@@ -244,8 +235,10 @@
 }
 
 .projectRow:hover .rowActions,
+.worktreeRow:hover .rowActions,
 .sessionRow:hover .rowActions,
 .projectRow.menuOpen .rowActions,
+.worktreeRow.menuOpen .rowActions,
 .sessionRow.menuOpen .rowActions {
   display: inline-flex;
 }

@@ -344,6 +344,24 @@ test('deriveProjectTree: the project alias overrides the directory basename', ()
   assert.equal(tree.projects[0]!.label, 'My Project')
 })
 
+test('deriveProjectTree: worktree alias overrides the branch or directory basename', () => {
+  layouts.clear()
+  layouts.set('/repo', layout('/repo', [
+    { path: '/repo', branch: 'main', main: true },
+    { path: '/repo-worktrees/feat', branch: 'feat/auth', main: false },
+  ]))
+  const tree = deriveProjectTree(listState({}), [
+    workspace('ws-1', '/repo', []),
+    workspace('ws-2', '/repo-worktrees/feat', []),
+  ], layouts, [], {
+    expanded: [], activeTab: '__default__',
+    projectGroup: {}, groupIds: [], groupLabels: {}, projectAlias: {},
+    worktreeAlias: { '/repo-worktrees/feat': 'Custom Feature Worktree' },
+  })
+  const wt = tree.projects[0]!.worktrees.find(w => w.path === '/repo-worktrees/feat')
+  assert.equal(wt?.label, 'Custom Feature Worktree')
+})
+
 test('deriveProjectTree: containsCurrent is true when the current session lives under the project', () => {
   layouts.clear()
   layouts.set('/repo', layout('/repo', [{ path: '/repo', branch: 'main', main: true }]))
