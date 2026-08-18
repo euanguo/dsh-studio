@@ -48,6 +48,7 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
+    "postinstall": "node scripts/apply-xterm-patch.mjs",
     "build:pages": "node scripts/build-pages.mjs",
     "build:dsh": "node scripts/build-dsh.mjs",
     "stage:dsh": "node scripts/stage-dsh.mjs",
