@@ -105,6 +105,7 @@ export class SourceControlRuntime {
   private readonly generation = new GenerationGate()
   private scope: SourceControlScope | null = null
   private inflight: Promise<void> | null = null
+  private activeAbort: AbortController | null = null
   private disposed = false
 
   constructor(options: SourceControlRuntimeOptions) {
@@ -140,6 +141,8 @@ export class SourceControlRuntime {
       && current.sessionId === scope.sessionId && current.cwd === scope.cwd) {
       return
     }
+    this.activeAbort?.abort()
+    this.activeAbort = null
     this.scope = scope
     this.generation.next()
     this.inflight = null
@@ -195,6 +198,8 @@ export class SourceControlRuntime {
   /** Drop cached data entirely (workspace switch / explicit reset). */
   reset(): void {
     this.assertOpen()
+    this.activeAbort?.abort()
+    this.activeAbort = null
     this.generation.next()
     this.inflight = null
     this.store.setState({ phase: 'idle', message: null, snapshot: null })
@@ -209,6 +214,8 @@ export class SourceControlRuntime {
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
+    this.activeAbort?.abort()
+    this.activeAbort = null
     this.generation.next()
     this.inflight = null
     this.store.dispose()
@@ -222,8 +229,10 @@ export class SourceControlRuntime {
     if (phase !== 'ready' && phase !== 'not-repo') {
       this.store.setState({ phase: 'loading', message: null, snapshot: null })
     }
+    this.activeAbort?.abort()
+    const controller = new AbortController()
+    this.activeAbort = controller
     try {
-      const controller = new AbortController()
       const [facts, status] = await Promise.all([
         this.transport.workspaceFacts(scope.cwd, controller.signal),
         this.transport.gitStatus(scope, controller.signal),
@@ -248,8 +257,13 @@ export class SourceControlRuntime {
       })
     } catch (cause) {
       if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
+      if (cause instanceof DOMException && cause.name === 'AbortError') return
       const message = cause instanceof Error ? cause.message : String(cause)
       this.store.setState({ phase: 'error', message, snapshot: null })
+    } finally {
+      if (this.activeAbort === controller) {
+        this.activeAbort = null
+      }
     }
   }
 

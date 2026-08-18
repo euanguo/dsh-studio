@@ -9,6 +9,10 @@ import type { Translate } from '@oh-dsh/shared/i18n'
 import type { SidebarRenderProps } from '@oh-dsh/sidebar/client/contract'
 import type { BrowserCenterSurface } from '@oh-dsh/sidebar/client/surfaces-types'
 import type { WorkspaceMessage } from '@oh-dsh/sidebar/client/i18n'
+import {
+  getLiveBrowserUrl,
+  rememberLiveBrowserUrl,
+} from './browser-runtime.ts'
 
 /**
  * Electron `<webview>` browser surface. This is a DESKTOP-ONLY capability
@@ -48,7 +52,7 @@ export function BrowserView({
 }): JSX.Element {
   const container = useRef<HTMLDivElement | null>(null)
   const webview = useRef<ElectronWebviewElement | null>(null)
-  const [address, setAddress] = useState(tab.resource ?? '')
+  const [address, setAddress] = useState(tab.resource ?? getLiveBrowserUrl(tab.id) ?? '')
   const [error, setError] = useState('')
   const [canGoBack, setCanGoBack] = useState(false)
 
@@ -58,7 +62,7 @@ export function BrowserView({
     const element = document.createElement('webview') as unknown as ElectronWebviewElement
     element.className = 'oh-dsh-browser-webview'
     element.setAttribute('partition', 'persist:oh-dsh-browser')
-    element.setAttribute('src', tab.resource ?? 'about:blank')
+    element.setAttribute('src', tab.resource ?? getLiveBrowserUrl(tab.id) ?? 'about:blank')
     const update = (event: Event): void => {
       const next = 'url' in event && typeof event.url === 'string'
         ? event.url
@@ -68,6 +72,7 @@ export function BrowserView({
           const safe = normalizeBrowserUrl(next, t)
           const url = new URL(safe)
           setAddress(safe)
+          rememberLiveBrowserUrl(tab.id, safe)
           patch({ resource: safe, title: url.hostname || t('browser') })
         } catch (nextError) {
           setError(nextError instanceof Error ? nextError.message : String(nextError))
@@ -164,7 +169,7 @@ export function BrowserSurfaceView({
 }): JSX.Element {
   const container = useRef<HTMLDivElement | null>(null)
   const webview = useRef<ElectronWebviewElement | null>(null)
-  const [address, setAddress] = useState(surface.resource ?? '')
+  const [address, setAddress] = useState(surface.resource ?? getLiveBrowserUrl(surface.id) ?? '')
   const [error, setError] = useState('')
   const [canGoBack, setCanGoBack] = useState(false)
 
@@ -174,7 +179,7 @@ export function BrowserSurfaceView({
     const element = document.createElement('webview') as unknown as ElectronWebviewElement
     element.className = 'oh-dsh-browser-webview'
     element.setAttribute('partition', 'persist:oh-dsh-browser')
-    element.setAttribute('src', surface.resource ?? 'about:blank')
+    element.setAttribute('src', surface.resource ?? getLiveBrowserUrl(surface.id) ?? 'about:blank')
     const update = (event: Event): void => {
       const next = 'url' in event && typeof event.url === 'string'
         ? event.url
@@ -183,6 +188,7 @@ export function BrowserSurfaceView({
         try {
           const safe = normalizeBrowserUrl(next, t)
           setAddress(safe)
+          rememberLiveBrowserUrl(surface.id, safe)
         } catch (nextError) {
           setError(nextError instanceof Error ? nextError.message : String(nextError))
         }
