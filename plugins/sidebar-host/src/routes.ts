@@ -504,6 +504,27 @@ export function buildSidebarRoutes(
       ptyManager.close(`${sessionId}:${tab}`)
       return { ok: true }
     },
+    /** List durable inactive terminal projections for one session. */
+    'pty.retained': (payload) => {
+      const sessionId = requireString(payload, 'sessionId')
+      return { sessions: ptyManager.retained(sessionId) }
+    },
+    /** Remove one durable inactive terminal projection. */
+    'pty.clear-retained': (payload) => {
+      const sessionId = requireString(payload, 'sessionId')
+      const tab = requireString(payload, 'tab')
+      ptyManager.clearRetained(sessionId, tab)
+      return { ok: true }
+    },
+    /** Restart one shell while preserving its durable history projection. */
+    'pty.restart': (payload) => {
+      const { sessionId, cwd } = cwdOf(payload)
+      const tab = requireString(payload, 'tab')
+      const cols = optionalInteger(payload, 'cols', 2, 1024) ?? 80
+      const rows = optionalInteger(payload, 'rows', 2, 1024) ?? 24
+      const handle = ptyManager.restart(sessionId, tab, cwd, cols, rows)
+      return { ok: true, incarnationId: handle.incarnationId }
+    },
     // Release an agent terminal by uuid. The WS close frame already does
     // this while the socket is open; this route covers the tab-close that
     // happens while the socket is down (reconnect loop) so a closed agent

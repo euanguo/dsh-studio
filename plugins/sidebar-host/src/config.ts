@@ -14,6 +14,7 @@ import {
   WIDTH_PERCENT_MIN,
   type SidebarPrefs,
 } from '@oh-dsh/shared/prefs-shared'
+import { DESKTOP_TERMINALS_PER_SESSION_DEFAULT } from '@oh-dsh/shared/terminal-scrollback-policy'
 
 export {
   SIDEBAR_PREFS_DEFAULTS,
@@ -47,7 +48,7 @@ export const Config: z<SidebarConfig> = z.object({
   readLimit: z.number().step(1).min(1).default(1024 * 1024),
   mediaLimit: z.number().step(1).min(1).default(20 * 1024 * 1024),
   listLimit: z.number().step(1).min(1).default(1000),
-  terminalsPerSession: z.number().step(1).min(1).default(3),
+  terminalsPerSession: z.number().step(1).min(1).default(DESKTOP_TERMINALS_PER_SESSION_DEFAULT),
   reconnectGraceMs: z.number().step(1).min(0).default(30_000),
   // schemastery object fields are optional by default; an absent `shell`
   // stays undefined and the resolution chain falls through.
@@ -77,7 +78,7 @@ export function resolveSidebarConfig(config: SidebarConfig | undefined): Resolve
     readLimit: config?.readLimit ?? 1024 * 1024,
     mediaLimit: config?.mediaLimit ?? 20 * 1024 * 1024,
     listLimit: config?.listLimit ?? 1000,
-    terminalsPerSession: config?.terminalsPerSession ?? 3,
+    terminalsPerSession: config?.terminalsPerSession ?? DESKTOP_TERMINALS_PER_SESSION_DEFAULT,
     reconnectGraceMs: config?.reconnectGraceMs ?? 30_000,
     shell: trimmedShell === '' ? undefined : trimmedShell,
   }
@@ -99,6 +100,19 @@ export const PrefsSchema: z<SidebarPrefs> = z.object({
   browserNoSandbox: z.boolean().default(false),
   browserInterceptLinks: z.boolean().default(true),
   terminalShell: z.string().default(''),
+  terminalFontFamily: z.string().default(''),
+  terminalFontSize: z.number().step(1).min(9).max(32).default(13),
+  terminalScrollbackRows: z.number().step(1).min(1000).max(50000).default(5000),
+  terminalReconnectGraceMs: z.number().step(1).min(0).max(120_000).default(30_000),
+  terminalProcessKillGraceMs: z.number().step(1).min(250).max(10_000).default(1_500),
+  terminalRetainedInactiveSessions: z.number().step(1).min(0).max(1_024).default(128),
+  terminalMouseWheelMultiplier: z.number().step(0.25).min(0.25).max(4).default(1),
+  terminalLigatures: z.boolean().default(false),
+  terminalGpuAcceleration: z.union([
+    z.const('auto'),
+    z.const('on'),
+    z.const('off'),
+  ]).default('auto'),
   // Per-feature enable switches are OPEN maps (any tab/viewer id, built-in or
   // external): an absent key means enabled, so old documents resolve to {}
   // (everything on) with no migration. Non-boolean values fail validation.

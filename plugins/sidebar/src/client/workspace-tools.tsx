@@ -39,6 +39,7 @@ import type {
   WorkspacesService,
 } from './client-types.ts'
 import { applyChromeGeometry } from './chrome-geometry.ts'
+import { clampSidebarWidth } from '../sidebar-preferences.ts'
 import sideToolsCss from './side-tools.css'
 import workspaceCss from './sidebar.css'
 import sourceControlCss from './source-control/source-control.css'
@@ -181,6 +182,48 @@ export class WorkspaceToolsService implements WorkspaceTools {
 
   setWidth(width: number): void {
     this.sidebar.setWidth(width)
+  }
+
+  /**
+   * Live drag preview (pointermove hot path). The width is written straight
+   * to the DOM (CSS variable + overlay size + the `#root` squeeze) without
+   * touching the sidebar store, React state, persistence or the
+   * DesktopPanels claim coordinator — so a frame of pointermove never
+   * commits a React tree, a localStorage write, or a theme observer hit.
+   * The final value is committed by {@link commitResizeWidth} on pointerup.
+   */
+  previewResizeWidth(rawWidth: number): void {
+    const width = clampSidebarWidth(rawWidth)
+    const fullWidth = this.state.maximized || this.narrowViewport.matches
+    const html = document.documentElement
+    html.style.setProperty('--oh-dsh-sidebar-width', `${String(width)}px`)
+    if (this.element !== undefined) {
+      this.element.style.width = this.state.open
+        ? (fullWidth ? '100vw' : `${String(width)}px`)
+        : '0px'
+    }
+    if (this.state.open) {
+      // Mirror what claimRightPanel would produce once committed. While the
+      // panel is dragged the sidebar is the only right-panel adapter moving;
+      // the commit below re-asserts the claim so the coordinator stays the
+      // owner of record.
+      this.panels.previewRightPanel(this.state.open && fullWidth ? '100vw' : `${String(width)}px`)
+    }
+  }
+
+  /** End of a live drag: commit the final width through the store (which
+   *  publishes, persists and re-asserts the right-panel claim). */
+  commitResizeWidth(rawWidth: number): void {
+    const width = clampSidebarWidth(rawWidth)
+    if (width !== this.state.width) {
+      this.sidebar.setWidth(width)
+      // setWidth publishes → syncSidebar → applyLayout() when it changed.
+      return
+    }
+    // Same width as the committed store value: the preview DOM writes are
+    // already final, but re-run layout so claim/padding stay authoritative
+    // (the preview bypassed the claim coordinator).
+    this.applyLayout()
   }
 
   mount(): void {
@@ -386,33 +429,40 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   private applyLayout(): void {
-    document.documentElement.style.setProperty('--oh-dsh-sidebar-width', `${String(this.state.width)}px`)
     const html = document.documentElement
+    const fullWidth = this.state.maximized || this.narrowViewport.matches
+    const widthCss = `${String(this.state.width)}px`
+    const overlayWidth = this.state.open
+      ? (fullWidth ? '100vw' : widthCss)
+      : '0px'
+
+    // Dirty-checked writes: every one of these lands on `html.style` or an
+    // element style, and a no-op write would still trip the terminal theme
+    // observer / cascade a ResizeObserver. Only touch what actually changed.
+    if (html.style.getPropertyValue('--oh-dsh-sidebar-width') !== widthCss) {
+      html.style.setProperty('--oh-dsh-sidebar-width', widthCss)
+    }
     // Narrow viewports (< 900px) open the sidebar as a full-width drawer:
     // squeezing #root by the panel width would leave the app unusable, and
     // collapsing the container to 0 (the old behavior) made an open sidebar
-    // invisible — "closed but cannot reopen".
-    const fullWidth = this.state.maximized || this.narrowViewport.matches
-    // The full-width state drives the side panel's top-row chrome
-    // reservation (its top row starts at x=0, under the traffic lights) —
-    // see side-tools.css. Published as an attribute so CSS keys off it
-    // directly; no measuring, no observers.
+    // invisible — "closed but cannot reopen". The full-width state drives the
+    // side panel's top-row chrome reservation (its top row starts at x=0,
+    // under the traffic lights) — published as an attribute so CSS keys off
+    // it directly; no measuring, no observers.
     if (this.state.open && fullWidth) {
-      html.dataset.ohDshSidebarFullWidth = 'true'
-    } else {
+      if (html.dataset.ohDshSidebarFullWidth !== 'true') html.dataset.ohDshSidebarFullWidth = 'true'
+    } else if (html.dataset.ohDshSidebarFullWidth !== undefined) {
       delete html.dataset.ohDshSidebarFullWidth
     }
     if (this.state.open) {
-      html.dataset.ohDshDesktopSidebarOpen = 'true'
+      if (html.dataset.ohDshDesktopSidebarOpen !== 'true') html.dataset.ohDshDesktopSidebarOpen = 'true'
       // The #root squeeze is owned by the desktopPanels right-panel
       // coordinator — claim the footprint instead of writing global state.
       // The overlay container is flush with the window's right edge (no
       // right inset anymore), so the squeeze equals the panel width: the
       // app's center column ends exactly at the panel's left edge.
       this.panels.claimRightPanel('sidebar', {
-        paddingRight: fullWidth
-          ? '100vw'
-          : `${String(this.state.width)}px`,
+        paddingRight: fullWidth ? '100vw' : widthCss,
       })
     } else {
       delete html.dataset.ohDshDesktopSidebarOpen
@@ -421,10 +471,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
     // The overlay container only occupies the panel footprint while open on
     // wide viewports; closed it collapses to 0 so it never intercepts
     // pointer events over the app (pointer-events: none is defense-in-depth).
-    if (this.element !== undefined) {
-      this.element.style.width = this.state.open
-        ? (fullWidth ? '100vw' : `${String(this.state.width)}px`)
-        : '0px'
+    if (this.element !== undefined && this.element.style.width !== overlayWidth) {
+      this.element.style.width = overlayWidth
     }
   }
 }
@@ -453,7 +501,10 @@ function WorkspaceToolsSurface(props: {
         panels={props.panels}
         t={t}
         onClose={() => { props.service.setOpen(false) }}
-        onResize={width => { props.service.setWidth(width) }}
+        // Drag live-updates the DOM only (preview); pointerup commits the
+        // width through the store so publish/persist/claim happen once.
+        onResizePreview={width => { props.service.previewResizeWidth(width) }}
+        onResize={width => { props.service.commitResizeWidth(width) }}
         onToggleMaximized={() => { props.service.togglePanelMaximized() }}
         onToggleSide={() => { props.service.toggleSidePanel() }}
       />

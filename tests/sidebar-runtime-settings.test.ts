@@ -50,6 +50,28 @@ test('sidebar runtime settings default the terminal font prefs to theme-followin
   assert.equal(parseSidebarRuntimePreferences({ terminalFontSize: 16 }).terminalFontSize, 16)
 })
 
+test('sidebar runtime settings clamp terminal lifecycle and renderer policies', () => {
+  const parsed = parseSidebarRuntimePreferences({
+    terminalFontSize: 100,
+    terminalScrollbackRows: 999,
+    terminalReconnectGraceMs: 999_999,
+    terminalProcessKillGraceMs: 1,
+    terminalRetainedInactiveSessions: -2,
+    terminalMouseWheelMultiplier: 10,
+    terminalLigatures: true,
+    terminalGpuAcceleration: 'on',
+  })
+  assert.equal(parsed.terminalFontSize, 32)
+  assert.equal(parsed.terminalScrollbackRows, 1_000)
+  assert.equal(parsed.terminalReconnectGraceMs, 120_000)
+  assert.equal(parsed.terminalProcessKillGraceMs, 250)
+  assert.equal(parsed.terminalRetainedInactiveSessions, 0)
+  assert.equal(parsed.terminalMouseWheelMultiplier, 4)
+  assert.equal(parsed.terminalLigatures, true)
+  assert.equal(parsed.terminalGpuAcceleration, 'on')
+  assert.equal(parseSidebarRuntimePreferences({ terminalGpuAcceleration: 'invalid' }).terminalGpuAcceleration, 'auto')
+})
+
 test('sidebar runtime settings default terminalShell to unset', () => {
   assert.equal(DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalShell, '')
   assert.equal(parseSidebarRuntimePreferences({}).terminalShell, '')

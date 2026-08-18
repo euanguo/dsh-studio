@@ -13,14 +13,21 @@
  * processes are keyed by session.
  */
 import { readFile, stat } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { basename, extname } from 'node:path'
 import type { IncomingMessage } from 'node:http'
 import { WebSocket, WebSocketServer } from 'ws'
+import {
+  TerminalOutputBatcher,
+  type TerminalOutputAck,
+} from './terminal-batcher.ts'
+import type { TerminalOutputFrame } from '@oh-dsh/shared/terminal-wire'
 import type { Context } from './context-types.ts'
 import {
   Config,
   PrefsSchema,
   resolveSidebarConfig,
+  SIDEBAR_PREFS_DEFAULTS,
   SIDEBAR_PREFS_NS,
   type ResolvedSidebarConfig,
   type SidebarConfig,
@@ -34,8 +41,15 @@ import { registerBundleRoute } from './bundle-route.ts'
 import { buildSidebarRoutes, sessionCwdOf, type SidebarSettingsFace } from './routes.ts'
 import { settingsNamespace, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import { ensureSpawnHelper, PtyManager } from './pty-manager.ts'
+import { TerminalSessionStore } from './terminal-session-store.ts'
+import { TerminalSubscriptionCoordinator } from './terminal-subscription-coordinator.ts'
+import {
+  normalizeTerminalRuntimePolicy,
+  type TerminalRuntimePolicy,
+} from './terminal-policy.ts'
 import { resolveShell } from './shell-resolver.ts'
 import { AgentPtyRegistry, clampDims, type AgentTerminalHandle } from './agent-pty.ts'
+import { buildTerminalReplayPayload, type TerminalReplaySource } from './terminal-replay.ts'
 import { registerTools } from './tools.ts'
 import {
   readJsonBody,
@@ -53,6 +67,7 @@ export type { SidebarConfig, ResolvedSidebarConfig }
 // Also re-export the service descriptor types so consumers can type their
 // registerTab / registerFileViewer arguments without reaching into /client.
 export type { Context } from './context-types.ts'
+
 export type {
   BetterSidebarService,
   TabDescriptor,
@@ -82,6 +97,40 @@ const MEDIA_TYPES: Record<string, string> = {
   '.pdf': 'application/pdf',
   '.html': 'text/html',
   '.htm': 'text/html',
+}
+
+/** Shared pause ownership prevents an old reconnect socket from resuming a PTY
+ * while a newer socket is still flow-controlled. */
+type PausablePty = { pause(): void; resume(): void }
+const ptyPauseOwners = new Map<string, Set<string>>()
+
+function setPtyOutputPaused(
+  key: string,
+  pty: PausablePty,
+  owner: string,
+  paused: boolean,
+): void {
+  const owners = ptyPauseOwners.get(key) ?? new Set<string>()
+  if (paused) owners.add(owner)
+  else owners.delete(owner)
+  if (owners.size === 0) {
+    ptyPauseOwners.delete(key)
+    pty.resume()
+  } else {
+    ptyPauseOwners.set(key, owners)
+    pty.pause()
+  }
+}
+
+function releasePtyOutputOwner(key: string, pty: PausablePty, owner: string): void {
+  const owners = ptyPauseOwners.get(key)
+  if (owners === undefined || !owners.delete(owner)) return
+  if (owners.size === 0) {
+    ptyPauseOwners.delete(key)
+    pty.resume()
+  } else {
+    ptyPauseOwners.set(key, owners)
+  }
 }
 
 /** Content type served by /sidebar/file (binary-safe fallback for unknowns). */
@@ -115,23 +164,38 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   const resolved = resolveSidebarConfig(config)
   const trustedHosts = trustedHostsOf(ctx)
   const fence = (req: IncomingMessage): boolean => isTrustedApiRequest(req, trustedHosts)
+  // Terminal policy is read through the existing settings namespace. The
+  // deployment reconnect value remains the fallback when settings are absent.
+  let settingsPrefs: SidebarPrefs = { ...SIDEBAR_PREFS_DEFAULTS }
+  const getTerminalPolicy = (): TerminalRuntimePolicy => normalizeTerminalRuntimePolicy({
+    scrollbackRows: settingsPrefs.terminalScrollbackRows,
+    reconnectGraceMs: settingsPrefs.terminalReconnectGraceMs ?? resolved.reconnectGraceMs,
+    processKillGraceMs: settingsPrefs.terminalProcessKillGraceMs,
+    retainedInactiveSessions: settingsPrefs.terminalRetainedInactiveSessions,
+  })
+  const terminalStore = new TerminalSessionStore({
+    maxRetainedInactiveSessions: () => getTerminalPolicy().retainedInactiveSessions,
+    historyLimits: { maxLines: 50_000, maxBytes: 8 * 1024 * 1024 },
+  })
+  const terminalSubscriptions = new TerminalSubscriptionCoordinator()
   // The terminal shell is resolved AT SPAWN TIME through the shared chain
   // (deployment config → settings `terminalShell` → env/probe/login chains),
   // so a settings change takes effect for NEW terminals while already-open
-  // processes keep their shell. Both registries share the same thunk — the
-  // model-facing terminal tools and the UI tabs always run the same shell.
+  // processes keep their shell. Both registries share the same thunk.
   let settingsShell: string | undefined
   const getShell = (): string => resolveShell({
     ...(resolved.shell === undefined ? {} : { explicit: resolved.shell }),
     ...(settingsShell === undefined ? {} : { configured: settingsShell }),
   })
-  const ptyManager = new PtyManager(getShell, resolved.terminalsPerSession)
-  // The agent-owned terminal registry: parallel to the UI-tab ptyManager,
-  // keyed by uuid (the model's opaque handle) instead of `${sessionId}:${tabId}`,
-  // uncapped, and torn down with the plugin. The model creates terminals here
-  // through the terminal_create tool; the sidebar view attaches through the
-  // same /sidebar/ws/terminal upgrade with ?uuid=... instead of ?tab=...
-  const agentPtyRegistry = new AgentPtyRegistry(getShell)
+  const ptyManager = new PtyManager(getShell, resolved.terminalsPerSession, {
+    getPolicy: getTerminalPolicy,
+    store: terminalStore,
+  })
+  // The agent-owned terminal registry is parallel to the UI-tab registry and
+  // shares policy (scrollback and configurable kill escalation).
+  const agentPtyRegistry = new AgentPtyRegistry(getShell, {
+    getPolicy: getTerminalPolicy,
+  })
 
   // ── User-facing "Side card" preferences ──────────────────────────────────
   // Register the namespace with the settings provider so the Settings page
@@ -184,11 +248,13 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
       },
     }
     // Register (or unregister) the terminal tools from the current setting,
-    // and keep them in sync with every settings commit. The terminalShell
-    // preference feeds the shared shell resolver live.
-    settingsShell = scope.get().terminalShell
+    // and keep them in sync with every settings commit. Terminal policy and
+    // shell resolution use the same live snapshot.
+    settingsPrefs = scope.get()
+    settingsShell = settingsPrefs.terminalShell
     syncToolsGate(scope)
     scope.watch((next) => {
+      settingsPrefs = next
       settingsShell = next.terminalShell
       syncToolsGate(scope)
     })
@@ -363,7 +429,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
         return
       }
       wss.handleUpgrade(req, socket, head, (ws) => {
-        void attachTerminal(ctx, ptyManager, agentPtyRegistry, ws, req, resolved)
+        void attachTerminal(ctx, ptyManager, agentPtyRegistry, terminalSubscriptions, ws, req, getTerminalPolicy)
       })
     },
   }), 'dsh-better-sidebar: terminal WebSocket')
@@ -394,6 +460,8 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
     toolsDisposers?.()
     ptyManager.disposeAll()
     agentPtyRegistry.disposeAll()
+    terminalSubscriptions.dispose()
+     ptyPauseOwners.clear()
     wss.close()
     agentListWss.close()
   }, 'dsh-better-sidebar: teardown')
@@ -426,6 +494,24 @@ async function attachAgentList(
   }
 }
 
+function sendReplayFrame(
+  batcher: TerminalOutputBatcher,
+  handle: TerminalReplaySource,
+  ws: WebSocket,
+): void {
+  const replay = buildTerminalReplayPayload(handle)
+  if (replay === '' || ws.readyState !== WebSocket.OPEN) return
+  const replayFrame: TerminalOutputFrame = {
+    type: 'output',
+    epoch: batcher.outputEpoch,
+    sequence: 0,
+    bytes: Buffer.byteLength(replay, 'utf8'),
+    data: replay,
+    replay: true,
+  }
+  ws.send(JSON.stringify(replayFrame))
+}
+
 /**
  * Wire one terminal socket to its pty: replay transcript, pump both ways.
  * Two attach modes share the wire protocol:
@@ -442,9 +528,10 @@ async function attachTerminal(
   ctx: Context,
   ptyManager: PtyManager,
   agentPtyRegistry: AgentPtyRegistry,
+  terminalSubscriptions: TerminalSubscriptionCoordinator,
   ws: WebSocket,
   req: IncomingMessage,
-  resolved: ResolvedSidebarConfig,
+  getPolicy: () => TerminalRuntimePolicy,
 ): Promise<void> {
   try {
     const url = new URL(req.url ?? '/', 'http://dsh.internal')
@@ -455,7 +542,7 @@ async function attachTerminal(
         ws.close(1011, `agent terminal "${uuid}" not found`)
         return
       }
-      pumpAgentTerminal(agentPtyRegistry, handle, ws)
+      pumpAgentTerminal(agentPtyRegistry, terminalSubscriptions, handle, ws)
       return
     }
     const sessionId = url.searchParams.get('sessionId')
@@ -466,25 +553,41 @@ async function attachTerminal(
     }
     const cwd = sessionCwdOf(ctx, sessionId, url.searchParams.get('cwd') ?? undefined)
     const handle = ptyManager.open(sessionId, tabId, cwd, 80, 24)
-    // Replay the transcript, then follow live output.
-    if (handle.transcript !== '') ws.send(handle.transcript)
-    const onData = (data: string): void => {
-      if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 4 * 1024 * 1024) {
-        ws.send(data)
-      }
-    }
+    const outputOwner = randomUUID()
+    const batcher = new TerminalOutputBatcher({
+      send: frame => {
+        if (ws.readyState !== WebSocket.OPEN) return
+        ws.send(JSON.stringify(frame))
+      },
+      bufferedAmount: () => ws.bufferedAmount,
+      pause: () => { setPtyOutputPaused(handle.key, handle.pty, outputOwner, true) },
+      resume: () => { setPtyOutputPaused(handle.key, handle.pty, outputOwner, false) },
+    })
+    const onData = (data: string): void => { batcher.append(data) }
     const onExit = ({ exitCode }: { exitCode: number; signal?: number }): void => {
-      onData(`\r\n[process exited with code ${String(exitCode)}]\r\n`)
+      batcher.append(`\r\n[process exited with code ${String(exitCode)}]\r\n`)
+      batcher.flush()
+      releasePtyOutputOwner(handle.key, handle.pty, outputOwner)
     }
-    const dataSub = handle.pty.onData(onData)
-    const exitSub = handle.pty.onExit(onExit)
+    // Subscribe before taking the replay snapshot. Any bytes produced during
+    // the snapshot are queued behind it in WebSocket order, so reconnects do
+    // not create a history/live-output gap.
+    const subscription = terminalSubscriptions.attach(handle.key, handle.pty, {
+      onData,
+      onExit,
+    })
+    // Replay is a normal versioned frame, so reconnect uses the same ACK and
+    // sequence path as live output. The first frame is marked replay for the
+    // client diagnostics; it is still parsed by xterm before ACK.
+    sendReplayFrame(batcher, handle, ws)
     ws.on('message', (data) => {
       const text = data.toString('utf8')
       // Control frames are JSON with a known shape; anything else (including
       // JSON that is not a recognized control) is terminal input, verbatim.
+      let parsed: unknown = null
       let control: { type?: unknown; cols?: unknown; rows?: unknown } | null = null
       try {
-        const parsed: unknown = JSON.parse(text)
+        parsed = JSON.parse(text)
         if (parsed !== null && typeof parsed === 'object') {
           control = parsed as { type?: unknown; cols?: unknown; rows?: unknown }
         }
@@ -494,6 +597,22 @@ async function attachTerminal(
       if (control !== null && control.type === 'close') {
         // The owning tab was closed: release the quota immediately.
         ptyManager.scheduleClose(handle.key, 0)
+        batcher.dispose()
+        return
+      }
+      if (control !== null && control.type === 'ack') {
+        const ack = parsed as Partial<TerminalOutputAck>
+        batcher.acknowledge({
+          type: 'ack',
+          epoch: typeof ack.epoch === 'string' ? ack.epoch : '',
+          sequence: typeof ack.sequence === 'number' ? ack.sequence : -1,
+          bytes: typeof ack.bytes === 'number' ? ack.bytes : -1,
+        })
+        return
+      }
+      if (control !== null && control.type === 'resync') {
+        batcher.resetEpoch()
+        sendReplayFrame(batcher, handle, ws)
         return
       }
       if (handle.exited) return
@@ -504,17 +623,23 @@ async function attachTerminal(
       ) {
         const dims = clampDims(control.cols, control.rows)
         handle.pty.resize(dims.cols, dims.rows)
+        handle.modeReplay?.resize(dims.cols, dims.rows)
       } else {
         handle.pty.write(text)
       }
     })
     ws.on('close', () => {
-      dataSub.dispose()
-      exitSub.dispose()
+      subscription.dispose()
+            batcher.dispose()
+      releasePtyOutputOwner(handle.key, handle.pty, outputOwner)
       // A bare socket drop (refresh, tab switch) leaves the process alive
       // for a grace period so a quick reconnect keeps it; the reconnect's
       // open() cancels the pending close.
-      ptyManager.scheduleClose(handle.key, resolved.reconnectGraceMs)
+      ptyManager.scheduleClose(
+        handle.key,
+        getPolicy().reconnectGraceMs,
+        handle.incarnationId,
+      )
     })
   } catch (error) {
     ws.close(1011, error instanceof Error ? error.message : String(error))
@@ -530,26 +655,38 @@ async function attachTerminal(
  */
 function pumpAgentTerminal(
   registry: AgentPtyRegistry,
-  handle: AgentTerminalHandle,
+  terminalSubscriptions: TerminalSubscriptionCoordinator,
+   handle: AgentTerminalHandle,
   ws: WebSocket,
 ): void {
-  if (handle.transcript !== '') ws.send(handle.transcript)
-  const onData = (data: string): void => {
-    if (ws.readyState === WebSocket.OPEN && ws.bufferedAmount < 4 * 1024 * 1024) {
-      ws.send(data)
-    }
-  }
+  const outputOwner = randomUUID()
+  const batcher = new TerminalOutputBatcher({
+    send: frame => {
+      if (ws.readyState !== WebSocket.OPEN) return
+      ws.send(JSON.stringify(frame))
+    },
+    bufferedAmount: () => ws.bufferedAmount,
+    pause: () => { setPtyOutputPaused(`agent:${handle.uuid}`, handle.pty, outputOwner, true) },
+    resume: () => { setPtyOutputPaused(`agent:${handle.uuid}`, handle.pty, outputOwner, false) },
+  })
+  const onData = (data: string): void => { batcher.append(data) }
   const onExit = ({ exitCode }: { exitCode: number; signal?: number }): void => {
-    onData(`\r\n[process exited with code ${String(exitCode)}]\r\n`)
+    batcher.append(`\r\n[process exited with code ${String(exitCode)}]\r\n`)
+    batcher.flush()
+    releasePtyOutputOwner(`agent:${handle.uuid}`, handle.pty, outputOwner)
   }
-  const dataSub = handle.pty.onData(onData)
-  const exitSub = handle.pty.onExit(onExit)
+  const subscription = terminalSubscriptions.attach(`agent:${handle.uuid}`, handle.pty, {
+    onData,
+    onExit,
+  })
+  sendReplayFrame(batcher, handle, ws)
   ws.on('message', (data) => {
     if (handle.exited) return
     const text = data.toString('utf8')
+    let parsed: unknown = null
     let control: { type?: unknown; cols?: unknown; rows?: unknown } | null = null
     try {
-      const parsed: unknown = JSON.parse(text)
+      parsed = JSON.parse(text)
       if (parsed !== null && typeof parsed === 'object') {
         control = parsed as { type?: unknown; cols?: unknown; rows?: unknown }
       }
@@ -560,6 +697,22 @@ function pumpAgentTerminal(
       // The user closed the sidebar tab: kill the pty immediately. The
       // agent's next terminal_list / terminal_send will see it gone.
       registry.close(handle.uuid)
+      batcher.dispose()
+      return
+    }
+    if (control !== null && control.type === 'ack') {
+      const ack = parsed as Partial<TerminalOutputAck>
+      batcher.acknowledge({
+        type: 'ack',
+        epoch: typeof ack.epoch === 'string' ? ack.epoch : '',
+        sequence: typeof ack.sequence === 'number' ? ack.sequence : -1,
+        bytes: typeof ack.bytes === 'number' ? ack.bytes : -1,
+      })
+      return
+    }
+    if (control !== null && control.type === 'resync') {
+      batcher.resetEpoch()
+      sendReplayFrame(batcher, handle, ws)
       return
     }
     if (
@@ -580,8 +733,9 @@ function pumpAgentTerminal(
     // there is no realistic input that is also valid JSON).
   })
   ws.on('close', () => {
-    dataSub.dispose()
-    exitSub.dispose()
+    subscription.dispose()
+        batcher.dispose()
+    releasePtyOutputOwner(`agent:${handle.uuid}`, handle.pty, outputOwner)
     // A bare socket drop (refresh, tab switch) leaves the agent's pty alive.
     // The agent owns the lifetime: only `terminal_close`, a `{type:'close'}`
     // frame, or plugin teardown kills it. A reconnecting view reattaches the

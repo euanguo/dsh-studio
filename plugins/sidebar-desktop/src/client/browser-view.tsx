@@ -164,7 +164,9 @@ export function BrowserSurfaceView({
 }): JSX.Element {
   const container = useRef<HTMLDivElement | null>(null)
   const webview = useRef<ElectronWebviewElement | null>(null)
+  const [address, setAddress] = useState(surface.resource ?? '')
   const [error, setError] = useState('')
+  const [canGoBack, setCanGoBack] = useState(false)
 
   useEffect(() => {
     const host = container.current
@@ -173,12 +175,38 @@ export function BrowserSurfaceView({
     element.className = 'oh-dsh-browser-webview'
     element.setAttribute('partition', 'persist:oh-dsh-browser')
     element.setAttribute('src', surface.resource ?? 'about:blank')
+    const update = (event: Event): void => {
+      const next = 'url' in event && typeof event.url === 'string'
+        ? event.url
+        : element.getURL()
+      if (next !== '' && next !== 'about:blank') {
+        try {
+          const safe = normalizeBrowserUrl(next, t)
+          setAddress(safe)
+        } catch (nextError) {
+          setError(nextError instanceof Error ? nextError.message : String(nextError))
+        }
+      }
+      setCanGoBack(element.canGoBack())
+    }
+    const guard = (event: Event): void => {
+      if (!('url' in event) || typeof event.url !== 'string') return
+      try {
+        normalizeBrowserUrl(event.url, t)
+      } catch (nextError) {
+        event.preventDefault()
+        setError(nextError instanceof Error ? nextError.message : String(nextError))
+      }
+    }
     const failed = (event: Event): void => {
       const description = 'errorDescription' in event
         ? String(event.errorDescription)
         : t('browser.page-failed')
       setError(description)
     }
+    element.addEventListener('did-navigate', update)
+    element.addEventListener('did-navigate-in-page', update)
+    element.addEventListener('will-navigate', guard)
     element.addEventListener('did-fail-load', failed)
     host.append(element)
     webview.current = element
@@ -188,6 +216,50 @@ export function BrowserSurfaceView({
     }
   }, [surface.resource, t])
 
-  if (error !== '') return <div className="oh-dsh-side-error" role="alert">{error}</div>
-  return <div ref={container} className="oh-dsh-browser-host" />
+  const navigate = async (): Promise<void> => {
+    try {
+      const url = normalizeBrowserUrl(address, t)
+      setAddress(url)
+      setError('')
+      await webview.current?.loadURL(url)
+    } catch (next) {
+      setError(next instanceof Error ? next.message : String(next))
+    }
+  }
+
+  return (
+    <div className="oh-dsh-browser-view">
+      <form
+        className="oh-dsh-browser-bar"
+        onSubmit={event => { event.preventDefault(); void navigate() }}
+      >
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={!canGoBack}
+          aria-label={t('browser.back')}
+          icon={<IconChevronLeftOutline14 size={16} />}
+          onClick={() => { webview.current?.goBack() }}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          aria-label={t('browser.reload')}
+          icon={<IconRefreshOutline16 size={16} />}
+          onClick={() => { webview.current?.reload() }}
+        />
+        <Input
+          value={address}
+          placeholder={t('browser.enter-url')}
+          aria-label={t('browser.url')}
+          onChange={event => { setAddress(event.currentTarget.value) }}
+        />
+        <Button type="submit" variant="primary" size="sm">{t('browser.go')}</Button>
+      </form>
+      {error !== '' && <div className="oh-dsh-browser-error" role="alert">{error}</div>}
+      <div ref={container} className="oh-dsh-browser-host" />
+    </div>
+  )
 }

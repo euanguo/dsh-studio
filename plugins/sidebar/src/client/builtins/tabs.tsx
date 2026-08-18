@@ -1,10 +1,9 @@
 /**
  * The built-in sidebar tab descriptors (review / terminal / files / file /
  * side-chat / trajectory), registered through the same
- * {@link DesktopSidebarService} external plugins use — eating our own
- * dogfood. The terminal descriptor renders a first-class xterm tab (the
- * bottom-mounted terminal dock is removed); side-chat / trajectory are
- * action-only menu shortcuts that run an action instead of opening a tab.
+ * {@link DesktopSidebarService} external plugins use. The terminal descriptor
+ * renders a first-class xterm tab; side-chat / trajectory are action-only menu
+ * shortcuts that run an action instead of opening a tab.
  */
 import {
   formatKeymapHint,
@@ -20,8 +19,14 @@ import { SubagentPanel } from '../subagent/subagent-panel.tsx'
 import { TerminalTabContent } from '../terminal-tab.tsx'
 import type { SidebarTabDescriptor } from '../contract.ts'
 import type { SidebarBuiltinDeps } from './deps.ts'
+import { sidebarApi } from '../sidebar-api.ts'
+import {
+  canOpenTerminalInstance,
+  releaseTerminalInstance,
+  touchTerminalInstance,
+} from '../runtimes/terminal-runtime.ts'
 
-/** The built-in tab descriptors (ascending + menu order). */
+/** The built-in sidebar tab descriptors (ascending + menu order). */
 export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescriptor[] {
   const { t } = deps
   return [
@@ -44,69 +49,34 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
       single: true,
       title: () => t('review'),
     },
-    // CUT (user preference): the 'terminal' menu entry opened the
-    // bottom-mounted terminal dock, which no longer mounts (see
-    // plugins/panel-controls). The entry and its settings card are removed
-    // with it; the model-facing agent-terminal-tools switch stays available
-    // in settings.tsx. Restore by uncommenting this descriptor.
-    // {
-    //   action: () => { deps.panels.toggleBottomPanel() },
-    //   icon: <ToolIcon kind="terminal" />,
-    //   id: 'terminal',
-    //   order: 20,
-    //   shortcut: formatKeymapHint(binding({ mod: true, key: 'j' })),
-    //   settings: {
-    //     toggles: [{
-    //       key: 'agentTerminalTools',
-    //       title: () => t('settings.agent-terminal-tools'),
-    //       desc: () => t('settings.agent-terminal-tools-description'),
-    //     }, {
-    //       key: 'bottomPanelAutoTerminal',
-    //       title: () => t('settings.bottom-terminal'),
-    //       desc: () => t('settings.bottom-terminal-description'),
-    //     }, {
-    //       key: 'terminalFontFamily',
-    //       title: () => t('settings.terminal-font-family'),
-    //       desc: () => t('settings.terminal-font-family-description'),
-    //       type: 'text',
-    //       placeholder: t('settings.terminal-font-family-placeholder'),
-    //     }, {
-    //       key: 'terminalFontSize',
-    //       title: () => t('settings.terminal-font-size'),
-    //       desc: () => t('settings.terminal-font-size-description'),
-    //       type: 'number',
-    //       min: 9,
-    //       max: 32,
-    //       unit: 'px',
-    //     }, {
-    //       key: 'terminalShell',
-    //       title: () => t('settings.terminal-shell'),
-    //       desc: () => t('settings.terminal-shell-description'),
-    //       type: 'text',
-    //       placeholder: t('settings.terminal-shell-placeholder'),
-    //     }],
-    //   },
-    //   title: () => t('terminal'),
-    // },
     {
-      // First-class terminal: the rail opens a real xterm tab (one
-      // independent shell per tab) instead of the removed bottom dock.
+      // First-class terminal: one independent shell per tab, whether the tab
+      // is opened in the rail or the center workbench.
       icon: <ToolIcon kind="terminal" />,
       id: 'terminal',
       order: 20,
+      available: scope => scope === null || scope.cwd === undefined
+        ? true
+        : canOpenTerminalInstance(scope),
       render: props => (
         <TerminalTabContent
           sessionId={props.scope?.sessionId ?? ''}
           cwd={props.scope?.cwd ?? null}
           tabId={props.tab.id}
+           onTitleChange={title => { deps.sidebar.updateTab(props.tab.id, { title }) }}
+           onLink={uri => { window.open(uri, '_blank', 'noopener,noreferrer') }}
           runtime={deps.runtimeSettings}
           t={t}
         />
       ),
+      onClose: (tab, scope) => {
+        releaseTerminalInstance(scope, tab.id)
+        void sidebarApi.ptyClose(scope, tab.id)
+      },
+      onOpen: (tab, scope) => {
+        if (scope.cwd !== undefined) touchTerminalInstance(scope, tab.id)
+      },
       shortcut: formatKeymapHint(binding({ mod: true, key: 'j' })),
-      // Declarative settings: terminal chrome (font + shell) render under
-      // this tab's card in the settings page; the agent-tools switch and
-      // the removed dock's auto-open switch live in settings.tsx instead.
       settings: {
         toggles: [{
           key: 'terminalFontFamily',
@@ -128,6 +98,52 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
           desc: () => t('settings.terminal-shell-description'),
           type: 'text',
           placeholder: t('settings.terminal-shell-placeholder'),
+        }, {
+          key: 'terminalScrollbackRows',
+          title: () => t('settings.terminal-scrollback-rows'),
+          desc: () => t('settings.terminal-scrollback-rows-description'),
+          type: 'number',
+          min: 1000,
+          max: 50000,
+          unit: 'rows',
+        }, {
+          key: 'terminalReconnectGraceMs',
+          title: () => t('settings.terminal-reconnect-grace-ms'),
+          desc: () => t('settings.terminal-reconnect-grace-ms-description'),
+          type: 'number',
+          min: 0,
+          max: 120000,
+          unit: 'ms',
+        }, {
+          key: 'terminalProcessKillGraceMs',
+          title: () => t('settings.terminal-process-kill-grace-ms'),
+          desc: () => t('settings.terminal-process-kill-grace-ms-description'),
+          type: 'number',
+          min: 250,
+          max: 10000,
+          unit: 'ms',
+        }, {
+          key: 'terminalRetainedInactiveSessions',
+          title: () => t('settings.terminal-retained-inactive-sessions'),
+          desc: () => t('settings.terminal-retained-inactive-sessions-description'),
+          type: 'number',
+          min: 0,
+          max: 1024,
+          unit: 'sessions',
+        }, {
+          key: 'terminalMouseWheelMultiplier',
+          title: () => t('settings.terminal-mouse-wheel-multiplier'),
+          desc: () => t('settings.terminal-mouse-wheel-multiplier-description'),
+          type: 'number',
+          min: 0.25,
+          max: 4,
+          unit: 'x',
+        }, {
+          key: 'terminalGpuAcceleration',
+          title: () => t('settings.terminal-gpu-acceleration'),
+          desc: () => t('settings.terminal-gpu-acceleration-description'),
+          type: 'text',
+          placeholder: t('settings.terminal-gpu-acceleration-placeholder'),
         }],
       },
       title: () => t('terminal'),
@@ -136,7 +152,6 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
       dedupeKey: tab => tab.resource,
       icon: <ToolIcon kind="files" />,
       id: 'files',
-      order: 40,
       render: props => (
         <FilesView
           {...props}
@@ -194,9 +209,6 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
           t={t}
         />
       ),
-      // Declarative settings: the auto-open toggles render under this tab's
-      // card in the settings page (opening the sidebar on new subagents /
-      // new background jobs).
       settings: {
         toggles: [{
           key: 'autoOpenSubagent',

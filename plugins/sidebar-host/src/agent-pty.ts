@@ -14,11 +14,20 @@
 import { randomUUID } from 'node:crypto'
 import * as nodePty from 'node-pty'
 import { ensureSpawnHelper } from './pty-manager.ts'
-import { shellSpawnArgs } from './shell-resolver.ts'
+import { spawnTerminalPty } from './terminal-spawn.ts'
+import { defaultProcessTreeKiller } from './process-tree-killer.ts'
+import { TerminalHistoryBuffer } from './terminal-history.ts'
+import { TerminalHistorySanitizer } from './terminal-history-sanitizer.ts'
+import {
+  createTerminalModeReplayTracker,
+  type TerminalModeReplayTracker,
+} from './terminal-mode-replay.ts'
 import { SidebarError } from '@oh-dsh/shared/wire'
-
-/** Per-agent-terminal transcript bound (bytes kept for replay and reads). */
-const TRANSCRIPT_LIMIT = 1 << 20
+import { terminalHistoryLimitsForRows } from '@oh-dsh/shared/terminal-scrollback-policy'
+import {
+  DEFAULT_TERMINAL_RUNTIME_POLICY,
+  type TerminalRuntimePolicy,
+} from './terminal-policy.ts'
 
 /** POSIX signals the registry forwards to a live pty. */
 export const ALLOWED_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGKILL', 'SIGHUP', 'SIGTSTP'] as const
@@ -108,10 +117,22 @@ export interface AgentTerminalHandle {
   cwd: string
   /** The live pty process. */
   pty: nodePty.IPty
+  /** Append-optimized bounded history retained for reads and replay. */
+  history: TerminalHistoryBuffer
+  /** Replay-safe visible history used by attached xterm views. */
+  replayHistory: TerminalHistoryBuffer
+  replaySanitizer: TerminalHistorySanitizer
+  /** Headless xterm state used to reconstruct active TUI screen/modes. */
+  modeReplay: TerminalModeReplayTracker | null
   /** Output accumulated since spawn (bounded; head dropped when over the limit). */
   transcript: string
+  /** Replay-safe output projection for an attached renderer. */
+  replayTranscript: string
   /** Whether the top-level process exited (transcript stays replayable). */
   exited: boolean
+  /** Internal history listeners detached before close. */
+  dataSubscription?: { dispose(): void }
+  exitSubscription?: { dispose(): void }
   /** Exit code once known. */
   exitCode?: number | null
   /** Exit signal number once known (POSIX only; undefined on Windows). */
@@ -187,11 +208,20 @@ export function snapshotOf(handle: AgentTerminalHandle): AgentTerminalSnapshot {
  * agent terminals only) and runs the spawn-helper chmod fix once at
  * construction so the first agent terminal does not race a lazy fixer.
  */
+export interface AgentPtyRegistryOptions {
+  getPolicy?: () => TerminalRuntimePolicy
+}
+
 export class AgentPtyRegistry {
   private readonly sessions = new Map<string, AgentTerminalHandle>()
   private readonly changeListeners = new Set<() => void>()
+  private readonly killEscalations = new Map<string, ReturnType<typeof setTimeout>>()
+  private readonly getShell: () => string
+  private readonly getPolicy: () => TerminalRuntimePolicy
 
-  constructor(private readonly getShell: () => string) {
+  constructor(getShell: () => string, options: AgentPtyRegistryOptions = {}) {
+    this.getShell = getShell
+    this.getPolicy = options.getPolicy ?? (() => DEFAULT_TERMINAL_RUNTIME_POLICY)
     ensureSpawnHelper()
   }
 
@@ -213,13 +243,21 @@ export class AgentPtyRegistry {
   ): string {
     const uuid = randomUUID()
     const dims = clampDims(cols, rows)
-    const pty = nodePty.spawn(this.getShell(), shellSpawnArgs(), {
-      name: 'xterm-256color',
+    const pty = spawnTerminalPty({
+      shell: this.getShell(),
       cols: dims.cols,
       rows: dims.rows,
       cwd,
-      env: { ...process.env },
     })
+    const limits = terminalHistoryLimitsForRows(this.getPolicy().scrollbackRows)
+    const replayHistory = new TerminalHistoryBuffer(limits)
+    const replaySanitizer = new TerminalHistorySanitizer()
+    let modeReplay: TerminalModeReplayTracker | null = null
+    try {
+      modeReplay = createTerminalModeReplayTracker(dims.cols, dims.rows)
+    } catch {
+      // Agent output remains readable if the optional headless adapter is absent.
+    }
     const handle: AgentTerminalHandle = {
       uuid,
       sessionId,
@@ -227,19 +265,31 @@ export class AgentPtyRegistry {
       command,
       cwd,
       pty,
-      transcript: '',
+      history: new TerminalHistoryBuffer({
+        maxBytes: limits.maxBytes,
+        maxLines: limits.maxLines,
+      }),
+      replayHistory,
+      replaySanitizer,
+      modeReplay,
+      get transcript(): string {
+        return this.history.toString()
+      },
+      get replayTranscript(): string {
+        return this.replayHistory.toString()
+      },
       exited: false,
     }
-    pty.onData((data) => {
-      handle.transcript += data
-      if (handle.transcript.length > TRANSCRIPT_LIMIT) {
-        handle.transcript = handle.transcript.slice(handle.transcript.length - TRANSCRIPT_LIMIT)
-      }
+    handle.dataSubscription = pty.onData((data) => {
+      handle.history.append(data)
+      const sanitized = handle.replaySanitizer.feed(data)
+      handle.replayHistory.append(sanitized.visibleText)
     })
-    pty.onExit(({ exitCode, signal }) => {
+    handle.exitSubscription = pty.onExit(({ exitCode, signal }) => {
       handle.exited = true
       handle.exitCode = exitCode ?? null
       handle.exitSignal = signal ?? null
+      this.clearKillEscalation(uuid)
       this.notify()
     })
     if (command !== '') {
@@ -347,7 +397,10 @@ export class AgentPtyRegistry {
   resize(uuid: string, cols: number, rows: number): { cols: number; rows: number } {
     const handle = this.expect(uuid)
     const dims = clampDims(cols, rows)
-    if (!handle.exited) handle.pty.resize(dims.cols, dims.rows)
+    if (!handle.exited) {
+      handle.pty.resize(dims.cols, dims.rows)
+      handle.modeReplay?.resize(dims.cols, dims.rows)
+    }
     return dims
   }
 
@@ -470,6 +523,33 @@ export class AgentPtyRegistry {
     }
   }
 
+  private clearKillEscalation(uuid: string): void {
+    const timer = this.killEscalations.get(uuid)
+    if (timer === undefined) return
+    clearTimeout(timer)
+    this.killEscalations.delete(uuid)
+  }
+
+  private terminateProcessTree(handle: AgentTerminalHandle): void {
+    const pid = handle.pty.pid
+    if (!Number.isInteger(pid) || pid <= 0) {
+      handle.pty.kill()
+      return
+    }
+    this.clearKillEscalation(handle.uuid)
+    const capturedTree = defaultProcessTreeKiller.capture(pid)
+    defaultProcessTreeKiller.signalCaptured(pid, capturedTree, 'SIGTERM')
+    if (process.platform === 'win32') return
+    const timer = setTimeout(() => {
+      this.killEscalations.delete(handle.uuid)
+      if (!handle.exited) {
+        defaultProcessTreeKiller.signalCaptured(pid, capturedTree, 'SIGKILL')
+      }
+    }, this.getPolicy().processKillGraceMs)
+    timer.unref?.()
+    this.killEscalations.set(handle.uuid, timer)
+  }
+
   /**
    * Close a terminal and drop its state. Idempotent: a second close of the
    * same uuid is a no-op. Returns true iff a live handle was actually
@@ -479,8 +559,12 @@ export class AgentPtyRegistry {
     const handle = this.sessions.get(uuid)
     if (handle === undefined) return false
     this.sessions.delete(uuid)
+    handle.dataSubscription?.dispose()
+    handle.exitSubscription?.dispose()
+    handle.modeReplay?.dispose()
+    this.clearKillEscalation(uuid)
     try {
-      handle.pty.kill()
+      this.terminateProcessTree(handle)
     } catch {
       // Already exited or gone; nothing left to kill.
     }
@@ -504,8 +588,12 @@ export class AgentPtyRegistry {
   }
 
   /** Close every agent terminal (plugin teardown). */
-  disposeAll(): void {
+  async disposeAll(): Promise<void> {
     for (const uuid of [...this.sessions.keys()]) this.close(uuid)
+    const deadline = Date.now() + this.getPolicy().processKillGraceMs + 50
+    while (this.killEscalations.size > 0 && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, 10))
+    }
   }
 
   /** Fire every change listener (callers wrap in try/catch if needed). */

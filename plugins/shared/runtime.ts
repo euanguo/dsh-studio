@@ -239,6 +239,10 @@ export class ScopedRuntimeRegistry<T> {
     return [...this.entries.keys()]
   }
 
+  values(): ReadonlyArray<T> {
+    return [...this.entries.values()].map(entry => entry.value)
+  }
+
   getStats(): ScopedRuntimeRegistryStats {
     let activeCount = 0
     for (const entry of this.entries.values()) {

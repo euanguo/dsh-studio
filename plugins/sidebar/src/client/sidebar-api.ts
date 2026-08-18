@@ -256,6 +256,37 @@ export const sidebarApi = {
     'workspace.mutate',
     { cwd, mutation },
   ),
+  ptyClose: (
+    scope: SidebarScope,
+    tab: string,
+  ): Promise<{ ok: true }> => callSidebarApi('pty.close', scope, {
+    sessionId: scope.sessionId,
+    tab,
+  }),
+  ptyRetained: (
+    scope: SidebarScope,
+    signal?: AbortSignal,
+  ): Promise<{ sessions: Array<{
+    tabId: string
+    cwd: string
+    incarnationId: string
+    updatedAt: number
+    historyBytes: number
+  }> }> => callSidebarApi('pty.retained', scope, {}, signal),
+  ptyClearRetained: (
+    scope: SidebarScope,
+    tab: string,
+  ): Promise<{ ok: true }> => callSidebarApi('pty.clear-retained', scope, { tab }),
+  ptyRestart: (
+    scope: SidebarScope,
+    tab: string,
+    cols?: number,
+    rows?: number,
+  ): Promise<{ ok: true; incarnationId: string }> => callSidebarApi('pty.restart', scope, {
+    tab,
+    ...(cols === undefined ? {} : { cols }),
+    ...(rows === undefined ? {} : { rows }),
+  }),
   settingsGet: (
     signal?: AbortSignal,
   ): Promise<SidebarSettingsView> => callSidebarGlobalApi(

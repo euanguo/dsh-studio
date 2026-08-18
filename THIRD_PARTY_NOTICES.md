@@ -79,3 +79,43 @@ and terminal compatibility layer. The small downstream component owns only
 the unified launcher, Profile defaults, data boundary, and release packaging.
 We thank the upstream maintainer and keep the original license with the
 packaged source artifacts.
+
+## xterm.js
+
+- Project: <https://github.com/xtermjs/xterm.js>
+- Declared license: MIT
+- Oh-DSH components: `@xterm/xterm` and the Fit, Search, Serialize,
+  Unicode11, Web Links, WebGL, and Ligatures addons
+
+Oh-DSH uses xterm.js for the terminal renderer and keeps the addon lifecycle
+optional where browser GPU capabilities are unavailable. The upstream package
+licenses remain in the installed dependency tree.
+
+## orca
+
+- Project reference: `myade/orca`
+- Declared license: MIT
+- Oh-DSH components: `@oh-dsh/shared` (`terminal-scrollback-policy.ts`,
+  `stable-pane-id.ts`, `terminal-scroll-snapshot.ts`, `terminal-view.tsx` stable-fit)
+
+Oh-DSH adapts orca's pure algorithms for desktop scrollback row/backlog
+normalization, stable-fit consecutive-frame settlement, scroll intent
+restoration across reflows, and durable pane keys.
+
+## synara
+
+- Project reference: `synara-official-replay`
+- Declared license: MIT
+- Oh-DSH components: `@oh-dsh/shared` (`client-runtime.ts`,
+  `terminal-recovery.ts`, `terminal-output-scheduler.ts`,
+  `terminal-runtime-owner.ts`, `terminal-scroll-intent.ts`,
+  `terminal-ime-anchor.ts`, `terminal-resize-hold.ts`), `@oh-dsh/sidebar-host` (`terminal-history.ts`,
+  `terminal-history-sanitizer.ts`, `terminal-mode-replay.ts`,
+  `terminal-replay.ts`, `terminal-batcher.ts`, `terminal-session-store.ts`,
+  `terminal-environment.ts`, `process-tree-killer.ts`)
+
+Oh-DSH adapts synara's pure algorithms for append-optimized scrollback history
+buffers with ANSI-safe boundaries, PTY output batching and watermark flow
+control, process-tree termination with PID confirmation, keyed recovery
+coordinators with exponential backoff and jitter, and scoped runtime LRU
+registries.

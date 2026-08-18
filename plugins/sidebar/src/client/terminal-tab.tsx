@@ -5,8 +5,9 @@
  * (`tabId`) is the terminal's identity in the host's `/sidebar/ws/terminal`
  * protocol, so opening N terminal tabs spins up N shells.
  */
-import { useSyncExternalStore } from 'react'
+import { useEffect, useSyncExternalStore } from 'react'
 import { TerminalView } from '@oh-dsh/shared/terminal-view'
+import { touchTerminalInstance } from './runtimes/terminal-runtime.ts'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import type { WorkspaceMessage } from './i18n.ts'
 import type { SidebarRuntimeSettingsService } from './runtime-settings.ts'
@@ -18,6 +19,8 @@ export interface TerminalTabContentProps {
    *  surface id). */
   tabId: string
   runtime: SidebarRuntimeSettingsService
+  onTitleChange?(title: string): void
+  onLink?(uri: string): void
   t: Translate<WorkspaceMessage>
 }
 
@@ -32,6 +35,10 @@ export function TerminalTabContent(props: TerminalTabContentProps): JSX.Element 
   // / terminal.unknown keys used inside the view.
   const t: (key: string, params?: Record<string, unknown>) => string =
     (key, params) => props.t(key as WorkspaceMessage, params)
+  useEffect(() => {
+    if (props.sessionId === '' || props.cwd === null || props.cwd === '') return
+    touchTerminalInstance({ sessionId: props.sessionId, cwd: props.cwd }, props.tabId)
+  }, [props.cwd, props.sessionId, props.tabId])
   return (
     <div className="oh-dsh-side-terminal">
       <TerminalView
@@ -40,6 +47,12 @@ export function TerminalTabContent(props: TerminalTabContentProps): JSX.Element 
         cwd={props.cwd}
         fontFamily={preferences.terminalFontFamily}
         fontSize={preferences.terminalFontSize}
+         scrollbackRows={preferences.terminalScrollbackRows}
+         mouseWheelMultiplier={preferences.terminalMouseWheelMultiplier}
+         ligatures={preferences.terminalLigatures}
+         gpuAcceleration={preferences.terminalGpuAcceleration}
+         {...(props.onTitleChange === undefined ? {} : { onTitleChange: props.onTitleChange })}
+         {...(props.onLink === undefined ? {} : { onLink: props.onLink })}
         t={t}
       />
     </div>

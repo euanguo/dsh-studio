@@ -36,6 +36,12 @@ import type { WorkspaceMessage } from '../i18n.ts'
 import { ErrorView } from '../kit/status.tsx'
 import { centerColumnElement, leftRailToggleButton, readLeftRailOpen } from './dsh-dom.ts'
 import type { SessionsService, WorkspacesService } from '../client-types.ts'
+import { sidebarApi } from '../sidebar-api.ts'
+import {
+  canOpenTerminalInstance,
+  releaseTerminalInstance,
+  touchTerminalInstance,
+} from '../runtimes/terminal-runtime.ts'
 import type { SidebarSnapshot, SidebarTabSeed } from '../contract.ts'
 import {
   persistCenterSurfaces,
@@ -210,7 +216,11 @@ export function CenterSurfaceTabs({
                 // session is opened again — the session itself stays.
                 useCenterSurfaceStore.getState().dismissSession(cwd!, surface.sessionId)
               }
-              useCenterSurfaceStore.getState().close(cwd!, surface.id)
+              if (surface.kind === 'terminal' && current !== undefined && cwd !== undefined) {
+               releaseTerminalInstance({ sessionId: current, cwd }, surface.id)
+               void sidebarApi.ptyClose({ sessionId: current, cwd }, surface.id)
+               }
+               useCenterSurfaceStore.getState().close(cwd!, surface.id)
             }}
           />
         )
@@ -425,7 +435,11 @@ function CenterAddMenu({
         return
       }
       if (cwd !== undefined) {
-        useCenterSurfaceStore.getState().openTerminal({ cwd, title: t('terminal') })
+        if (sessionList.current === undefined) return
+         const scope = { sessionId: sessionList.current, cwd: cwd! }
+         if (!canOpenTerminalInstance(scope)) return
+         const surface = useCenterSurfaceStore.getState().openTerminal({ cwd: cwd!, title: t('terminal') })
+         touchTerminalInstance(scope, surface.id)
       }
       return
     }

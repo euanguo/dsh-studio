@@ -101,6 +101,9 @@ interface SideToolsPanelProps {
   cwd: string | undefined
   maximized: boolean
   onClose(): void
+  /** Live drag preview: fired at most once per frame (rAF-coalesced). */
+  onResizePreview(width: number): void
+  /** Final width commit; fired once on pointerup / pointercancel. */
   onResize(width: number): void
   onToggleMaximized(): void
   onToggleSide(): void
@@ -942,10 +945,29 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
     event.preventDefault()
     const startX = event.clientX
     const startWidth = props.width
+    // Live drags are rAF-coalesced to ONE preview update per frame and the
+    // final width is committed only on pointerup/cancel — never per event —
+    // keeping every synchronous layout write and React commit off the
+    // pointermove hot path (see workspace-tools.previewResizeWidth).
+    let rafId = 0
+    let lastWidth = startWidth
+    const schedulePreview = (width: number): void => {
+      lastWidth = width
+      if (rafId !== 0) return
+      rafId = requestAnimationFrame(() => {
+        rafId = 0
+        props.onResizePreview(lastWidth)
+      })
+    }
     const move = (next: PointerEvent): void => {
-      props.onResize(startWidth + startX - next.clientX)
+      schedulePreview(startWidth + startX - next.clientX)
     }
     const finish = (): void => {
+      if (rafId !== 0) {
+        cancelAnimationFrame(rafId)
+        rafId = 0
+      }
+      props.onResize(lastWidth)
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', finish)
       window.removeEventListener('pointercancel', finish)

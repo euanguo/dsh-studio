@@ -29,6 +29,7 @@ import {
 import { sidebarApi } from '../sidebar-api.ts'
 import { resolveSidebarPath } from '@oh-dsh/shared/path'
 import { parseGitReviewDiff, type GitReviewFile } from '../diff/git-review-diff.ts'
+import { terminalInstanceRegistry } from './terminal-runtime.ts'
 
 /**
  * The runtime scope: one session + its RESOLVED cwd. Unlike the wire
@@ -242,4 +243,5 @@ export function disposeSidebarRuntimes(): void {
   sourceControlRuntimeRegistry.clear()
   fileRuntimeRegistry.clear()
   diffRuntimeRegistry.clear()
+  terminalInstanceRegistry.clear()
 }

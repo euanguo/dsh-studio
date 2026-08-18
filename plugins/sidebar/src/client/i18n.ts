@@ -131,6 +131,21 @@ export type WorkspaceMessage =
   | 'settings.terminal-shell'
   | 'settings.terminal-shell-description'
   | 'settings.terminal-shell-placeholder'
+  | 'settings.terminal-scrollback-rows'
+  | 'settings.terminal-scrollback-rows-description'
+  | 'settings.terminal-reconnect-grace-ms'
+  | 'settings.terminal-reconnect-grace-ms-description'
+  | 'settings.terminal-process-kill-grace-ms'
+  | 'settings.terminal-process-kill-grace-ms-description'
+  | 'settings.terminal-retained-inactive-sessions'
+  | 'settings.terminal-retained-inactive-sessions-description'
+  | 'settings.terminal-mouse-wheel-multiplier'
+  | 'settings.terminal-mouse-wheel-multiplier-description'
+  | 'settings.terminal-ligatures'
+  | 'settings.terminal-ligatures-description'
+  | 'settings.terminal-gpu-acceleration'
+  | 'settings.terminal-gpu-acceleration-description'
+  | 'settings.terminal-gpu-acceleration-placeholder'
   | 'settings.auto-open-subagent'
   | 'settings.auto-open-subagent-description'
   | 'settings.auto-open-jobs'
@@ -347,6 +362,21 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.terminal-shell': 'Terminal shell',
     'settings.terminal-shell-description': 'Explicit shell for terminal tabs; empty follows DSH_SIDEBAR_SHELL, then the platform default. New terminals only.',
     'settings.terminal-shell-placeholder': 'Follow the platform default',
+    'settings.terminal-scrollback-rows': 'Scrollback rows',
+    'settings.terminal-scrollback-rows-description': 'Max scrollback rows for terminal tabs (1000–50000). Takes effect for new terminals.',
+    'settings.terminal-reconnect-grace-ms': 'Reconnect grace',
+    'settings.terminal-reconnect-grace-ms-description': 'How long a tab switch preserves the shell (0–120000 ms). New terminals only.',
+    'settings.terminal-process-kill-grace-ms': 'Process kill grace',
+    'settings.terminal-process-kill-grace-ms-description': 'SIGTERM to SIGKILL escalation delay (250–10000 ms). New terminals only.',
+    'settings.terminal-retained-inactive-sessions': 'Retained inactive sessions',
+    'settings.terminal-retained-inactive-sessions-description': 'Maximum inactive terminal sessions kept for restore (0–1024).',
+     'settings.terminal-mouse-wheel-multiplier': 'Mouse wheel multiplier',
+     'settings.terminal-mouse-wheel-multiplier-description': 'Scale terminal wheel scrolling from 0.25× to 4×.',
+     'settings.terminal-ligatures': 'Terminal ligatures',
+     'settings.terminal-ligatures-description': 'Enable ligature rendering when the optional renderer is available.',
+     'settings.terminal-gpu-acceleration': 'GPU acceleration',
+     'settings.terminal-gpu-acceleration-description': 'Use auto, on, or off for the optional WebGL renderer.',
+     'settings.terminal-gpu-acceleration-placeholder': 'auto | on | off',
     'settings.auto-open-subagent': 'Open on new subagents',
     'settings.auto-open-subagent-description': 'Automatically open the sidebar on the subagent page when the current conversation spawns a subagent.',
     'settings.auto-open-jobs': 'Open on new background jobs',
@@ -562,6 +592,21 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.terminal-shell': '终端 shell',
     'settings.terminal-shell-description': '终端标签页的显式 shell；留空则跟随 DSH_SIDEBAR_SHELL，再跟随平台默认。仅对新终端生效。',
     'settings.terminal-shell-placeholder': '跟随平台默认',
+    'settings.terminal-scrollback-rows': '回滚行数',
+    'settings.terminal-scrollback-rows-description': '终端标签页的最大回滚行数（1000–50000）。仅对新终端生效。',
+    'settings.terminal-reconnect-grace-ms': '重连保护时间',
+    'settings.terminal-reconnect-grace-ms-description': '切换标签页后保留 shell 的时间（0–120000 ms）。仅对新终端生效。',
+    'settings.terminal-process-kill-grace-ms': '进程终止宽限',
+    'settings.terminal-process-kill-grace-ms-description': 'SIGTERM 到 SIGKILL 的升级延迟（250–10000 ms）。仅对新终端生效。',
+    'settings.terminal-retained-inactive-sessions': '保留的非活动终端会话',
+    'settings.terminal-retained-inactive-sessions-description': '用于恢复的最大非活动终端会话数（0–1024）。',
+     'settings.terminal-mouse-wheel-multiplier': '鼠标滚轮倍率',
+     'settings.terminal-mouse-wheel-multiplier-description': '终端滚轮滚动倍率范围为 0.25× 到 4×。',
+     'settings.terminal-ligatures': '终端连字',
+     'settings.terminal-ligatures-description': '可用可选渲染器时启用连字显示。',
+     'settings.terminal-gpu-acceleration': 'GPU 加速',
+     'settings.terminal-gpu-acceleration-description': '可选 WebGL 渲染器支持 auto、on 或 off。',
+     'settings.terminal-gpu-acceleration-placeholder': 'auto | on | off',
     'settings.auto-open-subagent': '出现新子代理时自动打开',
     'settings.auto-open-subagent-description': '当前会话派生子代理时，自动在侧边栏打开子代理页。',
     'settings.auto-open-jobs': '出现新后台任务时自动打开',

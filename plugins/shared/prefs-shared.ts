@@ -89,6 +89,24 @@ export interface SidebarPrefs {
    * terminals; already-running processes keep their shell.
    */
   terminalShell: string
+  /** Custom xterm font family; empty follows the surface theme. */
+  terminalFontFamily: string
+  /** xterm font size in CSS pixels (9–32). */
+  terminalFontSize: number
+  /** Maximum terminal scrollback rows (1000–50000). */
+  terminalScrollbackRows: number
+  /** Detached shell reconnect grace in milliseconds (0–120000). */
+  terminalReconnectGraceMs: number
+  /** SIGTERM→SIGKILL escalation delay in milliseconds (250–10000). */
+  terminalProcessKillGraceMs: number
+  /** Maximum retained inactive terminal sessions (0–1024). */
+  terminalRetainedInactiveSessions: number
+  /** Mouse wheel multiplier applied to terminal wheel events (0.25–4). */
+  terminalMouseWheelMultiplier: number
+  /** Enable optional ligature rendering when the addon is available. */
+  terminalLigatures: boolean
+  /** GPU renderer policy: automatic, forced on, or forced off. */
+  terminalGpuAcceleration: 'auto' | 'on' | 'off'
   /**
    * Per-tab enable switches, keyed by tab descriptor id (`'explorer'`,
    * `'my-plugin:db'`). An ABSENT key means enabled — only an explicit
@@ -127,6 +145,15 @@ export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
   browserNoSandbox: false,
   browserInterceptLinks: true,
   terminalShell: '',
+  terminalFontFamily: '',
+  terminalFontSize: 13,
+  terminalScrollbackRows: 5_000,
+  terminalReconnectGraceMs: 30_000,
+  terminalProcessKillGraceMs: 1_500,
+  terminalRetainedInactiveSessions: 128,
+  terminalMouseWheelMultiplier: 1,
+  terminalLigatures: false,
+  terminalGpuAcceleration: 'auto',
   tabsEnabled: {},
   viewersEnabled: {},
 }

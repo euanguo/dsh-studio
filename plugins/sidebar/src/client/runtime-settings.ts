@@ -72,6 +72,20 @@ export interface SidebarRuntimePreferences {
    * fallback); takes effect for NEW terminals.
    */
   terminalShell: string
+  /** Max scrollback rows for terminal tabs (1000–50000). */
+  terminalScrollbackRows: number
+  /** How long a tab switch preserves the shell in ms (0–120000). */
+  terminalReconnectGraceMs: number
+  /** SIGTERM→SIGKILL escalation delay in ms (250–10000). */
+  terminalProcessKillGraceMs: number
+  /** Maximum retained inactive sessions (0–1024). */
+  terminalRetainedInactiveSessions: number
+  /** Mouse wheel multiplier applied to terminal wheel events (0.25–4). */
+  terminalMouseWheelMultiplier: number
+  /** Enable optional ligature rendering when the addon is available. */
+  terminalLigatures: boolean
+  /** GPU renderer policy: automatic, forced on, or forced off. */
+  terminalGpuAcceleration: 'auto' | 'on' | 'off'
   interceptOpenPath: boolean
 }
 
@@ -89,6 +103,13 @@ Readonly<SidebarRuntimePreferences> = Object.freeze({
   terminalFontFamily: '',
   terminalFontSize: 13,
   terminalShell: '',
+  terminalScrollbackRows: 5_000,
+  terminalReconnectGraceMs: 30_000,
+  terminalProcessKillGraceMs: 1_500,
+  terminalRetainedInactiveSessions: 128,
+  terminalMouseWheelMultiplier: 1,
+  terminalLigatures: false,
+  terminalGpuAcceleration: 'auto',
   interceptOpenPath: true,
 })
 
@@ -105,6 +126,18 @@ interface SidebarRuntimeSettingsApi {
     patch: Record<string, unknown>,
     expectedRevision?: number,
   ): Promise<SidebarSettingsView>
+}
+
+function boundedNumberPreference(
+  record: Record<string, unknown>,
+  key: string,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const value = record[key]
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  return Math.min(max, Math.max(min, Math.floor(value)))
 }
 
 export function parseSidebarRuntimePreferences(
@@ -145,12 +178,59 @@ export function parseSidebarRuntimePreferences(
     terminalFontFamily: typeof record.terminalFontFamily === 'string'
       ? record.terminalFontFamily
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalFontFamily,
-    terminalFontSize: typeof record.terminalFontSize === 'number'
-      ? record.terminalFontSize
-      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalFontSize,
+    terminalFontSize: boundedNumberPreference(
+      record,
+      'terminalFontSize',
+      DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalFontSize,
+      9,
+      32,
+    ),
     terminalShell: typeof record.terminalShell === 'string'
       ? record.terminalShell
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalShell,
+    terminalScrollbackRows: boundedNumberPreference(
+      record,
+      'terminalScrollbackRows',
+      DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalScrollbackRows,
+      1_000,
+      50_000,
+    ),
+    terminalReconnectGraceMs: boundedNumberPreference(
+      record,
+      'terminalReconnectGraceMs',
+      DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalReconnectGraceMs,
+      0,
+      120_000,
+    ),
+    terminalProcessKillGraceMs: boundedNumberPreference(
+      record,
+      'terminalProcessKillGraceMs',
+      DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalProcessKillGraceMs,
+      250,
+      10_000,
+    ),
+    terminalRetainedInactiveSessions: boundedNumberPreference(
+      record,
+      'terminalRetainedInactiveSessions',
+      DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalRetainedInactiveSessions,
+      0,
+      1_024,
+    ),
+    terminalMouseWheelMultiplier: boundedNumberPreference(
+      record,
+      'terminalMouseWheelMultiplier',
+      DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalMouseWheelMultiplier,
+      0.25,
+      4,
+    ),
+    terminalLigatures: typeof record.terminalLigatures === 'boolean'
+      ? record.terminalLigatures
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalLigatures,
+    terminalGpuAcceleration: record.terminalGpuAcceleration === 'on'
+      || record.terminalGpuAcceleration === 'off'
+      || record.terminalGpuAcceleration === 'auto'
+      ? record.terminalGpuAcceleration
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.terminalGpuAcceleration,
     interceptOpenPath: typeof record.interceptOpenPath === 'boolean'
       ? record.interceptOpenPath
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.interceptOpenPath,

@@ -130,3 +130,35 @@ export function resolveShell(options: ShellResolutionOptions = {}): string {
 export function shellSpawnArgs(platform?: NodeJS.Platform): string[] {
   return (platform ?? process.platform) === 'win32' ? [] : ['-l']
 }
+
+/** Candidate order used after a retryable spawn failure. */
+export function resolveShellCandidates(options: ShellResolutionOptions = {}): string[] {
+  const platform = options.platform ?? process.platform
+  const env = options.env ?? process.env
+  const primary = resolveShell(options)
+  const candidates = [primary]
+  if (platform === 'win32') {
+    for (const dir of windowsPwshCandidateDirs(env)) candidates.push(join(dir, 'pwsh.exe'))
+    candidates.push('pwsh.exe', 'powershell.exe')
+  } else {
+    const shell = trimmed(env.SHELL)
+    if (shell !== undefined) candidates.push(shell)
+    const loginShell = trimmed(options.loginShell)
+    if (loginShell !== undefined) candidates.push(loginShell)
+    candidates.push('/bin/bash', '/bin/sh')
+  }
+  return [...new Set(candidates)]
+}
+
+/** Only shell lookup failures should advance to the next candidate. */
+export function isRetryableShellSpawnError(error: unknown): boolean {
+  if (error === null || typeof error !== 'object') return false
+  const record = error as { code?: unknown; message?: unknown }
+  const code = typeof record.code === 'string' ? record.code : ''
+  const message = typeof record.message === 'string' ? record.message.toLowerCase() : ''
+  return code === 'ENOENT'
+    || code === 'EACCES'
+    || message.includes('not found')
+    || message.includes('posix_spawnp')
+    || (message.includes('spawn') && message.includes('failed'))
+}

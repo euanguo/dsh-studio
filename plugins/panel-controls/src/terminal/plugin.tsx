@@ -73,6 +73,14 @@ export interface RightPanelClaim {
 export interface DesktopPanels {
   claimRightPanel(ownerId: string, claim: RightPanelClaim): void
   isBottomPanelOpen(): boolean
+  /**
+   * Live drag preview of the right panel's `#root` squeeze. Writes the real
+   * padding-right so the center column follows a width drag frame-by-frame,
+   * WITHOUT touching the claim registry / owner attribution — the pointermove
+   * hot path must not mutate coordinator state. The owner re-asserts its
+   * claim on pointerup via `claimRightPanel`.
+   */
+  previewRightPanel(paddingRight: string): void
   releaseRightPanel(ownerId: string): void
   setAutoOpenTerminal(enabled: boolean): void
   /**
@@ -156,19 +164,42 @@ class DesktopPanelService implements DesktopPanels {
     this.applyRightPanel()
   }
 
+  /**
+   * Live drag preview of the `#root` squeeze (see the interface doc). Kept
+   * dirty-checked so repeated identical pointers stay no-ops.
+   */
+  previewRightPanel(paddingRight: string): void {
+    const appRoot = document.getElementById('root')
+    if (appRoot === null) return
+    if (appRoot.style.boxSizing !== 'border-box') {
+      appRoot.style.setProperty('box-sizing', 'border-box')
+    }
+    if (appRoot.style.paddingRight !== paddingRight) {
+      appRoot.style.setProperty('padding-right', paddingRight)
+    }
+  }
+
   private applyRightPanel(): void {
     const html = document.documentElement
     const ownerId = this.rightPanelOrder[this.rightPanelOrder.length - 1]
     const claim = ownerId === undefined ? undefined : this.rightPanelClaims.get(ownerId)
     const appRoot = document.getElementById('root')
     if (claim !== undefined && ownerId !== undefined) {
-      html.dataset.ohDshRightPanelOwner = ownerId
+      if (html.dataset.ohDshRightPanelOwner !== ownerId) {
+        html.dataset.ohDshRightPanelOwner = ownerId
+      }
       if (claim.paddingRight === null) {
         appRoot?.style.removeProperty('padding-right')
         appRoot?.style.removeProperty('box-sizing')
       } else {
-        appRoot?.style.setProperty('box-sizing', 'border-box')
-        appRoot?.style.setProperty('padding-right', claim.paddingRight)
+        // Dirty-checked: the sidebar's drag preview may have already written
+        // the same value, and a no-op write still cascades reflow/observers.
+        if (appRoot?.style.boxSizing !== 'border-box') {
+          appRoot?.style.setProperty('box-sizing', 'border-box')
+        }
+        if (appRoot?.style.paddingRight !== claim.paddingRight) {
+          appRoot?.style.setProperty('padding-right', claim.paddingRight)
+        }
       }
     } else {
       delete html.dataset.ohDshRightPanelOwner

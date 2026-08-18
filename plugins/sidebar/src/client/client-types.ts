@@ -198,6 +198,10 @@ export interface WorkspaceTools {
   toggle(): void
   togglePanelMaximized(): void
   toggleSidePanel(): void
+  /** Live drag preview — DOM-only, never touches the store/persist/claims. */
+  previewResizeWidth(width: number): void
+  /** End of a drag — commits the width through the store. */
+  commitResizeWidth(width: number): void
   /** The tab/viewer registry service (open file tabs from list previews). */
   sidebar: DesktopSidebarService
 }

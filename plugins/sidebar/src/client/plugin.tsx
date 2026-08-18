@@ -39,6 +39,7 @@ import type {
 } from './client-types.ts'
 import { registerBuiltins } from './builtins/index.ts'
 import { TerminalTabContent } from './terminal-tab.tsx'
+import { disposeAllTerminalRuntimeOwners } from '@oh-dsh/shared/terminal-runtime-owner'
 import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
 import { disposeSidebarRuntimes } from './runtimes/registry.ts'
 import { acquireOpenPathPatch, isLinkProtocolIntercepted, registerLinkHandler, registerLinkInterception, registerOpenPathHandler, releaseOpenPathPatch } from './intercept.ts'
@@ -280,7 +281,8 @@ export function apply(ctx: ClientContext): void {
       reviewComments.dispose()
       desktopSidebar.dispose()
       runtimeSettings.dispose()
-      disposeSidebarRuntimes()
+      disposeAllTerminalRuntimeOwners()
+       disposeSidebarRuntimes()
       void removeSidebar?.()
       void removeService?.()
     }

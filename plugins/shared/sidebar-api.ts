@@ -198,6 +198,9 @@ export interface SidebarApiRequests {
   'workspace.facts': { cwd: string }
   'workspace.mutate': { cwd: string; mutation: SidebarWorkspaceMutation }
   'pty.close': { sessionId: string; tab: string }
+  'pty.retained': Record<string, never>
+  'pty.clear-retained': { tab: string }
+  'pty.restart': { tab: string; cols?: number; rows?: number }
   'agent-pty.close': { uuid: string }
   'settings.get': Record<string, never>
   'settings.update': { patch: Record<string, unknown>; expectedRevision?: number }
