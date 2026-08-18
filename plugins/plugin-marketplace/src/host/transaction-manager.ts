@@ -944,21 +944,16 @@ export class PluginMarketplaceManager {
       // The applied profile's node_modules was linked from the preview's
       // store, which is deleted with the preview root below. Re-home it
       // against the persistent home store (unsandboxed) so the live profile
-      // never references a vanished store. Best effort: the hard links keep
-      // the tree usable even if this fails, and the dsh CLI self-heals the
-      // store reference on the next pnpm command.
-      try {
-        removeWithin(this.#profileDir, join(this.#profileDir, 'node_modules'), this.#warn)
-        rmSync(join(this.#profileDir, 'pnpm-lock.yaml'), { force: true })
-        await this.#options.platform.runDsh({
-          args: ['plugin', '--profile', this.#options.profile, 'install', '--ignore-scripts'],
-          dshHome: this.#options.dshHome,
-          sandboxRoot: this.#options.appDataPath,
-          sandboxed: false,
-        })
-      } catch (error) {
-        this.#options.onWarn?.(`applied profile store could not be re-homed: ${message(error)}`)
-      }
+      // never references a vanished store. Any failure during re-homing
+      // automatically triggers rollback to the original profile.
+      removeWithin(this.#profileDir, join(this.#profileDir, 'node_modules'), this.#warn)
+      rmSync(join(this.#profileDir, 'pnpm-lock.yaml'), { force: true })
+      await this.#options.platform.runDsh({
+        args: ['plugin', '--profile', this.#options.profile, 'install', '--ignore-scripts'],
+        dshHome: this.#options.dshHome,
+        sandboxRoot: this.#options.appDataPath,
+        sandboxed: false,
+      })
       await this.#options.runtime.startLive()
     } catch (error) {
       await this.#options.runtime.stopLive().catch(() => {})

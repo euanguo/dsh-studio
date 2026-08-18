@@ -134,7 +134,7 @@ export function canonicalizeRepositorySource(source: RepositorySourceRef): {
     throw new MarketplaceSourceError('invalid-source-ref', 'GitHub URL ref and fragment ref differ')
   }
   const subpath = safeSubpath(source.subpath ?? urlSubpath)
-  if (urlSubpath !== null && source.subpath !== undefined && source.subpath !== urlSubpath) {
+  if (urlSubpath !== null && source.subpath !== undefined && source.subpath !== null && source.subpath !== urlSubpath) {
     throw new MarketplaceSourceError('invalid-source-ref', 'GitHub URL subpath and source subpath differ')
   }
   return {

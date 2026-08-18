@@ -27,22 +27,30 @@ function exactInstallSpec(repository: string, commit: string): string {
 /** Validate the v3 source lock fields before they can influence a transaction. */
 export function validateMarketplaceSourceLock(value: unknown): value is MarketplaceSourceLock {
   if (!isRecord(value)) return false
-  return typeof value.canonicalSource === 'string'
-    && (value.catalogSourceId === null || typeof value.catalogSourceId === 'string')
-    && exactCommit(value.firstSeenCommit)
-    && exactCommit(value.resolvedCommit)
-    && (typeof value.requestedRef === 'string' || value.requestedRef === null)
-    && typeof value.installSpec === 'string'
-    && /^github:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#[0-9a-f]{40}$/.test(value.installSpec)
-    && hash(value.manifestHash)
-    && typeof value.manifestPath === 'string'
-    && (value.patchHash === null || hash(value.patchHash))
-    && hash(value.artifactDigest)
-    && (value.mechanism === 'bundle' || value.mechanism === 'repository')
-    && typeof value.packageName === 'string'
-    && typeof value.pluginId === 'string'
-    && typeof value.recordedAt === 'string'
-    && (value.subpath === null || typeof value.subpath === 'string')
+  if (
+    typeof value.canonicalSource !== 'string'
+    || (value.catalogSourceId !== null && typeof value.catalogSourceId !== 'string')
+    || !exactCommit(value.firstSeenCommit)
+    || !exactCommit(value.resolvedCommit)
+    || (typeof value.requestedRef !== 'string' && value.requestedRef !== null)
+    || typeof value.installSpec !== 'string'
+    || !/^github:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+#[0-9a-f]{40}$/.test(value.installSpec)
+    || !hash(value.manifestHash)
+    || typeof value.manifestPath !== 'string'
+    || (value.patchHash !== null && !hash(value.patchHash))
+    || !hash(value.artifactDigest)
+    || (value.mechanism !== 'bundle' && value.mechanism !== 'repository')
+    || typeof value.packageName !== 'string'
+    || typeof value.pluginId !== 'string'
+    || typeof value.recordedAt !== 'string'
+    || (value.subpath !== null && typeof value.subpath !== 'string')
+  ) {
+    return false
+  }
+  const expectedRepository = repositoryFromCanonicalSource(value.canonicalSource)
+  if (expectedRepository === null) return false
+  if (value.installSpec !== `github:${expectedRepository}#${value.resolvedCommit}`) return false
+  return true
 }
 
 function migratedLock(value: unknown): MarketplaceSourceLock | null {

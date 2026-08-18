@@ -92,6 +92,13 @@
   min-height: 0;
 }
 
+.oh-marketplace-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .oh-marketplace-direct-source {
   display: flex;
   flex: 1 1 280px;
@@ -111,14 +118,20 @@
   align-items: baseline;
   gap: 8px;
   padding: 8px 10px;
-  border: 1px solid var(--dsw-alias-border-secondary, rgb(0 0 0 / 12%));
+  border: 1px solid var(--dsw-alias-border-l2);
   border-radius: 6px;
-  color: var(--dsw-alias-label-secondary, #666);
+  background: var(--dsw-alias-bg-module-platform);
+  color: var(--dsw-alias-label-secondary);
   font-size: 12px;
+  cursor: pointer;
+}
+
+.oh-marketplace-direct-candidate:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
 }
 
 .oh-marketplace-direct-candidate strong {
-  color: var(--dsw-alias-label-primary, #222);
+  color: var(--dsw-alias-label-primary);
 }
 
 .oh-marketplace-direct-candidate span {

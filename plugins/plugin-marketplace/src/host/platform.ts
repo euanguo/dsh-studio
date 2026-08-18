@@ -599,6 +599,13 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
         env: this.#options.env,
         timeoutMs: 60_000,
       })
+      const checkedOut = await runCommand('git', ['-C', target, 'rev-parse', 'HEAD'], {
+        env: this.#options.env,
+        timeoutMs: 10_000,
+      })
+      if (checkedOut.stdout.trim().toLowerCase() !== commit.toLowerCase()) {
+        throw new Error(`cloned repository HEAD ${checkedOut.stdout.trim()} did not match exact commit ${commit}`)
+      }
       return
     } catch (publicError) {
       if (this.#ghPath === null) throw publicError
@@ -618,6 +625,13 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
       env: withGitHubCredentials(this.#options.env, gh),
       timeoutMs: 60_000,
     })
+    const checkedOut = await runCommand('git', ['-C', target, 'rev-parse', 'HEAD'], {
+      env: withGitHubCredentials(this.#options.env, gh),
+      timeoutMs: 10_000,
+    })
+    if (checkedOut.stdout.trim().toLowerCase() !== commit.toLowerCase()) {
+      throw new Error(`cloned repository HEAD ${checkedOut.stdout.trim()} did not match exact commit ${commit}`)
+    }
   }
 
   async runDsh(input: DshCommandInput): Promise<void> {

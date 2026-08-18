@@ -296,6 +296,9 @@ export function parseMarketplaceCommand(value: unknown): MarketplaceCommand {
     if (sourceRef?.kind === 'catalog' && pluginId !== undefined && sourceRef.pluginId !== pluginId) {
       throw new Error('marketplace pluginId and sourceRef identify different plugins')
     }
+    if (sourceRef?.kind === 'repository' && pluginId !== undefined) {
+      throw new Error('marketplace inspect command with a repository sourceRef must not provide a separate pluginId')
+    }
     return {
       type: value.type,
       action: value.action as MarketplaceAction,

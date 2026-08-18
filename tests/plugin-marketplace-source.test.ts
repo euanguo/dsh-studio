@@ -23,6 +23,7 @@ import {
 import {
   migrateMarketplaceLocks,
   sourceLockFromCandidate,
+  validateMarketplaceSourceLock,
 } from '../plugins/plugin-marketplace/src/host/source-lock.ts'
 import {
   parseMarketplaceCommand,
@@ -345,3 +346,41 @@ test('source resolver canonicalizes github: and @ branch references', () => {
   )
 })
 
+test('source resolver canonicalizes tree URL subpaths when sourceRef subpath is omitted or null', () => {
+  const canonical = canonicalizeRepositorySource({
+    input: 'https://github.com/owner/repo/tree/main/packages/plugin',
+    kind: 'repository',
+    subpath: null,
+  })
+  assert.equal(canonical.requestedRef, 'main')
+  assert.equal(canonical.subpath, 'packages/plugin')
+})
+
+test('validateMarketplaceSourceLock enforces consistent repository and commit fields', () => {
+  const valid = {
+    artifactDigest: 'a'.repeat(64),
+    canonicalSource: `github:${FIXTURE_REPOSITORY}`,
+    catalogSourceId: null,
+    firstSeenCommit: FIXTURE_COMMIT,
+    installSpec: `github:${FIXTURE_REPOSITORY}#${FIXTURE_COMMIT}`,
+    manifestHash: 'b'.repeat(64),
+    manifestPath: 'package.json',
+    mechanism: 'bundle' as const,
+    packageName: 'demo',
+    patchHash: 'c'.repeat(64),
+    pluginId: 'demo',
+    recordedAt: '2026-01-01T00:00:00.000Z',
+    requestedRef: null,
+    resolvedCommit: FIXTURE_COMMIT,
+    subpath: null,
+  }
+  assert.equal(validateMarketplaceSourceLock(valid), true)
+  assert.equal(validateMarketplaceSourceLock({
+    ...valid,
+    installSpec: `github:different/repo#${FIXTURE_COMMIT}`,
+  }), false)
+  assert.equal(validateMarketplaceSourceLock({
+    ...valid,
+    resolvedCommit: '0'.repeat(40),
+  }), false)
+})

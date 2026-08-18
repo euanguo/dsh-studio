@@ -339,7 +339,7 @@ MarketplaceCandidate {
 3. candidate → plan；
 4. plan → script confirmation required；
 5. confirmed plan → isolated preview；
-6. preview loads Cordis patch and starts; 
+6. preview loads Cordis patch and starts；
 7. discard leaves live profile unchanged；
 8. apply atomic swap；
 9. failed apply restores old profile；

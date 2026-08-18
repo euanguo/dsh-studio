@@ -692,7 +692,11 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
     setPending(true)
     setLocalError(null)
     try {
-      setSnapshot(await bridge.pluginMarketplace.dispatch(command) as MarketplaceSnapshot)
+      const next = await bridge.pluginMarketplace.dispatch(command) as MarketplaceSnapshot
+      setSnapshot(next)
+      if (command.type === 'prepare' && next.candidate !== null && next.candidate !== undefined) {
+        setSelectedId(next.candidate.identity.pluginId)
+      }
     } catch (error) {
       setLocalError(error instanceof Error ? error.message : String(error))
     } finally {
@@ -703,11 +707,12 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
   const prepareRepository = (): void => {
     const input = repositoryInput.trim()
     if (input === '') return
-    setSelectedId(null)
     void run({
       action: 'install',
       sourceRef: { input, kind: 'repository' },
       type: 'prepare',
+    }).then(() => {
+      // Direct candidates automatically open in PluginDetail for review and preview confirmation.
     })
   }
 
@@ -755,7 +760,33 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
         .some(value => value.toLowerCase().includes(needle))
     })
   }, [categoryFilter, search, snapshot?.catalog, statusFilter])
-  const selected = plugins.find(plugin => plugin.id === selectedId) ?? null
+  const directPlugin = useMemo((): MarketplacePlugin | null => {
+    if (snapshot?.candidate === null || snapshot?.candidate === undefined) return null
+    const c = snapshot.candidate
+    return {
+      catalogSourceId: c.source.catalogSourceId,
+      category: 'direct-repository',
+      currentCommit: null,
+      description: c.description,
+      enabled: false,
+      id: c.identity.pluginId,
+      installed: false,
+      latestCommit: c.source.resolvedCommit,
+      mechanism: c.mechanism,
+      protected: false,
+      pushedAt: null,
+      repository: c.identity.repository,
+      runtimeRisk: c.mechanism === 'bundle' ? 'profile-bundle' : 'guided',
+      tags: c.evidence.metadata?.keywords ?? [],
+      title: c.evidence.metadata?.displayName ?? c.identity.packageName ?? c.identity.pluginId,
+      trust: 'untrusted',
+      updateAvailable: false,
+      url: c.source.locator,
+    }
+  }, [snapshot?.candidate])
+
+  const selected = plugins.find(plugin => plugin.id === selectedId)
+    ?? (directPlugin?.id === selectedId ? directPlugin : null)
   const error = localError ?? snapshot?.error ?? null
   const loadedNotice = snapshot !== null
     ? t('notice.loaded', { count: snapshot.catalog.length })
@@ -903,8 +934,18 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
           />
         </div>
         {snapshot?.candidate !== null && snapshot?.candidate !== undefined && (
-          <div className="oh-marketplace-direct-candidate" data-execution={snapshot.candidate.execution}>
-            <strong>{snapshot.candidate.identity.packageName}</strong>
+          <div
+            className="oh-marketplace-direct-candidate"
+            data-execution={snapshot.candidate.execution}
+            onClick={() => {
+              if (snapshot?.candidate?.identity.pluginId !== undefined) {
+                setSelectedId(snapshot.candidate.identity.pluginId)
+              }
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <strong>{snapshot.candidate.evidence.metadata?.displayName ?? snapshot.candidate.identity.packageName}</strong>
             <span>{snapshot.candidate.source.installSpec}</span>
             <span>{snapshot.candidate.execution}</span>
           </div>
