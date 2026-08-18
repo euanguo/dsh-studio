@@ -451,9 +451,11 @@ function PluginDetail({
 }): JSX.Element {
   const [confirmations, setConfirmations] = useState<MarketplaceConfirmation[]>([])
   const plan = snapshot.plan?.pluginId === plugin.id ? snapshot.plan : null
+  const approval = snapshot.approval
+  const requiredConfirmations = approval?.requiredConfirmations ?? plan?.requirements ?? []
   const hasScripts = plan !== null && Object.keys(plan.buildScripts).length > 0
   const readyToPreview = plan !== null
-    && plan.requirements.every(requirement => confirmations.includes(requirement))
+    && requiredConfirmations.every(requirement => confirmations.includes(requirement))
   useEffect(() => { setConfirmations([]) }, [plugin.id, plan?.resolvedCommit])
   const setConfirmed = (
     confirmation: MarketplaceConfirmation,
@@ -592,7 +594,7 @@ function PluginDetail({
             </div>
             <dl className="oh-marketplace-facts">
               <dt>{t('risk-level')}</dt>
-              <dd data-risk={plan.riskLevel}>{t(`risk-level.${plan.riskLevel}`)}</dd>
+              <dd data-risk={approval?.riskLevel ?? plan.riskLevel}>{t(`risk-level.${approval?.riskLevel ?? plan.riskLevel}`)}</dd>
               <dt>{t('source-review')}</dt>
               <dd>{t(`source-review.${plan.sourceReview}`)}</dd>
               <dt>{t('repository')}</dt>
@@ -615,7 +617,7 @@ function PluginDetail({
                 {Object.entries(plan.buildScripts).map(([name, script]) => `${name}: ${script}`).join('\n')}
               </pre>
             )}
-            {plan.requirements.map(requirement => (
+            {requiredConfirmations.map(requirement => (
               <label className="oh-marketplace-confirm" key={requirement}>
                 <input
                   checked={confirmations.includes(requirement)}
@@ -677,6 +679,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
   const [pending, setPending] = useState(true)
   const [localError, setLocalError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  const [repositoryInput, setRepositoryInput] = useState('')
   const [statusFilter, setStatusFilter] = useState<
     'all' | 'installed' | 'available' | 'updates' | 'disabled'
   >('all')
@@ -696,6 +699,17 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
       setPending(false)
     }
   }, [bridge])
+
+  const prepareRepository = (): void => {
+    const input = repositoryInput.trim()
+    if (input === '') return
+    setSelectedId(null)
+    void run({
+      action: 'install',
+      sourceRef: { input, kind: 'repository' },
+      type: 'prepare',
+    })
+  }
 
   useEffect(() => {
     let alive = true
@@ -757,6 +771,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
     setStatusFilter('all')
     setCategoryFilter('all')
     setSelectedId(null)
+    setRepositoryInput('')
   }
 
   useEffect(() => {
@@ -847,6 +862,22 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
               />
             )}
           </div>
+          <div className="oh-marketplace-direct-source">
+            <Input
+              aria-label={t('direct-source.label')}
+              onChange={event => { setRepositoryInput(event.target.value) }}
+              placeholder={t('direct-source.placeholder')}
+              value={repositoryInput}
+            />
+            <Button
+              disabled={pending || repositoryInput.trim() === ''}
+              onClick={prepareRepository}
+              size="sm"
+              variant="outline"
+            >
+              {t('direct-source.submit')}
+            </Button>
+          </div>
           <div className="oh-marketplace-status-tabs" role="group" aria-label={t('installation-status')}>
             {([
               ['all', t('all')],
@@ -871,6 +902,13 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
             onChange={setCategoryFilter}
           />
         </div>
+        {snapshot?.candidate !== null && snapshot?.candidate !== undefined && (
+          <div className="oh-marketplace-direct-candidate" data-execution={snapshot.candidate.execution}>
+            <strong>{snapshot.candidate.identity.packageName}</strong>
+            <span>{snapshot.candidate.source.installSpec}</span>
+            <span>{snapshot.candidate.execution}</span>
+          </div>
+        )}
         <Scrollable className="oh-marketplace-main">
           {snapshot === null || pending && snapshot.catalog.length === 0 ? (
             <div className="oh-marketplace-empty">{t('loading-catalog')}</div>

@@ -92,12 +92,40 @@
   min-height: 0;
 }
 
-.oh-marketplace-toolbar {
+.oh-marketplace-direct-source {
   display: flex;
+  flex: 1 1 280px;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  min-width: 240px;
 }
+
+.oh-marketplace-direct-source > *:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.oh-marketplace-direct-candidate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-alias-border-secondary, rgb(0 0 0 / 12%));
+  border-radius: 6px;
+  color: var(--dsw-alias-label-secondary, #666);
+  font-size: 12px;
+}
+
+.oh-marketplace-direct-candidate strong {
+  color: var(--dsw-alias-label-primary, #222);
+}
+
+.oh-marketplace-direct-candidate span {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
 
 .oh-marketplace-search {
   display: flex;
