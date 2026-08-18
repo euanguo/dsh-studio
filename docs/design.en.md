@@ -99,6 +99,25 @@ the source and commit before entering an isolated preview. Only explicit
 application changes the current Profile. Agent-initiated installs use the
 same transaction and risk approval and cannot bypass the Loader.
 
+## Marketplace extension
+
+The marketplace accepts both catalog entries and public GitHub repository
+references. A Host resolver canonicalizes the reference, resolves an exact
+commit, validates `package.json`, `dsh.bundle.patch`, patch and entry files,
+peer compatibility, license, and lifecycle scripts, then emits one
+`MarketplaceCandidate` and normalized `github:owner/repo#<sha>` install spec.
+
+Only packages that declare the pinned DSH bundle contract are installable.
+`.dsh-plugin` and repository-plugin metadata remain diagnostic-only and cannot
+produce an apply-capable plan. Catalog and direct repository candidates share
+the existing isolated preview, approval, atomic Profile replacement, rollback,
+and Undo transaction. The UI and Agent consume the same Host approval decision.
+
+The mandatory static fixture is
+`JUSTMONIKA2022/dsh-sandbox-escalation-fix@19f2cb4cecc178313d2f54458badfc1bcb8bc816`.
+This repository is verified by source and isolated fixture tests only; this
+checkout does not install or run it.
+
 ## Security boundaries
 
 - Web binds to loopback by default; LAN exposure requires trusted authorities.

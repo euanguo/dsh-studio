@@ -37,6 +37,9 @@ export type MarketplaceMessage =
   | 'risk-reason.trusted-host-code'
   | 'risk-reason.source-change'
   | 'risk-reason.protected-plugin'
+  | 'risk-reason.unsupported-runtime'
+  | 'risk-reason.untrusted-source'
+  | 'risk-reason.incompatible-peer'
   | 'source-review'
   | 'source-review.first-use'
   | 'source-review.matched'
@@ -76,6 +79,9 @@ export type MarketplaceMessage =
   | 'apply-acknowledge'
   | 'cancel'
   | 'reset-and-reload'
+  | 'direct-source.label'
+  | 'direct-source.placeholder'
+  | 'direct-source.submit'
   | 'search.label'
   | 'search.placeholder'
   | 'search.clear'
@@ -132,6 +138,9 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'risk-reason.trusted-host-code': 'Runs as trusted host code after apply',
     'risk-reason.source-change': 'Source identity differs from the TOFU lock',
     'risk-reason.protected-plugin': 'Owned by the desktop transaction layer',
+     'risk-reason.unsupported-runtime': 'Not consumed by the pinned DSH runtime',
+     'risk-reason.untrusted-source': 'Direct source requires first-use approval',
+     'risk-reason.incompatible-peer': 'Declared DSH peer range is incompatible',
     'source-review': 'Source lock',
     'source-review.first-use': 'First use · lock after apply',
     'source-review.matched': 'Matches the stored TOFU identity',
@@ -171,7 +180,10 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'apply-acknowledge': 'I understand and acknowledge the recovery boundary above.',
     cancel: 'Cancel',
     'reset-and-reload': 'Reset and reload',
-    'search.label': 'Search plugins',
+    'direct-source.label': 'Public GitHub repository',
+     'direct-source.placeholder': 'owner/repo or https://github.com/owner/repo',
+     'direct-source.submit': 'Preview install',
+     'search.label': 'Search plugins',
     'search.placeholder': 'Search plugins, skills, and tags…',
     'search.clear': 'Clear plugin search',
     'installation-status': 'Installation status',
@@ -226,6 +238,9 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'risk-reason.trusted-host-code': '应用后会作为受信任主机代码运行',
     'risk-reason.source-change': '来源身份与 TOFU 锁不一致',
     'risk-reason.protected-plugin': '由桌面事务层自身管理',
+     'risk-reason.unsupported-runtime': '当前 pinned DSH runtime 不消费',
+     'risk-reason.untrusted-source': '直接来源首次使用需要确认',
+     'risk-reason.incompatible-peer': '声明的 DSH peer 版本不兼容',
     'source-review': '来源锁',
     'source-review.first-use': '首次使用 · 应用后写入锁',
     'source-review.matched': '与已保存的 TOFU 身份一致',
@@ -265,7 +280,10 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'apply-acknowledge': '我了解并同意上述恢复边界。',
     cancel: '取消',
     'reset-and-reload': '重置并重新加载',
-    'search.label': '搜索插件',
+    'direct-source.label': '公开 GitHub 仓库',
+     'direct-source.placeholder': 'owner/repo 或 https://github.com/owner/repo',
+     'direct-source.submit': '预览安装',
+     'search.label': '搜索插件',
     'search.placeholder': '搜索插件、技能和标签…',
     'search.clear': '清空插件搜索',
     'installation-status': '安装状态',

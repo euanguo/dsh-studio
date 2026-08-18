@@ -169,6 +169,7 @@ export function parseMarketplaceCatalog(
   if (rows === null) throw new Error('unsupported plugin catalog')
   const installedIds = new Set(installed.map(entry => entry.pluginId))
   const plugins: MarketplacePlugin[] = rows.map(row => ({
+      catalogSourceId: null,
       category: row.category,
       currentCommit: null,
       description: row.description,

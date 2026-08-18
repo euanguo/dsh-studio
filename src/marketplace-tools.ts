@@ -1,5 +1,6 @@
 import type {
   MarketplaceAction,
+  MarketplaceApprovalDecision,
   MarketplaceCommand,
   MarketplaceConfirmation,
   MarketplacePlugin,
@@ -93,6 +94,27 @@ function requireString(args: Record<string, unknown>, name: string): string {
   return value.trim()
 }
 
+function requireMarketplaceTarget(args: Record<string, unknown>): {
+  pluginId?: string
+  sourceRef?: { input: string; kind: 'repository' }
+} {
+  const pluginId = typeof args.pluginId === 'string' && args.pluginId.trim() !== ''
+    ? args.pluginId.trim()
+    : null
+  const input = typeof args.sourceRef === 'string' && args.sourceRef.trim() !== ''
+    ? args.sourceRef.trim()
+    : null
+  if (pluginId === null && input === null) {
+    throw new Error('pluginId or sourceRef must be provided')
+  }
+  if (pluginId !== null && input !== null) {
+    throw new Error('provide either pluginId or sourceRef, not both')
+  }
+  return pluginId === null
+    ? { sourceRef: { input: input as string, kind: 'repository' } }
+    : { pluginId }
+}
+
 function pluginView(plugin: MarketplacePlugin): Record<string, unknown> {
   return {
     category: plugin.category,
@@ -139,7 +161,12 @@ async function gateway(
     method: 'POST',
     signal: AbortSignal.timeout(35_000),
   })
-  const value = await response.json() as GatewayResponse
+  let value: GatewayResponse = {}
+  try {
+    value = await response.json() as GatewayResponse
+  } catch {
+    // Non-JSON response (e.g. abrupt network/gateway termination)
+  }
   if (!response.ok || value.error !== undefined) {
     throw new Error(value.error ?? `marketplace gateway failed with HTTP ${String(response.status)}`)
   }
@@ -195,18 +222,34 @@ export function mountMarketplaceAgentTools(
 ): void {
   const credentials = credentialsFromEnvironment(environment)
   if (credentials === null) return
+  let hostApproval: MarketplaceApprovalDecision | null = null
+  const readSnapshot = async (command?: MarketplaceCommand): Promise<MarketplaceSnapshot> => {
+    const info = await snapshot(credentials, command)
+    hostApproval = info.approval ?? null
+    return info
+  }
 
   ctx.on('tools/pre-execute', async (exec, next) => {
     if (exec.name === 'desktop_plugin_apply') {
+      if (hostApproval?.applyConfirmationRequired === false) {
+        return { kind: 'deny', reason: 'Host approval decision has no active preview.' }
+      }
       return {
         kind: 'ask',
-        reason: 'Apply the tested plugin preview to Oh-DSH-Desktop?',
+        reason: hostApproval === null
+          ? 'Apply the tested plugin preview to Oh-DSH-Desktop?'
+          : `Apply the ${hostApproval.action ?? 'prepared'} plugin preview after Host approval?`,
       }
     }
     if (exec.name === 'desktop_plugin_recover') {
+      if (hostApproval?.recoveryConfirmationRequired === false) {
+        return { kind: 'deny', reason: 'Host approval decision has no recoverable profile.' }
+      }
       return {
         kind: 'ask',
-        reason: 'Restore the previous Oh-DSH-Desktop plugin profile?',
+        reason: hostApproval === null
+          ? 'Restore the previous Oh-DSH-Desktop plugin profile?'
+          : 'Restore the previous Oh-DSH-Desktop plugin profile after Host approval?',
       }
     }
     return await next()
@@ -226,7 +269,7 @@ export function mountMarketplaceAgentTools(
       refresh: { type: 'boolean', description: 'Refresh the GitHub catalog before searching.' },
     },
     async execute(args) {
-      const info = await snapshot(credentials, args.refresh === true
+      const info = await readSnapshot( args.refresh === true
         ? { type: 'refresh', force: true }
         : undefined)
       const query = typeof args.query === 'string' ? args.query.trim().toLowerCase() : ''
@@ -252,7 +295,7 @@ export function mountMarketplaceAgentTools(
       pluginId: { type: 'string', description: 'Optional exact marketplace plugin id.' },
     },
     async execute(args) {
-      const info = await snapshot(credentials)
+      const info = await readSnapshot()
       const pluginId = typeof args.pluginId === 'string' ? args.pluginId.trim() : ''
       const plugins = info.catalog
         .filter(plugin => pluginId === '' || plugin.id === pluginId)
@@ -260,7 +303,10 @@ export function mountMarketplaceAgentTools(
       return result(
         pluginId === '' ? 'Desktop plugin lifecycle state.' : `Desktop plugin state for ${pluginId}.`,
         {
+          approval: info.approval,
+          candidate: info.candidate,
           lifecycle: info.lifecycle,
+          plan: info.plan,
           plugins,
           sourceLocks: info.sourceLocks.filter(lock => pluginId === '' || lock.pluginId === pluginId),
         },
@@ -277,17 +323,19 @@ export function mountMarketplaceAgentTools(
         required: true,
         enum: ['install', 'update', 'enable', 'disable', 'uninstall'],
       },
-      pluginId: { type: 'string', required: true, description: 'Exact marketplace plugin id.' },
+      pluginId: { type: 'string', description: 'Exact marketplace plugin id when using a catalog entry.' },
+       sourceRef: { type: 'string', description: 'Public GitHub owner/repo or https://github.com/owner/repo; catalog membership is not required.' },
     },
     async execute(args) {
-      const pluginId = requireString(args, 'pluginId')
+      const target = requireMarketplaceTarget(args)
       const action = requireString(args, 'action') as MarketplaceAction
-      const info = await snapshot(credentials, { type: 'prepare', action, pluginId })
+      const info = await readSnapshot({ type: 'prepare', action, ...target })
+       const label = target.pluginId ?? target.sourceRef?.input ?? 'the repository'
       return result(
         info.preview === null
-          ? `Review the ${action} plan for ${pluginId} before previewing.`
-          : `Isolated ${action} preview started for ${pluginId}.`,
-        { lifecycle: info.lifecycle, plan: info.plan },
+          ? `Review the ${action} plan for ${label} before previewing.`
+          : `Isolated ${action} preview started for ${label}.`,
+        { candidate: info.candidate, lifecycle: info.lifecycle, plan: info.plan },
       )
     },
   }))
@@ -309,10 +357,10 @@ export function mountMarketplaceAgentTools(
       const confirmations = Array.isArray(args.confirmations)
         ? args.confirmations as MarketplaceConfirmation[]
         : []
-      const info = await snapshot(credentials, { type: 'preview', confirmations })
+      const info = await readSnapshot( { type: 'preview', confirmations })
       return result(
         `Isolated preview started for ${info.preview?.pluginId ?? 'the prepared plugin'}.`,
-        { lifecycle: info.lifecycle, plan: info.plan },
+        { candidate: info.candidate, lifecycle: info.lifecycle, plan: info.plan },
       )
     },
   }))
@@ -322,7 +370,7 @@ export function mountMarketplaceAgentTools(
     description: 'Discard the active isolated plugin preview without changing the live desktop profile.',
     parameters: {},
     async execute() {
-      const info = await snapshot(credentials, { type: 'discard' })
+      const info = await readSnapshot( { type: 'discard' })
       return result('Discarded the isolated plugin preview.', info.lifecycle)
     },
   }))
