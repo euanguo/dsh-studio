@@ -872,13 +872,28 @@
 
 /* Any official Menu opened in portal mode (list portaled to document.body)
    must float above the sidebar's own fixed root (z-index 2147483647, the
-   maximum — needed to clear the DSH window-drag strip). The official card
-   only reaches 1100, so every portaled list would land UNDER the panel
-   otherwise. This is the single seam: every floating layer inside the panel
-   uses portal mode and inherits this rule, instead of being clipped by the
-   panel's overflow: hidden. */
+   maximum — needed to clear the DSH window-drag strip). */
 body > div[role='menu'] {
   z-index: 2147483647;
+  border-radius: var(--oh-dsh-radius-md, 8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+body > div[role='menu'] [role='menuitem']:not([aria-disabled='true']):not([disabled]),
+body > div[role='menu'] button:not(:disabled):not([aria-disabled='true']) {
+  cursor: pointer !important;
+  border-radius: var(--oh-dsh-radius-sm, 6px);
+  transition: background-color 100ms ease, color 100ms ease;
+}
+
+body > div[role='menu'] [role='menuitem']:not([aria-disabled='true']):not([disabled]):hover,
+body > div[role='menu'] button:not(:disabled):not([aria-disabled='true']):hover,
+body > div[role='menu'] [role='menuitem']:not([aria-disabled='true']):not([disabled]):focus-visible,
+body > div[role='menu'] div:hover > [role='menuitem']:not([aria-disabled='true']):not([disabled]),
+body > div[role='menu'] div[class*='itemWrap']:hover button:not(:disabled),
+body > div[role='menu'] div[class*='itemWrap']:hover [role='menuitem']:not([aria-disabled='true']):not([disabled]) {
+  background-color: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06)) !important;
+  color: var(--dsw-alias-label-primary, #1f2328) !important;
 }
 
 /* Center host crash boundary (kit/status ErrorView wrapper). */

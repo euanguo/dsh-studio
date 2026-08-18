@@ -407,40 +407,49 @@ function CenterAddMenu({
     }
   }, [open])
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
+  const currentSessionId = sessionList.current ?? ''
   const cwd = sessionList.current === undefined
     ? undefined
     : sessionList.byId[sessionList.current]?.cwd
+  const hasWorkspace = currentSessionId !== '' && typeof cwd === 'string' && cwd.trim() !== ''
   const items: MenuEntry[] = [
-    { id: 'browser', label: t('browser'), icon: <IconExternalLink size={14} /> },
-    { id: 'terminal', label: t('terminal'), icon: <IconTerminal size={14} /> },
+    {
+      id: 'browser',
+      label: t('browser'),
+      icon: <IconExternalLink size={14} />,
+      disabled: !hasWorkspace,
+    },
+    {
+      id: 'terminal',
+      label: t('terminal'),
+      icon: <IconTerminal size={14} />,
+      disabled: !hasWorkspace,
+    },
     { id: 'new-conversation', label: t('add.new-conversation'), icon: <IconPlus size={14} /> },
   ]
   const pick = (id: string): void => {
     setOpen(false)
     if (id === 'browser') {
+      if (!hasWorkspace || cwd === undefined) return
       if (altDown) {
         sidebar.openTab({ type: 'browser' })
         sidebar.setOpen(true)
         return
       }
-      if (cwd !== undefined) {
-        useCenterSurfaceStore.getState().openBrowser({ cwd, title: t('browser'), preview: false })
-      }
+      useCenterSurfaceStore.getState().openBrowser({ cwd, title: t('browser'), preview: false })
       return
     }
     if (id === 'terminal') {
+      if (!hasWorkspace || cwd === undefined) return
       if (altDown) {
         sidebar.openTab({ type: 'terminal' })
         sidebar.setOpen(true)
         return
       }
-      if (cwd !== undefined) {
-        if (sessionList.current === undefined) return
-         const scope = { sessionId: sessionList.current, cwd: cwd! }
-         if (!canOpenTerminalInstance(scope)) return
-         const surface = useCenterSurfaceStore.getState().openTerminal({ cwd: cwd!, title: t('terminal') })
-         touchTerminalInstance(scope, surface.id)
-      }
+      const scope = { sessionId: currentSessionId, cwd }
+      if (!canOpenTerminalInstance(scope)) return
+      const surface = useCenterSurfaceStore.getState().openTerminal({ cwd, title: t('terminal') })
+      touchTerminalInstance(scope, surface.id)
       return
     }
     // New conversation: a fresh blank session in the center (same as the
