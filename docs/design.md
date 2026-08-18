@@ -93,6 +93,13 @@ stateDiagram-v2
 只有显式应用才会改变当前 Profile。Agent 发起安装时也必须经过相同的事务和
 风险确认，不能绕过 Loader。
 
+## Marketplace 扩展交接
+
+后续的多来源 catalog、直接公开仓库检查、bundle-only 安装、隔离预览和
+`dsh-sandbox-escalation-fix` 强制验收，见[插件市场扩展实施规划](./plugin-marketplace-expansion-plan.md)
+和[插件市场改造交接文档](./plugin-marketplace-handoff.md)。这两份文档定义
+实现顺序、source/candidate seam、当前 pinned DSH 的死路径和接手验收矩阵。
+
 ## 安全边界
 
 - Web 默认只监听 loopback；对局域网开放时必须配置可信 authority。
