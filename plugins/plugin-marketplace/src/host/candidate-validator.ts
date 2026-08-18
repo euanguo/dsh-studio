@@ -157,19 +157,31 @@ function invalidScripts(manifest: PackageManifest): string[] {
     && typeof (manifest.scripts as Record<string, unknown>)[name] !== 'string')
 }
 
-function collectExportPaths(value: unknown, targets: Set<string>): void {
+function collectExportPaths(value: unknown, targets: Set<string>, condition?: string): void {
   if (typeof value === 'string') {
-    if (!value.includes('*') && value.trim() !== '') {
+    if (condition !== 'types' && condition !== 'typings'
+      && !value.includes('*') && value.trim() !== '') {
       targets.add(value)
     }
     return
   }
   if (Array.isArray(value)) {
-    value.forEach(entry => { collectExportPaths(entry, targets) })
+    value.forEach(entry => { collectExportPaths(entry, targets, condition) })
     return
   }
   if (!isRecord(value)) return
-  Object.values(value).forEach(entry => { collectExportPaths(entry, targets) })
+  Object.entries(value).forEach(([key, entry]) => {
+    collectExportPaths(entry, targets, key)
+  })
+}
+
+function generatedEntrySources(target: string): string[] {
+  const normalized = target.startsWith('./') ? target.slice(2) : target
+  const match = /^(?:lib|dist)\/(.+)\.(?:mjs|cjs|js)$/.exec(normalized)
+  if (match === null) return []
+  const stem = match[1] ?? ''
+  return ['.ts', '.mts', '.tsx', '.js', '.mjs', '.cjs']
+    .map(extension => `src/${stem}${extension}`)
 }
 
 function entryTargets(manifest: PackageManifest): string[] {
@@ -476,6 +488,11 @@ export async function validateRepositoryCandidate(
     throw new CandidateValidationError('missing-patch', `${patchPathValue} is missing at ${input.resolvedCommit}`)
   }
   parsePatch(patchText, patchPathValue)
+  const diagnostics: string[] = []
+  const blockingDiagnostics = invalidScripts(manifest).map(name =>
+    `${name} lifecycle entry must be a string`)
+  diagnostics.push(...blockingDiagnostics)
+  const lifecycle = scripts(manifest)
   const targets = entryTargets(manifest)
   const files = new Map<string, string>([
     [manifestPath, manifestText],
@@ -487,19 +504,37 @@ export async function validateRepositoryCandidate(
       throw new CandidateValidationError('invalid-entry-path', `${target} is not a safe package-relative path`)
     }
     const targetText = await input.readFile(input.source.repository, targetPath, input.resolvedCommit)
-    if (targetText === null) {
+    if (targetText !== null) {
+      files.set(targetPath, targetText)
+      continue
+    }
+    if (lifecycle.prepare === undefined) {
       throw new CandidateValidationError('missing-entry', `${targetPath} is missing at ${input.resolvedCommit}`)
     }
-    files.set(targetPath, targetText)
+    let generatedSource: string | null = null
+    for (const sourceTarget of generatedEntrySources(target)) {
+      const sourcePath = packageRootPath(input.source, sourceTarget)
+      const sourceText = await input.readFile(input.source.repository, sourcePath, input.resolvedCommit)
+      if (sourceText !== null) {
+        files.set(sourcePath, sourceText)
+        generatedSource = sourcePath
+        break
+      }
+    }
+    if (generatedSource === null) {
+      throw new CandidateValidationError('missing-entry', `${targetPath} is missing at ${input.resolvedCommit}`)
+    }
+    diagnostics.push(`${targetPath} will be materialized by prepare from ${generatedSource}`)
   }
   const license = licenseValue(manifest.license)
   const version = typeof manifest.version === 'string' && SEMVER.test(manifest.version)
     ? manifest.version
     : null
   const compatibility = dshPeerCompatibility(manifest, input.dshVersion ?? null)
-  const diagnostics: string[] = invalidScripts(manifest).map(name =>
-    `${name} lifecycle entry must be a string`)
-  const execution = executionFor(diagnostics, input.source, compatibility, version, license, targets)
+  const execution = executionFor(blockingDiagnostics, input.source, compatibility, version, license, targets)
+  for (const diagnostic of blockingDiagnostics) {
+    if (!diagnostics.includes(diagnostic)) diagnostics.push(diagnostic)
+  }
   const artifact = artifactDigest(files)
   const metadata = extractMetadata(manifest)
   const candidate: MarketplaceCandidate = {
