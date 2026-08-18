@@ -13,6 +13,7 @@ import {
 } from '@react-symbols/icons/utils'
 import {
   IconAdjustments as TbAdjustments,
+  IconApps as TbApps,
   IconArchive as TbArchive,
   IconCheck as TbCheck,
   IconChevronDown as TbChevronDown,
@@ -114,6 +115,7 @@ export const IconDots = tabler(TbDots)
 export const IconEdit = tabler(TbEdit)
 export const IconSearch = tabler(TbSearch)
 export const IconArchive = tabler(TbArchive)
+export const IconApps = tabler(TbApps)
 export const IconAdjustments = tabler(TbAdjustments)
 export const IconTriangle = tabler(TbTriangle)
 export const IconFolderPlus = tabler(TbFolderPlus)

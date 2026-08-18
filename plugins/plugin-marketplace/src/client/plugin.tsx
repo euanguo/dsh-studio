@@ -14,7 +14,6 @@ import { localeTag } from '@oh-dsh/shared/i18n'
 import { useTranslate } from '@oh-dsh/shared/use-i18n'
 import {
   Button,
-  IconCordisPluginOutline14,
   Input,
   Menu,
   Modal,
@@ -22,7 +21,12 @@ import {
   RiskConfirmation,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import { IconChevronDown, IconClose, IconSearch } from '@oh-dsh/shared/tabler-icons'
+import {
+  IconApps,
+  IconChevronDown,
+  IconClose,
+  IconSearch,
+} from '@oh-dsh/shared/tabler-icons'
 import type {
   MarketplaceCommand,
   MarketplaceConfirmation,
@@ -180,7 +184,7 @@ function MarketplaceNavigationEntry({
       onClick={() => { view.toggle() }}
       type="button"
     >
-      <IconCordisPluginOutline14 size={16} />
+      <IconApps size={16} />
       {wide && <span>{label}</span>}
     </button>
   )
