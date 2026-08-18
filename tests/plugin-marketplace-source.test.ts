@@ -253,6 +253,12 @@ test('protocol accepts a direct sourceRef while retaining pluginId compatibility
     type: 'prepare',
     action: 'install',
   }), /pluginId or sourceRef/)
+  assert.throws(() => parseMarketplaceCommand({
+    type: 'prepare',
+    action: 'install',
+    pluginId: 'different-plugin',
+    sourceRef: { kind: 'repository', input: `https://github.com/${FIXTURE_REPOSITORY}` },
+  }), /must not provide a separate pluginId/)
 })
 
 test('pinned DSH source statically proves bundle-only profile composition', () => {
@@ -333,6 +339,42 @@ test('candidate validator extracts rich author, display name, homepage, and keyw
   assert.equal(candidate.evidence.metadata?.author, 'Alice Developer')
   assert.equal(candidate.evidence.metadata?.homepage, 'https://example.test/rich')
   assert.deepEqual(candidate.evidence.metadata?.keywords, ['curated', 'ai', 'search', 'dsh'])
+})
+
+test('source fixture with prepare-generated lib entries is admitted for isolated build', async () => {
+  const adapter = new FixtureRepositoryAdapter()
+  const manifest = JSON.stringify({
+    name: 'dsh-sandbox-escalation-fix',
+    version: '0.1.0',
+    license: 'MIT',
+    main: 'lib/index.mjs',
+    exports: {
+      '.': {
+        types: './lib/index.d.mts',
+        default: './lib/index.mjs',
+      },
+    },
+    peerDependencies: {
+      '@deepseek-ai/dsh-agent': '>=0.1.0-rc.5 <0.1.0-rc.8',
+    },
+    scripts: {
+      build: 'node node_modules/tsdown/dist/run.mjs',
+      prepare: 'node node_modules/tsdown/dist/run.mjs',
+    },
+    dsh: { bundle: { patch: './cordis.patch.yml' } },
+  })
+  adapter.files.set(`${FIXTURE_REPOSITORY}:package.json`, manifest)
+  adapter.files.set(`${FIXTURE_REPOSITORY}:cordis.patch.yml`, '- insert:\n    - id: sandbox-escalation-fix\n      name: dsh-sandbox-escalation-fix\n')
+  adapter.files.set(`${FIXTURE_REPOSITORY}:src/index.ts`, FIXTURE_ENTRY)
+  adapter.files.delete(`${FIXTURE_REPOSITORY}:lib/index.mjs`)
+  const candidate = await resolver(adapter).resolveRepository({
+    input: `https://github.com/${FIXTURE_REPOSITORY}`,
+    kind: 'repository',
+  })
+  assert.equal(candidate.execution, 'installable')
+  assert.deepEqual(candidate.manifest.entryTargets, ['lib/index.mjs'])
+  assert.ok(candidate.diagnostics.some(diagnostic => diagnostic.includes('prepare')))
+  assert.ok(candidate.evidence.filesPresent.includes('src/index.ts'))
 })
 
 test('source resolver canonicalizes github: and @ branch references', () => {

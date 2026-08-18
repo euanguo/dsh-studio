@@ -7,6 +7,7 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeFileSync,
@@ -281,6 +282,21 @@ function ensureWithin(parent: string, candidate: string): void {
   const target = resolve(candidate)
   if (target !== root && !target.startsWith(root + sep)) {
     throw new Error(`refusing filesystem operation outside ${root}: ${target}`)
+  }
+}
+
+function assertBundleEntryFiles(checkout: string, targets: readonly string[]): void {
+  const canonicalCheckout = realpathSync(checkout)
+  for (const target of targets) {
+    const entry = resolve(checkout, target)
+    ensureWithin(checkout, entry)
+    if (!existsSync(entry)) {
+      throw new Error(`bundle entry ${target} was not materialized in the exact checkout`)
+    }
+    if (!lstatSync(entry).isFile()) {
+      throw new Error(`bundle entry ${target} is not a regular file in the exact checkout`)
+    }
+    ensureWithin(canonicalCheckout, realpathSync(entry))
   }
 }
 
@@ -812,12 +828,14 @@ export class PluginMarketplaceManager {
               scripts: scriptNames,
             })
             renameSync(cloneTarget, checkout)
+            assertBundleEntryFiles(checkout, plan.entryTargets)
           }
           await this.#options.platform.runDsh({
             args: ['plugin', '--profile', this.#options.profile, 'add', checkout],
             dshHome: candidateHome,
             sandboxRoot: root,
           })
+          if (scriptNames.length === 0) assertBundleEntryFiles(checkout, plan.entryTargets)
           const manifest = readJson(join(candidateProfile, 'package.json'))
           if (!isRecord(manifest) || !isRecord(manifest.dependencies)
             || typeof manifest.dependencies[plan.packageName] !== 'string') {

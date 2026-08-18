@@ -92,6 +92,7 @@ class FakePlatform implements MarketplacePlatform {
   latestCommit = COMMIT
   bundleName = '@example/bundle-demo'
   bundleDescription = 'Bundle demo manifest'
+  materializeEntry = true
 
   async authStatus(): Promise<MarketplaceAuthResult> {
     return { detail: 'test auth', status: 'ready' }
@@ -107,6 +108,7 @@ class FakePlatform implements MarketplacePlatform {
 
   async cloneRepository(_repository: string, _commit: string, target: string): Promise<void> {
     mkdirSync(target, { recursive: true })
+    if (this.materializeEntry) writeFileSync(join(target, 'index.js'), 'export function apply() {}\n')
   }
 
   async loadCatalog(options: LoadCatalogOptions = {}): Promise<unknown> {
@@ -1017,6 +1019,29 @@ test('direct public repository input enters the same plan and isolated preview w
     assert.equal(snapshot.error, null)
     assert.equal(snapshot.preview?.pluginId, 'bundle-demo')
     assert.equal(readFileSync(join(setup.profileDir, 'package.json'), 'utf8').includes('@example/bundle-demo'), false)
+  } finally {
+    setup.cleanup()
+  }
+})
+
+test('preview rejects a prepared bundle when its declared entry is still absent', async () => {
+  const setup = fixture()
+  try {
+    setup.platform.materializeEntry = false
+    await setup.manager.dispatch({ type: 'refresh' })
+    let snapshot = await setup.manager.dispatch({
+      type: 'prepare',
+      action: 'install',
+      pluginId: 'bundle-demo',
+    })
+    assert.equal(snapshot.error, null)
+    snapshot = await setup.manager.dispatch({
+      type: 'preview',
+      confirmations: ['allow-build-scripts'],
+    })
+    assert.match(snapshot.error ?? '', /bundle entry .* was not materialized/)
+    assert.equal(snapshot.preview, null)
+    assert.equal(setup.runtime.previewStarts.length, 0)
   } finally {
     setup.cleanup()
   }
