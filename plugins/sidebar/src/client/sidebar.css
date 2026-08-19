@@ -416,7 +416,8 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 .oh-dsh-commit-error { color: var(--dsw-alias-label-error, #b42318); }
 .oh-dsh-commit-area small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--oh-dsh-font-xs); }
 .oh-dsh-sidebar-settings-ai { display: grid; gap: var(--oh-dsh-space-2); }
-.oh-dsh-sidebar-settings-ai-heading { display: flex; align-items: center; justify-content: space-between; }
+.oh-dsh-sidebar-settings-popup-body .oh-dsh-sidebar-settings-ai .oh-dsh-sidebar-settings-grid { grid-template-columns: minmax(0, 1fr); }
+.oh-dsh-sidebar-settings-ai-toolbar { display: flex; justify-content: flex-end; margin-bottom: calc(-1 * var(--oh-dsh-space-2)); }
 .oh-dsh-sidebar-settings-menu-anchor { display: inline-flex; min-width: 0; position: relative; }
 .oh-dsh-sidebar-settings-menu-anchor > button { max-width: 260px; }
 .oh-dsh-sidebar-settings-menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

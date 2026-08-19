@@ -35,7 +35,7 @@ import {
   SIDEBAR_MIN_WIDTH,
 } from '../sidebar-preferences.ts'
 import { ErrorView } from './kit/status.tsx'
-import { SourceControlAiSettingsSection } from './source-control/source-control-ai-settings.tsx'
+import { SourceControlAiSettingsPanel } from './source-control/source-control-ai-settings.tsx'
 
 export function sidebarLabel(value: string | (() => string)): string {
   return typeof value === 'function' ? value() : value
@@ -317,6 +317,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
   const [settingsFor, setSettingsFor] = useState<
     SidebarTabDescriptor | SidebarViewerDescriptor | null
   >(null)
+  const [sourceControlAiSettingsOpen, setSourceControlAiSettingsOpen] = useState(false)
   const tabs = props.sidebar.getTabs().filter(descriptor => descriptor.hidden !== true)
   const viewers = props.sidebar.getViewers()
   const updateRuntime = (
@@ -424,7 +425,23 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           />
         )}
       </section>
-      <SourceControlAiSettingsSection t={props.t} />
+      <section>
+        <div className="oh-dsh-sidebar-settings-grid">
+          <div className="oh-dsh-sidebar-settings-row">
+            <span className="oh-dsh-sidebar-settings-copy">
+              <strong>{props.t('source-control-ai.title')}</strong>
+              <p>{props.t('source-control-ai.description')}</p>
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setSourceControlAiSettingsOpen(true) }}
+            >
+              {props.t('settings.feature-settings')}
+            </Button>
+          </div>
+        </div>
+      </section>
       <section>
         <div className="oh-dsh-sidebar-settings-copy oh-dsh-sidebar-settings-section-head">
           <strong>{props.t('settings.tools')}</strong>
@@ -466,6 +483,24 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         </div>
       </section>
       {popup}
+      <Modal
+        open={sourceControlAiSettingsOpen}
+        onClose={() => { setSourceControlAiSettingsOpen(false) }}
+        title={props.t('source-control-ai.title')}
+        description={props.t('source-control-ai.description')}
+        closeLabel={props.t('settings.done')}
+        className="oh-dsh-sidebar-settings-popup"
+        contentClassName="oh-dsh-sidebar-settings-popup-content"
+        footer={(
+          <Button variant="primary" size="sm" onClick={() => { setSourceControlAiSettingsOpen(false) }}>
+            {props.t('settings.done')}
+          </Button>
+        )}
+      >
+        <div className="oh-dsh-sidebar-settings-popup-body">
+          <SourceControlAiSettingsPanel t={props.t} />
+        </div>
+      </Modal>
     </div>
   )
 }

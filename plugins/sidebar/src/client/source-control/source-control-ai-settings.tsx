@@ -33,8 +33,8 @@ const DEFAULT_TEMPLATE = [
 
 type OpenMenu = 'model' | 'reasoning' | null
 
-/** Source Control AI settings embedded in the sidebar settings section. */
-export function SourceControlAiSettingsSection(props: Props): JSX.Element {
+/** Source Control AI form rendered inside the sidebar Settings modal. */
+export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
   const [settings, setSettings] = useState<SourceControlAiSettingsValue>({ enabled: true, promptTemplate: DEFAULT_TEMPLATE })
   const [models, setModels] = useState<SidebarSourceControlAiModel[]>([])
   const [fallback, setFallback] = useState<{ provider?: string; model?: string; reasoningEffort?: string }>({})
@@ -139,21 +139,17 @@ export function SourceControlAiSettingsSection(props: Props): JSX.Element {
 
   if (loading) return <div className="oh-dsh-sidebar-settings-ai">{props.t('source-control-ai.loading')}</div>
   return (
-    <section className="oh-dsh-sidebar-settings-ai">
-      <div className="oh-dsh-sidebar-settings-copy oh-dsh-sidebar-settings-section-head">
-        <div className="oh-dsh-sidebar-settings-ai-heading">
-          <strong>{props.t('source-control-ai.title')}</strong>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { void load() }}
-            title={props.t('source-control-ai.refresh')}
-            aria-label={props.t('source-control-ai.refresh')}
-          >
-            <IconRefresh size={15} />
-          </Button>
-        </div>
-        <p>{props.t('source-control-ai.description')}</p>
+    <div className="oh-dsh-sidebar-settings-ai">
+      <div className="oh-dsh-sidebar-settings-ai-toolbar">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => { void load() }}
+          title={props.t('source-control-ai.refresh')}
+          aria-label={props.t('source-control-ai.refresh')}
+        >
+          <IconRefresh size={15} />
+        </Button>
       </div>
       <div className="oh-dsh-sidebar-settings-grid">
         <label className="oh-dsh-sidebar-settings-row" title={props.t('source-control-ai.enabled')}>
@@ -258,6 +254,6 @@ export function SourceControlAiSettingsSection(props: Props): JSX.Element {
         </Button>
         {status !== null && <small>{status}</small>}
       </div>
-    </section>
+    </div>
   )
 }
