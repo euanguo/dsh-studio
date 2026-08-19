@@ -22,9 +22,10 @@ const MAX_STORE_BYTES = 32 * 1024 * 1024
 
 export interface TerminalSessionRecord {
   key: string
-  sessionId: string
-  tabId: string
+  /** The project cwd owning this terminal (project-shared PTY). */
   cwd: string
+  tabId: string
+  spawnCwd: string
   incarnationId: string
   rawHistory: string
   replayHistory: string
@@ -52,9 +53,9 @@ export interface TerminalSessionStoreOptions {
 }
 
 export interface TerminalSessionRestoreInput {
-  sessionId: string
-  tabId: string
   cwd: string
+  tabId: string
+  spawnCwd: string
   cols: number
   rows: number
 }
@@ -131,7 +132,7 @@ export class TerminalSessionStore {
 
   /** Restore or create one identity. A tombstoned key always receives a new incarnation. */
   ensure(input: TerminalSessionRestoreInput): TerminalSessionRecord {
-    const key = terminalSessionKey(input.sessionId, input.tabId)
+    const key = terminalSessionKey(input.cwd, input.tabId)
     const existing = this.records.get(key)
     if (existing !== undefined && existing.cwd === input.cwd) {
       existing.status = 'running'
@@ -145,9 +146,9 @@ export class TerminalSessionStore {
 
     const record: TerminalSessionRecord = {
       key,
-      sessionId: input.sessionId,
-      tabId: input.tabId,
       cwd: input.cwd,
+      tabId: input.tabId,
+      spawnCwd: input.spawnCwd,
       incarnationId: randomUUID(),
       rawHistory: existing?.rawHistory ?? '',
       replayHistory: existing?.replayHistory ?? '',
@@ -418,9 +419,9 @@ function isRecordValid(value: unknown): value is TerminalSessionRecord {
   if (value === null || typeof value !== 'object') return false
   const record = value as Partial<TerminalSessionRecord>
   return typeof record.key === 'string'
-    && typeof record.sessionId === 'string'
-    && typeof record.tabId === 'string'
     && typeof record.cwd === 'string'
+    && typeof record.tabId === 'string'
+    && typeof record.spawnCwd === 'string'
     && typeof record.incarnationId === 'string'
     && typeof record.rawHistory === 'string'
     && typeof record.replayHistory === 'string'

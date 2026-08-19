@@ -57,9 +57,10 @@ export function ensureSpawnHelper(): void {
 
 /** One live terminal. */
 export interface SidebarPty {
-  /** `${sessionId}:${tabId}` registry key. */
+  /** `${cwd}:${tabId}` registry key — the terminal is PROJECT-scoped. */
   key: string
-  sessionId: string
+  /** The project cwd owning this terminal (project-shared PTY). */
+  cwd: string
   tabId: string
   /** Incarnation token fences stale socket close/reconnect races. */
   incarnationId: string
@@ -67,7 +68,7 @@ export interface SidebarPty {
    *  resolves a different authoritative cwd respawns instead of reusing —
    *  the page-load hydrate race can attach the real cwd after the first
    *  connect, and a shell in the wrong directory must not linger). */
-  cwd: string
+  spawnCwd: string
   pty: nodePty.IPty
   /** Replay-safe append-optimized scrollback history buffer. */
   history: TerminalHistoryBuffer
@@ -89,8 +90,9 @@ export interface SidebarPty {
 }
 
 /**
- * The terminal registry. `maxPerSession` bounds concurrent processes per
- * conversation (the client caps tabs at the same number).
+ * The terminal registry. `maxPerProject` bounds concurrent processes per
+ * project (B1: terminals are project-shared, so the cap is per cwd, not per
+ * conversation — the client caps tabs at the same number).
  */
 export interface PtyManagerOptions {
   getPolicy?: () => TerminalRuntimePolicy
@@ -102,7 +104,7 @@ export class PtyManager {
   private readonly pendingCloses = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly killEscalations = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly getShell: () => string
-  private readonly maxPerSession: number
+  private readonly maxPerProject: number
   private readonly getPolicy: () => TerminalRuntimePolicy
   private readonly store: TerminalSessionStore
 
@@ -111,15 +113,15 @@ export class PtyManager {
    *   value): a later terminalShell preference change takes effect for NEW
    *   terminals while already-open processes keep their shell, matching the
    *   upstream "new terminals only" contract.
-   * @param maxPerSession - concurrent process bound per conversation.
+   * @param maxPerProject - concurrent process bound per project cwd.
    */
   constructor(
     getShell: () => string,
-    maxPerSession: number,
+    maxPerProject: number,
     options: PtyManagerOptions = {},
   ) {
     this.getShell = getShell
-    this.maxPerSession = maxPerSession
+    this.maxPerProject = maxPerProject
     this.getPolicy = options.getPolicy ?? (() => DEFAULT_TERMINAL_RUNTIME_POLICY)
     this.store = options.store ?? new TerminalSessionStore({
       maxRetainedInactiveSessions: () => this.getPolicy().retainedInactiveSessions,
@@ -130,53 +132,53 @@ export class PtyManager {
     })
   }
 
-  /** All live terminal keys of one session. */
-  keysOf(sessionId: string): string[] {
+  /** All live terminal keys of one project (cwd). */
+  keysOf(cwd: string): string[] {
     const keys: string[] = []
     for (const handle of this.sessions.values()) {
-      if (handle.sessionId === sessionId) keys.push(handle.key)
+      if (handle.cwd === cwd) keys.push(handle.key)
     }
     return keys
   }
 
   /**
-   * Open (or reuse) the terminal for a session/tab key. A handle whose
+   * Open (or reuse) the terminal for a project/tab key. A handle whose
    * process already exited is replaced with a fresh spawn (reconnecting a
    * dead terminal must yield a live shell, not an input sink), and so is a
    * live handle whose spawn cwd differs from the now-authoritative one (the
-   * first connect of a page load can arrive before the session hydrates, so
+   * first connect of a page load can arrive before the project hydrates, so
    * it fell back to the process cwd — reconnecting with the real cwd must
    * restart the shell in the right directory). Reopening also cancels any
    * pending scheduled close (a reconnect within the grace window keeps the
    * process alive).
-   * @param sessionId - conversation id.
+   * @param cwd - the project working directory (the terminal's owner).
    * @param tabId - client tab id.
-   * @param cwd - initial working directory (the session's cwd).
+   * @param spawnCwd - initial working directory of the shell.
    * @param cols - initial terminal width.
    * @param rows - initial terminal height.
    * @returns the live handle.
-   * @throws {SidebarError} pty-error when the per-session cap is reached.
+   * @throws {SidebarError} pty-error when the per-project cap is reached.
    */
-  open(sessionId: string, tabId: string, cwd: string, cols: number, rows: number): SidebarPty {
-    const key = terminalSessionKey(sessionId, tabId)
+  open(cwd: string, tabId: string, spawnCwd: string, cols: number, rows: number): SidebarPty {
+    const key = terminalSessionKey(cwd, tabId)
     this.cancelClose(key)
     const existing = this.sessions.get(key)
-    if (existing !== undefined && !existing.exited && existing.cwd === cwd) {
-      this.store.ensure({ sessionId, tabId, cwd, cols, rows })
+    if (existing !== undefined && !existing.exited && existing.spawnCwd === spawnCwd) {
+      this.store.ensure({ cwd, tabId, spawnCwd, cols, rows })
       return existing
     }
     if (existing !== undefined) this.close(key)
-    // Zombie cleanup: a session's exited handles (shell closed, tab dropped
+    // Zombie cleanup: a project's exited handles (shell closed, tab dropped
     // on an old host without the close frame) must not eat the quota.
     for (const [candidate, handle] of [...this.sessions]) {
-      if (handle.sessionId === sessionId && handle.exited) this.close(candidate)
+      if (handle.cwd === cwd && handle.exited) this.close(candidate)
     }
-    if (this.keysOf(sessionId).length >= this.maxPerSession) {
-      throw new SidebarError('pty-error', `terminal limit reached (${this.maxPerSession}) for this session`, 400)
+    if (this.keysOf(cwd).length >= this.maxPerProject) {
+      throw new SidebarError('pty-error', `terminal limit reached (${this.maxPerProject}) for this project`, 400)
     }
     const policy = this.getPolicy()
     const limits = terminalHistoryLimitsForRows(policy.scrollbackRows)
-    const restored = this.store.ensure({ sessionId, tabId, cwd, cols, rows })
+    const restored = this.store.ensure({ cwd, tabId, spawnCwd, cols, rows })
     const history = TerminalHistoryBuffer.fromString(restored.rawHistory, limits)
     const replayHistory = TerminalHistoryBuffer.fromString(restored.replayHistory, limits)
     const replaySanitizer = new TerminalHistorySanitizer()
@@ -193,15 +195,15 @@ export class PtyManager {
     }
     const handle: SidebarPty = {
       key,
-      sessionId,
+      cwd,
       tabId,
       incarnationId: restored.incarnationId,
-      cwd,
+      spawnCwd,
       pty: spawnTerminalPty({
         shell: this.getShell(),
         cols,
         rows,
-        cwd,
+        cwd: spawnCwd,
       }),
       history,
       replayHistory,
@@ -272,8 +274,8 @@ export class PtyManager {
     }
   }
 
-  /** Resolve retained inactive session metadata for management routes. */
-  retained(sessionId: string): Array<{
+  /** Resolve retained inactive project metadata for management routes. */
+  retained(cwd: string): Array<{
     tabId: string
     cwd: string
     incarnationId: string
@@ -281,7 +283,7 @@ export class PtyManager {
     historyBytes: number
   }> {
     return this.store.listInactive()
-      .filter(record => record.sessionId === sessionId)
+      .filter(record => record.cwd === cwd)
       .map(record => ({
         tabId: record.tabId,
         cwd: record.cwd,
@@ -291,9 +293,9 @@ export class PtyManager {
       }))
   }
 
-  /** Delete one retained session without affecting a live PTY. */
-  clearRetained(sessionId: string, tabId: string): void {
-    const key = terminalSessionKey(sessionId, tabId)
+  /** Delete one retained project terminal without affecting a live PTY. */
+  clearRetained(cwd: string, tabId: string): void {
+    const key = terminalSessionKey(cwd, tabId)
     if (this.sessions.has(key)) {
       throw new SidebarError('bad-request', 'cannot clear a running terminal; close it first', 409)
     }
@@ -301,8 +303,8 @@ export class PtyManager {
   }
 
   /** Stop and respawn a shell while retaining the durable history projection. */
-  restart(sessionId: string, tabId: string, cwd: string, cols: number, rows: number): SidebarPty {
-    const key = terminalSessionKey(sessionId, tabId)
+  restart(cwd: string, tabId: string, spawnCwd: string, cols: number, rows: number): SidebarPty {
+    const key = terminalSessionKey(cwd, tabId)
     const existing = this.sessions.get(key)
     if (existing !== undefined) {
       this.cancelClose(key)
@@ -319,7 +321,7 @@ export class PtyManager {
       })
       try { this.terminateProcessTree(existing) } catch { /* already gone */ }
     }
-    return this.open(sessionId, tabId, cwd, cols, rows)
+    return this.open(cwd, tabId, spawnCwd, cols, rows)
   }
 
   private clearKillEscalation(key: string): void {

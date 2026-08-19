@@ -14,9 +14,9 @@ test('terminal session store restores history and rotates atomic snapshots', asy
   try {
     const store = new TerminalSessionStore({ root, persistIdleMs: 1, persistMaxIntervalMs: 10 })
     const record = store.ensure({
-      sessionId: 'session-a',
+      cwd: 'session-a',
       tabId: 'terminal:1',
-      cwd: '/tmp/workspace',
+      spawnCwd: '/tmp/workspace',
       cols: 80,
       rows: 24,
     })
@@ -32,9 +32,9 @@ test('terminal session store restores history and rotates atomic snapshots', asy
 
     const restored = new TerminalSessionStore({ root })
     const next = restored.ensure({
-      sessionId: 'session-a',
+      cwd: 'session-a',
       tabId: 'terminal:1',
-      cwd: '/tmp/workspace',
+      spawnCwd: '/tmp/workspace',
       cols: 100,
       rows: 40,
     })
@@ -52,9 +52,9 @@ test('explicit close tombstones the incarnation and a reopen mints a new one', a
   const root = mkdtempSync(join(tmpdir(), 'oh-dsh-terminal-store-'))
   try {
     const store = new TerminalSessionStore({ root })
-    const first = store.ensure({ sessionId: 's', tabId: 't', cwd: '/tmp', cols: 80, rows: 24 })
+    const first = store.ensure({ cwd: 's', tabId: 't', spawnCwd: '/tmp', cols: 80, rows: 24 })
     store.close(terminalSessionKey('s', 't'), first.incarnationId)
-    const second = store.ensure({ sessionId: 's', tabId: 't', cwd: '/tmp', cols: 80, rows: 24 })
+    const second = store.ensure({ cwd: 's', tabId: 't', spawnCwd: '/tmp', cols: 80, rows: 24 })
     assert.notEqual(second.incarnationId, first.incarnationId)
     await store.flush()
   } finally {
@@ -71,11 +71,11 @@ test('inactive sessions are evicted oldest-first at the configured limit', () =>
       maxRetainedInactiveSessions: 1,
       now: () => now,
     })
-    const first = store.ensure({ sessionId: 's', tabId: 'one', cwd: '/tmp', cols: 80, rows: 24 })
+    const first = store.ensure({ cwd: 's', tabId: 'one', spawnCwd: '/tmp', cols: 80, rows: 24 })
     now += 1
     store.markInactive(first.key)
     now += 1
-    const second = store.ensure({ sessionId: 's', tabId: 'two', cwd: '/tmp', cols: 80, rows: 24 })
+    const second = store.ensure({ cwd: 's', tabId: 'two', spawnCwd: '/tmp', cols: 80, rows: 24 })
     store.markInactive(second.key)
     assert.equal(store.get(first.key), undefined)
     assert.equal(store.get(second.key)?.status, 'inactive')
