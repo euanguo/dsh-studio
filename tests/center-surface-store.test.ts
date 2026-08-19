@@ -7,6 +7,7 @@ import { test } from 'node:test'
 import {
   useCenterSurfaceStore,
 } from '../plugins/sidebar/src/client/surfaces/center-surface-store.ts'
+import { currentConversationSyncAction } from '../plugins/sidebar/src/client/surfaces/center-surface-sync.ts'
 import {
   conversationSurfaceId,
   isPreviewSurface,
@@ -34,6 +35,16 @@ function reset(): void {
 function slice(): ReturnType<ReturnType<typeof useCenterSurfaceStore.getState>['getSlice']> {
   return useCenterSurfaceStore.getState().getSlice(CWD)
 }
+
+test('entering a new project opens its sole current conversation tab', () => {
+  assert.equal(currentConversationSyncAction({
+    cwdChanged: true,
+    current: 's-1',
+    previousCurrent: undefined,
+    currentTabOpen: false,
+    openSurfaceCount: 0,
+  }), 'open')
+})
 
 test('single-click preview replaces the previous preview tab; double-click pins', () => {
   reset()

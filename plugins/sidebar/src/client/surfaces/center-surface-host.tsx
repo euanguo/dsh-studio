@@ -54,6 +54,7 @@ import {
   type CenterSurface,
   type CenterSurfaceSlice,
 } from './types.ts'
+import { currentConversationSyncAction } from './center-surface-sync.ts'
 import {
   SurfaceTab,
   SurfaceTabStrip,
@@ -176,22 +177,28 @@ export function CenterSurfaceTabs({
     const validIds = new Set(conversationTabs.map(tab => conversationSurfaceId(tab.id)))
     const cwdChanged = prevCwdRef.current !== cwd
     const prevCurrent = prevCurrentByCwdRef.current[cwd]
-    if (!cwdChanged && current !== undefined && prevCurrent !== current) {
-      // Navigating to a conversation (same project): ensure its tab exists
-      // and ACTIVATE it — the target conversation's tab is the one the user
-      // just switched to, so it must take the highlight (an ordinary tab:
-      // clicking a tab selects it).
-      const currentId = conversationSurfaceId(current)
-      if (!workspaceSlice.open.some(surface => surface.id === currentId)) {
-        state.openConversation({
-          cwd,
-          sessionId: current,
-          title: conversationTabTitle(current, cwd, sessionList.byId[current]),
-          activate: true,
-        })
-      } else {
-        state.activate(cwd, currentId)
-      }
+    const currentId = current === undefined ? undefined : conversationSurfaceId(current)
+    const currentTabOpen = currentId !== undefined
+      && workspaceSlice.open.some(surface => surface.id === currentId)
+    const syncAction = currentConversationSyncAction({
+      cwdChanged,
+      current,
+      previousCurrent: prevCurrent,
+      currentTabOpen,
+      openSurfaceCount: workspaceSlice.open.length,
+    })
+    if (syncAction === 'open' && current !== undefined) {
+      // Entering a new project with no restored surfaces still needs to seed
+      // its first conversation tab. Without this, the first same-project
+      // navigation is the only event that can create the center tab.
+      state.openConversation({
+        cwd,
+        sessionId: current,
+        title: conversationTabTitle(current, cwd, sessionList.byId[current]),
+        activate: true,
+      })
+    } else if (syncAction === 'activate' && currentId !== undefined) {
+      state.activate(cwd, currentId)
     }
     // Any conversation tab whose session disappeared drops out. Everything
     // else in `open[]` stays exactly as the user left it.
