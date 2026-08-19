@@ -493,6 +493,31 @@
   color: var(--dsw-alias-label-secondary);
 }
 
+/* Opt-in physical-deletion checkbox row inside the remove dialog. */
+.deletePhysicalRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0 8px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+}
+
+.deletePhysicalRow input {
+  flex: none;
+  width: 15px;
+  height: 15px;
+  margin: 2px 0 0;
+  accent-color: var(--dsh-studio-accent, #0969da);
+}
+
+.deletePhysicalDirty {
+  display: block;
+  color: var(--dsw-alias-state-error-primary);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wide {
     animation: none;

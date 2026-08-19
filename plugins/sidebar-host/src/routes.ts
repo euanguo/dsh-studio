@@ -708,7 +708,11 @@ export function buildSidebarRoutes(
       const cwd = cwdScopeOf(payload)
       const path = requireAbsolute(requireString(payload, 'path'))
       const branch = requireString(payload, 'branch')
-      return git.worktreeAdd(cwd, path, branch, optionalBoolean(payload, 'createBranch') === true)
+      const createBranch = optionalBoolean(payload, 'createBranch') === true
+      // New-branch start point (commit-ish); ignored when attaching an
+      // existing branch. Empty/absent → HEAD.
+      const base = optionalString(payload, 'base')
+      return git.worktreeAdd(cwd, path, branch, createBranch, createBranch ? base : undefined)
     },
     'git.worktree-remove-preview': async (payload) => {
       const cwd = cwdScopeOf(payload)

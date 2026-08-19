@@ -475,16 +475,26 @@ export async function worktreeList(cwd: string): Promise<GitWorktreeLayout | nul
 
 /**
  * Create a linked worktree. `createBranch` true → `git worktree add -b
- * <branch> <path>` (new branch); false → attach an existing branch.
+ * <branch> <path> [<base>]` (new branch, optionally starting at `base`
+ * instead of HEAD); false → attach an existing branch.
  * @param cwd - inside the target repository.
  * @param path - absolute linked-worktree path (git rejects paths inside the
  *   main worktree itself).
  * @param branch - existing branch name (createBranch=false) or new name.
  * @param createBranch - whether to create the branch.
+ * @param base - start point for the new branch (commit-ish; ignored when
+ *   createBranch is false).
  */
-export async function worktreeAdd(cwd: string, path: string, branch: string, createBranch: boolean): Promise<void> {
+export async function worktreeAdd(
+  cwd: string,
+  path: string,
+  branch: string,
+  createBranch: boolean,
+  base?: string,
+): Promise<void> {
+  const trimmedBase = base?.trim()
   const args = createBranch
-    ? ['worktree', 'add', '-b', branch, path]
+    ? ['worktree', 'add', '-b', branch, path, ...(trimmedBase === undefined || trimmedBase === '' ? [] : [trimmedBase])]
     : ['worktree', 'add', path, branch]
   await runGit(cwd, args)
 }

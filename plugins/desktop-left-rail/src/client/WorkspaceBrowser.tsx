@@ -422,7 +422,20 @@ export function WorkspaceBrowser({
 
   // Delete dialog is separate from the row so a successful removal can
   // unmount that row without tearing down the in-flight confirmation state.
-  const [deleteTarget, setDeleteTarget] = useState<{ workspaceId: WorkspaceId; title: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    workspaceId: WorkspaceId
+    title: string
+    /** Row context for the optional physical escalation (linked Git rows). */
+    repoRoot?: string
+    worktreePath?: string
+    physicalAvailable?: boolean
+    /** Every registration under the worktree (physical escalation releases them all). */
+    workspaceIds?: WorkspaceId[]
+  } | null>(null)
+  /** Opt-in: also run `git worktree remove` (default off — keep the directory). */
+  const [deletePhysical, setDeletePhysical] = useState(false)
+  /** Dirty/locked preview for the checked physical option (fetched on check). */
+  const [deletePhysicalPreview, setDeletePhysicalPreview] = useState<{ dirty: boolean; locked: boolean } | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [deleteCommittedId, setDeleteCommittedId] = useState<WorkspaceId | null>(null)
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -437,6 +450,17 @@ export function WorkspaceBrowser({
     if (deleting) return
     setDeleteTarget(null)
     setDeleteError(null)
+    setDeletePhysical(false)
+    setDeletePhysicalPreview(null)
+  }
+  /** Toggle the physical option; checking it fetches the dirty/locked preview. */
+  const toggleDeletePhysical = (checked: boolean): void => {
+    setDeletePhysical(checked)
+    setDeletePhysicalPreview(null)
+    if (!checked || deleteTarget?.repoRoot === undefined || deleteTarget.worktreePath === undefined) return
+    void railController.previewPhysicalWorktree(deleteTarget.repoRoot, deleteTarget.worktreePath)
+      .then(preview => { setDeletePhysicalPreview({ dirty: preview.dirty, locked: preview.locked }) })
+      .catch(reason => { setDeleteError(reason instanceof Error ? reason.message : String(reason)) })
   }
   const confirmDelete = () => {
     /* v8 ignore next -- the Modal is absent without a target and its button is disabled while deleting. */
@@ -444,6 +468,37 @@ export function WorkspaceBrowser({
     setDeleting(true)
     setDeleteCommittedId(null)
     setDeleteError(null)
+
+    // Physical escalation: remove the worktree from disk (refused by the
+    // host while dirty/locked — never forced from this dialog) and release
+    // EVERY registration under it, not just the targeted one: the other
+    // registrations point into the deleted directory.
+    if (deletePhysical && deleteTarget.physicalAvailable === true
+      && deleteTarget.repoRoot !== undefined && deleteTarget.worktreePath !== undefined) {
+      const target = deleteTarget
+      void railController.removePhysicalWorktree(target.repoRoot!, target.worktreePath!, false)
+        .then(async () => {
+          const cleanup = await Promise.allSettled(
+            (target.workspaceIds ?? [target.workspaceId]).map(id => deleteWorkspace(id)),
+          )
+          const failed = cleanup.filter(result => result.status === 'rejected').length
+          if (failed > 0) {
+            setDeleting(false)
+            setDeleteError(t('worktree.remove.cleanupFailed', { count: failed }))
+            return
+          }
+          worktreeLayouts.refresh()
+          setDeleteTarget(null)
+          setDeletePhysical(false)
+          setDeletePhysicalPreview(null)
+          setDeleting(false)
+        })
+        .catch(reason => {
+          setDeleting(false)
+          setDeleteError(reason instanceof Error ? reason.message : String(reason))
+        })
+      return
+    }
 
     deleteWorkspace(deleteTarget.workspaceId).then(() => {
       // Keep the confirmation pending until this component has rendered the
@@ -464,6 +519,9 @@ export function WorkspaceBrowser({
   const [newWtBranches, setNewWtBranches] = useState<string[]>([])
   const [newWtPickBranch, setNewWtPickBranch] = useState('__new__')
   const [newWtNewBranch, setNewWtNewBranch] = useState('')
+  /** New-branch start point (base branch); only meaningful in new-branch mode. */
+  const [newWtBase, setNewWtBase] = useState('')
+  const [newWtBaseMenuOpen, setNewWtBaseMenuOpen] = useState(false)
   const [newWtPath, setNewWtPath] = useState('')
   const [newWtPending, setNewWtPending] = useState(false)
   const [newWtError, setNewWtError] = useState<string | null>(null)
@@ -541,6 +599,9 @@ export function WorkspaceBrowser({
     setNewWtBranches([])
     setNewWtPickBranch('__new__')
     setNewWtNewBranch('')
+    // New-branch start point: the repo's current main branch until the
+    // branch list lands (then it is pinned to that branch if still present).
+    setNewWtBase(worktrees.find(w => w.main)?.branch ?? worktrees[0]?.branch ?? '')
     setNewWtPath('')
     setNewWtError(null)
     // Refresh the host-resolved store root/nesting: settings-page edits apply
@@ -550,7 +611,12 @@ export function WorkspaceBrowser({
     fetchWorktreeDefaults().then(defaults => { setNewWtDefaults(defaults) }).catch(() => {
       // Leave null: the legacy repo-sibling default still serves the dialog.
     })
-    fetchBranches(repoRoot).then(({ names }) => { setNewWtBranches(names) }).catch(() => { setNewWtBranches([]) })
+    fetchBranches(repoRoot).then(({ names }) => {
+      setNewWtBranches(names)
+      setNewWtBase(current => (current !== '' && names.includes(current))
+        ? current
+        : (names.find(name => name === 'main' || name === 'master') ?? names[0] ?? ''))
+    }).catch(() => { setNewWtBranches([]) })
   }
   const branchIsNew = newWtPickBranch === '__new__'
   const effectiveBranch = branchIsNew ? newWtNewBranch.trim() : newWtPickBranch
@@ -590,7 +656,15 @@ export function WorkspaceBrowser({
     // picker, and session scoping work immediately. Registration failure
     // keeps the physical worktree (never rolls the checkout back) and
     // surfaces as a toast — the directory can still be added manually.
-    createWorktree(newWtTarget.repoRoot, path, effectiveBranch, branchIsNew).then(async () => {
+    // New branches start at the picked base branch (the common flow: fork
+    // from an existing branch rather than the main worktree's HEAD).
+    createWorktree(
+      newWtTarget.repoRoot,
+      path,
+      effectiveBranch,
+      branchIsNew,
+      branchIsNew ? newWtBase : undefined,
+    ).then(async () => {
       let registerError: string | null = null
       try {
         await createWorkspace({ path })
@@ -748,13 +822,25 @@ export function WorkspaceBrowser({
         }
       } else if (selection.action === 'worktree.remove') {
         if (selection.workspaceId !== undefined) {
-          // Registration removal (main worktree / non-git rows): the folder
-          // and session logs stay.
+          // Registration removal dialog. Linked Git rows additionally offer
+          // physical WorkTree deletion as an OPT-IN checkbox there (default
+          // off): one remove verb, one dialog, explicit escalation.
           const workspace = workspaces.find(item => String(item.workspaceId) === selection.workspaceId)
-          setDeleteTarget({ workspaceId: selection.workspaceId as WorkspaceId, title: workspace?.title ?? workspaceLabel(path) })
+          const node = projectRailSnapshot.tree.allProjects
+            .find(p => p.repoRoot === repoRoot)?.worktrees.find(w => w.path === path)
+          setDeleteTarget({
+            workspaceId: selection.workspaceId as WorkspaceId,
+            title: workspace?.title ?? workspaceLabel(path),
+            repoRoot,
+            worktreePath: path,
+            physicalAvailable: node?.isGit === true && node.main !== true,
+            workspaceIds: workspaces.filter(w => isPathWithin(path, w.path)).map(w => w.workspaceId as WorkspaceId),
+          })
+          setDeletePhysical(false)
+          setDeletePhysicalPreview(null)
         } else {
-          // Linked Git worktree: removing the workspace IS removing the
-          // worktree (physical + registrations under it).
+          // Linked Git worktree with no registration (created outside the
+          // app): removing the workspace IS removing the worktree.
           const affectedWorkspaces = workspaces.filter(workspace => isPathWithin(path, workspace.path))
           const affectedSessionIds = affectedWorkspaces.flatMap(workspace => workspace.sessionIds)
           const hasRunning = affectedSessionIds.some(id => sessionList.byId[id]?.running === true)
@@ -1134,7 +1220,7 @@ export function WorkspaceBrowser({
             <Button
               variant="outline"
               className={css.deleteAction}
-              disabled={deleting}
+              disabled={deleting || (deletePhysical && deletePhysicalPreview?.dirty === true)}
               onClick={confirmDelete}
             >
               {t('delete.workspace')}
@@ -1142,6 +1228,27 @@ export function WorkspaceBrowser({
           </>
         )}
       >
+        {/* Opt-in physical deletion (linked Git rows only, default off):
+            escalating to `git worktree remove` is a deliberate choice, never
+            the silent default of removing a registration. */}
+        {deleteTarget?.physicalAvailable === true && (
+          <label className={css.deletePhysicalRow}>
+            <input
+              type="checkbox"
+              checked={deletePhysical}
+              disabled={deleting}
+              onChange={event => { toggleDeletePhysical(event.currentTarget.checked) }}
+            />
+            <span>
+              {t('delete.physical')}
+              {deletePhysical && deletePhysicalPreview?.dirty === true && (
+                <span className={css.deletePhysicalDirty} role="alert">
+                  {' '}{t('worktree.removePhysical.dirty')}
+                </span>
+              )}
+            </span>
+          </label>
+        )}
         {deleting && <div className={css.deleteStatus} role="status">{t('delete.pending')}</div>}
         {deleteError !== null && <div className={css.renameError} role="alert">{deleteError}</div>}
       </Modal>
@@ -1187,7 +1294,8 @@ export function WorkspaceBrowser({
               </div>
             )}
 
-            {/* Branch picker: existing branches via Menu, or a new name. */}
+            {/* Branch: check out an existing branch, or create a new one
+                (optionally starting from a picked base branch). */}
             <div>
               <div className={css.wtSectionLabel}>{t('wt.branch')}</div>
               <Menu
@@ -1220,19 +1328,46 @@ export function WorkspaceBrowser({
                 )}
               />
               {branchIsNew && (
-                <input
-                  className={cn(css.renameInput, css.wtNewBranchInput)}
-                  value={newWtNewBranch}
-                  aria-label={t('wt.newBranch')}
-                  placeholder={t('wt.newBranch')}
-                  autoFocus
-                  disabled={newWtPending}
-                  onChange={(e) => {
-                    setNewWtNewBranch(e.target.value)
-                   }}
+                <>
+                  <input
+                    className={cn(css.renameInput, css.wtNewBranchInput)}
+                    value={newWtNewBranch}
+                    aria-label={t('wt.newBranch')}
+                    placeholder={t('wt.newBranch')}
+                    autoFocus
+                    disabled={newWtPending}
+                    onChange={(e) => {
+                      setNewWtNewBranch(e.target.value)
+                     }}
 
-                   onKeyDown={(e) => { if (e.key === 'Enter') confirmNewWorktree() }}
-                />
+                     onKeyDown={(e) => { if (e.key === 'Enter') confirmNewWorktree() }}
+                  />
+                  {/* Base branch: where the new branch starts. The most
+                      common flow — fork a worktree off an existing branch
+                      (default: the repo's main branch) instead of whatever
+                      the main worktree's HEAD happens to be. */}
+                  <div className={css.wtSectionLabel}>{t('wt.base')}</div>
+                  <Menu
+                    open={newWtBaseMenuOpen}
+                    onClose={() => { setNewWtBaseMenuOpen(false) }}
+                    items={newWtBranches.map(b => ({ id: b, label: b }))}
+                    selectedId={newWtBase === '' ? undefined : newWtBase}
+                    onSelect={(id) => { setNewWtBaseMenuOpen(false); setNewWtBase(id) }}
+                    portal
+                    anchor={(
+                      <button
+                        type="button"
+                        className={cn(css.renameInput, css.wtPickerButton)}
+                        onClick={() => { setNewWtBaseMenuOpen(v => !v) }}
+                      >
+                        <span className={css.wtPickerButtonText}>
+                          {newWtBase === '' ? t('wt.baseHead') : newWtBase}
+                        </span>
+                        <IconChevronDownOutline14 />
+                      </button>
+                    )}
+                  />
+                </>
               )}
             </div>
 

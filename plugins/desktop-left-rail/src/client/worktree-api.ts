@@ -21,14 +21,21 @@ export async function fetchWorktreeDefaults(signal?: AbortSignal): Promise<Workt
   return callSidebarGlobalApi<WorktreeDefaultsResult>('git.worktree-defaults', {}, signal)
 }
 
-/** Create a linked worktree. */
+/**
+ * Create a linked worktree.
+ * @param base - new-branch start point (ignored when attaching an existing branch).
+ */
 export async function createWorktree(
   cwd: string,
   path: string,
   branch: string,
   createBranch: boolean,
+  base?: string,
 ): Promise<void> {
-  await callSidebarGlobalApi('git.worktree-add', { cwd, path, branch, createBranch })
+  await callSidebarGlobalApi('git.worktree-add', {
+    cwd, path, branch, createBranch,
+    ...(base === undefined ? {} : { base }),
+  })
 }
 
 /** One guarded linked-worktree removal preview. */

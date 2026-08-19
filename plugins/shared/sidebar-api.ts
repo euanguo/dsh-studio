@@ -248,7 +248,7 @@ export interface SidebarApiRequests {
   'git.worktree-list': Record<string, never>
   /** Effective worktree store root + nesting (user override or data-root default). */
   'git.worktree-defaults': Record<string, never>
-  'git.worktree-add': { path: string; branch: string; createBranch?: boolean }
+  'git.worktree-add': { path: string; branch: string; createBranch?: boolean; base?: string }
   'git.worktree-remove-preview': { path: string }
   'git.worktree-remove': { path: string; force?: boolean }
   'project.icon-detect': { cwd: string }
