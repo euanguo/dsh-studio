@@ -585,10 +585,22 @@ export function WorkspaceBrowser({
     const path = (newWtPath.trim() === '' ? defaultWtPath(newWtTarget.repoRoot, effectiveBranch) : newWtPath.trim())
     setNewWtPending(true)
     setNewWtError(null)
-    createWorktree(newWtTarget.repoRoot, path, effectiveBranch, branchIsNew).then(() => {
+    // Worktree = session home (Orca model): a created worktree is ALWAYS
+    // registered as a Host Workspace so the row's actions, the conversation
+    // picker, and session scoping work immediately. Registration failure
+    // keeps the physical worktree (never rolls the checkout back) and
+    // surfaces as a toast — the directory can still be added manually.
+    createWorktree(newWtTarget.repoRoot, path, effectiveBranch, branchIsNew).then(async () => {
+      let registerError: string | null = null
+      try {
+        await createWorkspace({ path })
+      } catch (reason) {
+        registerError = reason instanceof Error ? reason.message : String(reason)
+      }
       setNewWtPending(false)
       setNewWtTarget(null)
       worktreeLayouts.refresh()
+      if (registerError !== null) toast(t('worktree.register.failed', { reason: registerError }))
     }).catch((reason: unknown) => {
       setNewWtPending(false)
       setNewWtError(reason instanceof Error ? reason.message : String(reason))
@@ -707,7 +719,22 @@ export function WorkspaceBrowser({
       const repoRoot = worktree.project.kind === 'git' ? worktree.project.repoRoot : worktree.project.path
       if (selection.action === 'worktree.create-session') {
         actions.setGroupExpanded(worktreeExpansionKey(path), true)
-        startSession(selection.workspaceId as WorkspaceId | undefined)
+        if (selection.workspaceId !== undefined) {
+          startSession(selection.workspaceId as WorkspaceId)
+          return
+        }
+        // No registered Workspace under this worktree (it was created
+        // outside the app, e.g. a terminal `git worktree add`): adopt the
+        // directory as a Workspace, then start the session in it. The
+        // fallback never silently targets the current/recent Workspace —
+        // that would scope the session's cwd to the wrong checkout.
+        createWorkspace({ path }).then(workspace => {
+          startSession(workspace.workspaceId)
+        }).catch(reason => {
+          toast(t('worktree.adopt.failed', {
+            reason: reason instanceof Error ? reason.message : String(reason),
+          }))
+        })
       } else if (selection.action === 'worktree.rename-alias') {
         openRenameWorktree(path, worktreeAlias[path] ?? workspaceLabel(path))
       } else if (selection.action === 'worktree.rename' && selection.workspaceId !== undefined) {
