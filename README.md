@@ -208,6 +208,7 @@ DSH Studio 不是简单换皮，也不是完全复制 Better Sidebar：我们复
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — DSH runtime、会话与插件加载器
 - [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) — 右栏 Host 的文件、Git 与 PTY 能力来源
 - [dshfind](https://dshfind.com/) — DSH 插件超市与生态社区
+- [LINUX DO](https://linux.do/) — 真实的开发者社区
 
 <details>
 <summary><b>更多参考项目</b></summary>

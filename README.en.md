@@ -208,6 +208,7 @@ DSH Studio is not a simple reskin, nor a verbatim copy of Better Sidebar: it reu
 - [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — DSH runtime, sessions, and plugin loader
 - [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) — source of the right-rail Host file, Git, and PTY capabilities
 - [dshfind](https://dshfind.com/) — DSH plugin marketplace and ecosystem community
+- [LINUX DO](https://linux.do/) — a real developer community
 
 <details>
 <summary><b>More reference projects</b></summary>
