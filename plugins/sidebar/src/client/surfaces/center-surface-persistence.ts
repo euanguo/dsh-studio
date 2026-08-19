@@ -90,6 +90,7 @@ export function restoreCenterSurfaces(): void {
   state.clearAll()
   for (const [cwd, entry] of Object.entries(payload.byCwd)) {
     if (!Array.isArray(entry?.open)) continue
+    state.ensureCwd(cwd)
     const open = entry.open.filter(
       (surface): surface is CenterSurface =>
         surface !== null && typeof surface === 'object' && typeof surface.id === 'string'

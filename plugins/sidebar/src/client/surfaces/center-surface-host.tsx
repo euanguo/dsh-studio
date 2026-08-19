@@ -54,7 +54,12 @@ import {
   type CenterSurface,
   type CenterSurfaceSlice,
 } from './types.ts'
-import { currentConversationSyncAction } from './center-surface-sync.ts'
+import {
+  currentConversationSyncAction,
+  resolveCenterWorkspace,
+  retainConversationSurface,
+  type CenterWorkspace,
+} from './center-surface-sync.ts'
 import {
   SurfaceTab,
   SurfaceTabStrip,
@@ -122,15 +127,13 @@ export function CenterSurfaceTabs({
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
-  const current = sessionList.current
-  // The active workspace: use the current session cwd, or fallback to the
-  // first non-blank session with a valid cwd in the session roster, or process root.
-  const currentSummary = current === undefined ? undefined : sessionList.byId[current]
-  const isRootFallback = (currentSummary?.cwd === undefined || currentSummary.cwd.trim() === '')
-  const fallbackCwd = Object.values(sessionList.byId).find(s => s.cwd && s.cwd.trim() !== '' && !s.blank)?.cwd
-  const cwd: string = isRootFallback ? (fallbackCwd ?? '/') : currentSummary!.cwd!
-
-  const slice = useCenterSurfaceStore(state => state.getSlice(cwd))
+  const workspace = resolveCenterWorkspace(sessionList)
+  const current = workspace.status === 'ready' ? workspace.sessionId : undefined
+  const cwd = workspace.status === 'ready' ? workspace.cwd : undefined
+  const slice = useCenterSurfaceStore(state =>
+    cwd === undefined ? EMPTY_CENTER_SLICE : state.getSlice(cwd))
+  const queueKnown = useCenterSurfaceStore(state =>
+    cwd !== undefined && state.byCwd[cwd] !== undefined)
 
   // Center-strip tab drag: reorder the workspace's open surfaces within the
   // queue (project dimension — same unified reorder model).
@@ -153,8 +156,8 @@ export function CenterSurfaceTabs({
   const conversationTabs = useMemo(() => {
     if (cwd === undefined) return []
     return Object.entries(sessionList.byId)
-      .filter(([id, summary]) => summary.cwd === cwd && !summary.blank)
-      .map(([id, summary]) => ({ id, cwd: summary.cwd!, summary }))
+      .filter(([id, summary]) => summary.cwd?.trim() === cwd && !summary.blank)
+      .map(([id, summary]) => ({ id, cwd: cwd!, summary }))
   }, [cwd, sessionList])
 
   // Keep the open set in sync with the session list WITHOUT re-listing every
@@ -168,54 +171,52 @@ export function CenterSurfaceTabs({
   // (cwd changed) is a RESTORE, not a navigation: only the persisted open[]
   // whitelist comes back, so a conversation the user closed before leaving
   // the project stays closed. Removed sessions drop their tab.
-  const prevCwdRef = useRef<string | undefined>(undefined)
-  const prevCurrentByCwdRef = useRef<Record<string, string | undefined>>({})
+  const previousWorkspaceRef = useRef<Extract<CenterWorkspace, { status: 'ready' }> | undefined>(undefined)
   useEffect(() => {
-    if (cwd === undefined) return
+    if (workspace.status !== 'ready') return
     const state = useCenterSurfaceStore.getState()
-    const workspaceSlice = state.getSlice(cwd)
+    const before = state.getSlice(workspace.cwd)
     const validIds = new Set(conversationTabs.map(tab => conversationSurfaceId(tab.id)))
-    const cwdChanged = prevCwdRef.current !== cwd
-    const prevCurrent = prevCurrentByCwdRef.current[cwd]
-    const currentId = current === undefined ? undefined : conversationSurfaceId(current)
-    const currentTabOpen = currentId !== undefined
-      && workspaceSlice.open.some(surface => surface.id === currentId)
+    const currentId = conversationSurfaceId(workspace.sessionId)
+    const currentTabOpen = before.open.some(surface => surface.id === currentId)
+    const activeSurfaceExists = before.activeId !== null
+      && before.open.some(surface => surface.id === before.activeId)
     const syncAction = currentConversationSyncAction({
-      cwdChanged,
-      current,
-      previousCurrent: prevCurrent,
+      current: workspace,
+      previous: previousWorkspaceRef.current,
+      queueKnown,
       currentTabOpen,
-      openSurfaceCount: workspaceSlice.open.length,
+      activeSurfaceExists,
     })
-    if (syncAction === 'open' && current !== undefined) {
-      // Entering a new project with no restored surfaces still needs to seed
-      // its first conversation tab. Without this, the first same-project
-      // navigation is the only event that can create the center tab.
+    state.ensureCwd(workspace.cwd)
+    if (syncAction === 'open') {
       state.openConversation({
-        cwd,
-        sessionId: current,
-        title: conversationTabTitle(current, cwd, sessionList.byId[current]),
+        cwd: workspace.cwd,
+        sessionId: workspace.sessionId,
+        title: conversationTabTitle(workspace.sessionId, workspace.cwd, workspace.summary),
         activate: true,
       })
-    } else if (syncAction === 'activate' && currentId !== undefined) {
-      state.activate(cwd, currentId)
+    } else if (syncAction === 'activate') {
+      state.activate(workspace.cwd, currentId)
     }
-    // Any conversation tab whose session disappeared drops out. Everything
-    // else in `open[]` stays exactly as the user left it.
-    for (const surface of workspaceSlice.open) {
-      if (surface.kind === 'conversation' && !validIds.has(surface.id)) {
-        state.close(cwd, surface.id)
+    const afterOpen = useCenterSurfaceStore.getState().getSlice(workspace.cwd)
+    for (const surface of afterOpen.open) {
+      if (surface.kind === 'conversation'
+        && !validIds.has(surface.id)
+        && !retainConversationSurface({
+          cwd: workspace.cwd,
+          sessionId: surface.sessionId,
+          list: sessionList,
+        })) {
+        useCenterSurfaceStore.getState().close(workspace.cwd, surface.id)
       }
     }
-    const activeId = workspaceSlice.activeId
-    const activeExists = activeId !== null
-      && workspaceSlice.open.some(surface => surface.id === activeId)
-    if (!activeExists && current !== undefined) {
-      state.activate(cwd, conversationSurfaceId(current))
+    const afterCleanup = useCenterSurfaceStore.getState().getSlice(workspace.cwd)
+    if (afterCleanup.activeId === null && currentTabOpen) {
+      useCenterSurfaceStore.getState().activate(workspace.cwd, currentId)
     }
-    prevCurrentByCwdRef.current = { ...prevCurrentByCwdRef.current, [cwd]: current }
-    prevCwdRef.current = cwd
-  }, [conversationTabs, cwd, current, sessionList])
+    previousWorkspaceRef.current = workspace
+  }, [conversationTabs, queueKnown, sessionList, workspace])
 
   return (
     <SurfaceTabStrip
@@ -378,8 +379,8 @@ export function CenterSurfaceBody({
   sidebar: DesktopSidebarServiceLike
 }): JSX.Element {
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
-  const current = sessionList.current
-  const cwd = current === undefined ? undefined : sessionList.byId[current]?.cwd
+  const workspace = resolveCenterWorkspace(sessionList)
+  const cwd = workspace.status === 'ready' ? workspace.cwd : undefined
   const slice = useCenterSurfaceStore(state =>
     cwd === undefined ? EMPTY_CENTER_SLICE : state.getSlice(cwd))
   const active = resolveActiveSurface(slice)

@@ -7,7 +7,11 @@ import { test } from 'node:test'
 import {
   useCenterSurfaceStore,
 } from '../plugins/sidebar/src/client/surfaces/center-surface-store.ts'
-import { currentConversationSyncAction } from '../plugins/sidebar/src/client/surfaces/center-surface-sync.ts'
+import {
+  currentConversationSyncAction,
+  resolveCenterWorkspace,
+  retainConversationSurface,
+} from '../plugins/sidebar/src/client/surfaces/center-surface-sync.ts'
 import {
   conversationSurfaceId,
   isPreviewSurface,
@@ -36,14 +40,104 @@ function slice(): ReturnType<ReturnType<typeof useCenterSurfaceStore.getState>['
   return useCenterSurfaceStore.getState().getSlice(CWD)
 }
 
-test('entering a new project opens its sole current conversation tab', () => {
+test('center workspace stays pending until the current session is materialized', () => {
+  assert.deepEqual(resolveCenterWorkspace({ current: 's-1', byId: { 's-1': { blank: true } } }), {
+    status: 'pending',
+    sessionId: 's-1',
+  })
+  assert.deepEqual(resolveCenterWorkspace({ current: 's-1', byId: { 's-1': { cwd: '/ws' } } }), {
+    status: 'ready',
+    cwd: '/ws',
+    sessionId: 's-1',
+    summary: { cwd: '/ws' },
+  })
+  assert.deepEqual(resolveCenterWorkspace({ byId: {} }), { status: 'none' })
+})
+
+test('new project waits for materialization before seeding its first tab', () => {
+  const provisional = resolveCenterWorkspace({
+    current: 's-new',
+    byId: { 's-new': { blank: true } },
+  })
+  assert.equal(provisional.status, 'pending')
+  const materialized = resolveCenterWorkspace({
+    current: 's-new',
+    byId: { 's-new': { cwd: '/new-project', blank: false } },
+  })
+  assert.equal(materialized.status, 'ready')
+  if (materialized.status !== 'ready') throw new Error('expected materialized workspace')
   assert.equal(currentConversationSyncAction({
-    cwdChanged: true,
-    current: 's-1',
-    previousCurrent: undefined,
+    current: materialized,
+    previous: undefined,
+    queueKnown: false,
     currentTabOpen: false,
-    openSurfaceCount: 0,
+    activeSurfaceExists: false,
   }), 'open')
+})
+
+test('incomplete session snapshots do not prune an existing conversation tab', () => {
+  assert.equal(retainConversationSurface({
+    cwd: '/ws',
+    sessionId: 's-1',
+    list: { byId: { 's-1': { blank: true } } },
+  }), true)
+  assert.equal(retainConversationSurface({
+    cwd: '/ws',
+    sessionId: 's-1',
+    list: { byId: { 's-1': {} } },
+  }), true)
+  assert.equal(retainConversationSurface({
+    cwd: '/ws',
+    sessionId: 's-1',
+    list: { byId: { 's-1': { cwd: '/other' } } },
+  }), false)
+  assert.equal(retainConversationSurface({ cwd: '/ws', sessionId: 's-1', list: { byId: {} } }), false)
+})
+
+test('center sync seeds only unknown queues and handles same-project navigation', () => {
+  const current = { status: 'ready' as const, cwd: '/ws', sessionId: 's-1', summary: { cwd: '/ws' } }
+  assert.equal(currentConversationSyncAction({
+    current,
+    previous: undefined,
+    queueKnown: false,
+    currentTabOpen: false,
+    activeSurfaceExists: false,
+  }), 'open')
+  assert.equal(currentConversationSyncAction({
+    current: { ...current, sessionId: 's-2' },
+    previous: current,
+    queueKnown: true,
+    currentTabOpen: false,
+    activeSurfaceExists: true,
+  }), 'open')
+  assert.equal(currentConversationSyncAction({
+    current: { ...current, sessionId: 's-2' },
+    previous: current,
+    queueKnown: true,
+    currentTabOpen: true,
+    activeSurfaceExists: true,
+  }), 'activate')
+  assert.equal(currentConversationSyncAction({
+    current,
+    previous: current,
+    queueKnown: true,
+    currentTabOpen: false,
+    activeSurfaceExists: false,
+  }), 'none')
+  assert.equal(currentConversationSyncAction({
+    current,
+    previous: { ...current, cwd: '/other', sessionId: 's-other' },
+    queueKnown: true,
+    currentTabOpen: false,
+    activeSurfaceExists: false,
+  }), 'none')
+  assert.equal(currentConversationSyncAction({
+    current,
+    previous: current,
+    queueKnown: true,
+    currentTabOpen: true,
+    activeSurfaceExists: false,
+  }), 'activate')
 })
 
 test('single-click preview replaces the previous preview tab; double-click pins', () => {
@@ -163,6 +257,17 @@ test('terminal titles update the center tab without changing its identity', () =
   const terminal = slice().open.find(surface => surface.id === 'terminal:1')
   assert.equal(terminal?.title, 'zsh — oh-dsh')
   assert.equal(terminal?.id, 'terminal:1')
+})
+
+test('known empty queues stay distinct from uninitialized queues', () => {
+  reset()
+  const store = useCenterSurfaceStore.getState()
+  store.ensureCwd(CWD)
+  store.activate(CWD, conversationSurfaceId('missing'))
+  assert.deepEqual(slice(), { open: [], activeId: null })
+  store.openConversation({ cwd: CWD, sessionId: 's-1', title: 's-1' })
+  store.close(CWD, conversationSurfaceId('s-1'))
+  assert.deepEqual(slice(), { open: [], activeId: null })
 })
 
 test('openConversation with activate:false joins without stealing activation', () => {

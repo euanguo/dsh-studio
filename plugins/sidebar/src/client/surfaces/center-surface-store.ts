@@ -27,7 +27,6 @@ import {
   commitSurfaceId,
   committedSurfaceId,
   conflictSurfaceId,
-  CONVERSATION_SURFACE_PREFIX,
   conversationSurfaceId,
   diffAllSurfaceId,
   diffSurfaceId,
@@ -59,6 +58,8 @@ interface CenterSurfaceState {
   /** Per-workspace (cwd) open sets. */
   byCwd: Record<string, CenterSurfaceSlice>
   getSlice(cwd: string): CenterSurfaceSlice
+  /** Record a workspace queue even when it intentionally contains no tabs. */
+  ensureCwd(cwd: string): void
   openConversation(input: {
     cwd: string
     sessionId: string
@@ -233,6 +234,12 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
   byCwd: {},
 
   getSlice: cwd => readSlice(get().byCwd, cwd),
+
+  ensureCwd: cwd => {
+    set(state => state.byCwd[cwd] === undefined
+      ? { byCwd: writeSlice(state.byCwd, cwd, EMPTY_SLICE) }
+      : state)
+  },
 
   openConversation: input => {
     const id = conversationSurfaceId(input.sessionId)
@@ -515,13 +522,7 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     set(state => {
       const slice = readSlice(state.byCwd, cwd)
       if (slice.activeId === surfaceId) return state
-      // Conversation tabs are rendered from the sessions list, not from the
-      // open set — activating one must still work (it hides the surface
-      // body and reveals the conversation).
-      const isConversation = surfaceId.startsWith(CONVERSATION_SURFACE_PREFIX)
-      if (!isConversation && !slice.open.some(surface => surface.id === surfaceId)) {
-        return state
-      }
+      if (!slice.open.some(surface => surface.id === surfaceId)) return state
       return { byCwd: writeSlice(state.byCwd, cwd, { open: slice.open, activeId: surfaceId }) }
     })
   },
