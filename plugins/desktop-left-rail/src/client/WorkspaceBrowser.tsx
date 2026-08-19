@@ -479,7 +479,7 @@ export function WorkspaceBrowser({
   const [removeProjectTarget, setRemoveProjectTarget] = useState<{ repoRoot: string; label: string; count: number } | null>(null)
   const [removeProjectPending, setRemoveProjectPending] = useState(false)
   const [removeProjectError, setRemoveProjectError] = useState<string | null>(null)
-  const [physicalRemoveTarget, setPhysicalRemoveTarget] = useState<{ repoRoot: string; path: string; workspaceCount: number; sessionCount: number } | null>(null)
+  const [physicalRemoveTarget, setPhysicalRemoveTarget] = useState<{ repoRoot: string; path: string; workspaceIds: WorkspaceId[]; workspaceCount: number; sessionCount: number } | null>(null)
   const [physicalRemovePreview, setPhysicalRemovePreview] = useState<Awaited<ReturnType<typeof previewWorktreeRemoval>> | null>(null)
   const [physicalRemovePending, setPhysicalRemovePending] = useState(false)
   const [physicalRemoveAcknowledged, setPhysicalRemoveAcknowledged] = useState(false)
@@ -735,37 +735,51 @@ export function WorkspaceBrowser({
             reason: reason instanceof Error ? reason.message : String(reason),
           }))
         })
-      } else if (selection.action === 'worktree.rename-alias') {
-        openRenameWorktree(path, worktreeAlias[path] ?? workspaceLabel(path))
-      } else if (selection.action === 'worktree.rename' && selection.workspaceId !== undefined) {
-        const workspace = workspaces.find(item => String(item.workspaceId) === selection.workspaceId)
-        setRenameTarget({ workspaceId: selection.workspaceId as WorkspaceId, currentTitle: workspace?.title ?? workspaceLabel(path) })
-        setRenameDraft(workspace?.title ?? workspaceLabel(path))
-        setRenameError(null)
-      } else if (selection.action === 'worktree.remove-registration' && selection.workspaceId !== undefined) {
-        const workspace = workspaces.find(item => String(item.workspaceId) === selection.workspaceId)
-        setDeleteTarget({ workspaceId: selection.workspaceId as WorkspaceId, title: workspace?.title ?? workspaceLabel(path) })
-
+      } else if (selection.action === 'worktree.rename') {
+        if (selection.workspaceId !== undefined) {
+          const workspace = workspaces.find(item => String(item.workspaceId) === selection.workspaceId)
+          setRenameTarget({ workspaceId: selection.workspaceId as WorkspaceId, currentTitle: workspace?.title ?? workspaceLabel(path) })
+          setRenameDraft(workspace?.title ?? workspaceLabel(path))
+          setRenameError(null)
+        } else {
+          // Registration-less row: rename edits the display alias until the
+          // directory is adopted as a Workspace (worktree = workspace).
+          openRenameWorktree(path, worktreeAlias[path] ?? workspaceLabel(path))
+        }
+      } else if (selection.action === 'worktree.remove') {
+        if (selection.workspaceId !== undefined) {
+          // Registration removal (main worktree / non-git rows): the folder
+          // and session logs stay.
+          const workspace = workspaces.find(item => String(item.workspaceId) === selection.workspaceId)
+          setDeleteTarget({ workspaceId: selection.workspaceId as WorkspaceId, title: workspace?.title ?? workspaceLabel(path) })
+        } else {
+          // Linked Git worktree: removing the workspace IS removing the
+          // worktree (physical + registrations under it).
+          const affectedWorkspaces = workspaces.filter(workspace => isPathWithin(path, workspace.path))
+          const affectedSessionIds = affectedWorkspaces.flatMap(workspace => workspace.sessionIds)
+          const hasRunning = affectedSessionIds.some(id => sessionList.byId[id]?.running === true)
+          if (hasRunning) {
+            toast(t('worktree.remove.active'))
+            return
+          }
+          setPhysicalRemoveTarget({
+            repoRoot,
+            path,
+            workspaceIds: affectedWorkspaces.map(workspace => workspace.workspaceId),
+            workspaceCount: affectedWorkspaces.length,
+            sessionCount: affectedSessionIds.length,
+          })
+          setPhysicalRemovePreview(null)
+          setPhysicalRemoveAcknowledged(false)
+          setPhysicalRemoveError(null)
+          void railController.previewPhysicalWorktree(repoRoot, path).then(preview => {
+            setPhysicalRemovePreview(preview)
+          }).catch(reason => {
+            setPhysicalRemoveError(reason instanceof Error ? reason.message : String(reason))
+          })
+        }
       } else if (selection.action === 'worktree.copy-path') onCopy(path)
       else if (selection.action === 'worktree.open-directory') void openPath(path)
-      else if (selection.action === 'worktree.remove-physical') {
-        const affectedWorkspaces = workspaces.filter(workspace => isPathWithin(path, workspace.path))
-        const affectedSessionIds = affectedWorkspaces.flatMap(workspace => workspace.sessionIds)
-        const hasRunning = affectedSessionIds.some(id => sessionList.byId[id]?.running === true)
-        if (hasRunning) {
-          toast(t('worktree.remove.active'))
-          return
-        }
-        setPhysicalRemoveTarget({ repoRoot, path, workspaceCount: affectedWorkspaces.length, sessionCount: affectedSessionIds.length })
-        setPhysicalRemovePreview(null)
-        setPhysicalRemoveAcknowledged(false)
-        setPhysicalRemoveError(null)
-        void railController.previewPhysicalWorktree(repoRoot, path).then(preview => {
-          setPhysicalRemovePreview(preview)
-        }).catch(reason => {
-          setPhysicalRemoveError(reason instanceof Error ? reason.message : String(reason))
-        })
-      }
     }
   }
 
@@ -780,16 +794,27 @@ export function WorkspaceBrowser({
     if (physicalRemovePending || physicalRemoveTarget === null || physicalRemovePreview === null) return
     setPhysicalRemovePending(true)
     setPhysicalRemoveError(null)
+    const target = physicalRemoveTarget
     void railController.removePhysicalWorktree(
-      physicalRemoveTarget.repoRoot,
-      physicalRemoveTarget.path,
+      target.repoRoot,
+      target.path,
       physicalRemovePreview.dirty || physicalRemovePreview.locked,
-    ).then(() => {
+    ).then(async () => {
+      // Worktree = workspace: the physical removal also releases the
+      // registrations that lived under it. Cleanup failure leaves orphans,
+      // so it surfaces instead of passing silently.
+      const cleanup = await Promise.allSettled(
+        target.workspaceIds.map(id => deleteWorkspace(id as WorkspaceId)),
+      )
+      const failed = cleanup.filter(result => result.status === 'rejected').length
       setPhysicalRemovePending(false)
       setPhysicalRemoveTarget(null)
       setPhysicalRemovePreview(null)
       setPhysicalRemoveError(null)
       setPhysicalRemoveAcknowledged(false)
+      if (failed > 0) {
+        toast(t('worktree.remove.cleanupFailed', { count: failed }))
+      }
     }).catch(reason => {
       setPhysicalRemovePending(false)
       setPhysicalRemoveError(reason instanceof Error ? reason.message : String(reason))
@@ -1251,12 +1276,13 @@ export function WorkspaceBrowser({
         />
       </Modal>
 
-      {/* Rename worktree alias */}
+      {/* Rename worktree alias (registration-less rows; titled as the one
+          rename verb — worktree = workspace). */}
       <Modal
         open={worktreeAliasTarget !== null}
         onClose={closeRenameWorktree}
         closeLabel={t('close')}
-        title={t('worktree.rename')}
+        title={t('rename.workspace.title')}
         footer={(
           <>
             <Button variant="outline" onClick={closeRenameWorktree}>{t('cancel')}</Button>

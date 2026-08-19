@@ -469,6 +469,18 @@ export function deriveProjectTree(
     return members
   }
 
+  // WorkspaceId → display title (host truth; the single-registration row
+  // naming source under the worktree = workspace model).
+  const titleById = new Map<string, string>(workspaces.map(w => [String(w.workspaceId), w.title]))
+  /** Row label: single-registration title → alias → branch → basename. */
+  const wtLabel = (wt: WT): string => {
+    if (wt.workspaceIds.length === 1) {
+      const title = titleById.get(String(wt.workspaceIds[0]))
+      if (title !== undefined && title !== '') return title
+    }
+    return view.worktreeAlias?.[wt.path] ?? (wt.branch ?? wt.label)
+  }
+
   // Project rows: git repos keyed by repoRoot, non-git by cwd (first-appearance order).
   interface Proj { key: string; repoRoot: string; isGit: boolean; workspaceIds: WorkspaceId[] }
   const projectsById = new Map<string, Proj>()
@@ -528,7 +540,12 @@ export function deriveProjectTree(
       worktrees: wts.map(wt => ({
         key: wt.path,
         path: wt.path,
-        label: view.worktreeAlias?.[wt.path] ?? (wt.branch ?? wt.label),
+        // Worktree = workspace: a row carrying exactly one registration is
+        // NAMED by that Workspace's title (rename takes effect immediately).
+        // The alias only leads where no registration exists yet; multiple
+        // registrations keep the alias/branch because no single title names
+        // the row.
+        label: wtLabel(wt),
         branch: wt.branch,
         isGit: proj.isGit,
         main: wt.main,

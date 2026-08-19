@@ -344,15 +344,39 @@ test('deriveProjectTree: the project alias overrides the directory basename', ()
   assert.equal(tree.projects[0]!.label, 'My Project')
 })
 
-test('deriveProjectTree: worktree alias overrides the branch or directory basename', () => {
+test('deriveProjectTree: a single-registration worktree row is named by the workspace title', () => {
   layouts.clear()
   layouts.set('/repo', layout('/repo', [
     { path: '/repo', branch: 'main', main: true },
     { path: '/repo-worktrees/feat', branch: 'feat/auth', main: false },
   ]))
+  layouts.set('/repo-worktrees/feat', layout('/repo', [
+    { path: '/repo', branch: 'main', main: true },
+    { path: '/repo-worktrees/feat', branch: 'feat/auth', main: false },
+  ]))
   const tree = deriveProjectTree(listState({}), [
     workspace('ws-1', '/repo', []),
-    workspace('ws-2', '/repo-worktrees/feat', []),
+    workspace('ws-2', '/repo-worktrees/feat', [], 'Renamed Title'),
+  ], layouts, [], {
+    expanded: [], activeTab: '__default__',
+    projectGroup: {}, groupIds: [], groupLabels: {}, projectAlias: {},
+    // The workspace title is the row's name (worktree = workspace); a stale
+    // alias no longer masks a rename.
+    worktreeAlias: { '/repo-worktrees/feat': 'Custom Feature Worktree' },
+  })
+  const wt = tree.projects[0]!.worktrees.find(w => w.path === '/repo-worktrees/feat')
+  assert.equal(wt?.label, 'Renamed Title')
+})
+
+test('deriveProjectTree: the alias still names a registration-less worktree row', () => {
+  layouts.clear()
+  layouts.set('/repo', layout('/repo', [
+    { path: '/repo', branch: 'main', main: true },
+    // No workspace lives under the linked worktree (created externally).
+    { path: '/repo-worktrees/feat', branch: 'feat/auth', main: false },
+  ]))
+  const tree = deriveProjectTree(listState({}), [
+    workspace('ws-1', '/repo', []),
   ], layouts, [], {
     expanded: [], activeTab: '__default__',
     projectGroup: {}, groupIds: [], groupLabels: {}, projectAlias: {},

@@ -152,38 +152,46 @@ export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAct
   const target = { kind: 'worktree' as const, id: worktreeIdOf(project, worktree) }
   const descriptors = worktreeActionDescriptors(project, worktree)
   const descriptor = (id: ActionSelection['action'], workspaceId?: string) => descriptors.find(item => item.id === id && item.workspaceId === workspaceId)
+  // One rename / one remove per row (worktree = workspace). The suffix only
+  // disambiguates when one row genuinely carries several registrations.
+  const multi = targets.length > 1
   const selections = new Map<string, ActionSelection>()
-  const addWorkspaceRows = (action: 'worktree.create-session' | 'worktree.rename' | 'worktree.remove-registration', label: string, icon: JSX.Element, danger?: boolean): MenuEntry[] => {
-    if (targets.length === 0) return []
-    return targets.map(workspace => {
-      const id = `${action}:${workspace.id}`
-      selections.set(id, actionIconSelection(action, target, { workspaceId: workspace.id }))
-      return { id, label: targets.length > 1 ? `${label} · ${workspace.title}` : label, icon, ...(danger ? { danger: true } : {}) }
-    })
+  /** Rows for one verb: the explicit Workspace targets, or the single row-level fallback. */
+  const verbRows = (
+    action: 'worktree.create-session' | 'worktree.rename' | 'worktree.remove',
+    label: string,
+    icon: JSX.Element,
+    fallback: boolean,
+    danger?: boolean,
+  ): MenuEntry[] => {
+    if (targets.length > 0) {
+      return targets.map(workspace => {
+        const id = `${action}:${workspace.id}`
+        selections.set(id, actionIconSelection(action, target, { workspaceId: workspace.id }))
+        return { id, label: multi ? `${label} · ${workspace.title}` : label, icon, ...(danger ? { danger: true } : {}) }
+      })
+    }
+    if (!fallback) return []
+    selections.set(action, actionIconSelection(action, target))
+    return [{ id: action, label, icon, ...(danger ? { danger: true } : {}) }]
   }
   const menuItems: MenuEntry[] = [
-    { id: 'rename-alias', label: t('worktree.rename'), icon: <IconEditOutline16 /> },
-    ...addWorkspaceRows('worktree.create-session', t('worktree.newSession'), <IconPlusOutline16 />),
-    ...addWorkspaceRows('worktree.rename', t('rename.workspace.title'), <IconEditOutline16 />),
-    ...addWorkspaceRows('worktree.remove-registration', t('delete.workspace'), <IconTrashOutline16 />, true),
-    { type: 'separator', id: 'wt-sep-actions' },
-    {
-      id: 'remove-physical',
-      label: t('worktree.removePhysical'),
-      icon: <IconTrashOutline16 />,
-      danger: true,
-      disabled: descriptor('worktree.remove-physical')?.enabled !== true,
-    },
+    ...verbRows('worktree.create-session', t('worktree.newSession'), <IconPlusOutline16 />, false),
+    // Registration-less row: rename still offered (display alias).
+    ...verbRows('worktree.rename', t('rename.workspace.title'), <IconEditOutline16 />, true),
+    // Linked Git rows remove physically (registration entries above cover
+    // the main / non-git rows); nothing to remove when neither applies.
+    ...(targets.length > 0
+      ? verbRows('worktree.remove', t('worktree.remove'), <IconTrashOutline16 />, false, true)
+      : (descriptor('worktree.remove')?.enabled === true
+        ? verbRows('worktree.remove', t('worktree.remove'), <IconTrashOutline16 />, true, true)
+        : [])),
     { type: 'separator', id: 'wt-sep-path' },
     { id: 'copy-path', label: t('menu.copyPath'), icon: <IconCopyOutline16 /> },
     { id: 'open-folder', label: t('menu.openFolder'), icon: <IconFolderOpenOutline16 /> },
   ]
   const handleSelect = (id: string): void => {
     setMenuOpen(false)
-    if (id === 'rename-alias') {
-      onAction({ action: 'worktree.rename-alias', target })
-      return
-    }
     const selection = selections.get(id)
     if (selection !== undefined) {
       onAction(selection)
@@ -191,7 +199,6 @@ export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAct
     }
     if (id === 'copy-path') onAction({ action: 'worktree.copy-path', target })
     else if (id === 'open-folder') onAction({ action: 'worktree.open-directory', target })
-    else if (id === 'remove-physical') onAction({ action: 'worktree.remove-physical', target })
   }
   const startDefaultSession = (): void => {
     if (targets.length > 1) {

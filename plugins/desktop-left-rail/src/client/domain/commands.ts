@@ -13,12 +13,12 @@ export type RailActionId =
   | 'project.open-directory'
   | 'project.remove-registration'
   | 'worktree.create-session'
+  /** One rename verb per row: a workspaceId renames that Workspace; without one (registration-less row) it renames the display alias. */
   | 'worktree.rename'
-  | 'worktree.rename-alias'
-  | 'worktree.remove-registration'
+  /** One remove verb per row: a workspaceId removes that registration; without one it removes the physical Git worktree (and its registrations). */
+  | 'worktree.remove'
   | 'worktree.copy-path'
   | 'worktree.open-directory'
-  | 'worktree.remove-physical'
   | 'session.open'
   | 'session.rename'
   | 'session.fork'
@@ -79,11 +79,10 @@ export type RailCommand =
   | { kind: 'project.open-directory'; target: Extract<RailTarget, { kind: 'project' }> }
   | { kind: 'project.remove-registration'; target: Extract<RailTarget, { kind: 'project' }> }
   | { kind: 'worktree.create-session'; target: Extract<RailTarget, { kind: 'worktree' }>; workspaceId?: string }
-  | { kind: 'worktree.rename'; target: Extract<RailTarget, { kind: 'worktree' }>; workspaceId: string; title: string }
-  | { kind: 'worktree.remove-registration'; target: Extract<RailTarget, { kind: 'worktree' }>; workspaceId: string }
+  | { kind: 'worktree.rename'; target: Extract<RailTarget, { kind: 'worktree' }>; workspaceId?: string; title: string }
+  | { kind: 'worktree.remove'; target: Extract<RailTarget, { kind: 'worktree' }>; workspaceId?: string }
   | { kind: 'worktree.copy-path'; target: Extract<RailTarget, { kind: 'worktree' }> }
   | { kind: 'worktree.open-directory'; target: Extract<RailTarget, { kind: 'worktree' }> }
-  | { kind: 'worktree.remove-physical'; target: Extract<RailTarget, { kind: 'worktree' }> }
   | { kind: 'session.open'; target: Extract<RailTarget, { kind: 'session' }> }
   | { kind: 'session.rename'; target: Extract<RailTarget, { kind: 'session' }>; title: string }
   | { kind: 'session.fork'; target: Extract<RailTarget, { kind: 'session' }> }
