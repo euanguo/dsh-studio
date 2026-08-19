@@ -180,6 +180,7 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
     },
     {
       action: async () => { await deps.service.openSideChat() },
+      hidden: true,
       icon: <ToolIcon kind="chat" />,
       id: 'side-chat',
       order: 50,
@@ -188,6 +189,7 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
     },
     {
       action: () => { deps.service.openTrajectory() },
+      hidden: true,
       icon: <ToolIcon kind="trajectory" />,
       id: 'trajectory',
       order: 60,
