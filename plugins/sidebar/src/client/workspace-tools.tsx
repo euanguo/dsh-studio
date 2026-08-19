@@ -135,7 +135,28 @@ export class WorkspaceToolsService implements WorkspaceTools {
   openFiles(): void {
     const list = this.sessions.list.getSnapshot()
     const cwd = list.current === undefined ? undefined : list.byId[list.current]?.cwd
-    if (cwd === undefined) return
+    if (cwd === undefined || cwd === '') {
+      // No workspace to browse: open the panel so the disabled files/Git
+      // entries (with their hints) are visible, instead of a silent no-op
+      // or an empty file body.
+      this.setOpen(true)
+      return
+    }
+    this.openView('files', cwd)
+  }
+
+  /**
+   * The DEFAULT view when the panel is opened with nothing active: a project
+   * with a workspace cwd lands on the file list; without a cwd it stays on
+   * the launcher (SideMenu), whose workspace-bound entries show why they are
+   * disabled. Only applies when the project has no persisted active tab — a
+   * user's chosen tab (after reload) is never clobbered.
+   */
+  private openDefaultView(): void {
+    if (this.sidebar.getSnapshot().activeId !== null) return
+    const list = this.sessions.list.getSnapshot()
+    const cwd = list.current === undefined ? undefined : list.byId[list.current]?.cwd
+    if (cwd === undefined || cwd === '') return
     this.openView('files', cwd)
   }
 
@@ -147,7 +168,13 @@ export class WorkspaceToolsService implements WorkspaceTools {
 
   toggleSidePanel(): void {
     if (this.state.open) this.setOpen(false)
-    else this.openMenu()
+    else {
+      // Open from closed: start from the launcher, then apply the DEFAULT
+      // view — a project with a workspace cwd lands on the file list, one
+      // without stays on the launcher (SideMenu) with its disabled hints.
+      this.openMenu()
+      this.openDefaultView()
+    }
   }
 
   async openSideChat(): Promise<void> {
@@ -489,7 +516,11 @@ function WorkspaceToolsSurface(props: {
   const t = useTranslate(props.locale, props.t)
   const panelState = useSyncExternalStore(props.service.subscribe, props.service.getSnapshot)
   const sessionList = useSyncExternalStore(props.sessions.list.subscribe, props.sessions.list.getSnapshot)
-  const cwd = sessionList.current === undefined ? undefined : sessionList.byId[sessionList.current]?.cwd
+  const current = sessionList.current
+  const currentSummary = current === undefined ? undefined : sessionList.byId[current]
+  const cwd = (currentSummary?.cwd && currentSummary.cwd.trim() !== '')
+    ? currentSummary.cwd
+    : Object.values(sessionList.byId).find(s => s.cwd && s.cwd.trim() !== '' && !s.blank)?.cwd
   return (
     <>
       <SideToolsPanel

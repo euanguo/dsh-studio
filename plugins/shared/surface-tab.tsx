@@ -24,6 +24,12 @@ function isSurfaceTabActionTarget(target: EventTarget | null): boolean {
 export type SurfaceTabProps = Readonly<{
   label: string
   active?: boolean
+  /** Renders the tab non-interactive and dimmed (aria-disabled), with a
+   *  hint tooltip when `disabledTitle` is given. Clicking/activating is a
+   *  no-op while disabled. */
+  disabled?: boolean
+  /** Tooltip shown while disabled (e.g. "requires a workspace"). */
+  disabledTitle?: string
   icon?: ReactNode
   /** A small pill rendered next to the icon (counts / status). */
   badge?: ReactNode
@@ -34,11 +40,14 @@ export type SurfaceTabProps = Readonly<{
   onSelect?: () => void
   onClose?: () => void
   onPin?: () => void
+  /** Stable DOM identity for diagnostics and automation; not user-visible. */
+  tabId?: string
   className?: string
   /* HTML5 drag support (the right rail / bottom workbench reordering and
      cross-pane moves). The center strip passes none of these. */
   draggable?: boolean
   onDragStart?: (event: ReactDragEvent<HTMLDivElement>) => void
+  onDragEnter?: (event: ReactDragEvent<HTMLDivElement>) => void
   onDragOver?: (event: ReactDragEvent<HTMLDivElement>) => void
   onDrop?: (event: ReactDragEvent<HTMLDivElement>) => void
   onDragEnd?: (event: ReactDragEvent<HTMLDivElement>) => void
@@ -47,6 +56,8 @@ export type SurfaceTabProps = Readonly<{
 export function SurfaceTab({
   label,
   active = false,
+  disabled = false,
+  disabledTitle,
   icon,
   badge,
   title,
@@ -55,19 +66,25 @@ export function SurfaceTab({
   onSelect,
   onClose,
   onPin,
+  tabId,
   className,
   draggable = false,
   onDragStart,
+  onDragEnter,
   onDragOver,
   onDrop,
   onDragEnd,
 }: SurfaceTabProps): JSX.Element {
   const selectedOnPointerDownRef = useRef(false)
-  const canClose = onClose !== undefined
-  const resolvedTitle = title ?? label
+  const canClose = onClose !== undefined && !disabled
+  // Disabled tabs are inert: no activation, close, pin or drag.
+  const interactive = onSelect !== undefined && !disabled
+  const resolvedTitle = disabled && disabledTitle !== undefined
+    ? disabledTitle
+    : (title ?? label)
 
   const handlePointerDown = (event: PointerEvent<HTMLDivElement>): void => {
-    if (onSelect === undefined || isSurfaceTabActionTarget(event.target)) {
+    if (!interactive || isSurfaceTabActionTarget(event.target)) {
       selectedOnPointerDownRef.current = false
       return
     }
@@ -77,7 +94,7 @@ export function SurfaceTab({
     }
     event.stopPropagation()
     selectedOnPointerDownRef.current = true
-    onSelect()
+    onSelect!()
   }
 
   const handleClick = (event: MouseEvent<HTMLDivElement>): void => {
@@ -86,23 +103,48 @@ export function SurfaceTab({
       event.stopPropagation()
       return
     }
-    if (onSelect === undefined || isSurfaceTabActionTarget(event.target)) return
+    if (!interactive || isSurfaceTabActionTarget(event.target)) return
     event.stopPropagation()
-    onSelect()
+    onSelect!()
   }
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (onSelect === undefined || isSurfaceTabActionTarget(event.target)) return
+    if (!interactive || isSurfaceTabActionTarget(event.target)) return
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
     event.stopPropagation()
-    onSelect()
+    onSelect!()
   }
 
   const handleDoubleClick = (event: MouseEvent<HTMLDivElement>): void => {
-    if (onPin === undefined || isSurfaceTabActionTarget(event.target)) return
+    if (onPin === undefined || disabled || isSurfaceTabActionTarget(event.target)) return
     event.stopPropagation()
     onPin()
+  }
+
+  const handleDragStart = (event: ReactDragEvent<HTMLDivElement>): void => {
+    if (!interactive || onDragStart === undefined) return
+    onDragStart(event)
+  }
+
+  const handleDragEnter = (event: ReactDragEvent<HTMLDivElement>): void => {
+    if (onDragEnter === undefined) return
+    onDragEnter(event)
+  }
+
+  const handleDragOver = (event: ReactDragEvent<HTMLDivElement>): void => {
+    if (onDragOver === undefined) return
+    onDragOver(event)
+  }
+
+  const handleDrop = (event: ReactDragEvent<HTMLDivElement>): void => {
+    if (onDrop === undefined) return
+    onDrop(event)
+  }
+
+  const handleDragEnd = (event: ReactDragEvent<HTMLDivElement>): void => {
+    if (onDragEnd === undefined) return
+    onDragEnd(event)
   }
 
   const closeButton = canClose ? (
@@ -121,23 +163,26 @@ export function SurfaceTab({
 
   return (
     <div
-      role={onSelect !== undefined ? 'tab' : undefined}
-      tabIndex={onSelect !== undefined ? 0 : undefined}
+      role={interactive ? 'tab' : undefined}
+      tabIndex={interactive ? 0 : undefined}
       title={resolvedTitle}
       data-slot="surface-tab"
-      data-state={active ? 'active' : 'idle'}
+      data-tab-id={tabId}
+      data-state={disabled ? 'disabled' : (active ? 'active' : 'idle')}
       data-preview={isPreview || undefined}
-      aria-selected={onSelect !== undefined ? active : undefined}
-      draggable={draggable || undefined}
-      className={`oh-dsh-surface-tab${active ? ' is-active' : ''}${className === undefined ? '' : ` ${className}`}`}
+      aria-disabled={disabled || undefined}
+      aria-selected={interactive ? active : undefined}
+      draggable={!disabled && draggable || undefined}
+      className={`oh-dsh-surface-tab${active ? ' is-active' : ''}${disabled ? ' is-disabled' : ''}${className === undefined ? '' : ` ${className}`}`}
       onPointerDown={handlePointerDown}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onKeyDown={handleKeyDown}
-      onDragStart={onDragStart}
-      onDragOver={onDragOver}
-      onDrop={onDrop}
-      onDragEnd={onDragEnd}
+      onDragStart={handleDragStart}
+       onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      onDragEnd={handleDragEnd}
     >
       {icon !== undefined && icon !== null ? (
         <span className="oh-dsh-surface-tab-icon" aria-hidden="true">{icon}</span>
@@ -157,6 +202,13 @@ export type SurfaceTabStripProps = Readonly<{
   children: ReactNode
   className?: string
   'aria-label'?: string
+  /* HTML5 drag support (reordering / cross-pane moves). The center strip
+     passes reorder-only handlers; the right rail / bottom workbench pass
+     the shared useTabStripDrag strip handlers. */
+  onDragEnter?: (event: ReactDragEvent<HTMLDivElement>) => void
+  onDragOver?: (event: ReactDragEvent<HTMLDivElement>) => void
+  onDrop?: (event: ReactDragEvent<HTMLDivElement>) => void
+  onDragLeave?: (event: ReactDragEvent<HTMLDivElement>) => void
 }>
 
 /** Horizontal scrolling host for surface tabs. */
@@ -164,6 +216,10 @@ export function SurfaceTabStrip({
   children,
   className,
   'aria-label': ariaLabel,
+  onDragEnter,
+  onDragOver,
+  onDrop,
+  onDragLeave,
 }: SurfaceTabStripProps): JSX.Element {
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -178,6 +234,10 @@ export function SurfaceTabStrip({
       aria-label={ariaLabel}
       data-slot="surface-tab-strip"
       className={`oh-dsh-surface-tab-strip${className === undefined ? '' : ` ${className}`}`}
+      onDragEnter={onDragEnter}
+       onDragOver={onDragOver}
+      onDrop={onDrop}
+      onDragLeave={onDragLeave}
     >
       {children}
     </div>

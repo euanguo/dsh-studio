@@ -70,15 +70,7 @@ import {
 import { FilenameLabel } from '@oh-dsh/shared/filename-label'
 import { SurfaceTab } from '@oh-dsh/shared/surface-tab'
 import { bindTabStripWheel } from '@oh-dsh/shared/tab-strip-wheel'
-import {
-  fullTabDropIndex,
-  parseTabDrag,
-  reorderIndexAfterRemoval,
-  serializeTabDrag,
-  TAB_DRAG_MIME,
-  tabDropSideOf,
-  type TabDropSide,
-} from './tab-drag.ts'
+import { useTabStripDrag } from './use-tab-strip-drag.ts'
 import { Scrollable } from '@oh-dsh/shared/scrollable'
 import {
   getExplorerRuntime,
@@ -93,8 +85,10 @@ import type {
   SidebarRenderProps,
   SidebarScope,
   SidebarTab,
+  SidebarTabAvailability,
   SidebarTabDescriptor,
 } from './contract.ts'
+import { tabAvailability } from './contract.ts'
 import type { ReviewCommentsService } from './review/review-comments.ts'
 import type { WorkspaceMessage } from './i18n.ts'
 
@@ -155,6 +149,7 @@ function DescriptorIcon({ descriptor }: {
 function ToolRow(props: {
   descriptor: SidebarTabDescriptor
   disabled?: boolean
+  disabledTitle?: string
   onClick(): void
 }): JSX.Element {
   return (
@@ -162,6 +157,8 @@ function ToolRow(props: {
       className="oh-dsh-side-tool-row"
       type="button"
       disabled={props.disabled}
+      title={props.disabledTitle}
+      aria-disabled={props.disabled || undefined}
       onClick={props.onClick}
     >
       <DescriptorIcon descriptor={props.descriptor} />
@@ -171,6 +168,14 @@ function ToolRow(props: {
       )}
     </button>
   )
+}
+
+/** Map an availability reason to its user-facing disabled hint title. */
+function unavailableTitle(reason: SidebarTabAvailability, t: Translate<WorkspaceMessage>): string | undefined {
+  if (reason.ok) return undefined
+  if (reason.reason === 'no-workspace') return t('side.no-workspace')
+  if (reason.reason === 'not-ready') return t('side.not-ready')
+  return t('side.tool-disabled')
 }
 
 function SideMenu(props: SideToolsPanelProps): JSX.Element {
@@ -192,20 +197,27 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
     }
   }
   const snapshot = props.sidebar.getSnapshot()
+  const scope: SidebarScope | null = props.cwd === undefined
+    ? null
+    : { cwd: props.cwd }
   const descriptors = props.sidebar.getTabs().filter(descriptor =>
     descriptor.hidden !== true && props.sidebar.isTabEnabled(descriptor.id),
   )
   return (
     <Scrollable className="oh-dsh-side-menu">
-      {descriptors.map(descriptor => (
-        <ToolRow
-          key={descriptor.id}
-          descriptor={descriptor}
-          disabled={(descriptor.requiresWorkspace === true && props.cwd === undefined)
-            || descriptor.available?.(snapshot.scope, snapshot) === false}
-          onClick={() => { void open(descriptor) }}
-        />
-      ))}
+      {descriptors.map(descriptor => {
+        const availability = tabAvailability(descriptor, scope, snapshot, props.sidebar.isTabEnabled(descriptor.id))
+        const unavailableArea = unavailableTitle(availability, props.t)
+        return (
+          <ToolRow
+            key={descriptor.id}
+            descriptor={descriptor}
+            disabled={!availability.ok}
+            {...(unavailableArea === undefined ? {} : { disabledTitle: unavailableArea })}
+            onClick={() => { void open(descriptor) }}
+          />
+        )
+      })}
       {error !== '' && <ErrorView message={error} />}
       <button
         type="button"
@@ -969,13 +981,29 @@ function tabBadge(
 
 /* Pinned panel entries — 文件 (files) and Git (review) stay one click away,
    everything else is added through the [+] menu. Rendered with the shared
-   SurfaceTab chip (the same component the center tab strip uses). */
-function PinnedTabs({ sidebar, t }: {
+   SurfaceTab chip (the same component the center tab strip uses). Without a
+   workspace cwd the workspace-bound chips (files / Git) are disabled with a
+   hint — they would otherwise open an empty body. */
+function PinnedTabs({ sidebar, t, cwd }: {
   sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
+  cwd: string | undefined
 }): JSX.Element {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
   const activeType = snapshot.tabs.find(tab => tab.id === snapshot.activeId)?.type ?? null
+  const pinnedScope: SidebarScope | null = cwd === undefined ? null : { cwd }
+  const filesAvailability = tabAvailability(
+    sidebar.getTab('files')!,
+    pinnedScope,
+    snapshot,
+    sidebar.isTabEnabled('files'),
+  )
+  const reviewAvailability = tabAvailability(
+    sidebar.getTab('review')!,
+    pinnedScope,
+    snapshot,
+    sidebar.isTabEnabled('review'),
+  )
   const openType = (type: string): void => {
     const existing = snapshot.tabs.find(tab => tab.type === type)
     if (existing !== undefined) {
@@ -986,12 +1014,16 @@ function PinnedTabs({ sidebar, t }: {
   }
   const filesTab = snapshot.tabs.find(tab => tab.type === 'files')
   const reviewTab = snapshot.tabs.find(tab => tab.type === 'review')
+  const filesHint = unavailableTitle(filesAvailability, t)
+  const reviewHint = unavailableTitle(reviewAvailability, t)
   return (
     <div className="oh-dsh-side-pinned" role="tablist">
       <SurfaceTab
         label={t('files')}
         icon={<ToolIcon kind="files" />}
         active={activeType === 'files'}
+        disabled={!filesAvailability.ok}
+        {...(filesHint === undefined ? {} : { disabledTitle: filesHint })}
         badge={filesTab === undefined ? null : tabBadge(sidebar, filesTab)}
         onSelect={() => { openType('files') }}
       />
@@ -999,6 +1031,8 @@ function PinnedTabs({ sidebar, t }: {
         label={t('side.git')}
         icon={<ToolIcon kind="review" />}
         active={activeType === 'review'}
+        disabled={!reviewAvailability.ok}
+        {...(reviewHint === undefined ? {} : { disabledTitle: reviewHint })}
         badge={reviewTab === undefined ? null : tabBadge(sidebar, reviewTab)}
         onSelect={() => { openType('review') }}
       />
@@ -1084,9 +1118,20 @@ function TabStrip({ sidebar, t }: {
 }): JSX.Element | null {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
   const stripRef = useRef<HTMLDivElement>(null)
-  const [marker, setMarker] = useState<{ id: string; side: TabDropSide } | null>(null)
-  const draggingRef = useRef(false)
   const tabs = snapshot.tabs.filter(tab => !PINNED_TAB_TYPES.has(tab.type))
+
+  // Shared drag state machine: canvas rounded drag image + ID-based reordering.
+  const drag = useTabStripDrag({
+    source: 'side',
+    onDrop: (payload, hoverId, side) => {
+      if (payload.source === 'bottom') {
+        sidebar.undockTabToSide(payload.tabId, hoverId === '' ? null : hoverId, side)
+        return
+      }
+      sidebar.reorderTabs(payload.tabId, hoverId === '' ? null : hoverId, side)
+    },
+  })
+
   useEffect(() => {
     // The wheel binding depends on the strip element being in the DOM.
     // When tabs.length is 0 the component returns null before the element
@@ -1102,93 +1147,40 @@ function TabStrip({ sidebar, t }: {
   }, [tabs.length])
   if (tabs.length === 0) return null
 
-  const acceptDrag = (event: ReactDragEvent): boolean => {
-    if (!event.dataTransfer.types.includes(TAB_DRAG_MIME)) return false
-    event.preventDefault()
-    return true
-  }
-  const dropTargetOf = (hoverId: string, side: TabDropSide): number =>
-    fullTabDropIndex(snapshot.tabs, PINNED_TAB_TYPES, hoverId, side)
-
-  const handleStripDrop = (event: ReactDragEvent<HTMLDivElement>): void => {
-    const payload = parseTabDrag(event.dataTransfer.getData(TAB_DRAG_MIME))
-    setMarker(null)
-    if (payload === null) return
-    event.preventDefault()
-    // A docked tab dropped on the rail's empty space returns to the rail
-    // (append). A rail tab dropped on its own strip background is a no-op.
-    if (payload.source === 'bottom') sidebar.moveBottomTabToSide(payload.tabId)
-  }
-
   return (
     <div
       ref={stripRef}
       className="oh-dsh-side-tabs"
       role="tablist"
-      onDragOver={event => {
-        if (!acceptDrag(event)) return
-        // Background (not a chip): clear the chip marker (append target).
-        if ((event.target as HTMLElement).closest('[data-slot="surface-tab"]') === null) {
-          setMarker(null)
-        }
-      }}
-      onDrop={handleStripDrop}
-      onDragLeave={() => { setMarker(null) }}
+      {...drag.strip.handlers}
     >
-      {tabs.map(tab => (
-        <SurfaceTab
-          key={tab.id}
-          label={tab.title}
-          title={tab.title}
-          active={tab.id === snapshot.activeId}
-          badge={tabBadge(sidebar, tab)}
-          draggable
-          {...(marker !== null && marker.id === tab.id
-            ? { className: `is-drop-${marker.side}` }
-            : {})}
-          onDragStart={event => {
-            draggingRef.current = true
-            event.dataTransfer.effectAllowed = 'move'
-            event.dataTransfer.setData(TAB_DRAG_MIME, serializeTabDrag({
-              kind: 'sidebar-tab',
-              tabId: tab.id,
-              source: 'side',
-            }))
-          }}
-          onDragOver={event => {
-            if (!acceptDrag(event)) return
-            setMarker({
-              id: tab.id,
-              side: tabDropSideOf(event.nativeEvent.offsetX, event.currentTarget.clientWidth),
-            })
-          }}
-          onDrop={event => {
-            const payload = parseTabDrag(event.dataTransfer.getData(TAB_DRAG_MIME))
-            setMarker(null)
-            if (payload === null) return
-            event.preventDefault()
-            const side = marker !== null && marker.id === tab.id ? marker.side : 'before'
-            const target = dropTargetOf(tab.id, side)
-            if (payload.source === 'bottom') {
-              sidebar.moveBottomTabToSide(payload.tabId, target)
-              return
-            }
-            const from = snapshot.tabs.findIndex(candidate => candidate.id === payload.tabId)
-            if (from === -1) return
-            sidebar.moveTab(payload.tabId, reorderIndexAfterRemoval(from, target))
-          }}
-          onDragEnd={() => {
-            draggingRef.current = false
-            setMarker(null)
-          }}
-          onSelect={() => {
-            if (draggingRef.current) return
-            sidebar.activateTab(tab.id)
-          }}
-          onClose={() => { sidebar.closeTab(tab.id) }}
-          closeLabel={t('side.close-named-tab', { title: tab.title })}
-        />
-      ))}
+      {tabs.map(tab => {
+        const dropClass = drag.chip.markerClass(tab.id)
+        return (
+          <SurfaceTab
+            key={tab.id}
+            label={tab.title}
+            title={tab.title}
+            active={tab.id === snapshot.activeId}
+            badge={tabBadge(sidebar, tab)}
+            {...(dropClass === undefined ? {} : { className: dropClass })}
+            draggable={drag.chip.handlers.draggable}
+            onDragStart={event => { drag.chip.handlers.onDragStart(event, tab.id, tab.title) }}
+            onDragEnter={event => { drag.chip.handlers.onDragEnter(event, tab.id) }}
+             onDragOver={event => { drag.chip.handlers.onDragOver(event, tab.id) }}
+            onDrop={event => { drag.chip.handlers.onDrop(event, tab.id) }}
+            onDragEnd={drag.chip.handlers.onDragEnd}
+            onSelect={() => {
+              // A drag in progress must not activate chips beneath the pointer.
+              if (drag.strip.dragging) return
+              sidebar.activateTab(tab.id)
+            }}
+            onClose={() => { sidebar.closeTab(tab.id) }}
+            closeLabel={t('side.close-named-tab', { title: tab.title })}
+             tabId={tab.id}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -1316,7 +1308,7 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
         />
       )}
       <div className="oh-dsh-side-top">
-        <PinnedTabs sidebar={props.sidebar} t={props.t} />
+        <PinnedTabs sidebar={props.sidebar} t={props.t} cwd={props.cwd} />
         <TabStrip sidebar={props.sidebar} t={props.t} />
         <AddToolsMenu sidebar={props.sidebar} t={props.t} />
         <PanelActions

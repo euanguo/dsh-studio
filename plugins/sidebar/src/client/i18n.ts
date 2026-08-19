@@ -85,6 +85,7 @@ export type WorkspaceMessage =
   | 'side.close-named-tab'
   | 'side.not-ready'
   | 'side.orphaned-tab'
+  | 'side.no-workspace'
   | 'center.tablist'
   | 'center.close'
   | 'center.crash'
@@ -311,6 +312,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.no-more-tools': 'No more tools to add',
     'side.close-named-tab': 'Close {title}',
     'side.not-ready': 'The side panel is still starting.',
+    'side.no-workspace': 'Select a workspace to use this tool.',
     'side.orphaned-tab': 'Its provider is not currently available. You can close this tab without losing the rest of the session.',
     'center.tablist': 'Center tabs',
     'center.close': 'Close tab',
@@ -537,6 +539,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.no-more-tools': '没有更多可添加的工具',
     'side.close-named-tab': '关闭 {title}',
     'side.not-ready': '侧边栏仍在启动。',
+    'side.no-workspace': '请先选择工作区再使用此工具。',
     'side.orphaned-tab': '当前无法找到它的提供者。关闭此标签页不会影响会话中的其他内容。',
     'center.tablist': '中间标签页',
     'center.close': '关闭标签页',

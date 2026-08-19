@@ -27,8 +27,47 @@ import type { CenterSurface, CenterSurfaceKind } from './surfaces/types.ts'
 
 /** One workspace scope: the project cwd. The sidebar data model is project
  *  dimension — one layout per project, never per conversation. */
+/** One workspace scope: the project cwd. The sidebar data model is project
+ *  dimension — one layout per project, never per conversation. */
 export interface SidebarScope {
   cwd: string
+}
+
+/** Why an opened surface is unusable right now. */
+export type TabUnavailableReason = 'no-workspace' | 'disabled' | 'not-ready' | 'unavailable'
+
+/** The result of one tab's availability gate: usable, or blocked with a
+ *  machine-readable reason so every entry point (menu rows, pinned chips,
+ *  the [+] menu, `openTab`) can agree on the SAME answer and the same hint. */
+export type SidebarTabAvailability =
+  | { ok: true }
+  | { ok: false; reason: TabUnavailableReason }
+
+/**
+ * The ONE availability gate shared by the service (`openTab` refusal) and
+ * every UI entry point. Folds the descriptor's `requiresWorkspace` flag and
+ * `available` predicate into a single truthful answer:
+ * - no active project cwd + the descriptor requires one → `no-workspace`;
+ * - the descriptor's `available` predicate says no → `unavailable`;
+ * - the service is not ready → `not-ready`;
+ * - the descriptor id is disabled in prefs → `disabled`.
+ */
+export function tabAvailability(
+  descriptor: SidebarTabDescriptor,
+  scope: SidebarScope | null,
+  state: SidebarSnapshot,
+  enabled: boolean,
+): SidebarTabAvailability {
+  if (!enabled) return { ok: false, reason: 'disabled' }
+  if (!state.ready) return { ok: false, reason: 'not-ready' }
+  if (descriptor.requiresWorkspace === true
+    && (scope === null || scope.cwd === undefined || scope.cwd === '')) {
+    return { ok: false, reason: 'no-workspace' }
+  }
+  if (descriptor.available?.(scope, state) === false) {
+    return { ok: false, reason: 'unavailable' }
+  }
+  return { ok: true }
 }
 
 /** One open sidebar tab instance (persisted per session). */
@@ -90,15 +129,16 @@ export interface SidebarSnapshot {
  */
 export interface SidebarTabDragPayload {
   kind: 'sidebar-tab'
-  /** The open tab's id (unique per session). */
+  /** The open tab's id. */
   tabId: string
   /** Which pane the drag started from. */
-  source: 'side' | 'bottom'
+  source: 'side' | 'bottom' | 'center'
 }
 
 /** The outcome of one `openTab` call. */
 export type OpenTabResult =
-  | { kind: 'disabled' | 'limit' | 'missing' | 'not-ready' }
+  | { kind: 'limit' | 'missing' | 'not-ready' }
+  | { kind: 'disabled'; reason?: TabUnavailableReason }
   | { kind: 'focused' | 'opened'; tab: SidebarTab }
 
 /** Props every tab render function receives. */
@@ -350,19 +390,25 @@ export interface DesktopSidebarService {
   openFile(scope: SidebarScope, path: string, title?: string): void
 
   /* ── bottom workbench + tab drag layout (Oh-DSH extension) ─── */
-  /** Reorder one right-rail tab to `toIndex` (index in the full tab list;
-   *  the panel maps its visible-strip position through the pinned tabs).
-   *  A no-op for unknown ids / out-of-range indexes. */
+  /** Reorder one right-rail tab to `toIndex` (index in the full tab list). */
   moveTab(tabId: string, toIndex: number): void
+  /** Reorder right-rail tabs by placing `sourceId` relative to `targetId`. */
+  reorderTabs(sourceId: string, targetId: string | null | undefined, side?: 'before' | 'after'): void
   /** Dock a right-rail tab into the bottom workbench at `toIndex` (default
    *  append). The moved tab becomes the bottom workbench's active tab; the
    *  rail activates the moved tab's neighbor when it was active. */
   moveTabToBottom(tabId: string, toIndex?: number): void
+  /** Dock a right-rail tab into the bottom workbench relative to `targetId`. */
+  dockTabToBottom(tabId: string, targetId: string | null | undefined, side?: 'before' | 'after'): void
   /** Undock a bottom-workbench tab back into the right rail at `toIndex`
    *  (default append). The moved tab becomes the rail's active tab. */
   moveBottomTabToSide(bottomTabId: string, toIndex?: number): void
+  /** Undock a bottom-workbench tab back into the right rail relative to `targetId`. */
+  undockTabToSide(bottomTabId: string, targetId: string | null | undefined, side?: 'before' | 'after'): void
   /** Reorder one bottom-workbench tab to `toIndex` (workbench order). */
   moveBottomTab(bottomTabId: string, toIndex: number): void
+  /** Reorder bottom-workbench tabs by placing `sourceId` relative to `targetId`. */
+  reorderBottomTabs(sourceId: string, targetId: string | null | undefined, side?: 'before' | 'after'): void
   /** Activate one bottom-workbench tab (null clears the pane). */
   activateBottomTab(bottomTabId: string | null): void
   /** Close one bottom-workbench tab (fires descriptor.onClose). */

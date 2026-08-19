@@ -131,6 +131,9 @@
 }
 
 .oh-dsh-center-tabs-scroller .oh-dsh-surface-tab-strip {
+  /* Only the actual tab hit area opts out. Empty scroller space remains
+     available for dragging the Electron window. */
+  -webkit-app-region: no-drag;
   flex: none;
 }
 

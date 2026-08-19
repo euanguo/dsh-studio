@@ -9,6 +9,10 @@ import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 
 const client = readFileSync(new URL('../src/client.ts', import.meta.url), 'utf8')
+const centerSurfaceCss = readFileSync(
+  new URL('../plugins/sidebar/src/client/surfaces/center-surface.css', import.meta.url),
+  'utf8',
+)
 
 test('conversation header is the drag region with full interactive isolation', () => {
   assert.match(
@@ -28,10 +32,32 @@ test('conversation header is the drag region with full interactive isolation', (
   }
 })
 
+test('portalled menus opt out of native window dragging', () => {
+  assert.match(
+    client,
+    /html\[data-oh-dsh-desktop='true'\] \[role='menu'\][\s\S]*-webkit-app-region: no-drag;/,
+  )
+})
+
 test('modal mounts suspend every renderer drag region', () => {
   assert.match(
     client,
     /:has\(\[aria-modal='true'\]\) body \*[^{]*\{[^}]*webkit-app-region: no-drag;/s,
+  )
+})
+
+test('center tab hit area opts out while scroller whitespace stays draggable', () => {
+  assert.match(
+    centerSurfaceCss,
+    /\.oh-dsh-center-tabs-strip\s*\{[^}]*-webkit-app-region: drag;/s,
+  )
+  assert.match(
+    centerSurfaceCss,
+    /\.oh-dsh-center-tabs-scroller\s*\{[^}]*display: flex;/s,
+  )
+  assert.match(
+    centerSurfaceCss,
+    /\.oh-dsh-center-tabs-scroller \.oh-dsh-surface-tab-strip\s*\{[^}]*-webkit-app-region: no-drag;/s,
   )
 })
 

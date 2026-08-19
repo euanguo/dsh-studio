@@ -18,6 +18,7 @@ import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
 import type { PinnedSummary } from '@oh-dsh/pinned-summary/client'
 import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
 import { isUnderRoot } from '@oh-dsh/shared/path'
+import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
 import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'
 import { CenterSurfaceHost } from './surfaces/center-surface-host.tsx'
 import { WorkspaceToolsService } from './workspace-tools.tsx'
@@ -58,9 +59,12 @@ export const inject = [
 
 function activeWorkspace(sessions: SessionsService): string | undefined {
   const snapshot = sessions.list.getSnapshot()
-  return snapshot.current === undefined
-    ? undefined
-    : snapshot.byId[snapshot.current]?.cwd
+  const current = snapshot.current
+  const currentSummary = current === undefined ? undefined : snapshot.byId[current]
+  if (currentSummary?.cwd && currentSummary.cwd.trim() !== '') {
+    return currentSummary.cwd
+  }
+  return Object.values(snapshot.byId).find(s => s.cwd && s.cwd.trim() !== '' && !s.blank)?.cwd
 }
 
 function pathBelongsToActiveWorkspace(
@@ -153,14 +157,10 @@ export function apply(ctx: ClientContext): void {
   let settingsActions: BoundSidebarSettingsActions | undefined
   ctx.effect(() => {
     const syncWorkspace = (): void => {
-      const list = sessions.list.getSnapshot()
-      const current = list.current ?? null
-      // The current project = the active session's cwd (B2: no independent
-      // project state; the cwd is the sole authority and switching cwd swaps
-      // the whole workspace layout).
-      desktopSidebar.setWorkspace(
-        current === null ? null : (list.byId[current]?.cwd ?? null),
-      )
+      // The current project = the active session's cwd, falling back to any
+      // valid workspace cwd in the session roster.
+      const cwd = activeWorkspace(sessions) ?? null
+      desktopSidebar.setWorkspace(cwd)
     }
     syncWorkspace()
     const stopSessions = sessions.list.subscribe(syncWorkspace)

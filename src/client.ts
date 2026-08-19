@@ -71,6 +71,14 @@ html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [contentedita
   user-select: auto;
 }
 
+/* Menus are portalled to body and can geometrically overlap the conversation
+   header. Electron app regions ignore normal visual stacking there, so every
+   menu hit target must explicitly opt out of native window dragging. */
+html[data-oh-dsh-desktop='true'] [role='menu'],
+html[data-oh-dsh-desktop='true'] [role='menu'] * {
+  -webkit-app-region: no-drag;
+}
+
 /* Electron drag regions ignore visual stacking: while a modal is mounted,
    suspend every renderer-owned drag target so the mask and the modal's own
    controls keep pointer input (same rule as the reference desktop

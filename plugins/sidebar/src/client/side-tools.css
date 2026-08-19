@@ -86,21 +86,7 @@
 .oh-dsh-side-tabs .oh-dsh-surface-tab { max-width: 140px; }
 
 /* Tab drag layout: drop markers on the right-rail strip and the bottom
-   workbench chips (before/after insertion guides). */
-.oh-dsh-surface-tab.is-drop-before::before,
-.oh-dsh-surface-tab.is-drop-after::after {
-  content: '';
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  width: 2px;
-  border-radius: 1px;
-  background: var(--oh-dsh-accent, var(--dsw-alias-brand-primary-new-colorprimary-new-color, #0969da));
-}
-.oh-dsh-surface-tab.is-drop-before { position: relative; }
-.oh-dsh-surface-tab.is-drop-before::before { left: -3px; }
-.oh-dsh-surface-tab.is-drop-after { position: relative; }
-.oh-dsh-surface-tab.is-drop-after::after { right: -3px; }
+   workbench chips (before/after insertion guides - delegated to shared surface-tab.css). */
 .oh-dsh-surface-tab[draggable='true'] { cursor: grab; }
 .oh-dsh-surface-tab[draggable='true']:active { cursor: grabbing; }
 

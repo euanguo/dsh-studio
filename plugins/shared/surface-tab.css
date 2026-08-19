@@ -42,6 +42,24 @@
   outline: none;
 }
 
+/* Disabled chips (e.g. files/Git without a workspace): inert and dimmed.
+   No hover/focus lift — a disabled entry is not interactable. The close
+   action and drag are suppressed at the component level too. */
+.oh-dsh-surface-tab.is-disabled {
+  opacity: 0.45;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  background: transparent;
+  cursor: default;
+  pointer-events: none;
+}
+
+.oh-dsh-surface-tab.is-disabled:hover,
+.oh-dsh-surface-tab.is-disabled:focus-visible,
+.oh-dsh-surface-tab.is-disabled.is-active {
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+}
+
 .oh-dsh-surface-tab-icon {
   display: inline-flex;
   align-items: center;
@@ -117,4 +135,31 @@
 .oh-dsh-surface-tab-action:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 8%));
   color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+/* A quiet insertion line at the boundary between two tabs. */
+.oh-dsh-surface-tab.is-drop-before,
+.oh-dsh-surface-tab.is-drop-after {
+  position: relative;
+}
+
+.oh-dsh-surface-tab.is-drop-before::before,
+.oh-dsh-surface-tab.is-drop-after::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--dsw-alias-accent-fg, #4d6bfe);
+  pointer-events: none;
+}
+
+.oh-dsh-surface-tab.is-drop-before::before {
+  left: -1px;
+}
+
+.oh-dsh-surface-tab.is-drop-after::after {
+  right: -1px;
 }

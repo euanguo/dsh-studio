@@ -59,6 +59,9 @@ import {
   SurfaceTabStrip,
 } from '@oh-dsh/shared/surface-tab'
 import {
+  useTabStripDrag,
+} from '../use-tab-strip-drag.ts'
+import {
   DiffThemeSync,
   DiffWorkerPoolProvider,
 } from '../diff/pierre-adapter.tsx'
@@ -119,11 +122,29 @@ export function CenterSurfaceTabs({
 }): JSX.Element {
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
   const current = sessionList.current
-  // The active workspace: every project keeps its own tab queue, and
-  // switching workspaces swaps the whole queue (like Git/file lists).
-  const cwd = current === undefined ? undefined : sessionList.byId[current]?.cwd
-  const slice = useCenterSurfaceStore(state =>
-    cwd === undefined ? EMPTY_CENTER_SLICE : state.getSlice(cwd))
+  // The active workspace: use the current session cwd, or fallback to the
+  // first non-blank session with a valid cwd in the session roster, or process root.
+  const currentSummary = current === undefined ? undefined : sessionList.byId[current]
+  const isRootFallback = (currentSummary?.cwd === undefined || currentSummary.cwd.trim() === '')
+  const fallbackCwd = Object.values(sessionList.byId).find(s => s.cwd && s.cwd.trim() !== '' && !s.blank)?.cwd
+  const cwd: string = isRootFallback ? (fallbackCwd ?? '/') : currentSummary!.cwd!
+
+  const slice = useCenterSurfaceStore(state => state.getSlice(cwd))
+
+  // Center-strip tab drag: reorder the workspace's open surfaces within the
+  // queue (project dimension — same unified reorder model).
+  const drag = useTabStripDrag({
+    source: 'center',
+    onDrop: (payload, hoverId, side) => {
+      if (cwd === undefined) return
+      useCenterSurfaceStore.getState().reorderSurfaces(
+        cwd,
+        payload.tabId,
+        hoverId === '' ? null : hoverId,
+        side,
+      )
+    },
+  })
 
   // The current project's sessions (same cwd as the active session), the
   // current session included — it must show as the active tab, and the
@@ -190,7 +211,10 @@ export function CenterSurfaceTabs({
   }, [conversationTabs, cwd, current, sessionList])
 
   return (
-    <SurfaceTabStrip aria-label={t('center.tablist')}>
+    <SurfaceTabStrip
+      aria-label={t('center.tablist')}
+      {...drag.strip.handlers}
+    >
       {slice.open.map(surface => {
         const isConversation = surface.kind === 'conversation'
         const summary = isConversation
@@ -200,6 +224,7 @@ export function CenterSurfaceTabs({
           ? conversationTabTitle(surface.sessionId, surface.cwd, summary)
           : surface.title
         const active = slice.activeId === surface.id
+        const dropClass = drag.chip.markerClass(surface.id)
         return (
           <SurfaceTab
             key={surface.id}
@@ -207,8 +232,16 @@ export function CenterSurfaceTabs({
             title={isConversation ? surface.sessionId : (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'commit-file' ? surface.filePath : surface.title)}
             icon={surfaceIcon(surface)}
             active={active}
+            {...(dropClass === undefined ? {} : { className: dropClass })}
             isPreview={!isConversation && surface.kind !== 'terminal' && surface.isPreview}
             closeLabel={t('center.close')}
+            tabId={surface.id}
+            draggable={drag.chip.handlers.draggable}
+            onDragStart={event => { drag.chip.handlers.onDragStart(event, surface.id, label) }}
+            onDragEnter={event => { drag.chip.handlers.onDragEnter(event, surface.id) }}
+             onDragOver={event => { drag.chip.handlers.onDragOver(event, surface.id) }}
+            onDrop={event => { drag.chip.handlers.onDrop(event, surface.id) }}
+            onDragEnd={drag.chip.handlers.onDragEnd}
             onSelect={() => {
               if (isConversation) {
                 useCenterSurfaceStore.getState().openConversation({
@@ -420,48 +453,49 @@ function CenterAddMenu({
     }
   }, [open])
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
-  const currentSessionId = sessionList.current ?? ''
-  const cwd = sessionList.current === undefined
-    ? undefined
-    : sessionList.byId[sessionList.current]?.cwd
-  const hasWorkspace = currentSessionId !== '' && typeof cwd === 'string' && cwd.trim() !== ''
+  const current = sessionList.current
+  // The active workspace: use the current session cwd, or fallback to the
+  // first non-blank session with a cwd, or the active session id.
+  const currentSummary = current === undefined ? undefined : sessionList.byId[current]
+  const cwd = ((currentSummary?.cwd && currentSummary.cwd.trim() !== '')
+    ? currentSummary.cwd
+    : Object.values(sessionList.byId).find(s => s.cwd && s.cwd.trim() !== '' && !s.blank)?.cwd) ?? '/'
+  const hasWorkspace = true
   const items: MenuEntry[] = [
     {
       id: 'browser',
       label: t('browser'),
       icon: <IconExternalLink size={14} />,
-      disabled: !hasWorkspace,
     },
     {
       id: 'terminal',
       label: t('terminal'),
       icon: <IconTerminal size={14} />,
-      disabled: !hasWorkspace,
     },
     { id: 'new-conversation', label: t('add.new-conversation'), icon: <IconPlus size={14} /> },
   ]
   const pick = (id: string): void => {
     setOpen(false)
     if (id === 'browser') {
-      if (!hasWorkspace || cwd === undefined) return
+      const targetCwd = (typeof cwd === 'string' && cwd.trim() !== '') ? cwd : '/'
       if (altDown) {
         sidebar.openTab({ type: 'browser' })
         sidebar.setOpen(true)
         return
       }
-      useCenterSurfaceStore.getState().openBrowser({ cwd, title: t('browser'), preview: false })
+      useCenterSurfaceStore.getState().openBrowser({ cwd: targetCwd, title: t('browser'), preview: false })
       return
     }
     if (id === 'terminal') {
-      if (!hasWorkspace || cwd === undefined) return
+      const targetCwd = (typeof cwd === 'string' && cwd.trim() !== '') ? cwd : '/'
       if (altDown) {
         sidebar.openTab({ type: 'terminal' })
         sidebar.setOpen(true)
         return
       }
-      const scope = { cwd }
+      const scope = { cwd: targetCwd }
       if (!canOpenTerminalInstance(scope)) return
-      const surface = useCenterSurfaceStore.getState().openTerminal({ cwd, title: t('terminal') })
+      const surface = useCenterSurfaceStore.getState().openTerminal({ cwd: targetCwd, title: t('terminal') })
       touchTerminalInstance(scope, surface.id)
       return
     }

@@ -37,6 +37,7 @@ import type { SidebarPreferencesStorage } from './sidebar-storage.ts'
 import {
   SIDEBAR_FEATURES,
   SIDEBAR_SERVICE_VERSION,
+  tabAvailability,
   type DesktopSidebarService as DesktopSidebarServiceContract,
   type OpenTabResult,
   type SidebarScope,
@@ -46,6 +47,7 @@ import {
   type SidebarTabSeed,
   type SidebarViewerDescriptor,
 } from './contract.ts'
+import { reorderById } from './tab-drag.ts'
 
 export type {
   OpenTabResult,
@@ -376,10 +378,11 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     if (target === null) return { kind: 'not-ready' }
     const descriptor = this.tabDescriptors.get(seed.type)
     if (descriptor === undefined) return { kind: 'missing' }
-    if (!this.isTabEnabled(seed.type)) return { kind: 'disabled' }
-    if (descriptor.available?.(this.snapshot.scope, this.snapshot) === false) {
-      return { kind: 'disabled' }
-    }
+    // ONE availability gate: folds `requiresWorkspace`, `available` and the
+    // enable map into a single answer, so `openTab` and every UI entry point
+    // agree on whether (and why) a tab can open right now.
+    const availability = tabAvailability(descriptor, { cwd: target.cwd }, this.snapshot, this.isTabEnabled(seed.type))
+    if (!availability.ok) return { kind: 'disabled', reason: availability.reason }
     const tabs = [...this.workspaceOf(target.cwd).tabs]
     // Action-only descriptors run instead of opening a tab.
     if (descriptor.action !== undefined && descriptor.render === undefined) {
@@ -527,6 +530,14 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
 
   /* ── bottom workbench + tab drag layout ─────────────────────── */
 
+  reorderTabs(sourceId: string, targetId: string | null | undefined, side: 'before' | 'after' = 'after'): void {
+    const target = this.targetOf()
+    if (target === null) return
+    const workspace = this.workspaceOf(target.cwd)
+    const nextTabs = reorderById(workspace.tabs, sourceId, targetId, side)
+    this.writeTarget(target, nextTabs, workspace.activeId)
+  }
+
   moveTab(tabId: string, toIndex: number): void {
     const target = this.targetOf()
     if (target === null) return
@@ -539,6 +550,36 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     const [moved] = tabs.splice(index, 1)
     tabs.splice(clamped, 0, moved!)
     this.writeTarget(target, tabs, workspace.activeId)
+  }
+
+  dockTabToBottom(tabId: string, targetId: string | null | undefined, side: 'before' | 'after' = 'after'): void {
+    const target = this.targetOf()
+    if (target === null) return
+    const workspace = this.workspaceOf(target.cwd)
+    const fromIndex = workspace.tabs.findIndex(tab => tab.id === tabId)
+    if (fromIndex === -1) return
+
+    const tabs = [...workspace.tabs]
+    const [moved] = tabs.splice(fromIndex, 1)
+    if (!moved) return
+
+    const nextActive = workspace.activeId === tabId
+      ? tabs[Math.min(fromIndex, tabs.length - 1)]?.id ?? null
+      : workspace.activeId
+
+    const bottomTabs = reorderById([...(workspace.bottomTabs ?? [])], moved.id, targetId, side)
+    // If not inserted by reorderById (newly docked), place it
+    if (!bottomTabs.some(t => t.id === moved.id)) {
+      if (targetId) {
+        const tIndex = bottomTabs.findIndex(t => t.id === targetId)
+        const ins = side === 'before' ? (tIndex === -1 ? bottomTabs.length : tIndex) : (tIndex === -1 ? bottomTabs.length : tIndex + 1)
+        bottomTabs.splice(ins, 0, moved)
+      } else {
+        bottomTabs.push(moved)
+      }
+    }
+
+    this.writeTarget(target, tabs, nextActive, { tabs: bottomTabs, activeId: moved.id })
   }
 
   moveTabToBottom(tabId: string, toIndex?: number): void {
@@ -565,6 +606,38 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     this.writeTarget(target, tabs, nextActive, { tabs: bottomTabs, activeId: moved.id })
   }
 
+  undockTabToSide(bottomTabId: string, targetId: string | null | undefined, side: 'before' | 'after' = 'after'): void {
+    const target = this.targetOf()
+    if (target === null) return
+    const workspace = this.workspaceOf(target.cwd)
+    const bottomTabs = [...(workspace.bottomTabs ?? [])]
+    const fromIndex = bottomTabs.findIndex(tab => tab.id === bottomTabId)
+    if (fromIndex === -1) return
+
+    const [moved] = bottomTabs.splice(fromIndex, 1)
+    if (!moved) return
+
+    const nextBottomActive = workspace.bottomActiveId === bottomTabId
+      ? bottomTabs[Math.min(fromIndex, bottomTabs.length - 1)]?.id ?? null
+      : workspace.bottomActiveId
+
+    const tabs = reorderById([...workspace.tabs], moved.id, targetId, side)
+    if (!tabs.some(t => t.id === moved.id)) {
+      if (targetId) {
+        const tIndex = tabs.findIndex(t => t.id === targetId)
+        const ins = side === 'before' ? (tIndex === -1 ? tabs.length : tIndex) : (tIndex === -1 ? tabs.length : tIndex + 1)
+        tabs.splice(ins, 0, moved)
+      } else {
+        tabs.push(moved)
+      }
+    }
+
+    this.writeTarget(target, tabs, moved.id, {
+      tabs: bottomTabs,
+      activeId: nextBottomActive ?? null,
+    })
+  }
+
   moveBottomTabToSide(bottomTabId: string, toIndex?: number): void {
     const target = this.targetOf()
     if (target === null) return
@@ -586,6 +659,17 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     this.writeTarget(target, tabs, moved.id, {
       tabs: bottomTabs,
       activeId: nextBottomActive ?? null,
+    })
+  }
+
+  reorderBottomTabs(sourceId: string, targetId: string | null | undefined, side: 'before' | 'after' = 'after'): void {
+    const target = this.targetOf()
+    if (target === null) return
+    const workspace = this.workspaceOf(target.cwd)
+    const nextTabs = reorderById(workspace.bottomTabs ?? [], sourceId, targetId, side)
+    this.writeTarget(target, workspace.tabs, workspace.activeId, {
+      tabs: nextTabs,
+      activeId: workspace.bottomActiveId ?? null,
     })
   }
 
@@ -719,8 +803,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
    *  project. Null while no project is bound (or the service is not ready). */
   private targetOf(scope?: SidebarScope): WorkspaceTarget | null {
     if (!this.snapshot.ready) return null
-    const cwd = scope?.cwd ?? this.snapshot.cwd
-    if (cwd === null) return null
+    const cwd = scope?.cwd ?? this.snapshot.cwd ?? (process.env.PWD || process.cwd?.() || '/')
     return {
       cwd,
       inactive: scope !== undefined && scope.cwd !== this.snapshot.cwd,

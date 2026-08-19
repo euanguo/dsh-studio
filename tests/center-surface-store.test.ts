@@ -169,3 +169,24 @@ test('tab queues are isolated per workspace (cwd)', () => {
   useCenterSurfaceStore.getState().close(CWD, 'file:/ws/a.ts')
   assert.deepEqual(useCenterSurfaceStore.getState().getSlice('/other').open.map(s => s.title), ['x.ts'])
 })
+
+test('moveSurface reorders open surfaces within a workspace queue (drag sort)', () => {
+  reset()
+  const store = useCenterSurfaceStore.getState()
+  store.openFile({ cwd: CWD, filePath: '/ws/a.ts', preview: false })
+  store.openFile({ cwd: CWD, filePath: '/ws/b.ts', preview: false })
+  store.openFile({ cwd: CWD, filePath: '/ws/c.ts', preview: false })
+  assert.deepEqual(slice().open.map(s => s.id), ['file:/ws/a.ts', 'file:/ws/b.ts', 'file:/ws/c.ts'])
+
+  // Move first item to end
+  store.moveSurface(CWD, 'file:/ws/a.ts', 2)
+  assert.deepEqual(slice().open.map(s => s.id), ['file:/ws/b.ts', 'file:/ws/c.ts', 'file:/ws/a.ts'])
+
+  // Move middle item to front
+  store.moveSurface(CWD, 'file:/ws/c.ts', 0)
+  assert.deepEqual(slice().open.map(s => s.id), ['file:/ws/c.ts', 'file:/ws/b.ts', 'file:/ws/a.ts'])
+
+  // No-op for missing id / out of range
+  store.moveSurface(CWD, 'nonexistent', 0)
+  assert.deepEqual(slice().open.map(s => s.id), ['file:/ws/c.ts', 'file:/ws/b.ts', 'file:/ws/a.ts'])
+})

@@ -20,6 +20,7 @@
  * `persist` middleware so the identity store stays pure.
  */
 import { create } from 'zustand'
+import { reorderById, type TabDropSide } from '../tab-drag.ts'
 import {
   browserSurfaceId,
   commitFileSurfaceId,
@@ -122,6 +123,10 @@ interface CenterSurfaceState {
   /** Clear isPreview on a surface (double-click pin). */
   pin(cwd: string, surfaceId: string): void
   activate(cwd: string, surfaceId: string): void
+  /** Reorder open surfaces relative to a target surface (drag sort). */
+  reorderSurfaces(cwd: string, sourceId: string, targetId: string | null | undefined, side?: TabDropSide): void
+  /** Reorder one open surface within its workspace queue (drag sort). */
+  moveSurface(cwd: string, surfaceId: string, toIndex: number): void
   close(cwd: string, surfaceId: string): void
   clearCwd(cwd: string): void
   clearAll(): void
@@ -501,6 +506,29 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
         return state
       }
       return { byCwd: writeSlice(state.byCwd, cwd, { open: slice.open, activeId: surfaceId }) }
+    })
+  },
+
+  reorderSurfaces: (cwd, sourceId, targetId, side = 'after') => {
+    set(state => {
+      const slice = readSlice(state.byCwd, cwd)
+      const open = reorderById(slice.open, sourceId, targetId, side)
+      return { byCwd: writeSlice(state.byCwd, cwd, { open, activeId: slice.activeId }) }
+    })
+  },
+
+  moveSurface: (cwd, surfaceId, toIndex) => {
+    set(state => {
+      const slice = readSlice(state.byCwd, cwd)
+      if (slice.open.length <= 1) return state
+      const from = slice.open.findIndex(surface => surface.id === surfaceId)
+      if (from === -1) return state
+      const clamped = Math.max(0, Math.min(slice.open.length - 1, toIndex))
+      if (clamped === from) return state
+      const open = [...slice.open]
+      const [moved] = open.splice(from, 1)
+      open.splice(clamped, 0, moved!)
+      return { byCwd: writeSlice(state.byCwd, cwd, { open, activeId: slice.activeId }) }
     })
   },
 

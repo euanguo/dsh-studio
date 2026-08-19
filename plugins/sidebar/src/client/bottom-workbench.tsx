@@ -12,9 +12,7 @@
  * lives in `tab-drag.ts` (pure, unit-tested).
  */
 import {
-  useState,
   useSyncExternalStore,
-  type DragEvent as ReactDragEvent,
   type ReactNode,
 } from 'react'
 import { SurfaceTab, SurfaceTabStrip } from '@oh-dsh/shared/surface-tab'
@@ -26,23 +24,11 @@ import type {
   SidebarSnapshot,
   SidebarTab,
 } from './contract.ts'
-import {
-  parseTabDrag,
-  reorderIndexAfterRemoval,
-  serializeTabDrag,
-  TAB_DRAG_MIME,
-  tabDropSideOf,
-  type TabDropSide,
-} from './tab-drag.ts'
+import { useTabStripDrag } from './use-tab-strip-drag.ts'
 
 export interface BottomWorkbenchProps {
   sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
-}
-
-interface DropMarker {
-  id: string
-  side: TabDropSide
 }
 
 /** The descriptor render input of one docked tab (mapped by the workbench). */
@@ -62,67 +48,23 @@ function renderPropsOf(
 
 export function BottomWorkbench({ sidebar, t }: BottomWorkbenchProps): JSX.Element | null {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
-  const [marker, setMarker] = useState<DropMarker | null>(null)
-  const [dragging, setDragging] = useState(false)
   const tabs = snapshot.bottomTabs
 
-  const clearMarker = (): void => { setMarker(null) }
-  const acceptDrag = (event: ReactDragEvent): boolean => {
-    // Allow the drop only when the dataTransfer carries our payload
-    // (Chromium exposes types only during dragover).
-    if (!event.dataTransfer.types.includes(TAB_DRAG_MIME)) return false
-    event.preventDefault()
-    return true
-  }
-
-  const handleStripDragOver = (event: ReactDragEvent<HTMLDivElement>): void => {
-    if (!acceptDrag(event)) return
-    // The strip's own background (not a chip): dropping appends.
-    if ((event.target as HTMLElement).closest('[data-slot="surface-tab"]') === null) {
-      setMarker(null)
-    }
-  }
-
-  const handleStripDrop = (event: ReactDragEvent<HTMLDivElement>): void => {
-    const payload = parseTabDrag(event.dataTransfer.getData(TAB_DRAG_MIME))
-    clearMarker()
-    if (payload === null) return
-    event.preventDefault()
-    if (payload.source === 'side') {
-      sidebar.moveTabToBottom(payload.tabId)
-      return
-    }
-    // A bottom tab dropped on empty strip space: move it to the end.
-    const index = tabs.findIndex(tab => tab.id === payload.tabId)
-    if (index === -1 || index === tabs.length - 1) return
-    sidebar.moveBottomTab(payload.tabId, tabs.length - 1)
-  }
-
-  const handleChipDragOver = (event: ReactDragEvent<HTMLDivElement>, tab: SidebarTab): void => {
-    if (!acceptDrag(event)) return
-    setMarker({ id: tab.id, side: tabDropSideOf(event.nativeEvent.offsetX, event.currentTarget.clientWidth) })
-  }
-
-  const handleChipDrop = (event: ReactDragEvent<HTMLDivElement>, hover: SidebarTab): void => {
-    const payload = parseTabDrag(event.dataTransfer.getData(TAB_DRAG_MIME))
-    clearMarker()
-    if (payload === null) return
-    event.preventDefault()
-    const markerSide = marker?.id === hover.id ? marker.side : 'before'
-    const hoverIndex = tabs.findIndex(tab => tab.id === hover.id)
-    if (hoverIndex === -1) return
-    const target = markerSide === 'before' ? hoverIndex : hoverIndex + 1
-    if (payload.source === 'side') {
-      sidebar.moveTabToBottom(payload.tabId, target)
-      return
-    }
-    const from = tabs.findIndex(tab => tab.id === payload.tabId)
-    if (from === -1) return
-    sidebar.moveBottomTab(payload.tabId, reorderIndexAfterRemoval(from, target))
-  }
+  // Shared drag state machine (source: 'bottom'): canvas rounded drag image + ID-based reordering.
+  const drag = useTabStripDrag({
+    source: 'bottom',
+    onDrop: (payload, hoverId, side) => {
+      if (payload.source === 'side') {
+        sidebar.dockTabToBottom(payload.tabId, hoverId === '' ? null : hoverId, side)
+        return
+      }
+      sidebar.reorderBottomTabs(payload.tabId, hoverId === '' ? null : hoverId, side)
+    },
+  })
 
   const chipFor = (tab: SidebarTab): JSX.Element => {
     const active = tab.id === snapshot.bottomActiveId
+    const dropClass = drag.chip.markerClass(tab.id)
     return (
       <SurfaceTab
         key={tab.id}
@@ -130,28 +72,20 @@ export function BottomWorkbench({ sidebar, t }: BottomWorkbenchProps): JSX.Eleme
         title={tab.title}
         active={active}
         badge={tabBadgeFor(sidebar, tab, snapshot)}
-        draggable
-        {...(marker !== null && marker.id === tab.id
-          ? { className: `is-drop-${marker.side}` }
-          : {})}
-        onDragStart={event => {
-          setDragging(true)
-          event.dataTransfer.effectAllowed = 'move'
-          event.dataTransfer.setData(TAB_DRAG_MIME, serializeTabDrag({
-            kind: 'sidebar-tab',
-            tabId: tab.id,
-            source: 'bottom',
-          }))
+        {...(dropClass === undefined ? {} : { className: dropClass })}
+        draggable={drag.chip.handlers.draggable}
+        onDragStart={event => { drag.chip.handlers.onDragStart(event, tab.id, tab.title) }}
+        onDragEnter={event => { drag.chip.handlers.onDragEnter(event, tab.id) }}
+        onDragOver={event => { drag.chip.handlers.onDragOver(event, tab.id) }}
+        onDrop={event => { drag.chip.handlers.onDrop(event, tab.id) }}
+        onDragEnd={drag.chip.handlers.onDragEnd}
+        onSelect={() => {
+          if (drag.strip.dragging) return
+          sidebar.activateBottomTab(tab.id)
         }}
-        onDragOver={event => { handleChipDragOver(event, tab) }}
-        onDrop={event => { handleChipDrop(event, tab) }}
-        onDragEnd={() => {
-          setDragging(false)
-          clearMarker()
-        }}
-        onSelect={() => { sidebar.activateBottomTab(tab.id) }}
         onClose={() => { sidebar.closeBottomTab(tab.id) }}
         closeLabel={t('side.close-named-tab', { title: tab.title })}
+        tabId={tab.id}
       />
     )
   }
@@ -162,9 +96,7 @@ export function BottomWorkbench({ sidebar, t }: BottomWorkbenchProps): JSX.Eleme
         className="oh-dsh-bottom-workbench is-empty"
         data-oh-dsh-bottom-workbench=""
         aria-label={t('bottom-workbench.title')}
-        onDragOver={handleStripDragOver}
-        onDrop={handleStripDrop}
-        onDragLeave={clearMarker}
+        {...drag.strip.handlers}
       >
         <span>{t('bottom-workbench.empty')}</span>
       </section>
@@ -183,11 +115,9 @@ export function BottomWorkbench({ sidebar, t }: BottomWorkbenchProps): JSX.Eleme
     <section
       className="oh-dsh-bottom-workbench"
       data-oh-dsh-bottom-workbench=""
-      data-dragging={dragging || undefined}
+      data-dragging={drag.strip.dragging || undefined}
       aria-label={t('bottom-workbench.title')}
-      onDragOver={handleStripDragOver}
-      onDrop={handleStripDrop}
-      onDragLeave={clearMarker}
+      {...drag.strip.handlers}
     >
       <SurfaceTabStrip aria-label={t('bottom-workbench.tabs')} className="oh-dsh-bottom-workbench-strip">
         {tabs.map(chipFor)}

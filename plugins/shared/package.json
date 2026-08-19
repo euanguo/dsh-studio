@@ -33,6 +33,7 @@
     "./surface": "./surface.ts",
     "./surface-tab": "./surface-tab.tsx",
     "./surface-tab.css": "./surface-tab.css",
+    "./tab-drag-image": "./tab-drag-image.ts",
     "./tab-strip-wheel": "./tab-strip-wheel.ts",
     "./tabler-icons": "./tabler-icons.tsx",
     "./terminal-activity": "./terminal-activity.ts",

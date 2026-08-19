@@ -468,3 +468,25 @@ test('sidebar createTab may patch the landing tabs and active id', async () => {
   assert.equal(sidebar.getSnapshot().tabs[1]?.id, 'terminal:1')
   assert.equal(sidebar.getSnapshot().activeId, 'terminal:1')
 })
+
+test('tabAvailability gate folds requiresWorkspace and available into one reason', async () => {
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+  await sidebar.start()
+  sidebar.registerTab(tab('files', { requiresWorkspace: true }))
+  sidebar.registerTab(tab('chat', {}))
+
+  // Without a workspace cwd: files refuses with 'no-workspace', chat succeeds
+  const withoutCwd = sidebar.openTab({ type: 'files' }, { cwd: '' })
+  assert.equal(withoutCwd.kind, 'disabled')
+  if (withoutCwd.kind === 'disabled') assert.equal(withoutCwd.reason, 'no-workspace')
+
+  // With a workspace cwd: files opens
+  sidebar.setWorkspace('/work/repo')
+  const withCwd = sidebar.openTab({ type: 'files' })
+  assert.equal(withCwd.kind, 'opened')
+
+  // Plain tab without requiresWorkspace opens with or without cwd
+  sidebar.setWorkspace(null)
+  const chatWithout = sidebar.openTab({ type: 'chat' }, { cwd: '/any' })
+  assert.equal(chatWithout.kind, 'opened')
+})
