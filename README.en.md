@@ -187,11 +187,19 @@ or only TUI with `pnpm run dist:tui`.
 
 | Recommended project | Description |
 | --- | --- |
-| [DeepSeek Harness](https://github.com/deepseek-harness/deepseek-harness) | DSH runtime, sessions, and plugin loader |
+| [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | DSH runtime, sessions, and plugin loader |
 | [dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) | **Direct upstream plugin for Oh-DSH TUI**, providing terminal rendering, interaction, and commands |
 | [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | Git review, files, and PTY host capabilities |
 | [dsh-vision](https://github.com/william-jin-cmu/dsh-vision) | Reference for the cross-surface `view_image` vision tool |
+| [plugin-registry](https://github.com/vlln/plugin-registry) | Reference for marketplace source locking and lifecycle |
+| [dsh-hub](https://github.com/omdsh-dev/dsh-hub) | Reference for marketplace aggregation, trust, and candidate previews |
+| [dsh-suite](https://github.com/whyihaveyou/dsh-suite) | Reference for marketplace classification and management |
+| [orca](https://github.com/stablyai/orca) | Reference for sidebar, terminal scrollback, and commit generation algorithms |
+| [pierre](https://github.com/pierrecomputer/pierre) | Reference for diff views, inline comments, and virtualized rendering |
 | [dshfind](https://dshfind.com/) | DSH plugin marketplace and learning community with plugin, ecosystem, and DeepSeek Harness peripheral recommendations |
+
+For the complete third-party license, pinned revision, and adaptation
+boundaries, see [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md).
 
 Oh-DSH preserves upstream implementations and attribution, then provides the
 unified launcher, Profiles, data root, cross-surface skins, interface

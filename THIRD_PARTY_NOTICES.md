@@ -93,7 +93,7 @@ licenses remain in the installed dependency tree.
 
 ## orca
 
-- Project reference: `myade/orca`
+- Project: <https://github.com/stablyai/orca>
 - Declared license: MIT
 - Oh-DSH components: `@oh-dsh/shared` (`terminal-scrollback-policy.ts`,
   `stable-pane-id.ts`, `terminal-scroll-snapshot.ts`, `terminal-font.ts`,
@@ -104,20 +104,15 @@ Oh-DSH adapts orca's pure algorithms for desktop scrollback row/backlog
 normalization, stable-fit consecutive-frame settlement, scroll intent
 restoration across reflows, and durable pane keys.
 
-## synara
+## pierre
 
-- Project reference: `synara-official-replay`
-- Declared license: MIT
-- Oh-DSH components: `@oh-dsh/shared` (`client-runtime.ts`,
-  `terminal-recovery.ts`, `terminal-output-scheduler.ts`,
-  `terminal-runtime-owner.ts`, `terminal-scroll-intent.ts`,
-  `terminal-ime-anchor.ts`, `terminal-resize-hold.ts`), `@oh-dsh/sidebar-host` (`terminal-history.ts`,
-  `terminal-history-sanitizer.ts`, `terminal-mode-replay.ts`,
-  `terminal-replay.ts`, `terminal-batcher.ts`, `terminal-session-store.ts`,
-  `terminal-environment.ts`, `process-tree-killer.ts`)
+- Project: <https://github.com/pierrecomputer/pierre>
+- Bundled package: `@pierre/diffs` (pinned in `plugins/sidebar`)
+- Declared license: Apache-2.0
+- Oh-DSH component: `@oh-dsh/sidebar` (diff viewer, line annotations, and
+  virtualized rendering)
 
-Oh-DSH adapts synara's pure algorithms for append-optimized scrollback history
-buffers with ANSI-safe boundaries, PTY output batching and watermark flow
-control, process-tree termination with PID confirmation, keyed recovery
-coordinators with exponential backoff and jitter, and scoped runtime LRU
-registries.
+Oh-DSH renders diffs through the upstream `@pierre/diffs` React components
+(line rows, syntax highlighting, virtualization) while keeping the worker pool
+and structured fallback in this repository. The upstream license is retained
+with the packaged plugin.

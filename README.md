@@ -178,11 +178,19 @@ Web 使用 `pnpm run dist:web`；只打包 TUI 使用 `pnpm run dist:tui`。
 
 | 推荐项目 | 说明 |
 | --- | --- |
-| [DeepSeek Harness](https://github.com/deepseek-harness/deepseek-harness) | DSH runtime、会话与插件加载器 |
+| [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) | DSH runtime、会话与插件加载器 |
 | [dsh-TUI](https://github.com/ccch1mneyyy/dsh-TUI) | **Oh-DSH TUI 的直接上游插件**，提供终端渲染、交互和命令体系 |
 | [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) | Git Review、文件与 PTY Host 能力 |
 | [dsh-vision](https://github.com/william-jin-cmu/dsh-vision) | 跨 Desktop、Web 与 TUI 的 `view_image` 视觉工具参考实现 |
+| [plugin-registry](https://github.com/vlln/plugin-registry) | 插件市场来源锁定与生命周期参考 |
+| [dsh-hub](https://github.com/omdsh-dev/dsh-hub) | 插件市场聚合、信任与候选预览参考 |
+| [dsh-suite](https://github.com/whyihaveyou/dsh-suite) | 插件市场分类与管理参考 |
+| [orca](https://github.com/stablyai/orca) | 侧栏、终端滚动策略与提交生成算法参考 |
+| [pierre](https://github.com/pierrecomputer/pierre) | diff 视图、行内注释与虚拟化渲染参考 |
 | [dshfind](https://dshfind.com/) | DSH 插件超市与学习社区，提供插件、生态与 DeepSeek Harness 周边推荐 |
+
+完整的第三方许可、固定版本与适配边界见
+[THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md)。
 
 Oh-DSH 保留上游实现与署名，并在其上提供统一启动器、Profile、数据目录、
 跨端皮肤、界面适配和发行打包。详细边界见[设计文档](./docs/design.md)。
