@@ -14,15 +14,22 @@ export type CurrentConversationSyncAction = 'open' | 'activate' | 'none'
 /**
  * Resolve whether the current session has enough authoritative facts to drive
  * the center queue.
+ *
+ * A blank (new-conversation) session resolves READY once its cwd is known:
+ * the host's session-added frame carries it precisely so clients can group
+ * without a list refresh, and an empty top strip on the new-conversation page
+ * (workspace tabs vanishing) was exactly the bug. Blank sessions never get a
+ * conversation TAB — that policy lives in {@link currentConversationSyncAction}.
  * @param list - current session-list projection.
- * @returns ready only for a non-blank current session with a non-empty cwd.
+ * @returns ready for any current session with a non-empty cwd, pending while
+ * the cwd has not arrived yet, none when nothing is selected.
  */
 export function resolveCenterWorkspace(list: SessionListState): CenterWorkspace {
   const sessionId = list.current
   if (sessionId === undefined) return { status: 'none' }
   const summary = list.byId[sessionId]
   const cwd = summary?.cwd?.trim()
-  if (summary === undefined || summary.blank === true || cwd === undefined || cwd === '') {
+  if (summary === undefined || cwd === undefined || cwd === '') {
     return { status: 'pending', sessionId }
   }
   return { status: 'ready', cwd, sessionId, summary }
@@ -58,6 +65,13 @@ export function currentConversationSyncAction(input: {
   currentTabOpen: boolean
   activeSurfaceExists: boolean
 }): CurrentConversationSyncAction {
+  // A blank (new-conversation) session is NOT a tab: navigating to it never
+  // opens one, and the center stage is the conversation itself (the caller
+  // deactivates the active surface). Its first sent message materializes it
+  // (same session id, blank flips false) — the rule below opens the tab then.
+  if (input.current.summary.blank === true) return 'none'
+  if (input.previous?.summary.blank === true
+    && input.previous.sessionId === input.current.sessionId) return 'open'
   if (!input.queueKnown) return 'open'
   if (input.previous?.cwd === input.current.cwd) {
     if (input.previous.sessionId !== input.current.sessionId) {

@@ -126,6 +126,8 @@ interface CenterSurfaceState {
   /** Clear isPreview on a surface (double-click pin). */
   pin(cwd: string, surfaceId: string): void
   activate(cwd: string, surfaceId: string): void
+  /** Clear the workspace's active surface — no tab highlighted, conversation stage shows. */
+  deactivate(cwd: string): void
   /** Reorder open surfaces relative to a target surface (drag sort). */
   reorderSurfaces(cwd: string, sourceId: string, targetId: string | null | undefined, side?: TabDropSide): void
   /** Reorder one open surface within its workspace queue (drag sort). */
@@ -524,6 +526,14 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       if (slice.activeId === surfaceId) return state
       if (!slice.open.some(surface => surface.id === surfaceId)) return state
       return { byCwd: writeSlice(state.byCwd, cwd, { open: slice.open, activeId: surfaceId }) }
+    })
+  },
+
+  deactivate: (cwd) => {
+    set(state => {
+      const slice = readSlice(state.byCwd, cwd)
+      if (slice.activeId === null) return state
+      return { byCwd: writeSlice(state.byCwd, cwd, { open: slice.open, activeId: null }) }
     })
   },
 

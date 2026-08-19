@@ -40,10 +40,19 @@ function slice(): ReturnType<ReturnType<typeof useCenterSurfaceStore.getState>['
   return useCenterSurfaceStore.getState().getSlice(CWD)
 }
 
-test('center workspace stays pending until the current session is materialized', () => {
+test('center workspace resolves once the cwd is known, blank or not', () => {
+  // Blank without a cwd: the host frame has not landed yet — pending.
   assert.deepEqual(resolveCenterWorkspace({ current: 's-1', byId: { 's-1': { blank: true } } }), {
     status: 'pending',
     sessionId: 's-1',
+  })
+  // Blank WITH a cwd (host session-added carries it): ready — the workspace
+  // tabs must stay listed on the new-conversation page instead of vanishing.
+  assert.deepEqual(resolveCenterWorkspace({ current: 's-1', byId: { 's-1': { blank: true, cwd: '/ws' } } }), {
+    status: 'ready',
+    cwd: '/ws',
+    sessionId: 's-1',
+    summary: { blank: true, cwd: '/ws' },
   })
   assert.deepEqual(resolveCenterWorkspace({ current: 's-1', byId: { 's-1': { cwd: '/ws' } } }), {
     status: 'ready',
@@ -52,6 +61,42 @@ test('center workspace stays pending until the current session is materialized',
     summary: { cwd: '/ws' },
   })
   assert.deepEqual(resolveCenterWorkspace({ byId: {} }), { status: 'none' })
+})
+
+test('a blank current session never opens a conversation tab; materializing opens it', () => {
+  const blank = { status: 'ready' as const, cwd: '/ws', sessionId: 's-new', summary: { blank: true, cwd: '/ws' } }
+  // Navigating to the new-conversation placeholder: no tab, no activate.
+  assert.equal(currentConversationSyncAction({
+    current: blank,
+    previous: undefined,
+    queueKnown: false,
+    currentTabOpen: false,
+    activeSurfaceExists: false,
+  }), 'none')
+  assert.equal(currentConversationSyncAction({
+    current: blank,
+    previous: { status: 'ready' as const, cwd: '/ws', sessionId: 's-old', summary: { cwd: '/ws' } },
+    queueKnown: true,
+    currentTabOpen: false,
+    activeSurfaceExists: true,
+  }), 'none')
+  // Still blank on a later snapshot (same session): still none.
+  assert.equal(currentConversationSyncAction({
+    current: blank,
+    previous: blank,
+    queueKnown: true,
+    currentTabOpen: false,
+    activeSurfaceExists: false,
+  }), 'none')
+  // The first sent message materializes it (same id, blank flips false):
+  // the conversation becomes a real tab now.
+  assert.equal(currentConversationSyncAction({
+    current: { status: 'ready' as const, cwd: '/ws', sessionId: 's-new', summary: { cwd: '/ws' } },
+    previous: blank,
+    queueKnown: true,
+    currentTabOpen: false,
+    activeSurfaceExists: false,
+  }), 'open')
 })
 
 test('new project waits for materialization before seeding its first tab', () => {

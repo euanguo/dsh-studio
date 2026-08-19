@@ -198,6 +198,11 @@ export function CenterSurfaceTabs({
       })
     } else if (syncAction === 'activate') {
       state.activate(workspace.cwd, currentId)
+    } else if (workspace.summary.blank === true) {
+      // The new-conversation placeholder owns the center stage: its workspace
+      // tabs stay listed, none is highlighted, and the conversation (hero)
+      // shows instead of whatever surface was active.
+      state.deactivate(workspace.cwd)
     }
     const afterOpen = useCenterSurfaceStore.getState().getSlice(workspace.cwd)
     for (const surface of afterOpen.open) {
@@ -212,7 +217,7 @@ export function CenterSurfaceTabs({
       }
     }
     const afterCleanup = useCenterSurfaceStore.getState().getSlice(workspace.cwd)
-    if (afterCleanup.activeId === null && currentTabOpen) {
+    if (afterCleanup.activeId === null && currentTabOpen && workspace.summary.blank !== true) {
       useCenterSurfaceStore.getState().activate(workspace.cwd, currentId)
     }
     previousWorkspaceRef.current = workspace
