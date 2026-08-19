@@ -8,6 +8,7 @@
  * Kept free of schemastery so the browser bundle never pulls the schema
  * runtime in (same rule as prefs-shared.ts).
  */
+import { sanitizeWorktreeDir } from './worktree-preferences.ts'
 
 /**
  * The user-settings namespace holding the left-rail view slice. Matches the
@@ -53,12 +54,24 @@ export interface LeftRailSettings {
    * map) means auto-resolve. Auto-detected icons are never persisted.
    */
   readonly projectIconOverrides?: Record<string, ProjectIconPreference>
+  /**
+   * Absolute directory override for new linked worktrees; absence (or an
+   * invalid/relative value, dropped by the sanitizer) means the data-root
+   * default (`{dshStudioHome}/worktrees`, resolved host-side).
+   */
+  readonly worktreeDir?: string
+  /**
+   * Nest new worktrees under a repo-name subfolder of the store root
+   * (Orca `nestWorkspaces`); absence means the default (true).
+   */
+  readonly nestWorktrees?: boolean
 }
 
 /** The keys a stored `LeftRailSettings` slice may carry (migration + sanity). */
 export const LEFT_RAIL_SETTINGS_KEYS = [
   'version', 'activeTab', 'projectGroup', 'groupIds', 'groupLabels',
   'projectAlias', 'worktreeAlias', 'projectIconOverrides',
+  'worktreeDir', 'nestWorktrees',
 ] as const
 
 /** Validate persisted icon intent at the settings boundary. */
@@ -95,6 +108,8 @@ export function sanitizeLeftRailSettings(value: unknown): LeftRailSettings | und
     projectAlias?: Record<string, string>
     worktreeAlias?: Record<string, string>
     projectIconOverrides?: Record<string, ProjectIconPreference>
+    worktreeDir?: string
+    nestWorktrees?: boolean
   } = {}
   if (typeof record.version === 'number' && Number.isInteger(record.version) && record.version >= 0) {
     out.version = record.version
@@ -123,6 +138,13 @@ export function sanitizeLeftRailSettings(value: unknown): LeftRailSettings | und
       out.projectIconOverrides = outOverrides
     }
   }
+  // An invalid (relative/blank) dir drops to the data-root default rather
+  // than blocking the whole slice from loading.
+  if (record.worktreeDir !== undefined) {
+    const dir = sanitizeWorktreeDir(record.worktreeDir)
+    if (dir !== undefined) out.worktreeDir = dir
+  }
+  if (typeof record.nestWorktrees === 'boolean') out.nestWorktrees = record.nestWorktrees
   return out
 }
 

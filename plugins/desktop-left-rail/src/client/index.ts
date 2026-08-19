@@ -1,8 +1,10 @@
 /**
- * Workspace plugin, browser half. Two registrations: WorkspaceBrowser fills
- * the sidebar shell's `sidebar.workspaces` hole (the whole browsing region),
- * and WorkspacePicker fills the conversation hero's picker hole
- * (`conversation.hero.workspace` — both hero forms). Both read real Host
+ * Workspace plugin, browser half. Three registrations: WorkspaceBrowser
+ * fills the sidebar shell's `sidebar.workspaces` hole (the whole browsing
+ * region), WorkspacePicker fills the conversation hero's picker hole
+ * (`conversation.hero.workspace` — both hero forms), and
+ * WorktreeSettingsSection contributes the Project/WorkTree location page to
+ * the Settings shell (`settings.section`). The first two read real Host
  * Workspaces through the global useWorkspaces hook, and each declares its
  * own `single` directory-flow child hole for the composed picker package's
  * client half (see the contract module doc). Export discipline:
@@ -14,9 +16,11 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { WorkspaceBrowserInjected, WorkspacePickerInjected } from './contract/slots.ts'
 import { ensureStyle } from '@dsh-studio/shared/style-injector'
+import type { LocaleService } from '@dsh-studio/shared/i18n'
 import { createWorkspaceViewStore } from './stores.ts'
 import { WorkspaceBrowser } from './WorkspaceBrowser.tsx'
 import { WorkspacePicker } from './WorkspacePicker.tsx'
+import { WorktreeSettingsSection } from './WorktreeSettingsSection.tsx'
 import { pluginCss } from './styles.ts'
 import { en, zh, type WorkspaceKey } from './locales.ts'
 
@@ -35,6 +39,23 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** Dictionary namespace owned by this plugin. */
 const NS = 'workspace'
+
+/**
+ * Narrow register facade for the Settings shell's `settings.section` list
+ * slot (same pattern as the sidebar / desktop-skins registrations): the
+ * strict SlotMap import chain does not carry the ui-settings contract, so
+ * this registration goes through the runtime slots service directly.
+ */
+interface SettingsSectionSlots {
+  inject(name: string, register: () => unknown): void
+  register(options: {
+    id: string
+    name: string
+    label: () => string
+    locale: string
+    order: number
+  }, component: (props: { close: () => void; t: ReturnType<LocaleService['bind']> }) => JSX.Element): unknown
+}
 
 /**
  * Required services (cordis fiber inject). The target slots are declared by
@@ -63,6 +84,9 @@ function injectLeftRailStyles(): void {
 export function apply(ctx: ClientContext): void {
   injectLeftRailStyles()
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-workspace: dictionaries')
+  // Nav label for the Settings shell entry; bound once against the live
+  // service so a locale switch re-reads through the same translate face.
+  const settingsTranslate = ctx.locale.bind(NS)
 
   const searchSessions: WorkspaceBrowserInjected['searchSessions'] = async (query, signal) => {
     const result = await ctx.sessions.search(query, signal)
@@ -137,5 +161,20 @@ export function apply(ctx: ClientContext): void {
       locale: NS,
     },
     WorkspacePicker,
+  ))
+  // Settings shell section: the Project/WorkTree location preferences. The
+  // left rail owns the worktree creation flow, so it owns the settings page
+  // for its location defaults (the dialog resolves them host-side through
+  // `git.worktree-defaults`, never from this surface's store).
+  const settingsSlots = ctx.get('slots') as SettingsSectionSlots
+  settingsSlots.inject('settings.section', () => settingsSlots.register(
+    {
+      id: 'dsh-studio-left-rail',
+      name: 'settings.section',
+      label: () => settingsTranslate('settings.worktree.title'),
+      locale: NS,
+      order: 45,
+    },
+    WorktreeSettingsSection,
   ))
 }

@@ -147,4 +147,10 @@ export const LeftRailSettingsSchema = z.object({
       data: z.string(),
     }),
   ])).default({}),
+  // New-worktree store location (see shared/worktree-preferences.ts): an
+  // absolute user override (empty/unset = the data-root default) and the
+  // repo-name nesting switch. Coarse structural gates; the exact
+  // absolute-path rule lives in the shared sanitizer.
+  worktreeDir: z.string(),
+  nestWorktrees: z.boolean().default(true),
 })

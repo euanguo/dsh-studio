@@ -246,6 +246,8 @@ export interface SidebarApiRequests {
   'git.cherry-pick': { hash: string }
   'git.show': { path: string; rev: string }
   'git.worktree-list': Record<string, never>
+  /** Effective worktree store root + nesting (user override or data-root default). */
+  'git.worktree-defaults': Record<string, never>
   'git.worktree-add': { path: string; branch: string; createBranch?: boolean }
   'git.worktree-remove-preview': { path: string }
   'git.worktree-remove': { path: string; force?: boolean }

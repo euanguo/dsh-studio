@@ -8,6 +8,7 @@
     "./bundle-names": "./bundle-names.ts",
     "./client-runtime": "./client-runtime.ts",
     "./column-mount": "./column-mount.ts",
+    "./data-root-names": "./data-root-names.ts",
     "./desktop-contracts": "./desktop-contracts.ts",
     "./filename-display": "./filename-display.ts",
     "./filename-label": "./filename-label.tsx",
@@ -58,7 +59,8 @@
     "./toast": "./toast.tsx",
     "./tool-icon": "./tool-icon.tsx",
     "./use-i18n": "./use-i18n.ts",
-    "./wire": "./wire.ts"
+    "./wire": "./wire.ts",
+    "./worktree-preferences": "./worktree-preferences.ts"
   },
   "devDependencies": {
     "@types/react": "~18.3.1",

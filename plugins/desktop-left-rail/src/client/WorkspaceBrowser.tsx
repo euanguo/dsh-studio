@@ -36,14 +36,15 @@ import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.t
 import { FLAT_SESSION_ORDER_KEY } from './stores.ts'
 import { WorkspacePickFlow } from './WorkspacePicker.tsx'
 import { ProjectTreeBody } from './WorkspaceBrowserProjectTree.tsx'
-import { createWorktree, useWorktreeLayouts, fetchBranches, previewWorktreeRemoval, removeWorktree } from './worktree-api.ts'
+import { createWorktree, useWorktreeLayouts, fetchBranches, fetchWorktreeDefaults, previewWorktreeRemoval, removeWorktree } from './worktree-api.ts'
+import { computeWorktreeLocation, type WorktreeDefaultsResult } from '@dsh-studio/shared/worktree-preferences'
 import { detectProjectIcon, type ProjectIconDetection } from './project-icon-api.ts'
 import { projectIconNodeOf } from './project-icon-model.ts'
 import { ProjectIconModal } from './ProjectIconModal.tsx'
 import { deriveLeftRailSnapshot } from './project-tree-model.ts'
 import { createRailController } from './rail-controller.ts'
 import { isPathWithin } from './domain/identities.ts'
-import { loadLeftRailSettings, saveLeftRailSettings } from './left-rail-settings.ts'
+import { loadLeftRailSettings, saveLeftRailSettings, type LeftRailSettings } from './left-rail-settings.ts'
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { toast } from '@dsh-studio/shared/toast'
 // Identity class map + scoped stylesheet (build-time generated from the
@@ -162,12 +163,18 @@ export function WorkspaceBrowser({
   }, [projectIconDetections, projectIconOverrides, projectRoots, workspaces, worktreeLayouts.layouts])
   // Grouping persisted through the host settings service (not localStorage).
   const settingsRevision = useRef<number>(0)
+  // Last-known server slice: the browser owns ONLY the view fields below, so
+  // every whole-section save merges them over the server truth — keys owned
+  // by other surfaces (the settings page's worktreeDir/nestWorktrees, future
+  // slices) ride along untouched instead of being deleted or reverted.
+  const settingsSlice = useRef<LeftRailSettings>({})
   const settingsHydrated = useRef(false)
   useEffect(() => {
     let cancelled = false
     loadLeftRailSettings().then((view) => {
       if (cancelled) return
       settingsRevision.current = view.revision
+      settingsSlice.current = view.value
       actions.hydrateGrouping(view.value)
       settingsHydrated.current = true
     }).catch(() => {
@@ -179,20 +186,30 @@ export function WorkspaceBrowser({
     if (!settingsHydrated.current) return
     const timer = window.setTimeout(() => {
       // CAS persistence with one self-healing retry: on a conflict (another
-      // window wrote meanwhile) or a transport failure, re-read the latest
-      // revision and retry once — a conflict must never wedge persistence
-      // until reload.
+      // surface wrote meanwhile) or a transport failure, re-read the latest
+      // slice and retry once over THAT base — a conflict must never wedge
+      // persistence until reload, and must never revert the other surface's
+      // keys with this surface's stale copy.
       const persist = async (): Promise<void> => {
-        const patch = { activeTab, projectGroup, groupIds, groupLabels, projectAlias, worktreeAlias, projectIconOverrides }
+        const patch: LeftRailSettings = {
+          ...settingsSlice.current,
+          activeTab, projectGroup, groupIds, groupLabels, projectAlias, worktreeAlias, projectIconOverrides,
+        }
         try {
           const view = await saveLeftRailSettings(patch, settingsRevision.current)
           settingsRevision.current = view.revision
+          settingsSlice.current = view.value
         } catch {
           try {
             const latest = await loadLeftRailSettings()
             settingsRevision.current = latest.revision
-            const view = await saveLeftRailSettings(patch, latest.revision)
+            settingsSlice.current = latest.value
+            const view = await saveLeftRailSettings({
+              ...latest.value,
+              activeTab, projectGroup, groupIds, groupLabels, projectAlias, worktreeAlias, projectIconOverrides,
+            }, latest.revision)
             settingsRevision.current = view.revision
+            settingsSlice.current = view.value
           } catch {
             // Second failure leaves the revision untouched; the next
             // debounced save retries, so loss is bounded to one window.
@@ -441,6 +458,8 @@ export function WorkspaceBrowser({
 
   // ---- Three-level tree: worktree creation + group management. ----
   const [newWtTarget, setNewWtTarget] = useState<{ repoRoot: string; label: string; currentBranch: string | null; existing: { label: string; branch: string | null }[] } | null>(null)
+  /** Host-resolved worktree store root + nesting for the open dialog (null = resolving/unavailable). */
+  const [newWtDefaults, setNewWtDefaults] = useState<WorktreeDefaultsResult | null>(null)
   const [newWtBranchMenuOpen, setNewWtBranchMenuOpen] = useState(false)
   const [newWtBranches, setNewWtBranches] = useState<string[]>([])
   const [newWtPickBranch, setNewWtPickBranch] = useState('__new__')
@@ -524,11 +543,33 @@ export function WorkspaceBrowser({
     setNewWtNewBranch('')
     setNewWtPath('')
     setNewWtError(null)
+    // Refresh the host-resolved store root/nesting: settings-page edits apply
+    // to the very next dialog without a reload (the host is the resolution
+    // authority; the renderer never recomputes the default root).
+    setNewWtDefaults(null)
+    fetchWorktreeDefaults().then(defaults => { setNewWtDefaults(defaults) }).catch(() => {
+      // Leave null: the legacy repo-sibling default still serves the dialog.
+    })
     fetchBranches(repoRoot).then(({ names }) => { setNewWtBranches(names) }).catch(() => { setNewWtBranches([]) })
   }
   const branchIsNew = newWtPickBranch === '__new__'
   const effectiveBranch = branchIsNew ? newWtNewBranch.trim() : newWtPickBranch
+  /**
+   * Default location for one new worktree. The preferred source is the
+   * host-resolved store root + nesting (`git.worktree-defaults`: user
+   * override or `{dshStudioHome}/worktrees`), composed through the shared
+   * Orca-style naming rule; until that resolves (or on an older host), the
+   * legacy repo-sibling `{name}-worktrees/{branch}` default still serves.
+   */
   const defaultWtPath = (repoRoot: string, branch: string): string => {
+    if (newWtDefaults !== null) {
+      return computeWorktreeLocation({
+        root: newWtDefaults.root,
+        nest: newWtDefaults.nest,
+        repoRoot,
+        name: branch,
+      })
+    }
     const base = repoRoot.replace(/[/\\]+$/, '')
     const parent = base.slice(0, base.lastIndexOf('/'))
     const name = base.slice(base.lastIndexOf('/') + 1)

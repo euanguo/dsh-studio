@@ -1,29 +1,33 @@
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
+// Canonical names are single-sourced in the shared vocabulary so the plugin
+// layer derives the same roots without importing app code (AGENTS.md: do not
+// duplicate data roots).
+import {
+  DEFAULT_DSH_STUDIO_DEV_HOME_DIRECTORY,
+  DEFAULT_DSH_STUDIO_HOME_DIRECTORY,
+  DSH_STUDIO_CHANNEL_ENV,
+  DSH_STUDIO_DEV_CHANNEL,
+  DSH_STUDIO_HOME_ENV,
+  DSH_STUDIO_STABLE_CHANNEL,
+} from '@dsh-studio/shared/data-root-names'
 
-/** Environment variable overriding the shared DSH Studio state root. */
-export const DSH_STUDIO_HOME_ENV = 'DSH_STUDIO_HOME'
-
-/** Environment variable selecting the stable/dev data-root pair. */
-export const DSH_STUDIO_CHANNEL_ENV = 'DSH_STUDIO_CHANNEL'
-
-/** Installed Desktop and everyday Web/TUI state. */
-export const DSH_STUDIO_STABLE_CHANNEL = 'stable'
-
-/** Source launches and verification instances. */
-export const DSH_STUDIO_DEV_CHANNEL = 'dev'
+// Re-exported for the app layer's consumers; the literals live once, in
+// @dsh-studio/shared/data-root-names.
+export {
+  DEFAULT_DSH_STUDIO_DEV_HOME_DIRECTORY,
+  DEFAULT_DSH_STUDIO_HOME_DIRECTORY,
+  DSH_STUDIO_CHANNEL_ENV,
+  DSH_STUDIO_DEV_CHANNEL,
+  DSH_STUDIO_HOME_ENV,
+  DSH_STUDIO_STABLE_CHANNEL,
+} from '@dsh-studio/shared/data-root-names'
 
 /** Channels that share one code path and differ only by data root. */
 export const DSH_STUDIO_CHANNELS = [DSH_STUDIO_STABLE_CHANNEL, DSH_STUDIO_DEV_CHANNEL] as const
 
 /** Stable vs verification instance. Behavior is identical except the data root. */
 export type DshStudioChannel = (typeof DSH_STUDIO_CHANNELS)[number]
-
-/** Default directory shared by the Desktop, Web, and TUI surfaces. */
-export const DEFAULT_DSH_STUDIO_HOME_DIRECTORY = '.dsh-studio'
-
-/** Isolated sibling of the stable root for source and verification launches. */
-export const DEFAULT_DSH_STUDIO_DEV_HOME_DIRECTORY = '.dsh-studio-dev'
 
 /** Directory name under the user home for one channel. */
 export function dshStudioHomeDirectory(channel: DshStudioChannel = DSH_STUDIO_STABLE_CHANNEL): string {

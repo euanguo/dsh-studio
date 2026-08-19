@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useState } from 'react'
 import { callSidebarGlobalApi } from '@dsh-studio/shared/sidebar-api'
+import type { WorktreeDefaultsResult } from '@dsh-studio/shared/worktree-preferences'
 import type { GitWorktreeLayout, WorktreeFactState, WorktreeLayoutMap } from './tree.ts'
 
 /** One worktree list response (null = confirmed non-git directory). */
@@ -13,6 +14,11 @@ export type WorktreeLayoutResult = GitWorktreeLayout | null
 /** `git.worktree-list` for one cwd; null when it is confirmed non-git. */
 export async function fetchWorktreeLayout(cwd: string, signal?: AbortSignal): Promise<WorktreeLayoutResult> {
   return callSidebarGlobalApi<WorktreeLayoutResult>('git.worktree-list', { cwd }, signal)
+}
+
+/** Effective worktree store root + nesting for the creation dialog's defaults. */
+export async function fetchWorktreeDefaults(signal?: AbortSignal): Promise<WorktreeDefaultsResult> {
+  return callSidebarGlobalApi<WorktreeDefaultsResult>('git.worktree-defaults', {}, signal)
 }
 
 /** Create a linked worktree. */

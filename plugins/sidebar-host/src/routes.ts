@@ -9,6 +9,7 @@
  */
 import { execFile } from 'node:child_process'
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { homedir } from 'node:os'
 import { basename, dirname, isAbsolute, join } from 'node:path'
 import type { Context } from './context-types.ts'
 import { isLoopbackHostname } from './trust-fence.ts'
@@ -16,6 +17,12 @@ import { extractFrameAncestors } from './browser-probe.ts'
 import type { ResolvedSidebarConfig } from './config.ts'
 import { isWithin, requireAbsolute, listDirectory, parentOf, rootLabel } from '@dsh-studio/shared/fs-tree'
 import * as git from '@dsh-studio/shared/git-core'
+import { LEFT_RAIL_SETTINGS_NS } from '@dsh-studio/shared/left-rail-preferences'
+import {
+  resolveDefaultWorktreeRoot,
+  sanitizeWorktreeDir,
+  type WorktreeDefaultsResult,
+} from '@dsh-studio/shared/worktree-preferences'
 import { SettingsConflictError } from '@deepseek-ai/dsh-settings'
 import type { PtyManager } from './pty-manager.ts'
 import type { AgentPtyRegistry } from './agent-pty.ts'
@@ -673,6 +680,29 @@ export function buildSidebarRoutes(
     'git.worktree-list': (payload) => {
       const cwd = cwdScopeOf(payload)
       return git.worktreeList(cwd)
+    },
+    // Effective new-worktree store location for the left rail's creation
+    // dialog: the user's absolute override from the left-rail settings
+    // namespace when valid, else the DSH Studio data-root default. No cwd —
+    // the preference is registry-global, so the bare global fence suffices.
+    'git.worktree-defaults': async () => {
+      const settings = getSettings()
+      let dir: string | undefined
+      let nest = true
+      if (settings !== undefined) {
+        // The face honors the left-rail migration gate on read.
+        const view = await settings.get(LEFT_RAIL_SETTINGS_NS)
+        const record = (typeof view.value === 'object' && view.value !== null
+          ? view.value
+          : {}) as Record<string, unknown>
+        dir = sanitizeWorktreeDir(record.worktreeDir)
+        if (typeof record.nestWorktrees === 'boolean') nest = record.nestWorktrees
+      }
+      return {
+        root: dir ?? resolveDefaultWorktreeRoot(process.env, homedir()),
+        nest,
+        custom: dir !== undefined,
+      } satisfies WorktreeDefaultsResult
     },
     'git.worktree-add': (payload) => {
       const cwd = cwdScopeOf(payload)

@@ -15,6 +15,7 @@ test('left-rail settings namespace and version are stable', () => {
   assert.deepEqual(LEFT_RAIL_SETTINGS_KEYS, [
     'version', 'activeTab', 'projectGroup', 'groupIds', 'groupLabels',
     'projectAlias', 'worktreeAlias', 'projectIconOverrides',
+    'worktreeDir', 'nestWorktrees',
   ])
 })
 
@@ -32,17 +33,35 @@ test('sanitizeLeftRailSettings drops unknown keys and keeps valid fields', () =>
       '/bad': { kind: 'builtin', name: 'star' },
       '/upload': { kind: 'upload', mime: 'image/png', data: 'data:image/png;base64,AA==' },
     },
+    worktreeDir: '/Volumes/worktrees',
+    nestWorktrees: false,
     unknown: 'dropme',
   }
   const sanitized = sanitizeLeftRailSettings(value)
   assert.ok(sanitized !== undefined)
   assert.equal(sanitized.activeTab, 'group-a')
   assert.deepEqual(sanitized.groupIds, ['group-a'])
+  assert.equal(sanitized.worktreeDir, '/Volumes/worktrees')
+  assert.equal(sanitized.nestWorktrees, false)
   assert.equal('unknown' in (sanitized as Record<string, unknown>), false)
   assert.deepEqual(sanitized.projectIconOverrides, {
     '/repo': { kind: 'builtin', name: 'git' },
     '/upload': { kind: 'upload', mime: 'image/png', data: 'data:image/png;base64,AA==' },
   })
+})
+
+test('sanitizeLeftRailSettings drops relative worktree dirs and defaults nesting', () => {
+  const sanitized = sanitizeLeftRailSettings({
+    version: 1,
+    worktreeDir: 'relative/path',
+    nestWorktrees: 'not-a-boolean',
+  })
+  assert.ok(sanitized !== undefined)
+  // A relative dir falls back to the data-root default rather than blocking
+  // the slice; a non-boolean nesting keeps the default (absent = true).
+  assert.equal(sanitized.worktreeDir, undefined)
+  assert.equal('worktreeDir' in (sanitized as Record<string, unknown>), false)
+  assert.equal(sanitized.nestWorktrees, undefined)
 })
 
 test('sanitizeLeftRailSettings tolerates a full-auto slice (empty override map)', () => {
