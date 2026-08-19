@@ -27,10 +27,58 @@
 </p>
 
 <p align="center">
-  <img src="./assets/dsh-studio-readme.png" alt="DSH Studio 工作台界面展示" width="100%">
+  <img src="./assets/dsh-studio-hero.png" alt="DSH Studio 工作台界面展示" width="100%">
 </p>
 
 DSH Studio 基于 DeepSeek Harness runtime 构建，把 AI Agent、Workspace、本地开发工具和插件生态组织到一个可安装的 Desktop/Web 工作台中。模型服务仍可按需运行在云端；项目、会话、终端、文件、Git Review、浏览器和插件状态由本地工作区统一组织。
+
+## 界面预览
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🗂️ 项目树 — 左栏</h3>
+      <p>Project → Worktree → Session 三层项目树，支持多项目、多分支、分组、别名、项目图标、搜索和持久化视图状态。</p>
+      <img src="./assets/dsh-studio-left-rail.png" alt="左栏项目树" width="100%">
+    </td>
+    <td width="50%" valign="top">
+      <h3>🔍 Git Review — 右栏</h3>
+      <p>查看 staged / unstaged / untracked 分区，浏览提交历史、commit 文件树、committed / unpushed diff，在代码行上留下审阅目标。</p>
+      <img src="./assets/dsh-studio-git-review.png" alt="Git Review 面板" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>📄 Diff 查看器</h3>
+      <p>多文件路径树、行级 diff、图片 diff、冲突查看和行内评论目标，支持 committed 与 unpushed 变更对比。</p>
+      <img src="./assets/dsh-studio-diff.png" alt="Diff 查看器" width="100%">
+    </td>
+    <td width="50%" valign="top">
+      <h3>📁 文件浏览</h3>
+      <p>项目级文件树与文件预览，支持搜索、排序和快速跳转。</p>
+      <img src="./assets/dsh-studio-files.png" alt="文件浏览" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🖥️ 项目级终端</h3>
+      <p>原生 PTY、shell 解析链统一、项目级作用域、流式输出与重放，可作为中心 Tab 或右栏面板打开。</p>
+      <img src="./assets/dsh-studio-terminal.png" alt="项目级终端" width="100%">
+    </td>
+    <td width="50%" valign="top">
+      <h3>⚙️ 设置面板</h3>
+      <p>通用设置、模型配置、Agent 预设、侧边栏选项和皮肤切换集中在一个面板内，Desktop 与 Web 共享同一套配置。</p>
+      <img src="./assets/dsh-studio-settings.png" alt="设置面板" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top" colspan="2">
+      <h3>🧩 插件市场</h3>
+      <p>浏览和管理来自多个来源的 DSH 插件。安装前经过候选预览与审批，保留来源锁定、bundle 校验、应用和恢复流程。</p>
+      <img src="./assets/dsh-studio-plugin-marketplace.png" alt="插件市场" width="100%">
+    </td>
+  </tr>
+</table>
 
 ## 主要能力
 

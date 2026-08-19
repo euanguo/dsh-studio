@@ -27,10 +27,58 @@
 </p>
 
 <p align="center">
-  <img src="./assets/dsh-studio-readme.png" alt="DSH Studio workbench" width="100%">
+  <img src="./assets/dsh-studio-hero.png" alt="DSH Studio workbench" width="100%">
 </p>
 
 DSH Studio is built on the DeepSeek Harness runtime. It brings AI agents, workspaces, local development tools, and the plugin ecosystem into an installable Desktop/Web workbench. Model services can still run in the cloud; projects, sessions, terminals, files, Git review, browser state, and plugin state are organized by one local workspace.
+
+## Interface preview
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🗂️ Project tree — left rail</h3>
+      <p>Project → Worktree → Session tree with multiple projects, branches, groups, aliases, project icons, search, and persistent view state.</p>
+      <img src="./assets/dsh-studio-left-rail.png" alt="Left rail project tree" width="100%">
+    </td>
+    <td width="50%" valign="top">
+      <h3>🔍 Git review — right rail</h3>
+      <p>Staged / unstaged / untracked sections, commit history, commit file trees, committed / unpushed diffs, and review targets on code lines.</p>
+      <img src="./assets/dsh-studio-git-review.png" alt="Git review panel" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>📄 Diff viewer</h3>
+      <p>Multi-file path tree, line-level diff, image diff, conflict view, and inline comment targets for committed and unpushed changes.</p>
+      <img src="./assets/dsh-studio-diff.png" alt="Diff viewer" width="100%">
+    </td>
+    <td width="50%" valign="top">
+      <h3>📁 File browsing</h3>
+      <p>Project-scoped file tree and file preview with search, sort, and quick navigation.</p>
+      <img src="./assets/dsh-studio-files.png" alt="File browsing" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <h3>🖥️ Project terminal</h3>
+      <p>Native PTY, unified shell resolution, project-scoped sessions, streaming and replay — available as a center tab or right-rail panel.</p>
+      <img src="./assets/dsh-studio-terminal.png" alt="Project terminal" width="100%">
+    </td>
+    <td width="50%" valign="top">
+      <h3>⚙️ Settings</h3>
+      <p>General settings, model config, Agent presets, sidebar options, and skin switching in one panel shared across Desktop and Web.</p>
+      <img src="./assets/dsh-studio-settings.png" alt="Settings panel" width="100%">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top" colspan="2">
+      <h3>🧩 Plugin marketplace</h3>
+      <p>Browse and manage DSH plugins from multiple sources. Candidates go through preview and approval, with source locking, bundle validation, apply, and restore flows.</p>
+      <img src="./assets/dsh-studio-plugin-marketplace.png" alt="Plugin marketplace" width="100%">
+    </td>
+  </tr>
+</table>
 
 ## Features
 
