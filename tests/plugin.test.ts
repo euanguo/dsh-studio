@@ -14,6 +14,14 @@ test('desktop client replaces the hero title and keeps the Preview badge', () =>
   assert.doesNotMatch(client, /data-oh-dsh-hero-preview/)
 })
 
+test('desktop modal stacking does not promote the right rail', () => {
+  const client = readFileSync(
+    new URL('../src/client.ts', import.meta.url),
+    'utf8',
+  )
+  assert.doesNotMatch(client, /#oh-dsh-sidebar-root\s*\{[\s\S]*z-index:/s)
+})
+
 test('desktop Settings stays below portaled menus and above desktop surfaces', () => {
   const client = readFileSync(
     new URL('../src/client.ts', import.meta.url),
@@ -28,10 +36,9 @@ test('desktop Settings stays below portaled menus and above desktop surfaces', (
     client,
     /\[role='presentation'\]:has\(\s*> \[role='dialog'\]\s*\)[^{]*\{[^}]*z-index: 1000 !important;[^}]*backdrop-filter: blur\(/s,
   )
-  assert.match(
-    client,
-    /:has\(\s*#root \[role='presentation'\] > \[role='dialog'\]\s*\) #oh-dsh-sidebar-root,[\s\S]*\[data-oh-dsh-pinned-summary\],[\s\S]*#oh-dsh-plugin-marketplace-root[^}]*\{[^}]*z-index: 999 !important;/s,
-  )
+  assert.match(client, /:has\(\s*\[role='presentation'\] > \[role='dialog'\]/s)
+  assert.match(client, /\[data-oh-dsh-pinned-summary\]/)
+  assert.match(client, /#oh-dsh-plugin-marketplace-root[^}]*\{[\s\S]*z-index: 999 !important;/s)
 })
 
 test('every bundled Oh-DSH client follows the native locale service', () => {

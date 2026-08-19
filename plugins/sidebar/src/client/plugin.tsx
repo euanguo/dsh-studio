@@ -253,6 +253,9 @@ export function apply(ctx: ClientContext): void {
         <TerminalTabContent
           cwd={surface.cwd}
           tabId={surface.id}
+          onTitleChange={title => {
+            useCenterSurfaceStore.getState().updateSurfaceTitle(surface.cwd, surface.id, title)
+          }}
           runtime={runtimeSettings}
           t={t}
         />

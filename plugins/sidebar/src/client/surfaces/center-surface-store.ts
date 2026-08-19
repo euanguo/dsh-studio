@@ -120,6 +120,8 @@ interface CenterSurfaceState {
     preview?: boolean
   }): BrowserCenterSurface
   openTerminal(input: { cwd: string; title: string; id?: string }): TerminalCenterSurface
+  /** Update renderer-owned metadata such as a terminal's shell title. */
+  updateSurfaceTitle(cwd: string, surfaceId: string, title: string): void
   /** Clear isPreview on a surface (double-click pin). */
   pin(cwd: string, surfaceId: string): void
   activate(cwd: string, surfaceId: string): void
@@ -458,6 +460,21 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
       return { byCwd: writeSlice(state.byCwd, input.cwd, { open, activeId: id }) }
     })
     return nextSurface
+  },
+
+  updateSurfaceTitle: (cwd, surfaceId, title) => {
+    const nextTitle = title.slice(0, 240)
+    set(state => {
+      const slice = readSlice(state.byCwd, cwd)
+      let changed = false
+      const open = slice.open.map(surface => {
+        if (surface.id !== surfaceId || surface.title === nextTitle) return surface
+        changed = true
+        return { ...surface, title: nextTitle }
+      })
+      if (!changed) return state
+      return { byCwd: writeSlice(state.byCwd, cwd, { open, activeId: slice.activeId }) }
+    })
   },
 
   setFileMarkdownPreview: (cwd, surfaceId, markdownPreview) => {

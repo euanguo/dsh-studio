@@ -132,26 +132,24 @@ html[data-oh-dsh-desktop='true'] #root [role='presentation']:has(
   backdrop-filter: blur(6px) saturate(0.9);
 }
 
+
 html[data-oh-dsh-desktop='true']:has(
-  #root [role='presentation'] > [role='dialog']
+  [role='presentation'] > [role='dialog']
 ) body::after,
 html[data-oh-dsh-desktop='true']:has(
-  #root [role='presentation'] > [role='dialog']
+  [role='presentation'] > [role='dialog']
 ) .oh-dsh-panel-toolbar,
 html[data-oh-dsh-desktop='true']:has(
-  #root [role='presentation'] > [role='dialog']
-) #oh-dsh-sidebar-root,
-html[data-oh-dsh-desktop='true']:has(
-  #root [role='presentation'] > [role='dialog']
+  [role='presentation'] > [role='dialog']
 ) [data-oh-dsh-pinned-summary],
 html[data-oh-dsh-desktop='true']:has(
-  #root [role='presentation'] > [role='dialog']
+  [role='presentation'] > [role='dialog']
 ) #oh-dsh-plugin-marketplace-root {
   z-index: 999 !important;
 }
 
 html[data-oh-dsh-desktop='true']:has(
-  #root [role='presentation'] > [role='dialog']
+  [role='presentation'] > [role='dialog']
 ) #oh-dsh-plugin-marketplace-root {
   position: relative;
 }

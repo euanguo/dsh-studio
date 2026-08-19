@@ -18,7 +18,7 @@ test('desktop sidebar is a fixed overlay that never restructures #root', () => {
 
   // No grid wrapper: the sidebar overlays the app, #root stays in place.
   assert.doesNotMatch(css, /#oh-dsh-embedded-layout/)
-  assert.match(css, /#oh-dsh-sidebar-root\s*\{[^}]*position: fixed;[^}]*pointer-events: none;/s)
+  assert.match(css, /#oh-dsh-sidebar-root\s*\{[^}]*position: fixed;[^}]*z-index: 10;[^}]*pointer-events: none;/s)
   assert.doesNotMatch(workspace, /appRoot\.before\(layout\)/)
   assert.match(workspace, /document\.body\.append\(this\.element\)/)
 
