@@ -594,6 +594,17 @@ ${gatePseudo(WRAP, ':focus-within')} {
   border-color: var(--dsw-alias-state-business-primary, #339cff) !important;
 }
 
+/* cardWorkspaceTrigger uses ::after with a dashed SVG mask for its border.
+   The focus-within rule above re-introduces a solid border via !important
+   on the base .KQbuAq_card class, which the element also carries, producing
+   a visible double border (solid + dashed). Exclude it so the upstream
+   transparent border + dashed ::after remains the sole border. */
+body[data-dsh-studio-skin] .KQbuAq_cardWorkspaceTrigger:focus-within,
+body[data-dsh-studio-skin] [class*="cardWorkspaceTrigger"]:focus-within {
+  border-color: rgba(0, 0, 0, 0) !important;
+  box-shadow: none !important;
+}
+
 body[data-dsh-studio-skin] button[disabled] {
   opacity: var(--gw-skin-disabled-opacity);
   cursor: not-allowed;
