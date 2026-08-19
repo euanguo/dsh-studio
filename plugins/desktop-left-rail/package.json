@@ -1,5 +1,5 @@
 {
-  "name": "@oh-dsh/desktop-left-rail",
+  "name": "@dsh-studio/desktop-left-rail",
   "version": "0.1.2",
   "description": "Forked DSH ui-workspace browser: project → worktree → session left rail",
   "private": true,
@@ -33,6 +33,6 @@
     "react-dom": "^18.2.0"
   },
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*"
+    "@dsh-studio/shared": "workspace:*"
   }
 }

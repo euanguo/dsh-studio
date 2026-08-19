@@ -13,7 +13,7 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { WorkspaceBrowserInjected, WorkspacePickerInjected } from './contract/slots.ts'
-import { ensureStyle } from '@oh-dsh/shared/style-injector'
+import { ensureStyle } from '@dsh-studio/shared/style-injector'
 import { createWorkspaceViewStore } from './stores.ts'
 import { WorkspaceBrowser } from './WorkspaceBrowser.tsx'
 import { WorkspacePicker } from './WorkspacePicker.tsx'
@@ -51,7 +51,7 @@ export const inject = ['slots', 'sessions', 'workspaces', 'locale']
  * (generated from the forked CSS Modules; see shared/style-injector.ts).
  */
 function injectLeftRailStyles(): void {
-  ensureStyle('oh-dsh-left-rail-styles', pluginCss)
+  ensureStyle('dsh-studio-left-rail-styles', pluginCss)
 }
 
 /**

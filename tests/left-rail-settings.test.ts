@@ -6,11 +6,11 @@ import {
   LEFT_RAIL_SETTINGS_VERSION,
   sanitizeLeftRailSettings,
   sanitizeProjectIconPreference,
-} from '@oh-dsh/shared/left-rail-preferences'
+} from '@dsh-studio/shared/left-rail-preferences'
 
 test('left-rail settings namespace and version are stable', () => {
   // Kebab-case, no dots: DSH settingsNamespace enforces /^[a-z][a-z0-9-]*$/.
-  assert.equal(LEFT_RAIL_SETTINGS_NS, 'oh-dsh-left-rail')
+  assert.equal(LEFT_RAIL_SETTINGS_NS, 'dsh-studio-left-rail')
   assert.equal(LEFT_RAIL_SETTINGS_VERSION, 1)
   assert.deepEqual(LEFT_RAIL_SETTINGS_KEYS, [
     'version', 'activeTab', 'projectGroup', 'groupIds', 'groupLabels',

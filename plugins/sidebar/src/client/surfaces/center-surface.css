@@ -20,17 +20,17 @@
      the traffic lights minus the DSH collapsed rail's own offset;
    - strip right: `.is-right-free` (right panel closed — the strip's
      right edge reaches the window edge) reserves the overlay buttons;
-   - panel row:   `[data-oh-dsh-sidebar-full-width='true']` (panel
+   - panel row:   `[data-dsh-studio-sidebar-full-width='true']` (panel
      overlays the whole window) reserves the full traffic-light zone. */
 :root {
-  --oh-dsh-traffic-left: 74px;
+  --dsh-studio-traffic-left: 74px;
   /* The DSH collapsed activity rail (55px) plus its 1px border — the
      strip starts right of it, so it already clears the lights by that
      much and only the remainder needs reserving. */
-  --oh-dsh-rail-offset: 56px;
+  --dsh-studio-rail-offset: 56px;
 }
 
-#oh-dsh-center-tabs-root {
+#dsh-studio-center-tabs-root {
   display: flex;
   flex-direction: column;
   flex: 0 1 auto;
@@ -47,12 +47,12 @@
    strip so the conversation below stays visible.
    The column's own height is auto (its flex sizing happens before the
    grid stretches it), so the root is sized from the measured column
-   height (--oh-dsh-center-col-height, maintained by a ResizeObserver in
+   height (--dsh-studio-center-col-height, maintained by a ResizeObserver in
    center-surface-host.tsx) instead of a hardcoded viewport height —
    100vh drifts whenever the column top/height differs from the window. */
-#oh-dsh-center-tabs-root:has(.oh-dsh-center-surface-body:not([data-hidden='true'])) {
+#dsh-studio-center-tabs-root:has(.dsh-studio-center-surface-body:not([data-hidden='true'])) {
   flex: 0 0 auto;
-  height: var(--oh-dsh-center-col-height, 100vh);
+  height: var(--dsh-studio-center-col-height, 100vh);
 }
 
 /* While a surface body is active, hide the conversation slot entirely
@@ -64,7 +64,7 @@
    !important is required: DSH sets `display: contents` inline on the
    slot, and an author !important beats a plain inline declaration. */
 .aOBRAa_centerCol:has(
-  #oh-dsh-center-tabs-root .oh-dsh-center-surface-body:not([data-hidden='true'])
+  #dsh-studio-center-tabs-root .dsh-studio-center-surface-body:not([data-hidden='true'])
 ) [data-slot='conversation'] {
   display: none !important;
 }
@@ -75,13 +75,13 @@
    Blank strip space drags the window (Electron); every interactive chip
    opts out. No elevated z-index: the strip stays in the normal stacking
    order so DSH dialogs (overlay layer) paint above it too. */
-.oh-dsh-center-tabs-strip {
+.dsh-studio-center-tabs-strip {
   -webkit-app-region: drag;
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--dsh-studio-space-1);
   min-height: 42px;
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2) var(--oh-dsh-space-1) var(--oh-dsh-space-2);
+  padding: var(--dsh-studio-space-1) var(--dsh-studio-space-2) var(--dsh-studio-space-1) var(--dsh-studio-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
@@ -90,21 +90,21 @@
 }
 
 /* Left rail collapsed: reserve the traffic lights. The strip already
-   starts right of the DSH collapsed rail (--oh-dsh-rail-offset), so
+   starts right of the DSH collapsed rail (--dsh-studio-rail-offset), so
    only the remainder is padded — the in-flow toggle lands exactly right
    of the lights (76px − 56px = 20px), never doubling the reservation. */
-.oh-dsh-center-tabs-strip.is-left-collapsed {
+.dsh-studio-center-tabs-strip.is-left-collapsed {
   /* max() keeps the base padding on platforms without left-side lights
-     (Windows: --oh-dsh-traffic-left is 0, the calc would go negative). */
-  padding-left: max(var(--oh-dsh-space-2), calc(var(--oh-dsh-traffic-left, 76px) - var(--oh-dsh-rail-offset, 56px)));
+     (Windows: --dsh-studio-traffic-left is 0, the calc would go negative). */
+  padding-left: max(var(--dsh-studio-space-2), calc(var(--dsh-studio-traffic-left, 76px) - var(--dsh-studio-rail-offset, 56px)));
 }
 
 /* Right panel closed: the strip's right edge reaches the window edge,
    so reserve the Windows overlay control buttons on the right. While
    the panel is open the strip ends at the panel's left edge — no
    reservation needed (the 8px base padding applies). */
-.oh-dsh-center-tabs-strip.is-right-free {
-  padding-right: var(--oh-dsh-traffic-right, var(--oh-dsh-space-2));
+.dsh-studio-center-tabs-strip.is-right-free {
+  padding-right: var(--dsh-studio-traffic-right, var(--dsh-studio-space-2));
 }
 
 /* The DSH left rail keeps its own expand/collapse toggle in its header
@@ -131,7 +131,7 @@
    and reopen buttons stay pinned at their ends while the tabs overflow.
    The inner strip must not shrink (width = its content) so the scroller
    actually overflows and scrolls. */
-.oh-dsh-center-tabs-scroller {
+.dsh-studio-center-tabs-scroller {
   display: flex;
   align-items: center;
   min-width: 0;
@@ -141,14 +141,14 @@
   scrollbar-width: none;
 }
 
-.oh-dsh-center-tabs-scroller .oh-dsh-surface-tab-strip {
+.dsh-studio-center-tabs-scroller .dsh-studio-surface-tab-strip {
   /* Only the actual tab hit area opts out. Empty scroller space remains
      available for dragging the Electron window. */
   -webkit-app-region: no-drag;
   flex: none;
 }
 
-.oh-dsh-center-tabs-scroller::-webkit-scrollbar {
+.dsh-studio-center-tabs-scroller::-webkit-scrollbar {
   display: none;
 }
 
@@ -159,8 +159,8 @@
    - right rail reopen: rendered only while the panel is closed, pinned to
      the strip's right end — overflowing tabs scroll under it never (they
      live in the scroller). Both opt out of the window-drag strip. */
-.oh-dsh-left-rail-toggle,
-.oh-dsh-right-rail-reopen {
+.dsh-studio-left-rail-toggle,
+.dsh-studio-right-rail-reopen {
   -webkit-app-region: no-drag;
   display: grid;
   place-items: center;
@@ -169,22 +169,22 @@
   height: 28px;
   padding: 0;
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
   cursor: pointer;
 }
 
-.oh-dsh-right-rail-reopen {
+.dsh-studio-right-rail-reopen {
   /* Opaque card token: the alpha-threshold rule (upstream 3c196ff) — any
      translucent value below 0.9 falls back to an opaque surface so glyphs
      never sit on the skin's backdrop pattern. */
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
 }
 
-.oh-dsh-left-rail-toggle:hover,
-.oh-dsh-right-rail-reopen:hover,
-.oh-dsh-left-rail-toggle[aria-pressed='true'] {
+.dsh-studio-left-rail-toggle:hover,
+.dsh-studio-right-rail-reopen:hover,
+.dsh-studio-left-rail-toggle[aria-pressed='true'] {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
@@ -192,7 +192,7 @@
 /* The center strip's "+" menu button ("add browser / terminal /
    conversation as a first-class surface"): the same geometry as the rail
    toggles, pinned right of the tab scroller. */
-.oh-dsh-center-add {
+.dsh-studio-center-add {
   -webkit-app-region: no-drag;
   position: relative;
   display: flex;
@@ -200,21 +200,21 @@
   flex: none;
 }
 
-.oh-dsh-center-add > button {
+.dsh-studio-center-add > button {
   display: grid;
   place-items: center;
   width: 28px;
   height: 28px;
   padding: 0;
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
   cursor: pointer;
 }
 
-.oh-dsh-center-add > button:hover,
-.oh-dsh-center-add > button[aria-expanded='true'] {
+.dsh-studio-center-add > button:hover,
+.dsh-studio-center-add > button[aria-expanded='true'] {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
@@ -233,8 +233,8 @@ body > div[role='menu'] div:hover > [role='menuitem']:not([aria-disabled='true']
   color: var(--dsw-alias-label-primary, #1f2328) !important;
 }
 
-.oh-dsh-left-rail-toggle svg,
-.oh-dsh-right-rail-reopen svg {
+.dsh-studio-left-rail-toggle svg,
+.dsh-studio-right-rail-reopen svg {
   width: 16px;
   height: 16px;
   fill: none;
@@ -246,22 +246,22 @@ body > div[role='menu'] div:hover > [role='menuitem']:not([aria-disabled='true']
 
 /* The rail toggle glyphs are FILLED icons (a frame with a filled strip):
    override the outline defaults above so the strip renders as a solid bar. */
-.oh-dsh-left-rail-toggle .oh-dsh-rail-toggle-glyph,
-.oh-dsh-right-rail-reopen .oh-dsh-rail-toggle-glyph {
+.dsh-studio-left-rail-toggle .dsh-studio-rail-toggle-glyph,
+.dsh-studio-right-rail-reopen .dsh-studio-rail-toggle-glyph {
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.oh-dsh-left-rail-toggle .oh-dsh-rail-toggle-glyph svg,
-.oh-dsh-right-rail-reopen .oh-dsh-rail-toggle-glyph svg {
+.dsh-studio-left-rail-toggle .dsh-studio-rail-toggle-glyph svg,
+.dsh-studio-right-rail-reopen .dsh-studio-rail-toggle-glyph svg {
   fill: currentColor;
   stroke: none;
 }
 
 /* ---------- Surface body (file / diff / browser render area) ---------- */
 
-.oh-dsh-center-surface-body {
+.dsh-studio-center-surface-body {
   pointer-events: auto;
   flex: 1;
   min-height: 0;
@@ -271,139 +271,139 @@ body > div[role='menu'] div:hover > [role='menuitem']:not([aria-disabled='true']
   overflow: hidden;
 }
 
-.oh-dsh-center-surface-body[data-hidden='true'] {
+.dsh-studio-center-surface-body[data-hidden='true'] {
   display: none;
 }
 
-.oh-dsh-center-surface-empty {
+.dsh-studio-center-surface-empty {
   display: grid;
   place-items: center;
   align-content: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   min-height: 160px;
-  padding: var(--oh-dsh-space-4);
+  padding: var(--dsh-studio-space-4);
   color: var(--dsw-alias-label-tertiary, #8c959f);
   text-align: center;
-  font-size: var(--oh-dsh-font-sm);
+  font-size: var(--dsh-studio-font-sm);
 }
 
 /* ---------- Diff surface ---------- */
 
-.oh-dsh-diff-surface {
+.dsh-studio-diff-surface {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
 }
 
-.oh-dsh-diff-surface-header {
+.dsh-studio-diff-surface-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   flex: none;
   min-height: 34px;
-  padding: 0 var(--oh-dsh-space-3);
+  padding: 0 var(--dsh-studio-space-3);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  font: var(--oh-dsh-font-sm) var(--oh-dsh-font-mono);
+  font: var(--dsh-studio-font-sm) var(--dsh-studio-font-mono);
 }
 
-.oh-dsh-diff-surface-header span {
+.dsh-studio-diff-surface-header span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.oh-dsh-diff-surface-header small {
+.dsh-studio-diff-surface-header small {
   flex: none;
   color: var(--dsw-alias-label-tertiary, #8c959f);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
 }
 
-.oh-dsh-diff-surface-body {
+.dsh-studio-diff-surface-body {
   flex: 1;
   /* Insets come from the Scrollable host (default 8px). */
 }
 
 /* ---------- Commit diff surface ---------- */
 
-.oh-dsh-commit-surface {
+.dsh-studio-commit-surface {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
 }
 
-.oh-dsh-commit-surface-header {
+.dsh-studio-commit-surface-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   flex: none;
   min-height: 34px;
-  padding: 0 var(--oh-dsh-space-3);
+  padding: 0 var(--dsh-studio-space-3);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  font-size: var(--oh-dsh-font-sm);
+  font-size: var(--dsh-studio-font-sm);
 }
 
-.oh-dsh-commit-surface-header span {
+.dsh-studio-commit-surface-header span {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.oh-dsh-commit-surface-header small {
+.dsh-studio-commit-surface-header small {
   flex: none;
   color: var(--dsw-alias-label-tertiary, #8c959f);
-  font: var(--oh-dsh-font-xs) var(--oh-dsh-font-mono);
+  font: var(--dsh-studio-font-xs) var(--dsh-studio-font-mono);
 }
 
-.oh-dsh-commit-surface-body {
+.dsh-studio-commit-surface-body {
   flex: 1;
   /* Insets come from the Scrollable host (default 8px). */
 }
 
 /* Commit / committed multi-file views: left path tree + right file stack
    (the same tree+diff structure as the diff-all surface). */
-.oh-dsh-commit-tree-body {
+.dsh-studio-commit-tree-body {
   display: flex;
   flex: 1;
   min-height: 0;
   min-width: 0;
 }
 
-.oh-dsh-commit-tree-body .oh-dsh-diff-tree {
+.dsh-studio-commit-tree-body .dsh-studio-diff-tree {
   flex: none;
 }
 
-.oh-dsh-commit-surface-body details {
+.dsh-studio-commit-surface-body details {
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
-.oh-dsh-commit-surface-body summary {
+.dsh-studio-commit-surface-body summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--oh-dsh-space-2);
-  padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-3);
+  gap: var(--dsh-studio-space-2);
+  padding: var(--dsh-studio-space-1-5) var(--dsh-studio-space-3);
   cursor: pointer;
-  font: var(--oh-dsh-font-xs)/1.35 var(--oh-dsh-font-mono);
+  font: var(--dsh-studio-font-xs)/1.35 var(--dsh-studio-font-mono);
 }
 
-.oh-dsh-commit-surface-body summary > span {
+.dsh-studio-commit-surface-body summary > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.oh-dsh-commit-surface-body summary small { color: var(--dsw-alias-state-error-primary, #cf222e); }
-.oh-dsh-commit-surface-body summary b { color: var(--dsw-alias-state-success-primary, #2da44e); font-weight: 500; }
+.dsh-studio-commit-surface-body summary small { color: var(--dsw-alias-state-error-primary, #cf222e); }
+.dsh-studio-commit-surface-body summary b { color: var(--dsw-alias-state-success-primary, #2da44e); font-weight: 500; }
 
-.oh-dsh-commit-surface-lines {
+.dsh-studio-commit-surface-lines {
   max-height: 420px;
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }

@@ -74,7 +74,7 @@ function catalogDocument(): unknown {
       },
       { name: 'legacy-demo', category: 'plugin', bundle: false, repository: false },
       { name: 'hidden-demo', category: 'plugin', bundle: true, hide: true },
-      { name: 'oh-dsh-desktop', category: 'infra', bundle: true },
+      { name: 'dsh-studio', category: 'infra', bundle: true },
       { name: '../escape', category: 'plugin', bundle: true },
     ],
   }
@@ -125,7 +125,7 @@ class FakePlatform implements MarketplacePlatform {
         prepare: 'node build.mjs',
       },
       'safe-demo': { name: '@example/safe-demo' },
-      'oh-dsh-desktop': { name: '@oh-dsh/desktop' },
+      'dsh-studio': { name: '@dsh-studio/desktop' },
       'changing-plugin': { name: this.bundleName },
     }
     const bundle = bundlePackages[pluginId]
@@ -198,7 +198,7 @@ function fixture(): {
   profileDir: string
   runtime: FakeRuntime
 } {
-  const appDataPath = mkdtempSync(join(tmpdir(), 'oh-dsh-marketplace-'))
+  const appDataPath = mkdtempSync(join(tmpdir(), 'dsh-studio-marketplace-'))
   const dshHome = join(appDataPath, 'dsh')
   const profileDir = join(dshHome, 'profiles', 'desktop')
   mkdirSync(profileDir, { recursive: true })
@@ -206,7 +206,7 @@ function fixture(): {
     name: 'desktop',
     private: true,
     dependencies: {},
-    dsh: { profile: { bundles: ['@oh-dsh/desktop'] } },
+    dsh: { profile: { bundles: ['@dsh-studio/desktop'] } },
   }, undefined, 2) + '\n')
   writeFileSync(join(profileDir, 'cordis.patch.yml'), '[]\n')
   writeFileSync(join(profileDir, 'pnpm-workspace.yaml'), 'packages:\n  - .\n')
@@ -231,7 +231,7 @@ function fixture(): {
 }
 
 test('preview tree cleanup clears Windows read-only attributes before retrying', () => {
-  const root = mkdtempSync(join(tmpdir(), 'oh-dsh-marketplace-cleanup-'))
+  const root = mkdtempSync(join(tmpdir(), 'dsh-studio-marketplace-cleanup-'))
   const previews = join(root, 'plugin-marketplace', 'previews')
   const pack = join(previews, 'stale', '.git', 'objects', 'pack')
   try {
@@ -253,7 +253,7 @@ test('preview tree cleanup clears Windows read-only attributes before retrying',
 test('marketplace startup clears read-only Git pack files on Windows', {
   skip: process.platform !== 'win32' ? 'requires Windows read-only attribute semantics' : false,
 }, () => {
-  const appDataPath = mkdtempSync(join(tmpdir(), 'oh-dsh-marketplace-windows-'))
+  const appDataPath = mkdtempSync(join(tmpdir(), 'dsh-studio-marketplace-windows-'))
   const dshHome = join(appDataPath, 'dsh')
   const profileDir = join(dshHome, 'profiles', 'desktop')
   const previews = join(appDataPath, 'plugin-marketplace', 'previews')
@@ -264,7 +264,7 @@ test('marketplace startup clears read-only Git pack files on Windows', {
       name: 'desktop',
       private: true,
       dependencies: {},
-      dsh: { profile: { bundles: ['@oh-dsh/desktop'] } },
+      dsh: { profile: { bundles: ['@dsh-studio/desktop'] } },
     }, undefined, 2) + '\n')
     mkdirSync(pack, { recursive: true })
     writeFileSync(join(pack, 'pack-demo.pack'), 'pack')
@@ -293,7 +293,7 @@ test('marketplace startup survives a previews tree that cannot be removed', {
     ? 'Windows directory read-only attributes do not block recursive removal'
     : false,
 }, () => {
-  const appDataPath = mkdtempSync(join(tmpdir(), 'oh-dsh-marketplace-startup-'))
+  const appDataPath = mkdtempSync(join(tmpdir(), 'dsh-studio-marketplace-startup-'))
   const dshHome = join(appDataPath, 'dsh')
   const profileDir = join(dshHome, 'profiles', 'desktop')
   const previews = join(appDataPath, 'plugin-marketplace', 'previews')
@@ -303,7 +303,7 @@ test('marketplace startup survives a previews tree that cannot be removed', {
       name: 'desktop',
       private: true,
       dependencies: {},
-      dsh: { profile: { bundles: ['@oh-dsh/desktop'] } },
+      dsh: { profile: { bundles: ['@dsh-studio/desktop'] } },
     }, undefined, 2) + '\n')
     mkdirSync(join(previews, 'stale'), { recursive: true })
     writeFileSync(join(previews, 'stale', 'pack-demo.pack'), 'pack')
@@ -331,8 +331,8 @@ test('catalog parser keeps safe entries and labels unsupported managers', () => 
   assert.equal(catalog.generatedAt, '2026-08-10T17:17:56.572Z')
   assert.deepEqual(catalog.plugins.map(plugin => [plugin.id, plugin.mechanism]), [
     ['bundle-demo', 'bundle'],
+    ['dsh-studio', 'bundle'],
     ['hybrid-demo', 'bundle'],
-    ['oh-dsh-desktop', 'bundle'],
     ['repository-demo', 'repository'],
     ['safe-demo', 'bundle'],
     ['legacy-demo', 'unsupported'],
@@ -378,10 +378,10 @@ test('community and registry catalogs preserve repositories across owners', () =
 })
 
 test('GitHub credentials use an app-owned config without command-line pairs', () => {
-  const appDataPath = mkdtempSync(join(tmpdir(), 'oh-dsh-git-config-'))
+  const appDataPath = mkdtempSync(join(tmpdir(), 'dsh-studio-git-config-'))
   try {
     const environment = withGitHubCredentials({
-      DSH_DESKTOP_APP_DATA: appDataPath,
+      DSH_STUDIO_DESKTOP_APP_DATA: appDataPath,
       GIT_CONFIG_COUNT: '1',
       GIT_CONFIG_KEY_0: 'unsafe.key',
       GIT_CONFIG_VALUE_0: 'unsafe value',
@@ -403,7 +403,7 @@ test('GitHub credentials use an app-owned config without command-line pairs', ()
 })
 
 test('GitHub CLI discovery follows Windows PATH syntax and executable names', () => {
-  const root = mkdtempSync(join(tmpdir(), 'oh-dsh-gh-path-'))
+  const root = mkdtempSync(join(tmpdir(), 'dsh-studio-gh-path-'))
   try {
     const expected = win32.join(root, 'gh.exe')
     assert.equal(findGitHubCli({
@@ -420,7 +420,7 @@ test('public catalogs load anonymously without GitHub CLI', async () => {
     cliEntry: '/unused/dsh.mjs',
     cwd: tmpdir(),
     env: {
-      OH_DSH_MARKETPLACE_CATALOG: 'public-owner/public-catalog/data/plugins.json',
+      DSH_STUDIO_MARKETPLACE_CATALOG: 'public-owner/public-catalog/data/plugins.json',
       PATH: '',
     },
     fetch: async (input): Promise<Response> => {
@@ -443,7 +443,7 @@ test('public catalogs load anonymously without GitHub CLI', async () => {
 })
 
 test('catalog cache survives restarts, revalidates with ETags, and expires after two hours', async () => {
-  const appDataPath = mkdtempSync(join(tmpdir(), 'oh-dsh-marketplace-catalog-cache-'))
+  const appDataPath = mkdtempSync(join(tmpdir(), 'dsh-studio-marketplace-catalog-cache-'))
   let now = 1_000
   let requests = 0
   let transportFails = false
@@ -452,9 +452,9 @@ test('catalog cache survives restarts, revalidates with ETags, and expires after
     cliEntry: '/unused/dsh.mjs',
     cwd: appDataPath,
     env: {
-      DSH_DESKTOP_APP_DATA: appDataPath,
-      DSH_DESKTOP_GH_PATH: process.execPath,
-      OH_DSH_MARKETPLACE_CATALOG: 'public-owner/public-catalog/data/plugins.json',
+      DSH_STUDIO_DESKTOP_APP_DATA: appDataPath,
+      DSH_STUDIO_GH_PATH: process.execPath,
+      DSH_STUDIO_MARKETPLACE_CATALOG: 'public-owner/public-catalog/data/plugins.json',
       PATH: '',
     },
     fetch: async (_input, init): Promise<Response> => {
@@ -498,7 +498,7 @@ test('catalog cache survives restarts, revalidates with ETags, and expires after
 })
 
 test('catalog cache rejects unsupported documents before reuse', async () => {
-  const appDataPath = mkdtempSync(join(tmpdir(), 'oh-dsh-marketplace-invalid-cache-'))
+  const appDataPath = mkdtempSync(join(tmpdir(), 'dsh-studio-marketplace-invalid-cache-'))
   const command = join(appDataPath, 'api')
   const cachePath = join(appDataPath, 'plugin-marketplace', 'catalog-cache.json')
   let document: unknown = { schema: 'unsupported/v1' }
@@ -507,9 +507,9 @@ test('catalog cache rejects unsupported documents before reuse', async () => {
     cliEntry: '/unused/dsh.mjs',
     cwd: appDataPath,
     env: {
-      DSH_DESKTOP_APP_DATA: appDataPath,
-      DSH_DESKTOP_GH_PATH: process.execPath,
-      OH_DSH_MARKETPLACE_CATALOG: 'public-owner/public-catalog/data/plugins.json',
+      DSH_STUDIO_DESKTOP_APP_DATA: appDataPath,
+      DSH_STUDIO_GH_PATH: process.execPath,
+      DSH_STUDIO_MARKETPLACE_CATALOG: 'public-owner/public-catalog/data/plugins.json',
       PATH: '',
     },
     fetch: async (): Promise<Response> => {
@@ -535,7 +535,7 @@ test('catalog cache rejects unsupported documents before reuse', async () => {
 })
 
 test('GitHub CLI fallback reads raw catalogs larger than one megabyte', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'oh-dsh-marketplace-gh-raw-'))
+  const root = mkdtempSync(join(tmpdir(), 'dsh-studio-marketplace-gh-raw-'))
   const command = join(root, 'api')
   const catalogPath = join(root, 'catalog.json')
   const argumentsPath = join(root, 'arguments.json')
@@ -549,18 +549,18 @@ test('GitHub CLI fallback reads raw catalogs larger than one megabyte', async ()
     writeFileSync(catalogPath, serializedCatalog)
     writeFileSync(command, [
       "const { readFileSync, writeFileSync } = require('node:fs')",
-      "writeFileSync(process.env.OH_DSH_TEST_GH_ARGS, JSON.stringify(process.argv.slice(2)))",
-      "process.stdout.write(readFileSync(process.env.OH_DSH_TEST_CATALOG))",
+      "writeFileSync(process.env.DSH_STUDIO_TEST_GH_ARGS, JSON.stringify(process.argv.slice(2)))",
+      "process.stdout.write(readFileSync(process.env.DSH_STUDIO_TEST_CATALOG))",
       '',
     ].join('\n'))
     const platform = new ProductionMarketplacePlatform({
       cliEntry: '/unused/dsh.mjs',
       cwd: root,
       env: {
-        DSH_DESKTOP_GH_PATH: process.execPath,
-        OH_DSH_MARKETPLACE_CATALOG: 'public-owner/public-catalog/data/plugins.json',
-        OH_DSH_TEST_CATALOG: catalogPath,
-        OH_DSH_TEST_GH_ARGS: argumentsPath,
+        DSH_STUDIO_GH_PATH: process.execPath,
+        DSH_STUDIO_MARKETPLACE_CATALOG: 'public-owner/public-catalog/data/plugins.json',
+        DSH_STUDIO_TEST_CATALOG: catalogPath,
+        DSH_STUDIO_TEST_GH_ARGS: argumentsPath,
       },
       fetch: async (): Promise<Response> => new Response('rate limited', { status: 403 }),
       nodeBinary: process.execPath,
@@ -583,7 +583,7 @@ test('production bundle build runs approved hooks in its own workspace', {
     ? 'requires macOS Seatbelt'
     : false,
 }, async () => {
-  const sandboxRoot = mkdtempSync(join(tmpdir(), 'oh-dsh-bundle-build-'))
+  const sandboxRoot = mkdtempSync(join(tmpdir(), 'dsh-studio-bundle-build-'))
   const candidateProfile = join(sandboxRoot, 'dsh-home', 'profiles', 'desktop')
   const checkout = join(sandboxRoot, 'bundle-builds', 'prepare-fixture')
   const helper = join(checkout, 'packages', 'helper')
@@ -782,7 +782,7 @@ test('marketplace navigation matches the Settings seat geometry and row radius',
   ), 'utf8')
   assert.doesNotMatch(client, /--oh-marketplace-sidebar-height/)
   assert.doesNotMatch(client, /SIDEBAR_BOTTOM_INSET/)
-  assert.doesNotMatch(css, /data-oh-dsh-marketplace-sidebar-root/)
+  assert.doesNotMatch(css, /data-dsh-studio-marketplace-sidebar-root/)
   // The foot area stacks two options (marketplace + Settings): the entry
   // is a full-width icon + label row at the tree-row height
   // (--gw-skin-row-h) in the expanded sidebar, 36px icon seat collapsed,
@@ -795,7 +795,7 @@ test('marketplace navigation matches the Settings seat geometry and row radius',
   assert.doesNotMatch(css, /data-collapsed='true'\] svg \{[\s\S]*width: 18px/)
   assert.match(css, /\.oh-marketplace-nav svg \{[\s\S]*width: 16px;[\s\S]*height: 16px;/)
   assert.match(client, /\{wide && <span>\{label\}<\/span>\}/)
-  assert.match(css, /data-oh-dsh-marketplace-footer-stack='true'/)
+  assert.match(css, /data-dsh-studio-marketplace-footer-stack='true'/)
   assert.match(css, /flex-direction: column !important;/)
   assert.match(client, /marketplaceFooter\(settings\)/)
   assert.match(client, /removeAttribute\(FOOTER_STACK_ATTRIBUTE\)/)
@@ -803,7 +803,7 @@ test('marketplace navigation matches the Settings seat geometry and row radius',
   assert.match(client, /ctx\.get\('sessions'\) as SessionsService/)
   assert.match(client, /this\.#sessions\.list\.subscribe\(syncSessionNavigation\)/)
   assert.match(client, /this\.#unsubscribeSessions\?\.\(\)/)
-  assert.match(client, /locale\.register\('oh-dsh\.plugin-marketplace'/)
+  assert.match(client, /locale\.register\('dsh-studio\.plugin-marketplace'/)
   assert.match(client, /\['installed', t\('installed'\)\]/)
   assert.match(client, /\['available', t\('not-installed'\)\]/)
   assert.match(client, /\['updates', t\('updates'\)\]/)
@@ -971,7 +971,7 @@ test('bundle preview remains isolated until apply and supports undo', async () =
     const liveAfter = JSON.parse(readFileSync(join(setup.profileDir, 'package.json'), 'utf8'))
     assert.match(
       liveAfter.dependencies['@example/bundle-demo'],
-      /^link:\.oh-dsh\/sources\/bundle-demo-/,
+      /^link:\.dsh-studio\/sources\/bundle-demo-/,
     )
     assert.doesNotMatch(
       liveAfter.dependencies['@example/bundle-demo'],
@@ -1209,12 +1209,12 @@ test('the marketplace refuses to modify protected desktop plugins', async () => 
     const snapshot = await setup.manager.dispatch({
       type: 'prepare',
       action: 'install',
-      pluginId: 'oh-dsh-desktop',
+      pluginId: 'dsh-studio',
     })
     assert.match(snapshot.error ?? '', /protected by the desktop/)
     assert.equal(snapshot.preview, null)
     assert.equal(
-      snapshot.catalog.find(plugin => plugin.id === 'oh-dsh-desktop')?.protected,
+      snapshot.catalog.find(plugin => plugin.id === 'dsh-studio')?.protected,
       true,
     )
   } finally {
@@ -1341,8 +1341,8 @@ test('legacy repository state is readable but remains blocked', async () => {
   const setup = fixture()
   try {
     const source = `github:dsh-external/legacy-plugin#${COMMIT}&path:/.dsh-plugin`
-    mkdirSync(join(setup.profileDir, '.oh-dsh'), { recursive: true })
-    writeFileSync(join(setup.profileDir, '.oh-dsh', 'marketplace.json'), JSON.stringify({
+    mkdirSync(join(setup.profileDir, '.dsh-studio'), { recursive: true })
+    writeFileSync(join(setup.profileDir, '.dsh-studio', 'marketplace.json'), JSON.stringify({
       version: 1,
       entries: [{
         installedAt: '2026-08-12T00:00:00Z',
@@ -1368,8 +1368,8 @@ test('legacy source identity changes cannot re-enable repository plugins', async
   const setup = fixture()
   try {
     const source = `github:dsh-external/legacy-plugin#${COMMIT}&path:/.dsh-plugin`
-    mkdirSync(join(setup.profileDir, '.oh-dsh'), { recursive: true })
-    writeFileSync(join(setup.profileDir, '.oh-dsh', 'marketplace.json'), JSON.stringify({
+    mkdirSync(join(setup.profileDir, '.dsh-studio'), { recursive: true })
+    writeFileSync(join(setup.profileDir, '.dsh-studio', 'marketplace.json'), JSON.stringify({
       version: 1,
       entries: [{
         installedAt: '2026-08-12T00:00:00Z',

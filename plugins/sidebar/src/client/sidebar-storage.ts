@@ -9,7 +9,7 @@ export interface SidebarPreferencesStorage {
   save(preferences: DesktopSidebarPreferences): Promise<void>
 }
 
-const STORAGE_KEY = 'oh-dsh-desktop.sidebar-preferences.v2'
+const STORAGE_KEY = 'dsh-studio.sidebar-preferences.v2'
 
 /**
  * Client-side persistence for the sidebar's UI preferences (width, default

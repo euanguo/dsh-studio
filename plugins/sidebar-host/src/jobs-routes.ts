@@ -19,7 +19,7 @@
  *   → 503, mirroring the settings routes' optional-service downgrade.
  */
 import type { Context, SidebarSessionEvent } from './context-types.ts'
-import { requireString, SidebarError } from '@oh-dsh/shared/wire'
+import { requireString, SidebarError } from '@dsh-studio/shared/wire'
 
 /** The two background-job routes of the sidebar API. */
 export interface SidebarJobsRoutes {

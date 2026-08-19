@@ -48,7 +48,7 @@ export function TerminalView(props: TerminalViewProps): JSX.Element {
     props.t,
   ])
 
-  return <div ref={containerRef} className="oh-dsh-terminal-view" data-terminal-view={props.tabId} />
+  return <div ref={containerRef} className="dsh-studio-terminal-view" data-terminal-view={props.tabId} />
 }
 
 export { disposeTerminalRuntimeOwner }

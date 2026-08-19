@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/tui",
+  "name": "@dsh-studio/tui",
   "version": "0.1.4",
-  "description": "Oh-DSH defaults and profile adapter for the upstream dsh-TUI renderer",
+  "description": "DSH Studio defaults and profile adapter for the upstream dsh-TUI renderer",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -19,7 +19,7 @@
       "patch": "./dist/cordis.patch.yml"
     }
   },
-  "ohDsh": {
+  "dshStudio": {
     "upstream": {
       "name": "dsh-TUI",
       "package": "dsh-cc-tui",
@@ -27,6 +27,6 @@
     }
   },
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*"
+    "@dsh-studio/shared": "workspace:*"
   }
 }

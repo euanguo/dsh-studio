@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/web",
+  "name": "@dsh-studio/web",
   "version": "0.1.4",
-  "description": "Oh-DSH Web: a packaged DeepSeek Harness browser runtime with Oh-DSH plugin capabilities",
+  "description": "DSH Studio Web: a packaged DeepSeek Harness browser runtime with DSH Studio plugin capabilities",
   "private": true,
   "type": "module",
   "exports": {
@@ -26,16 +26,16 @@
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-ui-layout",
-        "@oh-dsh/desktop-skins",
-        "@oh-dsh/pinned-summary",
-        "@oh-dsh/sidebar",
-        "@oh-dsh/panel-controls"
+        "@dsh-studio/desktop-skins",
+        "@dsh-studio/pinned-summary",
+        "@dsh-studio/sidebar",
+        "@dsh-studio/panel-controls"
       ],
       "platform": "web",
       "immediately": true
     }
   },
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*"
+    "@dsh-studio/shared": "workspace:*"
   }
 }

@@ -14,14 +14,14 @@ import {
   createMountScheduler,
   findConversationColumn,
   mutationNeedsMount,
-} from '@oh-dsh/shared/column-mount'
-import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
-import type { PinnedSummary } from '@oh-dsh/pinned-summary/client'
-import { basename } from '@oh-dsh/shared/path'
-import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
-import { useTranslate } from '@oh-dsh/shared/use-i18n'
-import { ensureStyle } from '@oh-dsh/shared/style-injector'
-import { ToastHost } from '@oh-dsh/shared/toast'
+} from '@dsh-studio/shared/column-mount'
+import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
+import type { PinnedSummary } from '@dsh-studio/pinned-summary/client'
+import { basename } from '@dsh-studio/shared/path'
+import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
+import { useTranslate } from '@dsh-studio/shared/use-i18n'
+import { ensureStyle } from '@dsh-studio/shared/style-injector'
+import { ToastHost } from '@dsh-studio/shared/toast'
 import { DialogHost } from './kit/dialog.tsx'
 import { SideToolsPanel } from './SideToolsPanel.tsx'
 import type { WorkspaceMessage } from './i18n.ts'
@@ -45,13 +45,13 @@ import workspaceCss from './sidebar.css'
 import sourceControlCss from './source-control/source-control.css'
 import centerSurfaceCss from './surfaces/center-surface.css'
 import diffViewerCss from './diff/diff-viewer.css'
-import listRowCss from '@oh-dsh/shared/list-row.css'
-import scrollableCss from '@oh-dsh/shared/scrollable.css'
-import filenameLabelCss from '@oh-dsh/shared/filename-label.css'
-import surfaceTabCss from '@oh-dsh/shared/surface-tab.css'
+import listRowCss from '@dsh-studio/shared/list-row.css'
+import scrollableCss from '@dsh-studio/shared/scrollable.css'
+import filenameLabelCss from '@dsh-studio/shared/filename-label.css'
+import surfaceTabCss from '@dsh-studio/shared/surface-tab.css'
 
-import themeCss from '@oh-dsh/shared/theme.css'
-import terminalViewCss from '@oh-dsh/shared/terminal-view.css'
+import themeCss from '@dsh-studio/shared/theme.css'
+import terminalViewCss from '@dsh-studio/shared/terminal-view.css'
 import xtermCss from '@xterm/xterm/css/xterm.css'
 
 export class WorkspaceToolsService implements WorkspaceTools {
@@ -101,7 +101,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
   setOpen(open: boolean): void {
     if (open) this.pinnedSummary.setOpen(false)
     this.sidebar.setOpen(open)
-    if (!open) delete document.documentElement.dataset.ohDshPanelMaximized
+    if (!open) delete document.documentElement.dataset.dshStudioPanelMaximized
   }
 
   toggle(): void {
@@ -203,8 +203,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
     if (!this.state.open) return
     const maximized = !this.state.maximized
     this.sidebar.setMaximized(maximized)
-    if (maximized) document.documentElement.dataset.ohDshPanelMaximized = 'true'
-    else delete document.documentElement.dataset.ohDshPanelMaximized
+    if (maximized) document.documentElement.dataset.dshStudioPanelMaximized = 'true'
+    else delete document.documentElement.dataset.dshStudioPanelMaximized
   }
 
   setWidth(width: number): void {
@@ -223,7 +223,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
     const width = clampSidebarWidth(rawWidth)
     const fullWidth = this.state.maximized || this.narrowViewport.matches
     const html = document.documentElement
-    html.style.setProperty('--oh-dsh-sidebar-width', `${String(width)}px`)
+    html.style.setProperty('--dsh-studio-sidebar-width', `${String(width)}px`)
     if (this.element !== undefined) {
       this.element.style.width = this.state.open
         ? (fullWidth ? '100vw' : `${String(width)}px`)
@@ -256,7 +256,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
   mount(): void {
     if (this.state.open) this.pinnedSummary.setOpen(false)
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
-    this.stopStyle = ensureStyle('oh-dsh-desktop-sidebar', [
+    this.stopStyle = ensureStyle('dsh-studio-sidebar', [
       themeCss,
       xtermCss,
       terminalViewCss,
@@ -271,7 +271,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
       diffViewerCss,
     ].join('\n'))
     this.element = document.createElement('div')
-    this.element.id = 'oh-dsh-sidebar-root'
+    this.element.id = 'dsh-studio-sidebar-root'
     // The sidebar is a fixed overlay; #root is left in place (no wrapper, no
     // DOM restructuring). The squeeze is applied as padding-right on #root,
     // coordinated through the desktopPanels right-panel claim.
@@ -289,7 +289,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
       />,
     )
     this.toastElement = document.createElement('div')
-    this.toastElement.id = 'oh-dsh-toast-root'
+    this.toastElement.id = 'dsh-studio-toast-root'
     document.body.append(this.toastElement)
     this.toastRoot = createRoot(this.toastElement)
     this.toastRoot.render(
@@ -361,9 +361,9 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.toastElement?.remove()
     this.stopStyle?.()
     this.stopStyle = undefined
-    delete document.documentElement.dataset.ohDshDesktopSidebarOpen
-    delete document.documentElement.dataset.ohDshPanelMaximized
-    document.documentElement.style.removeProperty('--oh-dsh-sidebar-width')
+    delete document.documentElement.dataset.dshStudioDesktopSidebarOpen
+    delete document.documentElement.dataset.dshStudioPanelMaximized
+    document.documentElement.style.removeProperty('--dsh-studio-sidebar-width')
     this.panels.releaseRightPanel('sidebar')
   }
 
@@ -396,9 +396,9 @@ export class WorkspaceToolsService implements WorkspaceTools {
     if (next.open) this.pinnedSummary.setOpen(false)
     this.publish(next)
     if (next.maximized) {
-      document.documentElement.dataset.ohDshPanelMaximized = 'true'
+      document.documentElement.dataset.dshStudioPanelMaximized = 'true'
     } else {
-      delete document.documentElement.dataset.ohDshPanelMaximized
+      delete document.documentElement.dataset.dshStudioPanelMaximized
     }
     this.applyLayout()
   }
@@ -412,11 +412,11 @@ export class WorkspaceToolsService implements WorkspaceTools {
    */
   private mountBottomWorkbench(): void {
     // CUT:
-    // const ownedRoot = '#oh-dsh-bottom-workbench-root'
+    // const ownedRoot = '#dsh-studio-bottom-workbench-root'
     // let element = this.workbenchElement
     // if (element === undefined) {
     //   element = document.createElement('div')
-    //   element.id = 'oh-dsh-bottom-workbench-root'
+    //   element.id = 'dsh-studio-bottom-workbench-root'
     //   element.style.display = 'contents'
     //   this.workbenchElement = element
     // }
@@ -429,7 +429,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
     //   const column = findConversationColumn()
     //   if (column === null) return
     //   if (element.isConnected && element.parentElement === column) return
-    //   column.insertBefore(element, column.querySelector('#oh-dsh-terminal-root'))
+    //   column.insertBefore(element, column.querySelector('#dsh-studio-terminal-root'))
     //   root.render(
     //     <BottomWorkbench sidebar={this.sidebar} t={this.t} />,
     //   )
@@ -466,8 +466,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
     // Dirty-checked writes: every one of these lands on `html.style` or an
     // element style, and a no-op write would still trip the terminal theme
     // observer / cascade a ResizeObserver. Only touch what actually changed.
-    if (html.style.getPropertyValue('--oh-dsh-sidebar-width') !== widthCss) {
-      html.style.setProperty('--oh-dsh-sidebar-width', widthCss)
+    if (html.style.getPropertyValue('--dsh-studio-sidebar-width') !== widthCss) {
+      html.style.setProperty('--dsh-studio-sidebar-width', widthCss)
     }
     // Narrow viewports (< 900px) open the sidebar as a full-width drawer:
     // squeezing #root by the panel width would leave the app unusable, and
@@ -477,12 +477,12 @@ export class WorkspaceToolsService implements WorkspaceTools {
     // under the traffic lights) — published as an attribute so CSS keys off
     // it directly; no measuring, no observers.
     if (this.state.open && fullWidth) {
-      if (html.dataset.ohDshSidebarFullWidth !== 'true') html.dataset.ohDshSidebarFullWidth = 'true'
-    } else if (html.dataset.ohDshSidebarFullWidth !== undefined) {
-      delete html.dataset.ohDshSidebarFullWidth
+      if (html.dataset.dshStudioSidebarFullWidth !== 'true') html.dataset.dshStudioSidebarFullWidth = 'true'
+    } else if (html.dataset.dshStudioSidebarFullWidth !== undefined) {
+      delete html.dataset.dshStudioSidebarFullWidth
     }
     if (this.state.open) {
-      if (html.dataset.ohDshDesktopSidebarOpen !== 'true') html.dataset.ohDshDesktopSidebarOpen = 'true'
+      if (html.dataset.dshStudioDesktopSidebarOpen !== 'true') html.dataset.dshStudioDesktopSidebarOpen = 'true'
       // The #root squeeze is owned by the desktopPanels right-panel
       // coordinator — claim the footprint instead of writing global state.
       // The overlay container is flush with the window's right edge (no
@@ -492,7 +492,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
         paddingRight: fullWidth ? '100vw' : widthCss,
       })
     } else {
-      delete html.dataset.ohDshDesktopSidebarOpen
+      delete html.dataset.dshStudioDesktopSidebarOpen
       this.panels.releaseRightPanel('sidebar')
     }
     // The overlay container only occupies the panel footprint while open on

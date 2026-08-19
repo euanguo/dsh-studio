@@ -17,12 +17,12 @@
 
 const PIERRE_SCROLL_HOSTS = [
   // PierreFileView (code / markdown-source viewers).
-  '.oh-dsh-pierre-file-host',
+  '.dsh-studio-pierre-file-host',
   // renderPierreDiff virtualized and natural (stacked) diff panes.
-  '.oh-dsh-pierre-surface',
-  '.oh-dsh-pierre-surface-natural',
+  '.dsh-studio-pierre-surface',
+  '.dsh-studio-pierre-surface-natural',
   // Pierre editor state (in-place edit surface).
-  '.oh-dsh-editor-host',
+  '.dsh-studio-editor-host',
 ].join(', ')
 
 export function registerPierreVisibilityRecovery(): () => void {

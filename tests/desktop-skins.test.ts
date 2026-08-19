@@ -112,8 +112,8 @@ test('desktop skins are namespaced and keep every app surface on one opaque base
   assert.equal(DESKTOP_SKINS.length, 8)
   assert.equal(new Set(DESKTOP_SKINS.map(skin => skin.id)).size, DESKTOP_SKINS.length)
   for (const skin of DESKTOP_SKINS) {
-    const chatgpt = skin.id.startsWith('oh-dsh-skin-chatgpt')
-    assert.match(skin.id, /^oh-dsh-skin-/)
+    const chatgpt = skin.id.startsWith('dsh-studio-skin-chatgpt')
+    assert.match(skin.id, /^dsh-studio-skin-/)
     assert.ok(Object.keys(skin.tokens).length >= 30)
     assert.match(skin.tokens['--dsw-alias-bg-base'] ?? '', /^#[0-9a-f]{6}$/i)
     assert.match(skin.tokens['--dsw-specific-sidebar-fill'] ?? '', /^#[0-9a-f]{6}$/i)
@@ -123,18 +123,18 @@ test('desktop skins are namespaced and keep every app surface on one opaque base
       assert.equal(skin.tokens['--dsw-alias-bg-base'], skin.tokens['--dsw-specific-sidebar-fill'])
     }
     // Only the ChatGPT pair carries an atmosphere stylesheet; the geometry
-    // tokens now gate on the exact data-oh-dsh-skin attribute (every skin
+    // tokens now gate on the exact data-dsh-studio-skin attribute (every skin
     // consumes the same geometry, so the sub-string chatgpt gate is gone).
     assert.equal(skin.css === undefined, !chatgpt)
     if (chatgpt) {
-      assert.match(skin.css ?? '', /data-oh-dsh-skin\]/)
+      assert.match(skin.css ?? '', /data-dsh-studio-skin\]/)
       assert.match(skin.css ?? '', /--gw-skin-radius-pill/)
     }
   }
 })
 
 test('skins keep the HoverCard pinned dark surface (no light-mode fill override)', () => {
-  const day = DESKTOP_SKINS.find(skin => skin.id === 'oh-dsh-skin-chatgpt-day')
+  const day = DESKTOP_SKINS.find(skin => skin.id === 'dsh-studio-skin-chatgpt-day')
   assert.ok(day?.css)
   // The HoverCard owns a fixed #2C2C2E surface in both themes, and the
   // left-rail plugin themes its hover text against it (white title, light
@@ -147,7 +147,7 @@ test('skins keep the HoverCard pinned dark surface (no light-mode fill override)
 
 test('desktop skins restore a persisted choice after theme registration', () => {
   const storage = new MemoryStorage()
-  storage.setItem(ACTIVE_SKIN_KEY, 'oh-dsh-skin-porcelain')
+  storage.setItem(ACTIVE_SKIN_KEY, 'dsh-studio-skin-porcelain')
   const theme = new FakeThemeService('dark')
   const dom = new FakeSkinDom()
   const controller = new DesktopSkinsController(theme, storage, dom)
@@ -155,10 +155,10 @@ test('desktop skins restore a persisted choice after theme registration', () => 
   controller.start()
 
   assert.equal(theme.custom.size, DESKTOP_SKINS.length)
-  assert.equal(theme.getTheme().active.id, 'oh-dsh-skin-porcelain')
-  assert.equal(controller.getSnapshot().activeId, 'oh-dsh-skin-porcelain')
+  assert.equal(theme.getTheme().active.id, 'dsh-studio-skin-porcelain')
+  assert.equal(controller.getSnapshot().activeId, 'dsh-studio-skin-porcelain')
   assert.equal(storage.getItem(FALLBACK_THEME_KEY), 'dark')
-  assert.equal(dom.active, 'oh-dsh-skin-porcelain')
+  assert.equal(dom.active, 'dsh-studio-skin-porcelain')
 })
 
 test('choosing Original restores the appearance used before a skin', () => {
@@ -168,17 +168,17 @@ test('choosing Original restores the appearance used before a skin', () => {
   const controller = new DesktopSkinsController(theme, storage, dom)
   controller.start()
 
-  controller.setSkin('oh-dsh-skin-jade-circuit')
-  assert.equal(storage.getItem(ACTIVE_SKIN_KEY), 'oh-dsh-skin-jade-circuit')
+  controller.setSkin('dsh-studio-skin-jade-circuit')
+  assert.equal(storage.getItem(ACTIVE_SKIN_KEY), 'dsh-studio-skin-jade-circuit')
   assert.equal(storage.getItem(FALLBACK_THEME_KEY), 'dark')
 
   controller.setSkin(null)
   // Clearing the choice falls back to the default ChatGPT skin for the
   // scheme (dark here), not the official theme.
-  assert.equal(theme.getTheme().active.id, 'oh-dsh-skin-chatgpt-night')
+  assert.equal(theme.getTheme().active.id, 'dsh-studio-skin-chatgpt-night')
   assert.equal(storage.getItem(ACTIVE_SKIN_KEY), null)
-  assert.equal(controller.getSnapshot().activeId, 'oh-dsh-skin-chatgpt-night')
-  assert.equal(dom.active, 'oh-dsh-skin-chatgpt-night')
+  assert.equal(controller.getSnapshot().activeId, 'dsh-studio-skin-chatgpt-night')
+  assert.equal(dom.active, 'dsh-studio-skin-chatgpt-night')
 })
 
 test('a durable skin choice outlasts an official appearance change', () => {
@@ -187,7 +187,7 @@ test('a durable skin choice outlasts an official appearance change', () => {
   const dom = new FakeSkinDom()
   const controller = new DesktopSkinsController(theme, storage, dom)
   controller.start()
-  controller.setSkin('oh-dsh-skin-ember-dusk')
+  controller.setSkin('dsh-studio-skin-ember-dusk')
 
   theme.setTheme('light')
   controller.adopt(theme.getTheme())
@@ -195,11 +195,11 @@ test('a durable skin choice outlasts an official appearance change', () => {
   // The official light/dark pair is replaced by the ChatGPT skins, so an
   // official appearance change re-asserts the durable skin choice instead of
   // taking over.
-  assert.equal(storage.getItem(ACTIVE_SKIN_KEY), 'oh-dsh-skin-ember-dusk')
+  assert.equal(storage.getItem(ACTIVE_SKIN_KEY), 'dsh-studio-skin-ember-dusk')
   assert.equal(storage.getItem(FALLBACK_THEME_KEY), 'light')
-  assert.equal(theme.getTheme().active.id, 'oh-dsh-skin-ember-dusk')
-  assert.equal(controller.getSnapshot().activeId, 'oh-dsh-skin-ember-dusk')
-  assert.equal(dom.active, 'oh-dsh-skin-ember-dusk')
+  assert.equal(theme.getTheme().active.id, 'dsh-studio-skin-ember-dusk')
+  assert.equal(controller.getSnapshot().activeId, 'dsh-studio-skin-ember-dusk')
+  assert.equal(dom.active, 'dsh-studio-skin-ember-dusk')
 })
 
 test('official themes resolve to the default ChatGPT pair (builtin appearance is replaced)', () => {
@@ -217,9 +217,9 @@ test('official themes resolve to the default ChatGPT pair (builtin appearance is
 
   assert.equal(storage.getItem(ACTIVE_SKIN_KEY), null)
   assert.equal(storage.getItem(FALLBACK_THEME_KEY), 'system')
-  assert.equal(theme.getTheme().active.id, 'oh-dsh-skin-chatgpt-day')
-  assert.equal(controller.getSnapshot().activeId, 'oh-dsh-skin-chatgpt-day')
-  assert.equal(dom.active, 'oh-dsh-skin-chatgpt-day')
+  assert.equal(theme.getTheme().active.id, 'dsh-studio-skin-chatgpt-day')
+  assert.equal(controller.getSnapshot().activeId, 'dsh-studio-skin-chatgpt-day')
+  assert.equal(dom.active, 'dsh-studio-skin-chatgpt-day')
 })
 
 test('desktop skins reject unknown choices and release theme registrations', () => {
@@ -230,7 +230,7 @@ test('desktop skins reject unknown choices and release theme registrations', () 
   controller.start()
 
   assert.throws(
-    () => { controller.setSkin('oh-dsh-skin-missing') },
+    () => { controller.setSkin('dsh-studio-skin-missing') },
     /unknown desktop skin/,
   )
   controller.dispose()
@@ -244,21 +244,21 @@ test('runtime teardown preserves the selected skin for the next launch', () => {
   const dom = new FakeSkinDom()
   const controller = new DesktopSkinsController(theme, storage, dom)
   controller.start()
-  controller.setSkin('oh-dsh-skin-porcelain')
+  controller.setSkin('dsh-studio-skin-porcelain')
 
   controller.dispose()
   controller.adopt(theme.getTheme())
 
-  assert.equal(storage.getItem(ACTIVE_SKIN_KEY), 'oh-dsh-skin-porcelain')
-  assert.equal(theme.getTheme().active.id, 'oh-dsh-skin-chatgpt-night')
+  assert.equal(storage.getItem(ACTIVE_SKIN_KEY), 'dsh-studio-skin-porcelain')
+  assert.equal(theme.getTheme().active.id, 'dsh-studio-skin-chatgpt-night')
   assert.equal(theme.custom.size, 0)
 })
 
 test('desktop skin preferences survive outside the changing Web origin', async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'oh-dsh-desktop-skins-'))
+  const directory = await mkdtemp(join(tmpdir(), 'dsh-studio-skins-'))
   const path = join(directory, 'desktop-skins.json')
   const preferences: DesktopSkinPreferences = {
-    activeId: 'oh-dsh-skin-porcelain',
+    activeId: 'dsh-studio-skin-porcelain',
     fallbackTheme: 'dark',
   }
   try {
@@ -292,12 +292,12 @@ test('client preference writes are coalesced and validated', async () => {
   const storage = new DesktopSkinPreferencesStorage(request)
   await storage.load()
 
-  storage.setItem(ACTIVE_SKIN_KEY, 'oh-dsh-skin-deep-current')
+  storage.setItem(ACTIVE_SKIN_KEY, 'dsh-studio-skin-deep-current')
   storage.setItem(FALLBACK_THEME_KEY, 'dark')
   await storage.settle()
 
   assert.deepEqual(persisted, {
-    activeId: 'oh-dsh-skin-deep-current',
+    activeId: 'dsh-studio-skin-deep-current',
     fallbackTheme: 'dark',
   })
   assert.equal(writes.length, 1)

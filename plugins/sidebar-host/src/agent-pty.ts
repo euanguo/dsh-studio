@@ -22,8 +22,8 @@ import {
   createTerminalModeReplayTracker,
   type TerminalModeReplayTracker,
 } from './terminal-mode-replay.ts'
-import { SidebarError } from '@oh-dsh/shared/wire'
-import { terminalHistoryLimitsForRows } from '@oh-dsh/shared/terminal-scrollback-policy'
+import { SidebarError } from '@dsh-studio/shared/wire'
+import { terminalHistoryLimitsForRows } from '@dsh-studio/shared/terminal-scrollback-policy'
 import {
   DEFAULT_TERMINAL_RUNTIME_POLICY,
   type TerminalRuntimePolicy,

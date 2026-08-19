@@ -1,12 +1,12 @@
-"""Register Oh-DSH plugin packages into dsh-runtime/node_modules.
+"""Register DSH Studio plugin packages into dsh-runtime/node_modules.
 
 Mirrors installDesktopPackages() from scripts/stage-dsh.mjs: selected plugin
 manifests are copied into node_modules/<name>/package.json with build/scripts/
 devDependencies stripped, and compiled files are placed beside them.
 
 Usage: register-plugins.py <bundleRoot> <distRoot> <dshRuntimeRoot> <surface>
-  bundleRoot     — oh-dsh bundle output (contains manifests/ and tui-renderer/)
-  distRoot       — final package dist root ($out/lib/oh-dsh/dist)
+  bundleRoot     — dsh-studio bundle output (contains manifests/ and tui-renderer/)
+  distRoot       — final package dist root ($out/lib/dsh-studio/dist)
   dshRuntimeRoot — $out/dsh-runtime
   surface        — full, web, or tui
 """
@@ -41,7 +41,7 @@ def main():
         "tui": {"tui", "tui-renderer", "skins", "vision"},
     }.get(surface)
     if selected is None:
-        raise ValueError(f"unknown Oh-DSH surface: {surface}")
+        raise ValueError(f"unknown DSH Studio surface: {surface}")
     installed_versions = {}
 
     for manifest_file in sorted(os.listdir(manifests_dir)):
@@ -110,7 +110,7 @@ def main():
         installed_versions[name] = manifest["version"]
         print(f"registered {name}")
 
-    # Merge registered oh-dsh package names into the dsh runtime's
+    # Merge registered dsh-studio package names into the dsh runtime's
     # package.json dependencies so healProfilesModuleFallback links them
     # into the profile's module fallback (mirrors stage-dsh.mjs:616-621).
     cli_manifest_path = os.path.join(dsh_runtime, "package.json")

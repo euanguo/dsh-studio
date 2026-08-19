@@ -1,4 +1,4 @@
 /**
- * Re-export of the shared terminal theme (moved to @oh-dsh/shared).
+ * Re-export of the shared terminal theme (moved to @dsh-studio/shared).
  */
-export { resolveTerminalTheme } from '@oh-dsh/shared/terminal-theme'
+export { resolveTerminalTheme } from '@dsh-studio/shared/terminal-theme'

@@ -18,7 +18,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from './context-types.ts'
-import { CHUNK_NAMES, type ChunkName } from '@oh-dsh/shared/bundle-names'
+import { CHUNK_NAMES, type ChunkName } from '@dsh-studio/shared/bundle-names'
 
 /** Directory of this host-half module (lib/ — the chunk scripts live next to it). */
 const LIB_DIR = dirname(fileURLToPath(import.meta.url))

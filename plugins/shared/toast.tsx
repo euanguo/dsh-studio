@@ -3,7 +3,7 @@
  * plugins only call `toast()`. The store lives on globalThis because each
  * plugin bundles its own copy of this module.
  *
- * Presentation is the official `Toast` atom. There is no Oh-DSH toast
+ * Presentation is the official `Toast` atom. There is no DSH Studio toast
  * surface and no success/error kind — pass the resolved copy.
  */
 import { useSyncExternalStore } from 'react'
@@ -20,7 +20,7 @@ interface ToastStore {
   listeners: Set<() => void>
 }
 
-const STORE_KEY = '__ohDshToastStore'
+const STORE_KEY = '__dshStudioToastStore'
 
 function getStore(): ToastStore {
   const global = globalThis as { [STORE_KEY]?: ToastStore }

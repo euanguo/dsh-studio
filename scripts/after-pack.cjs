@@ -11,7 +11,7 @@ module.exports = async function afterPack(context) {
     context.appOutDir,
     `${context.packager.appInfo.productFilename}.app`,
   )
-  const identity = process.env.DSH_DESKTOP_SIGN_IDENTITY || '-'
+  const identity = process.env.DSH_STUDIO_SIGN_IDENTITY || '-'
   const args = ['--force', '--deep', '--sign', identity]
   if (identity === '-') args.push('--timestamp=none')
   args.push(appPath)

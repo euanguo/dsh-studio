@@ -32,7 +32,7 @@ export const DEFAULT_TERMINAL_FONT_SIZE = 13
 export const DEFAULT_TERMINAL_FONT_FAMILY = 'ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace'
 export const DEFAULT_TAB_LABEL = 'Shell'
 
-const STORAGE_KEY = 'oh-dsh-desktop.terminal-panel'
+const STORAGE_KEY = 'dsh-studio.terminal-panel'
 const LEGACY_STORAGE_KEYS = [
   'dsh-external.dsh-web-panel',
   'dsh-external.dsh-web-terminal',

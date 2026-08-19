@@ -31,8 +31,8 @@ jobs:
     timeout-minutes: 180
 
     env:
-      DSH_DESKTOP_NODE_PLATFORM: darwin
-      DSH_DESKTOP_NODE_ARCH: arm64
+      DSH_STUDIO_NODE_PLATFORM: darwin
+      DSH_STUDIO_NODE_ARCH: arm64
       npm_config_pm_on_fail: 'ignore'
 
     steps:
@@ -68,7 +68,7 @@ jobs:
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: oh-dsh-desktop-dmg-arm64
+          name: dsh-studio-dmg-arm64
           compression-level: 0
-          path: release/Oh-DSH-Desktop-*.dmg
+          path: release/DSH Studio-*.dmg
           if-no-files-found: error

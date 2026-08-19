@@ -1,5 +1,5 @@
 /**
- * Idempotent, self-healing style injection (@oh-dsh/shared).
+ * Idempotent, self-healing style injection (@dsh-studio/shared).
  *
  * Every browser plugin mounts its stylesheet by appending a `<style>` to
  * document.head. DSH's client hot-reload rebuilds parts of the document and
@@ -32,7 +32,7 @@ const liveStyles = new Map<string, InjectedStyle>()
  * Mount (or refresh) one identified stylesheet.
  *
  * @param id - Stable style identity; becomes the element's
- *   `data-oh-dsh-style` marker and the healing key. One id = one element,
+ *   `data-dsh-studio-style` marker and the healing key. One id = one element,
  *   no matter how many callers ensure it.
  * @param css - The stylesheet text (usually the plugin's concatenated
  *   CSS-module strings).
@@ -47,7 +47,7 @@ export function ensureStyle(id: string, css: string): () => void {
     return () => { removeStyle(id) }
   }
   const element = document.createElement('style')
-  element.dataset.ohDshStyle = id
+  element.dataset.dshStudioStyle = id
   element.textContent = css
   document.head.append(element)
   // Self-healing: re-append when anything strips the element out of

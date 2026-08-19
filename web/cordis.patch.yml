@@ -1,16 +1,16 @@
-# Oh-DSH Web is a bundle layer over dsh-base + dsh-web-app. The browser
-# distribution keeps DSH's web UI and mounts each web-capable Oh-DSH behavior
+# DSH Studio Web is a bundle layer over dsh-base + dsh-web-app. The browser
+# distribution keeps DSH's web UI and mounts each web-capable DSH Studio behavior
 # as an independently registered Host/Client plugin.
 #
 # The dsh-web-app bundle already binds the webserver (default
-# 127.0.0.1:3080) and prints the readiness URL; the oh-dsh-web launcher
+# 127.0.0.1:3080) and prints the readiness URL; the dsh-studio-web launcher
 # passes --host/--port over the same webStartup seam. This layer adds the
-# Oh-DSH surface: the web identity plugin and the web-capable Oh-DSH plugins.
+# DSH Studio surface: the web identity plugin and the web-capable DSH Studio plugins.
 #
 # Web keeps the same browser client graph as the desktop distribution
 # wherever the host services exist: skins (the one skins provider,
 # desktop-skins, reads its durable preferences through the shared
-# ohDshSurface contract — web's data root on this shell), pinned summary,
+# dshStudioSurface contract — web's data root on this shell), pinned summary,
 # the sidebar (workspace, Git, review, preferences — its host is pure
 # Node), the PTY terminal dock (sidebar-host is also pure Node), and the
 # browser-side panel layout. Only the Electron-bound surfaces stay out:
@@ -18,19 +18,19 @@
 
 - insert:
     - id: oh-web
-      name: '@oh-dsh/web'
+      name: '@dsh-studio/web'
 
     - id: oh-better-sidebar-runtime
-      name: '@oh-dsh/sidebar-host'
+      name: '@dsh-studio/sidebar-host'
 
     - id: oh-desktop-skins
-      name: '@oh-dsh/desktop-skins'
+      name: '@dsh-studio/desktop-skins'
 
     - id: oh-pinned-summary
-      name: '@oh-dsh/pinned-summary'
+      name: '@dsh-studio/pinned-summary'
 
     - id: oh-sidebar
-      name: '@oh-dsh/sidebar'
+      name: '@dsh-studio/sidebar'
 
     - id: oh-panel-controls
-      name: '@oh-dsh/panel-controls'
+      name: '@dsh-studio/panel-controls'

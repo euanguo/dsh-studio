@@ -1,7 +1,7 @@
 /**
  * Center surface host: the middle-area tab strip + active surface body.
  *
- * Mounts a fixed overlay (`#oh-dsh-center-tabs-root`) spanning the center
+ * Mounts a fixed overlay (`#dsh-studio-center-tabs-root`) spanning the center
  * column — between the DSH left sidebar (measured) and the desktop right
  * panel. Conversation tabs come from the sessions service (the current
  * project's sessions); file/diff/browser surfaces open as preview tabs
@@ -14,7 +14,7 @@
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import {
   Menu,
   type MenuEntry,
@@ -31,7 +31,7 @@ import {
   IconSidebarRightFilled,
   IconTerminal,
   getIconForFile,
-} from '@oh-dsh/shared/tabler-icons'
+} from '@dsh-studio/shared/tabler-icons'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { ErrorView } from '../kit/status.tsx'
 import { centerColumnElement, leftRailToggleButton, readLeftRailOpen } from './dsh-dom.ts'
@@ -63,7 +63,7 @@ import {
 import {
   SurfaceTab,
   SurfaceTabStrip,
-} from '@oh-dsh/shared/surface-tab'
+} from '@dsh-studio/shared/surface-tab'
 import {
   useTabStripDrag,
 } from '../use-tab-strip-drag.ts'
@@ -308,13 +308,13 @@ function LeftRailToggleButton(props: {
   return (
     <button
       type="button"
-      className="oh-dsh-left-rail-toggle"
+      className="dsh-studio-left-rail-toggle"
       aria-label={label}
       title={label}
       aria-pressed={props.leftRailOpen === true}
       onClick={props.onToggleLeftRail}
     >
-      <span className="oh-dsh-rail-toggle-glyph" aria-hidden="true">
+      <span className="dsh-studio-rail-toggle-glyph" aria-hidden="true">
         <IconSidebarLeftFilled />
       </span>
     </button>
@@ -327,12 +327,12 @@ function RightRailReopenButton(props: {
   return (
     <button
       type="button"
-      className="oh-dsh-right-rail-reopen"
+      className="dsh-studio-right-rail-reopen"
       aria-label="展开右栏"
       title="展开右栏"
       onClick={() => { props.sidebar.setOpen(true) }}
     >
-      <span className="oh-dsh-rail-toggle-glyph" aria-hidden="true">
+      <span className="dsh-studio-rail-toggle-glyph" aria-hidden="true">
         <IconSidebarRightFilled />
       </span>
     </button>
@@ -390,9 +390,9 @@ export function CenterSurfaceBody({
     content = sidebar.renderSurface(active)
   }
   return (
-    <div className="oh-dsh-center-surface-body" data-hidden={hidden || undefined}>
+    <div className="dsh-studio-center-surface-body" data-hidden={hidden || undefined}>
       {content ?? (
-        <div className="oh-dsh-center-surface-empty">—</div>
+        <div className="dsh-studio-center-surface-empty">—</div>
       )}
     </div>
   )
@@ -513,7 +513,7 @@ function CenterAddMenu({
     workspaces.startSession()
   }
   return (
-    <div className="oh-dsh-center-add">
+    <div className="dsh-studio-center-add">
       <button
         ref={anchorRef}
         type="button"
@@ -557,7 +557,7 @@ export class CenterSurfaceHost {
   mount(): void {
     if (this.element !== null) return
     this.element = document.createElement('div')
-    this.element.id = 'oh-dsh-center-tabs-root'
+    this.element.id = 'dsh-studio-center-tabs-root'
     this.root = createRoot(this.element)
     this.render()
     this.stopPersist = persistCenterSurfaces()
@@ -657,7 +657,7 @@ class CenterSurfaceHostErrorBoundary extends Component<
   render(): ReactNode {
     if (this.state.error === null) return this.props.children
     return (
-      <div className="oh-dsh-center-host-crash">
+      <div className="dsh-studio-center-host-crash">
         <ErrorView
           message={this.props.t('center.crash')}
           retryLabel={this.props.t('overlay.retry')}
@@ -690,7 +690,7 @@ function CenterSurfaceHostView({
   // A real placeholder keeps the host root non-empty while mounting: the
   // self-healing attach logic treats an EMPTIED root as "DSH rebuilt its
   // tree and discarded our children" and force-remounts.
-  if (!mounted) return <span className="oh-dsh-center-host-mounting" aria-hidden="true" />
+  if (!mounted) return <span className="dsh-studio-center-host-mounting" aria-hidden="true" />
   return (
     <CenterSurfaceHostErrorBoundary t={t}>
       <DiffWorkerPoolProvider>
@@ -699,10 +699,10 @@ function CenterSurfaceHostView({
             all in-flow members of the strip (see the TopRailControls
             section comment above). */}
         <div
-          className={`oh-dsh-center-tabs-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}${rightOpen ? '' : ' is-right-free'}`}
+          className={`dsh-studio-center-tabs-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}${rightOpen ? '' : ' is-right-free'}`}
         >
           <LeftRailToggleButton onToggleLeftRail={toggleLeftRail} leftRailOpen={leftRailOpen} />
-          <div className="oh-dsh-center-tabs-scroller">
+          <div className="dsh-studio-center-tabs-scroller">
             <CenterSurfaceTabs sessions={sessions} t={t} />
           </div>
           <CenterAddMenu sessions={sessions} sidebar={sidebar} workspaces={workspaces} t={t} />
@@ -715,7 +715,7 @@ function CenterSurfaceHostView({
 }
 
 /**
- * Keep `--oh-dsh-center-col-height` on the tabs root in sync with the DSH
+ * Keep `--dsh-studio-center-col-height` on the tabs root in sync with the DSH
  * center column's real height (grid-stretched, not expressible as 100%):
  * the surface body fills the column exactly — never drifting off the top
  * (strip scrolled away) or overflowing past the bottom (conversation
@@ -723,7 +723,7 @@ function CenterSurfaceHostView({
  */
 function useCenterColumnHeight(): void {
   useEffect(() => {
-    const rootElement = document.getElementById('oh-dsh-center-tabs-root')
+    const rootElement = document.getElementById('dsh-studio-center-tabs-root')
     if (rootElement === null) return
     let lastHeight = -1
     const apply = (): void => {
@@ -736,7 +736,7 @@ function useCenterColumnHeight(): void {
       // style write that cascades layout to children.
       if (next === lastHeight) return
       lastHeight = next
-      rootElement.style.setProperty('--oh-dsh-center-col-height', `${String(next)}px`)
+      rootElement.style.setProperty('--dsh-studio-center-col-height', `${String(next)}px`)
     }
     apply()
     let observer: ResizeObserver | null = null

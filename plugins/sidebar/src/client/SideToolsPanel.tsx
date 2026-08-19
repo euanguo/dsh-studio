@@ -16,9 +16,9 @@ import {
   Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { Translate } from '@oh-dsh/shared/i18n'
-import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
-import { IconRestore } from '@oh-dsh/shared/icons'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
+import { IconRestore } from '@dsh-studio/shared/icons'
 import {
   FileGlyph,
   IconChevronDown,
@@ -42,7 +42,7 @@ import {
   IconTerminal,
   IconTrash,
   IconWorld,
-} from '@oh-dsh/shared/tabler-icons'
+} from '@dsh-studio/shared/tabler-icons'
 import {
   basename,
   dirname,
@@ -50,7 +50,7 @@ import {
   joinPath,
   relativePathOf,
   resolveSidebarPath,
-} from '@oh-dsh/shared/path'
+} from '@dsh-studio/shared/path'
 import type { WorkspaceFilesResponse, WorkspaceFileEntry, WorkspaceFileKind } from '../protocol.ts'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import {
@@ -66,12 +66,12 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
-} from '@oh-dsh/shared/list-row'
-import { FilenameLabel } from '@oh-dsh/shared/filename-label'
-import { SurfaceTab } from '@oh-dsh/shared/surface-tab'
-import { bindTabStripWheel } from '@oh-dsh/shared/tab-strip-wheel'
+} from '@dsh-studio/shared/list-row'
+import { FilenameLabel } from '@dsh-studio/shared/filename-label'
+import { SurfaceTab } from '@dsh-studio/shared/surface-tab'
+import { bindTabStripWheel } from '@dsh-studio/shared/tab-strip-wheel'
 import { useTabStripDrag } from './use-tab-strip-drag.ts'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/scrollable'
 import {
   getExplorerRuntime,
   sidebarScopeKey,
@@ -121,8 +121,8 @@ interface SideToolsPanelProps {
 // The glyph set lives in the shared kit (both the generic rail and the
 // desktop add-on render descriptor icons); re-exported here for the
 // panel-internal call sites.
-export { ToolIcon, type ToolIconKind } from '@oh-dsh/shared/tool-icon'
-import { ToolIcon, type ToolIconKind } from '@oh-dsh/shared/tool-icon'
+export { ToolIcon, type ToolIconKind } from '@dsh-studio/shared/tool-icon'
+import { ToolIcon, type ToolIconKind } from '@dsh-studio/shared/tool-icon'
 
 function defaultIcon(id: string): ToolIconKind {
   if (id === 'review' || id === 'terminal' || id === 'browser'
@@ -154,7 +154,7 @@ function ToolRow(props: {
 }): JSX.Element {
   return (
     <button
-      className="oh-dsh-side-tool-row"
+      className="dsh-studio-side-tool-row"
       type="button"
       disabled={props.disabled}
       title={props.disabledTitle}
@@ -204,7 +204,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
     descriptor.hidden !== true && props.sidebar.isTabEnabled(descriptor.id),
   )
   return (
-    <Scrollable className="oh-dsh-side-menu">
+    <Scrollable className="dsh-studio-side-menu">
       {descriptors.map(descriptor => {
         const availability = tabAvailability(descriptor, scope, snapshot, props.sidebar.isTabEnabled(descriptor.id))
         const unavailableArea = unavailableTitle(availability, props.t)
@@ -221,7 +221,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
       {error !== '' && <ErrorView message={error} />}
       <button
         type="button"
-        className="oh-dsh-side-menu-close"
+        className="dsh-studio-side-menu-close"
         aria-label={props.t('side.close')}
         onClick={props.onClose}
       ><IconClose size={16} /></button>
@@ -255,17 +255,17 @@ function InlineCreateRow({ kind, depth, placeholder, onCommit, onCancel }: {
     void onCommit(value)
   }
   return (
-    <ListRow className="oh-dsh-files-inline-create" data-kind={kind}>
+    <ListRow className="dsh-studio-files-inline-create" data-kind={kind}>
       <ListRowLeading aria-hidden="true">
         {kind === 'directory' ? <IconFolderPlus size={14} /> : <IconFilePlus size={14} />}
       </ListRowLeading>
       <div
-        className="oh-dsh-files-inline-main"
+        className="dsh-studio-files-inline-main"
         style={{ '--tree-depth': depth } as CSSProperties}
       >
         <Input
           autoFocus
-          className="oh-dsh-files-inline-input"
+          className="dsh-studio-files-inline-input"
           placeholder={placeholder}
           aria-label={placeholder}
           value={value}
@@ -705,12 +705,12 @@ export function FilesView({
   })
 
   if (cwd === undefined) {
-    return <div className="oh-dsh-side-empty">{t('files.select-workspace')}</div>
+    return <div className="dsh-studio-side-empty">{t('files.select-workspace')}</div>
   }
   return (
-    <div className="oh-dsh-files-view">
-      <div className="oh-dsh-files-path" title={cwd}>
-        <span className="oh-dsh-files-path-name">{basename(cwd)}</span>
+    <div className="dsh-studio-files-view">
+      <div className="dsh-studio-files-path" title={cwd}>
+        <span className="dsh-studio-files-path-name">{basename(cwd)}</span>
         <button
           ref={createButtonRef}
           type="button"
@@ -741,7 +741,7 @@ export function FilesView({
         onSelect={handleCreateMenuSelect}
         onClose={() => { setCreateMenuOpen(false) }}
       />
-      <div className="oh-dsh-files-search">
+      <div className="dsh-studio-files-search">
         <input
           type="search"
           placeholder={t('files.search-placeholder')}
@@ -753,7 +753,7 @@ export function FilesView({
         />
       </div>
       {searchHits !== null ? (
-        <Scrollable className="oh-dsh-file-search-results">
+        <Scrollable className="dsh-studio-file-search-results">
           {searching ? <LoadingView label={t('files.loading')} /> : null}
           {!searching && searchHits.length === 0 ? (
             <EmptyView title={t('files.search-no-matches')} />
@@ -762,7 +762,7 @@ export function FilesView({
             <button
               key={`${hit.path}:${hit.line}`}
               type="button"
-              className="oh-dsh-file-search-hit"
+              className="dsh-studio-file-search-hit"
               onClick={() => {
                 const cwd2 = cwd
                 if (cwd2 === undefined) return
@@ -775,19 +775,19 @@ export function FilesView({
                 })
               }}
             >
-              <span className="oh-dsh-file-search-hit-path">{hit.path}:{hit.line}</span>
-              <span className="oh-dsh-file-search-hit-text">{hit.text}</span>
+              <span className="dsh-studio-file-search-hit-path">{hit.path}:{hit.line}</span>
+              <span className="dsh-studio-file-search-hit-text">{hit.text}</span>
             </button>
           ))}
         </Scrollable>
       ) : null}
       {loading && !entriesByDir.has(cwd) && <LoadingView label={t('files.loading')} />}
       {error !== '' && <ErrorView message={error} />}
-      <Scrollable className="oh-dsh-file-list" onContextMenu={openBackgroundMenu}>
+      <Scrollable className="dsh-studio-file-list" onContextMenu={openBackgroundMenu}>
         {displayItems.map(item => (
           item.kind === 'inline' ? (
             <InlineCreateRow
-              key="oh-dsh-inline-create"
+              key="dsh-studio-inline-create"
               kind={item.entryKind}
               depth={item.depth}
               placeholder={item.entryKind === 'directory' ? t('files.new-folder') : t('files.new-file')}
@@ -803,7 +803,7 @@ export function FilesView({
               onContextMenu={event => { openRowMenu(event, item.row) }}
             >
               <ListRowMain
-                className="oh-dsh-files-depth-main"
+                className="dsh-studio-files-depth-main"
                 style={{ '--tree-depth': item.row.depth } as CSSProperties}
                 aria-expanded={item.row.kind === 'directory' ? item.row.expanded : undefined}
                 onClick={() => {
@@ -836,7 +836,7 @@ export function FilesView({
               </ListRowMain>
               {item.row.kind !== 'directory' && (
                 <ListRowTrailing>
-                  <span className="oh-dsh-files-size">{formatSize(item.row.size)}</span>
+                  <span className="dsh-studio-files-size">{formatSize(item.row.size)}</span>
                 </ListRowTrailing>
               )}
               <ListRowActions>
@@ -912,7 +912,7 @@ export function FileView({
   }, [cwd, path, scope])
 
   if (cwd === undefined || path === undefined) {
-    return <div className="oh-dsh-side-empty">{t('files.select-workspace')}</div>
+    return <div className="dsh-studio-side-empty">{t('files.select-workspace')}</div>
   }
   if (error !== '') return <ErrorView message={error} />
   if (snapshot === null) return <LoadingView label={t('files.loading')} />
@@ -934,7 +934,7 @@ export function FileView({
     })}</>
   }
   return (
-    <Scrollable className="oh-dsh-file-preview">
+    <Scrollable className="dsh-studio-file-preview">
       <div>
         <strong>{tab.title}</strong>
         <button type="button" onClick={() => { void onOpenPath(path) }}>
@@ -951,10 +951,10 @@ function OrphanedTab({ tab, t }: {
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   return (
-    <div className="oh-dsh-side-empty">
+    <div className="dsh-studio-side-empty">
       <strong>{tab.title}</strong>
       <p>{t('side.orphaned-tab')}</p>
-      <code className="oh-dsh-orphaned-type">{tab.type}</code>
+      <code className="dsh-studio-orphaned-type">{tab.type}</code>
     </div>
   )
 }
@@ -972,7 +972,7 @@ function tabBadge(
     const label = typeof value === 'number'
       ? (value > 99 ? '99+' : String(value))
       : String(value)
-    return <span className="oh-dsh-surface-tab-badge" aria-hidden="true">{label}</span>
+    return <span className="dsh-studio-surface-tab-badge" aria-hidden="true">{label}</span>
   } catch (error) {
     console.error('[sidebar] badge error:', error)
     return null
@@ -1017,7 +1017,7 @@ function PinnedTabs({ sidebar, t, cwd }: {
   const filesHint = unavailableTitle(filesAvailability, t)
   const reviewHint = unavailableTitle(reviewAvailability, t)
   return (
-    <div className="oh-dsh-side-pinned" role="tablist">
+    <div className="dsh-studio-side-pinned" role="tablist">
       <SurfaceTab
         label={t('files')}
         icon={<ToolIcon kind="files" />}
@@ -1080,7 +1080,7 @@ function AddToolsMenu({ sidebar, t }: {
       icon: TOOL_MENU_ICONS[descriptor.id] ?? <IconDots />,
     }))
   return (
-    <div className="oh-dsh-add-tools">
+    <div className="dsh-studio-add-tools">
       <button
         ref={anchorRef}
         type="button"
@@ -1150,7 +1150,7 @@ function TabStrip({ sidebar, t }: {
   return (
     <div
       ref={stripRef}
-      className="oh-dsh-side-tabs"
+      className="dsh-studio-side-tabs"
       role="tablist"
       {...drag.strip.handlers}
     >
@@ -1209,7 +1209,7 @@ function PanelActions({
   // `panels.toggleBottomPanel()`) — the bottom terminal dock no longer
   // mounts (see plugins/panel-controls).
   return (
-    <div className="oh-dsh-side-tabs-actions" role="presentation">
+    <div className="dsh-studio-side-tabs-actions" role="presentation">
       <button
         type="button"
         aria-label={t('side.expand')}
@@ -1224,7 +1224,7 @@ function PanelActions({
         title={`${t('side.title')} (${formatKeymapHint(binding({ mod: true, alt: true, key: 'b' }))})`}
         onClick={onToggleSide}
       >
-        <span className="oh-dsh-side-toggle-glyph" aria-hidden="true">
+        <span className="dsh-studio-side-toggle-glyph" aria-hidden="true">
           <IconSidebarRightFilled />
         </span>
       </button>
@@ -1293,7 +1293,7 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
       : descriptor.render(renderProps)
   return (
     <aside
-      className="oh-dsh-workspace-panel oh-dsh-side-panel"
+      className="dsh-studio-workspace-panel dsh-studio-side-panel"
       data-open={String(props.open)}
       data-maximized={String(props.maximized)}
       aria-hidden={!props.open}
@@ -1302,12 +1302,12 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
     >
       {!props.maximized && (
         <div
-          className="oh-dsh-workspace-resize"
+          className="dsh-studio-workspace-resize"
           onPointerDown={beginResize}
           aria-hidden="true"
         />
       )}
-      <div className="oh-dsh-side-top">
+      <div className="dsh-studio-side-top">
         <PinnedTabs sidebar={props.sidebar} t={props.t} cwd={props.cwd} />
         <TabStrip sidebar={props.sidebar} t={props.t} />
         <AddToolsMenu sidebar={props.sidebar} t={props.t} />

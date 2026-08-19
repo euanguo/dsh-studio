@@ -1,6 +1,6 @@
 /**
  * UI-facing view types for the sidebar panels. The workspace Git facts and
- * mutation shapes are wire contracts owned by @oh-dsh/shared
+ * mutation shapes are wire contracts owned by @dsh-studio/shared
  * (`SidebarWorkspace*`) and served through /sidebar/api; they are aliased
  * here under their historical names so the panel code keeps one import
  * site.
@@ -9,13 +9,13 @@ import type {
   SidebarWorkspaceFacts,
   SidebarWorkspaceMutation,
   SidebarWorkspaceMutationResponse,
-} from '@oh-dsh/shared/sidebar-api'
+} from '@dsh-studio/shared/sidebar-api'
 
 export type {
   SidebarWorkspaceFacts as WorkspaceFacts,
   SidebarWorkspaceMutation as WorkspaceHostMutation,
   SidebarWorkspaceMutationResponse as WorkspaceHostMutationResponse,
-} from '@oh-dsh/shared/sidebar-api'
+} from '@dsh-studio/shared/sidebar-api'
 export type WorkspaceFileKind = 'directory' | 'file' | 'symlink'
 
 export interface WorkspaceFileEntry {

@@ -1,5 +1,5 @@
 /**
- * Re-export of the shared terminal socket (moved to @oh-dsh/shared).
+ * Re-export of the shared terminal socket (moved to @dsh-studio/shared).
  */
 export {
   TerminalSocket,
@@ -7,4 +7,4 @@ export {
   terminalWebSocketUrl,
   type TerminalSocketHandlers,
   type TerminalSocketScope,
-} from '@oh-dsh/shared/terminal-socket'
+} from '@dsh-studio/shared/terminal-socket'

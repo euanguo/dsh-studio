@@ -3,7 +3,7 @@
  * Maps DOM selection inside a code container to 1-based line ranges.
  * Ported from Synara `entities/file-selection-reference.ts`.
  */
-import { relativePathOf } from '@oh-dsh/shared/path'
+import { relativePathOf } from '@dsh-studio/shared/path'
 
 export type FileLineSelection = Readonly<{
   startLine: number

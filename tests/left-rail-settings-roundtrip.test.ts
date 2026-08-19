@@ -11,8 +11,8 @@ import {
 import {
   LEFT_RAIL_SETTINGS_NS,
   LEFT_RAIL_SETTINGS_VERSION,
-} from '@oh-dsh/shared/left-rail-preferences'
-import { SIDEBAR_PREFS_NS } from '@oh-dsh/shared/prefs-shared'
+} from '@dsh-studio/shared/left-rail-preferences'
+import { SIDEBAR_PREFS_NS } from '@dsh-studio/shared/prefs-shared'
 
 /**
  * A minimal in-memory settings seam mirroring dsh-settings semantics
@@ -198,7 +198,7 @@ test('left-rail slice merges additions without dropping non-deleted keys on relo
   assert.deepEqual(written.projectIconOverrides, { [REPO]: { kind: 'builtin', name: 'folder' } })
 })
 
-test('legacy slice migrates out of the sidebar namespace into oh-dsh.left-rail', async () => {
+test('legacy slice migrates out of the sidebar namespace into dsh-studio.left-rail', async () => {
   const seam = new MemorySettingsSeam({
     [SIDEBAR_PREFS_NS]: {
       terminalFontSize: 12,
@@ -227,7 +227,7 @@ test('legacy slice migrates out of the sidebar namespace into oh-dsh.left-rail',
   assert.equal(again, false)
 })
 
-test('migration never clobbers an existing oh-dsh.left-rail slice', async () => {
+test('migration never clobbers an existing dsh-studio.left-rail slice', async () => {
   const seam = new MemorySettingsSeam({
     [SIDEBAR_PREFS_NS]: {
       activeTab: '__default__',

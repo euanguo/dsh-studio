@@ -1,6 +1,6 @@
 # Vendored source: DSH ui-workspace (desktop left rail)
 
-The `src/` tree of `@oh-dsh/desktop-left-rail` forks the official
+The `src/` tree of `@dsh-studio/desktop-left-rail` forks the official
 [`@deepseek-ai/dsh-client-ui-workspace`](https://github.com/deepseek-ai/deepseek-harness/tree/main/packages/client/ui-workspace)
 plugin and restructures the browsing region into a desktop three-level
 project → worktree → session tree.
@@ -20,7 +20,7 @@ single slot, so the desktop ships exactly one browser.
 ## Local evolution beyond the fork baseline
 
 The fork delta is the product surface, not a patch to re-apply: the plugin
-now behaves as Oh-DSH's own desktop workspace browser while reusing the
+now behaves as DSH Studio's own desktop workspace browser while reusing the
 official primitives, slot contracts and session/workspace stores. Changes
 are recorded here so an upstream re-sync can judge what to keep:
 
@@ -32,7 +32,7 @@ are recorded here so an upstream re-sync can judge what to keep:
   explicitly instead of a silently chosen one.
 - **Group tabs**: horizontal tab strip (create/rename/remove groups) with the
   pinned catch-all tab; project → group assignment and per-project aliases
-  persist through the host settings service (`oh-dsh.left-rail` namespace),
+  persist through the host settings service (`dsh-studio-left-rail` namespace),
   not localStorage.
 - **Worktree lifecycle**: `git.worktree-list` / `git.worktree-add` /
   `git.branch` host endpoints (sidecar routes in the generic sidebar host);

@@ -4,11 +4,11 @@
  * parse/load errors.
  */
 import { useEffect, useRef, useState } from 'react'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { loadMermaidChunk } from '../chunk-loader.ts'
 import { LoadingView } from '../kit/status.tsx'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/scrollable'
 
 export function MermaidViewer({
   content,
@@ -40,14 +40,14 @@ export function MermaidViewer({
   }, [content])
 
   return (
-    <Scrollable axis="both" className="oh-dsh-mermaid-viewer" data-testid="mermaid-viewer">
+    <Scrollable axis="both" className="dsh-studio-mermaid-viewer" data-testid="mermaid-viewer">
       {loading ? <LoadingView label={t('files.rendering-diagram')} /> : null}
       {error !== '' ? (
-        <pre className="oh-dsh-mermaid-source">
+        <pre className="dsh-studio-mermaid-source">
           <code>{content}</code>
         </pre>
       ) : (
-        <div ref={hostRef} className="oh-dsh-mermaid-svg" />
+        <div ref={hostRef} className="dsh-studio-mermaid-svg" />
       )}
     </Scrollable>
   )

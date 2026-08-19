@@ -4,11 +4,11 @@ import {
   Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import { IconChevronDown, IconRefresh } from '@oh-dsh/shared/tabler-icons'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import { IconChevronDown, IconRefresh } from '@dsh-studio/shared/tabler-icons'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
-import type { SidebarSourceControlAiModel } from '@oh-dsh/shared/sidebar-api'
+import type { SidebarSourceControlAiModel } from '@dsh-studio/shared/sidebar-api'
 
 interface SourceControlAiSettingsValue {
   enabled: boolean
@@ -137,10 +137,10 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
     }
   }
 
-  if (loading) return <div className="oh-dsh-sidebar-settings-ai">{props.t('source-control-ai.loading')}</div>
+  if (loading) return <div className="dsh-studio-sidebar-settings-ai">{props.t('source-control-ai.loading')}</div>
   return (
-    <div className="oh-dsh-sidebar-settings-ai">
-      <div className="oh-dsh-sidebar-settings-ai-toolbar">
+    <div className="dsh-studio-sidebar-settings-ai">
+      <div className="dsh-studio-sidebar-settings-ai-toolbar">
         <Button
           variant="ghost"
           size="sm"
@@ -151,9 +151,9 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
           <IconRefresh size={15} />
         </Button>
       </div>
-      <div className="oh-dsh-sidebar-settings-grid">
-        <label className="oh-dsh-sidebar-settings-row" title={props.t('source-control-ai.enabled')}>
-          <span className="oh-dsh-sidebar-settings-copy"><strong>{props.t('source-control-ai.enabled')}</strong></span>
+      <div className="dsh-studio-sidebar-settings-grid">
+        <label className="dsh-studio-sidebar-settings-row" title={props.t('source-control-ai.enabled')}>
+          <span className="dsh-studio-sidebar-settings-copy"><strong>{props.t('source-control-ai.enabled')}</strong></span>
           <input
             type="checkbox"
             checked={settings.enabled}
@@ -164,9 +164,9 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
             }}
           />
         </label>
-        <div className="oh-dsh-sidebar-settings-row">
-          <span className="oh-dsh-sidebar-settings-copy"><strong>{props.t('source-control-ai.model')}</strong></span>
-          <span ref={modelAnchorRef} className="oh-dsh-sidebar-settings-menu-anchor">
+        <div className="dsh-studio-sidebar-settings-row">
+          <span className="dsh-studio-sidebar-settings-copy"><strong>{props.t('source-control-ai.model')}</strong></span>
+          <span ref={modelAnchorRef} className="dsh-studio-sidebar-settings-menu-anchor">
             <Button
               variant="outline"
               size="sm"
@@ -174,7 +174,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
               aria-expanded={openMenu === 'model'}
               onClick={() => { setOpenMenu(current => current === 'model' ? null : 'model') }}
             >
-              <span className="oh-dsh-sidebar-settings-menu-label">{modelLabel}</span>
+              <span className="dsh-studio-sidebar-settings-menu-label">{modelLabel}</span>
               <IconChevronDown size={14} />
             </Button>
             <Menu
@@ -200,9 +200,9 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
             />
           </span>
         </div>
-        <div className="oh-dsh-sidebar-settings-row">
-          <span className="oh-dsh-sidebar-settings-copy"><strong>{props.t('source-control-ai.reasoning')}</strong></span>
-          <span ref={reasoningAnchorRef} className="oh-dsh-sidebar-settings-menu-anchor">
+        <div className="dsh-studio-sidebar-settings-row">
+          <span className="dsh-studio-sidebar-settings-copy"><strong>{props.t('source-control-ai.reasoning')}</strong></span>
+          <span ref={reasoningAnchorRef} className="dsh-studio-sidebar-settings-menu-anchor">
             <Button
               variant="outline"
               size="sm"
@@ -211,7 +211,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
               aria-expanded={openMenu === 'reasoning'}
               onClick={() => { setOpenMenu(current => current === 'reasoning' ? null : 'reasoning') }}
             >
-              <span className="oh-dsh-sidebar-settings-menu-label">{reasoningLabel}</span>
+              <span className="dsh-studio-sidebar-settings-menu-label">{reasoningLabel}</span>
               <IconChevronDown size={14} />
             </Button>
             <Menu
@@ -235,8 +235,8 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
             />
           </span>
         </div>
-        <label className="oh-dsh-sidebar-settings-ai-prompt">
-          <span className="oh-dsh-sidebar-settings-copy"><strong>{props.t('source-control-ai.prompt-template')}</strong></span>
+        <label className="dsh-studio-sidebar-settings-ai-prompt">
+          <span className="dsh-studio-sidebar-settings-copy"><strong>{props.t('source-control-ai.prompt-template')}</strong></span>
           <textarea
             value={settings.promptTemplate}
             aria-label={props.t('source-control-ai.prompt-template')}
@@ -248,7 +248,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
           <small>{props.t('source-control-ai.variables')}</small>
         </label>
       </div>
-      <div className="oh-dsh-sidebar-settings-ai-actions">
+      <div className="dsh-studio-sidebar-settings-ai-actions">
         <Button variant="primary" size="sm" disabled={saving} onClick={() => { void save() }}>
           {props.t('source-control-ai.save')}
         </Button>

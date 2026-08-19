@@ -24,13 +24,13 @@ import {
   type SidebarWorkspaceFacts,
   type SidebarWorkspaceMutation,
   type SidebarWorkspaceMutationResponse,
-} from '@oh-dsh/shared/sidebar-api'
-import { normalizePath } from '@oh-dsh/shared/path'
+} from '@dsh-studio/shared/sidebar-api'
+import { normalizePath } from '@dsh-studio/shared/path'
 
 /**
  * The client face of the sidebar API. All calls go to the generic host's
  * /sidebar/api route; the wire contract, DTOs, and call helpers are shared
- * through @oh-dsh/shared so the two halves cannot drift.
+ * through @dsh-studio/shared so the two halves cannot drift.
  */
 export type {
   SidebarFsEntry,
@@ -49,7 +49,7 @@ export type {
   SidebarWorkspaceFacts,
   SidebarWorkspaceMutation,
   SidebarWorkspaceMutationResponse,
-} from '@oh-dsh/shared/sidebar-api'
+} from '@dsh-studio/shared/sidebar-api'
 
 /**
  * Wire call typed by the shared request DTOs: the method name and its

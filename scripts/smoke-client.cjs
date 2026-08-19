@@ -72,16 +72,16 @@ void app.whenReady().then(async () => {
         if (onboardingButton !== undefined) onboardingButton.click()
         const marketplaceButton = document.querySelector('.oh-marketplace-nav')
         const collapsed = marketplaceButton?.dataset.collapsed === 'true'
-        if (document.documentElement.dataset.ohDshDesktop === 'true'
+        if (document.documentElement.dataset.dshStudioDesktop === 'true'
           && marketplaceButton instanceof HTMLButtonElement
           && !collapsed
-          && window.__OH_DSH_SMOKE_COLLAPSE_REQUESTED__ !== true) {
+          && window.__DSH_STUDIO_SMOKE_COLLAPSE_REQUESTED__ !== true) {
           const toggle = [...document.querySelectorAll('button')]
             .find(button => /^(collapse sidebar|收起侧边栏)$/i.test(
               button.getAttribute('aria-label') ?? '',
             ))
           if (toggle instanceof HTMLButtonElement) {
-            window.__OH_DSH_SMOKE_COLLAPSE_REQUESTED__ = true
+            window.__DSH_STUDIO_SMOKE_COLLAPSE_REQUESTED__ = true
             toggle.click()
           }
         }
@@ -105,7 +105,7 @@ void app.whenReady().then(async () => {
                 button.getAttribute('title'),
               ].filter(Boolean).join(' ')))
             const remove = removeButtons.find(button => !button.disabled)
-            window.__OH_DSH_SMOKE_VISION_FACTS__ = {
+            window.__DSH_STUDIO_SMOKE_VISION_FACTS__ = {
               bubbleBottom: thumbnailRect.bottom,
               cardTop: cardRect.top,
               imageWidth: image.naturalWidth,
@@ -113,10 +113,10 @@ void app.whenReady().then(async () => {
               removeDisabled: remove?.disabled ?? null,
               status: 'ready',
             }
-            window.__OH_DSH_SMOKE_VISION_SEEN__ = true
-            if (window.__OH_DSH_SMOKE_VISION_REMOVE_REQUESTED__ !== true) {
+            window.__DSH_STUDIO_SMOKE_VISION_SEEN__ = true
+            if (window.__DSH_STUDIO_SMOKE_VISION_REMOVE_REQUESTED__ !== true) {
               if (remove instanceof HTMLButtonElement) {
-                window.__OH_DSH_SMOKE_VISION_REMOVE_REQUESTED__ = true
+                window.__DSH_STUDIO_SMOKE_VISION_REMOVE_REQUESTED__ = true
                 remove.focus()
                 remove.dispatchEvent(new MouseEvent('click', {
                   bubbles: true,
@@ -127,7 +127,7 @@ void app.whenReady().then(async () => {
               }
             }
           }
-          if (window.__OH_DSH_SMOKE_VISION_REQUESTED__ !== true) {
+          if (window.__DSH_STUDIO_SMOKE_VISION_REQUESTED__ !== true) {
             const textarea = [...document.querySelectorAll(
               '[data-composer-card] textarea:not(:disabled):not([readonly])',
             )].find(element => element instanceof HTMLTextAreaElement
@@ -143,7 +143,7 @@ void app.whenReady().then(async () => {
                 cancelable: true,
                 clipboardData: transfer,
               })
-              window.__OH_DSH_SMOKE_VISION_REQUESTED__ = true
+              window.__DSH_STUDIO_SMOKE_VISION_REQUESTED__ = true
               textarea.dispatchEvent(paste)
             } else {
               const workspaceTrigger = [...document.querySelectorAll(
@@ -152,10 +152,10 @@ void app.whenReady().then(async () => {
               )].find(element => element instanceof HTMLTextAreaElement
                 && element.getClientRects().length > 0)
               if (workspaceTrigger instanceof HTMLTextAreaElement
-                && Date.now() - (window.__OH_DSH_SMOKE_WORKSPACE_REQUESTED_AT__ ?? 0) > 500) {
-                window.__OH_DSH_SMOKE_WORKSPACE_REQUESTED_AT__ = Date.now()
-                window.__OH_DSH_SMOKE_WORKSPACE_REQUEST_COUNT__ =
-                  (window.__OH_DSH_SMOKE_WORKSPACE_REQUEST_COUNT__ ?? 0) + 1
+                && Date.now() - (window.__DSH_STUDIO_SMOKE_WORKSPACE_REQUESTED_AT__ ?? 0) > 500) {
+                window.__DSH_STUDIO_SMOKE_WORKSPACE_REQUESTED_AT__ = Date.now()
+                window.__DSH_STUDIO_SMOKE_WORKSPACE_REQUEST_COUNT__ =
+                  (window.__DSH_STUDIO_SMOKE_WORKSPACE_REQUEST_COUNT__ ?? 0) + 1
                 const card = workspaceTrigger.closest('[data-composer-card]')
                 card?.dispatchEvent(new PointerEvent('pointerdown', {
                   bubbles: true,
@@ -171,10 +171,10 @@ void app.whenReady().then(async () => {
                 .find(button => /^(Open|打开)$/i.test((button.textContent ?? '').trim())
                   && !button.disabled)
               if (openWorkspace instanceof HTMLButtonElement
-                && Date.now() - (window.__OH_DSH_SMOKE_WORKSPACE_OPENED_AT__ ?? 0) > 500) {
-                window.__OH_DSH_SMOKE_WORKSPACE_OPENED_AT__ = Date.now()
-                window.__OH_DSH_SMOKE_WORKSPACE_OPEN_COUNT__ =
-                  (window.__OH_DSH_SMOKE_WORKSPACE_OPEN_COUNT__ ?? 0) + 1
+                && Date.now() - (window.__DSH_STUDIO_SMOKE_WORKSPACE_OPENED_AT__ ?? 0) > 500) {
+                window.__DSH_STUDIO_SMOKE_WORKSPACE_OPENED_AT__ = Date.now()
+                window.__DSH_STUDIO_SMOKE_WORKSPACE_OPEN_COUNT__ =
+                  (window.__DSH_STUDIO_SMOKE_WORKSPACE_OPEN_COUNT__ ?? 0) + 1
                 openWorkspace.click()
               }
             }
@@ -184,15 +184,15 @@ void app.whenReady().then(async () => {
               && candidate.getClientRects().length > 0)
           return {
             error: null,
-            facts: window.__OH_DSH_SMOKE_VISION_FACTS__ ?? null,
-            removeAvailable: window.__OH_DSH_SMOKE_VISION_FACTS__?.removeLabel !== null
-              && window.__OH_DSH_SMOKE_VISION_FACTS__?.removeDisabled === false,
-            removed: window.__OH_DSH_SMOKE_VISION_REMOVE_REQUESTED__ === true
+            facts: window.__DSH_STUDIO_SMOKE_VISION_FACTS__ ?? null,
+            removeAvailable: window.__DSH_STUDIO_SMOKE_VISION_FACTS__?.removeLabel !== null
+              && window.__DSH_STUDIO_SMOKE_VISION_FACTS__?.removeDisabled === false,
+            removed: window.__DSH_STUDIO_SMOKE_VISION_REMOVE_REQUESTED__ === true
               && current === null,
-            requested: window.__OH_DSH_SMOKE_VISION_REQUESTED__ === true,
-            seen: window.__OH_DSH_SMOKE_VISION_SEEN__ === true,
-            workspaceOpenCount: window.__OH_DSH_SMOKE_WORKSPACE_OPEN_COUNT__ ?? 0,
-            workspaceRequestCount: window.__OH_DSH_SMOKE_WORKSPACE_REQUEST_COUNT__ ?? 0,
+            requested: window.__DSH_STUDIO_SMOKE_VISION_REQUESTED__ === true,
+            seen: window.__DSH_STUDIO_SMOKE_VISION_SEEN__ === true,
+            workspaceOpenCount: window.__DSH_STUDIO_SMOKE_WORKSPACE_OPEN_COUNT__ ?? 0,
+            workspaceRequestCount: window.__DSH_STUDIO_SMOKE_WORKSPACE_REQUEST_COUNT__ ?? 0,
           }
         })(),
         navigation: (() => {
@@ -262,8 +262,8 @@ void app.whenReady().then(async () => {
             viewportHeight: window.innerHeight,
           }
         })(),
-        ready: document.documentElement.dataset.ohDshDesktop === 'true',
-        webReady: document.title === 'Oh-DSH Web',
+        ready: document.documentElement.dataset.dshStudioDesktop === 'true',
+        webReady: document.title === 'DSH Studio Web',
       }
     })()`)
       if (state.ready === true

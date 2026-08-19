@@ -6,14 +6,14 @@
  */
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { Translate } from '@oh-dsh/shared/i18n'
-import { toast } from '@oh-dsh/shared/toast'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import { toast } from '@dsh-studio/shared/toast'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import type { FileContents, MergeConflictResolution } from '@pierre/diffs'
 import { UnresolvedFile, Virtualizer } from '@pierre/diffs/react'
 import { getFileRuntime, getSourceControlRuntime } from '../runtimes/registry.ts'
-import { basename, resolveSidebarPath } from '@oh-dsh/shared/path'
+import { basename, resolveSidebarPath } from '@dsh-studio/shared/path'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { ErrorView, LoadingView } from '../kit/status.tsx'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
@@ -109,18 +109,18 @@ export function ConflictSurfaceView({
   }
   if (content === null) return <LoadingView label={t('overlay.loading')} />
   return (
-    <div className="oh-dsh-conflict-surface" data-testid="conflict-surface">
-      <div className="oh-dsh-conflict-header">
+    <div className="dsh-studio-conflict-surface" data-testid="conflict-surface">
+      <div className="dsh-studio-conflict-header">
         <span title={surface.filePath}>{name}</span>
         <small>Merge conflict</small>
-        <span className="oh-dsh-conflict-actions">
+        <span className="dsh-studio-conflict-actions">
           <Button variant="primary" size="sm" disabled={busy}>
             {busy ? t('conflict.resolving') : t('conflict.resolve-and-stage')}
           </Button>
         </span>
       </div>
-      <div className="oh-dsh-conflict-hint">Choose a resolution below for each conflicted region.</div>
-      <Virtualizer className="oh-dsh-conflict-host">
+      <div className="dsh-studio-conflict-hint">Choose a resolution below for each conflicted region.</div>
+      <Virtualizer className="dsh-studio-conflict-host">
         <UnresolvedFile
           file={file}
           options={{ disableFileHeader: true, theme }}
@@ -142,7 +142,7 @@ export function ConflictSurfaceView({
               void onResolved({ name, contents: resolvedContents, cacheKey: `conflict:${surface.filePath}` })
             }
             return (
-              <div className="oh-dsh-conflict-actions">
+              <div className="dsh-studio-conflict-actions">
                 <Button variant="outline" size="sm" disabled={busy} onClick={() => { resolve('current') }}>
                   {t('conflict.accept-current')}
                 </Button>

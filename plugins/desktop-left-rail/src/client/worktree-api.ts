@@ -4,7 +4,7 @@
  * with a bare cwd through the same-origin capability fence.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { callSidebarGlobalApi } from '@oh-dsh/shared/sidebar-api'
+import { callSidebarGlobalApi } from '@dsh-studio/shared/sidebar-api'
 import type { GitWorktreeLayout, WorktreeFactState, WorktreeLayoutMap } from './tree.ts'
 
 /** One worktree list response (null = confirmed non-git directory). */

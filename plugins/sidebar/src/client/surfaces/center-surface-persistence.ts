@@ -16,7 +16,7 @@
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import type { CenterSurface } from './types.ts'
 
-const CENTER_SURFACES_STORAGE_KEY = 'oh-dsh-desktop.center-surfaces.v2'
+const CENTER_SURFACES_STORAGE_KEY = 'dsh-studio.center-surfaces.v2'
 
 export interface PersistedCenterSurfaces {
   /** v4: per-workspace (cwd) tab queues, project dimension, no session

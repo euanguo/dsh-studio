@@ -1,27 +1,27 @@
 import { join } from 'node:path'
 
 /**
- * Shared esbuild options for every Oh-DSH desktop artifact. Single source of
+ * Shared esbuild options for every DSH Studio desktop artifact. Single source of
  * truth for `scripts/build.mjs` (one-shot release build) and
  * `scripts/dev.mjs` (hot-reload watch build).
  * @param root - repository root.
  * @returns esbuild build option list (without `watch`, which only dev.mjs adds).
  */
 const nodeEsmRequireBanner = [
-  "import { createRequire as __ohDshCreateRequire } from 'node:module';",
-  'const require = __ohDshCreateRequire(import.meta.url);',
+  "import { createRequire as __dshStudioCreateRequire } from 'node:module';",
+  'const require = __dshStudioCreateRequire(import.meta.url);',
 ].join('\n')
 
 export function desktopBuilds(root) {
   const pluginPackages = [
     { directory: 'sidebar-host', hostOnly: true },
-    { directory: 'desktop-skins', id: '@oh-dsh/desktop-skins' },
-    { directory: 'sidebar', id: '@oh-dsh/sidebar' },
-    { directory: 'desktop-left-rail', id: '@oh-dsh/desktop-left-rail' },
-    { directory: 'panel-controls', id: '@oh-dsh/panel-controls' },
-    { directory: 'pinned-summary', id: '@oh-dsh/pinned-summary' },
-    { directory: 'plugin-marketplace', id: '@oh-dsh/plugin-marketplace' },
-    { directory: 'sidebar-desktop', id: '@oh-dsh/sidebar-desktop' },
+    { directory: 'desktop-skins', id: '@dsh-studio/desktop-skins' },
+    { directory: 'sidebar', id: '@dsh-studio/sidebar' },
+    { directory: 'desktop-left-rail', id: '@dsh-studio/desktop-left-rail' },
+    { directory: 'panel-controls', id: '@dsh-studio/panel-controls' },
+    { directory: 'pinned-summary', id: '@dsh-studio/pinned-summary' },
+    { directory: 'plugin-marketplace', id: '@dsh-studio/plugin-marketplace' },
+    { directory: 'sidebar-desktop', id: '@dsh-studio/sidebar-desktop' },
   ]
 
   const shared = {
@@ -66,7 +66,7 @@ export function desktopBuilds(root) {
       sourcemap: true,
       logLevel: 'info',
       banner: {
-        js: 'window.__ModuleLoader__.load({ id: "@oh-dsh/desktop", factory: (require) => { var module = { exports: {} }; var exports = module.exports;',
+        js: 'window.__ModuleLoader__.load({ id: "@dsh-studio/desktop", factory: (require) => { var module = { exports: {} }; var exports = module.exports;',
       },
       footer: { js: 'return module.exports; } });' },
     },

@@ -2,14 +2,14 @@
  * Diff toolbar: Unified/Split layout + word wrap + change navigation.
  * Shared by single-file and multi-file diff surfaces.
  */
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
   IconChevronDown,
   IconChevronRight,
   IconLayoutList,
   IconList,
-} from '@oh-dsh/shared/tabler-icons'
+} from '@dsh-studio/shared/tabler-icons'
 import { useDiffViewPreferences } from './diff-view-preferences.ts'
 import { binding, formatKeymapHint } from '../kit/keymap.ts'
 
@@ -34,9 +34,9 @@ export function DiffToolbar({
   const toggleWordWrap = useDiffViewPreferences(state => state.toggleWordWrap)
 
   return (
-    <div className="oh-dsh-diff-toolbar" data-testid="diff-toolbar">
-      <div className="oh-dsh-diff-toolbar-leading">{leading}</div>
-      <div className="oh-dsh-diff-toolbar-actions">
+    <div className="dsh-studio-diff-toolbar" data-testid="diff-toolbar">
+      <div className="dsh-studio-diff-toolbar-leading">{leading}</div>
+      <div className="dsh-studio-diff-toolbar-actions">
         {onPrevChange !== undefined ? (
           <button type="button" onClick={onPrevChange} title={`Previous change (${PREV_CHANGE_HINT})`}>
             <IconChevronDown size={14} />

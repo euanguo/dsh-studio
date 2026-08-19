@@ -1,9 +1,9 @@
 /** Layout-reserving pinned summary derived from the active DSH session. */
 
-import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
-import { localeTag } from '@oh-dsh/shared/i18n'
-import themeCss from '@oh-dsh/shared/theme.css'
-import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
+import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
+import { localeTag } from '@dsh-studio/shared/i18n'
+import themeCss from '@dsh-studio/shared/theme.css'
+import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
 import {
   PINNED_SUMMARY_MESSAGES,
   type PinnedSummaryMessage,
@@ -57,20 +57,20 @@ export interface PinnedSummary {
 
 export const inject = ['desktopPanels', 'locale', 'sessions']
 
-const OPEN_KEY = 'oh-dsh-desktop.pinned-summary.open'
+const OPEN_KEY = 'dsh-studio.pinned-summary.open'
 
 const SUMMARY_CSS = `
 html {
-  --oh-dsh-pinned-summary-width: 288px;
+  --dsh-studio-pinned-summary-width: 288px;
 }
 
-[data-oh-dsh-pinned-summary] {
+[data-dsh-studio-pinned-summary] {
   position: fixed;
   z-index: 9000;
-  top: calc(var(--oh-dsh-titlebar-height, 40px) + 12px);
+  top: calc(var(--dsh-studio-titlebar-height, 40px) + 12px);
   right: 12px;
-  height: calc((100vh - var(--oh-dsh-titlebar-height, 40px) - 24px) / 2);
-  width: var(--oh-dsh-pinned-summary-width);
+  height: calc((100vh - var(--dsh-studio-titlebar-height, 40px) - 24px) / 2);
+  width: var(--dsh-studio-pinned-summary-width);
   box-sizing: border-box;
   overflow: hidden;
   border: 1px solid var(--dsw-alias-border-l1);
@@ -89,7 +89,7 @@ html {
   -webkit-app-region: no-drag;
 }
 
-[data-oh-dsh-pinned-summary][data-open='true'] {
+[data-dsh-studio-pinned-summary][data-open='true'] {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
@@ -97,7 +97,7 @@ html {
   transition-delay: 0s;
 }
 
-[data-oh-dsh-summary-header] {
+[data-dsh-studio-summary-header] {
   display: flex;
   align-items: center;
   height: 48px;
@@ -108,7 +108,7 @@ html {
   font-weight: 600;
 }
 
-[data-oh-dsh-summary-close] {
+[data-dsh-studio-summary-close] {
   display: grid;
   place-items: center;
   width: 28px;
@@ -123,24 +123,24 @@ html {
   font-size: 18px;
 }
 
-[data-oh-dsh-summary-close]:hover {
+[data-dsh-studio-summary-close]:hover {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
-[data-oh-dsh-summary-body] {
+[data-dsh-studio-summary-body] {
   height: calc(100% - 48px);
   padding: 14px 15px 16px;
   box-sizing: border-box;
   overflow: auto;
 }
 
-[data-oh-dsh-summary-title] {
+[data-dsh-studio-summary-title] {
   margin: 0;
   font-size: 14px;
   line-height: 1.35;
 }
 
-[data-oh-dsh-summary-meta] {
+[data-dsh-studio-summary-meta] {
   margin: 6px 0 12px;
   color: var(--dsw-alias-label-tertiary);
   font-size: 11px;
@@ -148,7 +148,7 @@ html {
   overflow-wrap: anywhere;
 }
 
-[data-oh-dsh-summary-source] {
+[data-dsh-studio-summary-source] {
   display: inline-flex;
   margin-bottom: 10px;
   padding: 3px 8px;
@@ -159,7 +159,7 @@ html {
   font-weight: 600;
 }
 
-[data-oh-dsh-summary-text] {
+[data-dsh-studio-summary-text] {
   margin: 0;
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
@@ -169,11 +169,11 @@ html {
 }
 
 @media (max-width: 900px) {
-  [data-oh-dsh-pinned-summary] { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }
+  [data-dsh-studio-pinned-summary] { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-oh-dsh-pinned-summary] { transition: none; }
+  [data-dsh-studio-pinned-summary] { transition: none; }
 }
 `
 
@@ -263,33 +263,33 @@ class PinnedSummaryService implements PinnedSummary {
 
   mount(): void {
     this.#style = document.createElement('style')
-    this.#style.dataset.ohDshPinnedSummaryStyles = 'true'
+    this.#style.dataset.dshStudioPinnedSummaryStyles = 'true'
     this.#style.textContent = `${themeCss}\n${SUMMARY_CSS}`
     document.head.append(this.#style)
 
     const panel = document.createElement('aside')
-    panel.dataset.ohDshPinnedSummary = 'true'
+    panel.dataset.dshStudioPinnedSummary = 'true'
     panel.setAttribute('aria-label', this.#t('summary.label'))
     panel.innerHTML = `
-      <header data-oh-dsh-summary-header>
+      <header data-dsh-studio-summary-header>
         <span></span>
-        <button data-oh-dsh-summary-close type="button" aria-label="Close"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M14.1168 13.197L13.197 14.1167L1.8833 2.80303L2.80309 1.88324L14.1168 13.197Z" fill="currentColor"/><path d="M13.197 1.88326L14.1168 2.80305L2.80309 14.1168L1.8833 13.197L13.197 1.88326Z" fill="currentColor"/></svg></button>
+        <button data-dsh-studio-summary-close type="button" aria-label="Close"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M14.1168 13.197L13.197 14.1167L1.8833 2.80303L2.80309 1.88324L14.1168 13.197Z" fill="currentColor"/><path d="M13.197 1.88326L14.1168 2.80305L2.80309 14.1168L1.8833 13.197L13.197 1.88326Z" fill="currentColor"/></svg></button>
       </header>
-      <div data-oh-dsh-summary-body>
-        <h2 data-oh-dsh-summary-title></h2>
-        <div data-oh-dsh-summary-meta></div>
-        <span data-oh-dsh-summary-source></span>
-        <p data-oh-dsh-summary-text></p>
+      <div data-dsh-studio-summary-body>
+        <h2 data-dsh-studio-summary-title></h2>
+        <div data-dsh-studio-summary-meta></div>
+        <span data-dsh-studio-summary-source></span>
+        <p data-dsh-studio-summary-text></p>
       </div>
     `
     document.body.append(panel)
     this.#panel = panel
-    this.#title = required(panel, '[data-oh-dsh-summary-title]')
-    this.#headerTitle = required(panel, '[data-oh-dsh-summary-header] span')
-    this.#close = required(panel, '[data-oh-dsh-summary-close]')
-    this.#meta = required(panel, '[data-oh-dsh-summary-meta]')
-    this.#source = required(panel, '[data-oh-dsh-summary-source]')
-    this.#text = required(panel, '[data-oh-dsh-summary-text]')
+    this.#title = required(panel, '[data-dsh-studio-summary-title]')
+    this.#headerTitle = required(panel, '[data-dsh-studio-summary-header] span')
+    this.#close = required(panel, '[data-dsh-studio-summary-close]')
+    this.#meta = required(panel, '[data-dsh-studio-summary-meta]')
+    this.#source = required(panel, '[data-dsh-studio-summary-source]')
+    this.#text = required(panel, '[data-dsh-studio-summary-text]')
     this.#close.addEventListener('click', () => { this.setOpen(false) })
     this.#narrowViewport.addEventListener('change', this.#handleViewportChange)
     this.#unsubscribeList = this.#sessions.list.subscribe(() => { this.bindAndRender() })
@@ -309,7 +309,7 @@ class PinnedSummaryService implements PinnedSummary {
     this.#narrowViewport.removeEventListener('change', this.#handleViewportChange)
     this.#panel?.remove()
     this.#style?.remove()
-    delete document.documentElement.dataset.ohDshSummaryPinned
+    delete document.documentElement.dataset.dshStudioSummaryPinned
     this.#panels.releaseRightPanel('pinned-summary')
   }
 
@@ -341,16 +341,16 @@ class PinnedSummaryService implements PinnedSummary {
       this.#panel.setAttribute('aria-hidden', String(!this.#open))
     }
     if (this.#open) {
-      html.dataset.ohDshSummaryPinned = 'true'
+      html.dataset.dshStudioSummaryPinned = 'true'
       // The #root squeeze is owned by the desktopPanels right-panel
       // coordinator — claim the footprint instead of writing global state.
       this.#panels.claimRightPanel('pinned-summary', {
         paddingRight: this.#narrowViewport.matches
           ? '0px'
-          : 'calc(var(--oh-dsh-pinned-summary-width) + 24px)',
+          : 'calc(var(--dsh-studio-pinned-summary-width) + 24px)',
       })
     } else {
-      delete html.dataset.ohDshSummaryPinned
+      delete html.dataset.dshStudioSummaryPinned
       this.#panels.releaseRightPanel('pinned-summary')
     }
   }
@@ -421,10 +421,10 @@ class PinnedSummaryService implements PinnedSummary {
 /** Provide the pinned-summary service and its layout-reserving DOM surface. */
 export function apply(ctx: ClientContext): void {
   const locale = ctx.get('locale') as LocaleService
-  const t: Translate<PinnedSummaryMessage> = locale.bind('oh-dsh.pinned-summary')
+  const t: Translate<PinnedSummaryMessage> = locale.bind('dsh-studio.pinned-summary')
   ctx.effect(
-    () => locale.register('oh-dsh.pinned-summary', PINNED_SUMMARY_MESSAGES),
-    'oh-dsh-desktop: pinned summary dictionaries',
+    () => locale.register('dsh-studio.pinned-summary', PINNED_SUMMARY_MESSAGES),
+    'dsh-studio: pinned summary dictionaries',
   )
   const service = new PinnedSummaryService(
     ctx.get('sessions') as SessionsService,
@@ -439,5 +439,5 @@ export function apply(ctx: ClientContext): void {
       service.dispose()
       void disposeService()
     }
-  }, 'oh-dsh-desktop: pinned summary')
+  }, 'dsh-studio: pinned summary')
 }

@@ -49,7 +49,7 @@
   padding: 0;
 }
 
-[data-oh-dsh-marketplace-footer-stack='true']:has(
+[data-dsh-studio-marketplace-footer-stack='true']:has(
   .oh-marketplace-nav[data-collapsed='true']
 ) {
   display: flex !important;
@@ -200,7 +200,7 @@
 
 .oh-marketplace-main {
   min-height: 0;
-  --oh-dsh-scrollable-inset: 0;
+  --dsh-studio-scrollable-inset: 0;
 }
 
 .oh-marketplace-grid {

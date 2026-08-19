@@ -42,10 +42,10 @@ test('web profile initializes required bundles and preserves user plugins', () =
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
     assert.equal(manifest.name, 'dsh-profile-web')
     assert.deepEqual(manifest.dsh.profile.bundles, WEB_BUNDLES)
-    assert.equal(manifest.dsh.profile.bundles.includes('@oh-dsh/desktop'), false)
+    assert.equal(manifest.dsh.profile.bundles.includes('@dsh-studio/desktop'), false)
 
     manifest.dependencies['example-plugin'] = '1.0.0'
-    manifest.dsh.profile.bundles = ['example-plugin', '@oh-dsh/web']
+    manifest.dsh.profile.bundles = ['example-plugin', '@dsh-studio/web']
     writeFileSync(manifestPath, JSON.stringify(manifest, undefined, 2) + '\n')
     writeFileSync(join(first.profileDir, 'cordis.patch.yml'), '- id: custom\n  disabled: true\n')
 
@@ -61,35 +61,35 @@ test('web profile initializes required bundles and preserves user plugins', () =
 
 test('web profile is a separate surface from the desktop profile', () => {
   assert.notEqual(WEB_PROFILE, DESKTOP_PROFILE)
-  assert.deepEqual(WEB_BUNDLES, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@oh-dsh/web'])
-  assert.equal(WEB_BUNDLES.includes('@oh-dsh/desktop'), false)
+  assert.deepEqual(WEB_BUNDLES, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@dsh-studio/web'])
+  assert.equal(WEB_BUNDLES.includes('@dsh-studio/desktop'), false)
 })
 
-test('web client uses the Oh-DSH Web surface name', () => {
+test('web client uses the DSH Studio Web surface name', () => {
   const client = readFileSync(new URL('../web/src/client.ts', import.meta.url), 'utf8')
-  assert.match(client, /document\.title = 'Oh-DSH Web'/)
-  assert.match(client, /element\.textContent = 'Oh-DSH Web'/)
-  assert.doesNotMatch(client, /Oh-DSH-Web/)
+  assert.match(client, /document\.title = 'DSH Studio Web'/)
+  assert.match(client, /element\.textContent = 'DSH Studio Web'/)
+  assert.doesNotMatch(client, /DSH Studio-Web/)
 })
 
-test('packaged web distribution exposes the unified ohdsh command', () => {
+test('packaged web distribution exposes the unified dsh-studio command', () => {
   const build = readFileSync(new URL('../scripts/build-web.mjs', import.meta.url), 'utf8')
-  assert.match(build, /join\(packageDir, 'bin', 'ohdsh'\)/)
-  assert.match(build, /join\(packageDir, 'lib', 'oh-dsh', 'cli\.js'\)/)
-  assert.match(build, /exec "\$ROOT\/bin\/ohdsh" web "\$@"/)
-  assert.match(build, /数据默认保存在 \\`~\/\.ohdsh\\`/)
+  assert.match(build, /join\(packageDir, 'bin', 'dsh-studio'\)/)
+  assert.match(build, /join\(packageDir, 'lib', 'dsh-studio', 'cli\.js'\)/)
+  assert.match(build, /exec "\$ROOT\/bin\/dsh-studio" web "\$@"/)
+  assert.match(build, /数据默认保存在 \\`~\/\.dsh-studio\\`/)
 })
 
 test('full and web-only distributions expose the same release version', () => {
-  const root = mkdtempSync(join(tmpdir(), 'oh-dsh-web-version-'))
+  const root = mkdtempSync(join(tmpdir(), 'dsh-studio-web-version-'))
   try {
     writeFileSync(join(root, 'package.json'), '{"version":"1.2.3"}\n')
     assert.equal(resolveWebVersion(root), '1.2.3')
     rmSync(join(root, 'package.json'))
 
-    mkdirSync(join(root, 'lib', 'oh-dsh'), { recursive: true })
+    mkdirSync(join(root, 'lib', 'dsh-studio'), { recursive: true })
     writeFileSync(
-      join(root, 'lib', 'oh-dsh', 'package.json'),
+      join(root, 'lib', 'dsh-studio', 'package.json'),
       '{"version":"4.5.6"}\n',
     )
     assert.equal(resolveWebVersion(root), '4.5.6')
@@ -102,12 +102,12 @@ test('full distribution keeps app and release manifests distinct', () => {
   const root = join(dirname(fileURLToPath(import.meta.url)), '..')
   const manifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
   const releaseManifest = manifest.build.extraResources.find(
-    (resource: { to?: string }) => resource.to === 'lib/oh-dsh/package.json',
+    (resource: { to?: string }) => resource.to === 'lib/dsh-studio/package.json',
   )
   assert.equal(releaseManifest.from, 'dist/release-package.json')
 })
 
-test('web bundle patch mounts the web-capable Oh-DSH plugins', () => {
+test('web bundle patch mounts the web-capable DSH Studio plugins', () => {
   const root = join(dirname(fileURLToPath(import.meta.url)), '..')
   const patch = readFileSync(join(root, 'web', 'cordis.patch.yml'), 'utf8')
   for (const row of [
@@ -143,10 +143,10 @@ test('web launcher defaults match the dsh-web-app bundle surface', () => {
 
 test('web launcher honors environment and flag precedence', () => {
   const base = parseLaunchArgs([], {
-    DSH_OH_WEB_HOST: '0.0.0.0',
-    DSH_OH_WEB_PORT: '9090',
-    DSH_OH_WEB_HOME: '/data/web',
-    DSH_OH_WEB_OPEN: '0',
+    DSH_STUDIO_WEB_HOST: '0.0.0.0',
+    DSH_STUDIO_WEB_PORT: '9090',
+    DSH_STUDIO_WEB_HOME: '/data/web',
+    DSH_STUDIO_WEB_OPEN: '0',
   }, true, '/default')
   assert.equal(base.host, '0.0.0.0')
   assert.equal(base.port, 9090)
@@ -161,8 +161,8 @@ test('web launcher honors environment and flag precedence', () => {
     '--trusted-host', 'lab.internal:3080',
     '--trusted-host=10.0.0.9',
   ], {
-    DSH_OH_WEB_HOST: '0.0.0.0',
-    DSH_OH_WEB_PORT: '9090',
+    DSH_STUDIO_WEB_HOST: '0.0.0.0',
+    DSH_STUDIO_WEB_PORT: '9090',
   }, false, '/default')
   assert.equal(flags.host, '127.0.0.1')
   assert.equal(flags.port, 8080)
@@ -170,11 +170,11 @@ test('web launcher honors environment and flag precedence', () => {
   assert.equal(flags.open, true)
   assert.deepEqual(flags.trustedHosts, ['lab.internal:3080', '10.0.0.9'])
 
-  const noOpen = parseLaunchArgs(['--no-open'], { DSH_OH_WEB_OPEN: '1' }, true, '/default')
+  const noOpen = parseLaunchArgs(['--no-open'], { DSH_STUDIO_WEB_OPEN: '1' }, true, '/default')
   assert.equal(noOpen.open, false)
 
   const isolated = parseLaunchArgs(['--channel', 'dev'], {}, false, '/default')
-  assert.match(isolated.dataRoot, /\.ohdsh-dev$/)
+  assert.match(isolated.dataRoot, /\.dsh-studio-dev$/)
   const explicitWins = parseLaunchArgs(['--channel', 'dev', '--data', '/flags'], {}, false, '/default')
   assert.equal(explicitWins.dataRoot, '/flags')
 })
@@ -184,7 +184,7 @@ test('web launcher rejects invalid arguments', () => {
   assert.throws(() => parseLaunchArgs(['--port', '70000'], {}, false, '/d'), UsageError)
   assert.throws(() => parseLaunchArgs(['--host'], {}, false, '/d'), UsageError)
   assert.throws(() => parseLaunchArgs(['--unknown'], {}, false, '/d'), UsageError)
-  assert.throws(() => parseLaunchArgs([], { DSH_OH_WEB_PORT: 'abc' }, false, '/d'), UsageError)
+  assert.throws(() => parseLaunchArgs([], { DSH_STUDIO_WEB_PORT: 'abc' }, false, '/d'), UsageError)
 })
 
 test('web launcher requires trusted hosts for non-loopback exposure', async () => {
@@ -230,7 +230,7 @@ test('web launcher resolves a relative data root before spawning the runtime', a
   try {
     const code = await main(
       ['--data', './state'],
-      { DSH_OH_WEB_ROOT: packaged, PATH: process.env.PATH },
+      { DSH_STUDIO_WEB_ROOT: packaged, PATH: process.env.PATH },
       { isTTY: false } as NodeJS.WriteStream,
       plan => {
         runtime = new FailingRuntime(plan)
@@ -241,8 +241,8 @@ test('web launcher resolves a relative data root before spawning the runtime', a
     assert.ok(runtime)
     assert.equal(runtime.plan.cwd, join(dataRoot, 'state'))
     assert.equal(runtime.plan.env.DSH_HOME, join(dataRoot, 'state'))
-    assert.equal(runtime.plan.env.DSH_OH_WEB_DATA, join(dataRoot, 'state'))
-    assert.equal(runtime.plan.env.OH_DSH_HOME, join(dataRoot, 'state'))
+    assert.equal(runtime.plan.env.DSH_STUDIO_WEB_DATA, join(dataRoot, 'state'))
+    assert.equal(runtime.plan.env.DSH_STUDIO_HOME, join(dataRoot, 'state'))
   } finally {
     process.chdir(previous)
     rmSync(temp, { recursive: true, force: true })
@@ -255,7 +255,7 @@ test('web launcher defers profile setup until migration can finish', async t => 
     return
   }
 
-  const temporaryRoot = mkdtempSync(join(tmpdir(), 'ohdsh-web-start-retry-'))
+  const temporaryRoot = mkdtempSync(join(tmpdir(), 'dsh-studio-web-start-retry-'))
   t.after(() => rmSync(temporaryRoot, { recursive: true, force: true }))
 
   const dataRoot = join(temporaryRoot, 'state')
@@ -275,7 +275,7 @@ test('web launcher defers profile setup until migration can finish', async t => 
   await assert.rejects(
     main(
       ['--data', dataRoot],
-      { DSH_OH_WEB_ROOT: packaged, PATH: process.env.PATH },
+      { DSH_STUDIO_WEB_ROOT: packaged, PATH: process.env.PATH },
       { isTTY: false } as NodeJS.WriteStream,
       options => {
         runtimeCreated = true

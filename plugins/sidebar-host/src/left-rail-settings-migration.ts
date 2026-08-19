@@ -1,7 +1,7 @@
 /**
  * One-way, idempotent migration of the left-rail view slice out of the
  * `dsh-better-sidebar` namespace (where it historically rode along, untyped,
- * with the side card prefs) into its own `oh-dsh-left-rail` namespace.
+ * with the side card prefs) into its own `dsh-studio-left-rail` namespace.
  *
  * Motivation: before this change the left-rail wrote its slice through the
  * same merge-only settings route as the sidebar prefs, so (a) the slice had
@@ -12,7 +12,7 @@
  * When this runs:
  *   - after the host registers both namespaces, once per boot;
  *   - only when `dsh-better-sidebar` still carries left-rail keys AND the
- *     `oh-dsh-left-rail` namespace is not yet populated (idempotent);
+ *     `dsh-studio-left-rail` namespace is not yet populated (idempotent);
  *   - non-destructively: the slice is copied (sanitized, version-stamped)
  *     into the target, then only the moved keys are removed from the sidebar
  *     section via path `unset` — the sidebar's own prefs are untouched.
@@ -24,8 +24,8 @@ import {
   LEFT_RAIL_SETTINGS_NS,
   LEFT_RAIL_SETTINGS_VERSION,
   sanitizeLeftRailSettings,
-} from '@oh-dsh/shared/left-rail-preferences'
-import { SIDEBAR_PREFS_NS } from '@oh-dsh/shared/prefs-shared'
+} from '@dsh-studio/shared/left-rail-preferences'
+import { SIDEBAR_PREFS_NS } from '@dsh-studio/shared/prefs-shared'
 
 /** The minimal settings seam this migration needs (real seam: ctx.settings). */
 export interface LeftRailMigrationSeam {

@@ -13,8 +13,8 @@ import {
   FileGlyph,
   IconChevronDown,
   IconChevronRight,
-} from '@oh-dsh/shared/tabler-icons'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
+} from '@dsh-studio/shared/tabler-icons'
+import { Scrollable } from '@dsh-studio/shared/scrollable'
 import {
   ListRow,
   ListRowLabel,
@@ -22,7 +22,7 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowMeta,
-} from '@oh-dsh/shared/list-row'
+} from '@dsh-studio/shared/list-row'
 
 export interface DiffPathTreeRow {
   key: string
@@ -36,7 +36,7 @@ export interface DiffPathTreeRow {
 }
 
 /** Row slot height: shared ListRow row (28px) + its 4px rhythm margin.
-    The margin lives on the slot wrapper (see .oh-dsh-diff-tree-slot), not
+    The margin lives on the slot wrapper (see .dsh-studio-diff-tree-slot), not
     on the ListRow itself — every virtualized row is the only child of its
     absolutely-positioned wrapper, so ListRow's own :last-child rule would
     zero it. The virtualizer must allocate the full footprint or rows cram. */
@@ -86,9 +86,9 @@ export function DiffPathTreeNav({
   }
 
   return (
-    <Scrollable ref={containerRef} className="oh-dsh-diff-tree" data-testid="diff-path-tree">
+    <Scrollable ref={containerRef} className="dsh-studio-diff-tree" data-testid="diff-path-tree">
       <div
-        className="oh-dsh-diff-tree-inner"
+        className="dsh-studio-diff-tree-inner"
         style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
       >
         {virtualizer.getVirtualItems().map(item => {
@@ -104,9 +104,9 @@ export function DiffPathTreeNav({
           } as CSSProperties
           if (row.kind === 'directory') {
             return (
-              <div key={row.key} className="oh-dsh-diff-tree-slot" style={style}>
+              <div key={row.key} className="dsh-studio-diff-tree-slot" style={style}>
                 <ListRow
-                  className="oh-dsh-diff-tree-row is-directory"
+                  className="dsh-studio-diff-tree-row is-directory"
                   data-path={row.path}
                   title={row.path}
                 >
@@ -128,9 +128,9 @@ export function DiffPathTreeNav({
             )
           }
           return (
-            <div key={row.key} className="oh-dsh-diff-tree-slot" style={style}>
+            <div key={row.key} className="dsh-studio-diff-tree-slot" style={style}>
               <ListRow
-                className="oh-dsh-diff-tree-row is-file"
+                className="dsh-studio-diff-tree-row is-file"
                 data-path={row.path}
                 title={row.path}
                 selected={row.selected === true}

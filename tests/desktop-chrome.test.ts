@@ -35,7 +35,7 @@ test('conversation header is the drag region with full interactive isolation', (
 test('portalled menus opt out of native window dragging', () => {
   assert.match(
     client,
-    /html\[data-oh-dsh-desktop='true'\] \[role='menu'\][\s\S]*-webkit-app-region: no-drag;/,
+    /html\[data-dsh-studio='true'\] \[role='menu'\][\s\S]*-webkit-app-region: no-drag;/,
   )
 })
 
@@ -49,22 +49,22 @@ test('modal mounts suspend every renderer drag region', () => {
 test('center tab hit area opts out while scroller whitespace stays draggable', () => {
   assert.match(
     centerSurfaceCss,
-    /\.oh-dsh-center-tabs-strip\s*\{[^}]*-webkit-app-region: drag;/s,
+    /\.dsh-studio-center-tabs-strip\s*\{[^}]*-webkit-app-region: drag;/s,
   )
   assert.match(
     centerSurfaceCss,
-    /\.oh-dsh-center-tabs-scroller\s*\{[^}]*display: flex;/s,
+    /\.dsh-studio-center-tabs-scroller\s*\{[^}]*display: flex;/s,
   )
   assert.match(
     centerSurfaceCss,
-    /\.oh-dsh-center-tabs-scroller \.oh-dsh-surface-tab-strip\s*\{[^}]*-webkit-app-region: no-drag;/s,
+    /\.dsh-studio-center-tabs-scroller \.dsh-studio-surface-tab-strip\s*\{[^}]*-webkit-app-region: no-drag;/s,
   )
 })
 
 test('titlebar inset is a token so surfaces follow the removal', () => {
   assert.match(
     client,
-    /--oh-dsh-titlebar-height: \$\{DESKTOP_TITLEBAR_HEIGHT\}px;/,
+    /--dsh-studio-titlebar-height: \$\{DESKTOP_TITLEBAR_HEIGHT\}px;/,
   )
   assert.match(client, /const DESKTOP_TITLEBAR_HEIGHT = 0/)
 })

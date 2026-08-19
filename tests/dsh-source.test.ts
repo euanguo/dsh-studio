@@ -14,7 +14,7 @@ test('desktop release source pins a full DSH commit', () => {
 })
 
 test('DSH source override must match the pinned package version', () => {
-  const root = mkdtempSync(join(tmpdir(), 'oh-dsh-source-'))
+  const root = mkdtempSync(join(tmpdir(), 'dsh-studio-source-'))
   const previous = process.env.DSH_SOURCE
   try {
     mkdirSync(join(root, 'apps', 'cli'), { recursive: true })

@@ -20,7 +20,7 @@ function output(): { stream: NodeJS.WriteStream; text: () => string } {
   }
 }
 
-test('ohdsh dispatches desktop aliases, web, and TUI through one surface command', async () => {
+test('dsh-studio dispatches desktop aliases, web, and TUI through one surface command', async () => {
   const stdout = output()
   const stderr = output()
   const calls: Array<{ args: readonly string[]; surface: string }> = []
@@ -86,24 +86,24 @@ test('layered distributions list and reject unavailable surfaces', async () => {
   const stderr = output()
   assert.equal(await main(
     ['--help'],
-    { OH_DSH_SURFACES: 'web' },
+    { DSH_STUDIO_SURFACES: 'web' },
     stdout.stream,
     stderr.stream,
   ), 0)
-  assert.match(stdout.text(), /web\s+Start Oh-DSH Web/)
-  assert.doesNotMatch(stdout.text(), /Start Oh-DSH-Desktop/)
-  assert.doesNotMatch(stdout.text(), /Start Oh-DSH TUI/)
+  assert.match(stdout.text(), /web\s+Start DSH Studio Web/)
+  assert.doesNotMatch(stdout.text(), /desktop\s+Start/)
+  assert.doesNotMatch(stdout.text(), /tui\s+Start/)
 
   assert.equal(await main(
     ['desktop'],
-    { OH_DSH_SURFACES: 'web' },
+    { DSH_STUDIO_SURFACES: 'web' },
     stdout.stream,
     stderr.stream,
   ), 2)
   assert.match(stderr.text(), /Surface 'desktop' is not included/)
   assert.equal(await main(
     ['gui'],
-    { OH_DSH_SURFACES: 'web' },
+    { DSH_STUDIO_SURFACES: 'web' },
     stdout.stream,
     stderr.stream,
   ), 2)
@@ -131,7 +131,7 @@ test('desktop launch accepts a channel and help without starting Electron', asyn
     stdout.stream,
     stderr.stream,
     async (args, env) => {
-      calls.push({ args, ...(env.OH_DSH_CHANNEL === undefined ? {} : { channel: env.OH_DSH_CHANNEL }) })
+      calls.push({ args, ...(env.DSH_STUDIO_CHANNEL === undefined ? {} : { channel: env.DSH_STUDIO_CHANNEL }) })
       return 0
     },
   ), 0)
@@ -140,59 +140,59 @@ test('desktop launch accepts a channel and help without starting Electron', asyn
 
 test('desktop launch keeps source and installed macOS paths distinct', () => {
   assert.deepEqual(desktopLaunchSpec([], {
-    OH_DSH_DESKTOP_APP: '/Applications/Oh-DSH-Desktop.app',
+    DSH_STUDIO_DESKTOP_APP: '/Applications/DSH Studio.app',
   }, 'darwin'), {
-    args: ['/Applications/Oh-DSH-Desktop.app'],
+    args: ['/Applications/DSH Studio.app'],
     command: '/usr/bin/open',
   })
   assert.deepEqual(desktopLaunchSpec([], {}, 'darwin'), {
-    args: ['-a', 'Oh-DSH-Desktop'],
+    args: ['-a', 'DSH Studio'],
     command: '/usr/bin/open',
   })
 })
 
-test('macOS installed launches inherit the shared Oh-DSH state root', () => {
+test('macOS installed launches inherit the shared DSH Studio state root', () => {
   assert.deepEqual(desktopLaunchSpec([], {
-    OH_DSH_HOME: '/data/oh-dsh',
+    DSH_STUDIO_HOME: '/data/dsh-studio',
   }, 'darwin'), {
-    args: ['--env', 'OH_DSH_HOME=/data/oh-dsh', '-a', 'Oh-DSH-Desktop'],
+    args: ['--env', 'DSH_STUDIO_HOME=/data/dsh-studio', '-a', 'DSH Studio'],
     command: '/usr/bin/open',
   })
   assert.deepEqual(desktopLaunchSpec(['--inspect'], {
-    OH_DSH_DESKTOP_APP: '/Applications/Oh-DSH-Desktop.app',
-    OH_DSH_HOME: '/data/oh-dsh',
+    DSH_STUDIO_DESKTOP_APP: '/Applications/DSH Studio.app',
+    DSH_STUDIO_HOME: '/data/dsh-studio',
   }, 'darwin'), {
     args: [
       '--env',
-      'OH_DSH_HOME=/data/oh-dsh',
-      '/Applications/Oh-DSH-Desktop.app',
+      'DSH_STUDIO_HOME=/data/dsh-studio',
+      '/Applications/DSH Studio.app',
       '--args',
       '--inspect',
     ],
     command: '/usr/bin/open',
   })
   assert.deepEqual(desktopLaunchSpec([], {
-    OH_DSH_HOME: './relative-state',
+    DSH_STUDIO_HOME: './relative-state',
   }, 'darwin'), {
     args: [
       '--env',
-      `OH_DSH_HOME=${posix.resolve('./relative-state')}`,
+      `DSH_STUDIO_HOME=${posix.resolve('./relative-state')}`,
       '-a',
-      'Oh-DSH-Desktop',
+      'DSH Studio',
     ],
     command: '/usr/bin/open',
   })
   assert.deepEqual(desktopLaunchSpec([], {
-    OH_DSH_CHANNEL: 'dev',
-    OH_DSH_HOME: '/data/oh-dsh-dev',
+    DSH_STUDIO_CHANNEL: 'dev',
+    DSH_STUDIO_HOME: '/data/dsh-studio-dev',
   }, 'darwin'), {
     args: [
       '--env',
-      'OH_DSH_HOME=/data/oh-dsh-dev',
+      'DSH_STUDIO_HOME=/data/dsh-studio-dev',
       '--env',
-      'OH_DSH_CHANNEL=dev',
+      'DSH_STUDIO_CHANNEL=dev',
       '-a',
-      'Oh-DSH-Desktop',
+      'DSH Studio',
     ],
     command: '/usr/bin/open',
   })
@@ -200,9 +200,9 @@ test('macOS installed launches inherit the shared Oh-DSH state root', () => {
 
 test('desktop launch resolves paths with target platform semantics', () => {
   assert.deepEqual(desktopLaunchSpec(['--inspect'], {
-    OH_DSH_DESKTOP_APP: 'C:\\Tools\\Oh-DSH-Desktop.exe',
+    DSH_STUDIO_DESKTOP_APP: 'C:\\Tools\\DSH Studio.exe',
   }, 'win32'), {
     args: ['--inspect'],
-    command: 'C:\\Tools\\Oh-DSH-Desktop.exe',
+    command: 'C:\\Tools\\DSH Studio.exe',
   })
 })

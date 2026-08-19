@@ -1,12 +1,12 @@
 /*
- * Oh-DSH 共享设计 token 层（@oh-dsh/shared）
+ * DSH Studio 共享设计 token 层（@dsh-studio/shared）
  *
- * 职责：为所有 @oh-dsh/* 桌面插件提供统一的「控件语言」——间距、圆角、
+ * 职责：为所有 @dsh-studio/* 桌面插件提供统一的「控件语言」——间距、圆角、
  * 控件尺寸、字号，以及少量 DSW 没有语义别名的音调桥（tone bridge）。
  *
  * 原则：
  * - 颜色一律使用 DSH 官方 token（--dsw-static-* / --dsw-alias-*），随
- *   body[data-ds-dark-theme] 与桌面皮肤（body[data-oh-dsh-skin]）自适应；
+ *   body[data-ds-dark-theme] 与桌面皮肤（body[data-dsh-studio-skin]）自适应；
  *   本文件不定义颜色，只定义 DSW 缺失的桥接 token。
  * - 间距采用 4px 网格 + 2px 半步（对齐 DSH 组件惯例：Button gap 4 /
  *   padding 14、Modal radius 16 等），避免各插件各自为政的 3/5/7/9px。
@@ -19,96 +19,96 @@
 
 :root {
   /* 间距（4px 网格 + 2px 半步） */
-  --oh-dsh-space-0: 2px;
-  --oh-dsh-space-1: 4px;
-  --oh-dsh-space-1-5: 6px;
-  --oh-dsh-space-2: 8px;
-  --oh-dsh-space-3: 12px;
-  --oh-dsh-space-4: 16px;
-  --oh-dsh-space-5: 20px;
-  --oh-dsh-space-6: 24px;
+  --dsh-studio-space-0: 2px;
+  --dsh-studio-space-1: 4px;
+  --dsh-studio-space-1-5: 6px;
+  --dsh-studio-space-2: 8px;
+  --dsh-studio-space-3: 12px;
+  --dsh-studio-space-4: 16px;
+  --dsh-studio-space-5: 20px;
+  --dsh-studio-space-6: 24px;
 
   /* 圆角：紧凑控件 6-10px，弹层/卡片 14-16px */
-  --oh-dsh-radius-sm: 6px;
-  --oh-dsh-radius-md: 8px;
-  --oh-dsh-radius-lg: 10px;
-  --oh-dsh-radius-xl: 14px;
-  --oh-dsh-radius-pill: 999px;
+  --dsh-studio-radius-sm: 6px;
+  --dsh-studio-radius-md: 8px;
+  --dsh-studio-radius-lg: 10px;
+  --dsh-studio-radius-xl: 14px;
+  --dsh-studio-radius-pill: 999px;
 
   /* 控件高度：镜像 DSH Button 28px（small）/ 36px（default） */
-  --oh-dsh-control-sm: 24px;
-  --oh-dsh-control-md: 28px;
-  --oh-dsh-control-lg: 36px;
+  --dsh-studio-control-sm: 24px;
+  --dsh-studio-control-md: 28px;
+  --dsh-studio-control-lg: 36px;
 
   /* 列表行高基准（偶数：避免行内图标/徽章落在半像素上；镜像 DSH 紧凑行）
      与树缩进步长（10px/级，保证父子层级肉眼可辨） */
-  --oh-dsh-size-row: 28px;
-  --oh-dsh-tree-indent: 10px;
+  --dsh-studio-size-row: 28px;
+  --dsh-studio-tree-indent: 10px;
 
   /* Semantic surface families. Keep these separate from the generic ladder so
      a list-row alignment does not silently resize tabs, controls, or cards. */
-  --oh-dsh-list-row-height: var(--oh-dsh-size-row);
-  --oh-dsh-list-row-gap: var(--oh-dsh-space-1);
-  --oh-dsh-list-row-radius: var(--oh-dsh-radius-sm);
-  --oh-dsh-list-row-corner-shape: round;
-  --oh-dsh-list-row-padding-inline: var(--oh-dsh-space-1-5);
+  --dsh-studio-list-row-height: var(--dsh-studio-size-row);
+  --dsh-studio-list-row-gap: var(--dsh-studio-space-1);
+  --dsh-studio-list-row-radius: var(--dsh-studio-radius-sm);
+  --dsh-studio-list-row-corner-shape: round;
+  --dsh-studio-list-row-padding-inline: var(--dsh-studio-space-1-5);
 
-  --oh-dsh-surface-tab-height: 26px;
-  --oh-dsh-surface-tab-radius: var(--oh-dsh-radius-sm);
-  --oh-dsh-surface-tab-gap: var(--oh-dsh-space-1);
-  --oh-dsh-surface-tab-bg-hover: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  --oh-dsh-surface-tab-bg-active: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
-  --oh-dsh-surface-tab-corner-shape: round;
-  --oh-dsh-surface-tab-badge-height: 16px;
-  --oh-dsh-surface-tab-badge-radius: 8px;
-  --oh-dsh-surface-tab-action-size: 18px;
-  --oh-dsh-surface-tab-action-radius: var(--oh-dsh-radius-sm);
+  --dsh-studio-surface-tab-height: 26px;
+  --dsh-studio-surface-tab-radius: var(--dsh-studio-radius-sm);
+  --dsh-studio-surface-tab-gap: var(--dsh-studio-space-1);
+  --dsh-studio-surface-tab-bg-hover: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  --dsh-studio-surface-tab-bg-active: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+  --dsh-studio-surface-tab-corner-shape: round;
+  --dsh-studio-surface-tab-badge-height: 16px;
+  --dsh-studio-surface-tab-badge-radius: 8px;
+  --dsh-studio-surface-tab-action-size: 18px;
+  --dsh-studio-surface-tab-action-radius: var(--dsh-studio-radius-sm);
 
-  --oh-dsh-badge-height: 17px;
-  --oh-dsh-badge-min-width: 17px;
-  --oh-dsh-badge-padding-inline: var(--oh-dsh-space-1);
-  --oh-dsh-badge-radius: var(--oh-dsh-radius-pill);
+  --dsh-studio-badge-height: 17px;
+  --dsh-studio-badge-min-width: 17px;
+  --dsh-studio-badge-padding-inline: var(--dsh-studio-space-1);
+  --dsh-studio-badge-radius: var(--dsh-studio-radius-pill);
 
-  --oh-dsh-content-table-radius: var(--oh-dsh-radius-md);
-  --oh-dsh-content-table-cell-padding-block: var(--oh-dsh-space-1-5);
-  --oh-dsh-content-table-cell-padding-inline: 10px;
+  --dsh-studio-content-table-radius: var(--dsh-studio-radius-md);
+  --dsh-studio-content-table-cell-padding-block: var(--dsh-studio-space-1-5);
+  --dsh-studio-content-table-cell-padding-inline: 10px;
 
   /* diff 语义色桥：从 DSW 官方状态色派生，暗色主题自动跟随
      （DSW 没有 diff 语义别名，这里只做桥接，不定义新色板） */
-  --oh-dsh-diff-add-bg: color-mix(in srgb, var(--dsw-alias-state-success-primary, #2da44e) 14%, transparent);
-  --oh-dsh-diff-add-fg: var(--dsw-alias-state-success-primary, #2da44e);
-  --oh-dsh-diff-del-bg: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 14%, transparent);
-  --oh-dsh-diff-del-fg: var(--dsw-alias-state-error-primary, #cf222e);
+  --dsh-studio-diff-add-bg: color-mix(in srgb, var(--dsw-alias-state-success-primary, #2da44e) 14%, transparent);
+  --dsh-studio-diff-add-fg: var(--dsw-alias-state-success-primary, #2da44e);
+  --dsh-studio-diff-del-bg: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 14%, transparent);
+  --dsh-studio-diff-del-fg: var(--dsw-alias-state-error-primary, #cf222e);
 
   /* 悬浮层（详情 overlay）表面 */
-  --oh-dsh-overlay-bg: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 97%, transparent);
-  --oh-dsh-overlay-border: var(--dsw-alias-border-l1, rgb(0 0 0 / 9%));
-  --oh-dsh-overlay-shadow: 0 14px 42px rgb(0 0 0 / 16%);
-  --oh-dsh-overlay-blur: 6px;
+  --dsh-studio-overlay-bg: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 97%, transparent);
+  --dsh-studio-overlay-border: var(--dsw-alias-border-l1, rgb(0 0 0 / 9%));
+  --dsh-studio-overlay-shadow: 0 14px 42px rgb(0 0 0 / 16%);
+  --dsh-studio-overlay-blur: 6px;
 
   /* 字号 */
-  --oh-dsh-font-xs: 10px;
-  --oh-dsh-font-sm: 11px;
-  --oh-dsh-font-md: 12px;
-  --oh-dsh-font-lg: 13px;
-  --oh-dsh-font-xl: 14px;
-  --oh-dsh-font-2xl: 15px;
+  --dsh-studio-font-xs: 10px;
+  --dsh-studio-font-sm: 11px;
+  --dsh-studio-font-md: 12px;
+  --dsh-studio-font-lg: 13px;
+  --dsh-studio-font-xl: 14px;
+  --dsh-studio-font-2xl: 15px;
 
   /* 等宽字体栈：跟随 DSH 的 --ds-font-family-code */
-  --oh-dsh-font-mono: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace);
+  --dsh-studio-font-mono: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace);
 
   /* 强调色桥：DSW 主蓝别名。旧代码误用的 --dsw-alias-accent /
      --dsw-alias-interactive-primary 在 DSH token 目录中不存在，
      统一收口到这里。 */
-  --oh-dsh-accent: var(--dsw-alias-brand-primary-new-colorprimary-new-color, #0969da);
+  --dsh-studio-accent: var(--dsw-alias-brand-primary-new-colorprimary-new-color, #0969da);
 
   /* 音调桥：DSW 调色板没有紫色语义别名（marketplace 的 protected 徽标），
      在共享层定义亮色默认值并跟随 DSH 暗色主题，皮肤层亦可覆盖。 */
-  --oh-dsh-tone-protected-bg: #f1eaff;
-  --oh-dsh-tone-protected-fg: #6741a5;
+  --dsh-studio-tone-protected-bg: #f1eaff;
+  --dsh-studio-tone-protected-fg: #6741a5;
 }
 
 body[data-ds-dark-theme] {
-  --oh-dsh-tone-protected-bg: #2c2340;
-  --oh-dsh-tone-protected-fg: #c4a6f5;
+  --dsh-studio-tone-protected-bg: #2c2340;
+  --dsh-studio-tone-protected-fg: #c4a6f5;
 }

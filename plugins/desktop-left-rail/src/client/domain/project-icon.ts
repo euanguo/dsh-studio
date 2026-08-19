@@ -4,14 +4,14 @@ import {
   type ProjectIconBuiltin,
   type ProjectIconPreference,
   sanitizeProjectIconPreference,
-} from '@oh-dsh/shared/left-rail-preferences'
+} from '@dsh-studio/shared/left-rail-preferences'
 
 export {
   PROJECT_ICON_BUILTINS,
   sanitizeProjectIconPreference,
   type ProjectIconBuiltin,
   type ProjectIconPreference,
-} from '@oh-dsh/shared/left-rail-preferences'
+} from '@dsh-studio/shared/left-rail-preferences'
 
 export type ProjectIconGlyph = 'project' | 'directory'
 

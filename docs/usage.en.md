@@ -8,9 +8,9 @@
 
 ## Choose a distribution
 
-- Install **Oh-DSH Desktop** for the complete local workbench.
-- Install **Oh-DSH Web** for browser-only use without Electron.
-- Install **Oh-DSH TUI** for terminal-only use without Electron or browser UI.
+- Install **DSH Studio** for the complete local workbench.
+- Install **DSH Studio Web** for browser-only use without Electron.
+- Install **DSH Studio TUI** for terminal-only use without Electron or browser UI.
 
 The full distribution includes all three surfaces, so one installation
 supports `desktop`, `web`, and `tui`.
@@ -20,7 +20,7 @@ supports `desktop`, `web`, and `tui`.
 ### macOS
 
 1. Download the DMG from the latest Release.
-2. Drag **Oh-DSH Desktop** into Applications.
+2. Drag **DSH Studio** into Applications.
 3. For an unnotarized test build, right-click the app in Finder and choose
    **Open** on first launch.
 
@@ -28,15 +28,15 @@ If a verified Release download remains quarantined, apply this to the actual
 downloaded file:
 
 ```sh
-xattr -d com.apple.quarantine ~/Downloads/Oh-DSH-Desktop-*.dmg
+xattr -d com.apple.quarantine ~/Downloads/DSH Studio-*.dmg
 ```
 
 Install the unified command:
 
 ```sh
 sudo ln -sf \
-  "/Applications/Oh-DSH Desktop.app/Contents/Resources/bin/ohdsh" \
-  /usr/local/bin/ohdsh
+  "/Applications/DSH Studio.app/Contents/Resources/bin/dsh-studio" \
+  /usr/local/bin/dsh-studio
 ```
 
 ### Linux
@@ -44,20 +44,20 @@ sudo ln -sf \
 AppImage:
 
 ```sh
-chmod +x Oh-DSH-Desktop-*.AppImage
-./Oh-DSH-Desktop-*.AppImage
+chmod +x DSH Studio-*.AppImage
+./DSH Studio-*.AppImage
 ```
 
 deb:
 
 ```sh
-sudo apt install ./Oh-DSH-Desktop-*.deb
+sudo apt install ./DSH Studio-*.deb
 ```
 
 ### Windows
 
-Run the Windows installer from the Release and start **Oh-DSH Desktop**. The unified CLI is
-`bin\ohdsh.cmd` under the application resources directory; add that directory
+Run the Windows installer from the Release and start **DSH Studio**. The unified CLI is
+`bin\dsh-studio.cmd` under the application resources directory; add that directory
 to `PATH` if desired.
 
 An unsigned installer may trigger Windows SmartScreen. After verifying that it
@@ -66,7 +66,7 @@ installer may request administrator approval.
 
 ### Desktop online updates
 
-Choose **Oh-DSH Desktop -> Check for Updates...** from the application menu.
+Choose **DSH Studio -> Check for Updates...** from the application menu.
 The updater checks only stable GitHub Releases from
 `hust-open-atom-club/oh-dsh`; it does not need a GitHub login or token.
 
@@ -89,15 +89,15 @@ to the official Release page.
 ## Install Web-only
 
 ```sh
-tar -xzf oh-dsh-web-*.tar.gz
-cd oh-dsh-web-*/
-./bin/ohdsh web
+tar -xzf dsh-studio-web-*.tar.gz
+cd dsh-studio-web-*/
+./bin/dsh-studio web
 ```
 
 Windows:
 
 ```bat
-bin\ohdsh.cmd web
+bin\dsh-studio.cmd web
 ```
 
 Common options:
@@ -106,15 +106,15 @@ Common options:
 | --- | --- | --- |
 | `--host` | `127.0.0.1` | Bind address |
 | `--port` | `3080` | Listen port; `0` selects a random port |
-| `--data` | `~/.ohdsh` | Shared Oh-DSH data root for all surfaces |
-| `--channel` | `stable` | Choose `~/.ohdsh` or `~/.ohdsh-dev`; `--data` / `OH_DSH_HOME` win |
+| `--data` | `~/.dsh-studio` | Shared DSH Studio data root for all surfaces |
+| `--channel` | `stable` | Choose `~/.dsh-studio` or `~/.dsh-studio-dev`; `--data` / `DSH_STUDIO_HOME` win |
 | `--no-open` | off | Do not open the browser automatically |
 | `--trusted-host` | none | Add a trusted authority; repeatable |
 
-Equivalent environment variables include `DSH_OH_WEB_HOST`,
-`DSH_OH_WEB_PORT`, `DSH_OH_WEB_HOME`, and `DSH_OH_WEB_OPEN`. `OH_DSH_HOME`
+Equivalent environment variables include `DSH_STUDIO_WEB_HOST`,
+`DSH_STUDIO_WEB_PORT`, `DSH_STUDIO_WEB_HOME`, and `DSH_STUDIO_WEB_OPEN`. `DSH_STUDIO_HOME`
 overrides the data root for Desktop, Web, and TUI together. When no absolute
-root is set, `OH_DSH_CHANNEL` selects `~/.ohdsh` or `~/.ohdsh-dev`. Press
+root is set, `DSH_STUDIO_CHANNEL` selects `~/.dsh-studio` or `~/.dsh-studio-dev`. Press
 `Ctrl+C` for a graceful shutdown.
 
 Do not bind to `0.0.0.0` without an access boundary. For LAN exposure, add
@@ -123,27 +123,27 @@ Do not bind to `0.0.0.0` without an access boundary. For LAN exposure, add
 ## Install TUI-only
 
 ```sh
-tar -xzf oh-dsh-tui-*.tar.gz
-cd oh-dsh-tui-*/
-./bin/ohdsh tui
+tar -xzf dsh-studio-tui-*.tar.gz
+cd dsh-studio-tui-*/
+./bin/dsh-studio tui
 ```
 
-Use `bin\ohdsh.cmd tui` on Windows. TUI requires a real interactive terminal.
+Use `bin\dsh-studio.cmd tui` on Windows. TUI requires a real interactive terminal.
 It uses the alternate screen by default; upstream `dsh-TUI` owns fullscreen
 selection, scrolling, and copy behavior.
 
 ## Unified commands
 
 ```sh
-ohdsh desktop
-ohdsh gui
-ohdsh web
-ohdsh tui
+dsh-studio desktop
+dsh-studio gui
+dsh-studio web
+dsh-studio tui
 ```
 
 - `desktop` opens the installed app and falls back to the Electron development
   entry when run from a source checkout. Packaged Desktop defaults to `stable`
-  (`~/.ohdsh`); `pnpm start` / `pnpm dev` default to `dev` (`~/.ohdsh-dev`).
+  (`~/.dsh-studio`); `pnpm start` / `pnpm dev` default to `dev` (`~/.dsh-studio-dev`).
   Override with `--channel stable|dev`.
 - `gui` is an alias for `desktop`.
 - `web` starts the HTTP service and prints its URL.
@@ -155,8 +155,8 @@ Common TUI options:
 | Option | Default | Description |
 | --- | --- | --- |
 | `--cwd` | Current directory | Workspace |
-| `--data` | `~/.ohdsh` | Shared Oh-DSH data root for all surfaces |
-| `--channel` | `stable` | Choose `~/.ohdsh` or `~/.ohdsh-dev`; `--data` / `OH_DSH_HOME` win |
+| `--data` | `~/.dsh-studio` | Shared DSH Studio data root for all surfaces |
+| `--channel` | `stable` | Choose `~/.dsh-studio` or `~/.dsh-studio-dev`; `--data` / `DSH_STUDIO_HOME` win |
 | `--resume` | New session | Resume a Session id |
 | `--lang` | Upstream preference | `zh` or `en` |
 | `--preset` | `standard` | Initial Agent preset |
@@ -164,7 +164,7 @@ Common TUI options:
 
 ## Image recognition
 
-Desktop, Web, and TUI all load the bundled `@oh-dsh/vision` plugin. DSH owns
+Desktop, Web, and TUI all load the bundled `@dsh-studio/vision` plugin. DSH owns
 image paste, thumbnails, attachment storage, and submission through its native
 attachment rail. DeepSeek V4 is still described as text-only by the pinned DSH
 metadata; the plugin only admits V4 at the Host's final image-capability check.
@@ -185,21 +185,21 @@ The default backend uses Zhipu `glm-4.6v-flash`. In the native
 `Settings → Plugins → Plugin configuration → Vision` card, confirm the cloud
 endpoint first, then click `Get a Zhipu key` to open the Zhipu console. Paste
 the returned key into the password-style field; it is stored in the shared data
-root's credential file (`~/.ohdsh/.credentials.yaml` by default):
+root's credential file (`~/.dsh-studio/.credentials.yaml` by default):
 
 ```yaml
 ZHIPUAI_API_KEY: your-api-key
 ```
 
 Keep the credential file owner-readable only, for example with
-`chmod 600 ~/.ohdsh/.credentials.yaml` on macOS/Linux. Exporting
+`chmod 600 ~/.dsh-studio/.credentials.yaml` on macOS/Linux. Exporting
 `ZHIPUAI_API_KEY` before launch is also supported. The legacy
 `VISION_API_KEY` name remains a migration fallback.
 
-Override the backend and model in the shared `~/.ohdsh/settings.yaml`:
+Override the backend and model in the shared `~/.dsh-studio/settings.yaml`:
 
 ```yaml
-oh-dsh-vision:
+dsh-studio-vision:
   baseURL: https://dashscope.aliyuncs.com/compatible-mode/v1
   model: qwen3-vl-flash
   apiKeyEnv: DASHSCOPE_API_KEY
@@ -219,7 +219,7 @@ as the Zhipu Vision key.
 A local Ollama endpoint needs no key:
 
 ```yaml
-oh-dsh-vision:
+dsh-studio-vision:
   baseURL: http://localhost:11434/v1
   model: qwen3-vl:4b
 ```
@@ -234,7 +234,7 @@ an empty value disables the local fallback. `localApiKeyEnv` is only needed for
 a non-local endpoint.
 
 ```yaml
-oh-dsh-vision:
+dsh-studio-vision:
   apiKeyEnv: ZHIPUAI_API_KEY
   retryAttempts: 3
   retryBackoffMs: 1000
@@ -284,7 +284,7 @@ demand while that window has capacity.
 | Leave sidebar focus mode | `Esc` |
 
 Settings covers language, models, permissions, Agent presets, plugin config,
-and Oh-DSH skins. Its modal covers and blurs every workspace and sidebar.
+and DSH Studio skins. Its modal covers and blurs every workspace and sidebar.
 
 Choose a skin from Settings on Web or Desktop. In TUI, run `/theme` to select
 the same Deep Current, Jade Circuit, Porcelain, or Ember Dusk palette. The
@@ -315,9 +315,9 @@ pnpm run build
 pnpm run stage:dsh
 export PATH="$PWD/bin:$PATH"
 
-ohdsh desktop
-ohdsh web --port 3080
-ohdsh tui
+dsh-studio desktop
+dsh-studio web --port 3080
+dsh-studio tui
 ```
 
 Packaging commands:
@@ -347,39 +347,39 @@ GitHub Release.
 
 ## Data and troubleshooting
 
-Desktop, Web, and TUI share `~/.ohdsh` by default and do not load global plugin
+Desktop, Web, and TUI share `~/.dsh-studio` by default and do not load global plugin
 configuration from `~/.dsh`. They keep separate `profiles/desktop`,
 `profiles/web`, and `profiles/tui` compositions while sharing sessions,
 credentials, skins, and plugin caches. Electron-specific data lives under
-`<OH_DSH_HOME>/desktop`. Override all surfaces with `OH_DSH_HOME`, or switch
-to `~/.ohdsh-dev` with `OH_DSH_CHANNEL=dev` / `--channel dev`. Isolate one
+`<DSH_STUDIO_HOME>/desktop`. Override all surfaces with `DSH_STUDIO_HOME`, or switch
+to `~/.dsh-studio-dev` with `DSH_STUDIO_CHANNEL=dev` / `--channel dev`. Isolate one
 Web or TUI process with `--data`. Configure the DeepSeek API key in Models
 settings or in `.env` under the active data root.
 
 An installed Desktop and a source verification instance can run together:
-the packaged app writes `~/.ohdsh`, while `pnpm start` / `pnpm dev` write
-`~/.ohdsh-dev`. Profiles, plugins, and workspace behavior stay the same; only
+the packaged app writes `~/.dsh-studio`, while `pnpm start` / `pnpm dev` write
+`~/.dsh-studio-dev`. Profiles, plugins, and workspace behavior stay the same; only
 the data root and single-instance lock change. The development window title
 includes `(Dev)`, and its Dock / window icon is the same whale with an orange
 `DEV` stamp in the lower-right corner. To make a source instance read
-production state, launch it with `--channel stable` or set `OH_DSH_HOME`.
+production state, launch it with `--channel stable` or set `DSH_STUDIO_HOME`.
 
 On first use of the shared root, Desktop imports sessions, credentials, plugins,
-and UI preferences from the old system `Oh-DSH-Desktop` application-data
-directory. Web imports the former `~/.oh-dsh-web/dsh` root and a nested `dsh/`
+and UI preferences from the old system `DSH Studio` application-data
+directory. Web imports the former `~/.dsh-studio-web/dsh` root and a nested `dsh/`
 inside the selected data directory, plus root-level skin and sidebar
 preferences. Migration copies only missing data and leaves legacy directories
 in place for rollback; existing shared state is not replaced.
 
 Troubleshooting order:
 
-1. Run `ohdsh --help` to confirm the CLI source.
-2. Run `ohdsh web --help` to inspect options.
-3. Run `ohdsh tui --help`, then use `ohdsh tui --inline` to isolate
+1. Run `dsh-studio --help` to confirm the CLI source.
+2. Run `dsh-studio web --help` to inspect options.
+3. Run `dsh-studio tui --help`, then use `dsh-studio tui --inline` to isolate
    alternate-screen terminal compatibility.
-4. Test a random port with `ohdsh web --port 0 --no-open`.
+4. Test a random port with `dsh-studio web --port 0 --no-open`.
 5. Confirm that required plugins are both installed and enabled in the Profile.
-6. If Desktop does not start, run its bundled `bin/ohdsh desktop` in a terminal
+6. If Desktop does not start, run its bundled `bin/dsh-studio desktop` in a terminal
    to capture logs.
 
 See [design and plugin boundaries](./design.en.md) for architecture and

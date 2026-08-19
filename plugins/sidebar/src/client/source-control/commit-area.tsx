@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import {
   Button,
   Menu,
@@ -11,7 +11,7 @@ import {
   IconGitCommit,
   IconPlayerStop,
   IconSparkles,
-} from '@oh-dsh/shared/tabler-icons'
+} from '@dsh-studio/shared/tabler-icons'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type {
   SourceControlAction,
@@ -92,22 +92,22 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
   const busy = props.operation.phase === 'running'
 
   return (
-    <section className="oh-dsh-commit-area">
-      <div className="oh-dsh-commit-branch-row">
+    <section className="dsh-studio-commit-area">
+      <div className="dsh-studio-commit-branch-row">
         <button
           ref={branchButtonRef}
           type="button"
-          className="oh-dsh-branch-picker"
+          className="dsh-studio-branch-picker"
           aria-label={props.t('workspace.current-branch')}
           aria-expanded={branchMenuOpen}
           disabled={busy}
           onClick={() => { setBranchMenuOpen(value => !value) }}
         >
-          <span className="oh-dsh-workspace-fact-icon"><IconGitBranch size={16} /></span>
-          <span className="oh-dsh-branch-picker-name">{props.branch ?? ''}</span>
-          <IconChevronDown size={14} className="oh-dsh-workspace-chevron" />
+          <span className="dsh-studio-workspace-fact-icon"><IconGitBranch size={16} /></span>
+          <span className="dsh-studio-branch-picker-name">{props.branch ?? ''}</span>
+          <IconChevronDown size={14} className="dsh-studio-workspace-chevron" />
         </button>
-        <span className="oh-dsh-commit-area-spacer" />
+        <span className="dsh-studio-commit-area-spacer" />
         <Button
           variant="ghost"
           size="sm"
@@ -119,7 +119,7 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
           <IconSparkles size={15} />
         </Button>
       </div>
-      <div className="oh-dsh-commit-message-wrap">
+      <div className="dsh-studio-commit-message-wrap">
         <textarea
           value={props.message}
           placeholder={props.t('workspace.commit-message')}
@@ -131,16 +131,16 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
           <Button
             variant="ghost"
             size="sm"
-            className="oh-dsh-commit-cancel-generation"
+            className="dsh-studio-commit-cancel-generation"
             title={props.t('workspace.commit-generation-cancel')}
             aria-label={props.t('workspace.commit-generation-cancel')}
             onClick={props.onCancelGenerate}
           ><IconPlayerStop size={14} /></Button>
         )}
       </div>
-      {props.generationError !== null && <small className="oh-dsh-commit-error">{props.generationError}</small>}
-      {props.operation.phase === 'error' && <small className="oh-dsh-commit-error">{props.operation.message}</small>}
-      <div className="oh-dsh-commit-actions">
+      {props.generationError !== null && <small className="dsh-studio-commit-error">{props.generationError}</small>}
+      {props.operation.phase === 'error' && <small className="dsh-studio-commit-error">{props.operation.message}</small>}
+      <div className="dsh-studio-commit-actions">
         <Button
           variant="outline"
           size="sm"
@@ -151,7 +151,7 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
           <IconGitCommit size={14} />
           {actionLabel(props.actions.primary.kind, props.t)}
         </Button>
-        <span ref={actionButtonRef} className="oh-dsh-commit-action-menu-anchor">
+        <span ref={actionButtonRef} className="dsh-studio-commit-action-menu-anchor">
           <Button
             variant="outline"
             size="sm"

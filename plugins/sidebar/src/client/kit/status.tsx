@@ -6,7 +6,7 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 
 export function LoadingView({ label }: { label: string }): JSX.Element {
   return (
-    <div className="oh-dsh-side-muted oh-dsh-status" data-kind="loading" role="status">
+    <div className="dsh-studio-side-muted dsh-studio-status" data-kind="loading" role="status">
       {label}
     </div>
   )
@@ -22,8 +22,8 @@ export type ErrorViewProps =
 
 export function ErrorView({ message, onRetry, retryLabel }: ErrorViewProps): JSX.Element {
   return (
-    <div className="oh-dsh-side-error oh-dsh-status" data-kind="error" role="alert">
-      <span className="oh-dsh-status-message">{message}</span>
+    <div className="dsh-studio-side-error dsh-studio-status" data-kind="error" role="alert">
+      <span className="dsh-studio-status-message">{message}</span>
       {onRetry !== undefined && (
         <Button variant="outline" size="sm" onClick={onRetry}>
           {retryLabel}
@@ -41,10 +41,10 @@ export function EmptyView({
   description?: string
 }): JSX.Element {
   return (
-    <div className="oh-dsh-side-muted oh-dsh-status" data-kind="empty">
-      <div className="oh-dsh-status-title">{title}</div>
+    <div className="dsh-studio-side-muted dsh-studio-status" data-kind="empty">
+      <div className="dsh-studio-status-title">{title}</div>
       {description !== undefined && (
-        <div className="oh-dsh-status-description">{description}</div>
+        <div className="dsh-studio-status-description">{description}</div>
       )}
     </div>
   )

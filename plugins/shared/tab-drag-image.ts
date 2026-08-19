@@ -18,7 +18,7 @@ export function poseRoundedTabDragImage(
   const height = Math.max(24, Math.min(36, Math.round(rect.height || 28)))
   const radius = 12.5
 
-  const text = label || source.querySelector('.oh-dsh-surface-tab-text')?.textContent || source.textContent || 'Tab'
+  const text = label || source.querySelector('.dsh-studio-surface-tab-text')?.textContent || source.textContent || 'Tab'
 
   // Use a temporary canvas to generate clean transparent image
   const canvas = document.createElement('canvas')

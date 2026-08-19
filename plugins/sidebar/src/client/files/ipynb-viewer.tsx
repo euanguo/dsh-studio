@@ -17,18 +17,18 @@ export function IpynbViewer({ content }: { content: string }): JSX.Element {
     return <ErrorView message={error} />
   }
   return (
-    <div className="oh-dsh-ipynb-viewer" data-testid="ipynb-viewer">
+    <div className="dsh-studio-ipynb-viewer" data-testid="ipynb-viewer">
       {cells.map((cell, index) => (
-        <div key={index} className="oh-dsh-ipynb-cell" data-cell-type={cell.cell_type}>
-          <div className="oh-dsh-ipynb-cell-label">
+        <div key={index} className="dsh-studio-ipynb-cell" data-cell-type={cell.cell_type}>
+          <div className="dsh-studio-ipynb-cell-label">
             {cell.cell_type === 'code' ? `In [${index + 1}]` : cell.cell_type}
           </div>
           {cell.cell_type === 'markdown' ? (
-            <div className="oh-dsh-ipynb-markdown">
+            <div className="dsh-studio-ipynb-markdown">
               <MarkdownViewer content={cellSource(cell)} taskTogglesEnabled={false} />
             </div>
           ) : (
-            <pre className="oh-dsh-ipynb-source">
+            <pre className="dsh-studio-ipynb-source">
               <code>{cellSource(cell)}</code>
             </pre>
           )}

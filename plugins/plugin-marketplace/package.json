@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/plugin-marketplace",
+  "name": "@dsh-studio/plugin-marketplace",
   "version": "0.1.4",
-  "description": "Transactional public DSH plugin marketplace for Oh-DSH Desktop",
+  "description": "Transactional public DSH plugin marketplace for DSH Studio",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -31,6 +31,6 @@
     "react-dom": "^18.2.0"
   },
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*"
+    "@dsh-studio/shared": "workspace:*"
   }
 }

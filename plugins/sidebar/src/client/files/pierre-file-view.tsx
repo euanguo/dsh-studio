@@ -6,14 +6,14 @@
  * fallback (see language.ts).
  *
  * Sizing contract: the Virtualizer host must receive a definite height from
- * its flex parent (`oh-dsh-content-root-fill`), otherwise the window never
+ * its flex parent (`dsh-studio-content-root-fill`), otherwise the window never
  * measures and no rows render.
  */
 import { useMemo } from 'react'
 import { File as PierreFile, Virtualizer } from '@pierre/diffs/react'
 import type { FileContents, LineAnnotation } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
-import { basename } from '@oh-dsh/shared/path'
+import { basename } from '@dsh-studio/shared/path'
 import type { DiffComment } from '../diff/diff-comments-store.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 
@@ -54,7 +54,7 @@ export function PierreFileView({
   )
 
   return (
-    <Virtualizer className="oh-dsh-pierre-file-host" config={{ overscrollSize: 300 }}>
+    <Virtualizer className="dsh-studio-pierre-file-host" config={{ overscrollSize: 300 }}>
       <PierreFile
         file={file}
         options={{

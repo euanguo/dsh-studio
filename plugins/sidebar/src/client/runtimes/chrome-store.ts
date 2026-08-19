@@ -183,7 +183,7 @@ export const useSidebarChromeStore = create<SidebarChromeState>()(
       },
     }),
     {
-      name: 'oh-dsh-desktop.sidebar-chrome',
+      name: 'dsh-studio.sidebar-chrome',
       version: 1,
     },
   ),

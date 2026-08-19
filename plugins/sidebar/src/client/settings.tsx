@@ -15,8 +15,8 @@ import {
   Input,
   Modal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import { IconAdjustments } from '@oh-dsh/shared/tabler-icons'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import { IconAdjustments } from '@dsh-studio/shared/tabler-icons'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from './i18n.ts'
 import type {
   BoundSidebarSettingsActions,
@@ -63,8 +63,8 @@ function SwitchRow(props: {
   onChange(checked: boolean): void
 }): JSX.Element {
   return (
-    <label className="oh-dsh-sidebar-settings-row" title={props.desc}>
-      <span className="oh-dsh-sidebar-settings-copy">
+    <label className="dsh-studio-sidebar-settings-row" title={props.desc}>
+      <span className="dsh-studio-sidebar-settings-copy">
         <strong>{props.title}</strong>
       </span>
       <input
@@ -100,11 +100,11 @@ function InputRow(props: {
     props.onCommit(value)
   }
   return (
-    <label className="oh-dsh-sidebar-settings-row" title={props.desc}>
-      <span className="oh-dsh-sidebar-settings-copy">
+    <label className="dsh-studio-sidebar-settings-row" title={props.desc}>
+      <span className="dsh-studio-sidebar-settings-copy">
         <strong>{props.title}</strong>
       </span>
-      <span className="oh-dsh-sidebar-settings-input">
+      <span className="dsh-studio-sidebar-settings-input">
         <Input
           type={props.type}
           value={draft}
@@ -124,7 +124,7 @@ function InputRow(props: {
             }
           }}
         />
-        {props.unit !== undefined && <span className="oh-dsh-sidebar-settings-unit">{props.unit}</span>}
+        {props.unit !== undefined && <span className="dsh-studio-sidebar-settings-unit">{props.unit}</span>}
       </span>
     </label>
   )
@@ -202,7 +202,7 @@ function FeatureSettingsPopup(props: {
       <>
         {hostToggles.length > 0 && (
           <>
-            <h4 className="oh-dsh-sidebar-settings-popup-heading">
+            <h4 className="dsh-studio-sidebar-settings-popup-heading">
               {t('settings.feature-settings')}
             </h4>
             {hostToggles.map(toggle => (
@@ -220,7 +220,7 @@ function FeatureSettingsPopup(props: {
         )}
         {pluginToggles.length > 0 && (
           <>
-            <h4 className="oh-dsh-sidebar-settings-popup-heading">
+            <h4 className="dsh-studio-sidebar-settings-popup-heading">
               {t('settings.plugin-settings')}
             </h4>
             {pluginToggles.map(toggle => (
@@ -237,7 +237,7 @@ function FeatureSettingsPopup(props: {
           </>
         )}
         {hostToggles.length === 0 && pluginToggles.length === 0 && (
-          <p className="oh-dsh-sidebar-settings-popup-empty">{t('settings.no-feature-settings')}</p>
+          <p className="dsh-studio-sidebar-settings-popup-empty">{t('settings.no-feature-settings')}</p>
         )}
       </>
     )
@@ -250,15 +250,15 @@ function FeatureSettingsPopup(props: {
       title={sidebarLabel(feature.title ?? feature.id)}
       description={feature.id}
       closeLabel={t('settings.done')}
-      className="oh-dsh-sidebar-settings-popup"
-      contentClassName="oh-dsh-sidebar-settings-popup-content"
+      className="dsh-studio-sidebar-settings-popup"
+      contentClassName="dsh-studio-sidebar-settings-popup-content"
       footer={(
         <Button variant="primary" size="sm" onClick={onClose}>
           {t('settings.done')}
         </Button>
       )}
     >
-      <div className="oh-dsh-sidebar-settings-popup-body">{body}</div>
+      <div className="dsh-studio-sidebar-settings-popup-body">{body}</div>
     </Modal>
   )
 }
@@ -279,15 +279,15 @@ function FeatureCard(props: {
   const label = sidebarLabel(feature.title ?? id)
   const detail = meta === '' ? id : `${id} · ${meta}`
   return (
-    <div className="oh-dsh-sidebar-settings-row" data-feature-id={id} title={detail}>
-      <span className="oh-dsh-sidebar-settings-copy">
+    <div className="dsh-studio-sidebar-settings-row" data-feature-id={id} title={detail}>
+      <span className="dsh-studio-sidebar-settings-copy">
         <strong>{label}</strong>
       </span>
-      <span className="oh-dsh-sidebar-settings-controls">
+      <span className="dsh-studio-sidebar-settings-controls">
         {hasSettings && enabled && (
           <button
             type="button"
-            className="oh-dsh-sidebar-feature-gear"
+            className="dsh-studio-sidebar-feature-gear"
             aria-label={t('settings.feature-settings')}
             title={t('settings.feature-settings')}
             onClick={() => { onOpenSettings() }}
@@ -347,9 +347,9 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
     />
   )
   return (
-    <div className="oh-dsh-sidebar-settings">
-      <div className="oh-dsh-sidebar-settings-heading">
-        <div className="oh-dsh-sidebar-settings-copy">
+    <div className="dsh-studio-sidebar-settings">
+      <div className="dsh-studio-sidebar-settings-heading">
+        <div className="dsh-studio-sidebar-settings-copy">
           <strong>{props.t('settings.title')}</strong>
           <p>{props.t('settings.description')}</p>
         </div>
@@ -357,9 +357,9 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           {props.t('settings.reset')}
         </Button>
       </div>
-      <div className="oh-dsh-sidebar-settings-grid">
-        <label className="oh-dsh-sidebar-settings-row" title={props.t('settings.open-by-default-description')}>
-          <span className="oh-dsh-sidebar-settings-copy">
+      <div className="dsh-studio-sidebar-settings-grid">
+        <label className="dsh-studio-sidebar-settings-row" title={props.t('settings.open-by-default-description')}>
+          <span className="dsh-studio-sidebar-settings-copy">
             <strong>{props.t('settings.open-by-default')}</strong>
           </span>
           <input
@@ -368,8 +368,8 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
             onChange={event => { props.setOpenByDefault(event.currentTarget.checked) }}
           />
         </label>
-        <label className="oh-dsh-sidebar-settings-row oh-dsh-sidebar-settings-size" title={props.t('settings.width-value', { width: state.width })}>
-          <span className="oh-dsh-sidebar-settings-copy">
+        <label className="dsh-studio-sidebar-settings-row dsh-studio-sidebar-settings-size" title={props.t('settings.width-value', { width: state.width })}>
+          <span className="dsh-studio-sidebar-settings-copy">
             <strong>{props.t('settings.width')}</strong>
           </span>
           <input
@@ -383,11 +383,11 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         </label>
       </div>
       <section>
-        <div className="oh-dsh-sidebar-settings-copy oh-dsh-sidebar-settings-section-head">
+        <div className="dsh-studio-sidebar-settings-copy dsh-studio-sidebar-settings-section-head">
           <strong>{props.t('settings.runtime')}</strong>
           <p>{props.t('settings.runtime-description')}</p>
         </div>
-        <div className="oh-dsh-sidebar-settings-grid">
+        <div className="dsh-studio-sidebar-settings-grid">
         <SwitchRow
           title={props.t('settings.agent-terminal-tools')}
           desc={props.t('settings.agent-terminal-tools-description')}
@@ -426,9 +426,9 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         )}
       </section>
       <section>
-        <div className="oh-dsh-sidebar-settings-grid">
-          <div className="oh-dsh-sidebar-settings-row">
-            <span className="oh-dsh-sidebar-settings-copy">
+        <div className="dsh-studio-sidebar-settings-grid">
+          <div className="dsh-studio-sidebar-settings-row">
+            <span className="dsh-studio-sidebar-settings-copy">
               <strong>{props.t('source-control-ai.title')}</strong>
               <p>{props.t('source-control-ai.description')}</p>
             </span>
@@ -443,11 +443,11 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         </div>
       </section>
       <section>
-        <div className="oh-dsh-sidebar-settings-copy oh-dsh-sidebar-settings-section-head">
+        <div className="dsh-studio-sidebar-settings-copy dsh-studio-sidebar-settings-section-head">
           <strong>{props.t('settings.tools')}</strong>
           <p>{props.t('settings.tools-description')}</p>
         </div>
-        <div className="oh-dsh-sidebar-settings-grid">
+        <div className="dsh-studio-sidebar-settings-grid">
           {tabs.map(descriptor => (
             <FeatureCard
               key={descriptor.id}
@@ -463,11 +463,11 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         </div>
       </section>
       <section>
-        <div className="oh-dsh-sidebar-settings-copy oh-dsh-sidebar-settings-section-head">
+        <div className="dsh-studio-sidebar-settings-copy dsh-studio-sidebar-settings-section-head">
           <strong>{props.t('settings.viewers')}</strong>
           <p>{props.t('settings.viewers-description')}</p>
         </div>
-        <div className="oh-dsh-sidebar-settings-grid">
+        <div className="dsh-studio-sidebar-settings-grid">
           {viewers.map(descriptor => (
             <FeatureCard
               key={descriptor.id}
@@ -489,15 +489,15 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         title={props.t('source-control-ai.title')}
         description={props.t('source-control-ai.description')}
         closeLabel={props.t('settings.done')}
-        className="oh-dsh-sidebar-settings-popup"
-        contentClassName="oh-dsh-sidebar-settings-popup-content"
+        className="dsh-studio-sidebar-settings-popup"
+        contentClassName="dsh-studio-sidebar-settings-popup-content"
         footer={(
           <Button variant="primary" size="sm" onClick={() => { setSourceControlAiSettingsOpen(false) }}>
             {props.t('settings.done')}
           </Button>
         )}
       >
-        <div className="oh-dsh-sidebar-settings-popup-body">
+        <div className="dsh-studio-sidebar-settings-popup-body">
           <SourceControlAiSettingsPanel t={props.t} />
         </div>
       </Modal>

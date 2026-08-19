@@ -1,5 +1,5 @@
 /**
- * Terminal WebSocket client for the Oh-DSH desktop terminal (shared).
+ * Terminal WebSocket client for the DSH Studio desktop terminal (shared).
  *
  * The socket owns reconnect coordination and parses the versioned output frame
  * emitted by the host batcher. ACKs are sent only from the xterm write/parse

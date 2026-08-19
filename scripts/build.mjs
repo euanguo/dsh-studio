@@ -9,11 +9,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dist = join(root, 'dist')
 const productVersion = resolveProductVersion(root)
 const versionDefine = {
-  __OH_DSH_BUILD_VERSION__: JSON.stringify(productVersion),
+  __DSH_STUDIO_BUILD_VERSION__: JSON.stringify(productVersion),
 }
 const nodeEsmRequireBanner = [
-  "import { createRequire as __ohDshCreateRequire } from 'node:module';",
-  'const require = __ohDshCreateRequire(import.meta.url);',
+  "import { createRequire as __dshStudioCreateRequire } from 'node:module';",
+  'const require = __dshStudioCreateRequire(import.meta.url);',
 ].join('\n')
 
 // 皮肤门禁（构建期自检，见 docs/SKINS-BUILD-TIME-ARCHITECTURE.md §5.2/§9.1.3）：
@@ -41,13 +41,13 @@ mkdirSync(dist, { recursive: true })
 const pluginPackages = [
   { directory: 'sidebar-host', hostOnly: true },
   { directory: 'tui', hostOnly: true },
-  { directory: 'desktop-skins', id: '@oh-dsh/desktop-skins' },
-  { directory: 'sidebar', id: '@oh-dsh/sidebar' },
-  { directory: 'sidebar-desktop', id: '@oh-dsh/sidebar-desktop' },
-  { directory: 'desktop-left-rail', id: '@oh-dsh/desktop-left-rail' },
-  { directory: 'panel-controls', id: '@oh-dsh/panel-controls' },
-  { directory: 'pinned-summary', id: '@oh-dsh/pinned-summary' },
-  { directory: 'plugin-marketplace', id: '@oh-dsh/plugin-marketplace' },
+  { directory: 'desktop-skins', id: '@dsh-studio/desktop-skins' },
+  { directory: 'sidebar', id: '@dsh-studio/sidebar' },
+  { directory: 'sidebar-desktop', id: '@dsh-studio/sidebar-desktop' },
+  { directory: 'desktop-left-rail', id: '@dsh-studio/desktop-left-rail' },
+  { directory: 'panel-controls', id: '@dsh-studio/panel-controls' },
+  { directory: 'pinned-summary', id: '@dsh-studio/pinned-summary' },
+  { directory: 'plugin-marketplace', id: '@dsh-studio/plugin-marketplace' },
 ]
 
 const shared = {
@@ -111,7 +111,7 @@ const builds = [
   build({
     ...shared,
     entryPoints: [join(root, 'src', 'cli.ts')],
-    outfile: join(dist, 'ohdsh.js'),
+    outfile: join(dist, 'dsh-studio.js'),
     platform: 'node',
     format: 'esm',
   }),
@@ -133,7 +133,7 @@ const builds = [
     sourcemap: true,
     logLevel: 'info',
     banner: {
-      js: 'window.__ModuleLoader__.load({ id: "@oh-dsh/web", factory: (require) => { var module = { exports: {} }; var exports = module.exports;',
+      js: 'window.__ModuleLoader__.load({ id: "@dsh-studio/web", factory: (require) => { var module = { exports: {} }; var exports = module.exports;',
     },
     footer: { js: 'return module.exports; } });' },
   }),
@@ -148,7 +148,7 @@ const builds = [
     sourcemap: true,
     logLevel: 'info',
     banner: {
-      js: 'window.__ModuleLoader__.load({ id: "@oh-dsh/desktop", factory: (require) => { var module = { exports: {} }; var exports = module.exports;',
+      js: 'window.__ModuleLoader__.load({ id: "@dsh-studio/desktop", factory: (require) => { var module = { exports: {} }; var exports = module.exports;',
     },
     footer: { js: 'return module.exports; } });' },
   }),
@@ -243,7 +243,7 @@ await Promise.all(builds)
 
 const mainBundle = readFileSync(join(dist, 'main.js'), 'utf8')
 if (mainBundle.includes('Dynamic require of')
-  && !mainBundle.includes('__ohDshCreateRequire(import.meta.url)')) {
+  && !mainBundle.includes('__dshStudioCreateRequire(import.meta.url)')) {
   throw new Error('desktop main bundle has dynamic requires without an ESM require bridge')
 }
 

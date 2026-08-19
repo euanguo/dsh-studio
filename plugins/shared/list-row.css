@@ -1,25 +1,25 @@
 /* ============================================================
    Product list row — single geometry for navigators / sidebars /
    trees. Ported from the reference project's list-row.module.css.
-   Consume the --oh-dsh-* ladder and --dsw-alias-* colors only.
+   Consume the --dsh-studio-* ladder and --dsw-alias-* colors only.
    No feature-local magic sizes.
    ============================================================ */
 
-.oh-dsh-list-row {
+.dsh-studio-list-row {
   position: relative;
   display: flex;
   width: 100%;
   min-width: 0;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
-  height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
-  min-height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
+  gap: var(--dsh-studio-space-1);
+  height: var(--dsh-studio-list-row-height, var(--dsh-studio-size-row));
+  min-height: var(--dsh-studio-list-row-height, var(--dsh-studio-size-row));
   /* Uniform breathing room between adjacent rows — owned here, not per-list,
      so every list built on ListRow gets the same semantic rhythm. */
-  margin-bottom: var(--oh-dsh-list-row-gap, var(--oh-dsh-space-1));
+  margin-bottom: var(--dsh-studio-list-row-gap, var(--dsh-studio-space-1));
   border: 0;
-  border-radius: var(--oh-dsh-list-row-radius, var(--oh-dsh-radius-sm));
-  corner-shape: var(--oh-dsh-list-row-corner-shape, round);
+  border-radius: var(--dsh-studio-list-row-radius, var(--dsh-studio-radius-sm));
+  corner-shape: var(--dsh-studio-list-row-corner-shape, round);
   background: transparent;
   overflow: hidden;
   color: var(--dsw-alias-label-primary, #1f2328);
@@ -27,51 +27,51 @@
 
 /* The last row in a container doesn't need the trailing gap (the container's
    bottom padding owns that space). */
-.oh-dsh-list-row:last-child {
+.dsh-studio-list-row:last-child {
   margin-bottom: 0;
 }
 
-.oh-dsh-list-row:hover,
-.oh-dsh-list-row:focus-within,
+.dsh-studio-list-row:hover,
+.dsh-studio-list-row:focus-within,
 /* Menu portals live outside the row, so :hover/:focus-within drop; the
    in-row trigger keeps data-popup-open for the whole open lifetime. */
-.oh-dsh-list-row:has([data-popup-open]),
-.oh-dsh-list-row[data-active],
-.oh-dsh-list-row[data-selected] {
+.dsh-studio-list-row:has([data-popup-open]),
+.dsh-studio-list-row[data-active],
+.dsh-studio-list-row[data-selected] {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) !important;
 }
 
 /* Ensure child main button doesn't clip or block the row hover wash */
-.oh-dsh-list-row:hover .oh-dsh-list-row-main,
-.oh-dsh-list-row:focus-within .oh-dsh-list-row-main,
-.oh-dsh-list-row[data-selected] .oh-dsh-list-row-main,
-.oh-dsh-list-row[data-active] .oh-dsh-list-row-main {
+.dsh-studio-list-row:hover .dsh-studio-list-row-main,
+.dsh-studio-list-row:focus-within .dsh-studio-list-row-main,
+.dsh-studio-list-row[data-selected] .dsh-studio-list-row-main,
+.dsh-studio-list-row[data-active] .dsh-studio-list-row-main {
   background: transparent !important;
 }
 
-.oh-dsh-list-row-main {
+.dsh-studio-list-row-main {
   display: flex;
   min-width: 0;
   flex: 1;
   align-items: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   height: 100%;
   border: 0;
   background: transparent;
   color: inherit;
   text-align: left;
-  padding: 0 var(--oh-dsh-list-row-padding-inline, var(--oh-dsh-space-1-5));
-  font-size: var(--oh-dsh-font-sm);
+  padding: 0 var(--dsh-studio-list-row-padding-inline, var(--dsh-studio-space-1-5));
+  font-size: var(--dsh-studio-font-sm);
   font-family: inherit;
   cursor: pointer;
 }
 
-.oh-dsh-list-row-main:disabled {
+.dsh-studio-list-row-main:disabled {
   cursor: default;
   opacity: 0.5;
 }
 
-.oh-dsh-list-row-leading {
+.dsh-studio-list-row-leading {
   display: inline-flex;
   width: 16px;
   height: 16px;
@@ -81,30 +81,30 @@
   color: var(--dsw-alias-label-tertiary, #8c959f);
 }
 
-.oh-dsh-list-row-leading svg {
+.dsh-studio-list-row-leading svg {
   width: 14px;
   height: 14px;
 }
 
-.oh-dsh-list-row-body {
+.dsh-studio-list-row-body {
   display: flex;
   min-width: 0;
   flex: 1;
   flex-direction: column;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--dsh-studio-space-1);
 }
 
-.oh-dsh-list-row-label {
+.dsh-studio-list-row-label {
   display: flex;
   min-width: 0;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
-  font-size: var(--oh-dsh-font-sm);
+  gap: var(--dsh-studio-space-1);
+  font-size: var(--dsh-studio-font-sm);
   color: inherit;
 }
 
 /* Title text owns ellipsis; sibling marks (status/kind) stay full size. */
-.oh-dsh-list-row-label-text {
+.dsh-studio-list-row-label-text {
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -112,24 +112,24 @@
   white-space: nowrap;
 }
 
-.oh-dsh-list-row-meta {
+.dsh-studio-list-row-meta {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   color: var(--dsw-alias-label-tertiary, #8c959f);
 }
 
-.oh-dsh-list-row-trailing {
+.dsh-studio-list-row-trailing {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
-  padding-right: var(--oh-dsh-space-1);
+  gap: var(--dsh-studio-space-1);
+  padding-right: var(--dsh-studio-space-1);
 }
 
-.oh-dsh-list-row-actions {
+.dsh-studio-list-row-actions {
   /* Overlay on top of the row's trailing area: revealed on hover (or while
      an action menu is open) and absolutely positioned so the trailing
      status stays flush right in the resting state — no reserved slot means
@@ -138,13 +138,13 @@
      by the list itself, so no gradient or solid surface is needed. */
   position: absolute;
   top: 50%;
-  right: var(--oh-dsh-space-1);
+  right: var(--dsh-studio-space-1);
   transform: translateY(-50%);
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
-  padding: 0 var(--oh-dsh-space-0);
-  border-radius: var(--oh-dsh-radius-sm);
+  gap: var(--dsh-studio-space-1);
+  padding: 0 var(--dsh-studio-space-0);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   opacity: 0;
   pointer-events: none;
@@ -153,55 +153,55 @@
 /* Hover or open menu only — not row :focus-within (clicking main steals
    focus and would pin the actions on a merely-selected row). Keyboard
    focus inside the actions cluster still reveals them. */
-.oh-dsh-list-row:hover .oh-dsh-list-row-actions,
-.oh-dsh-list-row:has([data-popup-open]) .oh-dsh-list-row-actions,
-.oh-dsh-list-row-actions:focus-within,
-.oh-dsh-list-row-actions[data-always-visible] {
+.dsh-studio-list-row:hover .dsh-studio-list-row-actions,
+.dsh-studio-list-row:has([data-popup-open]) .dsh-studio-list-row-actions,
+.dsh-studio-list-row-actions:focus-within,
+.dsh-studio-list-row-actions[data-always-visible] {
   opacity: 1;
   pointer-events: auto;
 }
 
 /* Never stack a second wash on icon controls. */
-.oh-dsh-list-row-action-button {
+.dsh-studio-list-row-action-button {
   display: grid;
   place-items: center;
   width: 22px;
   height: 22px;
   padding: 0;
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent !important;
   color: var(--dsw-alias-label-tertiary, #8c959f);
   cursor: pointer;
 }
 
-.oh-dsh-list-row-action-button:hover,
-.oh-dsh-list-row-action-button:focus-visible,
-.oh-dsh-list-row-action-button[data-popup-open],
-.oh-dsh-list-row-action-button[aria-expanded='true'] {
+.dsh-studio-list-row-action-button:hover,
+.dsh-studio-list-row-action-button:focus-visible,
+.dsh-studio-list-row-action-button[data-popup-open],
+.dsh-studio-list-row-action-button[aria-expanded='true'] {
   color: var(--dsw-alias-label-primary, #1f2328);
   background: transparent !important;
 }
 
 /* Nested list under a disclosure row — full-width hover track. */
-.oh-dsh-list-row-nested {
+.dsh-studio-list-row-nested {
   display: flex;
   flex-direction: column;
-  gap: var(--oh-dsh-list-row-gap, var(--oh-dsh-space-1));
+  gap: var(--dsh-studio-list-row-gap, var(--dsh-studio-space-1));
   padding: 0;
   min-width: 0;
 }
 
 /* Nested rows with their own leading share the parent chevron column.
    Only indent when the nested row has no leading slot. */
-.oh-dsh-list-row-nested > .oh-dsh-list-row .oh-dsh-list-row-main:not(:has([data-slot='list-row-leading'])) {
-  padding-left: calc(var(--oh-dsh-space-1-5) + 16px + var(--oh-dsh-space-2));
+.dsh-studio-list-row-nested > .dsh-studio-list-row .dsh-studio-list-row-main:not(:has([data-slot='list-row-leading'])) {
+  padding-left: calc(var(--dsh-studio-space-1-5) + 16px + var(--dsh-studio-space-2));
 }
 
-.oh-dsh-list-row-nested-status {
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-1-5) var(--oh-dsh-space-1)
-    calc(var(--oh-dsh-space-1-5) + 16px + var(--oh-dsh-space-2));
+.dsh-studio-list-row-nested-status {
+  padding: var(--dsh-studio-space-1) var(--dsh-studio-space-1-5) var(--dsh-studio-space-1)
+    calc(var(--dsh-studio-space-1-5) + 16px + var(--dsh-studio-space-2));
   color: var(--dsw-alias-label-tertiary, #8c959f);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   text-align: left;
 }

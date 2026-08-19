@@ -1,6 +1,6 @@
 # 官方 DSH 插件迁移指南（通用路线，非一次性补丁）
 
-> 目标：任何官方 `dsh.client` 插件都能按同一套流程迁入 Oh-DSH-Desktop，
+> 目标：任何官方 `dsh.client` 插件都能按同一套流程迁入 DSH Studio，
 > 而不是为每个插件手写垫片。本文是官方机制的第一手梳理 + 迁移配方。
 >
 > 官方源码：`.cache/dsh-source/<commit>/`（完整 monorepo 克隆，dsh-root
@@ -77,21 +77,21 @@ window.__ModuleLoader__.load({
 
 ## 2. 我们桌面端的接入面（现状）
 
-- **profile 组装**（`src/profile.ts`）：`dsh-base` + `dsh-web-app` + `@oh-dsh/desktop`
+- **profile 组装**（`src/profile.ts`）：`dsh-base` + `dsh-web-app` + `@dsh-studio/desktop`
   三个 bundle 层；`BUNDLED_DESKTOP_PLUGINS` 列出桌面自带插件。
-- **插件包**：`plugins/<name>/`，名字 `@oh-dsh/<name>`，`package.json` 带
+- **插件包**：`plugins/<name>/`，名字 `@dsh-studio/<name>`，`package.json` 带
   `dsh.client.inject`（与官方清单同构）。根 `cordis.patch.yml` 追加：
   ```yaml
   - id: ui-workspace          # 官方行：禁用
     disabled: true
   - insert:
       - id: oh-desktop-left-rail   # 我们的行：同名槽注册我们的实现
-        name: '@oh-dsh/desktop-left-rail'
+        name: '@dsh-studio/desktop-left-rail'
   ```
 - **构建/同步**：esbuild 打 `dist/plugins/<name>/client.js`（同样是
   `__ModuleLoader__.load({id, factory})` 闭包工厂，与官方同构）；
   `scripts/dev.mjs` 把 6 个包的 `package.json` + dist 同步进
-  `.stage/dsh-runtime/node_modules/@oh-dsh/*`（profile 里是符号链接，
+  `.stage/dsh-runtime/node_modules/@dsh-studio/*`（profile 里是符号链接，
   **package.json 缺失会让加载失败**）；官方 `client-modules` 直接服务这些 bundle。
 - **hot reload**：编辑 `plugins/*/src/client.*` → dev.mjs 重建 + 同步，
   HMR node 半通知浏览器刷新 bundle。
@@ -143,7 +143,7 @@ window.__ModuleLoader__.load({
 已验证的事实：
 
 - 官方 `ui-workspace` 行禁用后**整包从 boot 图消失**（44 条 entry 无它），
-  我们的 `@oh-dsh/desktop-left-rail` 是一等公民 entry（`immediately: true`）。
+  我们的 `@dsh-studio/desktop-left-rail` 是一等公民 entry（`immediately: true`）。
 - 运行时 `require` 能解析的官方模块：平台种子 + boot 图里注册的 bundle。
   **`ui-primitives` 是平台种子** —— 本地 primitives shim 已整体删除，
   fork 直接 external 官方 `@deepseek-ai/dsh-client-ui-primitives`

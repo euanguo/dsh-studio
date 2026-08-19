@@ -1,15 +1,15 @@
 {
-  "name": "@oh-dsh/desktop",
-  "productName": "Oh-DSH Desktop",
+  "name": "@dsh-studio/desktop",
+  "productName": "DSH Studio",
   "version": "0.1.5",
-  "description": "Oh-DSH: installable Desktop, Web, and TUI surfaces over DeepSeek Harness",
+  "description": "DSH Studio: a local Desktop and Web workbench over DeepSeek Harness",
   "author": "dsh-external",
-  "desktopName": "oh-dsh-desktop.desktop",
+  "desktopName": "dsh-studio.desktop",
   "private": true,
   "type": "module",
   "main": "dist/main.js",
   "bin": {
-    "ohdsh": "bin/ohdsh"
+    "dsh-studio": "bin/dsh-studio"
   },
   "exports": {
     ".": {
@@ -24,9 +24,9 @@
     "dist/client.js",
     "dist/client.js.map",
     "dist/cordis.patch.yml",
-    "dist/ohdsh.js",
-    "bin/ohdsh",
-    "bin/ohdsh.cmd"
+    "dist/dsh-studio.js",
+    "bin/dsh-studio",
+    "bin/dsh-studio.cmd"
   ],
   "dsh": {
     "bundle": {
@@ -36,11 +36,11 @@
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
         "@deepseek-ai/dsh-client-ui-layout",
-        "@oh-dsh/panel-controls",
-        "@oh-dsh/pinned-summary",
-        "@oh-dsh/sidebar",
-        "@oh-dsh/sidebar-desktop",
-        "@oh-dsh/plugin-marketplace"
+        "@dsh-studio/panel-controls",
+        "@dsh-studio/pinned-summary",
+        "@dsh-studio/sidebar",
+        "@dsh-studio/sidebar-desktop",
+        "@dsh-studio/plugin-marketplace"
       ],
       "platform": "web",
       "immediately": true
@@ -55,17 +55,17 @@
     "check:plugins": "node scripts/smoke-runtime.mjs",
     "check:sidebar-source": "node scripts/check-sidebar-source.mjs",
     "smoke:runtime": "node scripts/smoke-runtime.mjs",
-    "smoke:app": "node scripts/smoke-runtime.mjs \"release/mac-arm64/Oh-DSH Desktop.app/Contents/Resources\"",
+    "smoke:app": "node scripts/smoke-runtime.mjs \"release/mac-arm64/DSH Studio.app/Contents/Resources\"",
     "smoke:app:linux": "node scripts/smoke-runtime.mjs \"release/linux-unpacked/resources\"",
     "smoke:web": "node scripts/smoke-web.mjs",
     "smoke:web:package": "node scripts/smoke-web.mjs release",
     "install:mac": "node scripts/install-mac.mjs",
-    "ohdsh": "pnpm run build && pnpm run stage:dsh && node dist/ohdsh.js",
+    "dsh-studio": "pnpm run build && pnpm run stage:dsh && node dist/dsh-studio.js",
     "web": "pnpm run build && pnpm run stage:dsh && node dist/web.js",
-    "tui": "pnpm run build && pnpm run stage:dsh && node dist/ohdsh.js tui",
+    "tui": "pnpm run build && pnpm run stage:dsh && node dist/dsh-studio.js tui",
     "start": "pnpm run build && pnpm run stage:dsh && electron .",
     "dev": "node scripts/dev.mjs",
-    "check:screenshot": "electron scripts/check-screenshot-corners.cjs assets/oh-dsh-desktop-ui.png",
+    "check:screenshot": "electron scripts/check-screenshot-corners.cjs assets/dsh-studio-ui.png",
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p plugins/sidebar-host/tsconfig.json",
     "dist:mac": "pnpm run build && pnpm run build:dsh && pnpm run stage:dsh && node scripts/build-mac.mjs",
@@ -85,10 +85,10 @@
     "smoke:pack": "node scripts/smoke-pack.mjs"
   },
   "devDependencies": {
-    "@oh-dsh/panel-controls": "workspace:*",
-    "@oh-dsh/pinned-summary": "workspace:*",
-    "@oh-dsh/shared": "workspace:*",
-    "@oh-dsh/sidebar": "workspace:*",
+    "@dsh-studio/panel-controls": "workspace:*",
+    "@dsh-studio/pinned-summary": "workspace:*",
+    "@dsh-studio/shared": "workspace:*",
+    "@dsh-studio/sidebar": "workspace:*",
     "@types/node": "^24.10.0",
     "@types/semver": "7.8.0",
     "cordis": "4.0.0-rc.8",
@@ -104,8 +104,8 @@
     "node": ">=24"
   },
   "build": {
-    "appId": "ai.deepseek.oh-dsh-desktop",
-    "productName": "Oh-DSH Desktop",
+    "appId": "ai.deepseek.dsh-studio",
+    "productName": "DSH Studio",
     "asar": true,
     "afterPack": "scripts/after-pack.cjs",
     "directories": {
@@ -135,29 +135,29 @@
       },
       {
         "from": "assets/icons/512x512.png",
-        "to": "oh-dsh-desktop.png"
+        "to": "dsh-studio.png"
       },
       {
-        "from": "dist/ohdsh.js",
-        "to": "lib/oh-dsh/cli.js"
+        "from": "dist/dsh-studio.js",
+        "to": "lib/dsh-studio/cli.js"
       },
       {
         "from": "dist/release-package.json",
-        "to": "lib/oh-dsh/package.json"
+        "to": "lib/dsh-studio/package.json"
       },
       {
         "from": "bin",
         "to": "bin",
         "filter": [
-          "ohdsh",
-          "ohdsh.cmd"
+          "dsh-studio",
+          "dsh-studio.cmd"
         ]
       }
     ],
     "publish": {
       "provider": "github",
-      "owner": "hust-open-atom-club",
-      "repo": "oh-dsh"
+      "owner": "euanguo",
+      "repo": "oh-dsh-app"
     },
     "mac": {
       "category": "public.app-category.developer-tools",
@@ -165,21 +165,21 @@
         "dmg",
         "zip"
       ],
-      "icon": "assets/Oh-DSH-Desktop.icns",
+      "icon": "assets/DSH Studio.icns",
       "darkModeSupport": true,
       "minimumSystemVersion": "12.0.0",
       "extendInfo": {
-        "NSAppleEventsUsageDescription": "Oh-DSH Desktop uses Apple Events only when a DeepSeek Harness tool needs to interact with a Mac app.",
-        "NSDesktopFolderUsageDescription": "Oh-DSH Desktop needs access to workspaces you select on the Desktop.",
-        "NSDocumentsFolderUsageDescription": "Oh-DSH Desktop needs access to workspaces you select in Documents.",
-        "NSDownloadsFolderUsageDescription": "Oh-DSH Desktop needs access to workspaces you select in Downloads."
+        "NSAppleEventsUsageDescription": "DSH Studio uses Apple Events only when a DeepSeek Harness tool needs to interact with a Mac app.",
+        "NSDesktopFolderUsageDescription": "DSH Studio needs access to workspaces you select on the Desktop.",
+        "NSDocumentsFolderUsageDescription": "DSH Studio needs access to workspaces you select in Documents.",
+        "NSDownloadsFolderUsageDescription": "DSH Studio needs access to workspaces you select in Downloads."
       }
     },
     "linux": {
       "category": "Development",
       "icon": "assets/icons",
       "maintainer": "dsh-external",
-      "executableName": "oh-dsh-desktop",
+      "executableName": "dsh-studio",
       "syncDesktopName": true,
       "synopsis": "An extensible DeepSeek Harness desktop workbench",
       "target": [
@@ -200,8 +200,8 @@
       "runAfterFinish": true
     },
     "dmg": {
-      "title": "Oh-DSH Desktop ${version}",
-      "artifactName": "Oh-DSH-Desktop-${version}-${arch}.${ext}",
+      "title": "DSH Studio ${version}",
+      "artifactName": "DSH Studio-${version}-${arch}.${ext}",
       "window": {
         "width": 540,
         "height": 380
@@ -220,7 +220,7 @@
         }
       ]
     },
-    "artifactName": "Oh-DSH-Desktop-${version}-${arch}.${ext}"
+    "artifactName": "DSH Studio-${version}-${arch}.${ext}"
   },
   "dependencies": {
     "@upsetjs/venn.js": "^2.0.0",

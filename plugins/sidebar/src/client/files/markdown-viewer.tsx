@@ -13,7 +13,7 @@ import remarkGfm from 'remark-gfm'
 import { codeToHtml } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { findTaskMarkerSourceLines } from './markdown-task-list.ts'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/scrollable'
 
 export interface MarkdownViewerProps {
   content: string
@@ -36,9 +36,9 @@ export function MarkdownViewer({
   let taskCursor = -1
 
   return (
-    <Scrollable ref={containerRef} className="oh-dsh-content-markdown" data-testid="markdown-viewer">
+    <Scrollable ref={containerRef} className="dsh-studio-content-markdown" data-testid="markdown-viewer">
       {headings.length > 1 ? (
-        <nav className="oh-dsh-markdown-toc" aria-label="Table of contents">
+        <nav className="dsh-studio-markdown-toc" aria-label="Table of contents">
           {headings.map(heading => (
             <a key={heading.id} href={`#${heading.id}`} style={{ paddingLeft: `${(heading.level - 1) * 10}px` }}>
               {heading.text}
@@ -95,7 +95,7 @@ export function MarkdownViewer({
             return (
               <input
                 type="checkbox"
-                className="oh-dsh-markdown-task-checkbox"
+                className="dsh-studio-markdown-task-checkbox"
                 checked={checked}
                 disabled={!interactive}
                 {...(interactive && sourceLine !== undefined
@@ -141,7 +141,7 @@ function MarkdownCodeBlock({
 
   if (html === null) {
     return (
-      <pre className="oh-dsh-markdown-code-block">
+      <pre className="dsh-studio-markdown-code-block">
         <code>{text}</code>
       </pre>
     )
@@ -150,7 +150,7 @@ function MarkdownCodeBlock({
   // styling consistent with the pre-highlight placeholder.
   return (
     <div
-      className="oh-dsh-markdown-code-block oh-dsh-markdown-code-shiki"
+      className="dsh-studio-markdown-code-block dsh-studio-markdown-code-shiki"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

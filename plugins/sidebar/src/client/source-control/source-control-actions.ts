@@ -1,7 +1,7 @@
 import type {
   SidebarGitConflictOperation,
   SidebarGitUpstreamStatus,
-} from '@oh-dsh/shared/sidebar-api'
+} from '@dsh-studio/shared/sidebar-api'
 
 /** Every source-control operation exposed by the commit-area controls. */
 export type SourceControlActionKind =

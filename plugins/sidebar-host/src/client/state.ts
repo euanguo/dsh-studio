@@ -9,7 +9,7 @@
  * divides the space row- or column-wise with fractional sizes. All tree
  * operations are pure functions over the node, unit-tested in tests/state.spec.ts.
  */
-import { SIDEBAR_PREFS_DEFAULTS, type SidebarPrefs } from '@oh-dsh/shared/prefs-shared'
+import { SIDEBAR_PREFS_DEFAULTS, type SidebarPrefs } from '@dsh-studio/shared/prefs-shared'
 import { isNarrowWidth } from './breakpoints.ts'
 export {
   allLeaves,

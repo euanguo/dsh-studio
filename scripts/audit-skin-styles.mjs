@@ -221,7 +221,7 @@ const covered = new Set()
 for (const m of generated.matchAll(/'\.(-?[A-Za-z_][A-Za-z0-9_-]*(?::not\([^)]*\))*)'/g)) {
   covered.add(m[1].split(':not(')[0].replace(/^\./, ''))
 }
-const ownLiteral = new Set(['oh-dsh-skins-tile'])
+const ownLiteral = new Set(['dsh-studio-skins-tile'])
 
 // ---- 输出 ----
 const args = process.argv.slice(2)

@@ -11,7 +11,7 @@ import {
   IconTrashOutline16, IconTriangleRightFill14,
   type MenuEntry, type MenuItem,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import { IconGitBranch } from '@oh-dsh/shared/tabler-icons'
+import { IconGitBranch } from '@dsh-studio/shared/tabler-icons'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { ActionSelection } from '../domain/commands.ts'
 import { projectActionDescriptors, worktreeActionDescriptors } from '../domain/action-descriptors.ts'

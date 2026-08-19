@@ -129,7 +129,7 @@ function repositoryRawUrl(repository: string, path: string): string {
 }
 
 function catalogCachePath(environment: NodeJS.ProcessEnv): string | null {
-  const appDataPath = environment.DSH_DESKTOP_APP_DATA
+  const appDataPath = environment.DSH_STUDIO_DESKTOP_APP_DATA
   if (appDataPath === undefined || appDataPath === '') return null
   return join(appDataPath, 'plugin-marketplace', 'catalog-cache.json')
 }
@@ -245,7 +245,7 @@ export function findGitHubCli(
   platform: NodeJS.Platform = process.platform,
   isExecutable: (path: string) => boolean = executable,
 ): string | null {
-  const explicit = environment.DSH_DESKTOP_GH_PATH
+  const explicit = environment.DSH_STUDIO_GH_PATH
   if (explicit !== undefined && isExecutable(explicit)) return explicit
   const paths = platform === 'win32' ? win32 : posix
   const executableNames = platform === 'win32' ? ['gh.exe', 'gh.cmd', 'gh'] : ['gh']
@@ -281,7 +281,7 @@ export function withGitHubCredentials(
 ): NodeJS.ProcessEnv {
   const clean = withoutCommandLineGitConfig(environment)
   if (ghPath === null) return clean
-  const appDataPath = clean.DSH_DESKTOP_APP_DATA
+  const appDataPath = clean.DSH_STUDIO_DESKTOP_APP_DATA
   if (appDataPath === undefined || appDataPath === '') return clean
   const directory = join(appDataPath, 'plugin-marketplace')
   const configPath = join(directory, 'gitconfig')
@@ -401,8 +401,8 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
     const env = withGitHubCredentials({
       ...this.#options.env,
       CI: 'true',
-      DSH_DESKTOP_APP_DATA: input.sandboxRoot,
-      DSH_DESKTOP_PREVIEW: '1',
+      DSH_STUDIO_DESKTOP_APP_DATA: input.sandboxRoot,
+      DSH_STUDIO_PREVIEW: '1',
       HOME: input.sandboxRoot,
       TMPDIR: temporary,
     }, this.#ghPath)
@@ -451,11 +451,11 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
   }
 
   async loadCatalog(options: LoadCatalogOptions = {}): Promise<unknown> {
-    const locator = this.#options.env.OH_DSH_MARKETPLACE_CATALOG
+    const locator = this.#options.env.DSH_STUDIO_MARKETPLACE_CATALOG
       ?? `${MARKETPLACE_CATALOG_REPOSITORY}/${MARKETPLACE_CATALOG_PATH}`
     const match = /^([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)\/(.+)$/.exec(locator)
     if (match === null) {
-      throw new Error('OH_DSH_MARKETPLACE_CATALOG must be owner/repository/path')
+      throw new Error('DSH_STUDIO_MARKETPLACE_CATALOG must be owner/repository/path')
     }
     validateRepository(match[1] ?? '')
     const repository = match[1] ?? ''
@@ -492,7 +492,7 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
     try {
       const headers: Record<string, string> = {
         accept: 'application/json',
-        'user-agent': 'oh-dsh-desktop',
+        'user-agent': 'dsh-studio',
       }
       if (cached?.etag !== null && cached?.etag !== undefined) {
         headers['if-none-match'] = cached.etag
@@ -640,8 +640,8 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
     if (sandboxed) mkdirSync(temporary, { recursive: true, mode: 0o700 })
     const env = withGitHubCredentials({
       ...this.#options.env,
-      DSH_DESKTOP_APP_DATA: input.sandboxRoot,
-      ...(sandboxed ? { DSH_DESKTOP_PREVIEW: '1', TMPDIR: temporary } : {}),
+      DSH_STUDIO_DESKTOP_APP_DATA: input.sandboxRoot,
+      ...(sandboxed ? { DSH_STUDIO_PREVIEW: '1', TMPDIR: temporary } : {}),
       DSH_HOME: input.dshHome,
     }, this.#ghPath)
     const nodeArguments = [this.#options.cliEntry, ...input.args]
@@ -670,5 +670,5 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
 
 /** Stable preview temp root used by tests and UI diagnostics. */
 export function defaultPreviewTemporaryRoot(): string {
-  return join(tmpdir(), 'oh-dsh-plugin-preview')
+  return join(tmpdir(), 'dsh-studio-plugin-preview')
 }

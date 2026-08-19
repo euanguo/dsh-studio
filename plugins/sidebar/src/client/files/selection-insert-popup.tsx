@@ -11,7 +11,7 @@
  * (`ReviewCommentsService.appendToComposer`).
  */
 import { useEffect, useRef, useState, type RefObject } from 'react'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
   afterSelectionCommit,
@@ -154,13 +154,13 @@ export function SelectionInsertPopup({
   return (
     <div
       ref={popupRef}
-      className="oh-dsh-selection-insert"
+      className="dsh-studio-selection-insert"
       role="dialog"
       aria-label={t('files.selection-add')}
       style={{ left: popup.x, top: popup.y }}
       onMouseDown={event => { event.preventDefault() }}
     >
-      <span className="oh-dsh-selection-insert-meta">
+      <span className="dsh-studio-selection-insert-meta">
         {popup.text.length > SELECTION_LIMIT
           ? t('files.selection-over-limit')
           : `${popup.text.length} chars${lineLabel === '' ? '' : ` · ${lineLabel}`}`}

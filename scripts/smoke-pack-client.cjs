@@ -1,7 +1,7 @@
 /**
  * Minimal Electron render harness for the packed-artifact smoke
  * (scripts/smoke-pack.mjs). Loads the booted DSH runtime and asserts the
- * Oh-DSH sidebar MOUNTS with no plugin-load error bar — the "mount + no
+ * DSH Studio sidebar MOUNTS with no plugin-load error bar — the "mount + no
  * crash" granularity of the CI gate. Deliberately avoids smoke-client.cjs's
  * geometry/vision assertions (those cover the left-rail rework separately).
  */
@@ -61,8 +61,8 @@ void app.whenReady().then(async () => {
         if (onboardingButton !== undefined) onboardingButton.click()
         return {
           body: document.body?.innerText ?? '',
-          sidebarRoot: document.getElementById('oh-dsh-sidebar-root') !== null,
-          terminalRoot: document.getElementById('oh-dsh-terminal-root') !== null,
+          sidebarRoot: document.getElementById('dsh-studio-sidebar-root') !== null,
+          terminalRoot: document.getElementById('dsh-studio-terminal-root') !== null,
         }
       })()`)
       if (state.body.includes('Failed to load plugins')) {

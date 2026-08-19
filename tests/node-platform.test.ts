@@ -13,7 +13,7 @@ test('Node distribution platforms normalize native Windows hosts', () => {
 
 test('Node distribution platform overrides remain authoritative', () => {
   assert.equal(resolveNodeDistributionPlatform({
-    DSH_DESKTOP_NODE_PLATFORM: 'linux',
+    DSH_STUDIO_NODE_PLATFORM: 'linux',
   }, 'win32'), 'linux')
   assert.equal(resolveNodeDistributionPlatform({}, 'win32'), 'win')
 })

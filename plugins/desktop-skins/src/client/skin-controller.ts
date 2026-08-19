@@ -49,11 +49,11 @@ function builtinPreference(value: string | null): value is 'light' | 'dark' | 's
 /** The default skins that replace the official light/dark themes: the
  *  ChatGPT pair. `system` resolves against the active scheme at the time
  *  of the call. */
-const DEFAULT_SKINS = new Set(['oh-dsh-skin-chatgpt-night', 'oh-dsh-skin-chatgpt-day'])
+const DEFAULT_SKINS = new Set(['dsh-studio-skin-chatgpt-night', 'dsh-studio-skin-chatgpt-day'])
 
 function skinForFallback(preference: 'light' | 'dark' | 'system', activeScheme: 'light' | 'dark'): string {
   const scheme = preference === 'system' ? activeScheme : preference
-  return scheme === 'dark' ? 'oh-dsh-skin-chatgpt-night' : 'oh-dsh-skin-chatgpt-day'
+  return scheme === 'dark' ? 'dsh-studio-skin-chatgpt-night' : 'dsh-studio-skin-chatgpt-day'
 }
 
 /** Coordinates the official theme registry, durable skin choice, and DOM. */

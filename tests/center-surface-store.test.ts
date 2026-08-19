@@ -253,9 +253,9 @@ test('terminal titles update the center tab without changing its identity', () =
   reset()
   const store = useCenterSurfaceStore.getState()
   store.openTerminal({ cwd: CWD, title: '终端' })
-  store.updateSurfaceTitle(CWD, 'terminal:1', 'zsh — oh-dsh')
+  store.updateSurfaceTitle(CWD, 'terminal:1', 'zsh — dsh-studio')
   const terminal = slice().open.find(surface => surface.id === 'terminal:1')
-  assert.equal(terminal?.title, 'zsh — oh-dsh')
+  assert.equal(terminal?.title, 'zsh — dsh-studio')
   assert.equal(terminal?.id, 'terminal:1')
 })
 

@@ -1,0 +1,23 @@
+#!/usr/bin/env sh
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+
+if [ -x "$ROOT/node-runtime/bin/node" ] && [ -f "$ROOT/lib/dsh-studio/cli.js" ]; then
+  export DSH_STUDIO_WEB_ROOT="$ROOT"
+  export DSH_STUDIO_TUI_ROOT="$ROOT"
+  case "$ROOT" in
+    */Contents/Resources)
+      export DSH_STUDIO_DESKTOP_APP="${ROOT%/Contents/Resources}"
+      ;;
+  esac
+  exec "$ROOT/node-runtime/bin/node" "$ROOT/lib/dsh-studio/cli.js" "$@"
+fi
+
+if [ ! -f "$ROOT/dist/dsh-studio.js" ]; then
+  printf '%s\n' 'DSH Studio is not built. Run pnpm run build first.' >&2
+  exit 1
+fi
+
+export DSH_STUDIO_SOURCE_ROOT="$ROOT"
+exec node "$ROOT/dist/dsh-studio.js" "$@"

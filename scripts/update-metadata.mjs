@@ -121,7 +121,7 @@ export function verifyMetadata({ dir, version, platform }) {
   })
   if (candidates.length !== 1) throw new Error(`expected one ${platform} updater asset, found ${String(candidates.length)}`)
   const selected = verifyFile(dir, candidates[0], rule.blockmap)
-  if (metadata.files.some(file => assetName(file).toLowerCase().includes('oh-dsh-web'))) {
+  if (metadata.files.some(file => assetName(file).toLowerCase().includes('dsh-studio-web'))) {
     throw new Error(`web distribution was included in ${rule.metadata}`)
   }
   return { metadataPath, selected, version: metadata.version }

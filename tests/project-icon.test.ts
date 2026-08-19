@@ -8,7 +8,7 @@ import { detectProjectIcon } from '../plugins/sidebar-host/src/project-icon.ts'
 const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
 async function withTempProject(run: (root: string) => Promise<void>): Promise<void> {
-  const root = await mkdtemp(join(tmpdir(), 'oh-dsh-project-icon-'))
+  const root = await mkdtemp(join(tmpdir(), 'dsh-studio-project-icon-'))
   try {
     await run(root)
   } finally {

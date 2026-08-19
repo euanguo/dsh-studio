@@ -7,7 +7,7 @@
  *   3. token 校验（scripts/verify-skin-tokens.mjs，官方 89 键零缺失对拍）。
  *
  * 数值来源：ChatGPT 桌面端（Codex v151）实测 + 派生复算（chatgpt-skin-research
- * 报告），与参考实现 ohdsh-v015 的 skins.ts 逐键一致。第二梯队（43 键）按
+ * 报告），与参考实现 dsh-studio-v015 的 skins.ts 逐键一致。第二梯队（43 键）按
  * night=rgba(255,255,255,α) 白系推导、day=rgba(26,28,31,α) 黑系推导。
  *
  * 注意：tokens 里 tui 适配器需要的键必须是 hex（缺失会抛错），不要引入
@@ -191,7 +191,7 @@ export const CHATGPT_DAY_TOKENS = {
 /*
  * 颜色修正层（第二份单一事实源）：官方 design-platform.css 之外、但 ChatGPT
  * 皮肤需要的补充键（tooltip/toast、状态 business、shiki 高亮、阴影、遮罩等）。
- * 插件把它渲染成 body[data-oh-dsh-skin=…] 覆盖块；构建期烘焙把它们与上面的
+ * 插件把它渲染成 body[data-dsh-studio-skin=…] 覆盖块；构建期烘焙把它们与上面的
  * token 表一起写进 dist 的 index-*.css（默认主题原生即 ChatGPT）。
  */
 export const CHATGPT_NIGHT_COLOR_TOKENS = {

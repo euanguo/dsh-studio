@@ -14,8 +14,8 @@ import type { Context } from './context-types.ts'
 import { isLoopbackHostname } from './trust-fence.ts'
 import { extractFrameAncestors } from './browser-probe.ts'
 import type { ResolvedSidebarConfig } from './config.ts'
-import { isWithin, requireAbsolute, listDirectory, parentOf, rootLabel } from '@oh-dsh/shared/fs-tree'
-import * as git from '@oh-dsh/shared/git-core'
+import { isWithin, requireAbsolute, listDirectory, parentOf, rootLabel } from '@dsh-studio/shared/fs-tree'
+import * as git from '@dsh-studio/shared/git-core'
 import { SettingsConflictError } from '@deepseek-ai/dsh-settings'
 import type { PtyManager } from './pty-manager.ts'
 import type { AgentPtyRegistry } from './agent-pty.ts'
@@ -41,9 +41,9 @@ import {
   optionalString,
   requireString,
   SidebarError,
-} from '@oh-dsh/shared/wire'
+} from '@dsh-studio/shared/wire'
 
-import { SIDEBAR_PREFS_NS } from '@oh-dsh/shared/prefs-shared'
+import { SIDEBAR_PREFS_NS } from '@dsh-studio/shared/prefs-shared'
 
 export type ApiMethod = (payload: unknown) => Promise<unknown> | unknown
 
@@ -67,7 +67,7 @@ function isSettingsPathOp(value: unknown): value is SettingsPathEdit {
  * Resolve which registered settings namespace a client payload addresses.
  * Absent/blank falls back to the sidebar prefs namespace so the side card's
  * historical callers (which never sent `ns`) keep working unchanged; the
- * left-rail sends `oh-dsh-left-rail` explicitly.
+ * left-rail sends `dsh-studio-left-rail` explicitly.
  */
 function settingsNamespaceOf(payload: unknown): string {
   const record = payload as { ns?: unknown } | null
@@ -253,7 +253,7 @@ async function readText(path: string, readLimit: number): Promise<{
  * write THESE namespaces through the plugin's own fenced /sidebar routes,
  * which call the seam in-process — no configuration-client gate involved.
  * Every method takes the target namespace (`dsh-better-sidebar` for the side
- * card prefs, `oh-dsh-left-rail` for the left-rail view slice).
+ * card prefs, `dsh-studio-left-rail` for the left-rail view slice).
  */
 export interface SidebarSettingsFace {
   /** The current resolved value + revision for one namespace (undefined while the settings service is absent). */
@@ -721,7 +721,7 @@ export function buildSidebarRoutes(
     // Workspace-level facts/mutations (fork): the same bare-cwd scope as the
     // worktree endpoints, serving the source-control panel's repository
     // snapshot and its branch-create/push actions. Folding them here (from
-    // the former self-hosted /oh-dsh/workspace route) keeps ONE host API
+    // the former self-hosted /dsh-studio/workspace route) keeps ONE host API
     // surface behind ONE trust fence for every panel data channel.
     'workspace.facts': (payload) => {
       return readWorkspaceFacts(cwdScopeOf(payload))

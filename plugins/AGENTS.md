@@ -1,7 +1,7 @@
 # AGENTS.md — Desktop plugins
 
 These rules apply under `plugins/`. They narrow the repository
-[AGENTS.md](../AGENTS.md) for Oh-DSH Cordis plugins that render into the
+[AGENTS.md](../AGENTS.md) for DSH Studio Cordis plugins that render into the
 DSH web client.
 
 ## Official chrome
@@ -11,8 +11,8 @@ DSH web client.
 `external` so the frozen module table supplies one copy.
 
 Use these atoms for plugin chrome. Import them from the official package.
-Do not re-export them from `@oh-dsh/shared`. Do not add a wrapper that
-preserves a retired Oh-DSH name or prop list.
+Do not re-export them from `@dsh-studio/shared`. Do not add a wrapper that
+preserves a retired DSH Studio name or prop list.
 
 | Need | Official export |
 | --- | --- |
@@ -35,23 +35,23 @@ marketplace chrome.
 ## Icons
 
 Icons are not required to come from official primitives. Sidebar and
-other Oh-DSH chrome use the installed `@tabler/icons-react` set via
-`@oh-dsh/shared/tabler-icons` (16px, stroke 1.5). File trees use
+other DSH Studio chrome use the installed `@tabler/icons-react` set via
+`@dsh-studio/shared/tabler-icons` (16px, stroke 1.5). File trees use
 `FileGlyph`. Official `Icon*` glyphs are optional for left-rail and
 other surfaces that already match the official product.
 
 ## Tokens
 
 Colors, type, and elevation come from `--dsw-alias-*` (and `--dsw-static-*`
-when a semantic alias does not exist). `@oh-dsh/shared/theme.css` may add
+when a semantic alias does not exist). `@dsh-studio/shared/theme.css` may add
 spacing, radius, and control-size bridges that DSW does not name. Feature
 CSS must not introduce a second palette.
 
 ## Do not invent a second kit
 
-There is no Oh-DSH Button, Dialog, Toast surface, or icon alias layer.
+There is no DSH Studio Button, Dialog, Toast surface, or icon alias layer.
 A product-only composite (ListRow, SurfaceTab, a settings section) may
-live in `@oh-dsh/shared` or a plugin. It composes official atoms; it does
+live in `@dsh-studio/shared` or a plugin. It composes official atoms; it does
 not restyle them into a parallel language.
 
 Do not import components from another official UI plugin

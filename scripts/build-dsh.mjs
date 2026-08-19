@@ -45,7 +45,7 @@ function run(args) {
 }
 
 // NOTE: the former withVisionSettingsNamespace() wrapper patched the pinned
-// API-proxy settings allowlist for the @oh-dsh/vision plugin. That plugin
+// API-proxy settings allowlist for the @dsh-studio/vision plugin. That plugin
 // tree was removed by the desktop reconciliation (desktop-skins replaced
 // the skins surface; vision had no successor), so the patch served a dead
 // namespace while making the whole DSH build fail whenever upstream reflows

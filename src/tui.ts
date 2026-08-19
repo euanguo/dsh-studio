@@ -1,11 +1,11 @@
-/** Oh-DSH TUI launcher over the pinned upstream dsh-TUI bundle. */
+/** DSH Studio TUI launcher over the pinned upstream dsh-TUI bundle. */
 
 import { spawn, type SpawnOptions } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
-import { defaultOhDshHome, hasOhDshHomeOverride, parseOhDshChannel, resolveOhDshHome } from './data-root.ts'
+import { defaultDshStudioHome, hasDshStudioHomeOverride, parseDshStudioChannel, resolveDshStudioHome } from './data-root.ts'
 import { UsageError } from './errors.ts'
 import { ensureTuiProfile, TUI_PROFILE } from './profile.ts'
 import {
@@ -15,8 +15,8 @@ import {
 } from './runtime-paths.ts'
 import { resolveProductVersion } from './version.ts'
 
-/** Default Oh-DSH-owned home, isolated from the upstream DSH CLI. */
-export const DEFAULT_TUI_HOME = defaultOhDshHome()
+/** Default DSH Studio-owned home, isolated from the upstream DSH CLI. */
+export const DEFAULT_TUI_HOME = defaultDshStudioHome()
 
 /** TUI launch options resolved from command-line flags and environment. */
 export interface TuiLaunchOptions {
@@ -40,12 +40,12 @@ export interface TuiLaunchSpec {
 
 export type TuiSpawner = typeof spawn
 
-const USAGE = `usage: ohdsh tui [options]
+const USAGE = `usage: dsh-studio tui [options]
 
 Options:
   --cwd <dir>            workspace directory (default: current directory)
-  --data <dir>           DSH home and session store (default: ~/.ohdsh)
-  --channel <stable|dev> isolate state (default: stable; dev uses ~/.ohdsh-dev)
+  --data <dir>           DSH home and session store (default: ~/.dsh-studio)
+  --channel <stable|dev> isolate state (default: stable; dev uses ~/.dsh-studio-dev)
   --resume <session>     resume an existing session id
   --lang <zh|en>         initial interface language
   --preset <name>        initial agent preset
@@ -54,8 +54,8 @@ Options:
   --help                 show this help
 
 Environment:
-  OH_DSH_HOME, OH_DSH_CHANNEL, DSH_OH_TUI_HOME, DSH_OH_TUI_CWD, DSH_OH_TUI_FULLSCREEN,
-  DSH_OH_TUI_LANG, DSH_OH_TUI_PRESET, DSH_OH_TUI_SESSION_ID
+  DSH_STUDIO_HOME, DSH_STUDIO_CHANNEL, DSH_STUDIO_TUI_HOME, DSH_STUDIO_TUI_CWD, DSH_STUDIO_TUI_FULLSCREEN,
+  DSH_STUDIO_TUI_LANG, DSH_STUDIO_TUI_PRESET, DSH_STUDIO_TUI_SESSION_ID
 `
 
 function parseBoolean(value: string, name: string): boolean {
@@ -81,28 +81,28 @@ export function parseTuiArgs(
   defaultCwd: string = process.cwd(),
   defaultDataRoot: string = DEFAULT_TUI_HOME,
 ): TuiLaunchOptions {
-  const envFullscreen = optionalEnv(env, 'DSH_OH_TUI_FULLSCREEN')
-  const envLang = optionalEnv(env, 'DSH_OH_TUI_LANG')
-  const envPreset = optionalEnv(env, 'DSH_OH_TUI_PRESET')
-  const envSessionId = optionalEnv(env, 'DSH_OH_TUI_SESSION_ID')
+  const envFullscreen = optionalEnv(env, 'DSH_STUDIO_TUI_FULLSCREEN')
+  const envLang = optionalEnv(env, 'DSH_STUDIO_TUI_LANG')
+  const envPreset = optionalEnv(env, 'DSH_STUDIO_TUI_PRESET')
+  const envSessionId = optionalEnv(env, 'DSH_STUDIO_TUI_SESSION_ID')
   const options: TuiLaunchOptions = {
-    cwd: optionalEnv(env, 'DSH_OH_TUI_CWD') ?? defaultCwd,
-    dataRoot: optionalEnv(env, 'DSH_OH_TUI_HOME')
-      ?? optionalEnv(env, 'OH_DSH_HOME')
-      ?? (optionalEnv(env, 'OH_DSH_CHANNEL') === undefined
+    cwd: optionalEnv(env, 'DSH_STUDIO_TUI_CWD') ?? defaultCwd,
+    dataRoot: optionalEnv(env, 'DSH_STUDIO_TUI_HOME')
+      ?? optionalEnv(env, 'DSH_STUDIO_HOME')
+      ?? (optionalEnv(env, 'DSH_STUDIO_CHANNEL') === undefined
         ? defaultDataRoot
-        : resolveOhDshHome(env)),
+        : resolveDshStudioHome(env)),
     fullscreen: envFullscreen === undefined
       ? true
-      : parseBoolean(envFullscreen, 'DSH_OH_TUI_FULLSCREEN'),
+      : parseBoolean(envFullscreen, 'DSH_STUDIO_TUI_FULLSCREEN'),
     help: false,
     ...(envLang === undefined ? {} : { lang: language(envLang) }),
     ...(envPreset === undefined ? {} : { preset: envPreset }),
     ...(envSessionId === undefined ? {} : { sessionId: envSessionId }),
   }
-  let explicitData = optionalEnv(env, 'DSH_OH_TUI_HOME') !== undefined
-    || optionalEnv(env, 'OH_DSH_HOME') !== undefined
-  let channel: ReturnType<typeof parseOhDshChannel> | undefined
+  let explicitData = optionalEnv(env, 'DSH_STUDIO_TUI_HOME') !== undefined
+    || optionalEnv(env, 'DSH_STUDIO_HOME') !== undefined
+  let channel: ReturnType<typeof parseDshStudioChannel> | undefined
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index] ?? ''
@@ -146,7 +146,7 @@ export function parseTuiArgs(
     const channelValue = flag('--channel')
     if (channelValue !== undefined) {
       try {
-        channel = parseOhDshChannel(channelValue)
+        channel = parseDshStudioChannel(channelValue)
       } catch (error) {
         throw new UsageError(error instanceof Error ? error.message : String(error))
       }
@@ -169,15 +169,15 @@ export function parseTuiArgs(
     }
     throw new UsageError(`unknown option: ${argument}`)
   }
-  if (channel !== undefined && !explicitData && !hasOhDshHomeOverride(env)) {
-    options.dataRoot = defaultOhDshHome(undefined, channel)
+  if (channel !== undefined && !explicitData && !hasDshStudioHomeOverride(env)) {
+    options.dataRoot = defaultDshStudioHome(undefined, channel)
   }
   return options
 }
 
 /** Resolve the installed distribution root or the repository root. */
 export function resolveTuiRoot(env: NodeJS.ProcessEnv = process.env): string {
-  for (const name of ['DSH_OH_TUI_ROOT', 'OH_DSH_SOURCE_ROOT'] as const) {
+  for (const name of ['DSH_STUDIO_TUI_ROOT', 'DSH_STUDIO_SOURCE_ROOT'] as const) {
     const value = env[name]
     if (value !== undefined && value !== '') return resolve(value)
   }
@@ -204,18 +204,18 @@ export function tuiLaunchSpec(
     CC_TUI_PRESET: options.preset,
     DSH_CC_RESUME_SESSION: options.sessionId,
     DSH_HOME: dataRoot,
-    DSH_OH_TUI: '1',
-    DSH_OH_TUI_HOME: dataRoot,
-    DSH_OH_TUI_PROFILE: TUI_PROFILE,
-    DSH_OH_TUI_VERSION: version,
-    OH_DSH_TUI_CONFIG_HOME: join(dataRoot, 'tui'),
-    OH_DSH_TUI_CWD: cwd,
-    OH_DSH_TUI_FULLSCREEN: options.fullscreen ? '1' : '0',
-    OH_DSH_TUI_LANG: options.lang,
-    OH_DSH_TUI_PRESET: options.preset,
-    OH_DSH_TUI_SESSION_ID: options.sessionId,
-    OH_DSH_TUI_TITLE: 'Oh-DSH TUI',
-    OH_DSH_HOME: dataRoot,
+    DSH_STUDIO_TUI: '1',
+    DSH_STUDIO_TUI_HOME: dataRoot,
+    DSH_STUDIO_TUI_PROFILE: TUI_PROFILE,
+    DSH_STUDIO_TUI_VERSION: version,
+    DSH_STUDIO_TUI_CONFIG_HOME: join(dataRoot, 'tui'),
+    DSH_STUDIO_TUI_CWD: cwd,
+    DSH_STUDIO_TUI_FULLSCREEN: options.fullscreen ? '1' : '0',
+    DSH_STUDIO_TUI_LANG: options.lang,
+    DSH_STUDIO_TUI_PRESET: options.preset,
+    DSH_STUDIO_TUI_SESSION_ID: options.sessionId,
+    DSH_STUDIO_TUI_TITLE: 'DSH Studio TUI',
+    DSH_STUDIO_HOME: dataRoot,
     PATH: runtimeSearchPath(paths, env),
   }
   return {
@@ -246,7 +246,7 @@ export async function main(
     return 0
   }
   if (stdin.isTTY !== true || stdout.isTTY !== true) {
-    stderr.write('Oh-DSH TUI requires an interactive terminal.\n')
+    stderr.write('DSH Studio TUI requires an interactive terminal.\n')
     return 2
   }
 
@@ -254,7 +254,7 @@ export async function main(
   const stagedNode = process.platform === 'win32'
     ? join(root, '.stage', 'node-runtime', 'node.exe')
     : join(root, '.stage', 'node-runtime', 'bin', 'node')
-  const resourcesRoot = env.DSH_OH_TUI_ROOT !== undefined
+  const resourcesRoot = env.DSH_STUDIO_TUI_ROOT !== undefined
     ? root
     : existsSync(stagedNode)
       ? join(root, '.stage')

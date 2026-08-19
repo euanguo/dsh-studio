@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/pinned-summary",
+  "name": "@dsh-studio/pinned-summary",
   "version": "0.1.4",
-  "description": "Floating current-session summary popover for Oh-DSH Desktop",
+  "description": "Floating current-session summary popover for DSH Studio",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -28,7 +28,7 @@
     "dist/client.js.map"
   ],
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*",
-    "@oh-dsh/panel-controls": "workspace:*"
+    "@dsh-studio/shared": "workspace:*",
+    "@dsh-studio/panel-controls": "workspace:*"
   }
 }

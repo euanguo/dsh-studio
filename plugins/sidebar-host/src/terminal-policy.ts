@@ -1,7 +1,7 @@
 import {
   DESKTOP_TERMINAL_SCROLLBACK_ROWS_DEFAULT,
   terminalHistoryLimitsForRows,
-} from '@oh-dsh/shared/terminal-scrollback-policy'
+} from '@dsh-studio/shared/terminal-scrollback-policy'
 
 export interface TerminalRuntimePolicy {
   scrollbackRows: number

@@ -15,7 +15,7 @@ if (dir === undefined || version === undefined || platform === undefined) {
 }
 const result = verifyMetadata({ dir, version, platform })
 if (platform === 'linux-x64') {
-  const deb = readdirSync(dir).find(name => name.startsWith(`Oh-DSH-Desktop-${version}-`) && name.endsWith('.deb'))
+  const deb = readdirSync(dir).find(name => name.startsWith(`DSH Studio-${version}-`) && name.endsWith('.deb'))
   if (deb === undefined) throw new Error(`missing .deb asset for ${version}`)
   result.deb = join(dir, deb)
 }

@@ -1,15 +1,15 @@
-/** Unified launcher for the Oh-DSH interaction surfaces. */
+/** Unified launcher for the DSH Studio interaction surfaces. */
 
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { posix, win32 } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
-  OH_DSH_CHANNEL_ENV,
-  OH_DSH_HOME_ENV,
-  parseOhDshChannel,
-  takeOhDshChannelArgs,
-  type OhDshChannel,
+  DSH_STUDIO_CHANNEL_ENV,
+  DSH_STUDIO_HOME_ENV,
+  parseDshStudioChannel,
+  takeDshStudioChannelArgs,
+  type DshStudioChannel,
 } from './data-root.ts'
 import { UsageError } from './errors.ts'
 import { main as runTui } from './tui.ts'
@@ -22,7 +22,7 @@ const SURFACE_ALIASES: Readonly<Record<string, SurfaceName>> = Object.freeze({
 })
 
 export function availableSurfaces(env: NodeJS.ProcessEnv = process.env): readonly SurfaceName[] {
-  const configured = env.OH_DSH_SURFACES
+  const configured = env.DSH_STUDIO_SURFACES
   if (configured === undefined || configured === '') return SURFACE_NAMES
   const requested = new Set(configured.split(',').map(value => value.trim()))
   return SURFACE_NAMES.filter(surface => requested.has(surface))
@@ -33,46 +33,46 @@ export function cliHelp(env: NodeJS.ProcessEnv = process.env): string {
   const aliases = Object.entries(SURFACE_ALIASES)
     .filter(([, surface]) => surfaces.includes(surface))
   const descriptions: Record<SurfaceName, string> = {
-    desktop: 'Start Oh-DSH-Desktop',
-    web: 'Start Oh-DSH Web',
-    tui: 'Start Oh-DSH TUI',
+    desktop: 'Start DSH Studio',
+    web: 'Start DSH Studio Web',
+    tui: 'Start DSH Studio TUI',
   }
-  return `Oh-DSH launcher
+  return `DSH Studio launcher
 
 Usage:
-  ohdsh <surface> [options]
+  dsh-studio <surface> [options]
 
 Surfaces:
 ${surfaces.map(surface => `  ${surface.padEnd(9)} ${descriptions[surface]}`).join('\n')}
 ${aliases.length === 0 ? '' : `\nAliases:\n${aliases.map(([alias, surface]) => `  ${alias.padEnd(9)} ${descriptions[surface]}`).join('\n')}`}
 
-Run "ohdsh <surface> --help" for surface options.
+Run "dsh-studio <surface> --help" for surface options.
 `
 }
 
 export const CLI_HELP = cliHelp()
 
-export const DESKTOP_USAGE = `usage: ohdsh desktop [options]
+export const DESKTOP_USAGE = `usage: dsh-studio desktop [options]
 
 Options:
   --channel <stable|dev>  isolate state (packaged default: stable; source default: dev)
   --help                  show this help
 
 Environment:
-  OH_DSH_HOME, OH_DSH_CHANNEL, OH_DSH_DESKTOP_APP, OH_DSH_SOURCE_ROOT
+  DSH_STUDIO_HOME, DSH_STUDIO_CHANNEL, DSH_STUDIO_DESKTOP_APP, DSH_STUDIO_SOURCE_ROOT
 `
 
 export interface DesktopLaunchOptions {
-  channel?: OhDshChannel
+  channel?: DshStudioChannel
   help: boolean
   rest: string[]
 }
 
 /** Resolve desktop launcher flags without starting a process. */
 export function parseDesktopLaunchArgs(args: readonly string[]): DesktopLaunchOptions {
-  let taken: ReturnType<typeof takeOhDshChannelArgs>
+  let taken: ReturnType<typeof takeDshStudioChannelArgs>
   try {
-    taken = takeOhDshChannelArgs(args)
+    taken = takeDshStudioChannelArgs(args)
   } catch (error) {
     throw new UsageError(error instanceof Error ? error.message : String(error))
   }
@@ -87,7 +87,7 @@ export function parseDesktopLaunchArgs(args: readonly string[]): DesktopLaunchOp
   }
   if (taken.channelValue === undefined) return { help, rest }
   try {
-    return { channel: parseOhDshChannel(taken.channelValue), help, rest }
+    return { channel: parseDshStudioChannel(taken.channelValue), help, rest }
   } catch (error) {
     throw new UsageError(error instanceof Error ? error.message : String(error))
   }
@@ -134,13 +134,13 @@ function sourceElectron(
 
 function macOpenEnvironment(env: NodeJS.ProcessEnv): string[] {
   const extras: string[] = []
-  const ohDshHome = env[OH_DSH_HOME_ENV]
-  if (ohDshHome !== undefined && ohDshHome !== '') {
-    extras.push('--env', `${OH_DSH_HOME_ENV}=${posix.resolve(ohDshHome)}`)
+  const dshStudioHome = env[DSH_STUDIO_HOME_ENV]
+  if (dshStudioHome !== undefined && dshStudioHome !== '') {
+    extras.push('--env', `${DSH_STUDIO_HOME_ENV}=${posix.resolve(dshStudioHome)}`)
   }
-  const channel = env[OH_DSH_CHANNEL_ENV]
+  const channel = env[DSH_STUDIO_CHANNEL_ENV]
   if (channel !== undefined && channel !== '') {
-    extras.push('--env', `${OH_DSH_CHANNEL_ENV}=${channel}`)
+    extras.push('--env', `${DSH_STUDIO_CHANNEL_ENV}=${channel}`)
   }
   return extras
 }
@@ -153,7 +153,7 @@ export function desktopLaunchSpec(
   pathExists: (path: string) => boolean = existsSync,
 ): DesktopLaunchSpec {
   const paths = platform === 'win32' ? win32 : posix
-  const explicitApp = env.OH_DSH_DESKTOP_APP
+  const explicitApp = env.DSH_STUDIO_DESKTOP_APP
   if (explicitApp !== undefined && explicitApp !== '') {
     if (platform === 'darwin') {
       return {
@@ -168,7 +168,7 @@ export function desktopLaunchSpec(
     return { args: [...args], command: paths.resolve(explicitApp) }
   }
 
-  const sourceRoot = env.OH_DSH_SOURCE_ROOT
+  const sourceRoot = env.DSH_STUDIO_SOURCE_ROOT
   if (sourceRoot !== undefined && sourceRoot !== '') {
     const root = paths.resolve(sourceRoot)
     const electron = sourceElectron(root, platform)
@@ -186,7 +186,7 @@ export function desktopLaunchSpec(
       args: [
         ...macOpenEnvironment(env),
         '-a',
-        'Oh-DSH-Desktop',
+        'DSH Studio',
         ...(args.length === 0 ? [] : ['--args', ...args]),
       ],
       command: '/usr/bin/open',
@@ -194,11 +194,11 @@ export function desktopLaunchSpec(
   }
   if (platform === 'win32') {
     return {
-      args: ['/d', '/s', '/c', 'start', '""', 'Oh-DSH-Desktop.exe', ...args],
+      args: ['/d', '/s', '/c', 'start', '""', 'DSH Studio.exe', ...args],
       command: env.ComSpec ?? 'cmd.exe',
     }
   }
-  return { args: [...args], command: 'oh-dsh-desktop' }
+  return { args: [...args], command: 'dsh-studio' }
 }
 
 /** Start the desktop surface and detach the launcher. */
@@ -243,7 +243,7 @@ export async function main(
   }
   if (SURFACE_NAMES.includes(selectedSurface as SurfaceName)
     && !availableSurfaces(env).includes(selectedSurface as SurfaceName)) {
-    stderr.write(`Surface '${surface}' is not included in this Oh-DSH distribution.\n\n${help}`)
+    stderr.write(`Surface '${surface}' is not included in this DSH Studio distribution.\n\n${help}`)
     return 2
   }
   if (selectedSurface === 'desktop') {
@@ -254,7 +254,7 @@ export async function main(
     }
     const childEnv = parsed.channel === undefined
       ? env
-      : { ...env, [OH_DSH_CHANNEL_ENV]: parsed.channel }
+      : { ...env, [DSH_STUDIO_CHANNEL_ENV]: parsed.channel }
     return await desktopRunner(parsed.rest, childEnv)
   }
   if (selectedSurface === 'web') return await webRunner(args, env, stdout)

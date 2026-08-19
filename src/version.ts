@@ -1,18 +1,18 @@
-/** Resolve the Oh-DSH product version from the nearest reachable Git tag. */
+/** Resolve the DSH Studio product version from the nearest reachable Git tag. */
 
 import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-declare const __OH_DSH_BUILD_VERSION__: string | undefined
+declare const __DSH_STUDIO_BUILD_VERSION__: string | undefined
 
 function injectedVersion(): string | undefined {
-  return typeof __OH_DSH_BUILD_VERSION__ === 'string'
-    ? __OH_DSH_BUILD_VERSION__
+  return typeof __DSH_STUDIO_BUILD_VERSION__ === 'string'
+    ? __DSH_STUDIO_BUILD_VERSION__
     : undefined
 }
 
-/** Normalize a release tag to the semver displayed by every Oh-DSH surface. */
+/** Normalize a release tag to the semver displayed by every DSH Studio surface. */
 export function normalizeVersionTag(tag: string): string | undefined {
   const value = tag.trim()
   const match = /^v?(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$/.exec(value)
@@ -40,7 +40,7 @@ export function nearestVersionTag(root: string): string | undefined {
 function manifestVersion(root: string): string | undefined {
   for (const path of [
     join(root, 'package.json'),
-    join(root, 'lib', 'oh-dsh', 'package.json'),
+    join(root, 'lib', 'dsh-studio', 'package.json'),
   ]) {
     try {
       const manifest = JSON.parse(readFileSync(path, 'utf8')) as { version?: unknown }

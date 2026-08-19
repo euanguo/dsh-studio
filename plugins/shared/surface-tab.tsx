@@ -150,7 +150,7 @@ export function SurfaceTab({
   const closeButton = canClose ? (
     <button
       type="button"
-      className="oh-dsh-surface-tab-action"
+      className="dsh-studio-surface-tab-action"
       data-surface-tab-action=""
       aria-label={closeLabel ?? label}
       title={closeLabel ?? label}
@@ -173,7 +173,7 @@ export function SurfaceTab({
       aria-disabled={disabled || undefined}
       aria-selected={interactive ? active : undefined}
       draggable={!disabled && draggable || undefined}
-      className={`oh-dsh-surface-tab${active ? ' is-active' : ''}${disabled ? ' is-disabled' : ''}${className === undefined ? '' : ` ${className}`}`}
+      className={`dsh-studio-surface-tab${active ? ' is-active' : ''}${disabled ? ' is-disabled' : ''}${className === undefined ? '' : ` ${className}`}`}
       onPointerDown={handlePointerDown}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
@@ -185,13 +185,13 @@ export function SurfaceTab({
       onDragEnd={handleDragEnd}
     >
       {icon !== undefined && icon !== null ? (
-        <span className="oh-dsh-surface-tab-icon" aria-hidden="true">{icon}</span>
+        <span className="dsh-studio-surface-tab-icon" aria-hidden="true">{icon}</span>
       ) : null}
       {badge !== undefined && badge !== null ? (
-        <span className="oh-dsh-surface-tab-badge" aria-hidden="true">{badge}</span>
+        <span className="dsh-studio-surface-tab-badge" aria-hidden="true">{badge}</span>
       ) : null}
-      <span className={`oh-dsh-surface-tab-label${isPreview ? ' is-preview' : ''}`}>
-        <span className="oh-dsh-surface-tab-text">{label}</span>
+      <span className={`dsh-studio-surface-tab-label${isPreview ? ' is-preview' : ''}`}>
+        <span className="dsh-studio-surface-tab-text">{label}</span>
       </span>
       {closeButton}
     </div>
@@ -233,7 +233,7 @@ export function SurfaceTabStrip({
       role="tablist"
       aria-label={ariaLabel}
       data-slot="surface-tab-strip"
-      className={`oh-dsh-surface-tab-strip${className === undefined ? '' : ` ${className}`}`}
+      className={`dsh-studio-surface-tab-strip${className === undefined ? '' : ` ${className}`}`}
       onDragEnter={onDragEnter}
        onDragOver={onDragOver}
       onDrop={onDrop}

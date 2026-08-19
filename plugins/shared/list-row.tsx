@@ -13,7 +13,7 @@
  *     ├─ ListRowTrailing (div — outside Main, in flow)
  *     └─ ListRowActions (div — hover-revealed action cluster, in flow)
  *
- * Style note: class names are `oh-dsh-list-row-*` (plugin convention);
+ * Style note: class names are `dsh-studio-list-row-*` (plugin convention);
  * the `className` prop is appended after the base class so callers can
  * add feature-specific modifiers (e.g. `.depthMain` for tree indentation).
  */
@@ -39,7 +39,7 @@ export function ListRow({
       data-slot="list-row"
       data-selected={selected || undefined}
       data-active={active || undefined}
-      className={withBase('oh-dsh-list-row', className)}
+      className={withBase('dsh-studio-list-row', className)}
       {...props}
     />
   )
@@ -56,7 +56,7 @@ export function ListRowMain({
     <button
       data-slot="list-row-main"
       type={type}
-      className={withBase('oh-dsh-list-row-main', className)}
+      className={withBase('dsh-studio-list-row-main', className)}
       {...props}
     />
   )
@@ -69,7 +69,7 @@ export function ListRowLeading({
   return (
     <span
       data-slot="list-row-leading"
-      className={withBase('oh-dsh-list-row-leading', className)}
+      className={withBase('dsh-studio-list-row-leading', className)}
       {...props}
     />
   )
@@ -82,7 +82,7 @@ export function ListRowBody({
   return (
     <span
       data-slot="list-row-body"
-      className={withBase('oh-dsh-list-row-body', className)}
+      className={withBase('dsh-studio-list-row-body', className)}
       {...props}
     />
   )
@@ -95,7 +95,7 @@ export function ListRowLabel({
   return (
     <span
       data-slot="list-row-label"
-      className={withBase('oh-dsh-list-row-label', className)}
+      className={withBase('dsh-studio-list-row-label', className)}
       {...props}
     />
   )
@@ -109,7 +109,7 @@ export function ListRowLabelText({
   return (
     <span
       data-slot="list-row-label-text"
-      className={withBase('oh-dsh-list-row-label-text', className)}
+      className={withBase('dsh-studio-list-row-label-text', className)}
       {...props}
     />
   )
@@ -122,7 +122,7 @@ export function ListRowMeta({
   return (
     <span
       data-slot="list-row-meta"
-      className={withBase('oh-dsh-list-row-meta', className)}
+      className={withBase('dsh-studio-list-row-meta', className)}
       {...props}
     />
   )
@@ -135,7 +135,7 @@ export function ListRowTrailing({
   return (
     <div
       data-slot="list-row-trailing"
-      className={withBase('oh-dsh-list-row-trailing', className)}
+      className={withBase('dsh-studio-list-row-trailing', className)}
       {...props}
     />
   )
@@ -151,7 +151,7 @@ export function ListRowActions({
       data-slot="list-row-actions"
       data-hover-actions=""
       data-always-visible={alwaysVisible || undefined}
-      className={withBase('oh-dsh-list-row-actions', className)}
+      className={withBase('dsh-studio-list-row-actions', className)}
       {...props}
     />
   )
@@ -167,7 +167,7 @@ export function ListRowActionButton({
     <button
       data-slot="list-row-action-button"
       type={type}
-      className={withBase('oh-dsh-list-row-action-button', className)}
+      className={withBase('dsh-studio-list-row-action-button', className)}
       {...props}
     />
   )
@@ -180,7 +180,7 @@ export function ListRowNested({
   return (
     <div
       data-slot="list-row-nested"
-      className={withBase('oh-dsh-list-row-nested', className)}
+      className={withBase('dsh-studio-list-row-nested', className)}
       {...props}
     />
   )
@@ -193,7 +193,7 @@ export function ListRowNestedStatus({
   return (
     <div
       data-slot="list-row-nested-status"
-      className={withBase('oh-dsh-list-row-nested-status', className)}
+      className={withBase('dsh-studio-list-row-nested-status', className)}
       {...props}
     />
   )

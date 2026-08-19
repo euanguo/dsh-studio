@@ -35,7 +35,7 @@ const PROTECTED_PLUGIN_IDS = new Set([
   'sidebar',
   'dsh-better-sidebar',
   'sidebar',
-  'oh-dsh-desktop',
+  'dsh-studio',
   'panel-controls',
   'pinned-summary',
   'plugin-marketplace',
@@ -43,11 +43,11 @@ const PROTECTED_PLUGIN_IDS = new Set([
 ])
 
 const PROTECTED_PLUGIN_PACKAGES = new Set([
-  '@oh-dsh/sidebar-host',
-  '@oh-dsh/desktop',
-  '@oh-dsh/sidebar',
-  '@oh-dsh/panel-controls',
-  '@oh-dsh/sidebar',
+  '@dsh-studio/sidebar-host',
+  '@dsh-studio/desktop',
+  '@dsh-studio/sidebar',
+  '@dsh-studio/panel-controls',
+  '@dsh-studio/sidebar',
   'dsh-better-sidebar',
 ])
 

@@ -88,7 +88,7 @@ export function createTerminalSpawnEnvironment(
   }
   env.TERM = 'xterm-256color'
   env.COLORTERM = 'truecolor'
-  env.TERM_PROGRAM = 'oh-dsh'
+  env.TERM_PROGRAM = 'dsh-studio'
   // Re-assert color capability: many macOS tools (ls, …) colorize only when
   // the variable is present, and this terminal is always a real TTY.
   env.CLICOLOR = '1'

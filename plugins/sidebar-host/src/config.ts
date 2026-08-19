@@ -13,8 +13,8 @@ import {
   WIDTH_PERCENT_MAX,
   WIDTH_PERCENT_MIN,
   type SidebarPrefs,
-} from '@oh-dsh/shared/prefs-shared'
-import { DESKTOP_TERMINALS_PER_SESSION_DEFAULT } from '@oh-dsh/shared/terminal-scrollback-policy'
+} from '@dsh-studio/shared/prefs-shared'
+import { DESKTOP_TERMINALS_PER_SESSION_DEFAULT } from '@dsh-studio/shared/terminal-scrollback-policy'
 
 export {
   SIDEBAR_PREFS_DEFAULTS,
@@ -23,7 +23,7 @@ export {
   WIDTH_PERCENT_MAX,
   WIDTH_PERCENT_MIN,
   type SidebarPrefs,
-} from '@oh-dsh/shared/prefs-shared'
+} from '@dsh-studio/shared/prefs-shared'
 
 /** Tunable sidebar host limits (every field optional; defaults fill in). */
 export interface SidebarConfig {
@@ -120,7 +120,7 @@ export const PrefsSchema: z<SidebarPrefs> = z.object({
   viewersEnabled: z.dict(z.boolean()).default({}),
 })
 
-// ── Left-rail view slice (oh-dsh-left-rail namespace) ───────────────────────
+// ── Left-rail view slice (dsh-studio-left-rail namespace) ───────────────────────
 // Registered through the same settings seam as the sidebar prefs, so the
 // schema gives the namespace defaults/validation and the namespace owns its
 // section in the settings document (see docs/persistence-architecture.md).

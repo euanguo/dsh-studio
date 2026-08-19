@@ -1,5 +1,5 @@
 /**
- * Shared human-approval guardrails for Oh-DSH surfaces.
+ * Shared human-approval guardrails for DSH Studio surfaces.
  *
  * These are deliberately additive system-prompt sections: they reduce model
  * proactivity without removing tools. They apply to the standard, Code, and

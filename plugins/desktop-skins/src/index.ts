@@ -1,9 +1,9 @@
 /** Host half of desktop skins: durable preferences on the app-owned origin. */
 
 import {
-  OH_DSH_SURFACE_SERVICE,
-  type OhDshSurface,
-} from '@oh-dsh/shared/surface'
+  DSH_STUDIO_SURFACE_SERVICE,
+  type DshStudioSurface,
+} from '@dsh-studio/shared/surface'
 import {
   mountDesktopSkinPreferences,
   type DesktopSkinPreferencesHostContext,
@@ -14,21 +14,21 @@ interface HostContext extends DesktopSkinPreferencesHostContext {
   get(name: string): unknown
 }
 
-export const name = 'oh-dsh-desktop-skins'
+export const name = 'dsh-studio-skins'
 
 /**
  * The preferences route rides the shell's webServer, and the durable file
- * lives under the ACTIVE SURFACE's data root (the shared ohDshSurface
+ * lives under the ACTIVE SURFACE's data root (the shared dshStudioSurface
  * contract — desktop's dataRoot is the app-data path, web's is the web
  * data root). Injecting the desktop-only capability would pin this plugin
  * to Electron; the surface contract keeps one skins provider for every
  * browser-bearing shell.
  */
-export const inject = [OH_DSH_SURFACE_SERVICE, 'webServer']
+export const inject = [DSH_STUDIO_SURFACE_SERVICE, 'webServer']
 
 export function apply(ctx: HostContext): void {
   ctx.effect(
-    () => mountDesktopSkinPreferences(ctx, ctx.get(OH_DSH_SURFACE_SERVICE) as OhDshSurface),
-    'oh-dsh-desktop: desktop skin preferences',
+    () => mountDesktopSkinPreferences(ctx, ctx.get(DSH_STUDIO_SURFACE_SERVICE) as DshStudioSurface),
+    'dsh-studio: desktop skin preferences',
   )
 }

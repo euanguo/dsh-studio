@@ -51,10 +51,10 @@ import {
 } from './source-types.ts'
 
 const STATE_VERSION = MARKETPLACE_STATE_VERSION
-const MANAGED_DIRECTORY = '.oh-dsh'
+const MANAGED_DIRECTORY = '.dsh-studio'
 const STATE_FILE = 'marketplace.json'
-const BUILD_BEGIN = '# >>> Oh-DSH-Desktop allowed plugin builds'
-const BUILD_END = '# <<< Oh-DSH-Desktop allowed plugin builds'
+const BUILD_BEGIN = '# >>> DSH Studio allowed plugin builds'
+const BUILD_END = '# <<< DSH Studio allowed plugin builds'
 
 interface MarketplaceStateFile {
   entries: MarketplaceInstalledPlugin[]
@@ -559,7 +559,7 @@ export class PluginMarketplaceManager {
       enabled: true,
       id: 'builtin',
       kind: 'builtin',
-      label: 'Oh-DSH built-in catalog',
+      label: 'DSH Studio built-in catalog',
       lastCommit: null,
       lastError: null,
       lastSuccessfulFetchAt: null,

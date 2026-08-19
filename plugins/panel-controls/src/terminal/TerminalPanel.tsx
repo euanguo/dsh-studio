@@ -17,8 +17,8 @@ import {
   type DockStore,
 } from './panel-store.ts'
 import { DEFAULT_TAB_LABEL } from './panel-store.ts'
-import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
-import { useTranslate } from '@oh-dsh/shared/use-i18n'
+import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
+import { useTranslate } from '@dsh-studio/shared/use-i18n'
 import {
   Button,
   IconChevronDownOutline14,
@@ -49,14 +49,14 @@ export function openOrToggleTerminal(store: DockStore): void {
   store.dispatch({ type: 'toggle-collapsed' })
 }
 
-/** Bottom dock adapted from dsh-web-panel and owned by Oh-DSH-Desktop. */
+/** Bottom dock adapted from dsh-web-panel and owned by DSH Studio. */
 export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, active }: TerminalPanelProps): JSX.Element {
   const t = useTranslate(locale, translate)
   const state = useSyncExternalStore(store.subscribe, store.getState)
   const [resizing, setResizing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [fontFamilyDraft, setFontFamilyDraft] = useState(state.fontFamily)
-  const fontPresetListId = `oh-dsh-terminal-fonts-${encodeURIComponent(scopeKey)}`
+  const fontPresetListId = `dsh-studio-terminal-fonts-${encodeURIComponent(scopeKey)}`
 
   useEffect(() => { setFontFamilyDraft(state.fontFamily) }, [state.fontFamily])
   useEffect(() => {
@@ -104,14 +104,14 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
 
   return (
     <section
-      className="oh-dsh-terminal-dock"
-      data-oh-dsh-terminal-dock=""
+      className="dsh-studio-terminal-dock"
+      data-dsh-studio-terminal-dock=""
       data-collapsed={state.collapsed || undefined}
       aria-label={t('terminal')}
     >
       {!state.collapsed && (
         <div
-          className="oh-dsh-terminal-resize"
+          className="dsh-studio-terminal-resize"
           role="separator"
           aria-label={t('terminal.resize')}
           aria-orientation="horizontal"
@@ -123,14 +123,14 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
           onKeyDown={resizeWithKeyboard}
         />
       )}
-      <div className="oh-dsh-terminal-bar">
-        <div className="oh-dsh-terminal-tabs" role="tablist" aria-label={t('terminal.tabs')}>
+      <div className="dsh-studio-terminal-bar">
+        <div className="dsh-studio-terminal-tabs" role="tablist" aria-label={t('terminal.tabs')}>
           {state.tabs.map(tab => (
             <span
               key={tab.id}
               role="tab"
               aria-selected={tab.id === state.activeTabId}
-              className={`oh-dsh-terminal-tab${tab.id === state.activeTabId ? ' is-active' : ''}`}
+              className={`dsh-studio-terminal-tab${tab.id === state.activeTabId ? ' is-active' : ''}`}
               onClick={() => { store.dispatch({ type: 'activate-tab', id: tab.id }) }}
             >
               <StateDot
@@ -141,7 +141,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
                     : 'ongoing'}
                 size={10}
               />
-              <span className="oh-dsh-terminal-tab-label">
+              <span className="dsh-studio-terminal-tab-label">
                 {tab.label === DEFAULT_TAB_LABEL ? t('terminal.shell') : tab.label}
                 {tab.status === 'exited'
                   ? ` · ${t('terminal.status.exited')}`
@@ -149,7 +149,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
               </span>
               <button
                 type="button"
-                className="oh-dsh-terminal-tab-close"
+                className="dsh-studio-terminal-tab-close"
                 aria-label={t('terminal.close-tab', { tab: tab.label })}
                 onClick={(event) => {
                   event.stopPropagation()
@@ -160,17 +160,17 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
           ))}
           <button
             type="button"
-            className="oh-dsh-terminal-add"
+            className="dsh-studio-terminal-add"
             onClick={addTab}
             title={t('terminal.new-shell')}
             aria-label={t('terminal.new-shell')}
           ><IconPlusOutline16 size={13} /></button>
-          {state.tabs.length === 0 && <span className="oh-dsh-terminal-hint">{t('terminal')}</span>}
+          {state.tabs.length === 0 && <span className="dsh-studio-terminal-hint">{t('terminal')}</span>}
         </div>
-        <div className="oh-dsh-terminal-actions">
+        <div className="dsh-studio-terminal-actions">
           <button
             type="button"
-            className="oh-dsh-terminal-action"
+            className="dsh-studio-terminal-action"
             onClick={() => { setSettingsOpen(open => !open) }}
             title={t('terminal.font')}
             aria-label={t('terminal.font-settings')}
@@ -178,7 +178,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
           >Aa</button>
           <button
             type="button"
-            className="oh-dsh-terminal-action"
+            className="dsh-studio-terminal-action"
             onClick={() => { store.dispatch({ type: 'toggle-collapsed' }) }}
             title={state.collapsed ? t('terminal.expand') : t('terminal.collapse')}
             aria-label={state.collapsed ? t('terminal.expand') : t('terminal.collapse')}
@@ -186,8 +186,8 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
         </div>
       </div>
       {settingsOpen && (
-        <div className="oh-dsh-terminal-settings" role="dialog" aria-label={t('terminal.font-settings')}>
-          <div className="oh-dsh-terminal-settings-header">
+        <div className="dsh-studio-terminal-settings" role="dialog" aria-label={t('terminal.font-settings')}>
+          <div className="dsh-studio-terminal-settings-header">
             <strong>{t('terminal.font')}</strong>
             <Button
               variant="ghost"
@@ -228,7 +228,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
               onChange={event => { store.dispatch({ type: 'set-font-size', fontSize: event.currentTarget.valueAsNumber }) }}
             />
           </label>
-          <div className="oh-dsh-terminal-settings-footer">
+          <div className="dsh-studio-terminal-settings-footer">
             <span>{MIN_TERMINAL_FONT_SIZE}–{MAX_TERMINAL_FONT_SIZE}px</span>
             <Button variant="outline" size="sm" onClick={() => { store.dispatch({ type: 'reset-font' }) }}>
               {t('terminal.reset')}
@@ -237,14 +237,14 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
         </div>
       )}
       <div
-        className={`oh-dsh-terminal-body${resizing ? ' is-resizing' : ''}`}
+        className={`dsh-studio-terminal-body${resizing ? ' is-resizing' : ''}`}
         style={{ height: state.collapsed ? 0 : state.size }}
         aria-hidden={state.collapsed}
       >
         {state.tabs.map(tab => (
           <div
             key={tab.id}
-            className="oh-dsh-terminal-surface"
+            className="dsh-studio-terminal-surface"
             style={{ display: tab.id === state.activeTabId ? 'flex' : 'none' }}
             aria-hidden={tab.id !== state.activeTabId}
           >
@@ -270,7 +270,7 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
           </div>
         ))}
         {state.tabs.length === 0 && (
-          <div className="oh-dsh-terminal-empty">
+          <div className="dsh-studio-terminal-empty">
             <span>{t('terminal.empty')}</span>
             <button type="button" onClick={addTab}>{t('terminal.new-shell')}</button>
           </div>

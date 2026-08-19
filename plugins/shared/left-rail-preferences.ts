@@ -12,10 +12,10 @@
 /**
  * The user-settings namespace holding the left-rail view slice. Matches the
  * DSH settings namespace pattern (`^[a-z][a-z0-9-]*$` — no dots), unlike the
- * fictional `oh-dsh.left-rail` the client used to send (which the host
+ * fictional `dsh-studio.left-rail` the client used to send (which the host
  * routes ignored).
  */
-export const LEFT_RAIL_SETTINGS_NS = 'oh-dsh-left-rail'
+export const LEFT_RAIL_SETTINGS_NS = 'dsh-studio-left-rail'
 
 /** Current DTO version of the durable slice (for one-way migrations). */
 export const LEFT_RAIL_SETTINGS_VERSION = 1

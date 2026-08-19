@@ -19,11 +19,11 @@ import type {
   WorkspaceMutation,
   WorkspaceSnapshot,
 } from '../protocol.ts'
-import type { Translate } from '@oh-dsh/shared/i18n'
-import { basename } from '@oh-dsh/shared/path'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import { basename } from '@dsh-studio/shared/path'
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { runPanelMutation } from './source-control/panel-mutations.ts'
-import { toast } from '@oh-dsh/shared/toast'
+import { toast } from '@dsh-studio/shared/toast'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
 import { confirmDialog } from './kit/dialog.tsx'
 import {
@@ -33,8 +33,8 @@ import {
   IconEye,
   IconGitCommit,
   IconHistory,
-} from '@oh-dsh/shared/tabler-icons'
-import { FilenameLabel } from '@oh-dsh/shared/filename-label'
+} from '@dsh-studio/shared/tabler-icons'
+import { FilenameLabel } from '@dsh-studio/shared/filename-label'
 import type { WorkspaceMessage } from './i18n.ts'
 import {
   sidebarApi,
@@ -65,8 +65,8 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
-} from '@oh-dsh/shared/list-row'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
+} from '@dsh-studio/shared/list-row'
+import { Scrollable } from '@dsh-studio/shared/scrollable'
 import {
   buildSourceControlRows,
   type SourceControlListMode,
@@ -217,21 +217,21 @@ function CommitFilesBody({
 }): JSX.Element {
   if (state === undefined || state.status === 'loading') {
     return (
-      <div className="oh-dsh-review-commit-files">
+      <div className="dsh-studio-review-commit-files">
         <LoadingView label={t('overlay.loading')} />
       </div>
     )
   }
   if (state.status === 'error') {
     return (
-      <div className="oh-dsh-review-commit-files">
+      <div className="dsh-studio-review-commit-files">
         <ErrorView message={state.error} />
       </div>
     )
   }
   if (state.entries.length === 0) {
     return (
-      <div className="oh-dsh-review-commit-files">
+      <div className="dsh-studio-review-commit-files">
         <EmptyView title={t('workspace.commit-no-files')} />
       </div>
     )
@@ -239,24 +239,24 @@ function CommitFilesBody({
   const rows = commitFileRows(state.entries, mode, collapsedDirs, keyPrefix)
   const sectionModifier = nested ? '' : ' is-section'
   return (
-    <div className="oh-dsh-review-commit-files">
+    <div className="dsh-studio-review-commit-files">
       {rows.map(row => row.kind === 'directory' ? (
         <button
           key={row.key}
           type="button"
-          className={`oh-dsh-review-commit-dir${sectionModifier}`}
+          className={`dsh-studio-review-commit-dir${sectionModifier}`}
           style={{ '--tree-depth': row.depth } as CSSProperties}
           onClick={() => { onToggleDir(row.key) }}
         >
           {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-          <span className="oh-dsh-review-commit-dir-name">{row.name}</span>
-          <span className="oh-dsh-workspace-count">{row.fileCount}</span>
+          <span className="dsh-studio-review-commit-dir-name">{row.name}</span>
+          <span className="dsh-studio-workspace-count">{row.fileCount}</span>
         </button>
       ) : (
         <button
           key={row.key}
           type="button"
-          className={`oh-dsh-review-commit-file${sectionModifier}`}
+          className={`dsh-studio-review-commit-file${sectionModifier}`}
           title={row.path}
           style={{ '--tree-depth': row.depth } as CSSProperties}
           onClick={() => { onOpenFile(row.path) }}
@@ -264,12 +264,12 @@ function CommitFilesBody({
           <FileGlyph path={row.path} kind="file" />
           <FilenameLabel name={commitFileName(row.path)} title={row.path} />
           {(row.additions > 0 || row.deletions > 0) && (
-            <span className="oh-dsh-sc-stat" aria-hidden="true">
-              {row.additions > 0 && <em className="oh-dsh-sc-stat-add">+{row.additions}</em>}
-              {row.deletions > 0 && <em className="oh-dsh-sc-stat-del">−{row.deletions}</em>}
+            <span className="dsh-studio-sc-stat" aria-hidden="true">
+              {row.additions > 0 && <em className="dsh-studio-sc-stat-add">+{row.additions}</em>}
+              {row.deletions > 0 && <em className="dsh-studio-sc-stat-del">−{row.deletions}</em>}
             </span>
           )}
-          <span className={`oh-dsh-sc-mark is-${commitFileStatusWord(row.status)}`}>
+          <span className={`dsh-studio-sc-mark is-${commitFileStatusWord(row.status)}`}>
             {row.status === 'T' ? 'M' : row.status}
           </span>
         </button>
@@ -653,12 +653,12 @@ export function WorkspacePanel({
   }
 
   return (
-    <div className="oh-dsh-review-view" aria-label={t('workspace.changes')}>
+    <div className="dsh-studio-review-view" aria-label={t('workspace.changes')}>
       {cwd === undefined
         ? <EmptyView title={t('workspace.select')} />
         : (
           <>
-            <Scrollable className="oh-dsh-workspace-content">
+            <Scrollable className="dsh-studio-workspace-content">
             {error !== '' && <ErrorView message={error} />}
 
             {snapshot?.kind === 'repository' && (
@@ -706,7 +706,7 @@ export function WorkspacePanel({
             )}
 
             <section>
-              <div className="oh-dsh-change-list">
+              <div className="dsh-studio-change-list">
                 <SourceControlPanel
                   rows={rows}
                   pendingByPath={pendingByPath}
@@ -753,20 +753,20 @@ export function WorkspacePanel({
             </section>
 
             {snapshot?.kind === 'repository' && committed.status === 'ready' && committed.entries.length > 0 && (
-              <section className="oh-dsh-committed-section">
+              <section className="dsh-studio-committed-section">
                 <div
-                  className="oh-dsh-sc-toolbar oh-dsh-committed-header"
+                  className="dsh-studio-sc-toolbar dsh-studio-committed-header"
                   role="button"
                   tabIndex={0}
                   aria-expanded={!committedCollapsed}
                   onClick={() => { setCommittedCollapsed(collapsed => !collapsed) }}
                 >
-                  <span className="oh-dsh-sc-toolbar-title">
+                  <span className="dsh-studio-sc-toolbar-title">
                     <IconGitCommit size={14} />
                     {t('workspace.committed')}
                     <em>{committed.entries.length}</em>
                   </span>
-                  <span className="oh-dsh-committed-actions">
+                  <span className="dsh-studio-committed-actions">
                     <ListRowActionButton
                       aria-label={t('source-control.view-all')}
                       title={t('source-control.view-all')}
@@ -777,7 +777,7 @@ export function WorkspacePanel({
                     ><IconEye size={14} /></ListRowActionButton>
                     <IconChevronDown
                       size={14}
-                      className={committedCollapsed ? 'oh-dsh-history-chevron is-collapsed' : 'oh-dsh-history-chevron'}
+                      className={committedCollapsed ? 'dsh-studio-history-chevron is-collapsed' : 'dsh-studio-history-chevron'}
                     />
                   </span>
                 </div>
@@ -803,35 +803,35 @@ export function WorkspacePanel({
           </Scrollable>
 
           {snapshot?.kind === 'repository' && (
-            <section className="oh-dsh-review-history">
+            <section className="dsh-studio-review-history">
               {!historyCollapsed && (
                 <div
-                  className="oh-dsh-history-resize"
+                  className="dsh-studio-history-resize"
                   role="separator"
                   aria-label={t('workspace.review-history')}
                   onPointerDown={startHistoryResize}
                 />
               )}
               <div
-                className="oh-dsh-sc-toolbar oh-dsh-history-toggle"
+                className="dsh-studio-sc-toolbar dsh-studio-history-toggle"
                 role="button"
                 tabIndex={0}
                 aria-expanded={!historyCollapsed}
                 onClick={() => { setHistoryCollapsed(collapsed => !collapsed) }}
               >
-                <span className="oh-dsh-sc-toolbar-title">
+                <span className="dsh-studio-sc-toolbar-title">
                   <IconHistory size={14} />
                   {t('workspace.review-history')}
                   <em>{history.length}</em>
                 </span>
                 <IconChevronDown
                   size={14}
-                  className={historyCollapsed ? 'oh-dsh-history-chevron is-collapsed' : 'oh-dsh-history-chevron'}
+                  className={historyCollapsed ? 'dsh-studio-history-chevron is-collapsed' : 'dsh-studio-history-chevron'}
                 />
               </div>
               {!historyCollapsed && (
                 <Scrollable
-                  className="oh-dsh-review-commit-list"
+                  className="dsh-studio-review-commit-list"
                   style={{ maxHeight: historyHeight }}
                 >
                   {history.map(entry => {
@@ -839,12 +839,12 @@ export function WorkspacePanel({
                     return (
                       <Fragment key={entry.hashFull}>
                         <ListRow
-                          className="oh-dsh-review-commit-row"
+                          className="dsh-studio-review-commit-row"
                           selected={isExpanded}
                           title={entry.subject}
                         >
                           <ListRowMain
-                            className="oh-dsh-sc-depth-main"
+                            className="dsh-studio-sc-depth-main"
                             aria-expanded={isExpanded}
                             onClick={() => { toggleCommitFiles(entry) }}
                           >
@@ -857,8 +857,8 @@ export function WorkspacePanel({
                               </ListRowLabel>
                             </ListRowBody>
                             <ListRowTrailing>
-                              <span className="oh-dsh-review-commit-author">{entry.author}</span>
-                              <code className="oh-dsh-review-commit-hash">{entry.hash}</code>
+                              <span className="dsh-studio-review-commit-author">{entry.author}</span>
+                              <code className="dsh-studio-review-commit-hash">{entry.hash}</code>
                             </ListRowTrailing>
                           </ListRowMain>
                           <ListRowTrailing>

@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/desktop-skins",
+  "name": "@dsh-studio/desktop-skins",
   "version": "0.1.2",
-  "description": "Built-in Oh-DSH-Desktop skin gallery and theme adapter",
+  "description": "Built-in DSH Studio skin gallery and theme adapter",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -36,6 +36,6 @@
   },
   "license": "MIT",
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*"
+    "@dsh-studio/shared": "workspace:*"
   }
 }

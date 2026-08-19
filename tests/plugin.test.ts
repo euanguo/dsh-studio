@@ -9,9 +9,9 @@ import {
 
 test('desktop client replaces the hero title and keeps the Preview badge', () => {
   const client = readFileSync(new URL('../src/client.ts', import.meta.url), 'utf8')
-  assert.match(client, /element\.textContent = 'Oh-DSH-Desktop'/)
+  assert.match(client, /element\.textContent = 'DSH Studio'/)
   assert.match(client, /\['Into the Unknown', '探索未知之境', '探索未至之境'\]/)
-  assert.doesNotMatch(client, /data-oh-dsh-hero-preview/)
+  assert.doesNotMatch(client, /data-dsh-studio-hero-preview/)
 })
 
 test('desktop modal stacking does not promote the right rail', () => {
@@ -19,7 +19,7 @@ test('desktop modal stacking does not promote the right rail', () => {
     new URL('../src/client.ts', import.meta.url),
     'utf8',
   )
-  assert.doesNotMatch(client, /#oh-dsh-sidebar-root\s*\{[\s\S]*z-index:/s)
+  assert.doesNotMatch(client, /#dsh-studio-sidebar-root\s*\{[\s\S]*z-index:/s)
 })
 
 test('desktop Settings stays below portaled menus and above desktop surfaces', () => {
@@ -37,11 +37,11 @@ test('desktop Settings stays below portaled menus and above desktop surfaces', (
     /\[role='presentation'\]:has\(\s*> \[role='dialog'\]\s*\)[^{]*\{[^}]*z-index: 1000 !important;[^}]*backdrop-filter: blur\(/s,
   )
   assert.match(client, /:has\(\s*\[role='presentation'\] > \[role='dialog'\]/s)
-  assert.match(client, /\[data-oh-dsh-pinned-summary\]/)
-  assert.match(client, /#oh-dsh-plugin-marketplace-root[^}]*\{[\s\S]*z-index: 999 !important;/s)
+  assert.match(client, /\[data-dsh-studio-pinned-summary\]/)
+  assert.match(client, /#dsh-studio-plugin-marketplace-root[^}]*\{[\s\S]*z-index: 999 !important;/s)
 })
 
-test('every bundled Oh-DSH client follows the native locale service', () => {
+test('every bundled DSH Studio client follows the native locale service', () => {
   const clients = [
     '../plugins/desktop-skins/src/client/plugin.tsx',
     '../src/client.ts',
@@ -53,7 +53,7 @@ test('every bundled Oh-DSH client follows the native locale service', () => {
   for (const path of clients) {
     const source = readFileSync(new URL(path, import.meta.url), 'utf8')
     assert.match(source, /export const inject = \[[^\]]*'locale'/)
-    assert.match(source, /locale\.register\('oh-dsh\./)
+    assert.match(source, /locale\.register\('dsh-studio\./)
   }
 
   const dictionaries = [
@@ -103,13 +103,13 @@ test('desktop sidebar exposes one configurable tool registry in settings', () =>
 
 test('desktop Host plugin publishes capability, prompt, and bash environment', () => {
   const previous = {
-    appData: process.env.DSH_DESKTOP_APP_DATA,
-    profile: process.env.DSH_DESKTOP_PROFILE,
-    version: process.env.DSH_DESKTOP_VERSION,
+    appData: process.env.DSH_STUDIO_DESKTOP_APP_DATA,
+    profile: process.env.DSH_STUDIO_DESKTOP_PROFILE,
+    version: process.env.DSH_STUDIO_DESKTOP_VERSION,
   }
-  process.env.DSH_DESKTOP_APP_DATA = '/tmp/dsh-desktop-data'
-  process.env.DSH_DESKTOP_PROFILE = 'desktop'
-  process.env.DSH_DESKTOP_VERSION = '9.8.7'
+  process.env.DSH_STUDIO_DESKTOP_APP_DATA = '/tmp/dsh-desktop-data'
+  process.env.DSH_STUDIO_DESKTOP_PROFILE = 'desktop'
+  process.env.DSH_STUDIO_DESKTOP_VERSION = '9.8.7'
   let capability: unknown
   let prompt = ''
   let resolvedEnvironment: Record<string, string> = {}
@@ -157,21 +157,21 @@ test('desktop Host plugin publishes capability, prompt, and bash environment', (
       version: '9.8.7',
     })
     prompt = sections.join('\n')
-    assert.match(prompt, /Oh-DSH-Desktop/)
+    assert.match(prompt, /DSH Studio/)
     assert.doesNotMatch(prompt, /ChatGPT|OpenAI/)
     assert.deepEqual(resolvedEnvironment, {
-      DSH_DESKTOP: '1',
-      DSH_DESKTOP_APP_DATA: '/tmp/dsh-desktop-data',
-      DSH_DESKTOP_PROFILE: 'desktop',
-      DSH_DESKTOP_VERSION: '9.8.7',
+      DSH_STUDIO_DESKTOP: '1',
+      DSH_STUDIO_DESKTOP_APP_DATA: '/tmp/dsh-desktop-data',
+      DSH_STUDIO_DESKTOP_PROFILE: 'desktop',
+      DSH_STUDIO_DESKTOP_VERSION: '9.8.7',
     })
   } finally {
-    if (previous.appData === undefined) delete process.env.DSH_DESKTOP_APP_DATA
-    else process.env.DSH_DESKTOP_APP_DATA = previous.appData
-    if (previous.profile === undefined) delete process.env.DSH_DESKTOP_PROFILE
-    else process.env.DSH_DESKTOP_PROFILE = previous.profile
-    if (previous.version === undefined) delete process.env.DSH_DESKTOP_VERSION
-    else process.env.DSH_DESKTOP_VERSION = previous.version
+    if (previous.appData === undefined) delete process.env.DSH_STUDIO_DESKTOP_APP_DATA
+    else process.env.DSH_STUDIO_DESKTOP_APP_DATA = previous.appData
+    if (previous.profile === undefined) delete process.env.DSH_STUDIO_DESKTOP_PROFILE
+    else process.env.DSH_STUDIO_DESKTOP_PROFILE = previous.profile
+    if (previous.version === undefined) delete process.env.DSH_STUDIO_DESKTOP_VERSION
+    else process.env.DSH_STUDIO_DESKTOP_VERSION = previous.version
   }
 })
 
@@ -181,8 +181,8 @@ test('desktop Agent tools share the guarded marketplace transaction owner', asyn
   type AgentPolicy = Parameters<Parameters<typeof mountMarketplaceAgentTools>[0]['on']>[1]
   let policy: AgentPolicy | undefined
   const environment: NodeJS.ProcessEnv = {
-    OH_DSH_MARKETPLACE_AGENT_TOKEN: 'secret-token',
-    OH_DSH_MARKETPLACE_AGENT_URL: 'http://127.0.0.1:43210/v1/marketplace',
+    DSH_STUDIO_MARKETPLACE_AGENT_TOKEN: 'secret-token',
+    DSH_STUDIO_MARKETPLACE_AGENT_URL: 'http://127.0.0.1:43210/v1/marketplace',
   }
   mountMarketplaceAgentTools({
     on: (_name, listener) => { policy = listener },
@@ -202,8 +202,8 @@ test('desktop Agent tools share the guarded marketplace transaction owner', asyn
     'desktop_plugin_apply',
     'desktop_plugin_recover',
   ])
-  assert.equal(environment.OH_DSH_MARKETPLACE_AGENT_TOKEN, undefined)
-  assert.equal(environment.OH_DSH_MARKETPLACE_AGENT_URL, undefined)
+  assert.equal(environment.DSH_STUDIO_MARKETPLACE_AGENT_TOKEN, undefined)
+  assert.equal(environment.DSH_STUDIO_MARKETPLACE_AGENT_URL, undefined)
   const first = definitions[0] as {
     output: { schema: { properties: Record<string, Record<string, unknown>>; required: string[] } }
     parameters: { properties: Record<string, Record<string, unknown>>; type: string }
@@ -217,7 +217,7 @@ test('desktop Agent tools share the guarded marketplace transaction owner', asyn
     await policy({ name: 'desktop_plugin_apply' }, async () => ({ kind: 'allow' })),
     {
       kind: 'ask',
-      reason: 'Apply the tested plugin preview to Oh-DSH-Desktop?',
+      reason: 'Apply the tested plugin preview to DSH Studio?',
     },
   )
   assert.deepEqual(

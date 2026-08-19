@@ -1,6 +1,6 @@
-# 外部插件接入指南：基于 @oh-dsh/sidebar 注册新页面与文件预览器
+# 外部插件接入指南：基于 @dsh-studio/sidebar 注册新页面与文件预览器
 
-> 面向 **消费插件开发者**：如何让你的插件向 Oh-DSH 侧边栏注册新的侧边栏 tab、文件类型预览器、
+> 面向 **消费插件开发者**：如何让你的插件向 DSH Studio 侧边栏注册新的侧边栏 tab、文件类型预览器、
 > 中间工作区（center surface）渲染器与声明式设置。
 >
 > 适用版本：**0.1.2+**（`ctx.desktopSidebar` 服务契约化后）。
@@ -12,17 +12,17 @@
 
 ## 1. 总览：你能扩展什么
 
-Oh-DSH 侧边栏是一个**注册表服务**（对齐上游 DSH-better-sidebar 的 `ctx.betterSidebar` 契约）：
+DSH Studio 侧边栏是一个**注册表服务**（对齐上游 DSH-better-sidebar 的 `ctx.betterSidebar` 契约）：
 
 - **新页面（tab）**：注册一种新的侧边栏 tab 类型，出现在侧边栏 `+` 菜单里，用户点击后在右栏打开你的 React 页面；也支持**动作型 tab**（点击执行动作而不开 tab，如打开底部终端）。
 - **文件预览器（file viewer）**：注册一种文件类型预览器，让文件 tab 走你的渲染组件（覆盖或补充内置的 text/html/markdown/binary）。
-- **中间工作区渲染器（surface renderer）**（Oh-DSH 扩展）：注册一种 center surface 渲染器——文件/diff/浏览器等页面开在 DSH 对话上方的中间工作区。
+- **中间工作区渲染器（surface renderer）**（DSH Studio 扩展）：注册一种 center surface 渲染器——文件/diff/浏览器等页面开在 DSH 对话上方的中间工作区。
 - **声明式设置（settings）**：每个注册的 tab/viewer 自动获得设置页卡片（启用开关），并可声明自己的设置行（绑定宿主字段或插件自有字段）或自定义设置面板。
 
 内置的 tab（review/files/file/terminal/side-chat/trajectory）、viewer（binary/html/markdown/text）与
 surface（file/diff/commit/…）**自己也是通过同一套 API 注册的**（吃自己的狗粮），所以外部插件的能力与内置功能完全对等。
 
-**关键机制一句话**：`@oh-dsh/sidebar` 的 client half 在 `apply()` 里通过 `ctx.reflect.provide('desktopSidebar', service)` 发布服务；
+**关键机制一句话**：`@dsh-studio/sidebar` 的 client half 在 `apply()` 里通过 `ctx.reflect.provide('desktopSidebar', service)` 发布服务；
 消费插件在 `inject` 里声明 `'desktopSidebar'`，然后调用 `ctx.desktopSidebar.registerTab(...)` / `registerViewer(...)` /
 `registerSurfaceRenderer(...)` 完成注册；返回的 disposer 由你的 `ctx.effect()` 在 fiber 卸载（HMR / 禁用）时自动调用。
 
@@ -38,7 +38,7 @@ surface（file/diff/commit/…）**自己也是通过同一套 API 注册的**�
 你的插件拿到 `ctx.desktopSidebar` 的完整类型：
 
 ```ts
-import type {} from '@oh-dsh/sidebar/client/contract'  // 触发 declare module 'cordis' 类型合并
+import type {} from '@dsh-studio/sidebar/client/contract'  // 触发 declare module 'cordis' 类型合并
 ```
 
 这个 **type-only import** 在编译时被擦除，不产生任何运行时依赖。在真实 cordis 环境（DSH 官方插件）里，
@@ -52,15 +52,15 @@ import type {} from '@oh-dsh/sidebar/client/contract'  // 触发 declare module 
   "name": "my-plugin",
   "peerDependencies": {
     "react": "^18.2.0",
-    "@oh-dsh/sidebar": "workspace:*"
+    "@dsh-studio/sidebar": "workspace:*"
   },
   "peerDependenciesMeta": {
-    "@oh-dsh/sidebar": { "optional": true }
+    "@dsh-studio/sidebar": { "optional": true }
   }
 }
 ```
 
-`@oh-dsh/sidebar` 声明为 **peerDependency**（避免重复实例化）；`optional: true` 让插件在侧边栏未安装时也能加载。
+`@dsh-studio/sidebar` 声明为 **peerDependency**（避免重复实例化）；`optional: true` 让插件在侧边栏未安装时也能加载。
 
 ---
 
@@ -101,7 +101,7 @@ interface SidebarTabDescriptor {
   onClose?: (tab: SidebarTab, scope: SidebarScope) => void
   /** 渲染函数。action 型 tab（无 render）是菜单快捷键：点击执行 action。 */
   render?: (props: SidebarRenderProps) => ReactNode
-  /** 点击执行动作而不开 tab（Oh-DSH 扩展，上游没有）。 */
+  /** 点击执行动作而不开 tab（DSH Studio 扩展，上游没有）。 */
   action?: () => void | Promise<void>
   /** 'custom' 渲染无 chrome 的正文；'standard' 加标准 tab chrome。 */
   chrome?: 'custom' | 'standard'
@@ -234,7 +234,7 @@ ctx.effect(() =>
 
 ---
 
-## 5. Center surface 渲染器注册（Oh-DSH 扩展）
+## 5. Center surface 渲染器注册（DSH Studio 扩展）
 
 ```ts
 ctx.effect(() =>
@@ -311,7 +311,7 @@ interface SidebarSettingsRenderProps {
 ```tsx
 // my-plugin/src/client/index.tsx
 import { createElement } from 'react'
-import type {} from '@oh-dsh/sidebar/client/contract'  // 触发 ctx.desktopSidebar 类型合并
+import type {} from '@dsh-studio/sidebar/client/contract'  // 触发 ctx.desktopSidebar 类型合并
 import type { Context } from 'cordis'
 
 export const inject = ['desktopSidebar']

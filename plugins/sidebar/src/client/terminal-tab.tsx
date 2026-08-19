@@ -10,9 +10,9 @@
  * shell in every conversation of that project (B1: project-shared PTY).
  */
 import { useEffect, useSyncExternalStore } from 'react'
-import { TerminalView } from '@oh-dsh/shared/terminal-view'
+import { TerminalView } from '@dsh-studio/shared/terminal-view'
 import { touchTerminalInstance } from './runtimes/terminal-runtime.ts'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from './i18n.ts'
 import type { SidebarRuntimeSettingsService } from './runtime-settings.ts'
 
@@ -43,7 +43,7 @@ export function TerminalTabContent(props: TerminalTabContentProps): JSX.Element 
     touchTerminalInstance({ cwd: props.cwd }, props.tabId)
   }, [props.cwd, props.tabId])
   return (
-    <div className="oh-dsh-side-terminal">
+    <div className="dsh-studio-side-terminal">
       <TerminalView
         sessionId={props.cwd ?? ''}
         tabId={props.tabId}

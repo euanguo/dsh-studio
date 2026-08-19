@@ -7,8 +7,8 @@ import type { PluginMarketplaceManager } from './transaction-manager.ts'
 const MAX_REQUEST_BYTES = 32 * 1024
 const DEFAULT_DEFER_MS = 900
 
-export const MARKETPLACE_AGENT_URL_ENV = 'OH_DSH_MARKETPLACE_AGENT_URL'
-export const MARKETPLACE_AGENT_TOKEN_ENV = 'OH_DSH_MARKETPLACE_AGENT_TOKEN'
+export const MARKETPLACE_AGENT_URL_ENV = 'DSH_STUDIO_MARKETPLACE_AGENT_URL'
+export const MARKETPLACE_AGENT_TOKEN_ENV = 'DSH_STUDIO_MARKETPLACE_AGENT_TOKEN'
 
 export interface MarketplaceAgentGateway {
   close(): Promise<void>

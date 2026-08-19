@@ -22,7 +22,7 @@ function writePackage(store: string, name: string, version: string, manifest: ob
 }
 
 test('Nix dependency collector preserves transitive peer resolution', async () => {
-  const fixture = mkdtempSync(join(tmpdir(), 'oh-dsh-nix-deps-'))
+  const fixture = mkdtempSync(join(tmpdir(), 'dsh-studio-nix-deps-'))
   const store = join(fixture, '.pnpm')
   const output = join(fixture, 'closure')
   const manifest = join(fixture, 'package.json')

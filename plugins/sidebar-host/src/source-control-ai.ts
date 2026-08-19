@@ -1,5 +1,5 @@
 import z from 'schemastery'
-import { diff } from '@oh-dsh/shared/git-core'
+import { diff } from '@dsh-studio/shared/git-core'
 
 /** Dedicated user-settings namespace; provider catalogs remain owned by llm-pi-ai. */
 export const SOURCE_CONTROL_AI_SETTINGS_NS = 'source-control-ai'

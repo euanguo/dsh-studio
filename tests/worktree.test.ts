@@ -4,11 +4,11 @@ import { parseWorktreeList } from '../plugins/shared/git-core.ts'
 
 test('parseWorktreeList: main + linked worktrees', () => {
   const out = [
-    'worktree /Users/me/repos/oh-dsh-desktop',
+    'worktree /Users/me/repos/dsh-studio',
     'HEAD 47f943859bef60e4160492346772ded9b24f765a',
     'branch refs/heads/main',
     '',
-    'worktree /Users/me/repos/oh-dsh-desktop-worktrees/feat-api',
+    'worktree /Users/me/repos/dsh-studio-worktrees/feat-api',
     'HEAD abc123def4567890abcdef1234567890abcdef12',
     'branch refs/heads/feat/api',
     '',
@@ -16,13 +16,13 @@ test('parseWorktreeList: main + linked worktrees', () => {
   const entries = parseWorktreeList(out)
   assert.equal(entries.length, 2)
   assert.deepEqual(entries[0], {
-    path: '/Users/me/repos/oh-dsh-desktop',
+    path: '/Users/me/repos/dsh-studio',
     head: '47f943859bef60e4160492346772ded9b24f765a',
     branch: 'main',
     main: true,
   })
   assert.deepEqual(entries[1], {
-    path: '/Users/me/repos/oh-dsh-desktop-worktrees/feat-api',
+    path: '/Users/me/repos/dsh-studio-worktrees/feat-api',
     head: 'abc123def4567890abcdef1234567890abcdef12',
     branch: 'feat/api',
     main: false,

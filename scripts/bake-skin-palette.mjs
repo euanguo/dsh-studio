@@ -27,8 +27,8 @@ import {
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-const BAKE_HEADER = '/* === Oh-DSH: baked default palette (chatgpt-day / chatgpt-night) === */'
-const BAKE_FOOTER = '/* === end Oh-DSH baked palette === */'
+const BAKE_HEADER = '/* === DSH Studio: baked default palette (chatgpt-day / chatgpt-night) === */'
+const BAKE_FOOTER = '/* === end DSH Studio baked palette === */'
 
 /** 渲染一段 token 覆盖块（键按字母序，diff 友好）。 */
 function renderBlock(selector, ...tokenSets) {

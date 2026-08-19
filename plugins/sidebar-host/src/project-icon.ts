@@ -1,6 +1,6 @@
 import { readFile, stat } from 'node:fs/promises'
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
-import * as git from '@oh-dsh/shared/git-core'
+import * as git from '@dsh-studio/shared/git-core'
 
 const MAX_ICON_BYTES = 256 * 1024
 const MAX_SOURCE_BYTES = 256 * 1024

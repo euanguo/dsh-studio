@@ -9,7 +9,7 @@ distribution is a self-contained single repository.
 - Baseline revision: `3d88752eb184d7d8b535d66a296fade474dd053f` (v0.10.2)
 - License: MIT — see THIRD_PARTY_NOTICES.md
 - Only the Host is vendored. The upstream UI client was NOT vendored
-  (Oh-DSH ships its own panel UI); `src/client/` here only keeps the
+  (DSH Studio ships its own panel UI); `src/client/` here only keeps the
   type-contract files the Host entry re-exports
   (`service.ts` + `state.ts` / `breakpoints.ts` / `api.ts` / `browser.ts`).
 
@@ -53,7 +53,7 @@ recorded here so upstream upgrades can be re-applied:
   (`readWorkspaceFacts` / `mutateWorkspace` + the shared
   `isSidebarWorkspaceMutation` wire guard) serving the NEW
   `workspace.facts` / `workspace.mutate` API methods. Folded in from the
-  Oh-DSH sidebar's former self-hosted `/oh-dsh/workspace` route so every
+  DSH Studio sidebar's former self-hosted `/dsh-studio/workspace` route so every
   panel data channel rides one API surface behind one trust fence;
   `routes.ts` wires both methods through the existing bare-cwd
   `cwdScopeOf` (the worktree scope).

@@ -6,12 +6,12 @@ import {
   useSyncExternalStore,
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import type { DesktopBridge } from '@oh-dsh/shared/desktop-contracts'
-import { ensureStyle } from '@oh-dsh/shared/style-injector'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
-import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
-import { localeTag } from '@oh-dsh/shared/i18n'
-import { useTranslate } from '@oh-dsh/shared/use-i18n'
+import type { DesktopBridge } from '@dsh-studio/shared/desktop-contracts'
+import { ensureStyle } from '@dsh-studio/shared/style-injector'
+import { Scrollable } from '@dsh-studio/shared/scrollable'
+import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
+import { localeTag } from '@dsh-studio/shared/i18n'
+import { useTranslate } from '@dsh-studio/shared/use-i18n'
 import {
   Button,
   Input,
@@ -26,7 +26,7 @@ import {
   IconChevronDown,
   IconClose,
   IconSearch,
-} from '@oh-dsh/shared/tabler-icons'
+} from '@dsh-studio/shared/tabler-icons'
 import type {
   MarketplaceCommand,
   MarketplaceConfirmation,
@@ -98,8 +98,8 @@ declare global {
 
 export const inject = ['locale', 'sessions', 'slots']
 
-const OPEN_KEY = 'oh-dsh-desktop.plugin-marketplace.open'
-const FOOTER_STACK_ATTRIBUTE = 'data-oh-dsh-marketplace-footer-stack'
+const OPEN_KEY = 'dsh-studio.plugin-marketplace.open'
+const FOOTER_STACK_ATTRIBUTE = 'data-dsh-studio-marketplace-footer-stack'
 
 function readOpen(): boolean {
   try { return localStorage.getItem(OPEN_KEY) === 'true' } catch { return false }
@@ -246,10 +246,10 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
        it here duplicated every rule and let the later style tag clobber
        consumer borders (the diff-tree divider). Only marketplace's own
        styles are injected here. */
-    this.#stopStyle = ensureStyle('oh-dsh-plugin-marketplace', marketplaceCss)
+    this.#stopStyle = ensureStyle('dsh-studio-plugin-marketplace', marketplaceCss)
 
     this.#element = document.createElement('div')
-    this.#element.id = 'oh-dsh-plugin-marketplace-root'
+    this.#element.id = 'dsh-studio-plugin-marketplace-root'
     document.body.append(this.#element)
     this.#root = createRoot(this.#element)
     this.#root.render(
@@ -1031,17 +1031,17 @@ export function apply(ctx: ClientContext): void {
   const locale = ctx.get('locale') as LocaleService
   const sessions = ctx.get('sessions') as SessionsService
   const slots = ctx.get('slots') as SlotsService
-  const t: Translate<MarketplaceMessage> = locale.bind('oh-dsh.plugin-marketplace')
+  const t: Translate<MarketplaceMessage> = locale.bind('dsh-studio.plugin-marketplace')
   const view = new PluginMarketplaceViewService(bridge, locale, t, sessions)
   ctx.effect(
-    () => locale.register('oh-dsh.plugin-marketplace', MARKETPLACE_MESSAGES),
-    'oh-dsh-desktop: marketplace dictionaries',
+    () => locale.register('dsh-studio.plugin-marketplace', MARKETPLACE_MESSAGES),
+    'dsh-studio: marketplace dictionaries',
   )
   slots.inject('sidebar.footer.action', () => slots.register({
     name: 'sidebar.footer.action',
-    id: 'oh-dsh-plugin-marketplace',
+    id: 'dsh-studio-plugin-marketplace',
     order: 80,
-    locale: 'oh-dsh.plugin-marketplace',
+    locale: 'dsh-studio.plugin-marketplace',
     inject: () => ({ locale, t, view }),
   }, MarketplaceNavigationEntry))
   ctx.effect(() => {
@@ -1059,5 +1059,5 @@ export function apply(ctx: ClientContext): void {
       view.dispose()
       if (typeof disposeProvider === 'function') void disposeProvider()
     }
-  }, 'oh-dsh-desktop: plugin marketplace')
+  }, 'dsh-studio: plugin marketplace')
 }

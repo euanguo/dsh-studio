@@ -37,15 +37,14 @@ import type {
 } from './contracts.ts'
 import {
   desktopElectronDataRoot,
-  migrateLegacyDesktopState,
-  OH_DSH_CHANNEL_ENV,
-  OH_DSH_DEV_CHANNEL,
-  OH_DSH_HOME_ENV,
-  parseOhDshChannel,
-  resolveOhDshChannel,
-  resolveOhDshHome,
-  takeOhDshChannelArgs,
-  type OhDshChannel,
+  DSH_STUDIO_CHANNEL_ENV,
+  DSH_STUDIO_DEV_CHANNEL,
+  DSH_STUDIO_HOME_ENV,
+  parseDshStudioChannel,
+  resolveDshStudioChannel,
+  resolveDshStudioHome,
+  takeDshStudioChannelArgs,
+  type DshStudioChannel,
 } from './data-root.ts'
 import { allowsRuntimeClipboardWrite, originOf } from './permissions.ts'
 import { BUNDLED_DESKTOP_PLUGINS, DESKTOP_PROFILE, ensureDesktopProfile } from './profile.ts'
@@ -60,8 +59,8 @@ import { resolveProductVersion } from './version.ts'
 import { DesktopUpdateManager, detectPackageType } from './update-manager.ts'
 import { scheduleImmediateUpdateInstall, singleFlight } from './update-lifecycle.ts'
 
-const PRODUCT_NAME = 'Oh-DSH-Desktop'
-const DESKTOP_APP_USER_MODEL_ID = 'ai.deepseek.oh-dsh-desktop'
+const PRODUCT_NAME = 'DSH Studio'
+const DESKTOP_APP_USER_MODEL_ID = 'ai.deepseek.dsh-studio'
 const DEFAULT_UI_ZOOM_FACTOR = 1.12
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const PRODUCT_VERSION = resolveProductVersion(join(currentDir, '..'))
@@ -109,21 +108,21 @@ function runtimePaths(): BundledRuntimePaths {
   return bundledRuntimePaths(resourcesRoot())
 }
 
-function instanceChannel(): OhDshChannel {
-  return resolveOhDshChannel(process.env)
+function instanceChannel(): DshStudioChannel {
+  return resolveDshStudioChannel(process.env)
 }
 
-function instanceProductName(channel: OhDshChannel = instanceChannel()): string {
-  return channel === OH_DSH_DEV_CHANNEL ? `${PRODUCT_NAME}-Dev` : PRODUCT_NAME
+function instanceProductName(channel: DshStudioChannel = instanceChannel()): string {
+  return channel === DSH_STUDIO_DEV_CHANNEL ? `${PRODUCT_NAME}-Dev` : PRODUCT_NAME
 }
 
-function instanceWindowTitle(channel: OhDshChannel = instanceChannel()): string {
-  return channel === OH_DSH_DEV_CHANNEL ? `${PRODUCT_NAME} (Dev)` : PRODUCT_NAME
+function instanceWindowTitle(channel: DshStudioChannel = instanceChannel()): string {
+  return channel === DSH_STUDIO_DEV_CHANNEL ? `${PRODUCT_NAME} (Dev)` : PRODUCT_NAME
 }
 
 function desktopInfo(preview: DesktopInfo['preview'] = null): DesktopInfo {
   const channel = instanceChannel()
-  const appDataPath = resolveOhDshHome(process.env)
+  const appDataPath = resolveDshStudioHome(process.env)
   return {
     appDataPath,
     channel,
@@ -152,19 +151,19 @@ function runtimeEnvironment(
   const info = desktopInfo(overrides.preview ?? null)
   const environment: NodeJS.ProcessEnv = {
     ...process.env,
-    DSH_DESKTOP: '1',
-    DSH_DESKTOP_APP_DATA: overrides.appDataPath ?? info.appDataPath,
-    DSH_DESKTOP_PROFILE: info.profile,
-    DSH_DESKTOP_VERSION: info.version,
+    DSH_STUDIO_DESKTOP: '1',
+    DSH_STUDIO_DESKTOP_APP_DATA: overrides.appDataPath ?? info.appDataPath,
+    DSH_STUDIO_DESKTOP_PROFILE: info.profile,
+    DSH_STUDIO_DESKTOP_VERSION: info.version,
     DSH_HOME: overrides.dshHome ?? info.dshHome,
-    OH_DSH_HOME: overrides.dshHome ?? info.dshHome,
+    DSH_STUDIO_HOME: overrides.dshHome ?? info.dshHome,
     NODE_USE_ENV_PROXY: '1',
     PATH: runtimeSearchPath(paths),
   }
   if (overrides.preview !== undefined) {
-    environment.DSH_DESKTOP_PREVIEW = '1'
-    environment.DSH_DESKTOP_PREVIEW_PLUGIN = overrides.preview.pluginId
-    environment.DSH_DESKTOP_PREVIEW_TRANSACTION = overrides.preview.transactionId
+    environment.DSH_STUDIO_PREVIEW = '1'
+    environment.DSH_STUDIO_PREVIEW_PLUGIN = overrides.preview.pluginId
+    environment.DSH_STUDIO_PREVIEW_TRANSACTION = overrides.preview.transactionId
   } else if (marketplaceAgentGateway !== undefined) {
     environment[MARKETPLACE_AGENT_URL_ENV] = marketplaceAgentGateway.url
     environment[MARKETPLACE_AGENT_TOKEN_ENV] = marketplaceAgentGateway.token
@@ -256,10 +255,10 @@ function windowIconPath(): string | undefined {
   // Source / verification instances use the DEV-stamped sibling so the
   // two apps are distinguishable in the Dock and window switcher.
   if (app.isPackaged) {
-    const packaged = join(process.resourcesPath, 'oh-dsh-desktop.png')
+    const packaged = join(process.resourcesPath, 'dsh-studio.png')
     if (existsSync(packaged)) return packaged
   }
-  if (instanceChannel() === OH_DSH_DEV_CHANNEL) {
+  if (instanceChannel() === DSH_STUDIO_DEV_CHANNEL) {
     const repoRoot = join(currentDir, '..')
     for (const relative of ['assets/icons-dev/1024x1024.png', 'assets/icons-dev/512x512.png']) {
       const candidate = join(repoRoot, relative)
@@ -625,7 +624,7 @@ async function restartRuntime(message = '正在重新启动 DeepSeek Harness…'
     appendLog('desktop', error instanceof Error ? error.stack ?? error.message : String(error))
     await showSplash({
       error: true,
-      message: 'Oh-DSH-Desktop 启动失败。',
+      message: 'DSH Studio 启动失败。',
       detail: error instanceof Error ? error.message : String(error),
     })
   } finally {
@@ -868,7 +867,7 @@ function installIpc(): void {
     // The unified top rail's left reservation: the traffic-light anchor
     // (trafficLightPosition) plus the exact macOS cluster width — three
     // 12px buttons with 8px gaps (Apple HIG) = 52px. The renderer adds
-    // its breathing gap and turns this into `--oh-dsh-traffic-left`.
+    // its breathing gap and turns this into `--dsh-studio-traffic-left`.
     const platform = process.platform
     return {
       platform,
@@ -921,42 +920,31 @@ function installIpc(): void {
 
 function applyDesktopChannelFromArgv(): string[] {
   const raw = process.argv.slice(app.isPackaged ? 1 : 2)
-  const taken = takeOhDshChannelArgs(raw)
+  const taken = takeDshStudioChannelArgs(raw)
   if (taken.channelValue !== undefined) {
-    process.env[OH_DSH_CHANNEL_ENV] = parseOhDshChannel(taken.channelValue)
+    process.env[DSH_STUDIO_CHANNEL_ENV] = parseDshStudioChannel(taken.channelValue)
   }
   return taken.rest
 }
 
 async function bootstrap(): Promise<void> {
   const launchArguments = applyDesktopChannelFromArgv()
-  const channel = resolveOhDshChannel(process.env, { packaged: app.isPackaged })
-  process.env[OH_DSH_CHANNEL_ENV] = channel
-  const ohDshHome = resolveOhDshHome(process.env)
-  const electronDataRoot = desktopElectronDataRoot(ohDshHome)
+  const channel = resolveDshStudioChannel(process.env, { packaged: app.isPackaged })
+  process.env[DSH_STUDIO_CHANNEL_ENV] = channel
+  const dshStudioHome = resolveDshStudioHome(process.env)
+  const electronDataRoot = desktopElectronDataRoot(dshStudioHome)
   const productName = instanceProductName(channel)
   app.setName(productName)
   if (process.platform === 'win32') {
     app.setAppUserModelId(
-      channel === OH_DSH_DEV_CHANNEL
+      channel === DSH_STUDIO_DEV_CHANNEL
         ? `${DESKTOP_APP_USER_MODEL_ID}.dev`
         : DESKTOP_APP_USER_MODEL_ID,
     )
   }
-  const migration = migrateLegacyDesktopState({
-    appDataRoot: app.getPath('appData'),
-    env: process.env,
-    ohDshHome,
-  })
-  if (!migration.complete) {
-    throw new Error(
-      `legacy Desktop state migration under ${ohDshHome} is incomplete; `
-      + 'restore unavailable link targets and restart',
-    )
-  }
   mkdirSync(electronDataRoot, { recursive: true, mode: 0o700 })
   app.setPath('userData', electronDataRoot)
-  process.env[OH_DSH_HOME_ENV] = ohDshHome
+  process.env[DSH_STUDIO_HOME_ENV] = dshStudioHome
   app.setAboutPanelOptions({
     applicationName: productName,
     applicationVersion: PRODUCT_VERSION,
@@ -1022,7 +1010,7 @@ async function bootstrap(): Promise<void> {
       webContentsIsMainWindow: webContents === mainWindow?.webContents,
     })
   })
-  const browserSession = session.fromPartition('persist:oh-dsh-browser')
+  const browserSession = session.fromPartition('persist:dsh-studio-browser')
   browserSession.setPermissionRequestHandler((_webContents, _permission, callback) => { callback(false) })
   browserSession.setPermissionCheckHandler(() => false)
   buildMenu()

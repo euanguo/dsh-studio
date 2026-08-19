@@ -5,7 +5,7 @@
  * re-export kept for the in-repo consumers (`main.ts` / `preload.ts` /
  * `client.ts`).
  */
-export * from '@oh-dsh/shared/desktop-contracts'
+export * from '@dsh-studio/shared/desktop-contracts'
 
 /* ------------------------------------------------------------------ */
 /*  Upstream update lifecycle (kept from the upstream contracts.ts).    */

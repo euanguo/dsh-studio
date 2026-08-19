@@ -8,13 +8,13 @@
  * module-level terminal runtime registry and survives React surface detach;
  * explicit close releases both the owner and the quota entry.
  */
-import { ScopedRuntimeRegistry } from '@oh-dsh/shared/runtime'
+import { ScopedRuntimeRegistry } from '@dsh-studio/shared/runtime'
 import {
   createTerminalLeafId,
   makePaneKey,
   type PaneKey,
   type TerminalLeafId,
-} from '@oh-dsh/shared/stable-pane-id'
+} from '@dsh-studio/shared/stable-pane-id'
 import type { SidebarScope } from '../contract.ts'
 
 export const MAX_TERMINAL_INSTANCES_PER_WORKSPACE = 64
@@ -25,8 +25,8 @@ interface TerminalRuntimeOwnerBridge {
 
 function disposeTerminalOwner(cwd: string, tabId: string): void {
   const bridge = (globalThis as typeof globalThis & {
-    __ohDshTerminalRuntimeOwner?: TerminalRuntimeOwnerBridge
-  }).__ohDshTerminalRuntimeOwner
+    __dshStudioTerminalRuntimeOwner?: TerminalRuntimeOwnerBridge
+  }).__dshStudioTerminalRuntimeOwner
   bridge?.dispose(cwd, tabId)
 }
 

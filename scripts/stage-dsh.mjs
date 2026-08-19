@@ -36,12 +36,12 @@ const stage = join(root, '.stage')
 const runtime = join(stage, 'dsh-runtime')
 const nodeRuntime = join(stage, 'node-runtime')
 const cache = join(root, '.cache')
-const nodeVersion = process.env.DSH_DESKTOP_NODE_VERSION ?? '26.0.0'
+const nodeVersion = process.env.DSH_STUDIO_NODE_VERSION ?? '26.0.0'
 // Node.js distribution triples use `linux`/`darwin`/`win` and `x64`/`arm64`.
 // Stage a Node runtime for the current host unless an override asks for a
 // specific platform (used for cross-packaging).
 const nodePlatform = resolveNodeDistributionPlatform()
-const nodeArch = process.env.DSH_DESKTOP_NODE_ARCH
+const nodeArch = process.env.DSH_STUDIO_NODE_ARCH
   ?? { arm64: 'arm64', x64: 'x64' }[process.arch]
   ?? process.arch
 const isWindowsNode = nodePlatform === 'win'
@@ -426,7 +426,7 @@ function walk(rootPath, visit) {
 
 /**
  * fetch-blob 3 imports the deprecated node-domexception shim for Node 12.
- * Oh-DSH ships Node 26 and supports Node 24+, both of which expose the same
+ * DSH Studio ships Node 26 and supports Node 24+, both of which expose the same
  * Web-standard DOMException globally. Patch only this reviewed import, then
  * remove the now-unreferenced shim from the portable runtime.
  */
@@ -710,7 +710,7 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
     return
   }
   const installRoot = join(packageDir, 'node_modules')
-  const storeRoot = join(installRoot, '.oh-dsh-store')
+  const storeRoot = join(installRoot, '.dsh-studio-store')
   const installed = new Map()
 
   const instanceName = (manifestPath, manifest) => {
@@ -791,7 +791,7 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
 function installCompiledPackageHostDependencies(sourceManifestPath, packageDir) {
   const manifest = JSON.parse(readFileSync(sourceManifestPath, 'utf8'))
   const sourcePackages = discoverSourcePackages()
-  for (const dependency of manifest.ohDsh?.hostDependencies ?? []) {
+  for (const dependency of manifest.dshStudio?.hostDependencies ?? []) {
     const source = sourcePackages.get(dependency)
     if (source === undefined) {
       throw new Error(`${manifest.name} cannot resolve DSH peer ${dependency}`)

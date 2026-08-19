@@ -14,7 +14,7 @@ test('desktop profile initializes required bundles and preserves user plugins', 
     assert.deepEqual(manifest.dsh.profile.bundles, DESKTOP_BUNDLES)
 
     manifest.dependencies['example-plugin'] = '1.0.0'
-    manifest.dsh.profile.bundles = ['example-plugin', '@oh-dsh/desktop']
+    manifest.dsh.profile.bundles = ['example-plugin', '@dsh-studio/desktop']
     writeFileSync(manifestPath, JSON.stringify(manifest, undefined, 2) + '\n')
     writeFileSync(join(first.profileDir, 'cordis.patch.yml'), '- id: custom\n  disabled: true\n')
 

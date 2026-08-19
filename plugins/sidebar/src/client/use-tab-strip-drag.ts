@@ -7,9 +7,9 @@ import {
   type TabDropSide,
 } from './tab-drag.ts'
 import type { SidebarTabDragPayload } from './contract.ts'
-import { poseRoundedTabDragImage } from '@oh-dsh/shared/tab-drag-image'
+import { poseRoundedTabDragImage } from '@dsh-studio/shared/tab-drag-image'
 
-export const TAB_DRAG_MIME = 'application/x-oh-dsh-tab'
+export const TAB_DRAG_MIME = 'application/x-dsh-studio-tab'
 
 export function serializeTabDrag(payload: SidebarTabDragPayload): string {
   return JSON.stringify(payload)

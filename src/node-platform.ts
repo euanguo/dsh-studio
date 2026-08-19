@@ -10,6 +10,6 @@ export function resolveNodeDistributionPlatform(
   environment: NodeJS.ProcessEnv = process.env,
   platform: string = process.platform,
 ): string {
-  return environment.DSH_DESKTOP_NODE_PLATFORM
+  return environment.DSH_STUDIO_NODE_PLATFORM
     ?? nodeDistributionPlatform(platform)
 }

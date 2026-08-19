@@ -1,5 +1,5 @@
 /**
- * Desktop panel services (bundle: @oh-dsh/panel-controls).
+ * Desktop panel services (bundle: @dsh-studio/panel-controls).
  *
  * OH-DSH CUT (user preference): the terminal bottom dock is no longer
  * mounted under the conversation column. The bottom-mounted terminal
@@ -12,7 +12,7 @@
  * alongside (see SideToolsPanel.tsx / builtins/tabs.tsx / workspace-tools.tsx).
  * Restore by uncommenting the marked blocks below and re-adding the imports.
  */
-import type { LocaleService } from '@oh-dsh/shared/i18n'
+import type { LocaleService } from '@dsh-studio/shared/i18n'
 import { TERMINAL_MESSAGES } from './i18n.ts'
 
 // CUT (terminal dock): imports only used by the bottom-mounted dock.
@@ -20,14 +20,14 @@ import { TERMINAL_MESSAGES } from './i18n.ts'
 // import { createRoot, type Root } from 'react-dom/client'
 // import xtermCss from '@xterm/xterm/css/xterm.css'
 // import terminalCss from './terminal.css'
-// import themeCss from '@oh-dsh/shared/theme.css'
-// import { ensureStyle } from '@oh-dsh/shared/style-injector'
+// import themeCss from '@dsh-studio/shared/theme.css'
+// import { ensureStyle } from '@dsh-studio/shared/style-injector'
 // import { TerminalPanel, openOrToggleTerminal } from './TerminalPanel.tsx'
 // import {
 //   createMountScheduler,
 //   findConversationColumn,
 //   mutationNeedsMount,
-// } from '@oh-dsh/shared/column-mount'
+// } from '@dsh-studio/shared/column-mount'
 // import {
 //   DEFAULT_TERMINAL_FONT_SIZE,
 //   createDockStore,
@@ -58,7 +58,7 @@ interface ClientContext {
 
 /**
  * One right-panel owner's footprint claim. Only the most recently claimed
- * owner applies: the coordinator owns `data-oh-dsh-right-panel-owner` and
+ * owner applies: the coordinator owns `data-dsh-studio-right-panel-owner` and
  * the `#root` squeeze, so plugins no longer race over global state.
  */
 export interface RightPanelClaim {
@@ -185,8 +185,8 @@ class DesktopPanelService implements DesktopPanels {
     const claim = ownerId === undefined ? undefined : this.rightPanelClaims.get(ownerId)
     const appRoot = document.getElementById('root')
     if (claim !== undefined && ownerId !== undefined) {
-      if (html.dataset.ohDshRightPanelOwner !== ownerId) {
-        html.dataset.ohDshRightPanelOwner = ownerId
+      if (html.dataset.dshStudioRightPanelOwner !== ownerId) {
+        html.dataset.dshStudioRightPanelOwner = ownerId
       }
       if (claim.paddingRight === null) {
         appRoot?.style.removeProperty('padding-right')
@@ -202,7 +202,7 @@ class DesktopPanelService implements DesktopPanels {
         }
       }
     } else {
-      delete html.dataset.ohDshRightPanelOwner
+      delete html.dataset.dshStudioRightPanelOwner
       appRoot?.style.removeProperty('padding-right')
       appRoot?.style.removeProperty('box-sizing')
     }
@@ -250,7 +250,7 @@ class DesktopPanelService implements DesktopPanels {
   // }
   //
   // private mountDock(column: HTMLElement): void {
-  //   ...create #oh-dsh-terminal-root, append as last child, renderDock()...
+  //   ...create #dsh-studio-terminal-root, append as last child, renderDock()...
   // }
   //
   // private renderDock(): void {
@@ -261,8 +261,8 @@ class DesktopPanelService implements DesktopPanels {
 export function apply(ctx: ClientContext): void {
   const locale = ctx.get('locale') as LocaleService
   ctx.effect(
-    () => locale.register('oh-dsh.terminal', TERMINAL_MESSAGES),
-    'oh-dsh-desktop: terminal dictionaries',
+    () => locale.register('dsh-studio.terminal', TERMINAL_MESSAGES),
+    'dsh-studio: terminal dictionaries',
   )
   const service = new DesktopPanelService(
     ctx.get('layout') as LayoutService,
@@ -274,7 +274,7 @@ export function apply(ctx: ClientContext): void {
       service.dispose()
       void removeService?.()
     }
-  }, 'oh-dsh-desktop: terminal panel controls')
+  }, 'dsh-studio: terminal panel controls')
 }
 
 /** CUT (terminal dock): session model used by the dock's per-session sync. */

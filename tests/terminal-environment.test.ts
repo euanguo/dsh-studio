@@ -22,7 +22,7 @@ test('embedded terminal environment removes parent emulator capabilities', () =>
   })
   assert.equal(result.env.TERM, 'xterm-256color')
   assert.equal(result.env.COLORTERM, 'truecolor')
-  assert.equal(result.env.TERM_PROGRAM, 'oh-dsh')
+  assert.equal(result.env.TERM_PROGRAM, 'dsh-studio')
   assert.equal(result.env.TERMINFO, undefined)
   assert.equal(result.env.KITTY_WINDOW_ID, undefined)
   assert.equal(result.env.GHOSTTY_RESOURCES_DIR, undefined)

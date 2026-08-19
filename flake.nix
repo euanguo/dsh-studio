@@ -1,5 +1,5 @@
 {
-  description = "Oh-DSH: installable Desktop, Web, and TUI distributions";
+  description = "DSH Studio: installable Desktop, Web, and TUI distributions";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -33,7 +33,7 @@
 
             # pnpm install fetches its own electron; no nixpkgs electron here.
             shellHook = ''
-              export OH_DSH_SOURCE_ROOT="$PWD"
+              export DSH_STUDIO_SOURCE_ROOT="$PWD"
             '';
           };
         });
@@ -41,29 +41,29 @@
       packages = forAllSystems (system:
         let
           pkgs = nixpkgs.legacyPackages.${system};
-          mkOhDsh = import ./nix/oh-dsh.nix {
+          mkDshStudio = import ./nix/dsh-studio.nix {
             inherit pkgs system llm-agents dshSourceSpec;
           };
         in
         rec {
           # Full distribution: Desktop, Web, and TUI through one launcher.
-          oh-dsh = mkOhDsh { surface = "full"; dshSource = "llm-agents"; };
-          oh-dsh-desktop = oh-dsh;
+          dsh-studio = mkDshStudio { surface = "full"; dshSource = "llm-agents"; };
+          dsh-studio = dsh-studio;
 
           # Layered distributions without Electron.
-          oh-dsh-web = mkOhDsh { surface = "web"; dshSource = "llm-agents"; };
-          oh-dsh-tui = mkOhDsh { surface = "tui"; dshSource = "llm-agents"; };
+          dsh-studio-web = mkDshStudio { surface = "web"; dshSource = "llm-agents"; };
+          dsh-studio-tui = mkDshStudio { surface = "tui"; dshSource = "llm-agents"; };
 
           # Variants pinning the DSH runtime to this repo's dsh-source.json.
-          oh-dsh-pinned = mkOhDsh { surface = "full"; dshSource = "pinned"; };
-          oh-dsh-desktop-pinned = oh-dsh-pinned;
-          oh-dsh-web-pinned = mkOhDsh { surface = "web"; dshSource = "pinned"; };
-          oh-dsh-tui-pinned = mkOhDsh { surface = "tui"; dshSource = "pinned"; };
+          dsh-studio-pinned = mkDshStudio { surface = "full"; dshSource = "pinned"; };
+          dsh-studio-pinned = dsh-studio-pinned;
+          dsh-studio-web-pinned = mkDshStudio { surface = "web"; dshSource = "pinned"; };
+          dsh-studio-tui-pinned = mkDshStudio { surface = "tui"; dshSource = "pinned"; };
 
-          # "nixpkgs" variants remain available through mkOhDsh once
+          # "nixpkgs" variants remain available through mkDshStudio once
           # pkgs.deepseek-harness lands (NixOS/nixpkgs#552467).
 
-          default = oh-dsh;
+          default = dsh-studio;
         });
     };
 }

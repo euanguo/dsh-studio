@@ -1,4 +1,4 @@
-# Oh-DSH-Desktop is a bundle layer over dsh-base + dsh-web-app. The Electron
+# DSH Studio is a bundle layer over dsh-base + dsh-web-app. The Electron
 # distribution keeps DSH's browser UI and mounts each desktop behavior as an
 # independently registered Host/Client plugin.
 
@@ -15,28 +15,28 @@
 
 - insert:
     - id: oh-desktop
-      name: '@oh-dsh/desktop'
+      name: '@dsh-studio/desktop'
 
     - id: oh-sidebar-host
-      name: '@oh-dsh/sidebar-host'
+      name: '@dsh-studio/sidebar-host'
 
     - id: oh-desktop-skins
-      name: '@oh-dsh/desktop-skins'
+      name: '@dsh-studio/desktop-skins'
 
     - id: oh-sidebar
-      name: '@oh-dsh/sidebar'
+      name: '@dsh-studio/sidebar'
 
     - id: oh-panel-controls
-      name: '@oh-dsh/panel-controls'
+      name: '@dsh-studio/panel-controls'
 
     - id: oh-pinned-summary
-      name: '@oh-dsh/pinned-summary'
+      name: '@dsh-studio/pinned-summary'
 
     - id: oh-plugin-marketplace
-      name: '@oh-dsh/plugin-marketplace'
+      name: '@dsh-studio/plugin-marketplace'
 
     - id: oh-sidebar-desktop
-      name: '@oh-dsh/sidebar-desktop'
+      name: '@dsh-studio/sidebar-desktop'
 
 # Left rail: the forked ui-workspace replaces the official browser. The
 # official row is disabled (slot 'sidebar.workspaces' is single-owner), and
@@ -47,4 +47,4 @@
 
 - insert:
     - id: oh-desktop-left-rail
-      name: '@oh-dsh/desktop-left-rail'
+      name: '@dsh-studio/desktop-left-rail'

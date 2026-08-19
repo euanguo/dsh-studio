@@ -146,7 +146,7 @@ function mutationRecord(shape: Partial<MutationRecord>): MutationRecord {
 test('mutationNeedsMount: ignores the owned root subtree', () => {
   const owned = {
     nodeType: 1,
-    matches: (selector: string): boolean => selector === '#oh-dsh-owned-root',
+    matches: (selector: string): boolean => selector === '#dsh-studio-owned-root',
     parentNode: null,
   } as unknown as Element
   const childListInside = mutationRecord({
@@ -155,13 +155,13 @@ test('mutationNeedsMount: ignores the owned root subtree', () => {
     addedNodes: [] as unknown as NodeList,
     removedNodes: [] as unknown as NodeList,
   })
-  assert.equal(mutationNeedsMount(childListInside, '#oh-dsh-owned-root'), false)
+  assert.equal(mutationNeedsMount(childListInside, '#dsh-studio-owned-root'), false)
 })
 
 test('mutationNeedsMount: an added node inside the owned root is ignored', () => {
   const owned = {
     nodeType: 1,
-    matches: (selector: string): boolean => selector === '#oh-dsh-owned-root',
+    matches: (selector: string): boolean => selector === '#dsh-studio-owned-root',
     parentNode: null,
   } as unknown as Element
   const inner = {
@@ -175,7 +175,7 @@ test('mutationNeedsMount: an added node inside the owned root is ignored', () =>
     addedNodes: [inner] as unknown as NodeList,
     removedNodes: [] as unknown as NodeList,
   })
-  assert.equal(mutationNeedsMount(record, '#oh-dsh-owned-root'), false)
+  assert.equal(mutationNeedsMount(record, '#dsh-studio-owned-root'), false)
 })
 
 test('mutationNeedsMount: foreign subtree mutations retrigger the mount', () => {
@@ -188,7 +188,7 @@ test('mutationNeedsMount: foreign subtree mutations retrigger the mount', () => 
     addedNodes: [foreign] as unknown as NodeList,
     removedNodes: [] as unknown as NodeList,
   })
-  assert.equal(mutationNeedsMount(record, '#oh-dsh-owned-root'), true)
+  assert.equal(mutationNeedsMount(record, '#dsh-studio-owned-root'), true)
 })
 
 test('mutationNeedsMount: attribute changes outside the owned root count', () => {
@@ -196,5 +196,5 @@ test('mutationNeedsMount: attribute changes outside the owned root count', () =>
     type: 'attributes',
     target: {} as Node,
   })
-  assert.equal(mutationNeedsMount(record, '#oh-dsh-owned-root'), true)
+  assert.equal(mutationNeedsMount(record, '#dsh-studio-owned-root'), true)
 })

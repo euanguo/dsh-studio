@@ -1,21 +1,21 @@
 /**
  * Left-rail view state, persisted through the desktop host's settings service
- * into its OWN `oh-dsh-left-rail` namespace (→ the profile settings document),
+ * into its OWN `dsh-studio-left-rail` namespace (→ the profile settings document),
  * NOT browser localStorage and NOT the sidebar prefs section. The slice is a
  * versioned DTO; writes go through whole-section `settings.replace` (plus
  * schema-backed load) so deletions — icon reset to auto, alias clear, group
  * unassign — survive reloads. projects/worktrees themselves stay derived
  * from git. See docs/persistence-architecture.md (decision B).
  */
-import { callSidebarGlobalApi } from '@oh-dsh/shared/sidebar-api'
+import { callSidebarGlobalApi } from '@dsh-studio/shared/sidebar-api'
 import {
   LEFT_RAIL_SETTINGS_NS,
   LEFT_RAIL_SETTINGS_VERSION,
   sanitizeLeftRailSettings,
   type LeftRailSettings,
-} from '@oh-dsh/shared/left-rail-preferences'
+} from '@dsh-studio/shared/left-rail-preferences'
 
-export type { LeftRailSettings } from '@oh-dsh/shared/left-rail-preferences'
+export type { LeftRailSettings } from '@dsh-studio/shared/left-rail-preferences'
 
 /** A settings response envelope (namespace value + revision for CAS). */
 export interface LeftRailSettingsView {

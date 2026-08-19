@@ -401,10 +401,10 @@ export function terminalSessionKey(sessionId: string, tabId: string): string {
 }
 
 export function resolveTerminalDataRoot(env: NodeJS.ProcessEnv = process.env): string {
-  const configured = env.DSH_DESKTOP_APP_DATA ?? env.OH_DSH_HOME ?? env.DSH_HOME
+  const configured = env.DSH_STUDIO_DESKTOP_APP_DATA ?? env.DSH_STUDIO_HOME ?? env.DSH_HOME
   return configured !== undefined && configured.trim() !== ''
     ? configured
-    : join(homedir(), '.ohdsh')
+    : join(homedir(), '.dsh-studio')
 }
 
 function clampDimension(value: number, fallback: number): number {

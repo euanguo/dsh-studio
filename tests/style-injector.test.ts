@@ -65,7 +65,7 @@ test('ensureStyle is idempotent per id and refreshes changed css', () => {
   const disposeFirst = ensureStyle('test-a', 'a{color:red}')
   assert.equal(head.children.size, 1)
   const element = [...head.children][0]!
-  assert.equal(element.dataset.ohDshStyle, 'test-a')
+  assert.equal(element.dataset.dshStudioStyle, 'test-a')
   assert.equal(element.textContent, 'a{color:red}')
 
   // A second ensure with the same id reuses the element (no duplicate) and

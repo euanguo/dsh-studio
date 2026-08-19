@@ -45,7 +45,7 @@ import { createRailController } from './rail-controller.ts'
 import { isPathWithin } from './domain/identities.ts'
 import { loadLeftRailSettings, saveLeftRailSettings } from './left-rail-settings.ts'
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
-import { toast } from '@oh-dsh/shared/toast'
+import { toast } from '@dsh-studio/shared/toast'
 // Identity class map + scoped stylesheet (build-time generated from the
 // forked CSS Modules — see scripts/left-rail-styles.mjs). The scope
 // attribute is mounted on the region root below.

@@ -57,7 +57,7 @@ export class GitHubSourceAdapter {
     this.#apiBase = options.apiBase ?? 'https://api.github.com'
     this.#fetch = options.fetch ?? globalThis.fetch
     this.#rawBase = options.rawBase ?? 'https://raw.githubusercontent.com'
-    this.#userAgent = options.userAgent ?? 'oh-dsh-desktop'
+    this.#userAgent = options.userAgent ?? 'dsh-studio'
   }
 
   async resolveCommit(repository: string, requestedRef: string | null = null): Promise<string> {

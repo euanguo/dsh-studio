@@ -8,9 +8,9 @@
 
 ## 选择发行形态
 
-- 需要完整本地工作台：安装 **Oh-DSH Desktop**。
-- 只需要浏览器交互：安装 **Oh-DSH Web**，不携带 Electron。
-- 纯终端交互：安装 **Oh-DSH TUI**，不携带 Electron 或浏览器 UI。
+- 需要完整本地工作台：安装 **DSH Studio**。
+- 只需要浏览器交互：安装 **DSH Studio Web**，不携带 Electron。
+- 纯终端交互：安装 **DSH Studio TUI**，不携带 Electron 或浏览器 UI。
 
 完整版已经包含三种形态，因此安装一次后可以使用 `desktop`、`web` 和 `tui`。
 
@@ -19,21 +19,21 @@
 ### macOS
 
 1. 从最新 Release 下载 DMG。
-2. 将 **Oh-DSH Desktop** 拖入 Applications。
+2. 将 **DSH Studio** 拖入 Applications。
 3. 未公证的测试构建首次运行时，在 Finder 中右键应用并选择“打开”。
 
 如确认文件来自项目 Release，但仍被 quarantine 阻止，可对实际下载文件执行：
 
 ```sh
-xattr -d com.apple.quarantine ~/Downloads/Oh-DSH-Desktop-*.dmg
+xattr -d com.apple.quarantine ~/Downloads/DSH Studio-*.dmg
 ```
 
 安装统一命令：
 
 ```sh
 sudo ln -sf \
-  "/Applications/Oh-DSH Desktop.app/Contents/Resources/bin/ohdsh" \
-  /usr/local/bin/ohdsh
+  "/Applications/DSH Studio.app/Contents/Resources/bin/dsh-studio" \
+  /usr/local/bin/dsh-studio
 ```
 
 ### Linux
@@ -41,27 +41,27 @@ sudo ln -sf \
 AppImage：
 
 ```sh
-chmod +x Oh-DSH-Desktop-*.AppImage
-./Oh-DSH-Desktop-*.AppImage
+chmod +x DSH Studio-*.AppImage
+./DSH Studio-*.AppImage
 ```
 
 deb：
 
 ```sh
-sudo apt install ./Oh-DSH-Desktop-*.deb
+sudo apt install ./DSH Studio-*.deb
 ```
 
 ### Windows
 
-运行 Release 中的 Windows 安装器并启动 **Oh-DSH Desktop**。统一 CLI 位于应用
-资源目录的 `bin\ohdsh.cmd`，可以将该目录加入 `PATH`。
+运行 Release 中的 Windows 安装器并启动 **DSH Studio**。统一 CLI 位于应用
+资源目录的 `bin\dsh-studio.cmd`，可以将该目录加入 `PATH`。
 
 未签名安装器可能触发 Windows SmartScreen。确认文件来自项目 Release 后，选择
 “更多信息”再选择“仍要运行”；安装过程可能请求管理员授权。
 
 ### Desktop 在线更新
 
-在应用菜单中选择 **Oh-DSH Desktop -> 检查更新…**。更新窗口只检查
+在应用菜单中选择 **DSH Studio -> 检查更新…**。更新窗口只检查
 `hust-open-atom-club/oh-dsh` 的 stable GitHub Release，不需要 GitHub 登录或
 token。
 
@@ -81,15 +81,15 @@ token。
 ## 安装 Web-only
 
 ```sh
-tar -xzf oh-dsh-web-*.tar.gz
-cd oh-dsh-web-*/
-./bin/ohdsh web
+tar -xzf dsh-studio-web-*.tar.gz
+cd dsh-studio-web-*/
+./bin/dsh-studio web
 ```
 
 Windows：
 
 ```bat
-bin\ohdsh.cmd web
+bin\dsh-studio.cmd web
 ```
 
 常用选项：
@@ -98,15 +98,15 @@ bin\ohdsh.cmd web
 | --- | --- | --- |
 | `--host` | `127.0.0.1` | 监听地址 |
 | `--port` | `3080` | 监听端口；`0` 使用随机端口 |
-| `--data` | `~/.ohdsh` | 三端共享的 Oh-DSH 数据根目录 |
-| `--channel` | `stable` | 选择 `~/.ohdsh` 或 `~/.ohdsh-dev`；`--data` / `OH_DSH_HOME` 优先 |
+| `--data` | `~/.dsh-studio` | 三端共享的 DSH Studio 数据根目录 |
+| `--channel` | `stable` | 选择 `~/.dsh-studio` 或 `~/.dsh-studio-dev`；`--data` / `DSH_STUDIO_HOME` 优先 |
 | `--no-open` | 关闭 | 不自动打开浏览器 |
 | `--trusted-host` | 无 | 增加可信 authority，可重复 |
 
-等价环境变量包括 `DSH_OH_WEB_HOST`、`DSH_OH_WEB_PORT`、
-`DSH_OH_WEB_HOME` 和 `DSH_OH_WEB_OPEN`。`OH_DSH_HOME` 可以统一覆盖
-Desktop、Web 和 TUI 的数据根目录。`OH_DSH_CHANNEL` 在未指定绝对路径时
-选择 `~/.ohdsh` 或 `~/.ohdsh-dev`。按 `Ctrl+C` 优雅退出。
+等价环境变量包括 `DSH_STUDIO_WEB_HOST`、`DSH_STUDIO_WEB_PORT`、
+`DSH_STUDIO_WEB_HOME` 和 `DSH_STUDIO_WEB_OPEN`。`DSH_STUDIO_HOME` 可以统一覆盖
+Desktop、Web 和 TUI 的数据根目录。`DSH_STUDIO_CHANNEL` 在未指定绝对路径时
+选择 `~/.dsh-studio` 或 `~/.dsh-studio-dev`。按 `Ctrl+C` 优雅退出。
 
 不要在未配置访问边界时直接监听 `0.0.0.0`。对局域网开放时，应同时配置
 `--trusted-host`，并由可信反向代理提供鉴权和 TLS。
@@ -114,26 +114,26 @@ Desktop、Web 和 TUI 的数据根目录。`OH_DSH_CHANNEL` 在未指定绝对�
 ## 安装 TUI-only
 
 ```sh
-tar -xzf oh-dsh-tui-*.tar.gz
-cd oh-dsh-tui-*/
-./bin/ohdsh tui
+tar -xzf dsh-studio-tui-*.tar.gz
+cd dsh-studio-tui-*/
+./bin/dsh-studio tui
 ```
 
-Windows 使用 `bin\ohdsh.cmd tui`。TUI 需要真实交互终端；默认使用 alternate
+Windows 使用 `bin\dsh-studio.cmd tui`。TUI 需要真实交互终端；默认使用 alternate
 screen，全屏选择、滚动和复制由上游 `dsh-TUI` 处理。
 
 ## 统一启动命令
 
 ```sh
-ohdsh desktop
-ohdsh gui
-ohdsh web
-ohdsh tui
+dsh-studio desktop
+dsh-studio gui
+dsh-studio web
+dsh-studio tui
 ```
 
 - `desktop` 启动已安装应用；源码仓库中回退到 Electron 开发入口。
-  已安装包默认使用 `stable`（`~/.ohdsh`），`pnpm start` / `pnpm dev`
-  默认使用 `dev`（`~/.ohdsh-dev`）。可用 `--channel stable|dev` 覆盖。
+  已安装包默认使用 `stable`（`~/.dsh-studio`），`pnpm start` / `pnpm dev`
+  默认使用 `dev`（`~/.dsh-studio-dev`）。可用 `--channel stable|dev` 覆盖。
 - `gui` 是 `desktop` 的启动别名。
 - `web` 启动 HTTP 服务并打印访问地址。
 - `tui` 初始化独立 Profile，并在当前终端中附着运行上游 renderer。
@@ -143,8 +143,8 @@ TUI 常用选项：
 | 选项 | 默认值 | 说明 |
 | --- | --- | --- |
 | `--cwd` | 当前目录 | Workspace |
-| `--data` | `~/.ohdsh` | 三端共享的 Oh-DSH 数据根目录 |
-| `--channel` | `stable` | 选择 `~/.ohdsh` 或 `~/.ohdsh-dev`；`--data` / `OH_DSH_HOME` 优先 |
+| `--data` | `~/.dsh-studio` | 三端共享的 DSH Studio 数据根目录 |
+| `--channel` | `stable` | 选择 `~/.dsh-studio` 或 `~/.dsh-studio-dev`；`--data` / `DSH_STUDIO_HOME` 优先 |
 | `--resume` | 新会话 | 恢复指定 Session id |
 | `--lang` | 上游设置 | `zh` 或 `en` |
 | `--preset` | `standard` | 初始 Agent preset |
@@ -152,7 +152,7 @@ TUI 常用选项：
 
 ## 图片识别
 
-Desktop、Web 和 TUI 都会加载内置的 `@oh-dsh/vision`。图片粘贴、缩略图、附件保存
+Desktop、Web 和 TUI 都会加载内置的 `@dsh-studio/vision`。图片粘贴、缩略图、附件保存
 和提交全部使用 DSH 原生 attachment rail。DeepSeek V4 的模型元数据在 DSH 中仍标记
 为 text-only，插件只在 Host 的最终图片能力校验处为 V4 放行，不接管输入栏，也不
 创建第二套图片气泡或引用协议。Host 会先用配置的视觉后端描述这些原生图片附件，再
@@ -167,20 +167,20 @@ Desktop、Web 和 TUI 都会加载内置的 `@oh-dsh/vision`。图片粘贴、�
 
 默认后端使用智谱 `glm-4.6v-flash`。在原生的“设置 → 插件 → 插件配置 → Vision”卡片中，
 先确认云端接口地址，再点击“获取智谱 Key”打开智谱控制台；复制回来的 Key 会以密码
-输入框显示，并保存到共享数据根目录的凭据文件（默认 `~/.ohdsh/.credentials.yaml`）：
+输入框显示，并保存到共享数据根目录的凭据文件（默认 `~/.dsh-studio/.credentials.yaml`）：
 
 ```yaml
 ZHIPUAI_API_KEY: your-api-key
 ```
 
 凭据文件应保持仅当前用户可读，例如在 macOS/Linux 上执行
-`chmod 600 ~/.ohdsh/.credentials.yaml`。也可以在启动前 `export ZHIPUAI_API_KEY=...`。
+`chmod 600 ~/.dsh-studio/.credentials.yaml`。也可以在启动前 `export ZHIPUAI_API_KEY=...`。
 旧版本使用的 `VISION_API_KEY` 仍会作为迁移回退读取。
 
-后端和模型可在共享的 `~/.ohdsh/settings.yaml` 中覆盖：
+后端和模型可在共享的 `~/.dsh-studio/settings.yaml` 中覆盖：
 
 ```yaml
-oh-dsh-vision:
+dsh-studio-vision:
   baseURL: https://dashscope.aliyuncs.com/compatible-mode/v1
   model: qwen3-vl-flash
   apiKeyEnv: DASHSCOPE_API_KEY
@@ -197,7 +197,7 @@ Key 使用。
 使用本地 Ollama 时不要求密钥：
 
 ```yaml
-oh-dsh-vision:
+dsh-studio-vision:
   baseURL: http://localhost:11434/v1
   model: qwen3-vl:4b
 ```
@@ -209,7 +209,7 @@ oh-dsh-vision:
 需要配置 `localApiKeyEnv`。
 
 ```yaml
-oh-dsh-vision:
+dsh-studio-vision:
   apiKeyEnv: ZHIPUAI_API_KEY
   retryAttempts: 3
   retryBackoffMs: 1000
@@ -252,7 +252,7 @@ oh-dsh-vision:
 | 新建 Side chat | `⌥⌘S` |
 | 退出侧栏专注模式 | `Esc` |
 
-设置页支持中英文、模型、权限、Agent preset、插件配置和 Oh-DSH 皮肤。
+设置页支持中英文、模型、权限、Agent preset、插件配置和 DSH Studio 皮肤。
 设置弹窗会覆盖并虚化所有工作区和侧栏内容。
 
 Web 与 Desktop 可在设置页选择皮肤。TUI 输入 `/theme` 可选择相同的 Deep
@@ -282,9 +282,9 @@ pnpm run build
 pnpm run stage:dsh
 export PATH="$PWD/bin:$PATH"
 
-ohdsh desktop
-ohdsh web --port 3080
-ohdsh tui
+dsh-studio desktop
+dsh-studio web --port 3080
+dsh-studio tui
 ```
 
 打包命令：
@@ -309,33 +309,33 @@ ad-hoc 签名包或 Windows 未签名安装器，而不会阻止 Web、TUI 和 D
 
 ## 数据与排错
 
-Desktop、Web 和 TUI 默认共同使用 `~/.ohdsh`，且不会加载 `~/.dsh` 中的
+Desktop、Web 和 TUI 默认共同使用 `~/.dsh-studio`，且不会加载 `~/.dsh` 中的
 全局插件配置。三端分别使用 `profiles/desktop`、`profiles/web` 和
 `profiles/tui`，但共享会话、凭据、皮肤和插件缓存；Electron 自身的数据
-位于 `<OH_DSH_HOME>/desktop`。可用 `OH_DSH_HOME` 全局覆盖，也可用
-`OH_DSH_CHANNEL=dev` 或 `--channel dev` 切到 `~/.ohdsh-dev`。Web/TUI 的
+位于 `<DSH_STUDIO_HOME>/desktop`。可用 `DSH_STUDIO_HOME` 全局覆盖，也可用
+`DSH_STUDIO_CHANNEL=dev` 或 `--channel dev` 切到 `~/.dsh-studio-dev`。Web/TUI 的
 `--data` 只隔离当前进程。DeepSeek API key 可以在 Models 设置中配置，或写入
 当前数据根下的 `.env`。
 
-已安装的 Desktop 与源码验证实例可以同时运行：正式版写入 `~/.ohdsh`，
-`pnpm start` / `pnpm dev` 写入 `~/.ohdsh-dev`。两者 Profile、插件与工作区
+已安装的 Desktop 与源码验证实例可以同时运行：正式版写入 `~/.dsh-studio`，
+`pnpm start` / `pnpm dev` 写入 `~/.dsh-studio-dev`。两者 Profile、插件与工作区
 行为一致，只换数据根和单实例锁。开发窗口标题带 `(Dev)`，Dock / 窗口图标
 是同一只鲸标，右下角盖了橙色 `DEV`。要让源码实例读正式数据，启动时加
-`--channel stable` 或设置 `OH_DSH_HOME`。
+`--channel stable` 或设置 `DSH_STUDIO_HOME`。
 
 首次使用共享目录时，Desktop 会从系统应用数据目录中的旧
-`Oh-DSH-Desktop` 状态导入会话、凭据、插件与界面设置；Web 会导入旧
-`~/.oh-dsh-web/dsh`、根级皮肤与侧栏偏好，以及当前数据目录下的 `dsh/`。
+`DSH Studio` 状态导入会话、凭据、插件与界面设置；Web 会导入旧
+`~/.dsh-studio-web/dsh`、根级皮肤与侧栏偏好，以及当前数据目录下的 `dsh/`。
 迁移只复制共享目录中缺失的数据，并保留旧目录用于回滚；已存在的新状态
 不会被覆盖。
 
 排查顺序：
 
-1. 运行 `ohdsh --help` 确认 CLI 来源。
-2. 运行 `ohdsh web --help` 检查参数。
-3. 运行 `ohdsh tui --help`，再用 `ohdsh tui --inline` 排除终端全屏兼容问题。
-4. 使用随机端口验证：`ohdsh web --port 0 --no-open`。
+1. 运行 `dsh-studio --help` 确认 CLI 来源。
+2. 运行 `dsh-studio web --help` 检查参数。
+3. 运行 `dsh-studio tui --help`，再用 `dsh-studio tui --inline` 排除终端全屏兼容问题。
+4. 使用随机端口验证：`dsh-studio web --port 0 --no-open`。
 5. 检查 Profile 是否同时安装并启用了所需插件。
-6. Desktop 启动失败时，从终端运行应用内 `bin/ohdsh desktop` 获取日志。
+6. Desktop 启动失败时，从终端运行应用内 `bin/dsh-studio desktop` 获取日志。
 
 架构与上游关系见[设计与插件边界](./design.md)。

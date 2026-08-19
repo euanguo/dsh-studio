@@ -1,4 +1,4 @@
-.oh-dsh-terminal-dock {
+.dsh-studio-terminal-dock {
   position: relative;
   flex: none;
   display: flex;
@@ -14,69 +14,69 @@
   -webkit-app-region: no-drag;
 }
 
-.oh-dsh-terminal-bar {
+.dsh-studio-terminal-bar {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   height: 34px;
-  padding: 0 var(--oh-dsh-space-2);
+  padding: 0 var(--dsh-studio-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 7%));
   background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base, #fff));
-  font-size: var(--oh-dsh-font-sm);
+  font-size: var(--dsh-studio-font-sm);
 }
 
-.oh-dsh-terminal-tabs {
+.dsh-studio-terminal-tabs {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--dsh-studio-space-1);
   min-width: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 
-.oh-dsh-terminal-tab {
+.dsh-studio-terminal-tab {
   display: inline-flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--dsh-studio-space-1);
   max-width: 180px;
-  height: var(--oh-dsh-control-sm);
-  padding: 0 var(--oh-dsh-space-1-5);
+  height: var(--dsh-studio-control-sm);
+  padding: 0 var(--dsh-studio-space-1-5);
   box-sizing: border-box;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   color: var(--dsw-alias-label-secondary, #57606a);
   cursor: default;
   user-select: none;
   white-space: nowrap;
 }
 
-.oh-dsh-terminal-tab:hover {
+.dsh-studio-terminal-tab:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
 }
 
-.oh-dsh-terminal-tab.is-active {
+.dsh-studio-terminal-tab.is-active {
   background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 8%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-terminal-tab-label {
+.dsh-studio-terminal-tab-label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.oh-dsh-terminal-tab-close,
-.oh-dsh-terminal-add,
-.oh-dsh-terminal-action,
-.oh-dsh-terminal-empty button {
+.dsh-studio-terminal-tab-close,
+.dsh-studio-terminal-add,
+.dsh-studio-terminal-action,
+.dsh-studio-terminal-empty button {
   border: 0;
   font: inherit;
   cursor: pointer;
 }
 
-.oh-dsh-terminal-tab-close {
+.dsh-studio-terminal-tab-close {
   display: grid;
   place-items: center;
   width: 15px;
@@ -88,97 +88,97 @@
   line-height: 1;
 }
 
-.oh-dsh-terminal-tab-close:hover,
-.oh-dsh-terminal-add:hover,
-.oh-dsh-terminal-action:hover {
+.dsh-studio-terminal-tab-close:hover,
+.dsh-studio-terminal-add:hover,
+.dsh-studio-terminal-action:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-terminal-add {
+.dsh-studio-terminal-add {
   flex: none;
   display: grid;
   place-items: center;
-  width: var(--oh-dsh-control-sm);
-  height: var(--oh-dsh-control-sm);
+  width: var(--dsh-studio-control-sm);
+  height: var(--dsh-studio-control-sm);
   padding: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-2xl);
+  font-size: var(--dsh-studio-font-2xl);
 }
 
-.oh-dsh-terminal-hint {
-  padding-left: var(--oh-dsh-space-0);
+.dsh-studio-terminal-hint {
+  padding-left: var(--dsh-studio-space-0);
   color: var(--dsw-alias-label-dimmed, #8c959f);
   user-select: none;
 }
 
-.oh-dsh-terminal-actions,
-.oh-dsh-terminal-settings-header,
-.oh-dsh-terminal-settings-footer {
+.dsh-studio-terminal-actions,
+.dsh-studio-terminal-settings-header,
+.dsh-studio-terminal-settings-footer {
   display: flex;
   align-items: center;
 }
 
-.oh-dsh-terminal-actions { gap: var(--oh-dsh-space-0); }
+.dsh-studio-terminal-actions { gap: var(--dsh-studio-space-0); }
 
-.oh-dsh-terminal-action {
+.dsh-studio-terminal-action {
   display: grid;
   place-items: center;
   width: 27px;
-  height: var(--oh-dsh-control-sm);
+  height: var(--dsh-studio-control-sm);
   padding: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-sm);
+  font-size: var(--dsh-studio-font-sm);
 }
 
-.oh-dsh-terminal-settings {
+.dsh-studio-terminal-settings {
   position: absolute;
   z-index: 8;
   top: 46px;
   right: 8px;
   display: grid;
-  gap: var(--oh-dsh-space-3);
+  gap: var(--dsh-studio-space-3);
   width: min(360px, calc(100% - 16px));
-  padding: var(--oh-dsh-space-4);
+  padding: var(--dsh-studio-space-4);
   box-sizing: border-box;
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 12%));
-  border-radius: var(--oh-dsh-radius-md);
+  border-radius: var(--dsh-studio-radius-md);
   background: var(--dsw-alias-bg-layer-2, #fff);
   box-shadow: 0 10px 28px rgb(0 0 0 / 16%);
-  font-size: var(--oh-dsh-font-md);
+  font-size: var(--dsh-studio-font-md);
 }
 
-.oh-dsh-terminal-dock[data-collapsed] .oh-dsh-terminal-settings {
+.dsh-studio-terminal-dock[data-collapsed] .dsh-studio-terminal-settings {
   top: auto;
   bottom: 38px;
 }
 
-.oh-dsh-terminal-settings-header,
-.oh-dsh-terminal-settings-footer {
+.dsh-studio-terminal-settings-header,
+.dsh-studio-terminal-settings-footer {
   justify-content: space-between;
-  gap: var(--oh-dsh-space-3);
+  gap: var(--dsh-studio-space-3);
 }
 
-.oh-dsh-terminal-settings label {
+.dsh-studio-terminal-settings label {
   display: grid;
   grid-template-columns: 78px minmax(0, 1fr);
   align-items: center;
-  gap: var(--oh-dsh-space-3);
+  gap: var(--dsh-studio-space-3);
   color: var(--dsw-alias-label-secondary, #57606a);
 }
 
-.oh-dsh-terminal-settings-footer {
+.dsh-studio-terminal-settings-footer {
   color: var(--dsw-alias-label-dimmed, #8c959f);
 }
 
-.oh-dsh-terminal-empty button {
-  padding: var(--oh-dsh-space-1) 9px;
+.dsh-studio-terminal-empty button {
+  padding: var(--dsh-studio-space-1) 9px;
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-primary, #1f2328);
 }
@@ -187,7 +187,7 @@
    it never intercepts the tab/action buttons): it does NOT occupy layout
    space, which keeps the bar's buttons vertically centered between the
    dock's visible edges in both expanded and collapsed states. */
-.oh-dsh-terminal-resize {
+.dsh-studio-terminal-resize {
   position: absolute;
   z-index: 2;
   top: 0;
@@ -200,26 +200,26 @@
   touch-action: none;
 }
 
-.oh-dsh-terminal-resize::after {
+.dsh-studio-terminal-resize::after {
   position: absolute;
   top: 2px;
   left: 50%;
   width: 44px;
   height: 4px;
-  border-radius: var(--oh-dsh-radius-pill);
+  border-radius: var(--dsh-studio-radius-pill);
   background: var(--dsw-alias-label-secondary, #57606a);
   content: '';
   opacity: 0.7;
   transform: translateX(-50%);
 }
 
-.oh-dsh-terminal-resize:hover::after,
-.oh-dsh-terminal-resize:focus-visible::after {
+.dsh-studio-terminal-resize:hover::after,
+.dsh-studio-terminal-resize:focus-visible::after {
   background: var(--dsw-alias-brand-primary, #2563eb);
   opacity: 1;
 }
 
-.oh-dsh-terminal-body {
+.dsh-studio-terminal-body {
   flex: none;
   display: flex;
   flex-direction: column;
@@ -230,13 +230,13 @@
   transition: height 150ms ease;
 }
 
-.oh-dsh-terminal-body.is-resizing {
+.dsh-studio-terminal-body.is-resizing {
   transition: none;
   user-select: none;
 }
 
-.oh-dsh-terminal-surface,
-.oh-dsh-terminal-view {
+.dsh-studio-terminal-surface,
+.dsh-studio-terminal-view {
   position: relative;
   flex: 1;
   min-width: 0;
@@ -247,47 +247,47 @@
   box-sizing: border-box;
 }
 
-.oh-dsh-terminal-surface { flex-direction: column; }
+.dsh-studio-terminal-surface { flex-direction: column; }
 
 /* Full-bleed terminal host: zero padding (see the shared terminal-view.css
    contract — padding would inset the xterm viewport/scrollbar and create
    asymmetric gaps; the surface owns any breathing room instead). */
-.oh-dsh-terminal-view {
+.dsh-studio-terminal-view {
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
   font-family: ui-monospace, "SF Mono", "Menlo", "Monaco", "Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Liberation Mono", "Symbols Nerd Font Mono", "MesloLGS Nerd Font", "JetBrainsMono Nerd Font", "FiraCode Nerd Font", "Hack Nerd Font", monospace;
 }
 
-.oh-dsh-terminal-view .xterm {
+.dsh-studio-terminal-view .xterm {
   height: 100%;
   /* Uniform breathing inset on all four sides (subtracted by FitAddon so the
      grid stays in sync); same contract as the shared terminal-view.css. */
-  padding: var(--oh-dsh-space-2);
+  padding: var(--dsh-studio-space-2);
   box-sizing: border-box;
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
   font-family: inherit;
 }
 
-.oh-dsh-terminal-view .xterm-viewport {
+.dsh-studio-terminal-view .xterm-viewport {
   background-color: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff)) !important;
 }
 
 /* Terminal scrollbar skin — same contract as the shared terminal-view.css:
    xterm 6.1 DOM slider, rounded; colors come from the terminal theme
    (scrollbarSlider* bound to the --dsw-alias-scrollbar-* tokens). */
-.oh-dsh-terminal-view .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {
+.dsh-studio-terminal-view .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {
   border-radius: 4px;
 }
 
-.oh-dsh-terminal-empty {
+.dsh-studio-terminal-empty {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--oh-dsh-space-3);
+  gap: var(--dsh-studio-space-3);
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: var(--oh-dsh-font-md);
+  font-size: var(--dsh-studio-font-md);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .oh-dsh-terminal-body { transition: none; }
+  .dsh-studio-terminal-body { transition: none; }
 }

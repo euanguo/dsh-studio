@@ -23,27 +23,27 @@ test('bundled runtime paths use POSIX layouts on macOS and Linux', () => {
     '/custom/bin',
   ].join(':'))
 
-  const linux = bundledRuntimePaths('/opt/oh-dsh/resources', 'linux')
-  assert.equal(linux.nodeBinary, '/opt/oh-dsh/resources/node-runtime/bin/node')
+  const linux = bundledRuntimePaths('/opt/dsh-studio/resources', 'linux')
+  assert.equal(linux.nodeBinary, '/opt/dsh-studio/resources/node-runtime/bin/node')
   assert.equal(runtimeSearchPath(linux, { PATH: '/usr/local/sbin:/usr/bin' }, 'linux'), [
-    '/opt/oh-dsh/resources/node-runtime/bin',
-    '/opt/oh-dsh/resources/dsh-runtime/node_modules/.bin',
+    '/opt/dsh-studio/resources/node-runtime/bin',
+    '/opt/dsh-studio/resources/dsh-runtime/node_modules/.bin',
     '/usr/local/sbin:/usr/bin',
   ].join(':'))
 })
 
 test('bundled runtime paths use Windows executables and PATH separators', () => {
-  const windows = bundledRuntimePaths('C:\\Program Files\\Oh-DSH\\resources', 'win32')
-  assert.equal(windows.nodeBinary, 'C:\\Program Files\\Oh-DSH\\resources\\node-runtime\\node.exe')
-  assert.equal(windows.pnpmBinary, 'C:\\Program Files\\Oh-DSH\\resources\\node-runtime\\pnpm.cmd')
+  const windows = bundledRuntimePaths('C:\\Program Files\\DSH Studio\\resources', 'win32')
+  assert.equal(windows.nodeBinary, 'C:\\Program Files\\DSH Studio\\resources\\node-runtime\\node.exe')
+  assert.equal(windows.pnpmBinary, 'C:\\Program Files\\DSH Studio\\resources\\node-runtime\\pnpm.cmd')
   assert.equal(
     windows.pnpmEntry,
-    'C:\\Program Files\\Oh-DSH\\resources\\node-runtime\\node_modules\\pnpm\\bin\\pnpm.mjs',
+    'C:\\Program Files\\DSH Studio\\resources\\node-runtime\\node_modules\\pnpm\\bin\\pnpm.mjs',
   )
-  assert.equal(windows.cliEntry, 'C:\\Program Files\\Oh-DSH\\resources\\dsh-runtime\\lib\\bin.js')
+  assert.equal(windows.cliEntry, 'C:\\Program Files\\DSH Studio\\resources\\dsh-runtime\\lib\\bin.js')
   assert.equal(runtimeSearchPath(windows, { Path: 'C:\\Windows\\System32;D:\\Git\\cmd' }, 'win32'), [
-    'C:\\Program Files\\Oh-DSH\\resources\\node-runtime',
-    'C:\\Program Files\\Oh-DSH\\resources\\dsh-runtime\\node_modules\\.bin',
+    'C:\\Program Files\\DSH Studio\\resources\\node-runtime',
+    'C:\\Program Files\\DSH Studio\\resources\\dsh-runtime\\node_modules\\.bin',
     'C:\\Windows\\System32;D:\\Git\\cmd',
   ].join(';'))
 })
@@ -54,18 +54,18 @@ test('runtime resources root honors explicit distribution overrides', () => {
       '/electron/resources',
       '/source/.stage',
       false,
-      { OH_DSH_RESOURCES_ROOT: '/nix/store/oh-dsh' },
+      { DSH_STUDIO_RESOURCES_ROOT: '/nix/store/dsh-studio' },
     ),
-    '/nix/store/oh-dsh',
+    '/nix/store/dsh-studio',
   )
   assert.equal(
     resolveRuntimeResourcesRoot(
       '/electron/resources',
       '/source/.stage',
       false,
-      { DSH_OH_WEB_ROOT: '/portable/oh-dsh' },
+      { DSH_STUDIO_WEB_ROOT: '/portable/dsh-studio' },
     ),
-    '/portable/oh-dsh',
+    '/portable/dsh-studio',
   )
 })
 

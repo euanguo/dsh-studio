@@ -21,7 +21,7 @@ import {
   TerminalOutputBatcher,
   type TerminalOutputAck,
 } from './terminal-batcher.ts'
-import type { TerminalOutputFrame } from '@oh-dsh/shared/terminal-wire'
+import type { TerminalOutputFrame } from '@dsh-studio/shared/terminal-wire'
 import type { Context } from './context-types.ts'
 import {
   Config,
@@ -35,8 +35,8 @@ import {
   type SidebarPrefs,
 } from './config.ts'
 import { migrateLegacyLeftRailSlice } from './left-rail-settings-migration.ts'
-import { LEFT_RAIL_SETTINGS_NS } from '@oh-dsh/shared/left-rail-preferences'
-import { isWithin, requireAbsolute } from '@oh-dsh/shared/fs-tree'
+import { LEFT_RAIL_SETTINGS_NS } from '@dsh-studio/shared/left-rail-preferences'
+import { isWithin, requireAbsolute } from '@dsh-studio/shared/fs-tree'
 import { decodeHtmlUrl } from './html-route.ts'
 import { extractFrameAncestors } from './browser-probe.ts'
 import { isTrustedApiRequest, isLoopbackHostname } from './trust-fence.ts'
@@ -66,7 +66,7 @@ import {
   writeError,
   writeJson,
   writeOk,
-} from '@oh-dsh/shared/wire'
+} from '@dsh-studio/shared/wire'
 
 export { Config }
 export type { SidebarConfig, ResolvedSidebarConfig }
@@ -216,7 +216,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   let settingsFace: SidebarSettingsFace | undefined
   let sourceControlAiGenerator: SourceControlAiGenerator | undefined
   // Migration of any legacy left-rail slice out of the sidebar namespace into
-  // oh-dsh-left-rail. The routes gate the left-rail namespace on this promise
+  // dsh-studio-left-rail. The routes gate the left-rail namespace on this promise
   // so a cold-start first read never observes the empty pre-migration window.
   let leftRailMigrationGate: Promise<void> | undefined
   // Await the left-rail migration gate for the left-rail namespace only; the

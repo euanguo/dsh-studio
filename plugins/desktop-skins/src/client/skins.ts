@@ -302,17 +302,17 @@ function renderColorCss(selector: string, tokens: Readonly<Record<string, string
   return `${selector} {\n${declarations}\n}\n`
 }
 
-/** 给每个精确类名单独挂皮肤门控：body[data-oh-dsh-skin] .X, body[data-oh-dsh-skin] .Y
+/** 给每个精确类名单独挂皮肤门控：body[data-dsh-studio-skin] .X, body[data-dsh-studio-skin] .Y
  *  —— 每个选择器都必须自带门控，否则特异性退化为 (0,1,0)，会输给通用按钮/
  *  menuitem 等门控规则（实测 .uNlE1G_trigger 圆角被 button 规则盖掉）。 */
 const gate = (classes: readonly string[]): string =>
-  classes.map(selector => `body[data-oh-dsh-skin] ${selector}`).join(',')
+  classes.map(selector => `body[data-dsh-studio-skin] ${selector}`).join(',')
 
 /** 同 gate，但把伪类挂到**每个**选择器上。gate() 返回逗号连串后追加
  *  ``:focus-within`` 只会保护组内最后一个元素（其余无条件命中），必须
  *  逐类各自拼接（实测 CARD 全量卡片因此被无条件涂上品牌蓝框）。 */
 const gatePseudo = (classes: readonly string[], pseudo: string): string =>
-  classes.map(selector => `body[data-oh-dsh-skin] ${selector}${pseudo}`).join(',')
+  classes.map(selector => `body[data-dsh-studio-skin] ${selector}${pseudo}`).join(',')
 
 /** CARD 只含卡片**外壳**容器类：剔除内部内容/修饰子节点。CARD 的 34 个类里
  *  cardBody/cardContent/cardDesc/cardFoot/cardMain/cardHead……全是卡片内部节点，
@@ -344,7 +344,7 @@ const CHATGPT_GEOMETRY_CSS = `
    见 docs/SKINS-BUILD-TIME-ARCHITECTURE.md §5），类名子串匹配已全部退役
    （_triggerEffort 这类误命中不会再复发）。
    ================================================================ */
-body[data-oh-dsh-skin] {
+body[data-dsh-studio-skin] {
   --gw-skin-row-fs: 13px;
   --gw-skin-row-lh: calc(var(--gw-skin-row-fs) * 1.43);
   --gw-skin-row-py: 5px;
@@ -359,16 +359,16 @@ body[data-oh-dsh-skin] {
 
   /* Shared semantic bridges consumed by sidebar/list surfaces. The skin owns
      the values; shared CSS only supplies non-skin fallbacks. */
-  --oh-dsh-list-row-height: var(--gw-skin-row-h);
-  --oh-dsh-list-row-gap: var(--gw-skin-gap-item);
-  --oh-dsh-list-row-radius: var(--gw-skin-radius-row);
-  --oh-dsh-list-row-corner-shape: superellipse(1.5);
-  --oh-dsh-list-row-padding-inline: var(--gw-skin-row-px);
-  --oh-dsh-surface-tab-height: var(--gw-skin-row-h);
-  --oh-dsh-surface-tab-radius: var(--gw-skin-radius-row);
-  --oh-dsh-surface-tab-bg-active: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  --oh-dsh-surface-tab-bg-hover: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  --oh-dsh-surface-tab-corner-shape: superellipse(1.5);
+  --dsh-studio-list-row-height: var(--gw-skin-row-h);
+  --dsh-studio-list-row-gap: var(--gw-skin-gap-item);
+  --dsh-studio-list-row-radius: var(--gw-skin-radius-row);
+  --dsh-studio-list-row-corner-shape: superellipse(1.5);
+  --dsh-studio-list-row-padding-inline: var(--gw-skin-row-px);
+  --dsh-studio-surface-tab-height: var(--gw-skin-row-h);
+  --dsh-studio-surface-tab-radius: var(--gw-skin-radius-row);
+  --dsh-studio-surface-tab-bg-active: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  --dsh-studio-surface-tab-bg-hover: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  --dsh-studio-surface-tab-corner-shape: superellipse(1.5);
   --gw-skin-menu-pad: 4px;
   --gw-skin-blur: 8px;
   --gw-skin-menu-bg: rgba(45, 45, 45, .9);
@@ -377,25 +377,25 @@ body[data-oh-dsh-skin] {
   --gw-skin-hover-transition: background-color .15s cubic-bezier(.4, 0, .2, 1), color .15s cubic-bezier(.4, 0, .2, 1);
   --gw-skin-disabled-opacity: .4;
 }
-body[data-oh-dsh-skin]:not([data-ds-dark-theme]) {
+body[data-dsh-studio-skin]:not([data-ds-dark-theme]) {
   --gw-skin-menu-bg: rgba(255, 255, 255, .96);
   --gw-skin-hairline: rgba(26, 28, 31, .117);
 }
 
-body[data-oh-dsh-skin] button,
-body[data-oh-dsh-skin] [role="button"],
-body[data-oh-dsh-skin] [role="menuitem"],
-body[data-oh-dsh-skin] [role="menuitemradio"],
-body[data-oh-dsh-skin] [role="menuitemcheckbox"],
-body[data-oh-dsh-skin] [role="option"],
-body[data-oh-dsh-skin] [role="tab"] {
+body[data-dsh-studio-skin] button,
+body[data-dsh-studio-skin] [role="button"],
+body[data-dsh-studio-skin] [role="menuitem"],
+body[data-dsh-studio-skin] [role="menuitemradio"],
+body[data-dsh-studio-skin] [role="menuitemcheckbox"],
+body[data-dsh-studio-skin] [role="option"],
+body[data-dsh-studio-skin] [role="tab"] {
   corner-shape: superellipse(1.5);
 }
 
 ${gate(MENU_LIST)},
 ${gate(MENU_SURFACE)},
-body[data-oh-dsh-skin] [role="listbox"],
-body[data-oh-dsh-skin] [role="menu"] {
+body[data-dsh-studio-skin] [role="listbox"],
+body[data-dsh-studio-skin] [role="menu"] {
   background: var(--gw-skin-menu-bg) !important;
   backdrop-filter: blur(var(--gw-skin-blur)) !important;
   -webkit-backdrop-filter: blur(var(--gw-skin-blur)) !important;
@@ -406,10 +406,10 @@ body[data-oh-dsh-skin] [role="menu"] {
 }
 
 ${gate(MENU_ITEM)},
-body[data-oh-dsh-skin] [role="menuitem"],
-body[data-oh-dsh-skin] [role="menuitemradio"],
-body[data-oh-dsh-skin] [role="menuitemcheckbox"],
-body[data-oh-dsh-skin] [role="option"] {
+body[data-dsh-studio-skin] [role="menuitem"],
+body[data-dsh-studio-skin] [role="menuitemradio"],
+body[data-dsh-studio-skin] [role="menuitemcheckbox"],
+body[data-dsh-studio-skin] [role="option"] {
   min-height: var(--gw-skin-row-h) !important;
   padding: var(--gw-skin-row-pad) !important;
   font-size: var(--gw-skin-row-fs) !important;
@@ -420,10 +420,10 @@ body[data-oh-dsh-skin] [role="option"] {
    40px）会盖过 min-height，用 height: auto 覆盖组件钉死值——行高由
    padding + line-height 自然形成（18.59 + 5×2 = 28.59），多行内容
    （标题+描述的模式选项）自然撑开，不再需要任何多行特判。 */
-body[data-oh-dsh-skin] [role="menuitem"],
-body[data-oh-dsh-skin] [role="menuitemradio"],
-body[data-oh-dsh-skin] [role="menuitemcheckbox"],
-body[data-oh-dsh-skin] [role="option"] {
+body[data-dsh-studio-skin] [role="menuitem"],
+body[data-dsh-studio-skin] [role="menuitemradio"],
+body[data-dsh-studio-skin] [role="menuitemcheckbox"],
+body[data-dsh-studio-skin] [role="option"] {
   /* content-box would add the 5px×2 padding on top of min-height and render
      a 38.59px row instead of the designed 28.59px (measured in Chromium);
      border-box makes min-height the total row height. */
@@ -436,8 +436,8 @@ ${gate([...ITEM_WRAP, ...ITEM_LABEL])} {
   line-height: inherit !important;
 }
 
-body[data-oh-dsh-skin] [role="listbox"] [role="option"] + [role="option"],
-body[data-oh-dsh-skin] [role="menu"] [role="menuitem"] + [role="menuitem"] {
+body[data-dsh-studio-skin] [role="listbox"] [role="option"] + [role="option"],
+body[data-dsh-studio-skin] [role="menu"] [role="menuitem"] + [role="menuitem"] {
   margin-top: var(--gw-skin-gap-item);
 }
 
@@ -453,7 +453,7 @@ ${gate(NAV_CELL)} {
 
 /* 通用按钮主配方（ruleset 2.1 主配方）：所有 button 默认行按钮
    12.5px superellipse，无需逐个组件特判。 */
-body[data-oh-dsh-skin] button {
+body[data-dsh-studio-skin] button {
   border-radius: var(--gw-skin-radius-row) !important;
   corner-shape: superellipse(1.5);
 }
@@ -463,7 +463,7 @@ body[data-oh-dsh-skin] button {
    排除菜单项（带 submenu 的 menuitem 也挂 aria-haspopup，但保持行按钮形态）；
    workspaceLabel/triggerLabel/triggerEffort 等内部文本容器不在
    TRIGGER_PILL/WORKSPACE_PILL 精确清单里（生成器已按排除规则剔除）。 */
-body[data-oh-dsh-skin] button[aria-haspopup]:not([role="menuitem"]),
+body[data-dsh-studio-skin] button[aria-haspopup]:not([role="menuitem"]),
 ${gate([...TRIGGER_PILL, ...SEAT, ...WORKSPACE_PILL])} {
   height: auto !important;
   min-height: var(--gw-skin-row-h) !important;
@@ -483,7 +483,7 @@ ${gate([...TRIGGER_PILL, ...SEAT, ...WORKSPACE_PILL])} {
    superellipse，与列表/市场一致）。类名随 DSH 上游哈希变更——rc.7
    由原来的 -wizCq_trigger 重哈希为 xuwxfG_trigger（见 generated-selectors
    TRIGGER_PILL）。 */
-body[data-oh-dsh-skin] button.xuwxfG_trigger:has([data-slot='settings.trigger']) {
+body[data-dsh-studio-skin] button.xuwxfG_trigger:has([data-slot='settings.trigger']) {
   border-radius: var(--gw-skin-radius-row) !important;
   corner-shape: superellipse(1.5) !important;
 }
@@ -503,8 +503,8 @@ ${gate([...TRIGGER_LABEL, ...TRIGGER_EFFORT, ...WORKSPACE_LABEL])} {
 }
 /* ui-settings-general 设置触发（xuwxfG_trigger 展开行 / xuwxfG_rail 折叠座）：
    官方折叠态把图标放大到 18px，与全应用 16px 图标不一致——钉回 16px。 */
-body[data-oh-dsh-skin] .xuwxfG_trigger svg,
-body[data-oh-dsh-skin] .xuwxfG_rail svg {
+body[data-dsh-studio-skin] .xuwxfG_trigger svg,
+body[data-dsh-studio-skin] .xuwxfG_rail svg {
   width: 16px !important;
   height: 16px !important;
 }
@@ -561,9 +561,9 @@ ${gatePseudo(RENAME_INPUT, ':focus')} {
   box-shadow: none !important;
 }
 
-/* themeCube 是上游 Appearance 的圆角色块；.oh-dsh-skins-tile 是本插件
+/* themeCube 是上游 Appearance 的圆角色块；.dsh-studio-skins-tile 是本插件
    皮肤画廊自己的字面类名（非 CSS Modules，无需生成）。 */
-${gate([...THEME_CUBE, '.oh-dsh-skins-tile'])} {
+${gate([...THEME_CUBE, '.dsh-studio-skins-tile'])} {
   border-radius: var(--gw-skin-radius-menu) !important;
 }
 
@@ -581,10 +581,10 @@ ${gate(PRIMARY_PILL)} {
   corner-shape: round;
 }
 
-body[data-oh-dsh-skin] button,
-body[data-oh-dsh-skin] [role="button"],
-body[data-oh-dsh-skin] [role="menuitem"],
-body[data-oh-dsh-skin] [role="option"] {
+body[data-dsh-studio-skin] button,
+body[data-dsh-studio-skin] [role="button"],
+body[data-dsh-studio-skin] [role="menuitem"],
+body[data-dsh-studio-skin] [role="option"] {
   transition: var(--gw-skin-hover-transition);
 }
 
@@ -594,33 +594,33 @@ ${gatePseudo(WRAP, ':focus-within')} {
   border-color: var(--dsw-alias-state-business-primary, #339cff) !important;
 }
 
-body[data-oh-dsh-skin] button[disabled] {
+body[data-dsh-studio-skin] button[disabled] {
   opacity: var(--gw-skin-disabled-opacity);
   cursor: not-allowed;
 }
 
 /* 显式支持右栏/通用插件容器的悬浮与选中态（避免纯 CSS token 特异性不够） */
-body[data-oh-dsh-skin] .oh-dsh-list-row:hover,
-body[data-oh-dsh-skin] .oh-dsh-list-row:focus-within,
-body[data-oh-dsh-skin] .oh-dsh-list-row:has([data-popup-open]),
-body[data-oh-dsh-skin] .oh-dsh-list-row[data-active],
-body[data-oh-dsh-skin] .oh-dsh-list-row[data-selected],
-body[data-oh-dsh-skin] .oh-dsh-surface-tab:hover,
-body[data-oh-dsh-skin] .oh-dsh-surface-tab:focus-visible,
-body[data-oh-dsh-skin] .oh-dsh-surface-tab.is-active,
-body[data-oh-dsh-skin] .oh-dsh-review-commit-file:hover,
-body[data-oh-dsh-skin] .oh-dsh-review-commit-dir:hover {
+body[data-dsh-studio-skin] .dsh-studio-list-row:hover,
+body[data-dsh-studio-skin] .dsh-studio-list-row:focus-within,
+body[data-dsh-studio-skin] .dsh-studio-list-row:has([data-popup-open]),
+body[data-dsh-studio-skin] .dsh-studio-list-row[data-active],
+body[data-dsh-studio-skin] .dsh-studio-list-row[data-selected],
+body[data-dsh-studio-skin] .dsh-studio-surface-tab:hover,
+body[data-dsh-studio-skin] .dsh-studio-surface-tab:focus-visible,
+body[data-dsh-studio-skin] .dsh-studio-surface-tab.is-active,
+body[data-dsh-studio-skin] .dsh-studio-review-commit-file:hover,
+body[data-dsh-studio-skin] .dsh-studio-review-commit-dir:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgba(255, 255, 255, 0.08)) !important;
 }
 
-body[data-oh-dsh-skin] .oh-dsh-list-row:hover .oh-dsh-list-row-main,
-body[data-oh-dsh-skin] .oh-dsh-list-row:focus-within .oh-dsh-list-row-main,
-body[data-oh-dsh-skin] .oh-dsh-list-row[data-selected] .oh-dsh-list-row-main,
-body[data-oh-dsh-skin] .oh-dsh-list-row[data-active] .oh-dsh-list-row-main {
+body[data-dsh-studio-skin] .dsh-studio-list-row:hover .dsh-studio-list-row-main,
+body[data-dsh-studio-skin] .dsh-studio-list-row:focus-within .dsh-studio-list-row-main,
+body[data-dsh-studio-skin] .dsh-studio-list-row[data-selected] .dsh-studio-list-row-main,
+body[data-dsh-studio-skin] .dsh-studio-list-row[data-active] .dsh-studio-list-row-main {
   background: transparent !important;
 }
 
-body[data-oh-dsh-skin] .oh-dsh-surface-tab {
+body[data-dsh-studio-skin] .dsh-studio-surface-tab {
   height: var(--gw-skin-row-h) !important;
   border-radius: var(--gw-skin-radius-row) !important;
   corner-shape: superellipse(1.5) !important;
@@ -639,15 +639,15 @@ body[data-oh-dsh-skin] .oh-dsh-surface-tab {
 
 /* 组件自带的圆形按钮：通用 button 12.5px 规则会把它们压成方角
    （实测 28×28 关闭钮被压），恢复 pill。 */
-body[data-oh-dsh-skin] ._close_18d3q_30,
-body[data-oh-dsh-skin] ._remove_1hk8w_53,
-body[data-oh-dsh-skin] ._arrow_1hk8w_90 {
+body[data-dsh-studio-skin] ._close_18d3q_30,
+body[data-dsh-studio-skin] ._remove_1hk8w_53,
+body[data-dsh-studio-skin] ._arrow_1hk8w_90 {
   border-radius: var(--gw-skin-radius-pill) !important;
 }
 
 /* 过滤 pill（Pill 组件 e3ygd）：pill + 行规格（官方 24px/12px 方角）。
    padding/字号/行高全在配方里，高度自然形成（18.59 + 5×2 = 28.59）。 */
-body[data-oh-dsh-skin] ._pill_e3ygd_1 {
+body[data-dsh-studio-skin] ._pill_e3ygd_1 {
   height: auto !important;
   min-height: var(--gw-skin-row-h) !important;
   padding: var(--gw-skin-row-pad) !important;
@@ -659,15 +659,15 @@ body[data-oh-dsh-skin] ._pill_e3ygd_1 {
 /* toast：官方用 button-contrast-fill（night 浅底）与语义错配；改用
    toast-bg（两套深 #212121）。day 的 label-primary-inverted 已是白字；
    night 的 inverted 是主按钮深字，需显式改白。 */
-body[data-oh-dsh-skin] ._toast_fvpz7_7 {
+body[data-dsh-studio-skin] ._toast_fvpz7_7 {
   background: var(--dsw-alias-toast-bg) !important;
 }
-body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-night"] ._toast_fvpz7_7 {
+body[data-dsh-studio-skin="dsh-studio-skin-chatgpt-night"] ._toast_fvpz7_7 {
   color: var(--dsw-alias-label-primary) !important;
 }
 
 /* onboarding 遮罩：硬编码 #0000003d + blur 2px → mask token + 皮肤 blur */
-body[data-oh-dsh-skin] ._onboardingMask_1cfrq_10 {
+body[data-dsh-studio-skin] ._onboardingMask_1cfrq_10 {
   background: var(--dsw-alias-bg-mask-1) !important;
   backdrop-filter: var(--dsw-mask-blur) !important;
   -webkit-backdrop-filter: var(--dsw-mask-blur) !important;
@@ -675,18 +675,18 @@ body[data-oh-dsh-skin] ._onboardingMask_1cfrq_10 {
 
 `
 const CHATGPT_NIGHT_COLOR_CSS = renderColorCss(
-  'body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-night"]',
+  'body[data-dsh-studio-skin="dsh-studio-skin-chatgpt-night"]',
   CHATGPT_NIGHT_COLOR_TOKENS,
 )
 
 const CHATGPT_DAY_COLOR_CSS = renderColorCss(
-  'body[data-oh-dsh-skin="oh-dsh-skin-chatgpt-day"]',
+  'body[data-dsh-studio-skin="dsh-studio-skin-chatgpt-day"]',
   CHATGPT_DAY_COLOR_TOKENS,
 )
 
 export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
   Object.freeze({
-    id: 'oh-dsh-skin-deep-current',
+    id: 'dsh-studio-skin-deep-current',
     colorScheme: 'dark',
     tokens: DEEP_CURRENT_TOKENS,
     preview: 'linear-gradient(135deg, #071923 0%, #143445 64%, #49c8eb 145%)',
@@ -694,7 +694,7 @@ export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
     label: 'skins.name.deep-current',
   }),
   Object.freeze({
-    id: 'oh-dsh-skin-jade-circuit',
+    id: 'dsh-studio-skin-jade-circuit',
     colorScheme: 'dark',
     tokens: JADE_CIRCUIT_TOKENS,
     preview: 'linear-gradient(145deg, #071a16 0 42%, #154435 43% 62%, #52d6a0 150%)',
@@ -702,7 +702,7 @@ export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
     label: 'skins.name.jade-circuit',
   }),
   Object.freeze({
-    id: 'oh-dsh-skin-porcelain',
+    id: 'dsh-studio-skin-porcelain',
     colorScheme: 'light',
     tokens: PORCELAIN_TOKENS,
     preview: 'radial-gradient(circle at 78% 22%, #b9dcd7 0%, transparent 38%), linear-gradient(145deg, #f8fbfa 0%, #e5efec 100%)',
@@ -710,7 +710,7 @@ export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
     label: 'skins.name.porcelain',
   }),
   Object.freeze({
-    id: 'oh-dsh-skin-ember-dusk',
+    id: 'dsh-studio-skin-ember-dusk',
     colorScheme: 'dark',
     tokens: EMBER_DUSK_TOKENS,
     preview: 'radial-gradient(circle at 78% 24%, #ff9275 0%, transparent 38%), linear-gradient(145deg, #21161f 0%, #4b3042 100%)',
@@ -718,7 +718,7 @@ export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
     label: 'skins.name.ember-dusk',
   }),
   Object.freeze({
-    id: 'oh-dsh-skin-synara-night',
+    id: 'dsh-studio-skin-synara-night',
     colorScheme: 'dark',
     tokens: SYNARA_NIGHT_TOKENS,
     preview: 'linear-gradient(145deg, #141414 0 38%, #2d2d2d 40% 62%, #339cff 150%)',
@@ -726,7 +726,7 @@ export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
     label: 'skins.name.synara-night',
   }),
   Object.freeze({
-    id: 'oh-dsh-skin-synara-day',
+    id: 'dsh-studio-skin-synara-day',
     colorScheme: 'light',
     tokens: SYNARA_DAY_TOKENS,
     preview: 'linear-gradient(145deg, #f4f4f4 0 38%, #ffffff 40% 62%, #0d6efd 150%)',
@@ -734,7 +734,7 @@ export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
     label: 'skins.name.synara-day',
   }),
   Object.freeze({
-    id: 'oh-dsh-skin-chatgpt-night',
+    id: 'dsh-studio-skin-chatgpt-night',
     colorScheme: 'dark',
     tokens: CHATGPT_NIGHT_TOKENS,
     preview: 'linear-gradient(135deg, #181818 0 49%, #141414 50% 100%)',
@@ -743,7 +743,7 @@ export const DESKTOP_SKINS: readonly DesktopSkin[] = Object.freeze([
     css: CHATGPT_GEOMETRY_CSS + CHATGPT_NIGHT_COLOR_CSS,
   }),
   Object.freeze({
-    id: 'oh-dsh-skin-chatgpt-day',
+    id: 'dsh-studio-skin-chatgpt-day',
     colorScheme: 'light',
     tokens: CHATGPT_DAY_TOKENS,
     preview: 'linear-gradient(135deg, #ffffff 0 49%, #f6f6f6 50% 100%)',

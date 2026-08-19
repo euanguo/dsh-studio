@@ -4,7 +4,7 @@
  * route here — this entry only keeps the plugin in the host graph so the
  * bundle layer registers it.
  */
-export const name = 'oh-dsh-sidebar-desktop'
+export const name = 'dsh-studio-sidebar-desktop'
 export const inject: string[] = []
 
 export function apply(): void {}

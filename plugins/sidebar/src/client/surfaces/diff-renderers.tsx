@@ -5,7 +5,7 @@
  * with the source-control panel).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import { getDiffRuntime, sidebarScopeKey } from '../runtimes/registry.ts'
@@ -15,7 +15,7 @@ import { binding, registerKeymapAction } from '../kit/keymap.ts'
 import { EmptyView, ErrorView, LoadingView } from '../kit/status.tsx'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffToolbar } from '../diff/diff-toolbar.tsx'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/scrollable'
 import { useDiffViewPreferences } from '../diff/diff-view-preferences.ts'
 import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx'
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
@@ -141,10 +141,10 @@ export function DiffSurfaceView({
   }
   if (diff.includes('Binary files ') && diff.includes(' differ')) {
     return (
-      <div className="oh-dsh-diff-surface">
+      <div className="dsh-studio-diff-surface">
         <DiffToolbar t={t} />
         {imageDiff !== null ? (
-          <Scrollable className="oh-dsh-diff-surface-body">
+          <Scrollable className="dsh-studio-diff-surface-body">
             <ImageDiffViewer
               oldData={imageDiff.oldData}
               newData={imageDiff.newData}
@@ -160,24 +160,24 @@ export function DiffSurfaceView({
   }
   if (document.lines.length > DIFF_MAX_RENDER_LINES || diff.length > DIFF_MAX_RENDER_CHARS) {
     return (
-      <div className="oh-dsh-diff-surface">
+      <div className="dsh-studio-diff-surface">
         <DiffToolbar t={t} />
         <EmptyView title={t('diff.too-large', { lines: document.lines.length })} />
       </div>
     )
   }
   return (
-    <div className="oh-dsh-diff-surface">
+    <div className="dsh-studio-diff-surface">
       <DiffToolbar
         leading={(
-          <span className="oh-dsh-diff-toolbar-title">
+          <span className="dsh-studio-diff-toolbar-title">
             <span title={surface.filePath}>{surface.filePath}</span>
             <small>{surface.staged ? t('source-control.section.staged') : t('source-control.section.unstaged')}</small>
           </span>
         )}
         t={t}
       />
-      <Scrollable className="oh-dsh-diff-surface-body">
+      <Scrollable className="dsh-studio-diff-surface-body">
         <DiffViewer
           document={document}
           theme={theme}
@@ -192,7 +192,7 @@ export function DiffSurfaceView({
           onLineNumberClick={onLineNumberClick}
         />
       </Scrollable>
-      <div className="oh-dsh-diff-context-bar">
+      <div className="dsh-studio-diff-context-bar">
         <button
           type="button"
           disabled={expanding || context >= DIFF_CONTEXT_LIMIT}
@@ -206,13 +206,13 @@ export function DiffSurfaceView({
           {expanding ? t('workspace.loading-diff') : t('diff.expand-context', { current: context, next: Math.min(DIFF_CONTEXT_LIMIT, context + DIFF_CONTEXT_STEP) })}
         </button>
       </div>
-      <div className="oh-dsh-diff-comments">
+      <div className="dsh-studio-diff-comments">
         {comments.length > 0 ? (
-          <div className="oh-dsh-diff-comments-list">
+          <div className="dsh-studio-diff-comments-list">
             {comments.map(comment => (
-              <div key={comment.id} className="oh-dsh-diff-comment">
-                <span className="oh-dsh-diff-comment-line">Line {comment.line}</span>
-                <span className="oh-dsh-diff-comment-body">{comment.body}</span>
+              <div key={comment.id} className="dsh-studio-diff-comment">
+                <span className="dsh-studio-diff-comment-line">Line {comment.line}</span>
+                <span className="dsh-studio-diff-comment-body">{comment.body}</span>
                 <button
                   type="button"
                   onClick={() => {
@@ -223,7 +223,7 @@ export function DiffSurfaceView({
             ))}
           </div>
         ) : null}
-        <div className="oh-dsh-diff-comment-form">
+        <div className="dsh-studio-diff-comment-form">
           <input
             type="number"
             min={1}
@@ -336,7 +336,7 @@ export function DiffAllSurfaceView({
     // F7 presses skip the shadow-root queries; rects are still measured on
     // demand because they change with scroll.
     const rows: Array<{ top: number; el: Element }> = []
-    for (const block of root.querySelectorAll('.oh-dsh-multi-diff-block[data-mounted="true"]')) {
+    for (const block of root.querySelectorAll('.dsh-studio-multi-diff-block[data-mounted="true"]')) {
       const container = block.querySelector('diffs-container')
       const shadow = container?.shadowRoot
       if (shadow === null || shadow === undefined) continue
@@ -425,10 +425,10 @@ export function DiffAllSurfaceView({
     return <ErrorView message={t('workspace.no-text-diff')} />
   }
   return (
-    <div className="oh-dsh-diff-all-surface">
+    <div className="dsh-studio-diff-all-surface">
       <DiffToolbar
         leading={(
-          <span className="oh-dsh-diff-toolbar-title">
+          <span className="dsh-studio-diff-toolbar-title">
             {surface.title}
             <small>{files.length} files</small>
           </span>
@@ -437,7 +437,7 @@ export function DiffAllSurfaceView({
         onPrevChange={() => { navigateChange(-1) }}
         onNextChange={() => { navigateChange(1) }}
       />
-      <div className="oh-dsh-diff-all-body">
+      <div className="dsh-studio-diff-all-body">
         <DiffPathTreeNav
           rows={rows}
           onToggleDirectory={key => {
@@ -452,7 +452,7 @@ export function DiffAllSurfaceView({
             })
           }}
         />
-        <Scrollable className="oh-dsh-diff-all-stack" ref={listRef}>
+        <Scrollable className="dsh-studio-diff-all-stack" ref={listRef}>
           <MultiDiffFileStack
             files={files}
             renderedKeys={renderedKeys}

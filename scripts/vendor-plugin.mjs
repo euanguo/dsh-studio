@@ -150,7 +150,7 @@ function cmdPkg(args) {
   )
   const inject = officialPkg.dsh?.client?.inject ?? []
   console.log(JSON.stringify({
-    name: `@oh-dsh/${target}`,
+    name: `@dsh-studio/${target}`,
     version: '0.1.0',
     private: true,
     type: 'module',

@@ -6,7 +6,7 @@
  * source for the open-set. Surfaces store identity + minimal visual state
  * (`isPreview`) only; never business data.
  */
-import { basename } from '@oh-dsh/shared/path'
+import { basename } from '@dsh-studio/shared/path'
 
 export type CenterSurfaceKind =
   | 'conversation'

@@ -14,7 +14,7 @@ export interface DiffComment {
   createdAt: string
 }
 
-const KEY = 'oh-dsh.sidebar.diff-comments.v1'
+const KEY = 'dsh-studio.sidebar.diff-comments.v1'
 
 export function readDiffComments(): DiffComment[] {
   try {

@@ -5,10 +5,10 @@
  */
 import { useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { EmptyView } from '../kit/status.tsx'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/scrollable'
 import type { SidebarRuntimeSettingsService } from '../runtime-settings.ts'
 import {
   htmlIframeSandboxAttribute,
@@ -28,7 +28,7 @@ export function BinaryFileViewer({
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   return (
-    <Scrollable className="oh-dsh-file-preview">
+    <Scrollable className="dsh-studio-file-preview">
       <div>
         <strong title={path}>{title}</strong>
         <Button variant="outline" size="sm" onClick={() => { void onOpen() }}>
@@ -70,8 +70,8 @@ export function HtmlFileViewer({
     override,
   )
   return (
-    <Scrollable className="oh-dsh-file-preview oh-dsh-html-preview">
-      <div className="oh-dsh-html-toolbar">
+    <Scrollable className="dsh-studio-file-preview dsh-studio-html-preview">
+      <div className="dsh-studio-html-toolbar">
         <strong title={path}>{title}</strong>
         <Button
           variant="outline"
@@ -83,7 +83,7 @@ export function HtmlFileViewer({
         </Button>
       </div>
       {unsandboxed && (
-        <p className="oh-dsh-html-warning" role="alert">
+        <p className="dsh-studio-html-warning" role="alert">
           {t('files.viewer.html-unsandboxed-warning')}
         </p>
       )}

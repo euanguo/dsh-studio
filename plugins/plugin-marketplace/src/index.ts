@@ -2,7 +2,7 @@ interface HostContext {
   provide(name: string, value: unknown): void
 }
 
-export const name = 'oh-dsh-plugin-marketplace'
+export const name = 'dsh-studio-plugin-marketplace'
 
 /** Facts other Host plugins can inspect without receiving Electron access. */
 export interface PluginMarketplaceHost {

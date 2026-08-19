@@ -1,18 +1,18 @@
-/** Browser face for the native Oh-DSH-Desktop bridge. */
+/** Browser face for the native DSH Studio bridge. */
 
 import type { DesktopBridge, DesktopCommand } from './contracts.ts'
-import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
-import type { PinnedSummary } from '@oh-dsh/pinned-summary/client'
-import type { WorkspaceTools } from '@oh-dsh/sidebar/client/types'
+import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
+import type { PinnedSummary } from '@dsh-studio/pinned-summary/client'
+import type { WorkspaceTools } from '@dsh-studio/sidebar/client/types'
 import type {
   LocaleMessages,
   LocaleService,
   Translate,
-} from '@oh-dsh/shared/i18n'
+} from '@dsh-studio/shared/i18n'
 import {
-  OH_DSH_SURFACE_VIEW_SERVICE,
-  type OhDshSurfaceView,
-} from '@oh-dsh/shared/surface'
+  DSH_STUDIO_SURFACE_VIEW_SERVICE,
+  type DshStudioSurfaceView,
+} from '@dsh-studio/shared/surface'
 
 interface WorkspaceView {
   workspaceId: string
@@ -38,14 +38,14 @@ declare global {
 const DESKTOP_TITLEBAR_HEIGHT = 0
 
 const DESKTOP_CHROME_CSS = `
-html[data-oh-dsh-desktop='true'] {
+html[data-dsh-studio='true'] {
   /* Titlebar inset token — the renderer equivalent of the reference
      desktop distribution's --dsh-desktop-titlebar-inset. Plugins read this
      to keep their surfaces flush with the top edge. */
-  --oh-dsh-titlebar-height: ${DESKTOP_TITLEBAR_HEIGHT}px;
+  --dsh-studio-titlebar-height: ${DESKTOP_TITLEBAR_HEIGHT}px;
 }
 
-html[data-oh-dsh-desktop='true'] body {
+html[data-dsh-studio='true'] body {
   box-sizing: border-box;
 }
 
@@ -53,20 +53,20 @@ html[data-oh-dsh-desktop='true'] body {
    stays pinned at the top of the center column (it lives outside the
    scrollable conversation body), so the window can always be dragged by it.
    The header's interactive controls are re-enabled below. */
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header {
+html[data-dsh-studio='true'] [data-slot='conversation'] header {
   -webkit-app-region: drag;
   user-select: none;
 }
 
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header button,
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header a,
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header input,
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header select,
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header textarea,
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='button'],
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='link'],
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [role='tab'],
-html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [contenteditable='true'] {
+html[data-dsh-studio='true'] [data-slot='conversation'] header button,
+html[data-dsh-studio='true'] [data-slot='conversation'] header a,
+html[data-dsh-studio='true'] [data-slot='conversation'] header input,
+html[data-dsh-studio='true'] [data-slot='conversation'] header select,
+html[data-dsh-studio='true'] [data-slot='conversation'] header textarea,
+html[data-dsh-studio='true'] [data-slot='conversation'] header [role='button'],
+html[data-dsh-studio='true'] [data-slot='conversation'] header [role='link'],
+html[data-dsh-studio='true'] [data-slot='conversation'] header [role='tab'],
+html[data-dsh-studio='true'] [data-slot='conversation'] header [contenteditable='true'] {
   -webkit-app-region: no-drag;
   user-select: auto;
 }
@@ -74,8 +74,8 @@ html[data-oh-dsh-desktop='true'] [data-slot='conversation'] header [contentedita
 /* Menus are portalled to body and can geometrically overlap the conversation
    header. Electron app regions ignore normal visual stacking there, so every
    menu hit target must explicitly opt out of native window dragging. */
-html[data-oh-dsh-desktop='true'] [role='menu'],
-html[data-oh-dsh-desktop='true'] [role='menu'] * {
+html[data-dsh-studio='true'] [role='menu'],
+html[data-dsh-studio='true'] [role='menu'] * {
   -webkit-app-region: no-drag;
 }
 
@@ -83,7 +83,7 @@ html[data-oh-dsh-desktop='true'] [role='menu'] * {
    suspend every renderer-owned drag target so the mask and the modal's own
    controls keep pointer input (same rule as the reference desktop
    distribution). Restoring the final modal re-enables the regions. */
-html[data-oh-dsh-desktop='true']:has([aria-modal='true']) body * {
+html[data-dsh-studio='true']:has([aria-modal='true']) body * {
   -webkit-app-region: no-drag;
 }
 
@@ -91,11 +91,11 @@ html[data-oh-dsh-desktop='true']:has([aria-modal='true']) body * {
    keep them clear of the sidebar rail's top button row. The strip itself
    is not draggable (the header is), which is fine — the traffic lights
    sit there anyway. */
-html[data-oh-dsh-desktop='true'] [data-slot='sidebar'] > div {
+html[data-dsh-studio='true'] [data-slot='sidebar'] > div {
   padding-top: 28px;
 }
-html[data-oh-dsh-preview='true'] body::after {
-  content: attr(data-oh-dsh-preview-label);
+html[data-dsh-studio-preview='true'] body::after {
+  content: attr(data-dsh-studio-preview-label);
   position: fixed;
   z-index: 2147483647;
   top: 7px;
@@ -116,14 +116,14 @@ html[data-oh-dsh-preview='true'] body::after {
   white-space: nowrap;
 }
 
-html[data-oh-dsh-desktop='true'] #root:has(
+html[data-dsh-studio='true'] #root:has(
   [role='presentation'] > [role='dialog']
 ) {
   z-index: 1000 !important;
   overflow: visible !important;
 }
 
-html[data-oh-dsh-desktop='true'] #root [role='presentation']:has(
+html[data-dsh-studio='true'] #root [role='presentation']:has(
   > [role='dialog']
 ) {
   z-index: 1000 !important;
@@ -133,24 +133,24 @@ html[data-oh-dsh-desktop='true'] #root [role='presentation']:has(
 }
 
 
-html[data-oh-dsh-desktop='true']:has(
+html[data-dsh-studio='true']:has(
   [role='presentation'] > [role='dialog']
 ) body::after,
-html[data-oh-dsh-desktop='true']:has(
+html[data-dsh-studio='true']:has(
   [role='presentation'] > [role='dialog']
-) .oh-dsh-panel-toolbar,
-html[data-oh-dsh-desktop='true']:has(
+) .dsh-studio-panel-toolbar,
+html[data-dsh-studio='true']:has(
   [role='presentation'] > [role='dialog']
-) [data-oh-dsh-pinned-summary],
-html[data-oh-dsh-desktop='true']:has(
+) [data-dsh-studio-pinned-summary],
+html[data-dsh-studio='true']:has(
   [role='presentation'] > [role='dialog']
-) #oh-dsh-plugin-marketplace-root {
+) #dsh-studio-plugin-marketplace-root {
   z-index: 999 !important;
 }
 
-html[data-oh-dsh-desktop='true']:has(
+html[data-dsh-studio='true']:has(
   [role='presentation'] > [role='dialog']
-) #oh-dsh-plugin-marketplace-root {
+) #dsh-studio-plugin-marketplace-root {
   position: relative;
 }
 
@@ -173,14 +173,14 @@ const DESKTOP_SHELL_MESSAGES: LocaleMessages<DesktopShellMessage> = {
 function installDesktopChrome(): () => void {
   const originalTitle = document.title
   const style = document.createElement('style')
-  style.dataset.ohDshDesktopChrome = 'true'
+  style.dataset.dshStudioDesktopChrome = 'true'
   style.textContent = DESKTOP_CHROME_CSS
   document.head.append(style)
-  document.documentElement.dataset.ohDshDesktop = 'true'
-  document.title = 'Oh-DSH-Desktop'
+  document.documentElement.dataset.dshStudioDesktop = 'true'
+  document.title = 'DSH Studio'
   return () => {
     style.remove()
-    delete document.documentElement.dataset.ohDshDesktop
+    delete document.documentElement.dataset.dshStudioDesktop
     document.title = originalTitle
   }
 }
@@ -193,8 +193,8 @@ function installHeroBranding(): () => void {
       const text = element.textContent?.trim() ?? ''
       if (!headlineCopy.has(text)) continue
       if (!originalHeadlines.has(element)) originalHeadlines.set(element, text)
-      element.textContent = 'Oh-DSH-Desktop'
-      element.dataset.ohDshHeroHeadline = 'true'
+      element.textContent = 'DSH Studio'
+      element.dataset.dshStudioHeroHeadline = 'true'
     }
   }
   const observer = new MutationObserver(synchronize)
@@ -203,8 +203,8 @@ function installHeroBranding(): () => void {
   return () => {
     observer.disconnect()
     for (const [element, original] of originalHeadlines) {
-      if (element.isConnected && element.textContent === 'Oh-DSH-Desktop') element.textContent = original
-      delete element.dataset.ohDshHeroHeadline
+      if (element.isConnected && element.textContent === 'DSH Studio') element.textContent = original
+      delete element.dataset.dshStudioHeroHeadline
     }
   }
 }
@@ -260,7 +260,7 @@ function dispatch(
       return
     case 'open-paths':
       void openPaths(workspaces, command.paths).catch((error: unknown) => {
-        console.error('oh-dsh-desktop: failed to open workspace', error)
+        console.error('dsh-studio: failed to open workspace', error)
       })
       return
     case 'show-settings':
@@ -296,7 +296,7 @@ function dispatch(
       return
     case 'open-side-chat':
       void workspaceTools.openSideChat().catch((error: unknown) => {
-        console.error('oh-dsh-desktop: failed to open side chat', error)
+        console.error('dsh-studio: failed to open side chat', error)
       })
       return
     case 'open-trajectory':
@@ -311,29 +311,29 @@ function dispatch(
 export function apply(ctx: ClientContext): void {
   const bridge = window.dshDesktop
   if (bridge === undefined) {
-    throw new Error('oh-dsh-desktop: preload bridge is unavailable outside Oh-DSH-Desktop')
+    throw new Error('dsh-studio: preload bridge is unavailable outside DSH Studio')
   }
   const workspaces = ctx.get('workspaces') as WorkspacesService
   const locale = ctx.get('locale') as LocaleService
-  const t: Translate<DesktopShellMessage> = locale.bind('oh-dsh.desktop')
+  const t: Translate<DesktopShellMessage> = locale.bind('dsh-studio.desktop')
   const panels = ctx.get('desktopPanels') as DesktopPanels
   const pinnedSummary = ctx.get('pinnedSummary') as PinnedSummary
   const workspaceTools = ctx.get('workspaceTools') as WorkspaceTools
   ctx.effect(
-    () => locale.register('oh-dsh.desktop', DESKTOP_SHELL_MESSAGES),
-    'oh-dsh-desktop: shell dictionaries',
+    () => locale.register('dsh-studio.desktop', DESKTOP_SHELL_MESSAGES),
+    'dsh-studio: shell dictionaries',
   )
   ctx.reflect.provide('desktopShell', bridge, undefined)
   // The unified three-surface contract, client plane: the desktop shell.
-  ctx.reflect.provide(OH_DSH_SURFACE_VIEW_SERVICE, Object.freeze({
+  ctx.reflect.provide(DSH_STUDIO_SURFACE_VIEW_SERVICE, Object.freeze({
     kind: 'desktop',
-  } satisfies OhDshSurfaceView), undefined)
+  } satisfies DshStudioSurfaceView), undefined)
   ctx.effect(() => {
     let disposed = false
     let previewPluginId: string | null = null
     const renderPreviewLabel = (): void => {
       if (previewPluginId === null) return
-      document.body.dataset.ohDshPreviewLabel = t('preview.label', {
+      document.body.dataset.dshStudioPreviewLabel = t('preview.label', {
         plugin: previewPluginId,
       })
     }
@@ -343,10 +343,10 @@ export function apply(ctx: ClientContext): void {
     void bridge.getInfo().then(info => {
       if (disposed || info.preview === null) return
       previewPluginId = info.preview.pluginId
-      document.documentElement.dataset.ohDshPreview = 'true'
+      document.documentElement.dataset.dshStudioPreview = 'true'
       renderPreviewLabel()
     }).catch((error: unknown) => {
-      console.error('oh-dsh-desktop: failed to read preview identity', error)
+      console.error('dsh-studio: failed to read preview identity', error)
     })
     const unsubscribe = bridge.onCommand((command) => {
       dispatch(command, workspaces, panels, pinnedSummary, workspaceTools)
@@ -357,8 +357,8 @@ export function apply(ctx: ClientContext): void {
       unsubscribeLocale()
       removeHeroBranding()
       removeDesktopChrome()
-      delete document.documentElement.dataset.ohDshPreview
-      delete document.body.dataset.ohDshPreviewLabel
+      delete document.documentElement.dataset.dshStudioPreview
+      delete document.body.dataset.dshStudioPreviewLabel
     }
-  }, 'oh-dsh-desktop: native command bridge')
+  }, 'dsh-studio: native command bridge')
 }

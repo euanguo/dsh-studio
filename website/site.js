@@ -1,18 +1,17 @@
-const repositoryUrl = "https://github.com/hust-open-atom-club/oh-dsh";
+const repositoryUrl = "https://github.com/euanguo/oh-dsh-app";
 const latestReleaseUrl = `${repositoryUrl}/releases/latest`;
 const releaseApiUrl =
-    "https://api.github.com/repos/hust-open-atom-club/oh-dsh/releases/latest";
+    "https://api.github.com/repos/euanguo/oh-dsh-app/releases/latest";
 
 const translations = {
     "zh-CN": {
         star: "星标",
-        pageTitle: "Oh-DSH｜一套 Runtime，三种开发体验",
-        sloganRuntime: "一套 DSH runtime，",
-        sloganSurfaces: "Desktop、Web 与 TUI",
-        sloganExperience: "三种开发体验。",
+        pageTitle: "DSH Studio｜DeepSeek Harness 的项目工作台",
+        sloganRuntime: "一个 DSH runtime，",
+        sloganSurfaces: "Desktop 与 Web",
+        sloganExperience: "同一套项目工作区。",
         desktopDetail: "本地工作台",
-        webDetail: "浏览器即开",
-        tuiDetail: "终端优先",
+        webDetail: "浏览器入口",
         downloadLatest: "下载最新版",
         downloadMac: "下载 macOS 版",
         downloadWindows: "下载 Windows 版",
@@ -20,25 +19,24 @@ const translations = {
         downloadReady: "准备下载",
         downloadTitle: "下载前，顺手点亮一颗 Star？",
         downloadDescription:
-            "Oh-DSH 完全开源。你的 Star 会帮助更多开发者发现它，随后我们会继续下载。",
+            "DSH Studio 完全开源。你的 Star 会帮助更多开发者发现它，随后我们会继续下载。",
         detectedPlatform: "已识别当前平台",
         starAndDownload: "去 GitHub Star，并继续下载",
         directDownload: "直接下载",
         unknownPlatform: "其他平台",
         footer: "开放、可组合的 DeepSeek Harness 工作台",
-        screenshotAlt: "Oh-DSH Desktop 深色界面，包含工作区、对话和插件入口",
+        screenshotAlt: "DSH Studio 深色界面，包含工作区、对话和插件入口",
         pageDescription:
-            "Oh-DSH 以一套 DSH runtime 提供 Desktop、Web UI 与 TUI 三种开发体验。",
+            "DSH Studio 是面向 DeepSeek Harness 的项目工作台，提供 Desktop 与 Web 入口。",
     },
     en: {
         star: "Star",
-        pageTitle: "Oh-DSH — One Runtime, Three Interfaces",
+        pageTitle: "DSH Studio — A DeepSeek Harness project workbench",
         sloganRuntime: "One DSH runtime.",
-        sloganSurfaces: "Desktop · Web · TUI",
-        sloganExperience: "Three ways to build.",
+        sloganSurfaces: "Desktop · Web",
+        sloganExperience: "One project workspace.",
         desktopDetail: "Local workbench",
         webDetail: "Browser-ready",
-        tuiDetail: "Terminal-first",
         downloadLatest: "Download latest",
         downloadMac: "Download for macOS",
         downloadWindows: "Download for Windows",
@@ -46,16 +44,16 @@ const translations = {
         downloadReady: "Ready to download",
         downloadTitle: "Before you go, leave us a Star?",
         downloadDescription:
-            "Oh-DSH is fully open source. Your Star helps more developers find it, and your download will continue.",
+            "DSH Studio is fully open source. Your Star helps more developers find it, and your download will continue.",
         detectedPlatform: "Detected platform",
         starAndDownload: "Star on GitHub and continue",
         directDownload: "Download directly",
         unknownPlatform: "Other platform",
         footer: "An open, composable DeepSeek Harness workbench",
         screenshotAlt:
-            "Oh-DSH Desktop dark interface with workspace, conversation, and plugin navigation",
+            "DSH Studio dark interface with workspace, conversation, and plugin navigation",
         pageDescription:
-            "Oh-DSH brings Desktop, Web UI, and TUI together on one DSH runtime.",
+            "DSH Studio is a DeepSeek Harness project workbench for Desktop and Web.",
     },
 };
 
@@ -178,7 +176,7 @@ function installHarnessParticles(canvas) {
     restart();
 }
 
-const storageKey = "oh-dsh-site-language";
+const storageKey = "dsh-studio-site-language";
 const platform = detectPlatform(navigator);
 let architecture = detectArchitecture(navigator);
 

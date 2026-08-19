@@ -1,7 +1,7 @@
-# Oh-DSH's downstream layer for the pinned dsh-TUI bundle. The upstream
+# DSH Studio's downstream layer for the pinned dsh-TUI bundle. The upstream
 # renderer keeps its implementation; these rows establish the shared
-# surface contract and then mount the renderer. (The former @oh-dsh/skins
-# and @oh-dsh/vision inserts referenced plugin trees the desktop
+# surface contract and then mount the renderer. (The former @dsh-studio/skins
+# and @dsh-studio/vision inserts referenced plugin trees the desktop
 # reconciliation removed — no TUI adapter survives, so the rows are gone.)
 
 - id: cc-tui
@@ -9,19 +9,19 @@
 
 - insert:
   - id: oh-tui
-    name: '@oh-dsh/tui'
+    name: '@dsh-studio/tui'
 
   - id: oh-tui-renderer
     name: 'dsh-cc-tui'
     config:
-      sessionId: !!js process.env.OH_DSH_TUI_SESSION_ID ?? undefined
-      provider: !!js process.env.OH_DSH_TUI_PROVIDER ?? 'deepseek-official'
-      model: !!js process.env.OH_DSH_TUI_MODEL ?? undefined
-      cwd: !!js process.env.OH_DSH_TUI_CWD ?? process.cwd()
-      effort: !!js process.env.OH_DSH_TUI_EFFORT ?? 'max'
-      activity: !!js "process.env.OH_DSH_TUI_ACTIVITY !== '0'"
-      activityFrames: !!js process.env.OH_DSH_TUI_ACTIVITY_FRAMES ?? undefined
-      contextBar: !!js "process.env.OH_DSH_TUI_CONTEXT_BAR !== '0'"
-      fullscreen: !!js "process.env.OH_DSH_TUI_FULLSCREEN !== '0'"
-      lang: !!js process.env.OH_DSH_TUI_LANG ?? undefined
-      preset: !!js process.env.OH_DSH_TUI_PRESET ?? undefined
+      sessionId: !!js process.env.DSH_STUDIO_TUI_SESSION_ID ?? undefined
+      provider: !!js process.env.DSH_STUDIO_TUI_PROVIDER ?? 'deepseek-official'
+      model: !!js process.env.DSH_STUDIO_TUI_MODEL ?? undefined
+      cwd: !!js process.env.DSH_STUDIO_TUI_CWD ?? process.cwd()
+      effort: !!js process.env.DSH_STUDIO_TUI_EFFORT ?? 'max'
+      activity: !!js "process.env.DSH_STUDIO_TUI_ACTIVITY !== '0'"
+      activityFrames: !!js process.env.DSH_STUDIO_TUI_ACTIVITY_FRAMES ?? undefined
+      contextBar: !!js "process.env.DSH_STUDIO_TUI_CONTEXT_BAR !== '0'"
+      fullscreen: !!js "process.env.DSH_STUDIO_TUI_FULLSCREEN !== '0'"
+      lang: !!js process.env.DSH_STUDIO_TUI_LANG ?? undefined
+      preset: !!js process.env.DSH_STUDIO_TUI_PRESET ?? undefined

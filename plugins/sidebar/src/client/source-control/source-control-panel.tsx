@@ -9,7 +9,7 @@
  * — the same row geometry as the file browser and every other list.
  */
 import { useState, type CSSProperties } from 'react'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import {
   Menu,
   type MenuEntry,
@@ -26,7 +26,7 @@ import {
   IconMinus,
   IconPlus,
   IconTrash,
-} from '@oh-dsh/shared/tabler-icons'
+} from '@dsh-studio/shared/tabler-icons'
 import {
   ListRow,
   ListRowActions,
@@ -37,8 +37,8 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
-} from '@oh-dsh/shared/list-row'
-import { FilenameLabel } from '@oh-dsh/shared/filename-label'
+} from '@dsh-studio/shared/list-row'
+import { FilenameLabel } from '@dsh-studio/shared/filename-label'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { WorkspaceChangeStatus } from '../../protocol.ts'
 import {
@@ -108,14 +108,14 @@ export function SourceControlPanel(props: SourceControlPanelProps): JSX.Element 
   }
 
   return (
-    <div className="oh-dsh-sc-list">
-      <div className="oh-dsh-sc-toolbar">
-        <span className="oh-dsh-sc-toolbar-title">
+    <div className="dsh-studio-sc-list">
+      <div className="dsh-studio-sc-toolbar">
+        <span className="dsh-studio-sc-toolbar-title">
           <IconFileDiff size={14} />
           {props.t('workspace.changes')}
           <em>{props.count}</em>
         </span>
-        <div className="oh-dsh-sc-toolbar-modes" role="group" aria-label={props.t('source-control.mode.tree')}>
+        <div className="dsh-studio-sc-toolbar-modes" role="group" aria-label={props.t('source-control.mode.tree')}>
           <button
             type="button"
             aria-label={props.t('source-control.mode.flat')}
@@ -224,9 +224,9 @@ function SectionRowView(props: {
   const { row } = props
   const canViewAll = row.id === 'staged' || row.id === 'unstaged'
   return (
-    <ListRow className="oh-dsh-sc-section-row" data-section={row.id}>
+    <ListRow className="dsh-studio-sc-section-row" data-section={row.id}>
       <ListRowMain
-        className="oh-dsh-sc-depth-main"
+        className="dsh-studio-sc-depth-main"
         aria-expanded={row.expanded}
         onClick={() => { props.onToggleSection(row.id) }}
       >
@@ -236,7 +236,7 @@ function SectionRowView(props: {
         <ListRowBody>
           <ListRowLabel>
             <ListRowLabelText>{props.t(`source-control.section.${row.id}`)}</ListRowLabelText>
-            <span className="oh-dsh-workspace-count">{row.count}</span>
+            <span className="dsh-studio-workspace-count">{row.count}</span>
           </ListRowLabel>
         </ListRowBody>
       </ListRowMain>
@@ -248,7 +248,7 @@ function SectionRowView(props: {
             onClick={() => { props.onViewAll(row.id) }}
           ><IconEye size={14} /></ListRowActionButton>
         )}
-        <span className="oh-dsh-sc-section-bulk">
+        <span className="dsh-studio-sc-section-bulk">
           {row.stagePaths.length > 0 && (
             <ListRowActionButton
               aria-label={props.t('source-control.stage-all')}
@@ -286,9 +286,9 @@ function DirectoryRowView(props: {
 }): JSX.Element {
   const { row } = props
   return (
-    <ListRow className="oh-dsh-sc-directory-row" title={row.path} data-path={row.path}>
+    <ListRow className="dsh-studio-sc-directory-row" title={row.path} data-path={row.path}>
       <ListRowMain
-        className="oh-dsh-sc-depth-main"
+        className="dsh-studio-sc-depth-main"
         style={{ '--tree-depth': row.depth } as CSSProperties}
         aria-expanded={row.expanded}
         onClick={() => { props.onToggleDirectory(row.key) }}
@@ -302,7 +302,7 @@ function DirectoryRowView(props: {
         </ListRowBody>
       </ListRowMain>
       <ListRowTrailing>
-        <span className="oh-dsh-workspace-count">{row.fileCount}</span>
+        <span className="dsh-studio-workspace-count">{row.fileCount}</span>
       </ListRowTrailing>
       <ListRowActions>
         {row.stagePaths.length > 0 && (
@@ -360,7 +360,7 @@ function FileRowView(props: {
   }
   return (
     <ListRow
-      className="oh-dsh-sc-file-row"
+      className="dsh-studio-sc-file-row"
       selected={row.selected}
       title={row.path}
       data-path={row.path}
@@ -368,7 +368,7 @@ function FileRowView(props: {
       onContextMenu={openMenu}
     >
       <ListRowMain
-        className="oh-dsh-sc-depth-main"
+        className="dsh-studio-sc-depth-main"
         style={{ '--tree-depth': row.depth } as CSSProperties}
         aria-busy={props.pending !== null || undefined}
         onClick={() => { props.onSelectFile(row.path) }}
@@ -380,17 +380,17 @@ function FileRowView(props: {
           <FilenameLabel name={row.name} title={row.path} />
         </ListRowBody>
         {hasStat && (
-          <ListRowTrailing className="oh-dsh-sc-stat-trailing">
-            <span className="oh-dsh-sc-stat" aria-hidden="true">
-              {change.additions > 0 && <em className="oh-dsh-sc-stat-add">+{change.additions}</em>}
-              {change.deletions > 0 && <em className="oh-dsh-sc-stat-del">−{change.deletions}</em>}
+          <ListRowTrailing className="dsh-studio-sc-stat-trailing">
+            <span className="dsh-studio-sc-stat" aria-hidden="true">
+              {change.additions > 0 && <em className="dsh-studio-sc-stat-add">+{change.additions}</em>}
+              {change.deletions > 0 && <em className="dsh-studio-sc-stat-del">−{change.deletions}</em>}
             </span>
           </ListRowTrailing>
         )}
       </ListRowMain>
       <ListRowTrailing>
         <span
-          className={`oh-dsh-sc-mark is-${change.status}`}
+          className={`dsh-studio-sc-mark is-${change.status}`}
           aria-label={props.t(`source-control.status.${change.status}`)}
         >{SECTION_SYMBOL[change.status]}</span>
       </ListRowTrailing>

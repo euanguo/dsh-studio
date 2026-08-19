@@ -1,42 +1,42 @@
 /* ============================================================
    Surface tab chip + strip — the ONE tab component for every
    surface host: the center strip AND the right panel's top row.
-   Geometry/colors come from the --oh-dsh-* ladder and --dsw-alias-*
+   Geometry/colors come from the --dsh-studio-* ladder and --dsw-alias-*
    only (same tokens the row family uses).
    ============================================================ */
 
 /* The strip gives every tab its chip gap — consumers do not add their
    own (the center strip and the right panel top row share this). */
-.oh-dsh-surface-tab-strip {
+.dsh-studio-surface-tab-strip {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-surface-tab-gap, var(--oh-dsh-space-1));
+  gap: var(--dsh-studio-surface-tab-gap, var(--dsh-studio-space-1));
   min-width: 0;
   height: 100%;
 }
 
-.oh-dsh-surface-tab {
+.dsh-studio-surface-tab {
   -webkit-app-region: no-drag;
   display: inline-flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--dsh-studio-space-1);
   flex: none;
-  height: var(--oh-dsh-surface-tab-height, var(--oh-dsh-list-row-height, 28px)) !important;
+  height: var(--dsh-studio-surface-tab-height, var(--dsh-studio-list-row-height, 28px)) !important;
   max-width: 180px;
-  padding: 0 var(--oh-dsh-space-2);
+  padding: 0 var(--dsh-studio-space-2);
   box-sizing: border-box;
-  border-radius: var(--oh-dsh-surface-tab-radius, var(--oh-dsh-list-row-radius, 12.5px)) !important;
-  corner-shape: var(--oh-dsh-surface-tab-corner-shape, superellipse(1.5)) !important;
+  border-radius: var(--dsh-studio-surface-tab-radius, var(--dsh-studio-list-row-radius, 12.5px)) !important;
+  corner-shape: var(--dsh-studio-surface-tab-corner-shape, superellipse(1.5)) !important;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-sm);
+  font-size: var(--dsh-studio-font-sm);
   cursor: pointer;
   user-select: none;
   transition: background 120ms ease, color 120ms ease;
 }
 
-.oh-dsh-surface-tab:hover,
-.oh-dsh-surface-tab:focus-visible,
-.oh-dsh-surface-tab.is-active {
+.dsh-studio-surface-tab:hover,
+.dsh-studio-surface-tab:focus-visible,
+.dsh-studio-surface-tab.is-active {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) !important;
   color: var(--dsw-alias-label-primary, #1f2328);
   outline: none;
@@ -45,7 +45,7 @@
 /* Disabled chips (e.g. files/Git without a workspace): inert and dimmed.
    No hover/focus lift — a disabled entry is not interactable. The close
    action and drag are suppressed at the component level too. */
-.oh-dsh-surface-tab.is-disabled {
+.dsh-studio-surface-tab.is-disabled {
   opacity: 0.45;
   color: var(--dsw-alias-label-tertiary, #8c959f);
   background: transparent;
@@ -53,14 +53,14 @@
   pointer-events: none;
 }
 
-.oh-dsh-surface-tab.is-disabled:hover,
-.oh-dsh-surface-tab.is-disabled:focus-visible,
-.oh-dsh-surface-tab.is-disabled.is-active {
+.dsh-studio-surface-tab.is-disabled:hover,
+.dsh-studio-surface-tab.is-disabled:focus-visible,
+.dsh-studio-surface-tab.is-disabled.is-active {
   background: transparent;
   color: var(--dsw-alias-label-tertiary, #8c959f);
 }
 
-.oh-dsh-surface-tab-icon {
+.dsh-studio-surface-tab-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -69,15 +69,15 @@
 }
 
 /* Tab badge pill: a small rounded count/status chip next to the icon. */
-.oh-dsh-surface-tab-badge {
+.dsh-studio-surface-tab-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex: none;
-  min-width: var(--oh-dsh-surface-tab-badge-height, 16px);
-  height: var(--oh-dsh-surface-tab-badge-height, 16px);
+  min-width: var(--dsh-studio-surface-tab-badge-height, 16px);
+  height: var(--dsh-studio-surface-tab-badge-height, 16px);
   padding: 0 4px;
-  border-radius: var(--oh-dsh-surface-tab-badge-radius, 8px);
+  border-radius: var(--dsh-studio-surface-tab-badge-radius, 8px);
   background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
   color: var(--dsw-alias-label-tertiary, #8c959f);
   font-size: 10px;
@@ -85,12 +85,12 @@
   line-height: 1;
 }
 
-.oh-dsh-surface-tab.is-active .oh-dsh-surface-tab-badge {
+.dsh-studio-surface-tab.is-active .dsh-studio-surface-tab-badge {
   background: var(--dsw-alias-accent-bg, rgb(77 107 254 / 14%));
   color: var(--dsw-alias-accent-fg, #4d6bfe);
 }
 
-.oh-dsh-surface-tab-label {
+.dsh-studio-surface-tab-label {
   display: flex;
   align-items: center;
   min-width: 0;
@@ -99,26 +99,26 @@
 }
 
 /* Preview tabs render italic to signal "temporary — double-click to pin". */
-.oh-dsh-surface-tab-label.is-preview {
+.dsh-studio-surface-tab-label.is-preview {
   font-style: italic;
 }
 
-.oh-dsh-surface-tab-text {
+.dsh-studio-surface-tab-text {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.oh-dsh-surface-tab-action {
+.dsh-studio-surface-tab-action {
   display: grid;
   place-items: center;
-  width: var(--oh-dsh-surface-tab-action-size, 18px);
-  height: var(--oh-dsh-surface-tab-action-size, 18px);
+  width: var(--dsh-studio-surface-tab-action-size, 18px);
+  height: var(--dsh-studio-surface-tab-action-size, 18px);
   padding: 0;
   flex: none;
   border: 0;
-  border-radius: var(--oh-dsh-surface-tab-action-radius, var(--oh-dsh-radius-sm));
+  border-radius: var(--dsh-studio-surface-tab-action-radius, var(--dsh-studio-radius-sm));
   background: transparent;
   color: var(--dsw-alias-label-tertiary, #8c959f);
   cursor: pointer;
@@ -126,25 +126,25 @@
   transition: opacity 120ms ease, background 120ms ease;
 }
 
-.oh-dsh-surface-tab:hover .oh-dsh-surface-tab-action,
-.oh-dsh-surface-tab:focus-within .oh-dsh-surface-tab-action,
-.oh-dsh-surface-tab.is-active .oh-dsh-surface-tab-action {
+.dsh-studio-surface-tab:hover .dsh-studio-surface-tab-action,
+.dsh-studio-surface-tab:focus-within .dsh-studio-surface-tab-action,
+.dsh-studio-surface-tab.is-active .dsh-studio-surface-tab-action {
   opacity: 1;
 }
 
-.oh-dsh-surface-tab-action:hover {
+.dsh-studio-surface-tab-action:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 8%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
 /* A quiet insertion line at the boundary between two tabs. */
-.oh-dsh-surface-tab.is-drop-before,
-.oh-dsh-surface-tab.is-drop-after {
+.dsh-studio-surface-tab.is-drop-before,
+.dsh-studio-surface-tab.is-drop-after {
   position: relative;
 }
 
-.oh-dsh-surface-tab.is-drop-before::before,
-.oh-dsh-surface-tab.is-drop-after::after {
+.dsh-studio-surface-tab.is-drop-before::before,
+.dsh-studio-surface-tab.is-drop-after::after {
   content: '';
   position: absolute;
   z-index: 1;
@@ -156,10 +156,10 @@
   pointer-events: none;
 }
 
-.oh-dsh-surface-tab.is-drop-before::before {
+.dsh-studio-surface-tab.is-drop-before::before {
   left: -1px;
 }
 
-.oh-dsh-surface-tab.is-drop-after::after {
+.dsh-studio-surface-tab.is-drop-after::after {
   right: -1px;
 }

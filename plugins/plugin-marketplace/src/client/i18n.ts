@@ -1,4 +1,4 @@
-import type { LocaleMessages } from '@oh-dsh/shared/i18n'
+import type { LocaleMessages } from '@dsh-studio/shared/i18n'
 
 export type MarketplaceMessage =
   | 'plugins'

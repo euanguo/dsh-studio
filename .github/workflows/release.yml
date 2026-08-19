@@ -47,8 +47,8 @@ jobs:
             node_arch: x64
             update_platform: win-x64
     env:
-      DSH_DESKTOP_NODE_ARCH: ${{ matrix.node_arch }}
-      DSH_DESKTOP_NODE_PLATFORM: ${{ matrix.node_platform }}
+      DSH_STUDIO_NODE_ARCH: ${{ matrix.node_arch }}
+      DSH_STUDIO_NODE_PLATFORM: ${{ matrix.node_platform }}
       npm_config_pm_on_fail: 'ignore'
 
     steps:
@@ -86,10 +86,10 @@ jobs:
           MACOS_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           if test -n "$MACOS_CSC_LINK" && test -n "$MACOS_CSC_KEY_PASSWORD" && test -n "$MACOS_APPLE_ID" && test -n "$MACOS_APPLE_APP_SPECIFIC_PASSWORD" && test -n "$MACOS_APPLE_TEAM_ID"; then
-            echo 'DSH_DESKTOP_SIGNING=enabled' >> "$GITHUB_ENV"
+            echo 'DSH_STUDIO_SIGNING=enabled' >> "$GITHUB_ENV"
             echo "macOS signing and notarization are enabled." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo 'DSH_DESKTOP_SIGNING=fallback' >> "$GITHUB_ENV"
+            echo 'DSH_STUDIO_SIGNING=fallback' >> "$GITHUB_ENV"
             echo "::warning::macOS signing credentials are incomplete; producing an ad-hoc-signed package that requires manual Gatekeeper approval."
             echo "macOS signing: ad-hoc fallback; automatic updates are unsupported." >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -102,16 +102,16 @@ jobs:
           WINDOWS_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
         run: |
           if test -n "$WINDOWS_CSC_LINK" && test -n "$WINDOWS_CSC_KEY_PASSWORD"; then
-            echo 'DSH_DESKTOP_SIGNING=enabled' >> "$GITHUB_ENV"
+            echo 'DSH_STUDIO_SIGNING=enabled' >> "$GITHUB_ENV"
             echo "Windows Authenticode signing is enabled." >> "$GITHUB_STEP_SUMMARY"
           else
-            echo 'DSH_DESKTOP_SIGNING=fallback' >> "$GITHUB_ENV"
+            echo 'DSH_STUDIO_SIGNING=fallback' >> "$GITHUB_ENV"
             echo "::warning::Windows signing credentials are incomplete; producing an unsigned installer that may require manual SmartScreen approval."
             echo "Windows signing: unsigned fallback; automatic updates are unsupported." >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Package signed macOS desktop distribution
-        if: runner.os == 'macOS' && env.DSH_DESKTOP_SIGNING == 'enabled'
+        if: runner.os == 'macOS' && env.DSH_STUDIO_SIGNING == 'enabled'
         env:
           CSC_LINK: ${{ secrets.MACOS_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.MACOS_CSC_KEY_PASSWORD }}
@@ -121,22 +121,22 @@ jobs:
         run: pnpm run ${{ matrix.dist_script }}
 
       - name: Package signed Windows desktop distribution
-        if: runner.os == 'Windows' && env.DSH_DESKTOP_SIGNING == 'enabled'
+        if: runner.os == 'Windows' && env.DSH_STUDIO_SIGNING == 'enabled'
         env:
           CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
           CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
         run: pnpm run ${{ matrix.dist_script }}
 
       - name: Package desktop distribution without release credentials
-        if: env.DSH_DESKTOP_SIGNING != 'enabled'
+        if: env.DSH_STUDIO_SIGNING != 'enabled'
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: pnpm run ${{ matrix.dist_script }}
 
-      - name: Package Oh-DSH-Web distribution
+      - name: Package DSH Studio-Web distribution
         run: node scripts/build-web.mjs
 
-      - name: Package Oh-DSH TUI distribution
+      - name: Package DSH Studio TUI distribution
         run: node scripts/build-tui.mjs
 
       - name: Verify updater metadata
@@ -152,11 +152,11 @@ jobs:
           name: release-${{ matrix.id }}
           compression-level: 0
           path: |
-            release/Oh-DSH-Desktop-*
-            release/oh-dsh-web-*.tar.gz
-            release/oh-dsh-web-*.zip
-            release/oh-dsh-tui-*.tar.gz
-            release/oh-dsh-tui-*.zip
+            release/DSH Studio-*
+            release/dsh-studio-web-*.tar.gz
+            release/dsh-studio-web-*.zip
+            release/dsh-studio-tui-*.tar.gz
+            release/dsh-studio-tui-*.zip
             release/updater-metadata/**
           if-no-files-found: error
 

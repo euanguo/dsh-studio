@@ -6,7 +6,7 @@
    status marks, diff stats, section emphasis, the context menu,
    the flat/tree toolbar and the line-level diff view.
    All colors come from --dsw-alias-* (with DSW-official
-   fallbacks); spacing/sizes come from the --oh-dsh-* ladder.
+   fallbacks); spacing/sizes come from the --dsh-studio-* ladder.
    ============================================================ */
 
 /* ---------- Row stream container ---------- */
@@ -19,25 +19,25 @@
    anchor wrapper span becomes a blockified flex item instead of an inline
    box — an inline box would inject a ~15px line-box strut below the last
    row (the visible dead gap before the next section). */
-.oh-dsh-sc-list {
+.dsh-studio-sc-list {
   display: flex;
   flex-direction: column;
 }
 
 /* Tree indentation for source-control rows (shared with the file browser). */
-.oh-dsh-sc-depth-main {
-  padding-left: calc(var(--oh-dsh-space-1-5) + var(--oh-dsh-tree-indent) * var(--tree-depth, 0));
+.dsh-studio-sc-depth-main {
+  padding-left: calc(var(--dsh-studio-space-1-5) + var(--dsh-studio-tree-indent) * var(--tree-depth, 0));
 }
 
 /* Section header rows get secondary emphasis, matched to the history
    section-title weight (550) so both header families read the same. */
-.oh-dsh-sc-section-row .oh-dsh-list-row-label {
+.dsh-studio-sc-section-row .dsh-studio-list-row-label {
   color: var(--dsw-alias-label-secondary, #57606a);
   font-weight: 550;
 }
 
 /* Pending (in-flight) file rows dim and stop accepting clicks. */
-.oh-dsh-list-row[data-pending] {
+.dsh-studio-list-row[data-pending] {
   opacity: 0.55;
   pointer-events: none;
 }
@@ -46,10 +46,10 @@
    overlay cluster), always visible — no hidden slot leaves a dead gap to the
    right of "view all". Transparent background keeps them on the row's own
    hover wash so everything reads one surface. */
-.oh-dsh-sc-section-bulk {
+.dsh-studio-sc-section-bulk {
   display: inline-flex;
   align-items: center;
-  gap: var(--oh-dsh-space-0);
+  gap: var(--dsh-studio-space-0);
 }
 
 /* ---------- Status mark & diff stat ---------- */
@@ -57,141 +57,141 @@
 /* On hover the trailing action buttons take over — hide the decorative
    status mark, the diff stat and the directory count so only the actions
    remain. */
-.oh-dsh-sc-file-row:hover .oh-dsh-sc-mark,
-.oh-dsh-sc-file-row:hover .oh-dsh-sc-stat,
-.oh-dsh-sc-directory-row:hover .oh-dsh-workspace-count {
+.dsh-studio-sc-file-row:hover .dsh-studio-sc-mark,
+.dsh-studio-sc-file-row:hover .dsh-studio-sc-stat,
+.dsh-studio-sc-directory-row:hover .dsh-studio-workspace-count {
   opacity: 0;
 }
 
-.oh-dsh-sc-mark {
+.dsh-studio-sc-mark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--oh-dsh-badge-min-width, 17px);
-  height: var(--oh-dsh-badge-height, 17px);
-  padding: 0 var(--oh-dsh-badge-padding-inline, 4px);
-  border-radius: var(--oh-dsh-badge-radius, 5px);
-  font-size: var(--oh-dsh-font-xs);
+  min-width: var(--dsh-studio-badge-min-width, 17px);
+  height: var(--dsh-studio-badge-height, 17px);
+  padding: 0 var(--dsh-studio-badge-padding-inline, 4px);
+  border-radius: var(--dsh-studio-badge-radius, 5px);
+  font-size: var(--dsh-studio-font-xs);
   font-weight: 700;
   line-height: 1;
 }
 
-.oh-dsh-sc-mark.is-added {
-  background: var(--oh-dsh-diff-add-bg);
-  color: var(--oh-dsh-diff-add-fg);
+.dsh-studio-sc-mark.is-added {
+  background: var(--dsh-studio-diff-add-bg);
+  color: var(--dsh-studio-diff-add-fg);
 }
 
-.oh-dsh-sc-mark.is-modified,
-.oh-dsh-sc-mark.is-renamed,
-.oh-dsh-sc-mark.is-copied {
-  background: color-mix(in srgb, var(--oh-dsh-accent, #0969da) 12%, transparent);
-  color: var(--oh-dsh-accent, #0969da);
+.dsh-studio-sc-mark.is-modified,
+.dsh-studio-sc-mark.is-renamed,
+.dsh-studio-sc-mark.is-copied {
+  background: color-mix(in srgb, var(--dsh-studio-accent, #0969da) 12%, transparent);
+  color: var(--dsh-studio-accent, #0969da);
 }
 
-.oh-dsh-sc-mark.is-deleted,
-.oh-dsh-sc-mark.is-conflicted {
-  background: var(--oh-dsh-diff-del-bg);
-  color: var(--oh-dsh-diff-del-fg);
+.dsh-studio-sc-mark.is-deleted,
+.dsh-studio-sc-mark.is-conflicted {
+  background: var(--dsh-studio-diff-del-bg);
+  color: var(--dsh-studio-diff-del-fg);
 }
 
-.oh-dsh-sc-mark.is-untracked {
+.dsh-studio-sc-mark.is-untracked {
   background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #bf8700) 14%, transparent);
   color: var(--dsw-alias-state-warn-primary, #bf8700);
 }
 
-.oh-dsh-sc-stat {
+.dsh-studio-sc-stat {
   display: inline-flex;
-  gap: var(--oh-dsh-space-1);
-  font-size: var(--oh-dsh-font-xs);
+  gap: var(--dsh-studio-space-1);
+  font-size: var(--dsh-studio-font-xs);
   font-variant-numeric: tabular-nums;
 }
 
 /* In-main trailing stat (inside the clickable area) keeps its own inset. */
-.oh-dsh-sc-stat-trailing {
+.dsh-studio-sc-stat-trailing {
   padding-right: 0;
 }
 
 /* The stat cluster sits tight against the status mark: shrink the main's
    right inset for sc rows (the outer trailing + row gap still own the
    edge breathing), so "+13 −18" reads as one unit with the M/A/U badge. */
-.oh-dsh-sc-file-row .oh-dsh-list-row-main,
-.oh-dsh-sc-directory-row .oh-dsh-list-row-main {
-  padding-right: var(--oh-dsh-space-1);
+.dsh-studio-sc-file-row .dsh-studio-list-row-main,
+.dsh-studio-sc-directory-row .dsh-studio-list-row-main {
+  padding-right: var(--dsh-studio-space-1);
 }
 
-.oh-dsh-sc-stat-add {
-  color: var(--oh-dsh-diff-add-fg);
+.dsh-studio-sc-stat-add {
+  color: var(--dsh-studio-diff-add-fg);
   font-style: normal;
 }
 
-.oh-dsh-sc-stat-del {
-  color: var(--oh-dsh-diff-del-fg);
+.dsh-studio-sc-stat-del {
+  color: var(--dsh-studio-diff-del-fg);
   font-style: normal;
 }
 
 /* ---------- Mode switch toolbar (flat / tree) ---------- */
 
-.oh-dsh-sc-toolbar {
+.dsh-studio-sc-toolbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   /* Header row — no divider: it and the rows below (staged/unstaged/…)
      are one section, so the rows start right under it with the same 4px
      rhythm that separates the rows themselves. */
-  margin-bottom: var(--oh-dsh-space-1);
+  margin-bottom: var(--dsh-studio-space-1);
   box-sizing: border-box;
 }
 
-.oh-dsh-sc-toolbar-title {
+.dsh-studio-sc-toolbar-title {
   display: inline-flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--dsh-studio-space-1);
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-sm);
+  font-size: var(--dsh-studio-font-sm);
   font-weight: 600;
 }
 
-.oh-dsh-sc-toolbar-title em {
+.dsh-studio-sc-toolbar-title em {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--oh-dsh-badge-min-width, 17px);
-  height: var(--oh-dsh-badge-height, 17px);
-  padding: 0 var(--oh-dsh-badge-padding-inline, var(--oh-dsh-space-1));
+  min-width: var(--dsh-studio-badge-min-width, 17px);
+  height: var(--dsh-studio-badge-height, 17px);
+  padding: 0 var(--dsh-studio-badge-padding-inline, var(--dsh-studio-space-1));
   box-sizing: border-box;
-  border-radius: var(--oh-dsh-badge-radius, var(--oh-dsh-radius-pill));
+  border-radius: var(--dsh-studio-badge-radius, var(--dsh-studio-radius-pill));
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-tertiary, #8c959f);
   font-style: normal;
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   font-weight: 600;
   line-height: 1;
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
 
-.oh-dsh-sc-toolbar-modes {
+.dsh-studio-sc-toolbar-modes {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-0);
+  gap: var(--dsh-studio-space-0);
 }
 
-.oh-dsh-sc-toolbar button {
+.dsh-studio-sc-toolbar button {
   display: grid;
   place-items: center;
   width: 24px;
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-tertiary, #8c959f);
   cursor: pointer;
 }
 
-.oh-dsh-sc-toolbar button:hover,
-.oh-dsh-sc-toolbar button[aria-pressed='true'] {
+.dsh-studio-sc-toolbar button:hover,
+.dsh-studio-sc-toolbar button[aria-pressed='true'] {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }

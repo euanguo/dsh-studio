@@ -1,5 +1,5 @@
 /**
- * Shared sidebar JSON API wire contract (@oh-dsh/shared).
+ * Shared sidebar JSON API wire contract (@dsh-studio/shared).
  *
  * Single source of truth for the sidebar API that BOTH halves consume: the
  * generic host (plugins/sidebar-host/src/index.ts) implements the

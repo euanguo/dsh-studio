@@ -15,8 +15,8 @@ test('tagged releases build and upload both TUI archive formats', () => {
   ).replace(/\r\n?/g, '\n')
 
   assert.match(workflow, /run: node scripts\/build-tui\.mjs/)
-  assert.match(workflow, /release\/oh-dsh-tui-\*\.tar\.gz/)
-  assert.match(workflow, /release\/oh-dsh-tui-\*\.zip/)
+  assert.match(workflow, /release\/dsh-studio-tui-\*\.tar\.gz/)
+  assert.match(workflow, /release\/dsh-studio-tui-\*\.zip/)
   assert.match(workflow, /fetch-depth: 0/)
   assert.match(workflow, /fetch-tags: true/)
   assert.match(workflow, /validate-release-tag\.mjs --tag/)
@@ -34,7 +34,7 @@ test('tagged releases build and upload both TUI archive formats', () => {
     (step: { name?: string }) =>
       step.name === 'Package desktop distribution without release credentials',
   )
-  assert.equal(fallbackStep.if, "env.DSH_DESKTOP_SIGNING != 'enabled'")
+  assert.equal(fallbackStep.if, "env.DSH_STUDIO_SIGNING != 'enabled'")
   assert.equal(fallbackStep.env.CSC_IDENTITY_AUTO_DISCOVERY, 'false')
 
   const signedMacStep = packageJob.steps.find(

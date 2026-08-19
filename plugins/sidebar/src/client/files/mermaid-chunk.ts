@@ -13,17 +13,17 @@ export async function renderMermaid(element: HTMLElement, code: string): Promise
     theme: 'default',
     fontFamily: 'ui-sans-serif, system-ui, sans-serif',
   })
-  const id = `oh-dsh-mermaid-${String(nextId += 1)}-${String(Date.now())}`
+  const id = `dsh-studio-mermaid-${String(nextId += 1)}-${String(Date.now())}`
   const result = await mermaid.render(id, code)
   element.innerHTML = result.svg
 }
 
 declare global {
   interface Window {
-    __ohDshMermaidChunk?: { renderMermaid: typeof renderMermaid }
+    __dshStudioMermaidChunk?: { renderMermaid: typeof renderMermaid }
   }
 }
 
 if (typeof window !== 'undefined') {
-  window.__ohDshMermaidChunk = { renderMermaid }
+  window.__dshStudioMermaidChunk = { renderMermaid }
 }

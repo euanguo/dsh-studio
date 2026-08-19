@@ -19,16 +19,16 @@ import type { EditorOptions } from '@pierre/diffs/edit'
 import { Editor } from '@pierre/diffs/edit'
 import { EditProvider, File as PierreFile, Virtualizer } from '@pierre/diffs/react'
 import type { FileContents } from '@pierre/diffs'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import { Button, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
-import { basename } from '@oh-dsh/shared/path'
-import { toast } from '@oh-dsh/shared/toast'
+import { basename } from '@dsh-studio/shared/path'
+import { toast } from '@dsh-studio/shared/toast'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import { getFileRuntime } from '../runtimes/registry.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/scrollable'
 import { ErrorView, LoadingView } from '../kit/status.tsx'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
@@ -235,11 +235,11 @@ export function FileSurfaceView({
     if (editable.error !== '') return <ErrorView message={editable.error} />
     if (editable.content === null) return <LoadingView label={t('overlay.loading')} />
     return (
-      <div className="oh-dsh-editor-surface" data-testid="editor-surface">
-        <div className="oh-dsh-editor-header">
+      <div className="dsh-studio-editor-surface" data-testid="editor-surface">
+        <div className="dsh-studio-editor-header">
           <span title={surface.filePath}>{surface.title}</span>
-          {editable.dirty ? <small className="oh-dsh-editor-dirty">●</small> : null}
-          <span className="oh-dsh-editor-actions">
+          {editable.dirty ? <small className="dsh-studio-editor-dirty">●</small> : null}
+          <span className="dsh-studio-editor-actions">
             <Button
               variant="primary"
               size="sm"
@@ -254,7 +254,7 @@ export function FileSurfaceView({
           </span>
         </div>
         <EditProvider createEditor={createPierreEditor}>
-          <Virtualizer className="oh-dsh-editor-host">
+          <Virtualizer className="dsh-studio-editor-host">
             <PierreFile
               file={file}
               edit
@@ -299,7 +299,7 @@ export function FileSurfaceView({
   // snapshots keep the Edit affordance hidden.
   const canEdit = content !== null && !snapshot.truncated
   return (
-    <div className="oh-dsh-file-surface" data-testid="file-surface">
+    <div className="dsh-studio-file-surface" data-testid="file-surface">
       <FileViewerChrome
         cwd={surface.cwd}
         filePath={surface.filePath}
@@ -315,7 +315,7 @@ export function FileSurfaceView({
       {writeError !== '' ? (
         <ErrorView message={writeError} />
       ) : null}
-      <Scrollable className="oh-dsh-file-surface-body" onMouseUp={onSourceMouseUp}>
+      <Scrollable className="dsh-studio-file-surface-body" onMouseUp={onSourceMouseUp}>
         <ContentViewer
           path={surface.filePath}
           content={content}
@@ -335,7 +335,7 @@ export function FileSurfaceView({
       </Scrollable>
       {selectionAction !== null ? (
         <div
-          className="oh-dsh-file-selection-action"
+          className="dsh-studio-file-selection-action"
           style={{ left: selectionAction.left, top: selectionAction.top }}
         >
           <button type="button" onClick={() => { void onCopySelection(selectionAction.label) }}>

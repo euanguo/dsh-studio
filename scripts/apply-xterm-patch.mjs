@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Apply the Oh-DSH xterm 6.1 scrollbar-height fix to the installed package.
+ * Apply the DSH Studio xterm 6.1 scrollbar-height fix to the installed package.
  *
  * Why a script instead of pnpm patchedDependencies: xterm's published
  * `lib/xterm.js` is one minified line (~390 KB), so `pnpm patch-commit`

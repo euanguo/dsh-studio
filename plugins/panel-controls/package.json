@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/panel-controls",
+  "name": "@dsh-studio/panel-controls",
   "version": "0.1.4",
-  "description": "Sidebar and resizable bottom-panel controls for Oh-DSH Desktop",
+  "description": "Sidebar and resizable bottom-panel controls for DSH Studio",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -37,6 +37,6 @@
     "react-dom": "^18.2.0"
   },
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*"
+    "@dsh-studio/shared": "workspace:*"
   }
 }

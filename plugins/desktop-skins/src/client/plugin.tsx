@@ -1,6 +1,6 @@
 import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
 import { IconCheckOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
+import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
 import desktopSkinsCss from './desktop-skins.css'
 import {
   DESKTOP_SKINS_MESSAGES,
@@ -66,8 +66,8 @@ interface SkinOption {
 
 export const inject = ['locale', 'slots', 'theme']
 
-const SETTINGS_NAMESPACE = 'oh-dsh.desktop-skins'
-const SETTINGS_STYLE_ATTRIBUTE = 'data-oh-dsh-desktop-skins'
+const SETTINGS_NAMESPACE = 'dsh-studio.desktop-skins'
+const SETTINGS_STYLE_ATTRIBUTE = 'data-dsh-studio-skins'
 
 const DEFAULT_OPTION: SkinOption = {
   id: null,
@@ -93,19 +93,19 @@ function SkinSettingsRow({ setSkin, t, useStore }: SkinRowProps): JSX.Element {
   const activeId = useStore(state => state.activeId)
   const ready = useStore(state => state.ready)
   return (
-    <div className="oh-dsh-skins-group">
-      <div className="oh-dsh-skins-heading">
-        <div className="oh-dsh-skins-title">{t('skins.title')}</div>
-        <div className="oh-dsh-skins-description">{t('skins.description')}</div>
+    <div className="dsh-studio-skins-group">
+      <div className="dsh-studio-skins-heading">
+        <div className="dsh-studio-skins-title">{t('skins.title')}</div>
+        <div className="dsh-studio-skins-description">{t('skins.description')}</div>
       </div>
-      <div className="oh-dsh-skins-grid">
+      <div className="dsh-studio-skins-grid">
         {OPTIONS.map(option => {
           const selected = activeId === (option.id ?? '')
           return (
             <button
               key={option.id ?? 'default'}
               type="button"
-              className="oh-dsh-skins-tile"
+              className="dsh-studio-skins-tile"
               data-selected={selected}
               aria-label={t(option.label)}
               aria-pressed={selected}
@@ -113,17 +113,17 @@ function SkinSettingsRow({ setSkin, t, useStore }: SkinRowProps): JSX.Element {
               onClick={() => { setSkin(option.id) }}
             >
               <span
-                className="oh-dsh-skins-preview"
+                className="dsh-studio-skins-preview"
                 style={{ background: option.preview }}
               />
-              <span className="oh-dsh-skins-meta">
-                <span className="oh-dsh-skins-swatch" style={{ background: option.accent }} />
-                <span className="oh-dsh-skins-copy">
-                  <span className="oh-dsh-skins-name">{t(option.label)}</span>
-                  <span className="oh-dsh-skins-mode">{t(option.mode)}</span>
+              <span className="dsh-studio-skins-meta">
+                <span className="dsh-studio-skins-swatch" style={{ background: option.accent }} />
+                <span className="dsh-studio-skins-copy">
+                  <span className="dsh-studio-skins-name">{t(option.label)}</span>
+                  <span className="dsh-studio-skins-mode">{t(option.mode)}</span>
                 </span>
                 {selected && (
-                  <span className="oh-dsh-skins-check" title={t('skins.selected')}>
+                  <span className="dsh-studio-skins-check" title={t('skins.selected')}>
                     <IconCheckOutline16 size={14} />
                   </span>
                 )}
@@ -158,12 +158,12 @@ export function apply(ctx: ClientContext): void {
   const theme = ctx.get('theme') as ThemeService
 
   ctx.effect(
-    () => locale.register('oh-dsh.desktop-skins', DESKTOP_SKINS_MESSAGES),
-    'oh-dsh-desktop: desktop skins dictionaries',
+    () => locale.register('dsh-studio.desktop-skins', DESKTOP_SKINS_MESSAGES),
+    'dsh-studio: desktop skins dictionaries',
   )
   ctx.effect(
     () => typeof document === 'undefined' ? undefined : installSettingsStyles(),
-    'oh-dsh-desktop: desktop skins settings styles',
+    'dsh-studio: desktop skins settings styles',
   )
 
   const storage = typeof fetch === 'undefined'
@@ -222,11 +222,11 @@ export function apply(ctx: ClientContext): void {
       if (started) controller.dispose()
       void removeService?.()
     }
-  }, 'oh-dsh-desktop: desktop skins controller')
+  }, 'dsh-studio: desktop skins controller')
 
   slots.inject('settings.general.item', () => slots.register({
     name: 'settings.general.item',
-    id: 'oh-dsh-desktop-skins',
+    id: 'dsh-studio-skins',
     order: 20,
     store,
     locale: SETTINGS_NAMESPACE,

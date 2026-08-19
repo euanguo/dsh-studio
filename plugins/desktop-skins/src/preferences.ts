@@ -1,12 +1,12 @@
 export const DESKTOP_SKIN_IDS = [
-  'oh-dsh-skin-deep-current',
-  'oh-dsh-skin-jade-circuit',
-  'oh-dsh-skin-porcelain',
-  'oh-dsh-skin-ember-dusk',
-  'oh-dsh-skin-synara-night',
-  'oh-dsh-skin-synara-day',
-  'oh-dsh-skin-chatgpt-night',
-  'oh-dsh-skin-chatgpt-day',
+  'dsh-studio-skin-deep-current',
+  'dsh-studio-skin-jade-circuit',
+  'dsh-studio-skin-porcelain',
+  'dsh-studio-skin-ember-dusk',
+  'dsh-studio-skin-synara-night',
+  'dsh-studio-skin-synara-day',
+  'dsh-studio-skin-chatgpt-night',
+  'dsh-studio-skin-chatgpt-day',
 ] as const
 
 export type DesktopSkinId = typeof DESKTOP_SKIN_IDS[number]
@@ -17,9 +17,9 @@ export interface DesktopSkinPreferences {
   fallbackTheme: DesktopFallbackTheme
 }
 
-export const ACTIVE_SKIN_KEY = 'oh-dsh-desktop.skins.active'
-export const FALLBACK_THEME_KEY = 'oh-dsh-desktop.skins.fallback'
-export const PREFERENCES_API_PATH = '/oh-dsh-desktop/skins/preferences'
+export const ACTIVE_SKIN_KEY = 'dsh-studio.skins.active'
+export const FALLBACK_THEME_KEY = 'dsh-studio.skins.fallback'
+export const PREFERENCES_API_PATH = '/dsh-studio/skins/preferences'
 export const DEFAULT_SKIN_PREFERENCES: DesktopSkinPreferences = Object.freeze({
   activeId: null,
   fallbackTheme: 'system',

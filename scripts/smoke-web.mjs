@@ -24,15 +24,15 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 function resolveResources(candidate) {
   if (candidate === 'release') {
     const platform = resolveNodeDistributionPlatform()
-    const arch = process.env.DSH_DESKTOP_NODE_ARCH ?? process.arch
+    const arch = process.env.DSH_STUDIO_NODE_ARCH ?? process.arch
     const release = join(
       root,
       'release',
-      `oh-dsh-web-${resolveProductVersion(root)}-${platform}-${arch}`,
+      `dsh-studio-web-${resolveProductVersion(root)}-${platform}-${arch}`,
     )
     assert.ok(
       existsSync(join(release, 'dsh-runtime')),
-      `packaged oh-dsh-web release not found: ${release}`,
+      `packaged dsh-studio-web release not found: ${release}`,
     )
     return release
   }
@@ -42,7 +42,7 @@ function resolveResources(candidate) {
 const resources = resolveResources(process.argv[2] ?? join(root, '.stage'))
 const paths = bundledRuntimePaths(resources)
 const { cliEntry, nodeBinary } = paths
-const smokeRoot = mkdtempSync(join(tmpdir(), 'oh-dsh-web-smoke-'))
+const smokeRoot = mkdtempSync(join(tmpdir(), 'dsh-studio-web-smoke-'))
 const dshHome = join(smokeRoot, 'dsh-home')
 const webData = join(smokeRoot, 'web-data')
 const lines = []
@@ -79,14 +79,14 @@ ensureWebProfile(dshHome)
 const runtimeEnvironment = {
   ...process.env,
   DSH_HOME: dshHome,
-  DSH_OH_WEB: '1',
-  DSH_OH_WEB_DATA: webData,
-  DSH_OH_WEB_PROFILE: WEB_PROFILE,
-  DSH_OH_WEB_VERSION: 'smoke',
+  DSH_STUDIO_WEB: '1',
+  DSH_STUDIO_WEB_DATA: webData,
+  DSH_STUDIO_WEB_PROFILE: WEB_PROFILE,
+  DSH_STUDIO_WEB_VERSION: 'smoke',
   PATH: runtimeSearchPath(paths),
 }
 
-// 1. The composed web profile tree mounts the web-capable Oh-DSH rows and
+// 1. The composed web profile tree mounts the web-capable DSH Studio rows and
 // keeps the desktop-only rows out.
 const dump = spawnSync(nodeBinary, [cliEntry, '--profile', WEB_PROFILE, '--dump-config'], {
   cwd: smokeRoot,
@@ -164,15 +164,15 @@ try {
   assert.equal(indexResponse.status, 200)
   assert.match(index, /<div id="root"><\/div>/)
 
-  // The Oh-DSH web plugins enroll their browser entries in the client graph.
+  // The DSH Studio web plugins enroll their browser entries in the client graph.
   const bootEntries = parseBootEntries(index)
   const loaded = []
   for (const pluginId of [
-    '@oh-dsh/web',
-    '@oh-dsh/desktop-skins',
-    '@oh-dsh/pinned-summary',
-    '@oh-dsh/sidebar',
-    '@oh-dsh/panel-controls',
+    '@dsh-studio/web',
+    '@dsh-studio/desktop-skins',
+    '@dsh-studio/pinned-summary',
+    '@dsh-studio/sidebar',
+    '@dsh-studio/panel-controls',
   ]) {
     const row = bootEntries.find(entry => entry.id === pluginId)
     assert.ok(row, `${pluginId} Host entry did not activate in the DSH client graph`)
@@ -202,23 +202,23 @@ try {
     resources,
     'dsh-runtime',
     'node_modules',
-    '@oh-dsh',
+    '@dsh-studio',
     'sidebar-host',
     'dist',
     'index.js',
-  )), '@oh-dsh/sidebar-host Host bundle is missing')
+  )), '@dsh-studio/sidebar-host Host bundle is missing')
 
   // Electron-bound surfaces must stay out of the web client graph.
-  for (const pluginId of ['@oh-dsh/desktop', '@oh-dsh/plugin-marketplace']) {
+  for (const pluginId of ['@dsh-studio/desktop', '@dsh-studio/plugin-marketplace']) {
     assert.equal(
       bootEntries.some(entry => entry.id === pluginId),
       false,
-      `${pluginId} must not enroll in the Oh-DSH Web client graph`,
+      `${pluginId} must not enroll in the DSH Studio Web client graph`,
     )
   }
 
   // The skins preferences server mounts on the web server.
-  const preferencesUrl = new URL('/oh-dsh-desktop/skins/preferences', base)
+  const preferencesUrl = new URL('/dsh-studio/skins/preferences', base)
   const initialResponse = await fetch(preferencesUrl)
   const initial = await initialResponse.json()
   assert.equal(initialResponse.status, 200)
@@ -230,12 +230,12 @@ try {
       'content-type': 'application/json',
       origin: base.origin,
     },
-    body: JSON.stringify({ activeId: 'oh-dsh-skin-porcelain', fallbackTheme: 'dark' }),
+    body: JSON.stringify({ activeId: 'dsh-studio-skin-porcelain', fallbackTheme: 'dark' }),
   })
   assert.equal(saveResponse.status, 200, await saveResponse.text())
   const saved = await fetch(preferencesUrl)
   const persisted = await saved.json()
-  assert.equal(persisted.activeId, 'oh-dsh-skin-porcelain')
+  assert.equal(persisted.activeId, 'dsh-studio-skin-porcelain')
   assert.equal(persisted.fallbackTheme, 'dark')
 
   // The sidebar host serves the workspace Git API on the web server.
@@ -249,7 +249,7 @@ try {
   }
   git('init', '-b', 'main')
   git('config', 'user.name', 'Oh DSH Web Smoke')
-  git('config', 'user.email', 'oh-dsh-web-smoke@example.test')
+  git('config', 'user.email', 'dsh-studio-web-smoke@example.test')
   writeFileSync(join(smokeRoot, 'web-smoke.txt'), 'before\n')
   git('add', 'web-smoke.txt')
   git('commit', '-m', 'web smoke baseline')
@@ -316,12 +316,12 @@ try {
     socket.addEventListener('open', () => {
       socket.send(JSON.stringify({ type: 'resize', cols: 80, rows: 24 }))
       // Split the marker so the echoed command line never contains it; only
-      // real execution produces `OH_DSH_WEB_TERMINAL_SMOKE`.
-      socket.send("printf '%s%s\\n' OH_DSH_WEB_TERMINAL_ SMOKE; exit\r")
+      // real execution produces `DSH_STUDIO_WEB_TERMINAL_SMOKE`.
+      socket.send("printf '%s%s\\n' DSH_STUDIO_WEB_TERMINAL_ SMOKE; exit\r")
     })
     socket.addEventListener('message', (event) => {
       output += String(event.data)
-      if (output.includes('OH_DSH_WEB_TERMINAL_SMOKE')) {
+      if (output.includes('DSH_STUDIO_WEB_TERMINAL_SMOKE')) {
         socket.send(JSON.stringify({ type: 'close' }))
         finish()
       }
@@ -351,7 +351,7 @@ try {
     browserClient.error?.message || browserClient.stderr || browserClient.stdout,
   )
 
-  console.log(`Oh-DSH Web profile ready: ${base.href}`)
+  console.log(`DSH Studio Web profile ready: ${base.href}`)
   console.log(`Web composition verified: ${dump.stdout.split('\n').length} dump lines`)
   for (const plugin of loaded) {
     console.log(

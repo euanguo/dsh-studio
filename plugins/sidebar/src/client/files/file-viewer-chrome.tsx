@@ -5,8 +5,8 @@
  * CSS-token environment (no Tailwind classes).
  */
 import { Fragment, useMemo } from 'react'
-import type { Translate } from '@oh-dsh/shared/i18n'
-import { basename } from '@oh-dsh/shared/path'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import { basename } from '@dsh-studio/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
   IconChevronRight,
@@ -14,7 +14,7 @@ import {
   IconExternalLink,
   IconEye,
   IconFileText,
-} from '@oh-dsh/shared/tabler-icons'
+} from '@dsh-studio/shared/tabler-icons'
 
 export type MarkdownViewMode = 'source' | 'preview'
 
@@ -60,30 +60,30 @@ export function FileViewerChrome({
   }, [cwd, filePath])
 
   return (
-    <div className="oh-dsh-file-viewer-chrome" data-testid="file-viewer-chrome">
-      <nav className="oh-dsh-file-viewer-breadcrumb" aria-label="File path" title={filePath}>
-        <span className="oh-dsh-file-viewer-breadcrumb-prefix">
+    <div className="dsh-studio-file-viewer-chrome" data-testid="file-viewer-chrome">
+      <nav className="dsh-studio-file-viewer-breadcrumb" aria-label="File path" title={filePath}>
+        <span className="dsh-studio-file-viewer-breadcrumb-prefix">
           {prefixSegments.map(segment => (
             <Fragment key={segment.key}>
-              <span className="oh-dsh-file-viewer-breadcrumb-segment">{segment.name}</span>
-              <IconChevronRight className="oh-dsh-file-viewer-breadcrumb-chevron" size={12} />
+              <span className="dsh-studio-file-viewer-breadcrumb-segment">{segment.name}</span>
+              <IconChevronRight className="dsh-studio-file-viewer-breadcrumb-chevron" size={12} />
             </Fragment>
           ))}
         </span>
-        <span className="oh-dsh-file-viewer-breadcrumb-file">{fileSegment}</span>
+        <span className="dsh-studio-file-viewer-breadcrumb-file">{fileSegment}</span>
       </nav>
 
       {meta !== undefined && meta !== null ? (
-        <span className="oh-dsh-file-viewer-chrome-meta">{meta}</span>
+        <span className="dsh-studio-file-viewer-chrome-meta">{meta}</span>
       ) : null}
       {truncated ? (
-        <span className="oh-dsh-file-viewer-chrome-meta oh-dsh-file-viewer-chrome-truncated">
+        <span className="dsh-studio-file-viewer-chrome-meta dsh-studio-file-viewer-chrome-truncated">
           {t('files.partial')}
         </span>
       ) : null}
 
       {isMarkdown ? (
-        <div className="oh-dsh-file-viewer-mode-switch" role="radiogroup" aria-label="Markdown view">
+        <div className="dsh-studio-file-viewer-mode-switch" role="radiogroup" aria-label="Markdown view">
           {(
             [
               { mode: 'source', label: t('files.viewer.source'), title: t('files.viewer.source'), Icon: IconFileText },
@@ -99,7 +99,7 @@ export function FileViewerChrome({
                 role="radio"
                 aria-checked={selected}
                 title={segment.title}
-                className={`oh-dsh-file-viewer-mode-button${selected ? ' is-selected' : ''}`}
+                className={`dsh-studio-file-viewer-mode-button${selected ? ' is-selected' : ''}`}
                 onClick={() => { onMarkdownModeChange(segment.mode) }}
               >
                 <Icon size={14} />
@@ -113,7 +113,7 @@ export function FileViewerChrome({
       {onEdit !== undefined ? (
         <button
           type="button"
-          className="oh-dsh-file-viewer-chrome-action"
+          className="dsh-studio-file-viewer-chrome-action"
           title={t('files.edit')}
           onClick={onEdit}
         >
@@ -124,7 +124,7 @@ export function FileViewerChrome({
       {onOpenExternal !== undefined ? (
         <button
           type="button"
-          className="oh-dsh-file-viewer-chrome-action"
+          className="dsh-studio-file-viewer-chrome-action"
           title={t('files.open-externally')}
           onClick={onOpenExternal}
         >

@@ -1,5 +1,5 @@
 html {
-  --oh-dsh-sidebar-width: 300px;
+  --dsh-studio-sidebar-width: 300px;
 }
 
 /* The desktop sidebar is a fixed overlay; #root is left untouched (the
@@ -8,7 +8,7 @@ html {
    only spans the panel footprint while open on wide viewports (width 0
    otherwise) and never intercepts pointer events itself — the panel
    re-enables pointer-events when visible. */
-#oh-dsh-sidebar-root {
+#dsh-studio-sidebar-root {
   position: fixed;
   /* Keep the panel above ordinary app content, but below global menus and
      dialogs. Portalled interactive surfaces own their own higher layers. */
@@ -19,19 +19,19 @@ html {
   top: 0;
   right: 0;
   bottom: 0;
-  width: var(--oh-dsh-sidebar-width);
+  width: var(--dsh-studio-sidebar-width);
   min-width: 0;
   overflow: hidden;
   pointer-events: none;
 }
 
-html[data-oh-dsh-sidebar-open='true'] #oh-dsh-sidebar-root {
+html[data-dsh-studio-sidebar-open='true'] #dsh-studio-sidebar-root {
   overflow: visible;
 }
 
 /* Maximized: the panel covers the whole window and the app is squeezed out
    (padding-right: 100vw). */
-html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
+html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   top: 0;
   right: 0;
   bottom: 0;
@@ -41,7 +41,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 /* Narrow viewports (< 900px): the sidebar opens as a full-width drawer
    (edge to edge); the inline width still collapses to 0 while closed. */
 @media (max-width: 900px) {
-  #oh-dsh-sidebar-root {
+  #dsh-studio-sidebar-root {
     top: 0;
     right: 0;
     bottom: 0;
@@ -49,7 +49,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   }
 }
 
-.oh-dsh-workspace-panel {
+.dsh-studio-workspace-panel {
   position: absolute;
   z-index: 9100;
   /* The panel runs flush to the window's top edge (the macOS traffic lights
@@ -79,7 +79,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   -webkit-app-region: no-drag;
 }
 
-.oh-dsh-workspace-panel[data-open='true'] {
+.dsh-studio-workspace-panel[data-open='true'] {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(0);
@@ -87,7 +87,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   transition-delay: 0s;
 }
 
-.oh-dsh-review-view {
+.dsh-studio-review-view {
   display: flex;
   flex: 1;
   min-height: 0;
@@ -95,7 +95,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   overflow: hidden;
 }
 
-.oh-dsh-workspace-resize {
+.dsh-studio-workspace-resize {
   position: absolute;
   z-index: 2;
   top: 0;
@@ -106,7 +106,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   touch-action: none;
 }
 
-.oh-dsh-workspace-content {
+.dsh-studio-workspace-content {
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -114,59 +114,59 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
      edge); the sections below own their own padding (top/bottom/left) so
      content keeps breathing room from each section's divider. The seat
      stays at the default 8px. */
-  --oh-dsh-scrollable-inset: 0;
+  --dsh-studio-scrollable-inset: 0;
 }
 
-.oh-dsh-workspace-content section {
+.dsh-studio-workspace-content section {
   /* Section = the inset owner for its own content: 8px on top/bottom/left
      (right is left to the scrollable's seat, so the lane never stacks on
      section padding). The bottom divider runs from the container's left
      edge to the seat's left edge. */
-  padding: var(--oh-dsh-space-2) 0 var(--oh-dsh-space-2) var(--oh-dsh-space-2);
+  padding: var(--dsh-studio-space-2) 0 var(--dsh-studio-space-2) var(--dsh-studio-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
 /* The last section (the directory footer) has nothing below it in the scroll
    column — the docked history strip is a sibling with its own border-top, so
    the footer's own divider would only double up on it. */
-.oh-dsh-workspace-content section:last-child {
+.dsh-studio-workspace-content section:last-child {
   border-bottom: 0;
 }
 
 /* Branch picker: an official-Menu dropdown trigger styled in the commit
    area's field language (bordered, layered surface — matches the commit
    textarea and action buttons below it). */
-.oh-dsh-branch-picker {
+.dsh-studio-branch-picker {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--dsh-studio-space-1);
   width: 100%;
   min-width: 0;
   height: 32px;
-  padding: 0 var(--oh-dsh-space-1-5);
+  padding: 0 var(--dsh-studio-space-1-5);
   box-sizing: border-box;
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: var(--dsw-alias-bg-layer-1, #fff);
   color: var(--dsw-alias-label-primary, #1f2328);
   font: inherit;
-  font-size: var(--oh-dsh-font-lg);
+  font-size: var(--dsh-studio-font-lg);
   text-align: left;
   cursor: pointer;
 }
 
-.oh-dsh-branch-picker:hover,
-.oh-dsh-branch-picker[aria-expanded='true'] {
+.dsh-studio-branch-picker:hover,
+.dsh-studio-branch-picker[aria-expanded='true'] {
   border-color: var(--dsw-alias-border-l2, rgb(0 0 0 / 20%));
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 4%));
 }
 
-.oh-dsh-branch-picker:disabled {
+.dsh-studio-branch-picker:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.oh-dsh-branch-picker-name {
+.dsh-studio-branch-picker-name {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -174,36 +174,36 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   white-space: nowrap;
 }
 
-.oh-dsh-workspace-fact-icon {
+.dsh-studio-workspace-fact-icon {
   display: grid;
   place-items: center;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-2xl);
+  font-size: var(--dsh-studio-font-2xl);
 }
 
-.oh-dsh-workspace-count {
+.dsh-studio-workspace-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: var(--oh-dsh-badge-min-width, 17px);
-  height: var(--oh-dsh-badge-height, 17px);
-  padding: 0 var(--oh-dsh-badge-padding-inline, var(--oh-dsh-space-1));
+  min-width: var(--dsh-studio-badge-min-width, 17px);
+  height: var(--dsh-studio-badge-height, 17px);
+  padding: 0 var(--dsh-studio-badge-padding-inline, var(--dsh-studio-space-1));
   box-sizing: border-box;
-  border-radius: var(--oh-dsh-badge-radius, var(--oh-dsh-radius-pill));
+  border-radius: var(--dsh-studio-badge-radius, var(--dsh-studio-radius-pill));
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-secondary, #57606a);
   text-align: center;
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   font-variant-numeric: tabular-nums;
   line-height: 1;
 }
 
-.oh-dsh-change-list { padding: 0; }
+.dsh-studio-change-list { padding: 0; }
 
 /* Git history is a sibling of the scroll column (not inside it), so the
    change-list scrollbar never runs into it. It sits at the bottom of the
    review view as its own flex-none strip. */
-.oh-dsh-review-history {
+.dsh-studio-review-history {
   position: relative;
   flex: none;
   /* Top border separates the docked history strip from the change list above
@@ -216,7 +216,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 /* Drag the top edge of the expanded history to resize it (96–520px); the
    bounded height keeps the change list visible above. */
-.oh-dsh-history-resize {
+.dsh-studio-history-resize {
   position: absolute;
   top: -4px;
   left: 0;
@@ -231,23 +231,23 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
    expand/collapse interaction. Its own 8px inset on every side aligns it
    with the change-list rows and keeps it off the strip's top border and
    the commit list below. */
-.oh-dsh-history-toggle {
+.dsh-studio-history-toggle {
   cursor: pointer;
-  padding: var(--oh-dsh-space-2);
+  padding: var(--dsh-studio-space-2);
 }
 
-.oh-dsh-history-chevron {
+.dsh-studio-history-chevron {
   color: var(--dsw-alias-label-tertiary, #8c959f);
   transition: transform 120ms ease;
 }
-.oh-dsh-history-chevron.is-collapsed {
+.dsh-studio-history-chevron.is-collapsed {
   transform: rotate(-90deg);
 }
 
 /* Commit history rows ride the shared ListRow family (hover/selected
    geometry + row spacing lives in list-row.css); only the hash chip is
    Git-specific. All insets come from the Scrollable host (default 8px). */
-.oh-dsh-review-commit-list {
+.dsh-studio-review-commit-list {
   display: grid;
   /* Single auto column would size to the widest row's max-content, so a long
      subject + author + hash could exceed the panel and force a horizontal
@@ -256,99 +256,99 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.oh-dsh-review-commit-hash {
+.dsh-studio-review-commit-hash {
   color: var(--dsw-alias-label-secondary, #57606a);
-  font: var(--oh-dsh-font-xs)/1.4 var(--oh-dsh-font-mono);
+  font: var(--dsh-studio-font-xs)/1.4 var(--dsh-studio-font-mono);
 }
 
 /* Author rides the trailing slot (right-aligned, before the hash chip) so the
    subject keeps the full label width instead of sharing a stacked meta row. */
-.oh-dsh-review-commit-author {
+.dsh-studio-review-commit-author {
   min-width: 0;
   max-width: 10em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--dsw-alias-label-tertiary, #8c959f);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
 }
 
 /* Inline file list under an expanded history row (orca parity). Each file is
    one compact clickable row, indented to sit under the commit subject. */
-.oh-dsh-review-commit-files {
+.dsh-studio-review-commit-files {
   display: flex;
   flex-direction: column;
-  padding-bottom: var(--oh-dsh-list-row-gap, var(--oh-dsh-space-1));
+  padding-bottom: var(--dsh-studio-list-row-gap, var(--dsh-studio-space-1));
 }
 
-.oh-dsh-review-commit-file {
+.dsh-studio-review-commit-file {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--dsh-studio-space-1);
   width: 100%;
   min-width: 0;
-  height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
-  min-height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
-  margin-bottom: var(--oh-dsh-list-row-gap, var(--oh-dsh-space-1));
+  height: var(--dsh-studio-list-row-height, var(--dsh-studio-size-row));
+  min-height: var(--dsh-studio-list-row-height, var(--dsh-studio-size-row));
+  margin-bottom: var(--dsh-studio-list-row-gap, var(--dsh-studio-space-1));
   /* Align with the commit subject (chevron column + depth inset + gap), then
      indent one more step per directory depth in tree mode — the same ladder
      the change list uses. */
-  padding: 0 var(--oh-dsh-space-2) 0 calc(
-    var(--oh-dsh-space-1-5) + 16px + var(--oh-dsh-space-2)
-    + var(--oh-dsh-tree-indent) * var(--tree-depth, 0)
+  padding: 0 var(--dsh-studio-space-2) 0 calc(
+    var(--dsh-studio-space-1-5) + 16px + var(--dsh-studio-space-2)
+    + var(--dsh-studio-tree-indent) * var(--tree-depth, 0)
   );
   border: 0;
-  border-radius: var(--oh-dsh-list-row-radius, var(--oh-dsh-radius-sm));
-  corner-shape: var(--oh-dsh-list-row-corner-shape, round);
+  border-radius: var(--dsh-studio-list-row-radius, var(--dsh-studio-radius-sm));
+  corner-shape: var(--dsh-studio-list-row-corner-shape, round);
   background: transparent;
   color: inherit;
-  font: var(--oh-dsh-font-sm) system-ui;
+  font: var(--dsh-studio-font-sm) system-ui;
   text-align: left;
   cursor: pointer;
 }
 
-.oh-dsh-review-commit-file:hover {
+.dsh-studio-review-commit-file:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) !important;
 }
 
-.oh-dsh-review-commit-file .oh-dsh-list-row-label {
+.dsh-studio-review-commit-file .dsh-studio-list-row-label {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.oh-dsh-review-commit-file .oh-dsh-sc-mark {
+.dsh-studio-review-commit-file .dsh-studio-sc-mark {
   flex: 0 0 auto;
 }
 
 /* Directory row in the inline commit file list (tree mode). */
-.oh-dsh-review-commit-dir {
+.dsh-studio-review-commit-dir {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-1);
+  gap: var(--dsh-studio-space-1);
   width: 100%;
   min-width: 0;
-  height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
-  min-height: var(--oh-dsh-list-row-height, var(--oh-dsh-size-row));
-  margin-bottom: var(--oh-dsh-list-row-gap, var(--oh-dsh-space-1));
-  padding: 0 var(--oh-dsh-space-2) 0 calc(
-    var(--oh-dsh-space-1-5) + 16px + var(--oh-dsh-space-2)
-    + var(--oh-dsh-tree-indent) * var(--tree-depth, 0)
+  height: var(--dsh-studio-list-row-height, var(--dsh-studio-size-row));
+  min-height: var(--dsh-studio-list-row-height, var(--dsh-studio-size-row));
+  margin-bottom: var(--dsh-studio-list-row-gap, var(--dsh-studio-space-1));
+  padding: 0 var(--dsh-studio-space-2) 0 calc(
+    var(--dsh-studio-space-1-5) + 16px + var(--dsh-studio-space-2)
+    + var(--dsh-studio-tree-indent) * var(--tree-depth, 0)
   );
   border: 0;
-  border-radius: var(--oh-dsh-list-row-radius, var(--oh-dsh-radius-sm));
-  corner-shape: var(--oh-dsh-list-row-corner-shape, round);
+  border-radius: var(--dsh-studio-list-row-radius, var(--dsh-studio-radius-sm));
+  corner-shape: var(--dsh-studio-list-row-corner-shape, round);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font: var(--oh-dsh-font-sm) system-ui;
+  font: var(--dsh-studio-font-sm) system-ui;
   text-align: left;
   cursor: pointer;
 }
 
-.oh-dsh-review-commit-dir:hover {
+.dsh-studio-review-commit-dir:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) !important;
 }
 
-.oh-dsh-review-commit-dir-name {
+.dsh-studio-review-commit-dir-name {
   min-width: 0;
   flex: 1 1 auto;
   overflow: hidden;
@@ -359,86 +359,86 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 /* Section-level variant (committed changes): the files are direct children of
    the section header — no commit-row chevron column to clear — so they align
    with the change list's 6px base indent. */
-.oh-dsh-review-commit-file.is-section,
-.oh-dsh-review-commit-dir.is-section {
-  padding-left: calc(var(--oh-dsh-space-1-5) + var(--oh-dsh-tree-indent) * var(--tree-depth, 0));
+.dsh-studio-review-commit-file.is-section,
+.dsh-studio-review-commit-dir.is-section {
+  padding-left: calc(var(--dsh-studio-space-1-5) + var(--dsh-studio-tree-indent) * var(--tree-depth, 0));
 }
 
 /* Committed-changes header: collapse/expand toggle + view-all + chevron. */
-.oh-dsh-committed-header { cursor: pointer; }
+.dsh-studio-committed-header { cursor: pointer; }
 
-.oh-dsh-committed-actions {
+.dsh-studio-committed-actions {
   display: inline-flex;
   align-items: center;
-  gap: var(--oh-dsh-space-0);
+  gap: var(--dsh-studio-space-0);
 }
 
-.oh-dsh-workspace-chevron {
+.dsh-studio-workspace-chevron {
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: var(--oh-dsh-font-lg);
+  font-size: var(--dsh-studio-font-lg);
   flex: none;
 }
 
-.oh-dsh-commit-area textarea {
+.dsh-studio-commit-area textarea {
   min-width: 0;
   box-sizing: border-box;
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: var(--dsw-alias-bg-layer-1, #fff);
   color: inherit;
   font: inherit;
 }
 
 /* Top-of-panel commit area (branch + message + commit/push). */
-.oh-dsh-commit-area {
+.dsh-studio-commit-area {
   display: grid;
   /* Explicit single 1fr column: percentage-width children (branch picker,
      textarea) resolve against the section instead of an auto-sized track. */
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--oh-dsh-space-1-5);
+  gap: var(--dsh-studio-space-1-5);
 }
 
-.oh-dsh-commit-area textarea {
+.dsh-studio-commit-area textarea {
   width: 100%;
   min-height: 64px;
   resize: vertical;
-  padding: var(--oh-dsh-space-1-5);
-  font-size: var(--oh-dsh-font-sm);
+  padding: var(--dsh-studio-space-1-5);
+  font-size: var(--dsh-studio-font-sm);
 }
 
-.oh-dsh-commit-branch-row,
-.oh-dsh-commit-message-wrap,
-.oh-dsh-commit-actions { display: flex; align-items: center; gap: var(--oh-dsh-space-1-5); }
-.oh-dsh-commit-area-spacer { flex: 1; }
-.oh-dsh-commit-message-wrap textarea { flex: 1; }
-.oh-dsh-commit-cancel-generation { flex: none; }
-.oh-dsh-commit-action-menu-anchor { display: inline-flex; position: relative; }
-.oh-dsh-commit-error { color: var(--dsw-alias-label-error, #b42318); }
-.oh-dsh-commit-area small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--oh-dsh-font-xs); }
-.oh-dsh-sidebar-settings-ai { display: grid; gap: var(--oh-dsh-space-2); }
-.oh-dsh-sidebar-settings-popup-body .oh-dsh-sidebar-settings-ai .oh-dsh-sidebar-settings-grid { grid-template-columns: minmax(0, 1fr); }
-.oh-dsh-sidebar-settings-ai-toolbar { display: flex; justify-content: flex-end; margin-bottom: calc(-1 * var(--oh-dsh-space-2)); }
-.oh-dsh-sidebar-settings-menu-anchor { display: inline-flex; min-width: 0; position: relative; }
-.oh-dsh-sidebar-settings-menu-anchor > button { max-width: 260px; }
-.oh-dsh-sidebar-settings-menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.oh-dsh-sidebar-settings-ai-prompt { display: grid; gap: var(--oh-dsh-space-1); }
-.oh-dsh-sidebar-settings-ai-prompt textarea { box-sizing: border-box; width: 100%; min-height: 136px; padding: var(--oh-dsh-space-1-5); border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%)); border-radius: var(--oh-dsh-radius-sm); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font: inherit; resize: vertical; }
-.oh-dsh-sidebar-settings-ai-prompt small,
-.oh-dsh-sidebar-settings-ai-actions small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--oh-dsh-font-xs); }
-.oh-dsh-sidebar-settings-ai-actions { display: flex; align-items: center; gap: var(--oh-dsh-space-2); }
+.dsh-studio-commit-branch-row,
+.dsh-studio-commit-message-wrap,
+.dsh-studio-commit-actions { display: flex; align-items: center; gap: var(--dsh-studio-space-1-5); }
+.dsh-studio-commit-area-spacer { flex: 1; }
+.dsh-studio-commit-message-wrap textarea { flex: 1; }
+.dsh-studio-commit-cancel-generation { flex: none; }
+.dsh-studio-commit-action-menu-anchor { display: inline-flex; position: relative; }
+.dsh-studio-commit-error { color: var(--dsw-alias-label-error, #b42318); }
+.dsh-studio-commit-area small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--dsh-studio-font-xs); }
+.dsh-studio-sidebar-settings-ai { display: grid; gap: var(--dsh-studio-space-2); }
+.dsh-studio-sidebar-settings-popup-body .dsh-studio-sidebar-settings-ai .dsh-studio-sidebar-settings-grid { grid-template-columns: minmax(0, 1fr); }
+.dsh-studio-sidebar-settings-ai-toolbar { display: flex; justify-content: flex-end; margin-bottom: calc(-1 * var(--dsh-studio-space-2)); }
+.dsh-studio-sidebar-settings-menu-anchor { display: inline-flex; min-width: 0; position: relative; }
+.dsh-studio-sidebar-settings-menu-anchor > button { max-width: 260px; }
+.dsh-studio-sidebar-settings-menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dsh-studio-sidebar-settings-ai-prompt { display: grid; gap: var(--dsh-studio-space-1); }
+.dsh-studio-sidebar-settings-ai-prompt textarea { box-sizing: border-box; width: 100%; min-height: 136px; padding: var(--dsh-studio-space-1-5); border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%)); border-radius: var(--dsh-studio-radius-sm); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font: inherit; resize: vertical; }
+.dsh-studio-sidebar-settings-ai-prompt small,
+.dsh-studio-sidebar-settings-ai-actions small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--dsh-studio-font-xs); }
+.dsh-studio-sidebar-settings-ai-actions { display: flex; align-items: center; gap: var(--dsh-studio-space-2); }
 
 @media (max-width: 900px) {
-  .oh-dsh-workspace-panel { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }
+  .dsh-studio-workspace-panel { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  #oh-dsh-sidebar-root { transition: none; }
-  .oh-dsh-workspace-panel { transition: none; }
+  #dsh-studio-sidebar-root { transition: none; }
+  .dsh-studio-workspace-panel { transition: none; }
 }
 
 /* ---------- P1 file viewer chrome + markdown viewer ---------- */
 
-.oh-dsh-file-surface {
+.dsh-studio-file-surface {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -446,29 +446,29 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   flex: 1;
 }
 
-.oh-dsh-file-viewer-chrome {
+.dsh-studio-file-viewer-chrome {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   height: 40px;
-  padding: 0 var(--oh-dsh-space-3);
+  padding: 0 var(--dsh-studio-space-3);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 94%, transparent);
   flex: none;
 }
 
-.oh-dsh-file-viewer-breadcrumb {
+.dsh-studio-file-viewer-breadcrumb {
   display: flex;
   min-width: 0;
   flex: 1;
   align-items: center;
   gap: 2px;
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   line-height: 20px;
   overflow: hidden;
 }
 
-.oh-dsh-file-viewer-breadcrumb-prefix {
+.dsh-studio-file-viewer-breadcrumb-prefix {
   display: flex;
   min-width: 0;
   flex-shrink: 9999;
@@ -476,20 +476,20 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   overflow: hidden;
 }
 
-.oh-dsh-file-viewer-breadcrumb-segment {
+.dsh-studio-file-viewer-breadcrumb-segment {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--dsw-alias-label-secondary, #57606a);
 }
 
-.oh-dsh-file-viewer-breadcrumb-chevron {
+.dsh-studio-file-viewer-breadcrumb-chevron {
   flex: none;
   margin: 0 2px;
   color: var(--dsw-alias-label-dimmed, #8c959f);
 }
 
-.oh-dsh-file-viewer-breadcrumb-file {
+.dsh-studio-file-viewer-breadcrumb-file {
   min-width: 0;
   flex: none;
   overflow: hidden;
@@ -499,53 +499,53 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-file-viewer-chrome-meta {
+.dsh-studio-file-viewer-chrome-meta {
   flex: none;
   font-size: 10px;
   color: var(--dsw-alias-label-dimmed, #8c959f);
   tab-size: 4;
 }
 
-.oh-dsh-file-viewer-chrome-truncated {
+.dsh-studio-file-viewer-chrome-truncated {
   color: var(--dsw-alias-state-warning-primary, #9a6700);
 }
 
-.oh-dsh-file-viewer-mode-switch {
+.dsh-studio-file-viewer-mode-switch {
   display: flex;
   align-items: center;
   gap: 2px;
   height: 28px;
   padding: 2px;
-  border-radius: var(--oh-dsh-radius-md);
+  border-radius: var(--dsh-studio-radius-md);
   background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 5%));
   flex: none;
 }
 
-.oh-dsh-file-viewer-mode-button {
+.dsh-studio-file-viewer-mode-button {
   display: flex;
   align-items: center;
   gap: 6px;
   height: 24px;
   padding: 0 8px;
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
   font-size: 11px;
   cursor: pointer;
 }
 
-.oh-dsh-file-viewer-mode-button:hover {
+.dsh-studio-file-viewer-mode-button:hover {
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-file-viewer-mode-button.is-selected {
+.dsh-studio-file-viewer-mode-button.is-selected {
   background: var(--dsw-alias-bg-base, #fff);
   color: var(--dsw-alias-label-primary, #1f2328);
   box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
 }
 
-.oh-dsh-file-viewer-chrome-action {
+.dsh-studio-file-viewer-chrome-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -553,28 +553,28 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
   cursor: pointer;
 }
 
-.oh-dsh-file-viewer-chrome-action:hover {
+.dsh-studio-file-viewer-chrome-action:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-file-surface-body {
+.dsh-studio-file-surface-body {
   flex: 1;
 }
 
-.oh-dsh-file-surface-body:has(.oh-dsh-pierre-file-host) {
+.dsh-studio-file-surface-body:has(.dsh-studio-pierre-file-host) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.oh-dsh-file-surface-body:has(.oh-dsh-pierre-file-host) > .oh-dsh-content-root-fill {
+.dsh-studio-file-surface-body:has(.dsh-studio-pierre-file-host) > .dsh-studio-content-root-fill {
   flex: 1;
   min-height: 0;
   height: auto;
@@ -582,42 +582,42 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 /* ---------- text / markdown-source viewer (Pierre File + plain fallback) ---------- */
 
-.oh-dsh-content-root {
+.dsh-studio-content-root {
   min-width: 0;
 }
 
 /* Fills the surface body so the Pierre Virtualizer host gets a definite
    height (the window measures it; no height → no rows). */
-.oh-dsh-content-root-fill {
+.dsh-studio-content-root-fill {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
 }
 
-.oh-dsh-content-meta {
+.dsh-studio-content-meta {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   height: 28px;
-  padding: 0 var(--oh-dsh-space-3);
+  padding: 0 var(--dsh-studio-space-3);
   box-sizing: border-box;
   flex: none;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 7%));
   color: var(--dsw-alias-label-tertiary, #8c959f);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-.oh-dsh-content-meta span:first-child {
+.dsh-studio-content-meta span:first-child {
   min-width: 0;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.oh-dsh-pierre-file-host {
+.dsh-studio-pierre-file-host {
   min-height: 0;
   min-width: 0;
   flex: 1;
@@ -625,76 +625,76 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   scrollbar-gutter: stable;
 }
 
-.oh-dsh-content-markdown {
+.dsh-studio-content-markdown {
   /* Insets come from the Scrollable host (default 8px). */
-  font-size: var(--oh-dsh-font-md);
+  font-size: var(--dsh-studio-font-md);
   line-height: 1.65;
 }
 
-.oh-dsh-content-markdown pre {
-  margin: var(--oh-dsh-space-2) 0;
+.dsh-studio-content-markdown pre {
+  margin: var(--dsh-studio-space-2) 0;
   padding: 10px 12px;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
   overflow-x: auto;
 }
 
-.oh-dsh-content-markdown code {
-  font-family: var(--oh-dsh-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+.dsh-studio-content-markdown code {
+  font-family: var(--dsh-studio-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 12px;
 }
 
 /* Shiki-highlighted fenced blocks: the emitted pre carries its own theme
    background/padding, so the wrapper only keeps the block framing. */
-.oh-dsh-content-markdown .oh-dsh-markdown-code-shiki {
-  margin: var(--oh-dsh-space-2) 0;
-  border-radius: var(--oh-dsh-radius-sm);
+.dsh-studio-content-markdown .dsh-studio-markdown-code-shiki {
+  margin: var(--dsh-studio-space-2) 0;
+  border-radius: var(--dsh-studio-radius-sm);
   overflow-x: auto;
 }
 
-.oh-dsh-content-markdown .oh-dsh-markdown-code-shiki pre {
+.dsh-studio-content-markdown .dsh-studio-markdown-code-shiki pre {
   margin: 0;
   padding: 10px 12px;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
 }
 
-.oh-dsh-content-markdown table {
+.dsh-studio-content-markdown table {
   border-collapse: collapse;
   width: 100%;
 }
 
-.oh-dsh-content-markdown th,
-.oh-dsh-content-markdown td {
+.dsh-studio-content-markdown th,
+.dsh-studio-content-markdown td {
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  padding: var(--oh-dsh-content-table-cell-padding-block, 6px) var(--oh-dsh-content-table-cell-padding-inline, 10px);
+  padding: var(--dsh-studio-content-table-cell-padding-block, 6px) var(--dsh-studio-content-table-cell-padding-inline, 10px);
   text-align: left;
 }
 
-.oh-dsh-markdown-task-checkbox {
+.dsh-studio-markdown-task-checkbox {
   margin-right: 6px;
   accent-color: var(--dsw-alias-state-info-primary, #0969da);
 }
 
-.oh-dsh-file-selection-action {
+.dsh-studio-file-selection-action {
   position: fixed;
   z-index: 60;
 }
 
-.oh-dsh-file-selection-action button {
+.dsh-studio-file-selection-action button {
   padding: 6px 10px;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: var(--dsw-alias-bg-base, #fff);
   color: var(--dsw-alias-label-primary, #1f2328);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   box-shadow: 0 4px 12px rgb(0 0 0 / 16%);
   cursor: pointer;
 }
 
 /* ---------- image / pdf preview chrome ---------- */
 
-.oh-dsh-content-media {
+.dsh-studio-content-media {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -703,20 +703,20 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   flex: 1;
 }
 
-.oh-dsh-image-toolbar,
-.oh-dsh-pdf-toolbar {
+.dsh-studio-image-toolbar,
+.dsh-studio-pdf-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   height: 32px;
-  padding: 0 var(--oh-dsh-space-2);
+  padding: 0 var(--dsh-studio-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: var(--dsw-alias-bg-base, #fff);
   flex: none;
 }
 
-.oh-dsh-image-toolbar button,
-.oh-dsh-pdf-toolbar button {
+.dsh-studio-image-toolbar button,
+.dsh-studio-pdf-toolbar button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -724,26 +724,26 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   height: 24px;
   padding: 0 8px;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-primary, #1f2328);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   cursor: pointer;
 }
 
-.oh-dsh-image-toolbar button:hover,
-.oh-dsh-pdf-toolbar button:hover {
+.dsh-studio-image-toolbar button:hover,
+.dsh-studio-pdf-toolbar button:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
 }
 
-.oh-dsh-image-toolbar span {
+.dsh-studio-image-toolbar span {
   min-width: 44px;
   text-align: center;
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   color: var(--dsw-alias-label-secondary, #57606a);
 }
 
-.oh-dsh-content-media-stage {
+.dsh-studio-content-media-stage {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -751,7 +751,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   /* Insets come from the Scrollable host (default 8px). */
 }
 
-.oh-dsh-content-media-stage img {
+.dsh-studio-content-media-stage img {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
@@ -759,17 +759,17 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   transform-origin: center center;
 }
 
-.oh-dsh-pdf-toolbar span {
+.dsh-studio-pdf-toolbar span {
   min-width: 0;
   flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   color: var(--dsw-alias-label-secondary, #57606a);
 }
 
-.oh-dsh-pdf-toolbar + iframe {
+.dsh-studio-pdf-toolbar + iframe {
   min-height: 0;
   min-width: 0;
   flex: 1;
@@ -779,24 +779,24 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 /* Sticky CSV table header (scrolling via the shared Scrollable host,
    axis both — wide tables scroll horizontally too) */
-.oh-dsh-content-table-wrap {
+.dsh-studio-content-table-wrap {
   flex: 1;
-  border-radius: var(--oh-dsh-content-table-radius, var(--oh-dsh-radius-md));
+  border-radius: var(--dsh-studio-content-table-radius, var(--dsh-studio-radius-md));
 }
 
-.oh-dsh-content-table {
+.dsh-studio-content-table {
   border-collapse: collapse;
   width: 100%;
 }
 
-.oh-dsh-content-table th,
-.oh-dsh-content-table td {
+.dsh-studio-content-table th,
+.dsh-studio-content-table td {
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  padding: var(--oh-dsh-content-table-cell-padding-block, 6px) var(--oh-dsh-content-table-cell-padding-inline, 10px);
+  padding: var(--dsh-studio-content-table-cell-padding-block, 6px) var(--dsh-studio-content-table-cell-padding-inline, 10px);
   text-align: left;
 }
 
-.oh-dsh-content-table thead th {
+.dsh-studio-content-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
@@ -807,18 +807,18 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 /* ---------- P2 diff toolbar / multi-file diff tree ---------- */
 
-.oh-dsh-diff-toolbar {
+.dsh-studio-diff-toolbar {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   height: 34px;
-  padding: 0 var(--oh-dsh-space-2);
+  padding: 0 var(--dsh-studio-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: var(--dsw-alias-bg-base, #fff);
   flex: none;
 }
 
-.oh-dsh-diff-toolbar-leading {
+.dsh-studio-diff-toolbar-leading {
   /* Flex, not block: the inline-flex title inside would otherwise ride the
      text baseline and sit low in the bar (baseline alignment leaves the
      descender gap below). Center it as a flex item instead. */
@@ -829,36 +829,36 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   overflow: hidden;
 }
 
-.oh-dsh-diff-toolbar-title {
+.dsh-studio-diff-toolbar-title {
   display: inline-flex;
   align-items: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   min-width: 0;
   overflow: hidden;
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   font-weight: 600;
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-diff-toolbar-title > span {
+.dsh-studio-diff-toolbar-title > span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.oh-dsh-diff-toolbar-title small {
+.dsh-studio-diff-toolbar-title small {
   color: var(--dsw-alias-label-dimmed, #8c959f);
   font-weight: 400;
 }
 
-.oh-dsh-diff-toolbar-actions {
+.dsh-studio-diff-toolbar-actions {
   display: flex;
   align-items: center;
   gap: 4px;
   flex: none;
 }
 
-.oh-dsh-diff-toolbar-actions button {
+.dsh-studio-diff-toolbar-actions button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -866,45 +866,45 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   height: 24px;
   padding: 0;
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
   cursor: pointer;
 }
 
-.oh-dsh-diff-toolbar-actions button:hover,
-.oh-dsh-diff-toolbar-actions button[aria-pressed='true'] {
+.dsh-studio-diff-toolbar-actions button:hover,
+.dsh-studio-diff-toolbar-actions button[aria-pressed='true'] {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-diff-context-bar {
-  padding: 6px var(--oh-dsh-space-2);
+.dsh-studio-diff-context-bar {
+  padding: 6px var(--dsh-studio-space-2);
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: var(--dsw-alias-bg-base, #fff);
   flex: none;
 }
 
-.oh-dsh-diff-context-bar button {
+.dsh-studio-diff-context-bar button {
   padding: 4px 10px;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   cursor: pointer;
 }
 
-.oh-dsh-diff-context-bar button:hover:not(:disabled) {
+.dsh-studio-diff-context-bar button:hover:not(:disabled) {
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-diff-context-bar button:disabled {
+.dsh-studio-diff-context-bar button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.oh-dsh-diff-all-surface {
+.dsh-studio-diff-all-surface {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -912,14 +912,14 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   flex: 1;
 }
 
-.oh-dsh-diff-all-body {
+.dsh-studio-diff-all-body {
   display: flex;
   min-height: 0;
   min-width: 0;
   flex: 1;
 }
 
-.oh-dsh-diff-tree {
+.dsh-studio-diff-tree {
   width: 220px;
   min-width: 180px;
   border-right: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
@@ -929,7 +929,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 /* Rows reuse the shared ListRow shell; only the tree indentation and the
    compact sizing stay feature-specific. */
-.oh-dsh-diff-tree-row {
+.dsh-studio-diff-tree-row {
   --tree-indent: 12px;
   min-width: 0;
 }
@@ -938,55 +938,55 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
    positioned wrapper, so the shared ListRow :last-child rule zeroes the
    margin on every row. Own the 4px rhythm on the slot instead
    (path-tree-nav.tsx ROW_HEIGHT_PX mirrors 28 + 4). */
-.oh-dsh-diff-tree-slot {
-  margin-bottom: var(--oh-dsh-space-1);
+.dsh-studio-diff-tree-slot {
+  margin-bottom: var(--dsh-studio-space-1);
 }
 
-.oh-dsh-diff-tree-row .oh-dsh-list-row-main {
+.dsh-studio-diff-tree-row .dsh-studio-list-row-main {
   padding-left: calc(10px + var(--tree-indent) * var(--tree-depth, 0));
 }
 
-.oh-dsh-diff-tree-row .oh-dsh-list-row-leading {
+.dsh-studio-diff-tree-row .dsh-studio-list-row-leading {
   width: 14px;
   flex: none;
   color: var(--dsw-alias-label-dimmed, #8c959f);
 }
 
-.oh-dsh-diff-tree-row .oh-dsh-list-row-meta {
+.dsh-studio-diff-tree-row .dsh-studio-list-row-meta {
   color: var(--dsw-alias-label-dimmed, #8c959f);
   font-size: 10px;
 }
 
-.oh-dsh-diff-all-stack {
+.dsh-studio-diff-all-stack {
   min-width: 0;
   flex: 1;
   /* Insets come from the Scrollable host (default 8px). */
 }
 
-.oh-dsh-multi-diff-list {
+.dsh-studio-multi-diff-list {
   display: flex;
   flex-direction: column;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
 }
 
-.oh-dsh-multi-diff-block {
+.dsh-studio-multi-diff-block {
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-md);
+  border-radius: var(--dsh-studio-radius-md);
   overflow: hidden;
 }
 
-.oh-dsh-multi-diff-file-header {
+.dsh-studio-multi-diff-file-header {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   height: 30px;
-  padding: 0 var(--oh-dsh-space-2);
+  padding: 0 var(--dsh-studio-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: var(--dsw-alias-bg-base, #fff);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
 }
 
-.oh-dsh-multi-diff-file-header > span:first-child {
+.dsh-studio-multi-diff-file-header > span:first-child {
   min-width: 0;
   flex: 1;
   overflow: hidden;
@@ -995,53 +995,53 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   font-weight: 600;
 }
 
-.oh-dsh-multi-diff-file-header small b:first-child {
+.dsh-studio-multi-diff-file-header small b:first-child {
   color: var(--dsw-alias-state-success-primary, #1a7f37);
 }
 
-.oh-dsh-multi-diff-file-header small b:last-child {
+.dsh-studio-multi-diff-file-header small b:last-child {
   color: var(--dsw-alias-state-error-primary, #cf222e);
 }
 
-.oh-dsh-multi-diff-actions {
+.dsh-studio-multi-diff-actions {
   display: flex;
   gap: 4px;
 }
 
-.oh-dsh-multi-diff-actions button {
+.dsh-studio-multi-diff-actions button {
   padding: 2px 8px;
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   cursor: pointer;
 }
 
-.oh-dsh-multi-diff-actions button:hover {
+.dsh-studio-multi-diff-actions button:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
 }
 
-.oh-dsh-multi-diff-placeholder {
+.dsh-studio-multi-diff-placeholder {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   width: 100%;
   height: 32px;
-  padding: 0 var(--oh-dsh-space-2);
+  padding: 0 var(--dsh-studio-space-2);
   border: 0;
   background: var(--dsw-alias-bg-base, #fff);
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   text-align: left;
   cursor: pointer;
 }
 
-.oh-dsh-multi-diff-placeholder:hover {
+.dsh-studio-multi-diff-placeholder:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 4%));
 }
 
-.oh-dsh-multi-diff-placeholder-name {
+.dsh-studio-multi-diff-placeholder-name {
   min-width: 0;
   flex: 1;
   overflow: hidden;
@@ -1049,43 +1049,43 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   white-space: nowrap;
 }
 
-.oh-dsh-multi-diff-placeholder-stats b:first-child {
+.dsh-studio-multi-diff-placeholder-stats b:first-child {
   color: var(--dsw-alias-state-success-primary, #1a7f37);
 }
 
-.oh-dsh-multi-diff-placeholder-stats b:last-child {
+.dsh-studio-multi-diff-placeholder-stats b:last-child {
   color: var(--dsw-alias-state-error-primary, #cf222e);
 }
 
 
 /* Image diff viewer (scrolling via the shared Scrollable host, axis both). */
-.oh-dsh-image-diff {
+.dsh-studio-image-diff {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   flex: 1;
   /* Insets come from the Scrollable host (default 8px). */
 }
 
-.oh-dsh-image-diff-pane {
+.dsh-studio-image-diff-pane {
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-md);
+  border-radius: var(--dsh-studio-radius-md);
   overflow: hidden;
 }
 
-.oh-dsh-image-diff-label {
+.dsh-studio-image-diff-label {
   padding: 6px 8px;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: var(--dsw-alias-bg-base, #fff);
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
 }
 
-.oh-dsh-image-diff-pane img {
+.dsh-studio-image-diff-pane img {
   min-height: 0;
   min-width: 0;
   flex: 1;
@@ -1095,7 +1095,7 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 
 /* Editor surface (CodeMirror chunk host) */
-.oh-dsh-editor-surface {
+.dsh-studio-editor-surface {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1103,19 +1103,19 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   flex: 1;
 }
 
-.oh-dsh-editor-header {
+.dsh-studio-editor-header {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   height: 34px;
-  padding: 0 var(--oh-dsh-space-2);
+  padding: 0 var(--dsh-studio-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: var(--dsw-alias-bg-base, #fff);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   flex: none;
 }
 
-.oh-dsh-editor-header > span:first-child {
+.dsh-studio-editor-header > span:first-child {
   min-width: 0;
   flex: 1;
   overflow: hidden;
@@ -1124,52 +1124,52 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   font-weight: 600;
 }
 
-.oh-dsh-editor-dirty {
+.dsh-studio-editor-dirty {
   color: var(--dsw-alias-state-warning-primary, #9a6700);
 }
 
-.oh-dsh-editor-actions {
+.dsh-studio-editor-actions {
   display: flex;
   gap: 6px;
 }
 
-.oh-dsh-editor-actions button {
+.dsh-studio-editor-actions button {
   padding: 3px 10px;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   cursor: pointer;
 }
 
-.oh-dsh-editor-actions button:hover:not(:disabled) {
+.dsh-studio-editor-actions button:hover:not(:disabled) {
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-editor-actions button:disabled {
+.dsh-studio-editor-actions button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.oh-dsh-editor-host {
+.dsh-studio-editor-host {
   min-height: 0;
   min-width: 0;
   flex: 1;
   overflow: hidden;
 }
 
-.oh-dsh-editor-host .cm-editor {
+.dsh-studio-editor-host .cm-editor {
   height: 100%;
 }
 
-.oh-dsh-editor-host .cm-scroller {
+.dsh-studio-editor-host .cm-scroller {
   overflow: auto;
 }
 
 /* ---------- merge conflict resolver ---------- */
 
-.oh-dsh-conflict-surface {
+.dsh-studio-conflict-surface {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -1177,18 +1177,18 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   flex: 1;
 }
 
-.oh-dsh-conflict-header {
+.dsh-studio-conflict-header {
   display: flex;
   align-items: center;
-  gap: var(--oh-dsh-space-2);
+  gap: var(--dsh-studio-space-2);
   height: 34px;
-  padding: 0 var(--oh-dsh-space-2);
+  padding: 0 var(--dsh-studio-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   flex: none;
 }
 
-.oh-dsh-conflict-header > span:first-child {
+.dsh-studio-conflict-header > span:first-child {
   min-width: 0;
   flex: 1;
   overflow: hidden;
@@ -1197,38 +1197,38 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   font-weight: 600;
 }
 
-.oh-dsh-conflict-header small {
+.dsh-studio-conflict-header small {
   color: var(--dsw-alias-state-warning-primary, #9a6700);
 }
 
-.oh-dsh-conflict-hint {
-  padding: 6px var(--oh-dsh-space-3);
+.dsh-studio-conflict-hint {
+  padding: 6px var(--dsh-studio-space-3);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   color: var(--dsw-alias-label-tertiary, #8c959f);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   flex: none;
 }
 
-.oh-dsh-conflict-actions button {
+.dsh-studio-conflict-actions button {
   padding: 3px 10px;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   cursor: pointer;
 }
 
-.oh-dsh-conflict-actions button:hover:not(:disabled) {
+.dsh-studio-conflict-actions button:hover:not(:disabled) {
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-conflict-actions button:disabled {
+.dsh-studio-conflict-actions button:disabled {
   opacity: 0.5;
   cursor: default;
 }
 
-.oh-dsh-conflict-host {
+.dsh-studio-conflict-host {
   min-height: 0;
   min-width: 0;
   flex: 1;
@@ -1238,207 +1238,207 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 
 /* File search box + results */
-.oh-dsh-files-search {
-  padding: 6px var(--oh-dsh-space-2) 0;
+.dsh-studio-files-search {
+  padding: 6px var(--dsh-studio-space-2) 0;
   flex: none;
 }
 
-.oh-dsh-files-search input {
+.dsh-studio-files-search input {
   width: 100%;
   height: 26px;
   padding: 0 10px;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: var(--dsw-alias-bg-base, #fff);
   color: var(--dsw-alias-label-primary, #1f2328);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   box-sizing: border-box;
 }
 
-.oh-dsh-file-search-results {
+.dsh-studio-file-search-results {
   /* Insets come from the Scrollable host (default 8px). */
 }
 
-.oh-dsh-file-search-hit {
+.dsh-studio-file-search-hit {
   display: flex;
   flex-direction: column;
   gap: 2px;
   width: 100%;
   padding: 5px 8px;
   border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: transparent;
   color: var(--dsw-alias-label-primary, #1f2328);
   text-align: left;
   cursor: pointer;
 }
 
-.oh-dsh-file-search-hit:hover {
+.dsh-studio-file-search-hit:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
 }
 
-.oh-dsh-file-search-hit-path {
-  font-size: var(--oh-dsh-font-xs);
+.dsh-studio-file-search-hit-path {
+  font-size: var(--dsh-studio-font-xs);
   font-weight: 600;
 }
 
-.oh-dsh-file-search-hit-text {
+.dsh-studio-file-search-hit-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
 }
 
 
 /* ipynb viewer */
-.oh-dsh-ipynb-viewer {
-  padding: var(--oh-dsh-space-2);
+.dsh-studio-ipynb-viewer {
+  padding: var(--dsh-studio-space-2);
 }
 
-.oh-dsh-ipynb-cell {
-  margin-bottom: var(--oh-dsh-space-2);
+.dsh-studio-ipynb-cell {
+  margin-bottom: var(--dsh-studio-space-2);
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-md);
+  border-radius: var(--dsh-studio-radius-md);
   overflow: hidden;
 }
 
-.oh-dsh-ipynb-cell-label {
+.dsh-studio-ipynb-cell-label {
   padding: 4px 10px;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
 }
 
-.oh-dsh-ipynb-source {
+.dsh-studio-ipynb-source {
   margin: 0;
   padding: 10px;
   overflow-x: auto;
-  font-family: var(--oh-dsh-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--dsh-studio-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 12px;
 }
 
-.oh-dsh-ipynb-markdown {
+.dsh-studio-ipynb-markdown {
   padding: 4px 10px;
 }
 
 
 /* Markdown TOC */
-.oh-dsh-markdown-toc {
+.dsh-studio-markdown-toc {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  margin-bottom: var(--oh-dsh-space-3);
+  margin-bottom: var(--dsh-studio-space-3);
   padding: 8px 10px;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-md);
+  border-radius: var(--dsh-studio-radius-md);
   background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 3%));
 }
 
-.oh-dsh-markdown-toc a {
+.dsh-studio-markdown-toc a {
   color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
   text-decoration: none;
 }
 
-.oh-dsh-markdown-toc a:hover {
+.dsh-studio-markdown-toc a:hover {
   color: var(--dsw-alias-state-info-primary, #0969da);
 }
 
 
 /* Diff comments */
-.oh-dsh-diff-comments {
-  padding: 6px var(--oh-dsh-space-2);
+.dsh-studio-diff-comments {
+  padding: 6px var(--dsh-studio-space-2);
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: var(--dsw-alias-bg-base, #fff);
   flex: none;
 }
 
-.oh-dsh-diff-comments-list {
+.dsh-studio-diff-comments-list {
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin-bottom: 6px;
 }
 
-.oh-dsh-diff-comment {
+.dsh-studio-diff-comment {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 4px 8px;
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
 }
 
-.oh-dsh-diff-comment-line {
+.dsh-studio-diff-comment-line {
   flex: none;
   color: var(--dsw-alias-label-dimmed, #8c959f);
 }
 
-.oh-dsh-diff-comment-body {
+.dsh-studio-diff-comment-body {
   min-width: 0;
   flex: 1;
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.oh-dsh-diff-comment button {
+.dsh-studio-diff-comment button {
   border: 0;
   background: transparent;
   color: var(--dsw-alias-label-dimmed, #8c959f);
   cursor: pointer;
 }
 
-.oh-dsh-diff-comment-form {
+.dsh-studio-diff-comment-form {
   display: flex;
   gap: 6px;
 }
 
-.oh-dsh-diff-comment-form input[type='number'] {
+.dsh-studio-diff-comment-form input[type='number'] {
   width: 60px;
 }
 
-.oh-dsh-diff-comment-form input[type='text'] {
+.dsh-studio-diff-comment-form input[type='text'] {
   min-width: 0;
   flex: 1;
 }
 
-.oh-dsh-diff-comment-form input,
-.oh-dsh-diff-comment-form button {
+.dsh-studio-diff-comment-form input,
+.dsh-studio-diff-comment-form button {
   height: 24px;
   padding: 0 8px;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: var(--dsw-alias-bg-base, #fff);
   color: var(--dsw-alias-label-primary, #1f2328);
-  font-size: var(--oh-dsh-font-xs);
+  font-size: var(--dsh-studio-font-xs);
 }
 
 
 /* Mermaid viewer (scrolling via the shared Scrollable host, axis both). */
-.oh-dsh-mermaid-viewer {
+.dsh-studio-mermaid-viewer {
   /* Insets come from the Scrollable host (default 8px). */
 }
 
-.oh-dsh-mermaid-svg {
+.dsh-studio-mermaid-svg {
   display: flex;
   justify-content: center;
   min-width: fit-content;
 }
 
-.oh-dsh-mermaid-svg svg {
+.dsh-studio-mermaid-svg svg {
   max-width: 100%;
   height: auto;
 }
 
-.oh-dsh-mermaid-source {
+.dsh-studio-mermaid-source {
   padding: 12px;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--oh-dsh-radius-sm);
+  border-radius: var(--dsh-studio-radius-sm);
   background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
   overflow-x: auto;
-  font-family: var(--oh-dsh-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-family: var(--dsh-studio-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
   font-size: 12px;
 }
 

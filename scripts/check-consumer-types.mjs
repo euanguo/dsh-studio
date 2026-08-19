@@ -7,7 +7,7 @@ import { spawnSync } from 'node:child_process'
 /**
  * Prove the sidebar public contract is consumable by an EXTERNAL plugin:
  * a browser-only consumer that `import type {} from
- * '@oh-dsh/sidebar/client/contract'` (the cordis augmentation trigger) and
+ * '@dsh-studio/sidebar/client/contract'` (the cordis augmentation trigger) and
  * uses the full descriptor/service vocabulary compiles with `skipLibCheck:
  * false`-style strictness against the built declarations. Any Node type
  * leaking into the contract graph, any broken export subpath, or any
@@ -19,7 +19,7 @@ const contractTypes = join(
   'dist', 'plugins', 'sidebar', 'types', 'sidebar', 'src', 'client', 'contract.d.ts',
 )
 
-const consumerSource = `import type {} from '@oh-dsh/sidebar/client/contract'
+const consumerSource = `import type {} from '@dsh-studio/sidebar/client/contract'
 import type {
   DesktopSidebarService,
   SidebarRenderProps,
@@ -27,7 +27,7 @@ import type {
   SidebarTabDescriptor,
   SidebarTabSeed,
   SidebarViewerDescriptor,
-} from '@oh-dsh/sidebar/client/contract'
+} from '@dsh-studio/sidebar/client/contract'
 
 const tab: SidebarTabDescriptor = {
   id: 'my-plugin:db',
@@ -69,7 +69,7 @@ service.updatePluginSetting('my-plugin:db', 'pageSize', 25)
 
 export function checkConsumerTypes() {
   const tsc = join(root, 'node_modules', '.bin', 'tsc')
-  const dir = mkdtempSync(join(tmpdir(), 'oh-dsh-contract-consumer-'))
+  const dir = mkdtempSync(join(tmpdir(), 'dsh-studio-contract-consumer-'))
   try {
     writeFileSync(join(dir, 'consumer.ts'), consumerSource)
     writeFileSync(join(dir, 'tsconfig.json'), JSON.stringify({
@@ -83,7 +83,7 @@ export function checkConsumerTypes() {
         jsx: 'react-jsx',
         skipLibCheck: false,
         paths: {
-          '@oh-dsh/sidebar/client/contract': [contractTypes],
+          '@dsh-studio/sidebar/client/contract': [contractTypes],
           // The consumer lives in a scratch directory: route react to the
           // repo's type package so the contract's ReactNode resolves.
           react: [join(root, 'plugins', 'sidebar', 'node_modules', '@types', 'react', 'index.d.ts')],

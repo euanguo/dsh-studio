@@ -1,5 +1,5 @@
 /**
- * The Oh-DSH sidebar public contract: the descriptor vocabulary and service
+ * The DSH Studio sidebar public contract: the descriptor vocabulary and service
  * face external plugins use to contribute sidebar tabs, file viewers,
  * center-surface renderers and declarative settings.
  *
@@ -9,7 +9,7 @@
  * the desktop enhancement plugin (`plugins/sidebar-desktop`) all import
  * from here. It mirrors the upstream DSH-better-sidebar `ctx.betterSidebar`
  * contract (id/title/icon/order/hidden/available/single/dedupeKey/createTab/
- * urlTarget/settings/badge/onOpen/onActivate/onClose) plus Oh-DSH's own
+ * urlTarget/settings/badge/onOpen/onActivate/onClose) plus DSH Studio's own
  * extensions (`action` / `chrome` / `requiresWorkspace` / `shortcut` and the
  * center-surface renderer registry), so a consumer written against one host
  * adapts to the other with minimal changes.
@@ -125,7 +125,7 @@ export interface SidebarSnapshot {
 
 /**
  * The HTML5 drag payload of one open tab moving between the right rail and
- * the bottom workbench (`application/x-oh-dsh-tab` dataTransfer slot).
+ * the bottom workbench (`application/x-dsh-studio-tab` dataTransfer slot).
  */
 export interface SidebarTabDragPayload {
   kind: 'sidebar-tab'
@@ -337,7 +337,7 @@ export interface SidebarViewerDescriptor {
   render?: (input: SidebarViewerRenderInput) => ReactNode
 }
 
-/** One center-surface renderer (Oh-DSH extension: the middle workbench). */
+/** One center-surface renderer (DSH Studio extension: the middle workbench). */
 export type SidebarSurfaceRenderer = (surface: CenterSurface) => ReactNode
 
 /**
@@ -349,7 +349,7 @@ export interface DesktopSidebarService {
   /* ── registry ─────────────────────────────────────────────── */
   registerTab(descriptor: SidebarTabDescriptor): () => void
   registerViewer(descriptor: SidebarViewerDescriptor): () => void
-  /** Register a center-surface kind renderer (Oh-DSH extension). */
+  /** Register a center-surface kind renderer (DSH Studio extension). */
   registerSurfaceRenderer(kind: CenterSurfaceKind, renderer: SidebarSurfaceRenderer): () => void
   getTabs(): readonly SidebarTabDescriptor[]
   getViewers(): readonly SidebarViewerDescriptor[]
@@ -389,7 +389,7 @@ export interface DesktopSidebarService {
   /** Open a file in the sidebar of `scope`'s project (title defaults to the file name). */
   openFile(scope: SidebarScope, path: string, title?: string): void
 
-  /* ── bottom workbench + tab drag layout (Oh-DSH extension) ─── */
+  /* ── bottom workbench + tab drag layout (DSH Studio extension) ─── */
   /** Reorder one right-rail tab to `toIndex` (index in the full tab list). */
   moveTab(tabId: string, toIndex: number): void
   /** Reorder right-rail tabs by placing `sourceId` relative to `targetId`. */
@@ -456,7 +456,7 @@ export const SIDEBAR_SERVICE_VERSION = '0.1.2'
  * - 'tabMeta': SidebarTab.meta (seeds, createTab, updateTab, persistence)
  * - 'pluginSettings': SidebarSettingsDeclaration.pluginToggles/render
  * - 'urlTarget': SidebarTabDescriptor.urlTarget (external-link claims)
- * - 'surfaceRenderer': registerSurfaceRenderer (Oh-DSH extension)
+ * - 'surfaceRenderer': registerSurfaceRenderer (DSH Studio extension)
  * - 'bottomWorkbench': bottom workbench + tab drag layout (moveTab /
  *   moveTabToBottom / moveBottomTabToSide / moveBottomTab /
  *   activateBottomTab / closeBottomTab + snapshot bottomTabs/bottomActiveId)
@@ -480,7 +480,7 @@ export type SidebarFeature = typeof SIDEBAR_FEATURES[number]
 /**
  * Cordis augmentation for real DSH/cordis environments: a consumer plugin
  * that lives inside a cordis runtime gets `ctx.desktopSidebar` typed after
- * `import type {} from '@oh-dsh/sidebar/client/contract'` (the type-only
+ * `import type {} from '@dsh-studio/sidebar/client/contract'` (the type-only
  * import is erased at compile time). The empty type-import of cordis below
  * only triggers module resolution so the augmentation is legal — it is
  * erased at compile time, keeping the bundle cordis-free. In a non-cordis

@@ -6,7 +6,7 @@ on:
             - main
         paths:
             - '.github/workflows/pages.yml'
-            - 'assets/oh-dsh-desktop-landing.png'
+            - 'assets/dsh-studio-landing.png'
             - 'scripts/build-pages.mjs'
             - 'website/**'
     workflow_dispatch:

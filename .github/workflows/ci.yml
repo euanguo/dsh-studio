@@ -164,6 +164,6 @@ jobs:
 
       - name: Smoke the packed artifact
         # npm pack → scratch profile (`dsh plugin add <tarball>`) → boot the
-        # runtime WITHOUT the workspace @oh-dsh/desktop → the mounted bundle
+        # runtime WITHOUT the workspace @dsh-studio/desktop → the mounted bundle
         # and host must come from the packed artifact (scripts/smoke-pack.mjs).
         run: xvfb-run -a pnpm run smoke:pack

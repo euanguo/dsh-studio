@@ -1,4 +1,4 @@
-import { callSidebarGlobalApi } from '@oh-dsh/shared/sidebar-api'
+import { callSidebarGlobalApi } from '@dsh-studio/shared/sidebar-api'
 
 export type ProjectIconDetection = {
   repoRoot: string

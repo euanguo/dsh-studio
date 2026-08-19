@@ -4,7 +4,7 @@
  * `name` is the shared ChunkName union — the servable set (host) and the
  * requested set (client) come from the same list.
  */
-import type { ChunkName } from '@oh-dsh/shared/bundle-names'
+import type { ChunkName } from '@dsh-studio/shared/bundle-names'
 
 const loaded = new Map<string, Promise<void>>()
 
@@ -23,11 +23,11 @@ export function loadChunk(name: ChunkName): Promise<void> {
   return promise
 }
 
-export type MermaidChunkApi = NonNullable<Window['__ohDshMermaidChunk']>
+export type MermaidChunkApi = NonNullable<Window['__dshStudioMermaidChunk']>
 
 export async function loadMermaidChunk(): Promise<MermaidChunkApi> {
   await loadChunk('mermaid')
-  const api = window.__ohDshMermaidChunk
+  const api = window.__dshStudioMermaidChunk
   if (api === undefined) throw new Error('Mermaid chunk did not register itself.')
   return api
 }

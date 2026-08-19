@@ -1,7 +1,7 @@
-export type OhDshLocale = 'en' | 'zh'
+export type DshStudioLocale = 'en' | 'zh'
 
 export interface LocaleSnapshot {
-  active: OhDshLocale
+  active: DshStudioLocale
   revision: number
 }
 
@@ -11,11 +11,11 @@ export type Translate<Key extends string = string> = (
 ) => string
 
 export type LocaleMessages<Key extends string> = Record<
-  OhDshLocale,
+  DshStudioLocale,
   Record<Key, string>
 >
 
-/** Narrow face of the native DSH locale service used by Oh-DSH plugins. */
+/** Narrow face of the native DSH locale service used by DSH Studio plugins. */
 export interface LocaleService {
   bind<Key extends string = string>(namespace: string): Translate<Key>
   getSnapshot(): LocaleSnapshot

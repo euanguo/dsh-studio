@@ -15,10 +15,10 @@ function git(root: string, ...args: string[]): void {
 }
 
 test('product version follows the nearest reachable release tag', () => {
-  const root = mkdtempSync(join(tmpdir(), 'oh-dsh-version-'))
+  const root = mkdtempSync(join(tmpdir(), 'dsh-studio-version-'))
   try {
     git(root, 'init', '--quiet')
-    git(root, 'config', 'user.name', 'Oh-DSH Test')
+    git(root, 'config', 'user.name', 'DSH Studio Test')
     git(root, 'config', 'user.email', 'test@example.com')
     writeFileSync(join(root, 'package.json'), '{"version":"9.9.9"}\n')
     git(root, 'add', 'package.json')

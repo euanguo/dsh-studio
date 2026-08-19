@@ -9,21 +9,21 @@ its subtree. Keep this file to durable rules; put explanations in `docs/`.
   products or plugin systems.
 - `src/profile.ts` owns surface composition. Keep the full/Desktop, Web-only,
   and TUI-only package boundaries intact.
-- `src/data-root.ts` owns shared state under `~/.ohdsh` (stable) and
-  `~/.ohdsh-dev` (dev). Use `OH_DSH_HOME` for absolute overrides and
-  `OH_DSH_CHANNEL` to pick the sibling pair; do not invent another cache,
+- `src/data-root.ts` owns shared state under `~/.dsh-studio` (stable) and
+  `~/.dsh-studio-dev` (dev). Use `DSH_STUDIO_HOME` for absolute overrides and
+  `DSH_STUDIO_CHANNEL` to pick the sibling pair; do not invent another cache,
   credential, or configuration root.
 - Load capabilities through the DSH Profile, Loader, and Cordis services. Do
   not add a second loader or bypass its permission boundary.
 - Keep Files, PTY, Git, and Browser access scoped to the active Session and
   Workspace. Electron-only capabilities must remain Desktop-only.
 - Treat `upstream/` as pinned source. Adapt upstream behavior in `plugins/`,
-  retain attribution, and preserve the Oh-DSH UI and contracts.
+  retain attribution, and preserve the DSH Studio UI and contracts.
 - Plugin chrome uses official `@deepseek-ai/dsh-client-ui-primitives`
   and `--dsw-*` tokens. See `plugins/AGENTS.md`. Do not add a second
   button, dialog, toast, or icon kit.
-- `@oh-dsh/desktop-skins` owns shared theme identities across all surfaces
-  (its durable preferences root comes from the `ohDshSurface` contract, so
+- `@dsh-studio/desktop-skins` owns shared theme identities across all surfaces
+  (its durable preferences root comes from the `dshStudioSurface` contract, so
   one provider serves desktop and web). Surface adapters may change
   rendering, not theme ownership.
 - Human and Agent marketplace actions use the same preview, approval, apply,

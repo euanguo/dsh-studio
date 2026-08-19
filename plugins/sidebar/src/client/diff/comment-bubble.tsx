@@ -8,8 +8,8 @@ import type { DiffComment } from './diff-comments-store.ts'
 
 export function CommentBubble({ comment }: { comment: DiffComment }): JSX.Element {
   return (
-    <div className="oh-dsh-line-comment" data-comment-id={comment.id} title={comment.body}>
-      <span className="oh-dsh-line-comment-body">{comment.body}</span>
+    <div className="dsh-studio-line-comment" data-comment-id={comment.id} title={comment.body}>
+      <span className="dsh-studio-line-comment-body">{comment.body}</span>
     </div>
   )
 }

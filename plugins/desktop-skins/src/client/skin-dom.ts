@@ -1,7 +1,7 @@
 import type { DesktopSkin } from './skins.ts'
 
-const SKIN_ATTRIBUTE = 'data-oh-dsh-skin'
-const ATMOSPHERE_STYLE_ID = 'oh-dsh-desktop-skins-atmosphere'
+const SKIN_ATTRIBUTE = 'data-dsh-studio-skin'
+const ATMOSPHERE_STYLE_ID = 'dsh-studio-skins-atmosphere'
 
 export interface SkinDomPort {
   apply(skin: DesktopSkin | undefined): void
@@ -32,7 +32,7 @@ export class SkinDomPresenter implements SkinDomPort {
     }
     const style = existing ?? this.target.createElement('style')
     style.id = ATMOSPHERE_STYLE_ID
-    style.dataset.ohDshDesktopSkins = 'atmosphere'
+    style.dataset.dshStudioDesktopSkins = 'atmosphere'
     if (style.textContent !== skin.css) style.textContent = skin.css
     if (style.parentElement === null) this.target.head.append(style)
   }

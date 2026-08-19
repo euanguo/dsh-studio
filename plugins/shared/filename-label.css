@@ -1,6 +1,6 @@
 /* Filename label with Codex-style middle ellipsis (one text node). */
 
-.oh-dsh-filename-label-text {
+.dsh-studio-filename-label-text {
   /* Fill the label's remaining space (the label is a flex container) so
      `clientWidth` measures the AVAILABLE width, not the text's natural
      width — measuring the content width made canvas comparison truncate

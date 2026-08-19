@@ -1,9 +1,9 @@
-/** Browser face of the Oh-DSH Web shell. */
+/** Browser face of the DSH Studio Web shell. */
 
 import {
-  OH_DSH_SURFACE_VIEW_SERVICE,
-  type OhDshSurfaceView,
-} from '@oh-dsh/shared/surface'
+  DSH_STUDIO_SURFACE_VIEW_SERVICE,
+  type DshStudioSurfaceView,
+} from '@dsh-studio/shared/surface'
 
 interface ClientContext {
   effect(effect: () => (() => void) | void, label?: string): void
@@ -15,14 +15,14 @@ interface ClientContext {
 /** Enroll the web shell identity and the client-plane surface contract. */
 export function apply(ctx: ClientContext): void {
   // The unified three-surface contract, client plane: the web shell.
-  ctx.reflect.provide(OH_DSH_SURFACE_VIEW_SERVICE, Object.freeze({
+  ctx.reflect.provide(DSH_STUDIO_SURFACE_VIEW_SERVICE, Object.freeze({
     kind: 'web',
-  } satisfies OhDshSurfaceView), undefined)
+  } satisfies DshStudioSurfaceView), undefined)
   ctx.effect(() => {
     const originalTitle = document.title
-    document.title = 'Oh-DSH Web'
+    document.title = 'DSH Studio Web'
     return () => { document.title = originalTitle }
-  }, 'oh-dsh-web: shell identity')
+  }, 'dsh-studio-web: shell identity')
   ctx.effect(() => {
     const headlineCopy = new Set([
       'Into the Unknown',
@@ -35,8 +35,8 @@ export function apply(ctx: ClientContext): void {
         const text = element.textContent?.trim() ?? ''
         if (!headlineCopy.has(text)) continue
         if (!originalHeadlines.has(element)) originalHeadlines.set(element, text)
-        element.textContent = 'Oh-DSH Web'
-        element.dataset.ohDshWebHeroHeadline = 'true'
+        element.textContent = 'DSH Studio Web'
+        element.dataset.dshStudioWebHeroHeadline = 'true'
       }
     }
     const observer = new MutationObserver(synchronize)
@@ -49,11 +49,11 @@ export function apply(ctx: ClientContext): void {
     return () => {
       observer.disconnect()
       for (const [element, original] of originalHeadlines) {
-        if (element.isConnected && element.textContent === 'Oh-DSH Web') {
+        if (element.isConnected && element.textContent === 'DSH Studio Web') {
           element.textContent = original
         }
-        delete element.dataset.ohDshWebHeroHeadline
+        delete element.dataset.dshStudioWebHeroHeadline
       }
     }
-  }, 'oh-dsh-web: hero identity')
+  }, 'dsh-studio-web: hero identity')
 }

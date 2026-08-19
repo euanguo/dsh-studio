@@ -22,7 +22,7 @@ if (!existsSync(electronBinary)) {
   if (installResult.status !== 0) process.exit(installResult.status ?? 1)
 }
 
-const icon = join(root, 'assets', 'Oh-DSH-Desktop.icns')
+const icon = join(root, 'assets', 'DSH Studio.icns')
 if (!existsSync(icon)) {
   const iconResult = spawnSync('sh', [join(root, 'scripts', 'generate-icon.sh')], {
     cwd: root,

@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/sidebar",
+  "name": "@dsh-studio/sidebar",
   "version": "0.1.2",
-  "description": "Extensible Oh-DSH side panel with workspace and desktop tools",
+  "description": "Extensible DSH Studio side panel with workspace and desktop tools",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -34,8 +34,8 @@
         "@deepseek-ai/dsh-client-ui-settings",
         "@deepseek-ai/dsh-client-ui-input-trigger",
         "@deepseek-ai/dsh-client-ui-slots",
-        "@oh-dsh/panel-controls",
-        "@oh-dsh/pinned-summary"
+        "@dsh-studio/panel-controls",
+        "@dsh-studio/pinned-summary"
       ],
       "platform": "web",
       "immediately": true
@@ -55,14 +55,14 @@
     "zustand": "^5.0.15"
   },
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*",
+    "@dsh-studio/shared": "workspace:*",
     "@tanstack/react-virtual": "^3.14.9",
     "mermaid": "^11.16.1",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "@xterm/addon-fit": "0.12.0-beta.299",
     "@xterm/xterm": "6.1.0-beta.302",
-    "@oh-dsh/panel-controls": "workspace:*",
-    "@oh-dsh/pinned-summary": "workspace:*"
+    "@dsh-studio/panel-controls": "workspace:*",
+    "@dsh-studio/pinned-summary": "workspace:*"
   }
 }

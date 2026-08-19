@@ -11,8 +11,8 @@ await rm(output, { force: true, recursive: true });
 await mkdir(assets, { recursive: true });
 await cp(source, output, { recursive: true });
 await cp(
-    path.join(root, "assets", "oh-dsh-desktop-landing.png"),
-    path.join(assets, "oh-dsh-desktop-landing.png"),
+    path.join(root, "assets", "dsh-studio-landing.png"),
+    path.join(assets, "dsh-studio-landing.png"),
 );
 await writeFile(path.join(output, ".nojekyll"), "");
 

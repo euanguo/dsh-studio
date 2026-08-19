@@ -10,7 +10,7 @@ import {
 } from '../plugins/sidebar-host/src/terminal-session-store.ts'
 
 test('terminal session store restores history and rotates atomic snapshots', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'oh-dsh-terminal-store-'))
+  const root = mkdtempSync(join(tmpdir(), 'dsh-studio-terminal-store-'))
   try {
     const store = new TerminalSessionStore({ root, persistIdleMs: 1, persistMaxIntervalMs: 10 })
     const record = store.ensure({
@@ -49,7 +49,7 @@ test('terminal session store restores history and rotates atomic snapshots', asy
 })
 
 test('explicit close tombstones the incarnation and a reopen mints a new one', async () => {
-  const root = mkdtempSync(join(tmpdir(), 'oh-dsh-terminal-store-'))
+  const root = mkdtempSync(join(tmpdir(), 'dsh-studio-terminal-store-'))
   try {
     const store = new TerminalSessionStore({ root })
     const first = store.ensure({ cwd: 's', tabId: 't', spawnCwd: '/tmp', cols: 80, rows: 24 })
@@ -64,7 +64,7 @@ test('explicit close tombstones the incarnation and a reopen mints a new one', a
 
 test('inactive sessions are evicted oldest-first at the configured limit', () => {
   let now = 0
-  const root = mkdtempSync(join(tmpdir(), 'oh-dsh-terminal-store-'))
+  const root = mkdtempSync(join(tmpdir(), 'dsh-studio-terminal-store-'))
   try {
     const store = new TerminalSessionStore({
       root,

@@ -17,11 +17,11 @@ import {
   IconFileText,
   IconMinus,
   IconPlus,
-} from '@oh-dsh/shared/tabler-icons'
-import type { Translate } from '@oh-dsh/shared/i18n'
-import { basename } from '@oh-dsh/shared/path'
+} from '@dsh-studio/shared/tabler-icons'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import { basename } from '@dsh-studio/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { Scrollable } from '@oh-dsh/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/scrollable'
 import { isPlainLanguage, languageForPath, MAX_NUMBERED_LINES } from './language.ts'
 import { PierreFileView } from './pierre-file-view.tsx'
 import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
@@ -186,7 +186,7 @@ export function ContentViewer({
 
   if (kind === 'html' && content !== null) {
     return (
-      <div className="oh-dsh-content-html">
+      <div className="dsh-studio-content-html">
         <iframe title={name} sandbox="" srcDoc={content} />
       </div>
     )
@@ -195,7 +195,7 @@ export function ContentViewer({
   if (kind === 'binary') {
     const isEmpty = size !== undefined && size === 0
     return (
-      <div className="oh-dsh-content-empty" data-kind={isEmpty ? 'empty' : 'binary'}>
+      <div className="dsh-studio-content-empty" data-kind={isEmpty ? 'empty' : 'binary'}>
         <IconFileText size={20} />
         <strong>{name}</strong>
         <span>{isEmpty ? t('files.empty-file') : t('files.viewer.binary')}</span>
@@ -208,7 +208,7 @@ export function ContentViewer({
 
   if (content === null) {
     return (
-      <div className="oh-dsh-content-empty" data-kind="unavailable">
+      <div className="dsh-studio-content-empty" data-kind="unavailable">
         <IconFileText size={20} />
         <strong>{name}</strong>
         <span>{t('overlay.no-content')}</span>
@@ -218,7 +218,7 @@ export function ContentViewer({
 
   if (content.length === 0) {
     return (
-      <div className="oh-dsh-content-empty" data-kind="empty">
+      <div className="dsh-studio-content-empty" data-kind="empty">
         <IconFileText size={20} />
         <strong>{name}</strong>
         <span>{t('files.empty-file')}</span>
@@ -228,7 +228,7 @@ export function ContentViewer({
 
   if (kind === 'ipynb') {
     return (
-      <div className="oh-dsh-content-root">
+      <div className="dsh-studio-content-root">
         <IpynbViewer content={content} />
       </div>
     )
@@ -236,7 +236,7 @@ export function ContentViewer({
 
   if (kind === 'mermaid') {
     return (
-      <div className="oh-dsh-content-root">
+      <div className="dsh-studio-content-root">
         <MermaidViewer content={content} t={t} />
       </div>
     )
@@ -258,9 +258,9 @@ export function ContentViewer({
     }
     const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
     return (
-      <div ref={textRootRef} className="oh-dsh-content-root oh-dsh-content-root-fill">
+      <div ref={textRootRef} className="dsh-studio-content-root dsh-studio-content-root-fill">
         {!hideMeta && (
-          <div className="oh-dsh-content-meta">
+          <div className="dsh-studio-content-meta">
             <span>{name}</span>
             <span>{`markdown · ${lineCount} lines`}</span>
             {truncated ? <span>{t('files.preview-truncated')}</span> : null}
@@ -281,9 +281,9 @@ export function ContentViewer({
 
   if (kind === 'csv') {
     return (
-      <div className="oh-dsh-content-root">
+      <div className="dsh-studio-content-root">
         {!hideMeta && (
-          <div className="oh-dsh-content-meta">
+          <div className="dsh-studio-content-meta">
             <span>{csvTable.delimiter === '\t' ? 'tsv' : 'csv'}</span>
             <span>{`${Math.max(csvTable.rows.length - 1, 0)} rows`}</span>
             {size === undefined ? '' : formatBytes(size)}
@@ -302,9 +302,9 @@ export function ContentViewer({
   const language = languageForPath(path)
   const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
   return (
-    <div ref={textRootRef} className="oh-dsh-content-root oh-dsh-content-root-fill">
+    <div ref={textRootRef} className="dsh-studio-content-root dsh-studio-content-root-fill">
       {!hideMeta && (
-        <div className="oh-dsh-content-meta">
+        <div className="dsh-studio-content-meta">
           <span>{name}</span>
           <span>{isPlainLanguage(language) ? `${lineCount} lines` : `${language} · ${lineCount} lines`}</span>
           {truncated ? <span>{t('files.preview-truncated')}</span> : null}
@@ -337,8 +337,8 @@ function CsvVirtualTable({ rows }: { rows: string[][] }): JSX.Element {
   const topSpacer = items[0]?.start ?? 0
   const bottomSpacer = Math.max(0, virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0))
   return (
-    <Scrollable axis="both" className="oh-dsh-content-table-wrap" ref={parentRef}>
-      <table className="oh-dsh-content-table oh-dsh-content-table-virtual">
+    <Scrollable axis="both" className="dsh-studio-content-table-wrap" ref={parentRef}>
+      <table className="dsh-studio-content-table dsh-studio-content-table-virtual">
         {header.length > 0 ? (
           <thead>
             <tr>
@@ -386,9 +386,9 @@ function ImageViewer({
   }, [path, data])
 
   return (
-    <div className="oh-dsh-content-media" data-status={status}>
+    <div className="dsh-studio-content-media" data-status={status}>
       {status === 'error' ? (
-        <div className="oh-dsh-content-empty">
+        <div className="dsh-studio-content-empty">
           <IconFileText size={20} />
           <strong>{name}</strong>
           <span>{t('files.image-load-failed')}</span>
@@ -398,7 +398,7 @@ function ImageViewer({
         </div>
       ) : (
         <>
-          <div className="oh-dsh-image-toolbar">
+          <div className="dsh-studio-image-toolbar">
             <button type="button" onClick={() => setZoom(value => Math.max(0.25, value - 0.25))} aria-label={t('files.zoom-out')}>
               <IconMinus size={14} />
             </button>
@@ -413,8 +413,8 @@ function ImageViewer({
               </button>
             ) : null}
           </div>
-          <Scrollable axis="both" className="oh-dsh-content-media-stage">
-            {status === 'loading' ? <span className="oh-dsh-side-muted">{t('files.image-loading')}</span> : null}
+          <Scrollable axis="both" className="dsh-studio-content-media-stage">
+            {status === 'loading' ? <span className="dsh-studio-side-muted">{t('files.image-loading')}</span> : null}
             <img
               src={`data:${mime};base64,${data}`}
               alt={name}
@@ -442,8 +442,8 @@ function PdfViewer({
 }): JSX.Element {
   const name = basename(path)
   return (
-    <div className="oh-dsh-content-media">
-      <div className="oh-dsh-pdf-toolbar">
+    <div className="dsh-studio-content-media">
+      <div className="dsh-studio-pdf-toolbar">
         <span title={path}>{name}</span>
         {onOpenExternal !== undefined ? (
           <button type="button" onClick={onOpenExternal} aria-label="Open externally">

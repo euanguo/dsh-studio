@@ -13,13 +13,13 @@ import { test } from 'node:test'
  * src/profile.ts's BUNDLED_* constants (what the launcher stages into the
  * runtime profile). They are maintained by hand, so drift is silent: a
  * plugin added to one list but not another ships half-registered — exactly
- * what happened after the desktop reconciliation dropped @oh-dsh/skins and
- * @oh-dsh/vision while the web/TUI patches kept referencing them. These
+ * what happened after the desktop reconciliation dropped @dsh-studio/skins and
+ * @dsh-studio/vision while the web/TUI patches kept referencing them. These
  * contracts pin the invariants that must hold for every surface:
  *
- * 1. Every @oh-dsh/* insert in a surface's patch resolves to a real plugin
+ * 1. Every @dsh-studio/* insert in a surface's patch resolves to a real plugin
  *    tree in this repository (the loader can never mount a ghost).
- * 2. Every @oh-dsh/* entry in a surface's client inject list is mounted by
+ * 2. Every @dsh-studio/* entry in a surface's client inject list is mounted by
  *    that surface's patch (the inject metadata never names an unmounted
  *    plugin).
  * 3. Desktop additionally: every patch insert is staged by the profile's
@@ -35,7 +35,7 @@ function readJson(path: string): Record<string, unknown> {
 
 function patchInserts(path: string): string[] {
   const text = readFileSync(join(root, path), 'utf8')
-  return [...text.matchAll(/name:\s*'(@oh-dsh\/[a-z-]+)'/g)]
+  return [...text.matchAll(/name:\s*'(@dsh-studio\/[a-z-]+)'/g)]
     .map(match => match[1]!)
     .sort()
 }
@@ -45,7 +45,7 @@ function injectList(path: string): string[] {
     dsh?: { client?: { inject?: string[] } }
   }
   return (pkg.dsh?.client?.inject ?? [])
-    .filter(name => name.startsWith('@oh-dsh/'))
+    .filter(name => name.startsWith('@dsh-studio/'))
     .sort()
 }
 
@@ -56,7 +56,7 @@ function bundledConstant(name: string): string[] {
   assert.notEqual(start, -1, `${name} exists in src/profile.ts`)
   const end = text.indexOf('] as const', start)
   const body = text.slice(start, end)
-  const literals = [...body.matchAll(/'(@oh-dsh\/[a-z-]+)'/g)].map(match => match[1]!)
+  const literals = [...body.matchAll(/'(@dsh-studio\/[a-z-]+)'/g)].map(match => match[1]!)
   // Follow spread references to sibling constants (one level).
   const spreads = [...body.matchAll(/\.\.\.([A-Z_]+),?/g)].map(match => match[1]!)
   for (const spread of spreads) {
@@ -67,13 +67,13 @@ function bundledConstant(name: string): string[] {
 
 /** A plugin tree exists when its package.json AND host entry are on disk. */
 function pluginTreeExists(name: string): boolean {
-  const dir = join(root, 'plugins', name.replace('@oh-dsh/', ''))
+  const dir = join(root, 'plugins', name.replace('@dsh-studio/', ''))
   return existsSync(join(dir, 'package.json')) && existsSync(join(dir, 'src', 'index.ts'))
 }
 
 test('desktop: every patch insert resolves to a real plugin tree', () => {
   const missing = patchInserts('cordis.patch.yml').filter(name => {
-    if (name === '@oh-dsh/desktop') return false // the root shell package (src/)
+    if (name === '@dsh-studio/desktop') return false // the root shell package (src/)
     return !pluginTreeExists(name)
   })
   assert.deepEqual(missing, [], 'desktop patch inserts without a plugin tree')
@@ -89,7 +89,7 @@ test('desktop: every patch insert is staged by the profile', () => {
 test('desktop: inject metadata names only shipped client plugins', () => {
   const injected = injectList('package.json')
   const bundled = bundledConstant('BUNDLED_DESKTOP_CLIENT_PLUGINS')
-  const allowed = [...bundled, '@oh-dsh/desktop']
+  const allowed = [...bundled, '@dsh-studio/desktop']
   const unknown = injected.filter(name => !allowed.includes(name))
   assert.deepEqual(unknown, [], 'inject entries missing from BUNDLED_DESKTOP_CLIENT_PLUGINS')
 })
@@ -99,7 +99,7 @@ test('desktop: every client plugin is reachable from some inject list', () => {
   const injected = new Set(injectList('package.json'))
   // Client halves that enroll through another bundle's inject declaration
   // (they have no dsh.client block of their own).
-  const shellCarried = new Set(['@oh-dsh/desktop', '@oh-dsh/desktop-left-rail', '@oh-dsh/desktop-skins'])
+  const shellCarried = new Set(['@dsh-studio/desktop', '@dsh-studio/desktop-left-rail', '@dsh-studio/desktop-skins'])
   const unreachable = bundled.filter(
     name => !injected.has(name) && !shellCarried.has(name),
   )
@@ -112,7 +112,7 @@ test('desktop: every client plugin is reachable from some inject list', () => {
 
 test('web: every patch insert resolves to a real plugin tree', () => {
   const missing = patchInserts('web/cordis.patch.yml').filter(name => {
-    if (name === '@oh-dsh/web') return false // the shell itself lives in web/
+    if (name === '@dsh-studio/web') return false // the shell itself lives in web/
     return !pluginTreeExists(name)
   })
   assert.deepEqual(missing, [], 'web patch inserts without a plugin tree')
@@ -157,13 +157,13 @@ test('build script compiles every browser plugin the patches can mount', () => {
   const mounted = new Set([
     ...patchInserts('cordis.patch.yml'),
     ...patchInserts('web/cordis.patch.yml'),
-    ...patchInserts('plugins/tui/cordis.patch.yml').filter(name => name.startsWith('@oh-dsh/')),
+    ...patchInserts('plugins/tui/cordis.patch.yml').filter(name => name.startsWith('@dsh-studio/')),
   ])
   // The root shell packages build through their own esbuild entries, not
   // the pluginPackages loop.
-  mounted.delete('@oh-dsh/desktop')
-  mounted.delete('@oh-dsh/web')
-  const missing = [...mounted].filter(name => !built.has(name.replace('@oh-dsh/', '')))
+  mounted.delete('@dsh-studio/desktop')
+  mounted.delete('@dsh-studio/web')
+  const missing = [...mounted].filter(name => !built.has(name.replace('@dsh-studio/', '')))
   assert.deepEqual(
     missing,
     [],
@@ -176,9 +176,9 @@ test('stage script ships every desktop browser plugin the profile bundles', () =
   const bundled = bundledConstant('BUNDLED_DESKTOP_CLIENT_PLUGINS')
   // sidebar-host (host-only) and the shell package stage through their own
   // dedicated file blocks in stage-dsh.mjs.
-  const shellOrHost = new Set(['@oh-dsh/desktop', '@oh-dsh/sidebar-host'])
+  const shellOrHost = new Set(['@dsh-studio/desktop', '@dsh-studio/sidebar-host'])
   const missing = bundled.filter(
-    name => !shellOrHost.has(name) && !staged.has(name.replace('@oh-dsh/', '')),
+    name => !shellOrHost.has(name) && !staged.has(name.replace('@dsh-studio/', '')),
   )
   assert.deepEqual(
     missing,

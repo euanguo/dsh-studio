@@ -1,11 +1,11 @@
-import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
-import { ToolIcon } from '@oh-dsh/shared/tool-icon'
+import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
+import { ToolIcon } from '@dsh-studio/shared/tool-icon'
 import type {
   DesktopSidebarService,
   SidebarRenderProps,
-} from '@oh-dsh/sidebar/client/contract'
-import type { WorkspaceMessage } from '@oh-dsh/sidebar/client/i18n'
-import type { BrowserCenterSurface } from '@oh-dsh/sidebar/client/surfaces-types'
+} from '@dsh-studio/sidebar/client/contract'
+import type { WorkspaceMessage } from '@dsh-studio/sidebar/client/i18n'
+import type { BrowserCenterSurface } from '@dsh-studio/sidebar/client/surfaces-types'
 import { BrowserView, BrowserSurfaceView } from './browser-view.tsx'
 
 interface ClientContext {
@@ -27,7 +27,7 @@ export function apply(ctx: ClientContext): void {
   const locale = ctx.get('locale') as LocaleService
   // Reuse the generic sidebar's dictionary namespace so the browser.* keys
   // resolve without duplicating them here.
-  const t: Translate<WorkspaceMessage> = locale.bind('oh-dsh.sidebar')
+  const t: Translate<WorkspaceMessage> = locale.bind('dsh-studio.sidebar')
 
   ctx.effect(() => {
     const removeTab = sidebar.registerTab({

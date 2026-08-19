@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Hot-reload dev launcher for Oh-DSH-Desktop.
+ * Hot-reload dev launcher for DSH Studio.
  *
  * Three moving parts, one process:
  *  1. Incremental esbuild — `context()` instances (same options as
  *     scripts/build.mjs, shared via scripts/build-config.mjs); a recursive
  *     fs.watch over the source roots calls `rebuild()` on change.
  *  2. Bundle sync — copies the rebuilt plugin bundles into the staged runtime
- *     (.stage/dsh-runtime/node_modules/@oh-dsh/<plugin>/dist/). The DSH host's
+ *     (.stage/dsh-runtime/node_modules/@dsh-studio/<plugin>/dist/). The DSH host's
  *     client-hmr plugin stat-polls those served bundles (500ms) and broadcasts
  *     `rebuilt` frames over /plugins/events SSE, so the running web UI swaps
  *     the affected plugin fiber in place — no app restart, no page reload.
@@ -44,21 +44,21 @@ if (!existsSync(runtimeCli)) {
 
 /** [dist-relative source, runtime package dist target] pairs, mirroring stage-dsh. */
 const SYNC_PAIRS = [
-  ['dist/client.js', '@oh-dsh/desktop/dist/client.js'],
-  ['dist/client.js.map', '@oh-dsh/desktop/dist/client.js.map'],
-  ['dist/plugin.js', '@oh-dsh/desktop/dist/plugin.js'],
-  ['dist/cordis.patch.yml', '@oh-dsh/desktop/dist/cordis.patch.yml'],
+  ['dist/client.js', '@dsh-studio/desktop/dist/client.js'],
+  ['dist/client.js.map', '@dsh-studio/desktop/dist/client.js.map'],
+  ['dist/plugin.js', '@dsh-studio/desktop/dist/plugin.js'],
+  ['dist/cordis.patch.yml', '@dsh-studio/desktop/dist/cordis.patch.yml'],
   ...['sidebar-host', 'desktop-skins', 'sidebar', 'desktop-left-rail', 'panel-controls',
     'pinned-summary', 'plugin-marketplace', 'sidebar-desktop'].flatMap(directory => [
-    [`plugins/${directory}/package.json`, `@oh-dsh/${directory}/package.json`],
-    [`dist/plugins/${directory}/index.js`, `@oh-dsh/${directory}/dist/index.js`],
-    [`dist/plugins/${directory}/client.js`, `@oh-dsh/${directory}/dist/client.js`],
-    [`dist/plugins/${directory}/client.js.map`, `@oh-dsh/${directory}/dist/client.js.map`],
+    [`plugins/${directory}/package.json`, `@dsh-studio/${directory}/package.json`],
+    [`dist/plugins/${directory}/index.js`, `@dsh-studio/${directory}/dist/index.js`],
+    [`dist/plugins/${directory}/client.js`, `@dsh-studio/${directory}/dist/client.js`],
+    [`dist/plugins/${directory}/client.js.map`, `@dsh-studio/${directory}/dist/client.js.map`],
   ]),
-  ['dist/plugins/sidebar-host/client-mermaid.js', '@oh-dsh/sidebar-host/dist/client-mermaid.js'],
-  ['dist/plugins/sidebar-host/client-mermaid.js.map', '@oh-dsh/sidebar-host/dist/client-mermaid.js.map'],
-  ['dist/plugins/sidebar-host/client-pierre-worker.js', '@oh-dsh/sidebar-host/dist/client-pierre-worker.js'],
-  ['dist/plugins/sidebar-host/client-pierre-worker.js.map', '@oh-dsh/sidebar-host/dist/client-pierre-worker.js.map'],
+  ['dist/plugins/sidebar-host/client-mermaid.js', '@dsh-studio/sidebar-host/dist/client-mermaid.js'],
+  ['dist/plugins/sidebar-host/client-mermaid.js.map', '@dsh-studio/sidebar-host/dist/client-mermaid.js.map'],
+  ['dist/plugins/sidebar-host/client-pierre-worker.js', '@dsh-studio/sidebar-host/dist/client-pierre-worker.js'],
+  ['dist/plugins/sidebar-host/client-pierre-worker.js.map', '@dsh-studio/sidebar-host/dist/client-pierre-worker.js.map'],
 ]
 
 let syncedCount = 0
@@ -141,15 +141,15 @@ let restartTimer = undefined
 function startElectron() {
   if (electron !== undefined) return
   // Optional extra Chromium args, e.g.
-  //   OH_DSH_ELECTRON_ARGS='--remote-debugging-port=9222' pnpm run dev
+  //   DSH_STUDIO_ELECTRON_ARGS='--remote-debugging-port=9222' pnpm run dev
   // for CDP-based inspection (chrome-use / DevTools).
-  const extraArgs = (process.env.OH_DSH_ELECTRON_ARGS ?? '').split(' ').filter(Boolean)
+  const extraArgs = (process.env.DSH_STUDIO_ELECTRON_ARGS ?? '').split(' ').filter(Boolean)
   log(`starting electron . (${electronBinary})${extraArgs.length > 0 ? ` args=${extraArgs.join(' ')}` : ''}`)
   electron = spawn(electronBinary, ['.', ...extraArgs], {
     cwd: root,
     env: {
       ...process.env,
-      OH_DSH_CHANNEL: process.env.OH_DSH_CHANNEL || 'dev',
+      DSH_STUDIO_CHANNEL: process.env.DSH_STUDIO_CHANNEL || 'dev',
     },
     stdio: 'inherit',
   })

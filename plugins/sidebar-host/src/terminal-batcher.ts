@@ -13,12 +13,12 @@ import { randomUUID } from 'node:crypto'
 import type {
   TerminalOutputAck,
   TerminalOutputFrame,
-} from '@oh-dsh/shared/terminal-wire'
+} from '@dsh-studio/shared/terminal-wire'
 import {
   DESKTOP_TERMINAL_SCROLLBACK_ROWS_DEFAULT,
   terminalOutputBacklogCapChars,
-} from '@oh-dsh/shared/terminal-scrollback-policy'
-export type { TerminalOutputAck, TerminalOutputFrame } from '@oh-dsh/shared/terminal-wire'
+} from '@dsh-studio/shared/terminal-scrollback-policy'
+export type { TerminalOutputAck, TerminalOutputFrame } from '@dsh-studio/shared/terminal-wire'
 
 export const DEFAULT_BATCH_INTERVAL_MS = 16
 export const DEFAULT_BATCH_SIZE_LIMIT = 131_072 // 128 KB

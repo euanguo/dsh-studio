@@ -1,11 +1,11 @@
 /**
  * Packed-artifact mount smoke (CI gate): `pnpm pack` the workspace, install
  * the TARBALL into a scratch desktop profile (`dsh plugin add <tarball>`),
- * boot the staged DSH runtime whose node_modules carries every @oh-dsh
+ * boot the staged DSH runtime whose node_modules carries every @dsh-studio
  * package EXCEPT the packed one (the profile install is the only source of
- * `@oh-dsh/desktop`), then assert — on the SERVED page, not the local tree:
+ * `@dsh-studio/desktop`), then assert — on the SERVED page, not the local tree:
  *
- *   1. the client boot graph enrolls every Oh-DSH bundle and the enrolled
+ *   1. the client boot graph enrolls every DSH Studio bundle and the enrolled
  *      inject list matches the PACKED manifest (read from the profile
  *      install, i.e. the tarball content);
  *   2. each client bundle serves and enrolls its module id, and the
@@ -44,7 +44,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const resources = resolve(process.argv[2] ?? join(root, '.stage'))
 const paths = bundledRuntimePaths(resources)
 const { cliEntry, nodeBinary } = paths
-const smokeRoot = mkdtempSync(join(tmpdir(), 'oh-dsh-pack-smoke-'))
+const smokeRoot = mkdtempSync(join(tmpdir(), 'dsh-studio-pack-smoke-'))
 const dshHome = join(smokeRoot, 'dsh-home')
 const lines = []
 
@@ -93,7 +93,7 @@ try {
     return path
   })()
 
-  // 2. Copy the staged runtime, dropping @oh-dsh/desktop: the profile's
+  // 2. Copy the staged runtime, dropping @dsh-studio/desktop: the profile's
   //    tarball install becomes its ONLY source (a hard-link copy keeps the
   //    691MB tree cheap on POSIX; fs.cpSync is the portable fallback). The
   //    staged runtime tree lives at `resources/dsh-runtime`.
@@ -109,21 +109,21 @@ try {
     existsSync(join(runtimeTree, 'lib', 'bin.js')),
     `staged runtime copy is missing the CLI at ${join(runtimeTree, 'lib', 'bin.js')}`,
   )
-  rmSync(join(runtimeTree, 'node_modules', '@oh-dsh', 'desktop'), {
+  rmSync(join(runtimeTree, 'node_modules', '@dsh-studio', 'desktop'), {
     force: true,
     recursive: true,
   })
 
-  // 3. Ensure the desktop profile (the full Oh-DSH bundle set — the CLI's
+  // 3. Ensure the desktop profile (the full DSH Studio bundle set — the CLI's
   //    stock init omits dsh-web-app, which provides webServer) and install
   //    the PACKED tarball into it.
   ensureDesktopProfile(dshHome)
   const runtimeEnvironment = {
     ...process.env,
-    DSH_DESKTOP: '1',
-    DSH_DESKTOP_APP_DATA: smokeRoot,
-    DSH_DESKTOP_PROFILE: 'desktop',
-    DSH_DESKTOP_VERSION: 'smoke',
+    DSH_STUDIO_DESKTOP: '1',
+    DSH_STUDIO_DESKTOP_APP_DATA: smokeRoot,
+    DSH_STUDIO_DESKTOP_PROFILE: 'desktop',
+    DSH_STUDIO_DESKTOP_VERSION: 'smoke',
     DSH_HOME: dshHome,
     PATH: runtimeSearchPath(paths),
   }
@@ -140,8 +140,8 @@ try {
     'utf8',
   ))
   assert.ok(
-    profileManifest.dsh.profile.bundles.includes('@oh-dsh/desktop'),
-    'desktop profile bundles do not include @oh-dsh/desktop',
+    profileManifest.dsh.profile.bundles.includes('@dsh-studio/desktop'),
+    'desktop profile bundles do not include @dsh-studio/desktop',
   )
   // The profile install IS the tarball: its manifest is the packed artifact.
   const packedManifest = JSON.parse(readFileSync(join(
@@ -149,11 +149,11 @@ try {
     'profiles',
     'desktop',
     'node_modules',
-    '@oh-dsh',
+    '@dsh-studio',
     'desktop',
     'package.json',
   ), 'utf8'))
-  assert.equal(packedManifest.name, '@oh-dsh/desktop')
+  assert.equal(packedManifest.name, '@dsh-studio/desktop')
 
   // 4. Boot the desktop profile against the runtime COPY (its CLI; the
   //    node binary from the original stage is fine — not under test).
@@ -202,18 +202,18 @@ try {
     const bootEntries = parseBootEntries(index)
 
     // 5. The packed bundle enrolls its browser entries, and the enrolled
-    //    inject list matches its manifest — for @oh-dsh/desktop that is the
+    //    inject list matches its manifest — for @dsh-studio/desktop that is the
     //    PACKED manifest (the profile install is the tarball), for the
     //    peer bundles the runtime copy they resolved from.
     for (const pluginId of [
-      '@oh-dsh/desktop',
-      '@oh-dsh/sidebar',
-      '@oh-dsh/sidebar-desktop',
-      '@oh-dsh/panel-controls',
+      '@dsh-studio/desktop',
+      '@dsh-studio/sidebar',
+      '@dsh-studio/sidebar-desktop',
+      '@dsh-studio/panel-controls',
     ]) {
       const row = bootEntries.find(entry => entry.id === pluginId)
       assert.ok(row, `${pluginId} Host entry did not activate in the DSH client graph`)
-      const manifestRoot = pluginId === '@oh-dsh/desktop'
+      const manifestRoot = pluginId === '@dsh-studio/desktop'
         ? join(dshHome, 'profiles', 'desktop', 'node_modules')
         : join(runtimeTree, 'node_modules')
       const manifest = JSON.parse(readFileSync(join(
@@ -232,7 +232,7 @@ try {
     // 6. The mounted sidebar bundle carries the migrated built-ins (the
     //    "built-in tabs mount" granularity: their registrations compiled
     //    into the served bundle).
-    const sidebarRow = bootEntries.find(entry => entry.id === '@oh-dsh/sidebar')
+    const sidebarRow = bootEntries.find(entry => entry.id === '@dsh-studio/sidebar')
     assert.ok(sidebarRow, 'sidebar row missing from the boot graph')
     const sidebarBundle = await (await fetch(new URL(sidebarRow.url, base))).text()
     for (const marker of ['bottom-workbench', 'subagent', 'tab-strip-wheel', 'selection-insert']) {

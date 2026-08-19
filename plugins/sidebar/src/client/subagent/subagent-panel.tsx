@@ -23,7 +23,7 @@ import {
 } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { sidebarApi } from '../sidebar-api.ts'
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type {
   SessionsService,
@@ -119,17 +119,17 @@ export function SubagentPanel({
   }
 
   return (
-    <div className="oh-dsh-subagent-panel">
-      <div className="oh-dsh-subagent-head">
+    <div className="dsh-studio-subagent-panel">
+      <div className="dsh-studio-subagent-head">
         <strong>{t('subagent.topology')}</strong>
         <Button variant="outline" size="sm" onClick={refresh} disabled={current === undefined}>
           {t('subagent.refresh')}
         </Button>
       </div>
       {!hasTopology ? (
-        <p className="oh-dsh-side-muted">{t('subagent.no-topology')}</p>
+        <p className="dsh-studio-side-muted">{t('subagent.no-topology')}</p>
       ) : (
-        <ul className="oh-dsh-subagent-tree" role="tree">
+        <ul className="dsh-studio-subagent-tree" role="tree">
           {trees.map(node => (
             <TreeNodeRow
               key={node.session.id}
@@ -145,19 +145,19 @@ export function SubagentPanel({
               entry.kind === 'child' ? (
                 <li
                   key={entry.id}
-                  className="oh-dsh-subagent-node"
+                  className="dsh-studio-subagent-node"
                   role="treeitem"
                   data-activity={entry.activity}
                 >
-                  <span className="oh-dsh-subagent-node-dot" aria-hidden="true" />
-                  <span className="oh-dsh-subagent-node-main">
+                  <span className="dsh-studio-subagent-node-dot" aria-hidden="true" />
+                  <span className="dsh-studio-subagent-node-main">
                     <strong>{entry.label ?? entry.id}</strong>
                     <code>{entry.id}</code>
                   </span>
-                  <span className="oh-dsh-subagent-node-mode">{entry.mode}</span>
+                  <span className="dsh-studio-subagent-node-mode">{entry.mode}</span>
                 </li>
               ) : (
-                <li key={entry.id} className="oh-dsh-subagent-node is-diagnostic" role="treeitem">
+                <li key={entry.id} className="dsh-studio-subagent-node is-diagnostic" role="treeitem">
                   <code>{entry.id}</code>
                   <span>{entry.reason}</span>
                 </li>
@@ -167,17 +167,17 @@ export function SubagentPanel({
         </ul>
       )}
 
-      <div className="oh-dsh-subagent-head">
+      <div className="dsh-studio-subagent-head">
         <strong>{t('subagent.jobs')}</strong>
       </div>
       {jobs.length === 0 ? (
-        <p className="oh-dsh-side-muted">{t('subagent.no-jobs')}</p>
+        <p className="dsh-studio-side-muted">{t('subagent.no-jobs')}</p>
       ) : (
-        <ul className="oh-dsh-subagent-jobs">
+        <ul className="dsh-studio-subagent-jobs">
           {jobs.map(job => (
-            <li key={job.id} className="oh-dsh-subagent-job" data-status={job.status}>
-              <div className="oh-dsh-subagent-job-main">
-                <span className="oh-dsh-subagent-job-label" title={job.label}>
+            <li key={job.id} className="dsh-studio-subagent-job" data-status={job.status}>
+              <div className="dsh-studio-subagent-job-main">
+                <span className="dsh-studio-subagent-job-label" title={job.label}>
                   {job.label}
                 </span>
                 <code>{job.id} · {job.kind}</code>
@@ -185,8 +185,8 @@ export function SubagentPanel({
                   ? <small>{job.detail}</small>
                   : null}
               </div>
-              <div className="oh-dsh-subagent-job-actions">
-                <span className="oh-dsh-subagent-job-status">{job.status}</span>
+              <div className="dsh-studio-subagent-job-actions">
+                <span className="dsh-studio-subagent-job-status">{job.status}</span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -207,7 +207,7 @@ export function SubagentPanel({
                 </Button>
               </div>
               {outputs[job.id] !== undefined && (
-                <pre className="oh-dsh-subagent-job-output">
+                <pre className="dsh-studio-subagent-job-output">
                   {outputs[job.id] === 'loading' ? t('overlay.loading') : outputs[job.id]}
                 </pre>
               )}
@@ -238,25 +238,25 @@ function TreeNodeRow({
   const label = session.displayTitle
     ?? (session.origin === 'subagent' ? session.id : mainLabel)
   return (
-    <li className="oh-dsh-subagent-node" role="treeitem" data-current={isCurrent || undefined}>
+    <li className="dsh-studio-subagent-node" role="treeitem" data-current={isCurrent || undefined}>
       <button
         type="button"
-        className="oh-dsh-subagent-node-row"
+        className="dsh-studio-subagent-node-row"
         onClick={() => { onOpen(session.id) }}
       >
         <span
-          className="oh-dsh-subagent-node-dot"
+          className="dsh-studio-subagent-node-dot"
           data-running={session.running === true || undefined}
           aria-hidden="true"
         />
-        <span className="oh-dsh-subagent-node-main">
+        <span className="dsh-studio-subagent-node-main">
           <strong>{label}</strong>
           <code>{session.id}</code>
         </span>
-        {isCurrent ? <span className="oh-dsh-subagent-node-current">{t('subagent.current')}</span> : null}
+        {isCurrent ? <span className="dsh-studio-subagent-node-current">{t('subagent.current')}</span> : null}
       </button>
       {node.children.length > 0 && (
-        <ul className="oh-dsh-subagent-tree" role="group">
+        <ul className="dsh-studio-subagent-tree" role="group">
           {node.children.map(child => (
             <TreeNodeRow
               key={child.session.id}

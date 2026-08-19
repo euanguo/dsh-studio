@@ -4,7 +4,7 @@
  * these as optional — `window.dshDesktop` is undefined outside the desktop —
  * so every member must be optional-chained at the call site.
  *
- * Kept in @oh-dsh/shared so plugins can reference the contracts without
+ * Kept in @dsh-studio/shared so plugins can reference the contracts without
  * importing the desktop app's `src/` (which would couple a distributable
  * plugin to this repository's root).
  */

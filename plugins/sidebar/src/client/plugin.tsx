@@ -14,10 +14,10 @@
  *   - contract.ts               — the public registry protocol
  */
 import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
-import type { DesktopPanels } from '@oh-dsh/panel-controls/client'
-import type { PinnedSummary } from '@oh-dsh/pinned-summary/client'
-import type { LocaleService, Translate } from '@oh-dsh/shared/i18n'
-import { isUnderRoot } from '@oh-dsh/shared/path'
+import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
+import type { PinnedSummary } from '@dsh-studio/pinned-summary/client'
+import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
+import { isUnderRoot } from '@dsh-studio/shared/path'
 import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
 import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'
 import { CenterSurfaceHost } from './surfaces/center-surface-host.tsx'
@@ -40,7 +40,7 @@ import type {
 } from './client-types.ts'
 import { registerBuiltins } from './builtins/index.ts'
 import { TerminalTabContent } from './terminal-tab.tsx'
-import { disposeAllTerminalRuntimeOwners } from '@oh-dsh/shared/terminal-runtime-owner'
+import { disposeAllTerminalRuntimeOwners } from '@dsh-studio/shared/terminal-runtime-owner'
 import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
 import { disposeSidebarRuntimes } from './runtimes/registry.ts'
 import { acquireOpenPathPatch, isLinkProtocolIntercepted, registerLinkHandler, registerLinkInterception, registerOpenPathHandler, releaseOpenPathPatch } from './intercept.ts'
@@ -79,10 +79,10 @@ function pathBelongsToActiveWorkspace(
 export function apply(ctx: ClientContext): void {
   const locale = ctx.get('locale') as LocaleService
   const slots = ctx.get('slots') as SlotsService
-  const t: Translate<WorkspaceMessage> = locale.bind('oh-dsh.sidebar')
+  const t: Translate<WorkspaceMessage> = locale.bind('dsh-studio.sidebar')
   ctx.effect(
-    () => locale.register('oh-dsh.sidebar', WORKSPACE_MESSAGES),
-    'oh-dsh-desktop: workspace tools dictionaries',
+    () => locale.register('dsh-studio.sidebar', WORKSPACE_MESSAGES),
+    'dsh-studio: workspace tools dictionaries',
   )
   const panels = ctx.get('desktopPanels') as DesktopPanels
   const pinnedSummary = ctx.get('pinnedSummary') as PinnedSummary
@@ -289,10 +289,10 @@ export function apply(ctx: ClientContext): void {
       void removeSidebar?.()
       void removeService?.()
     }
-  }, 'oh-dsh-desktop: workspace tools')
+  }, 'dsh-studio: workspace tools')
 
   slots.inject('settings.section', () => slots.register({
-    id: 'oh-dsh-sidebar',
+    id: 'dsh-studio-sidebar',
     inject: actions => {
       settingsActions = actions
       syncSidebarSettings(settingsActions, desktopSidebar.getSnapshot())
@@ -326,7 +326,7 @@ export function apply(ctx: ClientContext): void {
       }
     },
     label: () => t('settings.title'),
-    locale: 'oh-dsh.sidebar',
+    locale: 'dsh-studio.sidebar',
     name: 'settings.section',
     order: 40,
     store: settingsStore,

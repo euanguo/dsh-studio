@@ -58,7 +58,7 @@ export function FilenameLabel({ name, title, className }: FilenameLabelProps): J
 
   return (
     <ListRowLabel className={className} title={title ?? name}>
-      <span ref={setHost} className="oh-dsh-filename-label-text">
+      <span ref={setHost} className="dsh-studio-filename-label-text">
         {displayed}
       </span>
     </ListRowLabel>

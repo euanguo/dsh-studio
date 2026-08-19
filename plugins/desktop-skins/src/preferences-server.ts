@@ -15,7 +15,7 @@ import {
   parseSkinPreferences,
   type DesktopSkinPreferences,
 } from './preferences.ts'
-import type { OhDshSurface } from '@oh-dsh/shared/surface'
+import type { DshStudioSurface } from '@dsh-studio/shared/surface'
 
 export interface DesktopSkinPreferencesHostContext {
   webServer: {
@@ -94,7 +94,7 @@ export async function saveSkinPreferences(
 
 export function mountDesktopSkinPreferences(
   ctx: DesktopSkinPreferencesHostContext,
-  surface: OhDshSurface,
+  surface: DshStudioSurface,
 ): () => void {
   if (surface.dataRoot.length === 0) {
     throw new Error('desktop-skins: surface data root is unavailable')

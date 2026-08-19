@@ -7,7 +7,7 @@ import type {
   DesktopUpdateState,
 } from './contracts.ts'
 
-const OFFICIAL_REPOSITORY = 'hust-open-atom-club/oh-dsh'
+const OFFICIAL_REPOSITORY = 'euanguo/oh-dsh-app'
 const OFFICIAL_RELEASE_BASE = `https://github.com/${OFFICIAL_REPOSITORY}/releases/tag/`
 
 export interface UpdateEventSource {

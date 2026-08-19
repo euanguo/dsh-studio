@@ -5,7 +5,7 @@
  * the last registration per id — surfaces register while mounted, so the
  * ACTIVE surface's actions win naturally and unmounting a surface releases
  * its shortcuts. Bindings can be overridden per-action through
- * localStorage (`oh-dsh-desktop.keymap.v1`) for the future rebinding UI.
+ * localStorage (`dsh-studio.keymap.v1`) for the future rebinding UI.
  */
 
 export interface KeyBinding {
@@ -120,7 +120,7 @@ export function eventMatchesBinding(
     : event.key === value.key
 }
 
-const STORAGE_KEY = 'oh-dsh-desktop.keymap.v1'
+const STORAGE_KEY = 'dsh-studio.keymap.v1'
 
 /** Per-action binding overrides (`{ [actionId]: 'Mod+Shift+V' }`). */
 export function readKeymapOverrides(): Record<string, string> {

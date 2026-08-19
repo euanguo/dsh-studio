@@ -553,8 +553,8 @@ export function disposeTerminalRuntimeOwner(sessionId: string, tabId: string): v
 }
 
 ;(globalThis as typeof globalThis & {
-  __ohDshTerminalRuntimeOwner?: { dispose(sessionId: string, tabId: string): void }
-}).__ohDshTerminalRuntimeOwner = { dispose: disposeTerminalRuntimeOwner }
+  __dshStudioTerminalRuntimeOwner?: { dispose(sessionId: string, tabId: string): void }
+}).__dshStudioTerminalRuntimeOwner = { dispose: disposeTerminalRuntimeOwner }
 
 export function disposeAllTerminalRuntimeOwners(): void {
   for (const [key, owner] of [...owners]) {

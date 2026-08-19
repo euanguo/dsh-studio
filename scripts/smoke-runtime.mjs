@@ -24,7 +24,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const resources = resolve(process.argv[2] ?? join(root, '.stage'))
 const paths = bundledRuntimePaths(resources)
 const { cliEntry, nodeBinary } = paths
-const smokeRoot = mkdtempSync(join(tmpdir(), 'oh-dsh-desktop-smoke-'))
+const smokeRoot = mkdtempSync(join(tmpdir(), 'dsh-studio-smoke-'))
 const dshHome = join(smokeRoot, 'dsh-home')
 const lines = []
 
@@ -44,10 +44,10 @@ ensureDesktopProfile(dshHome)
 
 const runtimeEnvironment = {
   ...process.env,
-  DSH_DESKTOP: '1',
-  DSH_DESKTOP_APP_DATA: smokeRoot,
-  DSH_DESKTOP_PROFILE: 'desktop',
-  DSH_DESKTOP_VERSION: 'smoke',
+  DSH_STUDIO_DESKTOP: '1',
+  DSH_STUDIO_DESKTOP_APP_DATA: smokeRoot,
+  DSH_STUDIO_DESKTOP_PROFILE: 'desktop',
+  DSH_STUDIO_DESKTOP_VERSION: 'smoke',
   DSH_HOME: dshHome,
   PATH: runtimeSearchPath(paths),
 }
@@ -92,7 +92,7 @@ const git = (...args) => {
 }
 git('init', '-b', 'main')
 git('config', 'user.name', 'Oh DSH Smoke')
-git('config', 'user.email', 'oh-dsh-smoke@example.test')
+git('config', 'user.email', 'dsh-studio-smoke@example.test')
 writeFileSync(join(smokeRoot, 'review-smoke.txt'), 'before\n')
 git('add', 'review-smoke.txt')
 git('commit', '-m', 'review smoke baseline')
@@ -203,7 +203,7 @@ try {
   for (const legacyPackage of [
     'dsh-web-terminal',
     '@dsh-external/dsh-web-panel',
-    '@oh-dsh/desktop-shell',
+    '@dsh-studio/desktop-shell',
   ]) {
     assert.equal(
       existsSync(join(resources, 'dsh-runtime', 'node_modules', ...legacyPackage.split('/'))),
@@ -271,11 +271,11 @@ try {
     }
     socket.addEventListener('open', () => {
       socket.send(JSON.stringify({ type: 'resize', cols: 80, rows: 24 }))
-      socket.send("printf 'OH_DSH_TERMINAL_SMOKE\\n'; exit\r")
+      socket.send("printf 'DSH_STUDIO_TERMINAL_SMOKE\\n'; exit\r")
     })
     socket.addEventListener('message', (event) => {
       output += String(event.data)
-      if (output.includes('OH_DSH_TERMINAL_SMOKE')) {
+      if (output.includes('DSH_STUDIO_TERMINAL_SMOKE')) {
         socket.send(JSON.stringify({ type: 'close' }))
         finish()
       }
@@ -286,9 +286,9 @@ try {
     })
   })
 
-  console.log(`Oh-DSH Desktop profile ready on DSH ${dshVersion}: ${base.href}`)
+  console.log(`DSH Studio profile ready on DSH ${dshVersion}: ${base.href}`)
   process.stdout.write(client.stdout)
-  console.log('Plugin compatible: @oh-dsh/desktop (bundle profile active)')
+  console.log('Plugin compatible: @dsh-studio/desktop (bundle profile active)')
   for (const plugin of loaded) {
     console.log(
       `Plugin compatible: ${plugin.id} (Host active, Client ${String(plugin.bytes)} bytes)`,

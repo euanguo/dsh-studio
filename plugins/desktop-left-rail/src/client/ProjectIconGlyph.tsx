@@ -8,7 +8,7 @@ import {
   IconList,
   IconTerminal,
   IconWorld,
-} from '@oh-dsh/shared/tabler-icons'
+} from '@dsh-studio/shared/tabler-icons'
 import type { ProjectIconNode } from './tree.ts'
 
 const BUILTIN_ICONS = {

@@ -7,7 +7,7 @@ set -eu
 root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 python3 "$root/scripts/generate-icon-assets.py"
 source_png="$root/assets/icons/1024x1024.png"
-target="$root/assets/Oh-DSH-Desktop.icns"
+target="$root/assets/DSH Studio.icns"
 work=$(mktemp -d /tmp/dsh-desktop-icon.XXXXXX)
 trap 'rm -rf "$work"' EXIT HUP INT TERM
 
@@ -16,7 +16,7 @@ if [ ! -f "$source_png" ]; then
   exit 1
 fi
 
-iconset="$work/Oh-DSH-Desktop.iconset"
+iconset="$work/DSH Studio.iconset"
 mkdir -p "$iconset"
 for spec in \
   '16 icon_16x16.png' \

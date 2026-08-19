@@ -30,7 +30,7 @@ export interface ScrollableProps extends HTMLAttributes<HTMLDivElement> {
    * Fade direction. `none` (default) renders no overlay at all so the
    * block matches an ordinary scroller. `bottom` / `top` paint a lenient
    * gradient at that edge; pass `fadeColor` (or set
-   * `--oh-dsh-scrollable-fade-color` on a parent) to theme it.
+   * `--dsh-studio-scrollable-fade-color` on a parent) to theme it.
    */
   fade?: 'none' | 'bottom' | 'top'
   /** Fade overlay colour (CSS colour). Defaults to the base surface. */
@@ -51,18 +51,18 @@ export const Scrollable = forwardRef<HTMLDivElement, ScrollableProps>(function S
   ref,
 ): JSX.Element {
   const fadeClass = fade === 'none' ? null : (
-    fade === 'bottom' ? 'oh-dsh-scrollable-fade oh-dsh-scrollable-fade-bottom'
-      : 'oh-dsh-scrollable-fade oh-dsh-scrollable-fade-top'
+    fade === 'bottom' ? 'dsh-studio-scrollable-fade dsh-studio-scrollable-fade-bottom'
+      : 'dsh-studio-scrollable-fade dsh-studio-scrollable-fade-top'
   )
   const fadeStyle: CSSProperties | undefined =
     fadeClass !== null && fadeColor !== undefined
-      ? ({ '--oh-dsh-scrollable-fade-color': fadeColor } as CSSProperties)
+      ? ({ '--dsh-studio-scrollable-fade-color': fadeColor } as CSSProperties)
       : undefined
-  const axisClass = axis === 'both' ? 'oh-dsh-scrollable oh-dsh-scrollable-xy' : 'oh-dsh-scrollable'
+  const axisClass = axis === 'both' ? 'dsh-studio-scrollable dsh-studio-scrollable-xy' : 'dsh-studio-scrollable'
   return (
     <div
       ref={ref}
-      data-slot="oh-dsh-scrollable"
+      data-slot="dsh-studio-scrollable"
       data-axis={axis}
       className={className === undefined ? axisClass : `${axisClass} ${className}`}
       style={style}

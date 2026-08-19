@@ -7,19 +7,19 @@
  * those state-driven rules. This module only publishes the two raw
  * chrome facts the renderer cannot know on its own:
  *
- * - `--oh-dsh-traffic-left`: the macOS content start next to the traffic
+ * - `--dsh-studio-traffic-left`: the macOS content start next to the traffic
  *   lights = anchor x + exact cluster width (3×12px buttons, 8px gaps —
  *   Apple HIG, deterministic from our own trafficLightPosition) +
  *   breathing gap. Set once from the main process; 0 on platforms
  *   without left-side system controls (the caption lives top-right).
- * - `--oh-dsh-traffic-right`: the live Window Controls Overlay control
+ * - `--dsh-studio-traffic-right`: the live Window Controls Overlay control
  *   region on Windows (window width minus the overlay rect's right edge
  *   — the rect is the SAFE content area), following `geometrychange`
  *   while the window moves/resizes. 0 on macOS.
  *
  * Outside the desktop both variables keep their CSS fallbacks.
  */
-import type { ChromeGeometry } from '@oh-dsh/shared/desktop-contracts'
+import type { ChromeGeometry } from '@dsh-studio/shared/desktop-contracts'
 
 /** The WCO surface as Chromium exposes it on Electron 42 (macOS returns an
  *  empty rect and visible=false — only Windows/Linux report the overlay). */
@@ -55,7 +55,7 @@ export function applyChromeGeometry(): () => void {
       const contentStart = geometry.trafficLight === null
         ? 0
         : geometry.trafficLight.x + geometry.trafficLightWidth + TRAFFIC_LIGHT_GAP
-      setVar('--oh-dsh-traffic-left', `${contentStart}px`)
+      setVar('--dsh-studio-traffic-left', `${contentStart}px`)
     }).catch(() => {
       // Keep the CSS fallbacks.
     })
@@ -70,7 +70,7 @@ export function applyChromeGeometry(): () => void {
     if (wco === undefined || typeof wco.getTitlebarAreaRect !== 'function') return
     const rect = wco.getTitlebarAreaRect!()
     if (rect !== undefined && rect !== null && rect.width > 0) {
-      setVar('--oh-dsh-traffic-right', `${String(Math.max(0, window.innerWidth - (rect.x + rect.width)))}px`)
+      setVar('--dsh-studio-traffic-right', `${String(Math.max(0, window.innerWidth - (rect.x + rect.width)))}px`)
     }
   }
   syncRight()

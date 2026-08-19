@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/sidebar-desktop",
+  "name": "@dsh-studio/sidebar-desktop",
   "version": "0.1.2",
-  "description": "Desktop add-on for the Oh-DSH sidebar: Electron webview browser",
+  "description": "Desktop add-on for the DSH Studio sidebar: Electron webview browser",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -14,7 +14,7 @@
     "client": {
       "inject": [
         "@deepseek-ai/dsh-client-runtime",
-        "@oh-dsh/sidebar"
+        "@dsh-studio/sidebar"
       ],
       "platform": "web",
       "immediately": true
@@ -32,7 +32,7 @@
     "react-dom": "^18.2.0"
   },
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*",
-    "@oh-dsh/sidebar": "workspace:*"
+    "@dsh-studio/shared": "workspace:*",
+    "@dsh-studio/sidebar": "workspace:*"
   }
 }

@@ -5,7 +5,7 @@
  * registerTab. The browser kind is deliberately NOT here: it is Electron-
  * bound and registers from the desktop enhancement plugin.
  */
-import type { Translate } from '@oh-dsh/shared/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { DesktopSidebarService } from '../contract.ts'
 import type { CenterSurface } from '../surfaces/types.ts'

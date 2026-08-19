@@ -1,7 +1,7 @@
 {
-  "name": "@oh-dsh/sidebar-host",
+  "name": "@dsh-studio/sidebar-host",
   "version": "0.1.2",
-  "description": "Host-only Better Sidebar capability provider for Oh-DSH-Desktop",
+  "description": "Host-only Better Sidebar capability provider for DSH Studio",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -13,13 +13,13 @@
     "dist/index.js"
   ],
   "dependencies": {
-    "@oh-dsh/shared": "workspace:*",
+    "@dsh-studio/shared": "workspace:*",
     "@xterm/headless": "6.1.0-beta.301",
     "node-pty": "1.1.0",
     "schemastery": "^3.18.0",
     "ws": "8.21.2"
   },
-  "ohDsh": {
+  "dshStudio": {
     "hostDependencies": [
       "@deepseek-ai/dsh-settings",
       "@deepseek-ai/dsh-tools",

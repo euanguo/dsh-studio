@@ -5,10 +5,10 @@ import {
   IconRefreshOutline16,
   Input,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { Translate } from '@oh-dsh/shared/i18n'
-import type { SidebarRenderProps } from '@oh-dsh/sidebar/client/contract'
-import type { BrowserCenterSurface } from '@oh-dsh/sidebar/client/surfaces-types'
-import type { WorkspaceMessage } from '@oh-dsh/sidebar/client/i18n'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import type { SidebarRenderProps } from '@dsh-studio/sidebar/client/contract'
+import type { BrowserCenterSurface } from '@dsh-studio/sidebar/client/surfaces-types'
+import type { WorkspaceMessage } from '@dsh-studio/sidebar/client/i18n'
 import {
   getLiveBrowserUrl,
   rememberLiveBrowserUrl,
@@ -60,8 +60,8 @@ export function BrowserView({
     const host = container.current
     if (host === null) return
     const element = document.createElement('webview') as unknown as ElectronWebviewElement
-    element.className = 'oh-dsh-browser-webview'
-    element.setAttribute('partition', 'persist:oh-dsh-browser')
+    element.className = 'dsh-studio-browser-webview'
+    element.setAttribute('partition', 'persist:dsh-studio-browser')
     element.setAttribute('src', tab.resource ?? getLiveBrowserUrl(tab.id) ?? 'about:blank')
     const update = (event: Event): void => {
       const next = 'url' in event && typeof event.url === 'string'
@@ -119,9 +119,9 @@ export function BrowserView({
   }
 
   return (
-    <div className="oh-dsh-browser-view">
+    <div className="dsh-studio-browser-view">
       <form
-        className="oh-dsh-browser-bar"
+        className="dsh-studio-browser-bar"
         onSubmit={event => { event.preventDefault(); void navigate() }}
       >
         <Button
@@ -149,8 +149,8 @@ export function BrowserView({
         />
         <Button type="submit" variant="primary" size="sm">{t('browser.go')}</Button>
       </form>
-      {error !== '' && <div className="oh-dsh-browser-error" role="alert">{error}</div>}
-      <div ref={container} className="oh-dsh-browser-host" />
+      {error !== '' && <div className="dsh-studio-browser-error" role="alert">{error}</div>}
+      <div ref={container} className="dsh-studio-browser-host" />
     </div>
   )
 }
@@ -177,8 +177,8 @@ export function BrowserSurfaceView({
     const host = container.current
     if (host === null) return
     const element = document.createElement('webview') as unknown as ElectronWebviewElement
-    element.className = 'oh-dsh-browser-webview'
-    element.setAttribute('partition', 'persist:oh-dsh-browser')
+    element.className = 'dsh-studio-browser-webview'
+    element.setAttribute('partition', 'persist:dsh-studio-browser')
     element.setAttribute('src', surface.resource ?? getLiveBrowserUrl(surface.id) ?? 'about:blank')
     const update = (event: Event): void => {
       const next = 'url' in event && typeof event.url === 'string'
@@ -234,9 +234,9 @@ export function BrowserSurfaceView({
   }
 
   return (
-    <div className="oh-dsh-browser-view">
+    <div className="dsh-studio-browser-view">
       <form
-        className="oh-dsh-browser-bar"
+        className="dsh-studio-browser-bar"
         onSubmit={event => { event.preventDefault(); void navigate() }}
       >
         <Button
@@ -264,8 +264,8 @@ export function BrowserSurfaceView({
         />
         <Button type="submit" variant="primary" size="sm">{t('browser.go')}</Button>
       </form>
-      {error !== '' && <div className="oh-dsh-browser-error" role="alert">{error}</div>}
-      <div ref={container} className="oh-dsh-browser-host" />
+      {error !== '' && <div className="dsh-studio-browser-error" role="alert">{error}</div>}
+      <div ref={container} className="dsh-studio-browser-host" />
     </div>
   )
 }

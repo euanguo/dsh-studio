@@ -10,7 +10,7 @@
  *
  * Porting notes (differences from the reference):
  * - No `transport.ts` re-export (plugin has its own wire layer).
- * - Style follows the Oh-DSH shared packages (2-space, single quotes, no
+ * - Style follows the DSH Studio shared packages (2-space, single quotes, no
  *   semicolons, explicit `.ts` import extensions).
  */
 

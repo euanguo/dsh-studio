@@ -1,8 +1,8 @@
-# Oh-DSH-Desktop 插件开发文档
+# DSH Studio 插件开发文档
 
-> 本文档讲解 Oh-DSH-Desktop 的插件体系：DSH（DeepSeek Harness）的 Cordis
+> 本文档讲解 DSH Studio 的插件体系：DSH（DeepSeek Harness）的 Cordis
 > 插件模型、桌面 bundle 的挂载方式、内置插件职责，以及内置皮肤插件
-> `@oh-dsh/desktop-skins` 的完整机制与「如何新增一套皮肤」的分步指南。
+> `@dsh-studio/desktop-skins` 的完整机制与「如何新增一套皮肤」的分步指南。
 >
 > 适用版本：`0.1.2`（DSH `0.0.1-rc.2`，Electron 42）。
 
@@ -10,7 +10,7 @@
 
 ## 1. 插件模型总览
 
-Oh-DSH-Desktop 不是一个独立前端，它把固定版本的 DSH runtime、Node.js、
+DSH Studio 不是一个独立前端，它把固定版本的 DSH runtime、Node.js、
 Electron 和本地能力打包进一个 macOS 应用。UI 仍是 DSH 官方 React UI，
 桌面能力以 **Cordis 插件** 的形式挂载进去。
 
@@ -20,15 +20,15 @@ Electron 和本地能力打包进一个 macOS 应用。UI 仍是 DSH 官方 Reac
 DSH 官方 Profile + Loader（cordis.yml 插件树）
         │
         ▼
-Oh-DSH bundle layer（cordis.patch.yml，patch 进官方插件树）
+DSH Studio bundle layer（cordis.patch.yml，patch 进官方插件树）
   │
   ▼
-桌面插件（plugins/ 下的 @oh-dsh/* 包，Host/Client 双端）
+桌面插件（plugins/ 下的 @dsh-studio/* 包，Host/Client 双端）
 ```
 
 - **官方层**：DSH 的 `dsh-base`、`dsh-web-app` 等官方插件，负责 agent loop、
   Web runtime、settings、locale、ThemeService 等核心契约。
-- **bundle layer**：`cordis.patch.yml` 是 Oh-DSH-Desktop 的 bundle patch，
+- **bundle layer**：`cordis.patch.yml` 是 DSH Studio 的 bundle patch，
   在随机 loopback 端口启动 Web runtime 后插入桌面插件；服务依赖由各插件
   的 `inject` 和 `dsh.client.inject` 声明。
 - **桌面插件层**：`plugins/` 下每个包是一个独立的 Cordis 插件。
@@ -54,19 +54,19 @@ Oh-DSH bundle layer（cordis.patch.yml，patch 进官方插件树）
 # insert 块把桌面插件插入官方插件树
 - insert:
     - id: oh-desktop
-      name: '@oh-dsh/desktop'
+      name: '@dsh-studio/desktop'
     - id: oh-better-sidebar-runtime
-      name: '@oh-dsh/better-sidebar-runtime'
+      name: '@dsh-studio/better-sidebar-runtime'
     - id: oh-desktop-skins
-      name: '@oh-dsh/desktop-skins'
+      name: '@dsh-studio/desktop-skins'
     - id: oh-desktop-sidebar
-      name: '@oh-dsh/desktop-sidebar'
+      name: '@dsh-studio/desktop-sidebar'
     - id: oh-panel-controls
-      name: '@oh-dsh/panel-controls'
+      name: '@dsh-studio/panel-controls'
     - id: oh-pinned-summary
-      name: '@oh-dsh/pinned-summary'
+      name: '@dsh-studio/pinned-summary'
     - id: oh-plugin-marketplace
-      name: '@oh-dsh/plugin-marketplace'
+      name: '@dsh-studio/plugin-marketplace'
 ```
 
 要点：
@@ -141,13 +141,13 @@ export function apply(ctx: HostContext): void {
 
 | 插件 | 目录 | 来源 | 职责 |
 | --- | --- | --- | --- |
-| `@oh-dsh/desktop` | `src/` | 自研 | 统一桌面入口：window、菜单、Electron bridge、Agent 能力与插件注册顺序 |
-| `@oh-dsh/better-sidebar-runtime` | `plugins/better-sidebar-runtime/` | 仓库内 vendor 的 Better Sidebar Host（`src/`，基线 `3d88752` + 本地扩展，见 `VENDOR.md`） | PTY、Files、Git、history、commit diff 的本地能力层 |
-| `@oh-dsh/desktop-sidebar` | `plugins/desktop-sidebar/` | `DSH-better-sidebar` UI 下游 | Session tabs、viewer、Git Review、逐行评论、composer 引用 |
-| `@oh-dsh/panel-controls` | `plugins/panel-controls/` | `dsh-web-panel` 下游 | Terminal dock、可拖拽底部面板、Session 状态 |
-| `@oh-dsh/pinned-summary` | `plugins/pinned-summary/` | 自研 | 当前 Session 摘要卡片与正文 gutter 管理 |
-| `@oh-dsh/plugin-marketplace` | `plugins/plugin-marketplace/` | `plugin-registry` + `dsh-hub` 炼化 | 插件市场的隔离预览、风险确认、TOFU 来源锁、应用与恢复 |
-| `@oh-dsh/desktop-skins` | `plugins/desktop-skins/` | `dsh-skins` 下游 | 桌面皮肤：ThemeService 扩展、设置 UI、Host 持久化 |
+| `@dsh-studio/desktop` | `src/` | 自研 | 统一桌面入口：window、菜单、Electron bridge、Agent 能力与插件注册顺序 |
+| `@dsh-studio/better-sidebar-runtime` | `plugins/better-sidebar-runtime/` | 仓库内 vendor 的 Better Sidebar Host（`src/`，基线 `3d88752` + 本地扩展，见 `VENDOR.md`） | PTY、Files、Git、history、commit diff 的本地能力层 |
+| `@dsh-studio/desktop-sidebar` | `plugins/desktop-sidebar/` | `DSH-better-sidebar` UI 下游 | Session tabs、viewer、Git Review、逐行评论、composer 引用 |
+| `@dsh-studio/panel-controls` | `plugins/panel-controls/` | `dsh-web-panel` 下游 | Terminal dock、可拖拽底部面板、Session 状态 |
+| `@dsh-studio/pinned-summary` | `plugins/pinned-summary/` | 自研 | 当前 Session 摘要卡片与正文 gutter 管理 |
+| `@dsh-studio/plugin-marketplace` | `plugins/plugin-marketplace/` | `plugin-registry` + `dsh-hub` 炼化 | 插件市场的隔离预览、风险确认、TOFU 来源锁、应用与恢复 |
+| `@dsh-studio/desktop-skins` | `plugins/desktop-skins/` | `dsh-skins` 下游 | 桌面皮肤：ThemeService 扩展、设置 UI、Host 持久化 |
 
 共享模块：`plugins/shared/`（i18n、ListRow、SurfaceTab 等产品组合件）。
 控件原子不在 shared 里：按钮、输入、菜单、对话框、Toast、图标一律从
@@ -156,7 +156,7 @@ export function apply(ctx: HostContext): void {
 
 ---
 
-## 3. 皮肤插件深度解析：`@oh-dsh/desktop-skins`
+## 3. 皮肤插件深度解析：`@dsh-studio/desktop-skins`
 
 皮肤插件是目前项目里「扩展 DSH 官方 ThemeService」的范例：它把 DSH 的
 官方主题（light/dark/system）扩展为一套桌面皮肤（skin），每套皮肤是
@@ -167,11 +167,11 @@ export function apply(ctx: HostContext): void {
 ```text
 Host 端（index.ts → preferences-server.ts）
   ├─ 在 appDataPath 下持久化 desktop-skins.json
-  └─ 注册 GET/PUT /oh-dsh-desktop/skins/preferences HTTP 路由
+  └─ 注册 GET/PUT /dsh-studio/skins/preferences HTTP 路由
 
 Client 端（client.ts → plugin.tsx）
   ├─ DesktopSkinsController：注册皮肤到 ThemeService、读写偏好、DOM 应用
-  ├─ SkinDomPresenter：把皮肤写到 <body data-oh-dsh-skin="...">
+  ├─ SkinDomPresenter：把皮肤写到 <body data-dsh-studio-skin="...">
   ├─ DesktopSkinPreferencesStorage：fetch 合并写（dirty loop + 校验）
   └─ SkinSettingsRow：设置页瓦片网格 UI
 ```
@@ -240,8 +240,8 @@ plugin.tsx apply(ctx)
        └─ adopt(theme.getTheme())
             ├─ desktopSkin(active.id) 找到皮肤 → 写回偏好
             └─ dom.apply(skin)
-                 ├─ <body data-oh-dsh-skin="oh-dsh-skin-xxx">
-  └─ 若插件提供预留的 css 字段：注入 id=oh-dsh-desktop-skins-atmosphere 的 <style>
+                 ├─ <body data-dsh-studio-skin="dsh-studio-skin-xxx">
+  └─ 若插件提供预留的 css 字段：注入 id=dsh-studio-skins-atmosphere 的 <style>
 ```
 
 当前所有内置皮肤都没有 `css` 字段，测试也要求其为 `undefined`，因此当前
@@ -253,8 +253,8 @@ plugin.tsx apply(ctx)
   `theme/change` 事件 → `controller.adopt()` → 皮肤失效、清除 `ACTIVE_SKIN_KEY`、
   把官方选择存入 `FALLBACK_THEME_KEY`。皮肤系统永远不会「霸占」官方主题。
 - **回退**：选择「原始外观」时恢复 FALLBACK（light/dark/system，默认 system）。
-- **皮肤选择持久化**：`oh-dsh-desktop.skins.active`（皮肤 ID）与
-  `oh-dsh-desktop.skins.fallback`（回退外观）。
+- **皮肤选择持久化**：`dsh-studio.skins.active`（皮肤 ID）与
+  `dsh-studio.skins.fallback`（回退外观）。
 - **DOM 只做两件事**：body 属性 + atmosphere 样式表；不碰别的 DOM，职责干净。
 
 ### 3.4 偏好持久化（Host 端）
@@ -262,7 +262,7 @@ plugin.tsx apply(ctx)
 - 存储位置：`<appDataPath>/desktop-skins.json`；`<appDataPath>` 来自
   Electron 的 `app.getPath('userData')`。DSH profile 位于
   `<userData>/dsh/profiles/desktop`，与皮肤偏好文件不是同一路径。
-- HTTP API：`GET /oh-dsh-desktop/skins/preferences` 读取，
+- HTTP API：`GET /dsh-studio/skins/preferences` 读取，
   `PUT` 写入；PUT 校验 `Origin` 与 `Host` 同源，否则 403。
 - 写入先落到随机临时文件 `desktop-skins.json.next-<random>`，再尝试
   `rename`；遇到 `EEXIST` 或 `EPERM` 时使用 `copyFile` 兼容处理。该路径
@@ -282,7 +282,7 @@ plugin.tsx apply(ctx)
 
 `tests/desktop-skins.test.ts` 对每套皮肤断言：
 
-1. `id` 匹配 `/^oh-dsh-skin-/`；
+1. `id` 匹配 `/^dsh-studio-skin-/`；
 2. `tokens` 至少 30 个键；当前内置皮肤各自提供 32 个 token，但测试不检查
    固定的 32 个键名；
 3. `--dsw-alias-bg-base` 是 6 位十六进制颜色（`#rrggbb`）；
@@ -319,7 +319,7 @@ plugin.tsx apply(ctx)
 | `plugins/desktop-skins/src/client/i18n.ts` | 新增 `skins.name.<id>` 文案（en/zh） |
 | `tests/desktop-skins.test.ts` | 如果测试仍保留固定数量断言，则同步更新；当前为 6 |
 
-> 真实案例：`oh-dsh-skin-synara-night`（暗色）与 `oh-dsh-skin-synara-day`（亮色）
+> 真实案例：`dsh-studio-skin-synara-night`（暗色）与 `dsh-studio-skin-synara-day`（亮色）
 > 两套从 Synara web-next 前端设计体系逐 token 映射的皮肤，完整设计过程与
 > 映射依据见 [docs/SYNARA-NIGHT-SKIN-DESIGN.md](./SYNARA-NIGHT-SKIN-DESIGN.md)。
 
@@ -327,7 +327,7 @@ plugin.tsx apply(ctx)
 
 ```ts
 Object.freeze({
-  id: 'oh-dsh-skin-<your-id>',
+  id: 'dsh-studio-skin-<your-id>',
   colorScheme: 'dark',
   tokens: YOUR_SKIN_TOKENS,
   preview: 'linear-gradient(145deg, #… 0%, #… 100%)',
@@ -375,6 +375,6 @@ pnpm run typecheck
 pnpm test
 pnpm run dist:mac
 pnpm run smoke:app
-codesign --verify --deep --strict release/mac-arm64/Oh-DSH-Desktop.app
-hdiutil verify release/Oh-DSH-Desktop-0.1.2-arm64.dmg
+codesign --verify --deep --strict release/mac-arm64/DSH Studio.app
+hdiutil verify release/DSH Studio-0.1.2-arm64.dmg
 ```
