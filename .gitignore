@@ -10,3 +10,15 @@ tmp/
 result
 result-*
 .agent-workflows/
+.workflow/
+
+# Internal research, planning, and handoff docs stay local. Only the
+# public-facing docs below are tracked.
+docs/*
+!docs/design.md
+!docs/design.en.md
+!docs/usage.md
+!docs/usage.en.md
+!docs/PLUGIN-DEVELOPMENT.md
+!docs/external-plugin-guide.md
+!docs/official-plugin-migration.md
