@@ -43,9 +43,8 @@ export interface SourceControlRuntimeSnapshot {
   snapshot: SourceControlWorkspaceSnapshot | null
 }
 
-/** The scope shape the runtime requires (cwd is mandatory here). */
+/** The scope shape the runtime requires (the project cwd). */
 export interface SourceControlScope {
-  sessionId: string
   cwd: string
 }
 
@@ -138,7 +137,7 @@ export class SourceControlRuntime {
     this.assertOpen()
     const current = this.scope
     if (current !== null && scope !== null
-      && current.sessionId === scope.sessionId && current.cwd === scope.cwd) {
+      && current.cwd === scope.cwd) {
       return
     }
     this.activeAbort?.abort()

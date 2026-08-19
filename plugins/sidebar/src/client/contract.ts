@@ -25,11 +25,10 @@
 import type { ReactNode } from 'react'
 import type { CenterSurface, CenterSurfaceKind } from './surfaces/types.ts'
 
-/** One session scope: the conversation id plus its cwd when known. */
+/** One workspace scope: the project cwd. The sidebar data model is project
+ *  dimension — one layout per project, never per conversation. */
 export interface SidebarScope {
-  sessionId: string
-  /** The session's working directory (absent until the session hydrates). */
-  cwd?: string
+  cwd: string
 }
 
 /** One open sidebar tab instance (persisted per session). */
@@ -73,9 +72,9 @@ export interface SidebarSnapshot {
   openByDefault: boolean
   ready: boolean
   revision: number
-  /** The session this snapshot belongs to (null before any session). */
-  sessionId: string | null
-  /** The scope (session + cwd) rendered inside the panel. */
+  /** The project this snapshot belongs to (null before any workspace). */
+  cwd: string | null
+  /** The scope (project cwd) rendered inside the panel. */
   scope: SidebarScope | null
   tabs: readonly SidebarTab[]
   tabsEnabled: Readonly<Record<string, boolean>>
@@ -335,9 +334,9 @@ export interface DesktopSidebarService {
   /* ── open / close / activate ──────────────────────────────── */
   /**
    * Open a tab (+ menu and external triggers both use it). `scope` targets
-   * a specific session: the open lands in THAT session's state without
-   * switching the UI's active session; absent, the open lands in the
-   * currently active session. A disabled tab type is a no-op. A dedupe hit
+   * a specific project: the open lands in THAT project's state without
+   * switching the UI's active project; absent, the open lands in the
+   * currently active project. A disabled tab type is a no-op. A dedupe hit
    * in the BOTTOM workbench focuses the docked tab there.
    */
   openTab(seed: SidebarTabSeed, scope?: SidebarScope): OpenTabResult
@@ -347,7 +346,7 @@ export interface DesktopSidebarService {
   activateTab(tabId: string | null, scope?: SidebarScope): void
   /** Patch an open tab's display fields; a missing tab id is a no-op. */
   updateTab(tabId: string, patch: { resource?: string; title?: string; meta?: unknown }): void
-  /** Open a file in the sidebar of `scope`'s session (title defaults to the file name). */
+  /** Open a file in the sidebar of `scope`'s project (title defaults to the file name). */
   openFile(scope: SidebarScope, path: string, title?: string): void
 
   /* ── bottom workbench + tab drag layout (Oh-DSH extension) ─── */
@@ -389,8 +388,8 @@ export interface DesktopSidebarService {
   setMaximized(maximized: boolean): void
   setWidth(width: number): void
   setOpenByDefault(open: boolean): void
-  /** Bind the snapshot to a session (optionally with its cwd). */
-  setSession(sessionId: string | null, cwd?: string): void
+  /** Bind the snapshot to a project (its cwd). */
+  setWorkspace(cwd: string | null): void
 }
 
 /**

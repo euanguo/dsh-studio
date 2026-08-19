@@ -152,16 +152,18 @@ export function apply(ctx: ClientContext): void {
   })
   let settingsActions: BoundSidebarSettingsActions | undefined
   ctx.effect(() => {
-    const syncSession = (): void => {
+    const syncWorkspace = (): void => {
       const list = sessions.list.getSnapshot()
       const current = list.current ?? null
-      desktopSidebar.setSession(
-        current,
-        current === null ? undefined : list.byId[current]?.cwd,
+      // The current project = the active session's cwd (B2: no independent
+      // project state; the cwd is the sole authority and switching cwd swaps
+      // the whole workspace layout).
+      desktopSidebar.setWorkspace(
+        current === null ? null : (list.byId[current]?.cwd ?? null),
       )
     }
-    syncSession()
-    const stopSessions = sessions.list.subscribe(syncSession)
+    syncWorkspace()
+    const stopSessions = sessions.list.subscribe(syncWorkspace)
     const stopSettings = desktopSidebar.subscribe(() => {
       syncSidebarSettings(settingsActions, desktopSidebar.getSnapshot())
     })
@@ -247,10 +249,8 @@ export function apply(ctx: ClientContext): void {
     // built-in descriptor (tabs.tsx); both render the same shared TerminalTabContent.
     const removeTerminalSurface = desktopSidebar.registerSurfaceRenderer('terminal', surface => {
       if (surface.kind !== 'terminal') return null
-      const list = sessions.list.getSnapshot()
       return (
         <TerminalTabContent
-          sessionId={list.current ?? ''}
           cwd={surface.cwd}
           tabId={surface.id}
           runtime={runtimeSettings}

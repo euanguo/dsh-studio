@@ -2,7 +2,7 @@ export const SIDEBAR_MIN_WIDTH = 280
 export const SIDEBAR_MAX_WIDTH = 480
 export const SIDEBAR_DEFAULT_WIDTH = 300
 const SIDEBAR_LEGACY_MAX_WIDTH = 720
-export const SIDEBAR_MAX_SESSIONS = 50
+export const SIDEBAR_MAX_WORKSPACES = 50
 export const SIDEBAR_MAX_TABS = 30
 
 export interface PersistedSidebarTab {
@@ -14,7 +14,11 @@ export interface PersistedSidebarTab {
   meta?: unknown
 }
 
-export interface PersistedSidebarSession {
+/** One project (workspace cwd) layout: the right rail + bottom workbench
+ *  open-tab state. Keyed by the project cwd in `DesktopSidebarPreferences` —
+ *  the sidebar is project-dimension, so two conversations of the same project
+ *  share one layout and switching conversations never resets the panel. */
+export interface PersistedWorkspaceLayout {
   activeId: string | null
   lastUsed: number
   tabs: PersistedSidebarTab[]
@@ -31,23 +35,24 @@ export interface PersistedSidebarSession {
 export interface DesktopSidebarPreferences {
   defaultWidth: number
   openByDefault: boolean
-  sessions: Record<string, PersistedSidebarSession>
+  /** Per-project open-tab layouts keyed by the workspace cwd. */
+  workspaces: Record<string, PersistedWorkspaceLayout>
   tabsEnabled: Record<string, boolean>
   viewersEnabled: Record<string, boolean>
   /** Plugin-owned settings blobs keyed by descriptor id (open map). */
   pluginSettings: Record<string, Record<string, unknown>>
-  version: 1
+  version: 2
 }
 
 export const DEFAULT_SIDEBAR_PREFERENCES: DesktopSidebarPreferences =
   Object.freeze({
     defaultWidth: SIDEBAR_DEFAULT_WIDTH,
     openByDefault: false,
-    sessions: Object.freeze({}),
+    workspaces: Object.freeze({}),
     tabsEnabled: Object.freeze({}),
     viewersEnabled: Object.freeze({}),
     pluginSettings: Object.freeze({}),
-    version: 1,
+    version: 2,
   }) as DesktopSidebarPreferences
 
 function validKey(value: unknown, max = 160): value is string {
@@ -125,7 +130,7 @@ function parseTab(value: unknown): PersistedSidebarTab | undefined {
   }
 }
 
-function parseSession(value: unknown): PersistedSidebarSession | undefined {
+function parseWorkspace(value: unknown): PersistedWorkspaceLayout | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return undefined
   }
@@ -213,7 +218,7 @@ export function parseSidebarPreferences(
     return undefined
   }
   const input = value as Record<string, unknown>
-  if (input.version !== 1 || typeof input.openByDefault !== 'boolean') {
+  if (input.version !== 2 || typeof input.openByDefault !== 'boolean') {
     return undefined
   }
   if (typeof input.defaultWidth !== 'number'
@@ -225,24 +230,24 @@ export function parseSidebarPreferences(
   const pluginSettings = parsePluginSettings(input.pluginSettings)
   if (tabsEnabled === undefined || viewersEnabled === undefined
     || pluginSettings === undefined) return undefined
-  if (typeof input.sessions !== 'object' || input.sessions === null
-    || Array.isArray(input.sessions)) return undefined
-  const entries = Object.entries(input.sessions as Record<string, unknown>)
-  if (entries.length > SIDEBAR_MAX_SESSIONS) return undefined
-  const sessions: Record<string, PersistedSidebarSession> = {}
-  for (const [sessionId, rawSession] of entries) {
-    if (!validKey(sessionId, 256)) return undefined
-    const session = parseSession(rawSession)
-    if (session === undefined) return undefined
-    sessions[sessionId] = session
+  if (typeof input.workspaces !== 'object' || input.workspaces === null
+    || Array.isArray(input.workspaces)) return undefined
+  const entries = Object.entries(input.workspaces as Record<string, unknown>)
+  if (entries.length > SIDEBAR_MAX_WORKSPACES) return undefined
+  const workspaces: Record<string, PersistedWorkspaceLayout> = {}
+  for (const [cwd, rawWorkspace] of entries) {
+    if (!validKey(cwd, 256)) return undefined
+    const workspace = parseWorkspace(rawWorkspace)
+    if (workspace === undefined) return undefined
+    workspaces[cwd] = workspace
   }
   return {
     defaultWidth: clampSidebarWidth(input.defaultWidth),
     openByDefault: input.openByDefault,
-    sessions,
+    workspaces,
     tabsEnabled,
     viewersEnabled,
     pluginSettings,
-    version: 1,
+    version: 2,
   }
 }

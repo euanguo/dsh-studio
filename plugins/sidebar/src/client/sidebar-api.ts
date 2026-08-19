@@ -260,7 +260,6 @@ export const sidebarApi = {
     scope: SidebarScope,
     tab: string,
   ): Promise<{ ok: true }> => callSidebarApi('pty.close', scope, {
-    sessionId: scope.sessionId,
     tab,
   }),
   ptyRetained: (

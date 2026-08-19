@@ -1,7 +1,10 @@
 /**
  * Terminal instance registry (ported from synara's scoped runtime registry
- * pattern): tracks terminal identity per session and gives each terminal a
- * stable leaf/pane key. The actual xterm/socket owner lives in the shared
+ * pattern): tracks terminal identity PER PROJECT (cwd) and gives each
+ * terminal a stable leaf/pane key. The sidebar is project-dimension, so a
+ * terminal opened in one conversation of a project is the SAME instance in
+ * every conversation of that project — switching conversations never
+ * re-spawns shells. The actual xterm/socket owner lives in the shared
  * module-level terminal runtime registry and survives React surface detach;
  * explicit close releases both the owner and the quota entry.
  */
@@ -14,22 +17,21 @@ import {
 } from '@oh-dsh/shared/stable-pane-id'
 import type { SidebarScope } from '../contract.ts'
 
-export const MAX_TERMINAL_INSTANCES_PER_SESSION = 64
+export const MAX_TERMINAL_INSTANCES_PER_WORKSPACE = 64
 
 interface TerminalRuntimeOwnerBridge {
-  dispose(sessionId: string, tabId: string): void
+  dispose(cwd: string, tabId: string): void
 }
 
-function disposeTerminalOwner(sessionId: string, tabId: string): void {
+function disposeTerminalOwner(cwd: string, tabId: string): void {
   const bridge = (globalThis as typeof globalThis & {
     __ohDshTerminalRuntimeOwner?: TerminalRuntimeOwnerBridge
   }).__ohDshTerminalRuntimeOwner
-  bridge?.dispose(sessionId, tabId)
+  bridge?.dispose(cwd, tabId)
 }
 
 export interface TerminalInstanceInfo {
   tabId: string
-  sessionId: string
   cwd: string
   createdAt: number
   leafId: TerminalLeafId
@@ -37,25 +39,25 @@ export interface TerminalInstanceInfo {
 }
 
 export function terminalInstanceKey(scope: SidebarScope, tabId: string): string {
-  return `${scope.sessionId}:${scope.cwd}:${tabId}`
+  return `${scope.cwd}:${tabId}`
 }
 
 export const terminalInstanceRegistry = new ScopedRuntimeRegistry<TerminalInstanceInfo>({
-  maxEntries: MAX_TERMINAL_INSTANCES_PER_SESSION * 2,
+  maxEntries: MAX_TERMINAL_INSTANCES_PER_WORKSPACE * 2,
 })
 
 export function terminalInstanceCount(scope: SidebarScope): number {
   return terminalInstanceRegistry.values().filter(instance =>
-    instance.sessionId === scope.sessionId && instance.cwd === scope.cwd,
+    instance.cwd === scope.cwd,
   ).length
 }
 
 export function canOpenTerminalInstance(scope: SidebarScope): boolean {
-  return terminalInstanceCount(scope) < MAX_TERMINAL_INSTANCES_PER_SESSION
+  return terminalInstanceCount(scope) < MAX_TERMINAL_INSTANCES_PER_WORKSPACE
 }
 
 export function releaseTerminalInstance(scope: SidebarScope, tabId: string): void {
-  disposeTerminalOwner(scope.sessionId, tabId)
+  disposeTerminalOwner(scope.cwd, tabId)
   terminalInstanceRegistry.delete(terminalInstanceKey(scope, tabId))
 }
 
@@ -69,7 +71,6 @@ export function touchTerminalInstance(scope: SidebarScope, tabId: string): Termi
     const leafId = createTerminalLeafId()
     return {
       tabId,
-      sessionId: scope.sessionId,
       cwd,
       createdAt: Date.now(),
       leafId,

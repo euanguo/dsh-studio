@@ -32,18 +32,17 @@ import { parseGitReviewDiff, type GitReviewFile } from '../diff/git-review-diff.
 import { terminalInstanceRegistry } from './terminal-runtime.ts'
 
 /**
- * The runtime scope: one session + its RESOLVED cwd. Unlike the wire
- * `SidebarScope` (cwd optional — the API resolves the authoritative cwd on
- * the host), the retained runtimes need the concrete cwd to key their
- * caches, so it is mandatory here.
+ * The runtime scope: the project cwd. Unlike the wire `SidebarScope` in the
+ * component contract (a plain `{cwd}`), the retained runtimes key their
+ * caches by the concrete cwd — project dimension, so two conversations of the
+ * same project share one runtime and switching conversations never refetches.
  */
 export interface SidebarScope {
-  sessionId: string
   cwd: string
 }
 
 export function sidebarScopeKey(scope: SidebarScope): string {
-  return `${scope.sessionId}:${scope.cwd}`
+  return scope.cwd
 }
 
 /* ---------- explorer (directory listings) ---------- */

@@ -56,8 +56,6 @@ export type WorkspaceMessage =
   | 'files.rendering-diagram'
   | 'files.new-file'
   | 'files.new-folder'
-  | 'files.new-file-name'
-  | 'files.new-folder-name'
   | 'files.rename'
   | 'files.rename-to'
   | 'files.copy'
@@ -78,6 +76,8 @@ export type WorkspaceMessage =
   | 'files.selection-add'
   | 'files.selection-over-limit'
   | 'files.refresh'
+  | 'files.new'
+  | 'files.more-actions'
   | 'side.close'
   | 'side.git'
   | 'side.add-tool'
@@ -157,7 +157,6 @@ export type WorkspaceMessage =
   | 'settings.no-feature-settings'
   | 'settings.done'
   | 'workspace.title'
-  | 'workspace.add'
   | 'workspace.select'
   | 'workspace.changes'
   | 'workspace.committed'
@@ -165,9 +164,6 @@ export type WorkspaceMessage =
   | 'workspace.clean'
   | 'workspace.not-git'
   | 'workspace.current-branch'
-  | 'workspace.new-branch'
-  | 'workspace.new-branch-name'
-  | 'workspace.create'
   | 'workspace.commit-message'
   | 'workspace.commit-all'
   | 'workspace.push'
@@ -287,8 +283,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.rendering-diagram': 'Rendering diagram…',
     'files.new-file': 'New file',
     'files.new-folder': 'New folder',
-    'files.new-file-name': 'New file name',
-    'files.new-folder-name': 'New folder name',
     'files.rename': 'Rename',
     'files.rename-to': 'Rename to',
     'files.copy': 'Copy',
@@ -309,6 +303,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.selection-add': 'Add to conversation',
     'files.selection-over-limit': 'Selection too large — inserting path only',
     'files.refresh': 'Refresh',
+    'files.new': 'New file or folder',
+    'files.more-actions': 'More actions',
     'side.close': 'Close side panel',
     'side.git': 'Git',
     'side.add-tool': 'Add tool',
@@ -388,7 +384,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.no-feature-settings': 'This feature has no additional settings.',
     'settings.done': 'Done',
     'workspace.title': 'Workspace',
-    'workspace.add': 'Add workspace',
     'workspace.select': 'Select a DSH workspace to inspect changes.',
     'workspace.changes': 'Changes',
     'workspace.committed': 'Committed changes',
@@ -396,9 +391,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.clean': 'Working tree clean',
     'workspace.not-git': 'This directory is not a Git repository.',
     'workspace.current-branch': 'Current branch',
-    'workspace.new-branch': 'New branch',
-    'workspace.new-branch-name': 'New branch name',
-    'workspace.create': 'Create',
     'workspace.commit-message': 'Commit message',
     'workspace.commit-all': 'Commit all',
     'workspace.push': 'Push',
@@ -517,8 +509,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.rendering-diagram': '渲染图表中…',
     'files.new-file': '新建文件',
     'files.new-folder': '新建文件夹',
-    'files.new-file-name': '新建文件名称',
-    'files.new-folder-name': '新建文件夹名称',
     'files.rename': '重命名',
     'files.rename-to': '重命名为',
     'files.copy': '复制',
@@ -539,6 +529,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.selection-add': '添加到对话',
     'files.selection-over-limit': '选区过大 — 仅插入路径行',
     'files.refresh': '刷新',
+    'files.new': '新建文件或文件夹',
+    'files.more-actions': '更多操作',
     'side.close': '关闭侧边栏',
     'side.git': 'Git',
     'side.add-tool': '添加工具',
@@ -618,7 +610,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.no-feature-settings': '该功能没有附加设置。',
     'settings.done': '完成',
     'workspace.title': '工作区',
-    'workspace.add': '添加工作区',
     'workspace.select': '选择 DSH 工作区以检查变更。',
     'workspace.changes': '变更',
     'workspace.committed': '已提交的更改',
@@ -626,9 +617,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.clean': '工作树已清理',
     'workspace.not-git': '此目录不是 Git 仓库。',
     'workspace.current-branch': '当前分支',
-    'workspace.new-branch': '新分支',
-    'workspace.new-branch-name': '新分支名称',
-    'workspace.create': '创建',
     'workspace.commit-message': '提交信息',
     'workspace.commit-all': '提交全部',
     'workspace.push': '推送',

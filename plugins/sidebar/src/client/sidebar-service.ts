@@ -27,11 +27,11 @@ import type { CenterSurface, CenterSurfaceKind } from './surfaces/types.ts'
 import {
   clampSidebarWidth,
   DEFAULT_SIDEBAR_PREFERENCES,
-  SIDEBAR_MAX_SESSIONS,
   SIDEBAR_MAX_TABS,
+  SIDEBAR_MAX_WORKSPACES,
   type DesktopSidebarPreferences,
-  type PersistedSidebarSession,
   type PersistedSidebarTab,
+  type PersistedWorkspaceLayout,
 } from '../sidebar-preferences.ts'
 import type { SidebarPreferencesStorage } from './sidebar-storage.ts'
 import {
@@ -71,10 +71,10 @@ export { SIDEBAR_FEATURES, SIDEBAR_SERVICE_VERSION } from './contract.ts'
 /** Re-exported for the panel: the persisted tab shape is the live tab shape. */
 export interface DesktopSidebarTab extends PersistedSidebarTab {}
 
-/** One request's target session; absent means the active session. */
-interface TabTarget {
-  sessionId: string
-  /** True when the target is NOT the session on screen (no UI publish). */
+/** One request's target workspace; absent means the active project. */
+interface WorkspaceTarget {
+  cwd: string
+  /** True when the target is NOT the project on screen (no UI publish). */
   inactive: boolean
 }
 
@@ -112,7 +112,7 @@ function safeCall(fn: () => void): void {
 function freshPreferences(): DesktopSidebarPreferences {
   return {
     ...DEFAULT_SIDEBAR_PREFERENCES,
-    sessions: {},
+    workspaces: {},
     tabsEnabled: {},
     viewersEnabled: {},
     pluginSettings: {},
@@ -125,13 +125,13 @@ function clonePreferences(
   return {
     ...preferences,
     defaultWidth: clampSidebarWidth(preferences.defaultWidth),
-    sessions: Object.fromEntries(Object.entries(preferences.sessions).map(
-      ([id, session]) => [id, {
-        ...session,
-        tabs: session.tabs.map(tab => ({ ...tab })),
-        ...(session.bottomTabs === undefined
+    workspaces: Object.fromEntries(Object.entries(preferences.workspaces).map(
+      ([cwd, workspace]) => [cwd, {
+        ...workspace,
+        tabs: workspace.tabs.map(tab => ({ ...tab })),
+        ...(workspace.bottomTabs === undefined
           ? {}
-          : { bottomTabs: session.bottomTabs.map(tab => ({ ...tab })) }),
+          : { bottomTabs: workspace.bottomTabs.map(tab => ({ ...tab })) }),
       }],
     )),
     tabsEnabled: { ...preferences.tabsEnabled },
@@ -165,7 +165,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     openByDefault: false,
     ready: false,
     revision: 0,
-    sessionId: null,
+    cwd: null,
     scope: null,
     tabs: [],
     tabsEnabled: {},
@@ -189,21 +189,21 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   }
 
   async start(): Promise<void> {
-    const requestedSession = this.snapshot.sessionId
+    const requestedCwd = this.snapshot.cwd
     try {
       this.preferences = clonePreferences(await this.storage.load())
       this.publish({
-        ...this.sessionSnapshot(requestedSession),
+        ...this.workspaceSnapshot(requestedCwd),
         error: null,
         maximized: false,
         open: this.preferences.openByDefault,
         openByDefault: this.preferences.openByDefault,
         ready: true,
         revision: this.snapshot.revision + 1,
-        sessionId: requestedSession,
-        scope: requestedSession === null
+        cwd: requestedCwd,
+        scope: requestedCwd === null
           ? null
-          : { sessionId: requestedSession },
+          : { cwd: requestedCwd },
         tabsEnabled: { ...this.preferences.tabsEnabled },
         viewersEnabled: { ...this.preferences.viewersEnabled },
         pluginSettings: this.pluginSettingsSnapshot(),
@@ -359,17 +359,14 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     this.schedulePersist()
   }
 
-  setSession(sessionId: string | null, cwd?: string): void {
-    if (sessionId === this.snapshot.sessionId
-      && (cwd === undefined || this.snapshot.scope?.cwd === cwd)) return
+  setWorkspace(cwd: string | null): void {
+    if (cwd === this.snapshot.cwd) return
     this.publish({
       ...this.snapshot,
-      ...this.sessionSnapshot(sessionId),
+      ...this.workspaceSnapshot(cwd),
       revision: this.snapshot.revision + 1,
-      sessionId,
-      scope: sessionId === null
-        ? null
-        : { sessionId, ...(cwd === undefined || cwd === '' ? {} : { cwd }) },
+      cwd,
+      scope: cwd === null ? null : { cwd },
     })
   }
 
@@ -383,7 +380,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     if (descriptor.available?.(this.snapshot.scope, this.snapshot) === false) {
       return { kind: 'disabled' }
     }
-    const tabs = [...this.sessionOf(target.sessionId).tabs]
+    const tabs = [...this.workspaceOf(target.cwd).tabs]
     // Action-only descriptors run instead of opening a tab.
     if (descriptor.action !== undefined && descriptor.render === undefined) {
       void descriptor.action()
@@ -422,7 +419,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     }
     // The bottom workbench holds the same tab vocabulary: a dedupe hit
     // there focuses the DOCKED tab (the pane shows it without duplicating).
-    const bottomTabs = this.sessionOf(target.sessionId).bottomTabs ?? []
+    const bottomTabs = this.workspaceOf(target.cwd).bottomTabs ?? []
     const docked = bottomTabs.find(candidate => {
       if (candidate.id === tab.id) return true
       if (candidate.type !== tab.type || key === undefined) return false
@@ -434,14 +431,11 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       this.writeTarget(
         target,
         tabs,
-        this.sessionOf(target.sessionId).activeId,
+        this.workspaceOf(target.cwd).activeId,
         { activeId: docked.id },
       )
       safeCall(() => descriptor.onActivate?.(docked, scope ?? {
-        sessionId: target.sessionId,
-        ...(this.snapshot.scope?.cwd === undefined
-          ? {}
-          : { cwd: this.snapshot.scope.cwd }),
+        cwd: target.cwd,
       }))
       return { kind: 'focused', tab: docked }
     }
@@ -454,13 +448,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       : tab.id
     this.writeTarget(target, nextTabs, nextActive)
     // The callback scope carries the caller's explicit scope or the target
-    // session (with the on-screen cwd when it is the active session).
-    const callbackScope: SidebarScope = scope ?? {
-      sessionId: target.sessionId,
-      ...(this.snapshot.scope?.cwd === undefined
-        ? {}
-        : { cwd: this.snapshot.scope.cwd }),
-    }
+    // workspace (project cwd).
+    const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
     safeCall(() => descriptor.onOpen?.(tab, callbackScope))
     return { kind: 'opened', tab }
   }
@@ -468,43 +457,33 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   closeTab(tabId: string, scope?: SidebarScope): void {
     const target = this.targetOf(scope)
     if (target === null) return
-    const tabs = [...this.sessionOf(target.sessionId).tabs]
+    const tabs = [...this.workspaceOf(target.cwd).tabs]
     const index = tabs.findIndex(tab => tab.id === tabId)
     if (index === -1) return
     const closed = tabs[index]!
     const next = tabs.filter(tab => tab.id !== tabId)
-    const activeId = this.sessionOf(target.sessionId).activeId === tabId
+    const activeId = this.workspaceOf(target.cwd).activeId === tabId
       ? next[Math.min(index, next.length - 1)]?.id ?? null
-      : this.sessionOf(target.sessionId).activeId
+      : this.workspaceOf(target.cwd).activeId
     this.writeTarget(target, next, activeId)
     const descriptor = this.tabDescriptors.get(closed.type)
-    const callbackScope: SidebarScope = scope ?? {
-      sessionId: target.sessionId,
-      ...(this.snapshot.scope?.cwd === undefined
-        ? {}
-        : { cwd: this.snapshot.scope.cwd }),
-    }
+    const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
     safeCall(() => descriptor?.onClose?.(closed, callbackScope))
   }
 
   activateTab(tabId: string | null, scope?: SidebarScope): void {
     const target = this.targetOf(scope)
     if (target === null) return
-    const session = this.sessionOf(target.sessionId)
-    if (tabId !== null && !session.tabs.some(tab => tab.id === tabId)) return
-    if (session.activeId === tabId) return
-    this.writeTarget(target, session.tabs, tabId)
+    const workspace = this.workspaceOf(target.cwd)
+    if (tabId !== null && !workspace.tabs.some(tab => tab.id === tabId)) return
+    if (workspace.activeId === tabId) return
+    this.writeTarget(target, workspace.tabs, tabId)
     if (tabId !== null) {
-      const activated = session.tabs.find(tab => tab.id === tabId)
+      const activated = workspace.tabs.find(tab => tab.id === tabId)
       const descriptor = activated === undefined
         ? undefined
         : this.tabDescriptors.get(activated.type)
-      const callbackScope: SidebarScope = scope ?? {
-        sessionId: target.sessionId,
-        ...(this.snapshot.scope?.cwd === undefined
-          ? {}
-          : { cwd: this.snapshot.scope.cwd }),
-      }
+      const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
       safeCall(() => descriptor?.onActivate?.(activated!, callbackScope))
     }
   }
@@ -513,10 +492,10 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     tabId: string,
     patch: { resource?: string; title?: string; meta?: unknown },
   ): void {
-    const sessionId = this.snapshot.sessionId
-    if (sessionId === null) return
+    const cwd = this.snapshot.cwd
+    if (cwd === null) return
     let changed = false
-    const tabs = this.sessionOf(sessionId).tabs.map(tab => {
+    const tabs = this.workspaceOf(cwd).tabs.map(tab => {
       if (tab.id !== tabId) return tab
       changed = true
       return {
@@ -530,9 +509,9 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     })
     if (changed) {
       this.writeTarget(
-        { sessionId, inactive: sessionId !== this.snapshot.sessionId },
+        { cwd, inactive: false },
         tabs,
-        this.sessionOf(sessionId).activeId,
+        this.workspaceOf(cwd).activeId,
       )
     }
   }
@@ -551,32 +530,32 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   moveTab(tabId: string, toIndex: number): void {
     const target = this.targetOf()
     if (target === null) return
-    const session = this.sessionOf(target.sessionId)
-    const tabs = [...session.tabs]
+    const workspace = this.workspaceOf(target.cwd)
+    const tabs = [...workspace.tabs]
     const index = tabs.findIndex(tab => tab.id === tabId)
     if (index === -1) return
     const clamped = clampIndex(toIndex, tabs.length)
     if (clamped === index) return
     const [moved] = tabs.splice(index, 1)
     tabs.splice(clamped, 0, moved!)
-    this.writeTarget(target, tabs, session.activeId)
+    this.writeTarget(target, tabs, workspace.activeId)
   }
 
   moveTabToBottom(tabId: string, toIndex?: number): void {
     const target = this.targetOf()
     if (target === null) return
-    const session = this.sessionOf(target.sessionId)
-    const tabs = [...session.tabs]
+    const workspace = this.workspaceOf(target.cwd)
+    const tabs = [...workspace.tabs]
     const index = tabs.findIndex(tab => tab.id === tabId)
     if (index === -1) return
     const [moved] = tabs.splice(index, 1)
     if (moved === undefined) return
     // The rail activates the moved tab's neighbor when the mover was its
     // active tab.
-    const nextActive = session.activeId === tabId
+    const nextActive = workspace.activeId === tabId
       ? tabs[Math.min(index, tabs.length - 1)]?.id ?? null
-      : session.activeId
-    const bottomTabs = [...(session.bottomTabs ?? [])]
+      : workspace.activeId
+    const bottomTabs = [...(workspace.bottomTabs ?? [])]
     const at = toIndex === undefined
       ? bottomTabs.length
       : clampIndex(toIndex, bottomTabs.length + 1)
@@ -589,16 +568,16 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   moveBottomTabToSide(bottomTabId: string, toIndex?: number): void {
     const target = this.targetOf()
     if (target === null) return
-    const session = this.sessionOf(target.sessionId)
-    const bottomTabs = [...(session.bottomTabs ?? [])]
+    const workspace = this.workspaceOf(target.cwd)
+    const bottomTabs = [...(workspace.bottomTabs ?? [])]
     const index = bottomTabs.findIndex(tab => tab.id === bottomTabId)
     if (index === -1) return
     const [moved] = bottomTabs.splice(index, 1)
     if (moved === undefined) return
-    const nextBottomActive = session.bottomActiveId === bottomTabId
+    const nextBottomActive = workspace.bottomActiveId === bottomTabId
       ? bottomTabs[Math.min(index, bottomTabs.length - 1)]?.id ?? null
-      : session.bottomActiveId
-    const tabs = [...session.tabs]
+      : workspace.bottomActiveId
+    const tabs = [...workspace.tabs]
     const at = toIndex === undefined
       ? tabs.length
       : clampIndex(toIndex, tabs.length + 1)
@@ -613,29 +592,29 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   moveBottomTab(bottomTabId: string, toIndex: number): void {
     const target = this.targetOf()
     if (target === null) return
-    const session = this.sessionOf(target.sessionId)
-    const bottomTabs = [...(session.bottomTabs ?? [])]
+    const workspace = this.workspaceOf(target.cwd)
+    const bottomTabs = [...(workspace.bottomTabs ?? [])]
     const index = bottomTabs.findIndex(tab => tab.id === bottomTabId)
     if (index === -1) return
     const clamped = clampIndex(toIndex, bottomTabs.length)
     if (clamped === index) return
     const [moved] = bottomTabs.splice(index, 1)
     bottomTabs.splice(clamped, 0, moved!)
-    this.writeTarget(target, session.tabs, session.activeId, {
+    this.writeTarget(target, workspace.tabs, workspace.activeId, {
       tabs: bottomTabs,
-      activeId: session.bottomActiveId ?? null,
+      activeId: workspace.bottomActiveId ?? null,
     })
   }
 
   activateBottomTab(bottomTabId: string | null): void {
     const target = this.targetOf()
     if (target === null) return
-    const session = this.sessionOf(target.sessionId)
-    const bottomTabs = session.bottomTabs ?? []
+    const workspace = this.workspaceOf(target.cwd)
+    const bottomTabs = workspace.bottomTabs ?? []
     if (bottomTabId !== null
       && !bottomTabs.some(tab => tab.id === bottomTabId)) return
-    if (session.bottomActiveId === bottomTabId) return
-    this.writeTarget(target, session.tabs, session.activeId, {
+    if (workspace.bottomActiveId === bottomTabId) return
+    this.writeTarget(target, workspace.tabs, workspace.activeId, {
       tabs: bottomTabs,
       activeId: bottomTabId,
     })
@@ -644,12 +623,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       const descriptor = activated === undefined
         ? undefined
         : this.tabDescriptors.get(activated.type)
-      const callbackScope: SidebarScope = {
-        sessionId: target.sessionId,
-        ...(this.snapshot.scope?.cwd === undefined
-          ? {}
-          : { cwd: this.snapshot.scope.cwd }),
-      }
+      const callbackScope: SidebarScope = { cwd: target.cwd }
       safeCall(() => descriptor?.onActivate?.(activated!, callbackScope))
     }
   }
@@ -657,26 +631,21 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   closeBottomTab(bottomTabId: string): void {
     const target = this.targetOf()
     if (target === null) return
-    const session = this.sessionOf(target.sessionId)
-    const bottomTabs = [...(session.bottomTabs ?? [])]
+    const workspace = this.workspaceOf(target.cwd)
+    const bottomTabs = [...(workspace.bottomTabs ?? [])]
     const index = bottomTabs.findIndex(tab => tab.id === bottomTabId)
     if (index === -1) return
     const closed = bottomTabs[index]!
     const next = bottomTabs.filter(tab => tab.id !== bottomTabId)
-    const nextActive = session.bottomActiveId === bottomTabId
+    const nextActive = workspace.bottomActiveId === bottomTabId
       ? next[Math.min(index, next.length - 1)]?.id ?? null
-      : session.bottomActiveId
-    this.writeTarget(target, session.tabs, session.activeId, {
+      : workspace.bottomActiveId
+    this.writeTarget(target, workspace.tabs, workspace.activeId, {
       tabs: next,
       activeId: nextActive ?? null,
     })
     const descriptor = this.tabDescriptors.get(closed.type)
-    const callbackScope: SidebarScope = {
-      sessionId: target.sessionId,
-      ...(this.snapshot.scope?.cwd === undefined
-        ? {}
-        : { cwd: this.snapshot.scope.cwd }),
-    }
+    const callbackScope: SidebarScope = { cwd: target.cwd }
     safeCall(() => descriptor?.onClose?.(closed, callbackScope))
   }
 
@@ -746,15 +715,15 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     await this.flushing
   }
 
-  /** The target session of an operation: the explicit scope or the active
-   *  session. Null while no session is bound (or the service is not ready). */
-  private targetOf(scope?: SidebarScope): TabTarget | null {
+  /** The target workspace of an operation: the explicit scope or the active
+   *  project. Null while no project is bound (or the service is not ready). */
+  private targetOf(scope?: SidebarScope): WorkspaceTarget | null {
     if (!this.snapshot.ready) return null
-    const sessionId = scope?.sessionId ?? this.snapshot.sessionId
-    if (sessionId === null) return null
+    const cwd = scope?.cwd ?? this.snapshot.cwd
+    if (cwd === null) return null
     return {
-      sessionId,
-      inactive: scope !== undefined && scope.sessionId !== this.snapshot.sessionId,
+      cwd,
+      inactive: scope !== undefined && scope.cwd !== this.snapshot.cwd,
     }
   }
 
@@ -767,8 +736,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     )
   }
 
-  private sessionOf(sessionId: string): PersistedSidebarSession {
-    return this.preferences.sessions[sessionId] ?? {
+  private workspaceOf(cwd: string): PersistedWorkspaceLayout {
+    return this.preferences.workspaces[cwd] ?? {
       activeId: null,
       lastUsed: 0,
       tabs: [],
@@ -778,7 +747,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   }
 
   private writeTarget(
-    target: TabTarget,
+    target: WorkspaceTarget,
     tabs: readonly SidebarTab[],
     activeId: string | null,
     bottom?: {
@@ -786,19 +755,19 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       activeId?: string | null
     },
   ): void {
-    const session = this.sessionOf(target.sessionId)
-    const bottomTabs = bottom?.tabs ?? session.bottomTabs ?? []
+    const workspace = this.workspaceOf(target.cwd)
+    const bottomTabs = bottom?.tabs ?? workspace.bottomTabs ?? []
     const bottomActiveId = bottom?.activeId !== undefined
       ? bottom.activeId
-      : session.bottomActiveId ?? null
-    this.preferences.sessions[target.sessionId] = {
+      : workspace.bottomActiveId ?? null
+    this.preferences.workspaces[target.cwd] = {
       activeId,
       lastUsed: Date.now(),
       tabs: tabs.map(tab => ({ ...tab })),
       bottomTabs: bottomTabs.map(tab => ({ ...tab })),
       ...(bottomActiveId === null ? {} : { bottomActiveId }),
     }
-    this.pruneSessions()
+    this.pruneWorkspaces()
     this.schedulePersist()
     if (!target.inactive) {
       this.publish({
@@ -816,45 +785,40 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
    *  focus of the already-active tab still fires the callback — the user
    *  explicitly asked to open it. */
   private focusExisting(
-    target: TabTarget,
+    target: WorkspaceTarget,
     tab: SidebarTab,
     scope?: SidebarScope,
   ): void {
-    const session = this.sessionOf(target.sessionId)
-    if (session.activeId !== tab.id) {
-      this.writeTarget(target, session.tabs, tab.id)
+    const workspace = this.workspaceOf(target.cwd)
+    if (workspace.activeId !== tab.id) {
+      this.writeTarget(target, workspace.tabs, tab.id)
     }
     const descriptor = this.tabDescriptors.get(tab.type)
-    const callbackScope: SidebarScope = scope ?? {
-      sessionId: target.sessionId,
-      ...(this.snapshot.scope?.cwd === undefined
-        ? {}
-        : { cwd: this.snapshot.scope.cwd }),
-    }
+    const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
     safeCall(() => descriptor?.onActivate?.(tab, callbackScope))
   }
 
-  private sessionSnapshot(sessionId: string | null): Pick<
+  private workspaceSnapshot(cwd: string | null): Pick<
     SidebarSnapshot,
     'activeId' | 'bottomActiveId' | 'bottomTabs' | 'tabs'
   > {
-    const session = sessionId === null
+    const workspace = cwd === null
       ? undefined
-      : this.preferences.sessions[sessionId]
+      : this.preferences.workspaces[cwd]
     return {
-      activeId: session?.activeId ?? null,
-      bottomActiveId: session?.bottomActiveId ?? null,
-      bottomTabs: session?.bottomTabs?.map(tab => ({ ...tab })) ?? [],
-      tabs: session?.tabs.map(tab => ({ ...tab })) ?? [],
+      activeId: workspace?.activeId ?? null,
+      bottomActiveId: workspace?.bottomActiveId ?? null,
+      bottomTabs: workspace?.bottomTabs?.map(tab => ({ ...tab })) ?? [],
+      tabs: workspace?.tabs.map(tab => ({ ...tab })) ?? [],
     }
   }
 
-  private pruneSessions(): void {
-    const entries = Object.entries(this.preferences.sessions)
-    if (entries.length <= SIDEBAR_MAX_SESSIONS) return
+  private pruneWorkspaces(): void {
+    const entries = Object.entries(this.preferences.workspaces)
+    if (entries.length <= SIDEBAR_MAX_WORKSPACES) return
     entries.sort((left, right) => right[1].lastUsed - left[1].lastUsed)
-    this.preferences.sessions = Object.fromEntries(
-      entries.slice(0, SIDEBAR_MAX_SESSIONS),
+    this.preferences.workspaces = Object.fromEntries(
+      entries.slice(0, SIDEBAR_MAX_WORKSPACES),
     )
   }
 

@@ -29,6 +29,7 @@ import {
   IconFile as TbFile,
   IconFileCode as TbFileCode,
   IconFileDiff as TbFileDiff,
+  IconFilePlus as TbFilePlus,
   IconFileText as TbFileText,
   IconFiles as TbFiles,
   IconFolder as TbFolder,
@@ -105,6 +106,7 @@ export const IconFolder = tabler(TbFolder)
 export const IconFolderOpen = tabler(TbFolderOpen)
 export const IconFileDiff = tabler(TbFileDiff)
 export const IconExternalLink = tabler(TbExternalLink)
+export const IconFilePlus = tabler(TbFilePlus)
 export const IconCirclePlus = tabler(TbCirclePlus)
 export const IconCircleMinus = tabler(TbCircleMinus)
 export const IconCircleX = tabler(TbCircleX)

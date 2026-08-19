@@ -40,7 +40,6 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
           reviewComments={deps.reviewComments}
           service={deps.service}
           sessions={deps.sessions}
-          workspaces={deps.workspaces}
           t={t}
         />
       ),
@@ -60,7 +59,6 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
         : canOpenTerminalInstance(scope),
       render: props => (
         <TerminalTabContent
-          sessionId={props.scope?.sessionId ?? ''}
           cwd={props.scope?.cwd ?? null}
           tabId={props.tab.id}
            onTitleChange={title => { deps.sidebar.updateTab(props.tab.id, { title }) }}
