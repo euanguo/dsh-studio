@@ -112,3 +112,15 @@ body[data-ds-dark-theme] {
   --dsh-studio-tone-protected-bg: #2c2340;
   --dsh-studio-tone-protected-fg: #c4a6f5;
 }
+
+/* ── 官方原语行为桥（非 token，但 DSW 同样没有对应开关） ─────────────
+ * RiskConfirmation（危险操作确认弹窗）的说明文案行是 icon+文本的 flex 行，
+ * 其 <p> 作为 flex item 保留 min-width:auto 且无 overflow-wrap：一条不可
+ * 断行的长路径（如 ~/.dsh-studio-dev/worktrees/{repo}/{branch}）会撑破
+ * 固定宽度卡片；内容区 overflow-y:auto 使横轴也变成 auto → 横向滚动条。
+ * 上游类名带构建哈希（_warning_1nu42_19），唯一稳定的是局部名 _warning_，
+ * 因此用属性选择器桥接：让长 token 在任意处换行。 */
+[class*='_warning_'] p {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
