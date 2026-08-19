@@ -6,8 +6,8 @@
 <div align="center">
   <img src="./assets/dsh-whale.png" width="128" alt="DSH Studio">
   <h1>DSH Studio</h1>
-  <p><strong>A local development workbench for DeepSeek Harness.</strong></p>
-  <p>Manage conversations, files, Git review, terminals, and plugins in one project workspace.</p>
+  <p><strong>A local development workbench for DeepSeek Harness</strong></p>
+  <p>Conversations, files, Git review, terminals, and plugins — in one project workspace.</p>
 </div>
 
 <p align="center">
@@ -28,116 +28,113 @@
 
 <p align="center">
   <img src="./assets/dsh-studio-hero.png" alt="DSH Studio workbench" width="100%">
+  <br><em>Left rail project tree · Center multi-tab area (conversation / terminal / browser) · Right rail Git panel</em>
 </p>
 
-DSH Studio is built on the DeepSeek Harness runtime. It brings AI agents, workspaces, local development tools, and the plugin ecosystem into an installable Desktop/Web workbench. Model services can still run in the cloud; projects, sessions, terminals, files, Git review, browser state, and plugin state are organized by one local workspace.
+DSH Studio is built on the DeepSeek Harness runtime. It brings AI agents, workspaces, local development tools, and the plugin ecosystem into one installable Desktop / Web workbench. Model services still run in the cloud on demand; projects, sessions, terminals, files, Git review, browser state, and plugin state are all organized by one local workspace.
 
-The screenshot above shows the typical DSH Studio layout: the left rail lists multiple projects and branches, the center area keeps conversation, terminal, and browser tabs open simultaneously while staying on the conversation tab, and the right-rail Git panel shows staged changes and diffs in real time.
+## Key features
+
+<table>
+  <tr>
+    <td width="50%" valign="top"><b>🗂️ Multi-project workspace</b><br>Project → Worktree → Session tree with groups, aliases, and automatic project icon detection.</td>
+    <td width="50%" valign="top"><b>🧰 All-in-one tool area</b><br>Project-scoped PTY, file browsing and preview, browser, and subagent tools — no window switching.</td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b>🔍 Git review</b><br>Staged / unstaged / untracked sections, commit history, commit file trees, and line-level review targets.</td>
+    <td width="50%" valign="top"><b>🤖 Smart commit</b><br>Generate commit messages from current changes in one click, with configurable model and reasoning effort.</td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top"><b>🖥️ Desktop + Web parity</b><br>Same runtime, Profiles, plugins, and data boundaries; Desktop adds a native window and PTY.</td>
+    <td width="50%" valign="top"><b>🧩 Plugin marketplace</b><br>Browse and install plugins from multiple sources with preview, approval, source locking, and restore.</td>
+  </tr>
+</table>
 
 ## Interface preview
 
-### 🗂️ Project tree with automatic icons
+<h3>🗂️ Project tree with automatic icons</h3>
 
-The left rail organizes context in a **Project → Worktree → Session** tree. Each project's icon is automatically detected from static assets inside the project directory — it first reads the `icon` field declared in `package.json`, then searches for PNG files in the project, and can also pull from the project homepage favicon or the Git provider avatar — no manual configuration needed.
+The left rail organizes context in a <b>Project → Worktree → Session</b> tree. Each project's icon is automatically detected from static assets inside the project — it first reads the <code>icon</code> field declared in <code>package.json</code>, then searches for PNG files in the project, and can also pull from the project homepage favicon or the Git provider avatar — no manual configuration needed.
 
-<p align="center">
-  <img src="./assets/dsh-studio-project-icons.png" alt="Left rail project tree with automatic icons" width="280">
-</p>
+<table align="center">
+  <tr>
+    <td width="50%" align="center" valign="top">
+      <img src="./assets/dsh-studio-left-rail.png" alt="Left rail project tree" width="260">
+    </td>
+    <td width="50%" align="center" valign="top">
+      <img src="./assets/dsh-studio-project-icons.png" alt="Automatically detected project icons" width="260">
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><em>Project tree: main / dev branches under the dsh-studio project</em></td>
+    <td align="center"><em>Project icons: detected from project static assets</em></td>
+  </tr>
+</table>
 
-If the automatic detection is not what you want, right-click the project to choose a built-in icon or upload a custom PNG. The left rail also supports multiple projects, branches, groups, aliases, search, and persistent view state.
+If automatic detection misses, right-click the project to pick a built-in icon or upload a custom PNG. Multiple projects, branches, groups, aliases, search, and view state are all persisted.
 
-### 🔍 Git review and smart commit
+<h3>🔍 Git review and smart commit</h3>
 
-The right-rail Git panel brings staged, unstaged, untracked sections and commit history together in one panel. Click "Generate commit message" to call the model and auto-write a commit title and body from the current changes, with configurable model and reasoning effort.
+The right-rail Git panel brings staged, unstaged, untracked sections and commit history together in one panel. Click <b>"Generate commit message"</b> and the model writes a commit title and body from the current changes; edit the result inline and commit all staged changes with one click.
 
 <p align="center">
   <img src="./assets/dsh-studio-ai-commit.png" alt="AI-generated commit message" width="100%">
+  <br><em>2 files staged; the commit message is generated by the model from the changes</em>
 </p>
 
-After generation you can edit the message inline and commit all staged changes with one click. Clicking "View all" in the staged section opens the staged files as a standalone center tab with the file tree on the left, making it easy to compare code and diffs side by side.
+Every section has a <b>"View all"</b> action: clicking it opens the staged files as a standalone center tab with the file tree on the left, making code and diffs easier to compare side by side.
 
 <p align="center">
   <img src="./assets/dsh-studio-view-all.png" alt="View all staged files" width="100%">
+  <br><em>The "view all" center tab for staged files, with the file tree on the left</em>
 </p>
 
-### 📄 Diff viewer
+<h3>📄 Diff viewer</h3>
 
-Click any file in the Git panel to open the diff viewer in the right rail. It supports line-level diff, image diff, conflict view, and inline comment targets, and can compare committed and unpushed changes.
+Click any file in the Git panel and the diff viewer opens in the right rail: line-level diff, image diff, conflict view, and inline comment targets, comparing both committed and unpushed changes.
 
 <p align="center">
   <img src="./assets/dsh-studio-diff.png" alt="Diff viewer" width="100%">
+  <br><em>Line-level diff with added / removed highlighting and inline comments</em>
 </p>
 
-### 📁 File browsing
+<h3>📁 File browsing</h3>
 
-Switch the right rail to the Files tab to browse the project-level file tree and preview files, with search, sort, and quick navigation. The center conversation tab stays open, so file browsing does not interrupt the chat.
+Switch the right rail to the Files tab to browse the project file tree and preview files, with search, sort, and quick navigation. The center conversation tab stays open, so browsing files never interrupts the chat.
 
 <p align="center">
   <img src="./assets/dsh-studio-files.png" alt="File browsing" width="100%">
+  <br><em>Project file tree and file preview, with the conversation tab still open</em>
 </p>
 
-### 🖥️ Project terminal
+<h3>🖥️ Project terminal</h3>
 
-The terminal opens as a center tab with a native PTY, unified shell resolution, and project-scoped sessions. Conversation and browser tabs stay in the tab bar for instant switching.
+The terminal opens as a center tab: native PTY, unified shell resolution, project-scoped sessions, streaming output, and replay. Conversation and browser tabs stay in the tab bar for instant switching.
 
 <p align="center">
   <img src="./assets/dsh-studio-terminal.png" alt="Project terminal" width="100%">
+  <br><em>The center terminal tab, alongside conversation and browser tabs</em>
 </p>
 
-### ⚙️ Settings
+<h3>⚙️ Settings</h3>
 
 General settings, model config, Agent presets, sidebar options, and skin switching share one panel across Desktop and Web.
 
 <p align="center">
   <img src="./assets/dsh-studio-settings.png" alt="Settings panel" width="100%">
+  <br><em>Settings: general / models / plugins / agent presets / sidebar / theme skins</em>
 </p>
 
-### 🧩 Plugin marketplace
+<h3>🧩 Plugin marketplace</h3>
 
 Browse and manage DSH plugins from multiple sources. Candidates go through preview and approval, with source locking, bundle validation, apply, and restore flows.
 
 <p align="center">
   <img src="./assets/dsh-studio-plugin-marketplace.png" alt="Plugin marketplace" width="100%">
+  <br><em>Marketplace: installed / not-installed categories with search and source filters</em>
 </p>
 
-## Features
-
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>🗂️ Project → Worktree → Session</h3>
-      <p>The left rail organizes context by project, Git worktree, and conversation. It supports multiple projects and branches, groups, aliases, icons, search, and persistent view state.</p>
-    </td>
-    <td width="50%" valign="top">
-      <h3>🧰 Local development workbench</h3>
-      <p>The center conversation area works with a right-side tool area. Project-scoped PTY, file browsing, file viewers, browser tools, and subagent tools stay in one workspace.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>🔍 Git review</h3>
-      <p>Inspect staged, unstaged, untracked, and conflicted changes; browse commit history and commit file trees; compare committed or unpushed changes; and keep review targets on code lines.</p>
-    </td>
-    <td width="50%" valign="top">
-      <h3>🧩 Plugin marketplace</h3>
-      <p>Browse and manage DSH plugins from multiple sources. Candidates go through preview and approval, with source locking, bundle validation, apply, and restore flows.</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>🖥️ Desktop + Web</h3>
-      <p>Desktop and Web share the same runtime, Profiles, plugins, and data boundaries. Desktop adds a native window and PTY, while Web fits browser and remote workspaces.</p>
-    </td>
-    <td width="50%" valign="top">
-      <h3>🎨 Cross-surface skins</h3>
-      <p>A shared DSW token and skin system covers the workspace, left rail, right rail, terminal, and settings while adapting readability to each surface.</p>
-    </td>
-  </tr>
-</table>
-
-### Experimental
-
-Source Control AI is under active development. It generates commit messages from the current project changes and supports configurable models, reasoning effort, and prompt templates. It is not yet a stable release promise; descriptions and screenshots should follow actual verification.
+> **Experimental** · Source Control AI is under active development: it generates commit messages from project changes and supports configurable models, reasoning effort, and prompt templates. It is not yet a stable release promise.
 
 ## Download and install
 
@@ -148,9 +145,12 @@ Choose a distribution from [DSH Studio Releases](https://github.com/euanguo/dsh-
 | Full | **DSH Studio**, Web, Node runtime, and bundled plugins | Local development workbench |
 | Web-only | **DSH Studio Web**, Node runtime, and Web plugins; no Electron | Browser, server, or small installs |
 
+<details>
+<summary><b>Platform install steps</b></summary>
+
 - **macOS:** open the DMG and drag **DSH Studio** into Applications.
 - **Windows:** run the installer, or extract and launch the portable package.
-- **Linux:** run the AppImage, or install the deb with `apt`.
+- **Linux:** run the AppImage, or install the deb with <code>apt</code>.
 
 The Web-only package is ready after extraction:
 
@@ -159,9 +159,12 @@ The Web-only package is ready after extraction:
 ./bin/dsh-studio web
 ```
 
-### Install the unified command
+</details>
 
-The macOS full distribution contains a launcher that can be added to `PATH`:
+<details>
+<summary><b>Install the unified command (optional)</b></summary>
+
+The macOS full distribution contains a launcher that can be added to <code>PATH</code>:
 
 ```sh
 sudo ln -sf \
@@ -169,7 +172,9 @@ sudo ln -sf \
   /usr/local/bin/dsh-studio
 ```
 
-The Web-only package can run `./bin/dsh-studio` directly or be added to `PATH`.
+The Web-only package can run <code>./bin/dsh-studio</code> directly or be added to <code>PATH</code>.
+
+</details>
 
 ## Usage
 
@@ -180,11 +185,11 @@ dsh-studio web              # Start DSH Studio Web
 dsh-studio web --port 3080  # Choose the Web port
 ```
 
-Installed Desktop and Web use `~/.dsh-studio` for caches, configuration, sessions, credentials, and plugin state by default. Source launches from `pnpm start` / `pnpm dev` use `~/.dsh-studio-dev`, so a packaged app and a verification instance can run side by side. Set `DSH_STUDIO_HOME` to move the shared data root, or use `--channel stable|dev` / `DSH_STUDIO_CHANNEL` to choose the default pair.
+**Data directory:** Installed Desktop and Web share `~/.dsh-studio` for caches, configuration, sessions, credentials, and plugin state by default. Source launches via `pnpm start` / `pnpm dev` use `~/.dsh-studio-dev` instead, so a packaged app and a verification instance can run side by side. Set `DSH_STUDIO_HOME` to move the shared data root, or use `--channel stable|dev` / `DSH_STUDIO_CHANNEL` to choose the default pair.
 
 ## What this project is built on
 
-DSH Studio is a downstream fork of [hust-open-atom-club/oh-dsh](https://github.com/hust-open-atom-club/oh-dsh). It continues to use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) for the DSH runtime, Profiles, sessions, workspaces, and plugin contracts.
+DSH Studio is a downstream fork of [hust-open-atom-club/oh-dsh](https://github.com/hust-open-atom-club/oh-dsh) and continues to use [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) for the DSH runtime, Profiles, sessions, workspaces, and plugin contracts.
 
 | Area | Source and boundary |
 | --- | --- |
@@ -195,20 +200,25 @@ DSH Studio is a downstream fork of [hust-open-atom-club/oh-dsh](https://github.c
 | Right-rail client/UI | Not a verbatim copy of the upstream UI; DSH Studio owns the file, Git review, Center Surface, project scope, plugin registration, and desktop layout implementations |
 | Diff / terminal references | Public implementations and algorithms from [pierre](https://github.com/pierrecomputer/pierre) and [orca](https://github.com/stablyai/orca), with attribution preserved |
 
-DSH Studio therefore does not claim to be a simple reskin or a complete copy of Better Sidebar. It reuses clearly attributed runtime, Host, protocol, and third-party foundations, then builds its own project workspace, Git review, Center Surface, plugin marketplace, and Desktop/Web distribution layer.
+DSH Studio is not a simple reskin, nor a verbatim copy of Better Sidebar: it reuses clearly attributed runtime, Host, protocol, and third-party foundations, then builds its own project workspace, Git review, Center Surface, plugin marketplace, and Desktop/Web distribution layer on top.
 
 ## Documentation and ecosystem
 
-- [Installation, operations, and troubleshooting](./docs/usage.en.md)
-- [Architecture, design, and plugin boundaries](./docs/design.en.md)
-- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness): DSH runtime, sessions, and plugin loader
-- [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar): source of the right-rail Host file, Git, and PTY capabilities
+- [Installation, operations, and troubleshooting](./docs/usage.en.md) · [Architecture and plugin boundaries](./docs/design.en.md)
+- [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) — DSH runtime, sessions, and plugin loader
+- [DSH-better-sidebar](https://github.com/omdsh-dev/DSH-better-sidebar) — source of the right-rail Host file, Git, and PTY capabilities
+- [dshfind](https://dshfind.com/) — DSH plugin marketplace and ecosystem community
+
+<details>
+<summary><b>More reference projects</b></summary>
+
 - [plugin-registry](https://github.com/vlln/plugin-registry): plugin sources, locking, and lifecycle reference
 - [dsh-hub](https://github.com/omdsh-dev/dsh-hub): marketplace aggregation, trust, and candidate preview reference
 - [dsh-suite](https://github.com/whyihaveyou/dsh-suite): plugin classification and management reference
 - [pierre](https://github.com/pierrecomputer/pierre): diff, inline comments, and virtualized rendering reference
 - [orca](https://github.com/stablyai/orca): terminal scrollback and commit-generation reference
-- [dshfind](https://dshfind.com/): DSH plugin marketplace and ecosystem community
+
+</details>
 
 For the complete third-party license, pinned revision, and adaptation boundaries, see [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES.md).
 
