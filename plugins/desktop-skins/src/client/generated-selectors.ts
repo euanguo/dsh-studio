@@ -143,10 +143,6 @@ export const CARD = Object.freeze([
   '.y3Vqqq_cards',
 ] as const)
 
-export const HOVER_CARD = Object.freeze([
-  '._card_1b2ny_13',
-] as const)
-
 export const DIALOG = Object.freeze([
   '._dialog_15u5s_22',
   '.jhjh5G_dialog',

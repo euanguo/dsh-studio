@@ -11,7 +11,6 @@ import {
   CARD,
   DIALOG,
   GROUP_LABEL,
-  HOVER_CARD,
   ICON,
   ITEM_LABEL,
   ITEM_WRAP,
@@ -543,15 +542,6 @@ ${gate([...SESSION_ROW, ...PROJECT_ROW, ...WORKSPACE_ROW])} {
 
 ${gate([...CARD_SHELL, ...DIALOG_SHELL])} {
   border-radius: var(--gw-skin-radius-card) !important;
-}
-/* HoverCard ships a fixed dark surface in the pinned primitive. Rebind its
-   surface and copy-feedback text to the active skin so light mode stays light. */
-${gate(HOVER_CARD)} {
-  background: var(--dsw-alias-bg-layer-1) !important;
-  color: var(--dsw-alias-label-primary) !important;
-}
-${gate(HOVER_CARD)} span {
-  color: var(--dsw-alias-label-primary) !important;
 }
 ${gate(DIALOG_SHELL)} {
   border: 0 !important;

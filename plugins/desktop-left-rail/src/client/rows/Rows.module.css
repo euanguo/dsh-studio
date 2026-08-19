@@ -306,8 +306,10 @@
   transform: rotate(90deg);
 }
 
-/* Hover-card body (figma 169:16903): skin tokens replace the forked
-   hardcoded greys so the card follows the active skin in both themes. */
+/* Hover-card body (figma 169:16903): the HoverCard owns a fixed dark
+   surface (#2C2C2E, both themes), so its text is the fixed light palette
+   too — the same values the official rows use. Skin tokens must not reach
+   here: in light mode they resolve dark and vanish on the dark card. */
 .hoverContent {
   display: flex;
   flex-direction: column;
@@ -317,21 +319,21 @@
 .hoverTitle {
   font-size: 14px;
   line-height: 20px;
-  color: var(--dsw-alias-label-primary);
+  color: #FFFFFF;
   overflow-wrap: break-word;
 }
 
 .hoverPath {
   font-size: 12px;
   line-height: 16px;
-  color: var(--dsw-alias-label-secondary);
+  color: #CFD3D6;
   word-break: break-all;
 }
 
 .hoverTime {
   font-size: 12px;
   line-height: 16px;
-  color: var(--dsw-alias-label-secondary);
+  color: #CFD3D6;
 }
 
 .hoverStatus {
@@ -340,7 +342,7 @@
   gap: 8px;
   font-size: 12px;
   line-height: 20px;
-  color: var(--dsw-alias-label-secondary);
+  color: #ADB2B8;
 }
 
 .iconButton {

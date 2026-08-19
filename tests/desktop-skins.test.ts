@@ -133,11 +133,16 @@ test('desktop skins are namespaced and keep every app surface on one opaque base
   }
 })
 
-test('light ChatGPT skin adapts the HoverCard surface and feedback label', () => {
+test('skins keep the HoverCard pinned dark surface (no light-mode fill override)', () => {
   const day = DESKTOP_SKINS.find(skin => skin.id === 'oh-dsh-skin-chatgpt-day')
   assert.ok(day?.css)
-  assert.match(day.css, /body\[data-oh-dsh-skin\] \._card_1b2ny_13 \{[^}]*background: var\(--dsw-alias-bg-layer-1\) !important;/s)
-  assert.match(day.css, /body\[data-oh-dsh-skin\] \._card_1b2ny_13 \{[^}]*color: var\(--dsw-alias-label-primary\) !important;/s)
+  // The HoverCard owns a fixed #2C2C2E surface in both themes, and the
+  // left-rail plugin themes its hover text against it (white title, light
+  // greys for path/time/status). A previous fix wrongly rebound that dark
+  // background to the light layer-1 fill to compensate for hover text that
+  // still used dark skin tokens; with the text fixed, the surface override
+  // must stay absent or the hover card turns light in light mode.
+  assert.doesNotMatch(day.css, /\._card_1b2ny_13\s*\{[^}]*background\s*:/s)
 })
 
 test('desktop skins restore a persisted choice after theme registration', () => {
