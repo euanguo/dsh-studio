@@ -351,6 +351,10 @@ export interface SidebarSettingsService {
   }>
   /** Service-level merge write with the revision guard (a stale writer is refused). */
   update(ns: string, patch: object, expectedRevision?: number): Promise<void>
+  /** Service-level wholesale replace of one namespace's user section (deletion-capable). */
+  replace(ns: string, section: object, expectedRevision?: number): Promise<void>
+  /** Service-level path-addressed set/unset edits (deletion-capable). */
+  mutate(ns: string, ops: ReadonlyArray<{ op: 'set' | 'unset'; path: string[]; value?: unknown }>, expectedRevision?: number): Promise<void>
 }
 
 /**

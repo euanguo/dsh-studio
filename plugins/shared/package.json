@@ -17,6 +17,7 @@
     "./guardrails": "./guardrails.ts",
     "./i18n": "./i18n.ts",
     "./icons": "./icons.tsx",
+    "./left-rail-preferences": "./left-rail-preferences.ts",
     "./list-row": "./list-row.tsx",
     "./list-row.css": "./list-row.css",
     "./middle-truncate-text": "./middle-truncate-text.ts",

@@ -1,9 +1,11 @@
 /**
  * The /sidebar JSON API route table (M3): every `buildSidebarRoutes`
- * method — session cwd, fs operations, git, worktrees, pty release,
- * background jobs, settings and the browser probe. All operations are
- * conversation-scoped: requests carry a sessionId and the session's
- * authoritative cwd comes from the session store (see `sessionCwdOf`).
+ * method — workspace cwd, fs operations, git, worktrees, pty release,
+ * background jobs, settings and the browser probe. Scoped requests carry
+ * the PROJECT cwd (the sidebar data model is project-dimension); the pty
+ * routes key terminals by `cwd:tabId` (project-shared shells). The
+ * session-derived cwd fallback (`sessionCwdOf`) remains for the host's
+ * agent/media surfaces, not the fs/git routes.
  */
 import { execFile } from 'node:child_process'
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
@@ -19,6 +21,7 @@ import type { PtyManager } from './pty-manager.ts'
 import type { AgentPtyRegistry } from './agent-pty.ts'
 import { buildJobsApi, type SidebarJobsRoutes } from './jobs-routes.ts'
 import { detectProjectIcon } from './project-icon.ts'
+import { terminalSessionKey } from './terminal-session-store.ts'
 import {
   isSidebarWorkspaceMutation,
   mutateWorkspace,
@@ -33,8 +36,40 @@ import {
   SidebarError,
 } from '@oh-dsh/shared/wire'
 
+import { SIDEBAR_PREFS_NS } from '@oh-dsh/shared/prefs-shared'
+
 export type ApiMethod = (payload: unknown) => Promise<unknown> | unknown
 
+/** An approved path edit shape for the settings.mutate route. */
+export interface SettingsPathEdit {
+  op: 'set' | 'unset'
+  path: string[]
+  value?: unknown
+}
+
+/** Whether an unknown value is a well-formed path edit. */
+function isSettingsPathOp(value: unknown): value is SettingsPathEdit {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
+  const record = value as Record<string, unknown>
+  if (record.op !== 'set' && record.op !== 'unset') return false
+  if (!Array.isArray(record.path) || record.path.some(part => typeof part !== 'string')) return false
+  return true
+}
+
+/**
+ * Resolve which registered settings namespace a client payload addresses.
+ * Absent/blank falls back to the sidebar prefs namespace so the side card's
+ * historical callers (which never sent `ns`) keep working unchanged; the
+ * left-rail sends `oh-dsh-left-rail` explicitly.
+ */
+function settingsNamespaceOf(payload: unknown): string {
+  const record = payload as { ns?: unknown } | null
+  const raw = typeof record?.ns === 'string' && record.ns !== '' ? record.ns : undefined
+  // Namespaces are branded kebab-case (no dots) — see dsh-settings'
+  // NAMESPACE_PATTERN. A foreign dot-name never matches a registration and is
+  // refused by the seam, which is exactly the fence we want.
+  return raw ?? SIDEBAR_PREFS_NS
+}
 
 /**
  * Resolve a session's authoritative working directory. The attached session
@@ -186,17 +221,23 @@ async function readText(path: string, readLimit: number): Promise<{
 /** One API method dispatch table entry. */
 
 /**
- * The live face of the side card settings namespace, bound to the settings
+ * The live face of the plugin-owned settings namespaces, bound to the settings
  * service when it is mounted. The DSH settings RPC domain only serves
- * allowlisted namespaces (api-proxy exposedNamespaces), so the client reads
- * and writes THIS namespace through the plugin's own fenced /sidebar routes,
+ * allowlisted namespaces (api-proxy exposedNamespaces), so clients read and
+ * write THESE namespaces through the plugin's own fenced /sidebar routes,
  * which call the seam in-process — no configuration-client gate involved.
+ * Every method takes the target namespace (`dsh-better-sidebar` for the side
+ * card prefs, `oh-dsh-left-rail` for the left-rail view slice).
  */
 export interface SidebarSettingsFace {
-  /** The current resolved value + revision (undefined while the settings service is absent). */
-  get(): { value?: unknown; revision?: number }
-  /** Merge a patch (revision-guarded) and return the fresh resolved view. */
-  update(patch: Record<string, unknown>, expectedRevision?: number): Promise<{ value?: unknown; revision?: number }>
+  /** The current resolved value + revision for one namespace (undefined while the settings service is absent). */
+  get(ns: string): Promise<{ value?: unknown; revision?: number }> | { value?: unknown; revision?: number }
+  /** Merge a patch into one namespace's user section (revision-guarded). */
+  update(ns: string, patch: Record<string, unknown>, expectedRevision?: number): Promise<{ value?: unknown; revision?: number }>
+  /** Wholesale replace of one namespace's user section (deletion-capable). */
+  replace(ns: string, section: Record<string, unknown>, expectedRevision?: number): Promise<{ value?: unknown; revision?: number }>
+  /** Path-addressed set/unset edits on one namespace (deletion-capable). */
+  mutate(ns: string, ops: ReadonlyArray<{ op: 'set' | 'unset'; path: string[]; value?: unknown }>, expectedRevision?: number): Promise<{ value?: unknown; revision?: number }>
 }
 
 /** Build the API method table bound to the plugin context, pty manager, agent pty registry, and resolved config. */
@@ -207,11 +248,11 @@ export function buildSidebarRoutes(
   resolved: ResolvedSidebarConfig,
   getSettings: () => SidebarSettingsFace | undefined,
 ): Record<string, ApiMethod> {
-  const cwdOf = (payload: unknown): { sessionId: string; cwd: string } => {
-    const sessionId = requireString(payload, 'sessionId')
+  const cwdOf = (payload: unknown): { cwd: string } => {
     const record = payload as { cwd?: unknown } | null
-    const clientCwd = typeof record?.cwd === 'string' && record.cwd !== '' ? record.cwd : undefined
-    return { sessionId, cwd: sessionCwdOf(ctx, sessionId, clientCwd) }
+    const raw = typeof record?.cwd === 'string' && record.cwd !== '' ? record.cwd : undefined
+    if (raw === undefined) throw new SidebarError('bad-request', 'cwd is required')
+    return { cwd: requireAbsolute(raw) }
   }
   // Worktree-only scope: the workspace browser has no session binding, so the
   // worktree endpoints accept a bare absolute cwd (same same-origin POST fence).
@@ -228,9 +269,9 @@ export function buildSidebarRoutes(
   // API). A deployment without the jobs registry downgrades kill to a 503.
   const jobsApi: SidebarJobsRoutes = buildJobsApi(ctx, resolved.readLimit)
   return {
-    'session.cwd': (payload) => {
-      const { sessionId, cwd } = cwdOf(payload)
-      return { sessionId, cwd, root: rootLabel(cwd), parent: parentOf(cwd) ?? null }
+    'workspace.cwd': (payload) => {
+      const { cwd } = cwdOf(payload)
+      return { cwd, root: rootLabel(cwd), parent: parentOf(cwd) ?? null }
     },
     'fs.tree': async (payload) => {
       const { cwd } = cwdOf(payload)
@@ -538,30 +579,30 @@ export function buildSidebarRoutes(
     // happens while the socket is down (reconnect loop), so a closed tab can
     // never hold the per-session quota until the reconnect grace expires.
     'pty.close': (payload) => {
-      const sessionId = requireString(payload, 'sessionId')
+      const { cwd } = cwdOf(payload)
       const tab = requireString(payload, 'tab')
-      ptyManager.close(`${sessionId}:${tab}`)
+      ptyManager.close(terminalSessionKey(cwd, tab))
       return { ok: true }
     },
-    /** List durable inactive terminal projections for one session. */
+    /** List durable inactive terminal projections for one project. */
     'pty.retained': (payload) => {
-      const sessionId = requireString(payload, 'sessionId')
-      return { sessions: ptyManager.retained(sessionId) }
+      const { cwd } = cwdOf(payload)
+      return { sessions: ptyManager.retained(cwd) }
     },
     /** Remove one durable inactive terminal projection. */
     'pty.clear-retained': (payload) => {
-      const sessionId = requireString(payload, 'sessionId')
+      const { cwd } = cwdOf(payload)
       const tab = requireString(payload, 'tab')
-      ptyManager.clearRetained(sessionId, tab)
+      ptyManager.clearRetained(cwd, tab)
       return { ok: true }
     },
     /** Restart one shell while preserving its durable history projection. */
     'pty.restart': (payload) => {
-      const { sessionId, cwd } = cwdOf(payload)
+      const { cwd } = cwdOf(payload)
       const tab = requireString(payload, 'tab')
       const cols = optionalInteger(payload, 'cols', 2, 1024) ?? 80
       const rows = optionalInteger(payload, 'rows', 2, 1024) ?? 24
-      const handle = ptyManager.restart(sessionId, tab, cwd, cols, rows)
+      const handle = ptyManager.restart(cwd, tab, cwd, cols, rows)
       return { ok: true, incarnationId: handle.incarnationId }
     },
     // Release an agent terminal by uuid. The WS close frame already does
@@ -586,23 +627,71 @@ export function buildSidebarRoutes(
     // keeps the schema defaults. Writes are revision-guarded: a stale editor
     // is refused with settings-conflict so a concurrent change is never
     // silently overwritten (mirror of the settings seam's own guard).
-    'settings.get': () => {
+    'settings.get': (payload) => {
       const settings = getSettings()
-      return settings?.get() ?? { value: undefined, revision: undefined }
+      const ns = settingsNamespaceOf(payload)
+      return settings?.get(ns) ?? { value: undefined, revision: undefined }
     },
     'settings.update': async (payload) => {
       const settings = getSettings()
       if (settings === undefined) {
         throw new SidebarError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
       }
-      const record = payload as { patch?: unknown; expectedRevision?: unknown } | null
+      const record = payload as { ns?: unknown; patch?: unknown; expectedRevision?: unknown } | null
       const patch = record?.patch
       if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
         throw new SidebarError('bad-request', 'patch must be a plain object')
       }
+      const ns = settingsNamespaceOf(payload)
       const expectedRevision = typeof record?.expectedRevision === 'number' ? record.expectedRevision : undefined
       try {
-        return await settings.update(patch as Record<string, unknown>, expectedRevision)
+        return await settings.update(ns, patch as Record<string, unknown>, expectedRevision)
+      } catch (error) {
+        if (error instanceof SettingsConflictError) {
+          throw new SidebarError('settings-conflict', error.message, 409)
+        }
+        throw new SidebarError('settings-rejected', error instanceof Error ? error.message : String(error), 400)
+      }
+    },
+    // Wholesale replace of one namespace's user section. Unlike a merge patch,
+    // replace expresses deletion — keys absent from the section are removed —
+    // so this is the reset-to-auto / clear-alias / remove-group path.
+    'settings.replace': async (payload) => {
+      const settings = getSettings()
+      if (settings === undefined) {
+        throw new SidebarError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
+      }
+      const record = payload as { ns?: unknown; section?: unknown; expectedRevision?: unknown } | null
+      const section = record?.section
+      if (section === null || typeof section !== 'object' || Array.isArray(section)) {
+        throw new SidebarError('bad-request', 'section must be a plain object')
+      }
+      const ns = settingsNamespaceOf(payload)
+      const expectedRevision = typeof record?.expectedRevision === 'number' ? record.expectedRevision : undefined
+      try {
+        return await settings.replace(ns, section as Record<string, unknown>, expectedRevision)
+      } catch (error) {
+        if (error instanceof SettingsConflictError) {
+          throw new SidebarError('settings-conflict', error.message, 409)
+        }
+        throw new SidebarError('settings-rejected', error instanceof Error ? error.message : String(error), 400)
+      }
+    },
+    // Path-addressed set/unset edits on one namespace (the native delete op).
+    'settings.mutate': async (payload) => {
+      const settings = getSettings()
+      if (settings === undefined) {
+        throw new SidebarError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
+      }
+      const record = payload as { ns?: unknown; ops?: unknown; expectedRevision?: unknown } | null
+      const rawOps = record?.ops
+      if (!Array.isArray(rawOps) || rawOps.length === 0 || !rawOps.every(isSettingsPathOp)) {
+        throw new SidebarError('bad-request', 'ops must be a non-empty array of {op,path} edits')
+      }
+      const ns = settingsNamespaceOf(payload)
+      const expectedRevision = typeof record?.expectedRevision === 'number' ? record.expectedRevision : undefined
+      try {
+        return await settings.mutate(ns, rawOps as SettingsPathEdit[], expectedRevision)
       } catch (error) {
         if (error instanceof SettingsConflictError) {
           throw new SidebarError('settings-conflict', error.message, 409)

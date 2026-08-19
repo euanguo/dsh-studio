@@ -119,3 +119,32 @@ export const PrefsSchema: z<SidebarPrefs> = z.object({
   tabsEnabled: z.dict(z.boolean()).default({}),
   viewersEnabled: z.dict(z.boolean()).default({}),
 })
+
+// ── Left-rail view slice (oh-dsh-left-rail namespace) ───────────────────────
+// Registered through the same settings seam as the sidebar prefs, so the
+// schema gives the namespace defaults/validation and the namespace owns its
+// section in the settings document (see docs/persistence-architecture.md).
+
+/** Schemastery schema for the durable left-rail view slice. */
+export const LeftRailSettingsSchema = z.object({
+  version: z.number().step(1).min(1).required(false),
+  activeTab: z.string(),
+  projectGroup: z.dict(z.string()).default({}),
+  groupIds: z.array(z.string()),
+  groupLabels: z.dict(z.string()).default({}),
+  projectAlias: z.dict(z.string()).default({}),
+  worktreeAlias: z.dict(z.string()).default({}),
+  projectIconOverrides: z.dict(z.union([
+    z.object({
+      kind: z.const('builtin'),
+      // Coarse structural gate; the exact allowlist lives in the shared
+      // sanitizeProjectIconPreference consumed on the client.
+      name: z.string(),
+    }),
+    z.object({
+      kind: z.const('upload'),
+      mime: z.const('image/png'),
+      data: z.string(),
+    }),
+  ])).default({}),
+})

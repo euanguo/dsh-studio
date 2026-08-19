@@ -1,26 +1,21 @@
 /**
- * Left-rail grouping settings, persisted through the desktop host's settings
- * service (`oh-dsh.left-rail` namespace → profile JSON file), the same channel
- * as the sidebar preferences — NOT browser localStorage. The grouping is view
- * state (tab/group/alias), while projects/worktrees stay derived from git.
+ * Left-rail view state, persisted through the desktop host's settings service
+ * into its OWN `oh-dsh-left-rail` namespace (→ the profile settings document),
+ * NOT browser localStorage and NOT the sidebar prefs section. The slice is a
+ * versioned DTO; writes go through whole-section `settings.replace` (plus
+ * schema-backed load) so deletions — icon reset to auto, alias clear, group
+ * unassign — survive reloads. projects/worktrees themselves stay derived
+ * from git. See docs/persistence-architecture.md (decision B).
  */
 import { callSidebarGlobalApi } from '@oh-dsh/shared/sidebar-api'
-import type { ProjectIconPreference } from './domain/project-icon.ts'
+import {
+  LEFT_RAIL_SETTINGS_NS,
+  LEFT_RAIL_SETTINGS_VERSION,
+  sanitizeLeftRailSettings,
+  type LeftRailSettings,
+} from '@oh-dsh/shared/left-rail-preferences'
 
-const NS = 'oh-dsh.left-rail'
-
-/** The durable left-rail view slice (JSON-compatible). */
-export interface LeftRailSettings {
-  activeTab?: string
-  projectGroup?: Record<string, string>
-  groupIds?: string[]
-  groupLabels?: Record<string, string>
-  projectAlias?: Record<string, string>
-  /** worktreePath → user alias (display name overriding the directory basename or branch). */
-  worktreeAlias?: Record<string, string>
-  /** repoRoot → explicit icon preference; auto-detected icons are not persisted. */
-  projectIconOverrides?: Record<string, ProjectIconPreference>
-}
+export type { LeftRailSettings } from '@oh-dsh/shared/left-rail-preferences'
 
 /** A settings response envelope (namespace value + revision for CAS). */
 export interface LeftRailSettingsView {
@@ -28,28 +23,38 @@ export interface LeftRailSettingsView {
   revision: number
 }
 
-/** Read the persisted grouping (value empty object + revision when absent). */
+/** Read the persisted slice (empty DTO + revision when absent), sanitized. */
 export async function loadLeftRailSettings(signal?: AbortSignal): Promise<LeftRailSettingsView> {
-  const result = await callSidebarGlobalApi<{ value?: LeftRailSettings; revision?: number }>(
+  const result = await callSidebarGlobalApi<{ value?: unknown; revision?: number }>(
     'settings.get',
-    { ns: NS },
+    { ns: LEFT_RAIL_SETTINGS_NS },
     signal,
   )
-  return { value: result.value ?? {}, revision: result.revision ?? 0 }
+  return {
+    value: sanitizeLeftRailSettings(result.value) ?? {},
+    revision: result.revision ?? 0,
+  }
 }
 
-/** Persist a grouping patch (CAS on the last known revision). */
+/**
+ * Persist the complete next slice (CAS on the last known revision). This is a
+ * WHOLE-SECTION replace, not a merge: keys absent from `section` are removed
+ * from the stored slice, so every deletion the store expresses lands on disk.
+ */
 export async function saveLeftRailSettings(
-  patch: LeftRailSettings,
+  section: LeftRailSettings,
   expectedRevision?: number,
 ): Promise<LeftRailSettingsView> {
-  const result = await callSidebarGlobalApi<{ value?: LeftRailSettings; revision?: number }>(
-    'settings.update',
+  const result = await callSidebarGlobalApi<{ value?: unknown; revision?: number }>(
+    'settings.replace',
     {
-      ns: NS,
-      patch,
+      ns: LEFT_RAIL_SETTINGS_NS,
+      section: { ...section, version: LEFT_RAIL_SETTINGS_VERSION },
       ...(expectedRevision === undefined ? {} : { expectedRevision }),
     },
   )
-  return { value: result.value ?? {}, revision: result.revision ?? 0 }
+  return {
+    value: sanitizeLeftRailSettings(result.value) ?? {},
+    revision: result.revision ?? 0,
+  }
 }

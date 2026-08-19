@@ -9,10 +9,14 @@
  * route directly.
  */
 
-/** One conversation-scoped request: the owning session + its cwd. */
+/**
+ * One project-scoped request: the sidebar data model keys by the workspace
+ * cwd (project dimension). `sessionId` has been dropped — fs/git/pty operate
+ * on the project, not a conversation; the client resolves the authoritative
+ * cwd from the active session before sending it.
+ */
 export interface SidebarScope {
-  sessionId: string
-  cwd?: string
+  cwd: string
 }
 
 /** One explorer row (upstream fs-tree.ts SidebarFsEntry shape). */
@@ -165,7 +169,7 @@ export interface SidebarEnvelope<T> {
  * `paths` vs `path` mismatch was exactly this class of bug).
  */
 export interface SidebarApiRequests {
-  'session.cwd': { sessionId: string; cwd?: string }
+  'workspace.cwd': Record<string, never>
   'fs.tree': { path?: string }
   'fs.read': { path: string }
   'fs.write': { path: string; content: string }
@@ -200,13 +204,21 @@ export interface SidebarApiRequests {
   'project.icon-detect': { cwd: string }
   'workspace.facts': { cwd: string }
   'workspace.mutate': { cwd: string; mutation: SidebarWorkspaceMutation }
-  'pty.close': { sessionId: string; tab: string }
+  'pty.close': { tab: string }
   'pty.retained': Record<string, never>
   'pty.clear-retained': { tab: string }
   'pty.restart': { tab: string; cols?: number; rows?: number }
   'agent-pty.close': { uuid: string }
-  'settings.get': Record<string, never>
-  'settings.update': { patch: Record<string, unknown>; expectedRevision?: number }
+  'settings.get': { ns?: string }
+  'settings.update': { ns?: string; patch: Record<string, unknown>; expectedRevision?: number }
+  /** Wholesale replace of one namespace's user section (deletion-capable). */
+  'settings.replace': { ns?: string; section: Record<string, unknown>; expectedRevision?: number }
+  /** Path-addressed set/unset edits on one namespace (deletion-capable). */
+  'settings.mutate': {
+    ns?: string
+    ops: ReadonlyArray<{ op: 'set' | 'unset'; path: string[]; value?: unknown }>
+    expectedRevision?: number
+  }
   'browser.probe': { url: string }
   'jobs.output': { id: string }
   'jobs.kill': { id: string; reason?: string }
@@ -217,14 +229,13 @@ export type SidebarApiMethod = keyof SidebarApiRequests
 /** Route prefix served by the generic sidebar host (`/sidebar/api`). */
 export const SIDEBAR_API_BASE = '/sidebar/api'
 
-/** Build the POST body for one scoped method call. */
+/** Build the POST body for one scoped method call (the project cwd). */
 export function sidebarScopePayload(
   scope: SidebarScope,
   extra: Record<string, unknown>,
 ): Record<string, unknown> {
   return {
-    sessionId: scope.sessionId,
-    ...(scope.cwd === undefined || scope.cwd === '' ? {} : { cwd: scope.cwd }),
+    cwd: scope.cwd,
     ...extra,
   }
 }

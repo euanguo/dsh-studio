@@ -25,6 +25,7 @@ import type { TerminalOutputFrame } from '@oh-dsh/shared/terminal-wire'
 import type { Context } from './context-types.ts'
 import {
   Config,
+  LeftRailSettingsSchema,
   PrefsSchema,
   resolveSidebarConfig,
   SIDEBAR_PREFS_DEFAULTS,
@@ -33,6 +34,8 @@ import {
   type SidebarConfig,
   type SidebarPrefs,
 } from './config.ts'
+import { migrateLegacyLeftRailSlice } from './left-rail-settings-migration.ts'
+import { LEFT_RAIL_SETTINGS_NS } from '@oh-dsh/shared/left-rail-preferences'
 import { isWithin, requireAbsolute } from '@oh-dsh/shared/fs-tree'
 import { decodeHtmlUrl } from './html-route.ts'
 import { extractFrameAncestors } from './browser-probe.ts'
@@ -206,6 +209,16 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   // which call the seam in-process. Deployments without a settings service
   // simply never fill the face and the client falls back to the defaults.
   let settingsFace: SidebarSettingsFace | undefined
+  // Migration of any legacy left-rail slice out of the sidebar namespace into
+  // oh-dsh-left-rail. The routes gate the left-rail namespace on this promise
+  // so a cold-start first read never observes the empty pre-migration window.
+  let leftRailMigrationGate: Promise<void> | undefined
+  // Await the left-rail migration gate for the left-rail namespace only; the
+  // sidebar prefs namespace never waits (it is the migration's source, and
+  // reads there must work before the move settles).
+  const settingsNamespaceGate = async (rawNs: string, gate: () => Promise<void> | undefined): Promise<void> => {
+    if (rawNs === LEFT_RAIL_SETTINGS_NS) await gate()
+  }
   // The model-facing terminal tools are gated on the side-card setting
   // `agentTerminalTools` (default off): nothing is injected until the user
   // turns the feature on, and turning it off mid-session unregisters the
@@ -226,25 +239,68 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
     }
   }
   ctx.inject(['settings'], (sctx) => {
-    const ns: SettingsNamespace = settingsNamespace(SIDEBAR_PREFS_NS)
+    const sidebarNs: SettingsNamespace = settingsNamespace(SIDEBAR_PREFS_NS)
+    // The left-rail view slice gets its OWN namespace + schema (see
+    // docs/persistence-architecture.md, decision B). Registering it here
+    // gives the slice defaults/validation and a dedicated section in the
+    // settings document; the client writes it through replace/mutate so
+    // deletions (icon reset, alias clear, group unassign) actually persist.
+    const leftRailNs: SettingsNamespace = settingsNamespace(LEFT_RAIL_SETTINGS_NS)
     // The structural settings mirror types `schema` as unknown, so the
     // generic is not inferred here; the real service resolves it from the
-    // schemastery schema (PrefsSchema) — narrow the owner scope explicitly.
-    const scope = sctx.settings.register(ns, PrefsSchema) as {
+    // schemastery schema (PrefsSchema / LeftRailSettingsSchema) — narrow the
+    // owner scope explicitly.
+    const scope = sctx.settings.register(sidebarNs, PrefsSchema) as {
       get(): SidebarPrefs
       watch(callback: (next: SidebarPrefs, prev: SidebarPrefs) => void): () => void
     }
-    const viewOf = (): { value?: unknown; revision?: number } => {
-      const descriptor = sctx.settings.describe({ redactSecrets: true }).find(candidate => candidate.ns === ns)
+    sctx.settings.register(leftRailNs, LeftRailSettingsSchema)
+    // Move any slice that historically rode in the sidebar namespace into the
+    // dedicated namespace, once, idempotently. Failure is contained: the
+    // routes still work (reads fall back to the sidebar view), a retry next
+    // boot completes the move. The gate lets left-rail reads/writes await the
+    // move so the first load never sees an empty target.
+    leftRailMigrationGate = migrateLegacyLeftRailSlice({
+      describe: (ns) => {
+        const descriptor = sctx.settings.describe({ redactSecrets: true })
+          .find(candidate => candidate.ns === settingsNamespace(ns))
+        return descriptor === undefined
+          ? {}
+          : { user: descriptor.user, revision: descriptor.revision }
+      },
+      replace: (ns, section) => sctx.settings.replace(settingsNamespace(ns), section),
+      mutate: (ns, ops) => sctx.settings.mutate(settingsNamespace(ns), ops),
+    }).then(
+      () => undefined,
+      (error) => {
+        ctx.logger?.warn?.(`[left-rail] settings migration failed: ${error instanceof Error ? error.message : String(error)}`)
+      },
+    )
+    const viewOf = (target: SettingsNamespace): { value?: unknown; revision?: number } => {
+      const descriptor = sctx.settings.describe({ redactSecrets: true }).find(candidate => candidate.ns === target)
       return descriptor === undefined
         ? {}
         : { value: descriptor.value, revision: descriptor.revision }
     }
     settingsFace = {
-      get: viewOf,
-      update: async (patch, expectedRevision) => {
-        await sctx.settings.update(ns, patch, expectedRevision)
-        return viewOf()
+      get: async (rawNs) => {
+        await settingsNamespaceGate(rawNs, () => leftRailMigrationGate)
+        return viewOf(settingsNamespace(rawNs))
+      },
+      update: async (rawNs, patch, expectedRevision) => {
+        await settingsNamespaceGate(rawNs, () => leftRailMigrationGate)
+        await sctx.settings.update(settingsNamespace(rawNs), patch, expectedRevision)
+        return viewOf(settingsNamespace(rawNs))
+      },
+      replace: async (rawNs, section, expectedRevision) => {
+        await settingsNamespaceGate(rawNs, () => leftRailMigrationGate)
+        await sctx.settings.replace(settingsNamespace(rawNs), section, expectedRevision)
+        return viewOf(settingsNamespace(rawNs))
+      },
+      mutate: async (rawNs, ops, expectedRevision) => {
+        await settingsNamespaceGate(rawNs, () => leftRailMigrationGate)
+        await sctx.settings.mutate(settingsNamespace(rawNs), ops, expectedRevision)
+        return viewOf(settingsNamespace(rawNs))
       },
     }
     // Register (or unregister) the terminal tools from the current setting,
@@ -545,14 +601,19 @@ async function attachTerminal(
       pumpAgentTerminal(agentPtyRegistry, terminalSubscriptions, handle, ws)
       return
     }
-    const sessionId = url.searchParams.get('sessionId')
+    // UI-tab terminal: `?sessionId=<owner>&tab=...&cwd=...`. The owner is the
+    // PROJECT cwd (project-shared PTY); the client maps its workspace cwd into
+    // the owner slot and also sends the authoritative cwd. The pty is keyed
+    // `owner:tab`, so the same project reconnects to the same shell across
+    // conversations and refreshes.
+    const owner = url.searchParams.get('sessionId')
     const tabId = url.searchParams.get('tab')
-    if (sessionId === null || tabId === null) {
+    if (owner === null || tabId === null) {
       ws.close(1008, 'either ?uuid or ?sessionId+?tab are required')
       return
     }
-    const cwd = sessionCwdOf(ctx, sessionId, url.searchParams.get('cwd') ?? undefined)
-    const handle = ptyManager.open(sessionId, tabId, cwd, 80, 24)
+    const cwd = sessionCwdOf(ctx, owner, url.searchParams.get('cwd') ?? undefined)
+    const handle = ptyManager.open(owner, tabId, cwd, 80, 24)
     const outputOwner = randomUUID()
     const batcher = new TerminalOutputBatcher({
       send: frame => {

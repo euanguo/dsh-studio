@@ -1,19 +1,19 @@
 import type { ProjectId } from './identities.ts'
+import {
+  PROJECT_ICON_BUILTINS,
+  type ProjectIconBuiltin,
+  type ProjectIconPreference,
+  sanitizeProjectIconPreference,
+} from '@oh-dsh/shared/left-rail-preferences'
+
+export {
+  PROJECT_ICON_BUILTINS,
+  sanitizeProjectIconPreference,
+  type ProjectIconBuiltin,
+  type ProjectIconPreference,
+} from '@oh-dsh/shared/left-rail-preferences'
 
 export type ProjectIconGlyph = 'project' | 'directory'
-
-/** Built-in names are persisted as data, so keep the allowlist in the domain. */
-export const PROJECT_ICON_BUILTINS = [
-  'folder', 'git', 'code', 'terminal', 'files', 'list', 'web', 'adjustments',
-] as const
-export type ProjectIconBuiltin = typeof PROJECT_ICON_BUILTINS[number]
-
-export interface ProjectIconPreference {
-  readonly kind: 'builtin' | 'upload'
-  readonly name?: ProjectIconBuiltin
-  readonly mime?: 'image/png'
-  readonly data?: string
-}
 
 export type ProjectIconSource =
   | 'override'
@@ -40,22 +40,6 @@ export interface ProjectIconDescriptor {
   readonly preference?: ProjectIconPreference
   readonly candidates: readonly ProjectIconCandidate[]
   readonly fallback: ProjectIconGlyph
-}
-
-/** Validate persisted icon intent at the settings boundary. */
-export function sanitizeProjectIconPreference(value: unknown): ProjectIconPreference | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined
-  const record = value as Record<string, unknown>
-  if (record.kind === 'builtin' && typeof record.name === 'string'
-    && (PROJECT_ICON_BUILTINS as readonly string[]).includes(record.name)) {
-    return { kind: 'builtin', name: record.name as ProjectIconBuiltin }
-  }
-  if (record.kind === 'upload' && record.mime === 'image/png' && typeof record.data === 'string'
-    && record.data.length <= 400 * 1024
-    && /^data:image\/png;base64,[A-Za-z0-9+/=\s]+$/i.test(record.data)) {
-    return { kind: 'upload', mime: 'image/png', data: record.data }
-  }
-  return undefined
 }
 
 /** Resolve the first valid source in the documented precedence order. */
