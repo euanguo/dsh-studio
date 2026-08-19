@@ -80,14 +80,10 @@ export function SubagentPanel({
   }, [list, prefs.autoOpenSubagent, prefs.autoOpenJobs, sidebar])
 
   const current = list.current
-  const scope = current === undefined
+  const currentCwd = current === undefined ? undefined : list.byId[current]?.cwd
+  const scope = currentCwd === undefined
     ? null
-    : {
-        sessionId: current,
-        ...(list.byId[current]?.cwd === undefined
-          ? {}
-          : { cwd: list.byId[current]!.cwd }),
-      }
+    : { cwd: currentCwd }
   const trees = buildSubagentTree(list)
   const jobs = jobRowsFor(list.jobsBySession, current ?? '')
   const hasTopology = trees.length > 0

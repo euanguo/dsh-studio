@@ -47,7 +47,6 @@ export interface EditableFileController {
 }
 
 export function useEditableFile(options: {
-  sessionId: string
   cwd: string
   filePath: string
   /** The retained file runtime the surface already reads through. */
@@ -56,8 +55,8 @@ export function useEditableFile(options: {
   /** Called after every successful write (invalidate caches, refresh UI). */
   onPersisted(): void
 }): EditableFileController {
-  const { sessionId, cwd, filePath, runtime, t, onPersisted } = options
-  const scope = useMemo(() => ({ sessionId, cwd }), [sessionId, cwd])
+  const { cwd, filePath, runtime, t, onPersisted } = options
+  const scope = useMemo(() => ({ cwd }), [cwd])
   const latestContentRef = useRef('')
   const autosaveTimerRef = useRef<number | null>(null)
   const writeQueueRef = useRef(Promise.resolve(true))

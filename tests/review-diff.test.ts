@@ -45,7 +45,6 @@ test('Better Sidebar commit patches become line-addressable reviews', () => {
 
   const comment = formatReviewComment(commit, {
     id: 'review-1',
-    sessionId: 'session-1',
     workspacePath: '/workspace',
     branch: 'main',
     commitId: commit.id,

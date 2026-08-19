@@ -8,6 +8,7 @@ import {
   useCenterSurfaceStore,
 } from '../plugins/sidebar/src/client/surfaces/center-surface-store.ts'
 import {
+  conversationSurfaceId,
   isPreviewSurface,
   resolveActiveSurface,
 } from '../plugins/sidebar/src/client/surfaces/types.ts'
@@ -15,11 +16,11 @@ import {
 const CWD = '/ws'
 
 function openFile(path: string, preview: boolean): void {
-  useCenterSurfaceStore.getState().openFile({ sessionId: 's1', cwd: CWD, filePath: path, preview })
+  useCenterSurfaceStore.getState().openFile({ cwd: CWD, filePath: path, preview })
 }
 
 function openDiff(path: string, preview: boolean): void {
-  useCenterSurfaceStore.getState().openDiff({ sessionId: 's1', cwd: CWD, filePath: path, staged: false, preview })
+  useCenterSurfaceStore.getState().openDiff({ cwd: CWD, filePath: path, staged: false, preview })
 }
 
 function openConversation(id: string): void {
@@ -112,19 +113,35 @@ test('isPreviewSurface / resolveActiveSurface helpers', () => {
   assert.equal(isPreviewSurface(resolveActiveSurface(slice())!), false)
 })
 
-test('dismissSession / undismissSession are idempotent per workspace', () => {
+test('closing a conversation removes its tab instead of archiving the session', () => {
   reset()
   const store = useCenterSurfaceStore.getState()
-  store.dismissSession(CWD, 's-1')
-  store.dismissSession(CWD, 's-1')
-  assert.deepEqual(useCenterSurfaceStore.getState().dismissedSessions[CWD], ['s-1'])
-  store.undismissSession(CWD, 's-2') // unknown id — no-op
-  assert.deepEqual(useCenterSurfaceStore.getState().dismissedSessions[CWD], ['s-1'])
-  // Other workspaces keep their own dismissed sets.
-  store.dismissSession('/other', 'x-9')
-  assert.deepEqual(useCenterSurfaceStore.getState().dismissedSessions['/other'], ['x-9'])
-  store.undismissSession(CWD, 's-1')
-  assert.deepEqual(useCenterSurfaceStore.getState().dismissedSessions[CWD], undefined)
+  store.openConversation({ sessionId: 's-1', cwd: CWD, title: 'session s-1' })
+  assert.ok(slice().open.some(s => s.id === conversationSurfaceId('s-1')))
+  // Closing the conversation tab removes it from the open set (the session
+  // itself is never archived — only the tab record is dropped).
+  store.close(CWD, conversationSurfaceId('s-1'))
+  assert.equal(slice().open.some(s => s.id === conversationSurfaceId('s-1')), false)
+  assert.equal(slice().activeId, null)
+  // Reopening the same session creates a fresh tab (identity is not sticky).
+  store.openConversation({ sessionId: 's-1', cwd: CWD, title: 'session s-1' })
+  assert.ok(slice().open.some(s => s.id === conversationSurfaceId('s-1')))
+})
+
+test('a conversation surface keeps its sessionId as identity', () => {
+  reset()
+  const surface = useCenterSurfaceStore.getState().openConversation({
+    sessionId: 's-1',
+    cwd: CWD,
+    title: 'session s-1',
+  })
+  assert.equal(surface.id, conversationSurfaceId('s-1'))
+  assert.equal(surface.kind, 'conversation')
+  assert.equal(surface.sessionId, 's-1')
+  // The open-set record carries the same identity.
+  const stored = slice().open.find(s => s.id === conversationSurfaceId('s-1'))
+  assert.equal(stored?.kind, 'conversation')
+  assert.equal(stored?.sessionId, 's-1')
 })
 
 test('openConversation with activate:false joins without stealing activation', () => {
@@ -143,7 +160,7 @@ test('openConversation with activate:false joins without stealing activation', (
 test('tab queues are isolated per workspace (cwd)', () => {
   reset()
   openFile('/ws/a.ts', false)
-  useCenterSurfaceStore.getState().openFile({ sessionId: 's1', cwd: '/other', filePath: '/other/x.ts', preview: false })
+  useCenterSurfaceStore.getState().openFile({ cwd: '/other', filePath: '/other/x.ts', preview: false })
   const wsSlice = useCenterSurfaceStore.getState().getSlice(CWD)
   const otherSlice = useCenterSurfaceStore.getState().getSlice('/other')
   assert.deepEqual(wsSlice.open.map(s => s.title), ['a.ts'])

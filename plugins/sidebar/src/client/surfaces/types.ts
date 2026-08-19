@@ -33,7 +33,7 @@ export interface ConversationCenterSurface {
 export interface FileCenterSurface {
   id: string
   kind: 'file'
-  sessionId: string
+  /** The workspace (cwd) this surface belongs to — tabs persist per cwd. */
   cwd: string
   filePath: string
   title: string
@@ -46,7 +46,6 @@ export interface FileCenterSurface {
 export interface DiffCenterSurface {
   id: string
   kind: 'diff'
-  sessionId: string
   cwd: string
   filePath: string
   staged: boolean
@@ -60,7 +59,6 @@ export interface DiffCenterSurface {
 export interface DiffAllCenterSurface {
   id: string
   kind: 'diff-all'
-  sessionId: string
   cwd: string
   staged: boolean
   title: string
@@ -71,7 +69,6 @@ export interface DiffAllCenterSurface {
 export interface CommitCenterSurface {
   id: string
   kind: 'commit'
-  sessionId: string
   cwd: string
   /** The full commit hash this surface shows the diff of. */
   hash: string
@@ -85,7 +82,6 @@ export interface CommitCenterSurface {
 export interface CommitFileCenterSurface {
   id: string
   kind: 'commit-file'
-  sessionId: string
   cwd: string
   hash: string
   filePath: string
@@ -99,7 +95,6 @@ export interface CommitFileCenterSurface {
 export interface CommittedCenterSurface {
   id: string
   kind: 'committed'
-  sessionId: string
   cwd: string
   baseRef: string
   filePath?: string
@@ -112,7 +107,6 @@ export interface CommittedCenterSurface {
 export interface ConflictCenterSurface {
   id: string
   kind: 'conflict'
-  sessionId: string
   cwd: string
   filePath: string
   title: string

@@ -33,9 +33,9 @@ test('SourceControlRuntime aborts in-flight requests on rapid scope switches', a
   }
 
   const runtime = new SourceControlRuntime({ transport })
-  runtime.setScope({ sessionId: 's1', cwd: '/repo-1' })
+  runtime.setScope({ cwd: '/repo-1' })
   // Rapidly switch scope before first load finishes
-  runtime.setScope({ sessionId: 's2', cwd: '/repo-2' })
+  runtime.setScope({ cwd: '/repo-2' })
 
   assert.ok(abortCount >= 1)
   runtime.dispose()

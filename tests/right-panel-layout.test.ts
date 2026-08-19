@@ -78,7 +78,7 @@ test('review, pinned summary, and embedded side tools keep distinct layouts', ()
   assert.match(builtinTabs, /id: 'review'/)
   assert.match(builtinTabs, /id: 'files'/)
   assert.match(builtinViewers, /id: 'binary'/)
-  assert.match(plugin, /desktopSidebar\.setSession\(/)
+  assert.match(plugin, /desktopSidebar\.setWorkspace\(/)
   assert.match(sideToolsCss, /\.oh-dsh-side-panel\s*\{[^}]*width: 100% !important;[^}]*border-radius: 0;[^}]*box-shadow: none;/s)
   // The window controls live in the panel's top row, flush right — no
   // floating toolbar, no summary button riding the window edge.

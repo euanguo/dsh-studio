@@ -20,7 +20,7 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
   constructor(value?: DesktopSidebarPreferences) {
     this.value = value ?? {
       ...DEFAULT_SIDEBAR_PREFERENCES,
-      sessions: {},
+      workspaces: {},
       tabsEnabled: {},
       viewersEnabled: {},
       pluginSettings: {},
@@ -52,8 +52,8 @@ function tab(
 test('desktop sidebar validates the durable preference envelope', () => {
   const valid = {
     ...DEFAULT_SIDEBAR_PREFERENCES,
-    sessions: {
-      session: {
+    workspaces: {
+      '/work/repo': {
         activeId: 'file:a',
         lastUsed: 42,
         tabs: [{ id: 'file:a', type: 'file', title: 'a', resource: '/a' }],
@@ -75,8 +75,8 @@ test('desktop sidebar validates the durable preference envelope', () => {
   )
   assert.equal(parseSidebarPreferences({
     ...valid,
-    sessions: {
-      session: { ...valid.sessions.session, activeId: 'missing' },
+    workspaces: {
+      '/work/repo': { ...valid.workspaces['/work/repo'], activeId: 'missing' },
     },
   }), undefined)
   // pluginSettings must stay JSON-safe (functions / NaN rejected).
@@ -91,20 +91,20 @@ test('desktop sidebar validates the durable preference envelope', () => {
   // tab meta must stay JSON-safe.
   assert.equal(parseSidebarPreferences({
     ...valid,
-    sessions: {
-      session: {
-        ...valid.sessions.session,
+    workspaces: {
+      '/work/repo': {
+        ...valid.workspaces['/work/repo'],
         tabs: [{ id: 't', type: 'file', title: 'a', meta: { fn: () => 1 } }],
       },
     },
   }), undefined)
 })
 
-test('desktop sidebar restores sessions and deduplicates registered tabs', async () => {
+test('desktop sidebar restores workspaces and deduplicates registered tabs', async () => {
   const storage = new MemorySidebarStorage({
     ...DEFAULT_SIDEBAR_PREFERENCES,
-    sessions: {
-      first: {
+    workspaces: {
+      '/work/repo': {
         activeId: 'file:readme',
         lastUsed: 1,
         tabs: [{
@@ -120,7 +120,7 @@ test('desktop sidebar restores sessions and deduplicates registered tabs', async
     pluginSettings: {},
   })
   const sidebar = new DesktopSidebarService(storage)
-  sidebar.setSession('first')
+  sidebar.setWorkspace('/work/repo')
   await sidebar.start()
   const removeFile = sidebar.registerTab(tab('file', {
     dedupeKey: candidate => candidate.resource,
@@ -181,7 +181,7 @@ test('desktop sidebar matches viewers by priority, sniffing, and enablement', as
   assert.equal(sidebar.matchViewer('photo.png')?.id, 'text')
 })
 
-test('desktop sidebar persists bounded per-session state outside Web storage', async () => {
+test('desktop sidebar persists bounded per-project state outside Web storage', async () => {
   const storage = new MemorySidebarStorage()
   const sidebar = new DesktopSidebarService(storage)
   await sidebar.start()
@@ -192,7 +192,7 @@ test('desktop sidebar persists bounded per-session state outside Web storage', a
     id: 'text',
     title: 'Text',
   })
-  sidebar.setSession('conversation-1')
+  sidebar.setWorkspace('/work/repo')
   sidebar.openTab({
     resource: 'https://example.com',
     title: 'example.com',
@@ -208,7 +208,7 @@ test('desktop sidebar persists bounded per-session state outside Web storage', a
   assert.equal(storage.value.openByDefault, true)
   assert.equal(storage.value.tabsEnabled.browser, false)
   assert.equal(storage.value.viewersEnabled.text, false)
-  assert.equal(storage.value.sessions['conversation-1']?.tabs.length, 1)
+  assert.equal(storage.value.workspaces['/work/repo']?.tabs.length, 1)
   assert.equal(storage.writes.length, 1)
 })
 
@@ -238,7 +238,7 @@ test('sidebar contract reports version and a monotonic feature list', async () =
 test('sidebar lifecycle callbacks fire from the service paths only', async () => {
   const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
   await sidebar.start()
-  sidebar.setSession('s')
+  sidebar.setWorkspace('/work/repo')
   const events: string[] = []
   sidebar.registerTab(tab('life', {
     single: true,
@@ -264,7 +264,7 @@ test('sidebar lifecycle callbacks fire from the service paths only', async () =>
 test('sidebar lifecycle callbacks survive a throwing callback', async () => {
   const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
   await sidebar.start()
-  sidebar.setSession('s')
+  sidebar.setWorkspace('/work/repo')
   const events: string[] = []
   const originalError = console.error
   console.error = () => {}
@@ -284,7 +284,7 @@ test('sidebar lifecycle callbacks survive a throwing callback', async () => {
 test('sidebar badge is exposed to the tab strip and a throw is swallowed', async () => {
   const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
   await sidebar.start()
-  sidebar.setSession('s')
+  sidebar.setWorkspace('/work/repo')
   sidebar.openTab({ type: 'count' }) // unknown: no-op
   const originalError = console.error
   console.error = () => {}
@@ -301,39 +301,40 @@ test('sidebar badge is exposed to the tab strip and a throw is swallowed', async
   // The service itself does not evaluate badges (the strip does) — the
   // contract only requires the field to be declared and the descriptor
   // readable through the registry.
-  assert.equal(sidebar.getTab('count')?.badge?.({ sessionId: 's' }, sidebar.getSnapshot()), 150)
-  assert.throws(() => sidebar.getTab('broken')?.badge?.({ sessionId: 's' }, sidebar.getSnapshot()))
+  assert.equal(sidebar.getTab('count')?.badge?.({ cwd: '/work/repo' }, sidebar.getSnapshot()), 150)
+  assert.throws(() => sidebar.getTab('broken')?.badge?.({ cwd: '/work/repo' }, sidebar.getSnapshot()))
 })
 
-test('sidebar targeted opens land in another session without switching the UI', async () => {
+test('sidebar targeted opens land in another project without switching the UI', async () => {
   const storage = new MemorySidebarStorage()
   const sidebar = new DesktopSidebarService(storage)
   await sidebar.start()
-  sidebar.setSession('active')
+  sidebar.setWorkspace('/work/repo')
   sidebar.registerTab(tab('note'))
   const result = sidebar.openTab(
     { type: 'note', title: 'Note A' },
-    { sessionId: 'other' },
+    { cwd: '/work/other' },
   )
   assert.equal(result.kind, 'opened')
-  // The UI snapshot still shows the active session with no tabs.
-  assert.equal(sidebar.getSnapshot().sessionId, 'active')
+  // The UI snapshot still shows the active project with no tabs.
+  assert.equal(sidebar.getSnapshot().cwd, '/work/repo')
   assert.equal(sidebar.getSnapshot().tabs.length, 0)
-  // Opening with no scope lands in the active session.
+  // Opening with no scope lands in the active project.
   sidebar.openTab({ type: 'note', title: 'Note B' })
   assert.equal(sidebar.getSnapshot().tabs.length, 1)
-  // Both sessions' state is persisted (the targeted open landed in 'other'
-  // without switching the UI; the unscoped open landed in 'active').
+  // Both projects' state is persisted (the targeted open landed in
+  // '/work/other' without switching the UI; the unscoped open landed in
+  // '/work/repo').
   await sidebar.settle()
-  assert.equal(storage.value.sessions['other']?.tabs.length, 1)
-  assert.equal(storage.value.sessions.active?.tabs.length, 1)
+  assert.equal(storage.value.workspaces['/work/other']?.tabs.length, 1)
+  assert.equal(storage.value.workspaces['/work/repo']?.tabs.length, 1)
 })
 
 test('sidebar updateTab patches display fields and meta', async () => {
   const storage = new MemorySidebarStorage()
   const sidebar = new DesktopSidebarService(storage)
   await sidebar.start()
-  sidebar.setSession('s')
+  sidebar.setWorkspace('/work/repo')
   sidebar.registerTab(tab('file'))
   sidebar.openTab({ type: 'file', resource: '/a.txt', title: 'a.txt' })
   const tabId = sidebar.getSnapshot().tabs[0]!.id
@@ -341,16 +342,16 @@ test('sidebar updateTab patches display fields and meta', async () => {
   assert.equal(sidebar.getSnapshot().tabs[0]?.title, 'renamed.txt')
   assert.deepEqual(sidebar.getSnapshot().tabs[0]?.meta, { page: 3 })
   await sidebar.settle()
-  assert.equal(storage.value.sessions.s?.tabs[0]?.title, 'renamed.txt')
-  assert.deepEqual(storage.value.sessions.s?.tabs[0]?.meta, { page: 3 })
+  assert.equal(storage.value.workspaces['/work/repo']?.tabs[0]?.title, 'renamed.txt')
+  assert.deepEqual(storage.value.workspaces['/work/repo']?.tabs[0]?.meta, { page: 3 })
 })
 
 test('sidebar openFile opens the file tab with a path-derived id', async () => {
   const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
   await sidebar.start()
-  sidebar.setSession('s')
+  sidebar.setWorkspace('/w')
   sidebar.registerTab(tab('file'))
-  sidebar.openFile({ sessionId: 's', cwd: '/w' }, '/w/src/main.ts')
+  sidebar.openFile({ cwd: '/w' }, '/w/src/main.ts')
   assert.equal(sidebar.getSnapshot().tabs.length, 1)
   assert.equal(sidebar.getSnapshot().tabs[0]?.resource, '/w/src/main.ts')
   assert.equal(sidebar.getSnapshot().tabs[0]?.title, 'main.ts')
@@ -411,7 +412,6 @@ test('sidebar surface renderers register, render and dispose', async () => {
     sidebar.renderSurface({
       id: 'file:a',
       kind: 'file',
-      sessionId: 's',
       cwd: '/w',
       filePath: '/w/a',
       title: 'a',
@@ -424,7 +424,6 @@ test('sidebar surface renderers register, render and dispose', async () => {
   assert.equal(sidebar.renderSurface({
     id: 'd',
     kind: 'diff',
-    sessionId: 's',
     cwd: '/w',
     filePath: '/w/a',
     staged: false,
@@ -436,7 +435,6 @@ test('sidebar surface renderers register, render and dispose', async () => {
   assert.equal(sidebar.renderSurface({
     id: 'file:a',
     kind: 'file',
-    sessionId: 's',
     cwd: '/w',
     filePath: '/w/a',
     title: 'a',
@@ -454,7 +452,7 @@ test('sidebar surface renderers register, render and dispose', async () => {
 test('sidebar createTab may patch the landing tabs and active id', async () => {
   const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
   await sidebar.start()
-  sidebar.setSession('s')
+  sidebar.setWorkspace('/work/repo')
   sidebar.registerTab(tab('terminal', {
     createTab: (seed, tabs) => {
       const index = tabs.filter(candidate => candidate.type === 'terminal').length

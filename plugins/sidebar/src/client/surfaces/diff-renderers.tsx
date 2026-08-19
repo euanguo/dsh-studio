@@ -64,8 +64,8 @@ export function DiffSurfaceView({
   // The diff document lives in the retained diff runtime (M1): re-opening
   // this tab renders instantly from the cached entry.
   const runtime = useMemo(
-    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
-    [surface.cwd, surface.sessionId],
+    () => getDiffRuntime({ cwd: surface.cwd }),
+    [surface.cwd],
   )
   useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
   const docKey = worktreeDocKey(surface.staged, surface.filePath, context)
@@ -120,7 +120,7 @@ export function DiffSurfaceView({
     let alive = true
     setImageDiff(null)
     void sidebarApi.gitImageDiff(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
+      { cwd: surface.cwd },
       surface.filePath,
       surface.staged,
     ).then(result => {
@@ -129,7 +129,7 @@ export function DiffSurfaceView({
       if (alive) setImageDiff(null)
     })
     return () => { alive = false }
-  }, [diff, isImagePath, surface.cwd, surface.filePath, surface.sessionId, surface.staged])
+  }, [diff, isImagePath, surface.cwd, surface.filePath, surface.staged])
   if (doc !== undefined && doc.phase === 'error') {
     return <ErrorView message={doc.message ?? t('overlay.no-content')} />
   }
@@ -285,8 +285,8 @@ export function DiffAllSurfaceView({
   // The change list lives in the retained diff runtime (M1); selection and
   // collapsed directories are chrome (shared with the source-control panel).
   const runtime = useMemo(
-    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
-    [surface.cwd, surface.sessionId],
+    () => getDiffRuntime({ cwd: surface.cwd }),
+    [surface.cwd],
   )
   useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
   const listKey = worktreeListKey(surface.staged)
@@ -297,7 +297,7 @@ export function DiffAllSurfaceView({
       void runtime.ensureWorktreeList(surface.staged)
     }
   }, [runtime, listKey, surface.staged])
-  const scopeKey = sidebarScopeKey({ sessionId: surface.sessionId, cwd: surface.cwd })
+  const scopeKey = sidebarScopeKey({ cwd: surface.cwd })
   const chrome = useSidebarChromeStore(state => state.getSlice(scopeKey))
   const selectedPath = chrome.sourceControl.selectedPath
   const collapsedDirs = useMemo(

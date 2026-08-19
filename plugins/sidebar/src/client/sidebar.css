@@ -136,17 +136,45 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   border-bottom: 0;
 }
 
-.oh-dsh-workspace-fact {
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) auto;
+/* Branch picker: an official-Menu dropdown trigger styled in the commit
+   area's field language (bordered, layered surface — matches the commit
+   textarea and action buttons below it). */
+.oh-dsh-branch-picker {
+  display: flex;
   align-items: center;
-  min-height: 32px;
-  gap: var(--oh-dsh-space-2);
-  /* 6px indent matches the ListRow depth-main leading, so the section icon
-     lines up with the row chevrons/files below. */
+  gap: var(--oh-dsh-space-1);
+  width: 100%;
+  min-width: 0;
+  height: 32px;
   padding: 0 var(--oh-dsh-space-1-5);
   box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  color: var(--dsw-alias-label-primary, #1f2328);
+  font: inherit;
   font-size: var(--oh-dsh-font-lg);
+  text-align: left;
+  cursor: pointer;
+}
+
+.oh-dsh-branch-picker:hover,
+.oh-dsh-branch-picker[aria-expanded='true'] {
+  border-color: var(--dsw-alias-border-l2, rgb(0 0 0 / 20%));
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 4%));
+}
+
+.oh-dsh-branch-picker:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.oh-dsh-branch-picker-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .oh-dsh-workspace-fact-icon {
@@ -348,34 +376,12 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   gap: var(--oh-dsh-space-0);
 }
 
-.oh-dsh-workspace-facts { display: grid; gap: 1px; }
-
-.oh-dsh-workspace-fact select {
-  width: 100%;
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  outline: 0;
-  appearance: none;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-
 .oh-dsh-workspace-chevron {
   color: var(--dsw-alias-label-dimmed, #8c959f);
   font-size: var(--oh-dsh-font-lg);
+  flex: none;
 }
 
-.oh-dsh-new-branch {
-  display: flex;
-  gap: var(--oh-dsh-space-1-5);
-  /* Content row: the parent facts section already owns the 8px inset, so
-     this row only spaces its own input/button children. */
-}
-
-.oh-dsh-new-branch input,
 .oh-dsh-commit-area textarea {
   min-width: 0;
   box-sizing: border-box;
@@ -386,14 +392,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   font: inherit;
 }
 
-.oh-dsh-new-branch input {
-  flex: 1;
-  height: var(--oh-dsh-control-md);
-  padding: 0 var(--oh-dsh-space-2);
-  font-size: var(--oh-dsh-font-sm);
-}
-
-.oh-dsh-new-branch button,
 .oh-dsh-commit-actions button {
   padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
   border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
@@ -406,12 +404,14 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   line-height: 1.2;
 }
 
-.oh-dsh-new-branch button:disabled,
 .oh-dsh-commit-actions button:disabled { opacity: 0.45; cursor: default; }
 
 /* Top-of-panel commit area (branch + message + commit/push). */
 .oh-dsh-commit-area {
   display: grid;
+  /* Explicit single 1fr column: percentage-width children (branch picker,
+     textarea) resolve against the section instead of an auto-sized track. */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--oh-dsh-space-1-5);
 }
 
@@ -425,47 +425,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
 
 .oh-dsh-commit-actions { display: flex; gap: var(--oh-dsh-space-1-5); }
 .oh-dsh-commit-area small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--oh-dsh-font-xs); }
-
-.oh-dsh-workspace-directory {
-  position: relative;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
-  min-height: 48px;
-}
-
-.oh-dsh-workspace-directory > span,
-.oh-dsh-workspace-directory > small {
-  /* The footer row keeps the section's own 8px inset (no extra indent) so
-     its name/path line up with the tab strip's 8px horizontal padding. */
-  padding-left: 0;
-}
-.oh-dsh-workspace-directory > span { font-size: var(--oh-dsh-font-lg); }
-.oh-dsh-workspace-directory > small {
-  grid-column: 1;
-  overflow: hidden;
-  color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: var(--oh-dsh-font-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.oh-dsh-workspace-directory button {
-  display: grid;
-  place-items: center;
-  width: var(--oh-dsh-control-md);
-  height: var(--oh-dsh-control-md);
-  padding: 0;
-  border: 0;
-  border-radius: var(--oh-dsh-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  cursor: pointer;
-}
-.oh-dsh-workspace-directory button:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
 
 @media (max-width: 900px) {
   .oh-dsh-workspace-panel { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }

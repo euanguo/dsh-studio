@@ -23,7 +23,7 @@ import type { Translate } from '@oh-dsh/shared/i18n'
 import { basename } from '@oh-dsh/shared/path'
 import {
   Button,
-  Input,
+  Menu,
   writeClipboard,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { runPanelMutation } from './source-control/panel-mutations.ts'
@@ -38,7 +38,6 @@ import {
   IconGitBranch,
   IconGitCommit,
   IconHistory,
-  IconPlus,
 } from '@oh-dsh/shared/tabler-icons'
 import { FilenameLabel } from '@oh-dsh/shared/filename-label'
 import type { WorkspaceMessage } from './i18n.ts'
@@ -51,7 +50,6 @@ import {
 import {
   type SessionsService,
   type WorkspaceTools,
-  type WorkspacesService,
 } from './client-types.ts'
 import {
   ReviewCommentsService,
@@ -279,26 +277,24 @@ export function WorkspacePanel({
   reviewComments,
   service,
   sessions,
-  workspaces,
   t,
 }: {
   reviewComments: ReviewCommentsService
   service: WorkspaceTools
   sessions: SessionsService
-  workspaces: WorkspacesService
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const panelState = useSyncExternalStore(service.subscribe, service.getSnapshot)
   const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
-  const sessionId = sessionList.current
-  const cwd = sessionId === undefined ? undefined : sessionList.byId[sessionId]?.cwd
+  const currentSessionId = sessionList.current
+  const cwd = currentSessionId === undefined ? undefined : sessionList.byId[currentSessionId]?.cwd
   // Retained source-control runtime: the git snapshot survives tab switches
   // (registry keeps the instance; ready data renders instantly).
   const runtime = useMemo(
-    () => (sessionId === undefined || cwd === undefined
+    () => (cwd === undefined
       ? null
-      : getSourceControlRuntime({ sessionId, cwd })),
-    [cwd, sessionId],
+      : getSourceControlRuntime({ cwd })),
+    [cwd],
   )
   const runtimeFingerprint = useSyncExternalStore(
     useCallback((listener: () => void) => runtime?.subscribe(listener) ?? (() => {}), [runtime]),
@@ -311,9 +307,13 @@ export function WorkspacePanel({
   const error = runtimeSnapshot?.phase === 'error' ? (runtimeSnapshot.message ?? '') : ''
   const history = snapshot?.history ?? []
   const [busy, setBusy] = useState(false)
-  const scopeKey = sessionId === undefined || cwd === undefined
+  // Branch picker: an official Menu dropdown (the primitives kit has no
+  // Select; the native <select> is replaced by this app-consistent picker).
+  const [branchMenuOpen, setBranchMenuOpen] = useState(false)
+  const branchButtonRef = useRef<HTMLButtonElement | null>(null)
+  const scopeKey = cwd === undefined
     ? null
-    : sidebarScopeKey({ sessionId, cwd })
+    : sidebarScopeKey({ cwd })
   const chrome = useSidebarChromeStore(state =>
     scopeKey === null ? null : state.getSlice(scopeKey))
   const collapsedSections = useMemo(
@@ -327,7 +327,6 @@ export function WorkspacePanel({
   const listMode: SourceControlListMode = chrome?.gitListMode ?? 'tree'
   const selectedPath = chrome?.sourceControl.selectedPath ?? null
   const [pendingByPath, setPendingByPath] = useState<ReadonlyMap<string, SourceControlPendingAction>>(new Map())
-  const [newBranch, setNewBranch] = useState('')
   // Expanded history row + its lazily-loaded file list (per commit hash).
   const [expandedCommitId, setExpandedCommitId] = useState<string | null>(null)
   const [commitFiles, setCommitFiles] = useState<ReadonlyMap<string, CommitFilesState>>(new Map())
@@ -407,10 +406,10 @@ export function WorkspacePanel({
     [collapsedDirectories, collapsedSections, listMode, selectedPath, visibleChanges],
   )
   const scope = useMemo<SidebarScope | undefined>(
-    () => sessionId === undefined || cwd === undefined
+    () => cwd === undefined
       ? undefined
-      : { sessionId, cwd },
-    [cwd, sessionId],
+      : { cwd },
+    [cwd],
   )
   const branch = snapshot?.branch ?? null
 
@@ -493,7 +492,6 @@ export function WorkspacePanel({
   const openCommitDiffInCenter = (entry: SidebarGitLogEntry): void => {
     if (cwd === undefined) return
     useCenterSurfaceStore.getState().openCommit({
-      sessionId: sessionId ?? '',
       cwd,
       hash: entry.hashFull,
       title: entry.subject || entry.hash,
@@ -505,7 +503,6 @@ export function WorkspacePanel({
   const openCommitFileInCenter = (entry: SidebarGitLogEntry, filePath: string): void => {
     if (cwd === undefined) return
     useCenterSurfaceStore.getState().openCommitFile({
-      sessionId: sessionId ?? '',
       cwd,
       hash: entry.hashFull,
       filePath,
@@ -517,7 +514,6 @@ export function WorkspacePanel({
   const openCommittedAllInCenter = (baseRef: string): void => {
     if (cwd === undefined) return
     useCenterSurfaceStore.getState().openCommitted({
-      sessionId: sessionId ?? '',
       cwd,
       baseRef,
       preview: true,
@@ -527,7 +523,6 @@ export function WorkspacePanel({
   const openCommittedFileInCenter = (baseRef: string, filePath: string): void => {
     if (cwd === undefined) return
     useCenterSurfaceStore.getState().openCommitted({
-      sessionId: sessionId ?? '',
       cwd,
       baseRef,
       filePath,
@@ -537,8 +532,8 @@ export function WorkspacePanel({
 
   useEffect(() => {
     if (cwd === undefined || branch === null) return
-    reviewComments.activate(sessionId ?? null, cwd, branch)
-  }, [branch, cwd, reviewComments, sessionId])
+    reviewComments.activate(cwd, branch)
+  }, [branch, cwd, reviewComments])
 
   const mutate = async (mutation: WorkspaceMutation): Promise<void> => {
     if (cwd === undefined || scope === undefined || busy) return
@@ -566,22 +561,21 @@ export function WorkspacePanel({
     // Untracked files have no diff baseline — show the file content
     // instead of an empty "no diff" error.
     if (change === undefined || change.status === 'untracked') {
-      useCenterSurfaceStore.getState().openFile({ sessionId: sessionId ?? '', cwd, filePath: path, title: name, preview })
+      useCenterSurfaceStore.getState().openFile({ cwd, filePath: path, title: name, preview })
       return
     }
     // Conflicted entries (UU/AA/DD) open the merge-conflict resolver.
     if (change.status === 'conflicted') {
-      useCenterSurfaceStore.getState().openConflict({ sessionId: sessionId ?? '', cwd, filePath: path, title: name, preview })
+      useCenterSurfaceStore.getState().openConflict({ cwd, filePath: path, title: name, preview })
       return
     }
-    useCenterSurfaceStore.getState().openDiff({ sessionId: sessionId ?? '', cwd, filePath: path, staged: change.staged, title: name, preview })
+    useCenterSurfaceStore.getState().openDiff({ cwd, filePath: path, staged: change.staged, title: name, preview })
   }
 
   const viewAllInCenter = (id: SourceControlSectionId): void => {
-    if (cwd === undefined || sessionId === undefined) return
+    if (cwd === undefined) return
     const staged = id === 'staged'
     useCenterSurfaceStore.getState().openDiffAll({
-      sessionId,
       cwd,
       staged,
       title: staged ? t('source-control.section.staged') : t('source-control.section.unstaged'),
@@ -627,14 +621,6 @@ export function WorkspacePanel({
     })
   }
 
-  const chooseWorkspace = async (): Promise<void> => {
-    const paths = await window.dshDesktop?.chooseWorkspace() ?? []
-    for (const path of paths) {
-      const workspace = await workspaces.create({ path })
-      workspaces.startSession(workspace.workspaceId)
-    }
-  }
-
   return (
     <div className="oh-dsh-review-view" aria-label={t('workspace.changes')}>
       {cwd === undefined
@@ -649,18 +635,19 @@ export function WorkspacePanel({
                 hiding behind a bottom fold. */}
             {snapshot?.kind === 'repository' && (
               <section className="oh-dsh-commit-area">
-                <label className="oh-dsh-workspace-fact">
+                <button
+                  ref={branchButtonRef}
+                  type="button"
+                  className="oh-dsh-branch-picker"
+                  aria-label={t('workspace.current-branch')}
+                  aria-expanded={branchMenuOpen}
+                  disabled={busy}
+                  onClick={() => { setBranchMenuOpen(value => !value) }}
+                >
                   <span className="oh-dsh-workspace-fact-icon"><IconGitBranch size={16} /></span>
-                  <select
-                    value={snapshot?.branch ?? ''}
-                    disabled={busy}
-                    aria-label={t('workspace.current-branch')}
-                    onChange={event => { void mutate({ action: 'checkout', branch: event.currentTarget.value }) }}
-                  >
-                    {(snapshot?.branches ?? []).map(branch => <option key={branch} value={branch}>{branch}</option>)}
-                  </select>
-                  <span className="oh-dsh-workspace-chevron"><IconChevronDown size={14} /></span>
-                </label>
+                  <span className="oh-dsh-branch-picker-name">{snapshot?.branch ?? ''}</span>
+                  <IconChevronDown size={14} className="oh-dsh-workspace-chevron" />
+                </button>
                 <textarea
                   value={commitMessage}
                   placeholder={t('workspace.commit-message')}
@@ -686,6 +673,23 @@ export function WorkspacePanel({
                 )}
               </section>
             )}
+            {/* Portaled branch menu — outside the commit-area section so the
+                Menu's empty anchor wrapper span cannot join its grid layout. */}
+            <Menu
+              open={branchMenuOpen}
+              anchor={null}
+              portal
+              getAnchorRect={() => branchButtonRef.current?.getBoundingClientRect() ?? null}
+              items={(snapshot?.branches ?? []).map(branch => ({ id: branch, label: branch }))}
+              selectedId={snapshot?.branch ?? undefined}
+              onSelect={branch => {
+                setBranchMenuOpen(false)
+                if (branch !== snapshot?.branch) {
+                  void mutate({ action: 'checkout', branch })
+                }
+              }}
+              onClose={() => { setBranchMenuOpen(false) }}
+            />
 
             <section>
               <div className="oh-dsh-change-list">
@@ -778,30 +782,10 @@ export function WorkspacePanel({
               </section>
             )}
 
-            <section className="oh-dsh-workspace-facts">
-              {snapshot?.kind === 'repository' && (
-                <div className="oh-dsh-new-branch">
-                  <Input
-                    value={newBranch}
-                    placeholder={t('workspace.new-branch')}
-                    aria-label={t('workspace.new-branch-name')}
-                    onChange={event => { setNewBranch(event.currentTarget.value) }}
-                  />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busy || newBranch.trim() === ''}
-                    onClick={() => { void mutate({ action: 'create-branch', branch: newBranch }).then(() => { setNewBranch('') }) }}
-                  >{t('workspace.create')}</Button>
-                </div>
-              )}
-            </section>
-
-            <section className="oh-dsh-workspace-directory">
-              <span>{snapshot?.name ?? basename(cwd)}</span>
-              <small title={cwd}>{cwd}</small>
-              <button type="button" onClick={() => { void chooseWorkspace() }} aria-label={t('workspace.add')}><IconPlus size={16} /></button>
-            </section>
+            {/* New-branch input and the workspace-directory footer row were
+                removed from the surface (see .agent-workflows audit); the
+                branch select in the commit area above still covers
+                checkout. */}
           </Scrollable>
 
           {snapshot?.kind === 'repository' && (

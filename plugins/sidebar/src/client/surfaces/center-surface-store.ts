@@ -67,7 +67,6 @@ interface CenterSurfaceState {
   }): ConversationCenterSurface
   openFile(input: {
     cwd: string
-    sessionId: string
     filePath: string
     title?: string
     preview?: boolean
@@ -76,7 +75,6 @@ interface CenterSurfaceState {
   setFileMarkdownPreview(cwd: string, surfaceId: string, markdownPreview: boolean): void
   openDiff(input: {
     cwd: string
-    sessionId: string
     filePath: string
     staged: boolean
     title?: string
@@ -84,21 +82,18 @@ interface CenterSurfaceState {
   }): DiffCenterSurface
   openDiffAll(input: {
     cwd: string
-    sessionId: string
     staged: boolean
     title?: string
     preview?: boolean
   }): DiffAllCenterSurface
   openCommit(input: {
     cwd: string
-    sessionId: string
     hash: string
     title?: string
     preview?: boolean
   }): CommitCenterSurface
   openCommitFile(input: {
     cwd: string
-    sessionId: string
     hash: string
     filePath: string
     title?: string
@@ -106,7 +101,6 @@ interface CenterSurfaceState {
   }): CommitFileCenterSurface
   openCommitted(input: {
     cwd: string
-    sessionId: string
     baseRef: string
     filePath?: string
     title?: string
@@ -114,7 +108,6 @@ interface CenterSurfaceState {
   }): CommittedCenterSurface
   openConflict(input: {
     cwd: string
-    sessionId: string
     filePath: string
     title?: string
     preview?: boolean
@@ -132,10 +125,6 @@ interface CenterSurfaceState {
   close(cwd: string, surfaceId: string): void
   clearCwd(cwd: string): void
   clearAll(): void
-  /** Session ids whose center tab was closed, per workspace (persisted). */
-  dismissedSessions: Record<string, string[]>
-  dismissSession(cwd: string, sessionId: string): void
-  undismissSession(cwd: string, sessionId: string): void
 }
 
 function readSlice(
@@ -151,13 +140,6 @@ function writeSlice(
   slice: CenterSurfaceSlice,
 ): Record<string, CenterSurfaceSlice> {
   return { ...byCwd, [cwd]: slice }
-}
-
-function readDismissed(
-  dismissed: Record<string, string[]>,
-  cwd: string,
-): readonly string[] {
-  return dismissed[cwd] ?? []
 }
 
 /**
@@ -242,7 +224,6 @@ function openPreviewableSurface(
 
 export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
   byCwd: {},
-  dismissedSessions: {},
 
   getSlice: cwd => readSlice(get().byCwd, cwd),
 
@@ -281,7 +262,6 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     const nextSurface: FileCenterSurface = {
       id,
       kind: 'file',
-      sessionId: input.sessionId,
       cwd: input.cwd,
       filePath: input.filePath,
       title: input.title?.trim() || fileNameFromPath(input.filePath),
@@ -304,7 +284,6 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     const nextSurface: DiffCenterSurface = {
       id,
       kind: 'diff',
-      sessionId: input.sessionId,
       cwd: input.cwd,
       filePath: input.filePath,
       staged: input.staged,
@@ -327,7 +306,6 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     const nextSurface: CommitCenterSurface = {
       id,
       kind: 'commit',
-      sessionId: input.sessionId,
       cwd: input.cwd,
       hash: input.hash,
       title: input.title?.trim() || input.hash.slice(0, 7),
@@ -349,7 +327,6 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     const nextSurface: CommitFileCenterSurface = {
       id,
       kind: 'commit-file',
-      sessionId: input.sessionId,
       cwd: input.cwd,
       hash: input.hash,
       filePath: input.filePath,
@@ -372,7 +349,6 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     const nextSurface: CommittedCenterSurface = {
       id,
       kind: 'committed',
-      sessionId: input.sessionId,
       cwd: input.cwd,
       baseRef: input.baseRef,
       ...(input.filePath === undefined ? {} : { filePath: input.filePath }),
@@ -395,7 +371,6 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     const nextSurface: ConflictCenterSurface = {
       id,
       kind: 'conflict',
-      sessionId: input.sessionId,
       cwd: input.cwd,
       filePath: input.filePath,
       title: input.title?.trim() || fileNameFromPath(input.filePath),
@@ -417,7 +392,6 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     const nextSurface: DiffAllCenterSurface = {
       id,
       kind: 'diff-all',
-      sessionId: input.sessionId,
       cwd: input.cwd,
       staged: input.staged,
       title: input.title?.trim() || (input.staged ? 'Staged changes' : 'Changes'),
@@ -552,27 +526,7 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     })
   },
 
-  clearAll: () => set({ byCwd: {}, dismissedSessions: {} }),
-
-  dismissSession: (cwd, sessionId) => {
-    set(state => {
-      const dismissed = readDismissed(state.dismissedSessions, cwd)
-      if (dismissed.includes(sessionId)) return state
-      return { dismissedSessions: { ...state.dismissedSessions, [cwd]: [...dismissed, sessionId] } }
-    })
-  },
-
-  undismissSession: (cwd, sessionId) => {
-    set(state => {
-      const dismissed = readDismissed(state.dismissedSessions, cwd)
-      if (!dismissed.includes(sessionId)) return state
-      const next = dismissed.filter(id => id !== sessionId)
-      const rest = { ...state.dismissedSessions }
-      if (next.length > 0) rest[cwd] = next
-      else delete rest[cwd]
-      return { dismissedSessions: rest }
-    })
-  },
+  clearAll: () => set({ byCwd: {} }),
 }))
 
 

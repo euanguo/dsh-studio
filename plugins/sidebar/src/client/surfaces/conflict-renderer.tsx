@@ -52,8 +52,8 @@ export function ConflictSurfaceView({
 
   // Content rides the retained file runtime cache (M6 — one read path).
   const runtime = useMemo(
-    () => getFileRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
-    [surface.cwd, surface.sessionId],
+    () => getFileRuntime({ cwd: surface.cwd }),
+    [surface.cwd],
   )
   useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
   const entry = runtime.getEntry(absolutePath)
@@ -68,21 +68,20 @@ export function ConflictSurfaceView({
   const onResolved = useCallback((resolved: FileContents) => {
     setBusy(true)
     sidebarApi.fsWrite(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
+      { cwd: surface.cwd },
       absolutePath,
       resolved.contents,
     ).then(() => sidebarApi.gitStage(
-      { sessionId: surface.sessionId, cwd: surface.cwd },
+      { cwd: surface.cwd },
       surface.filePath,
     )).then(() => {
       // Refresh file + git state, then swap this tab for the plain file view.
-      getFileRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }).invalidate(absolutePath)
-      void getSourceControlRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }).refresh()
+      getFileRuntime({ cwd: surface.cwd }).invalidate(absolutePath)
+      void getSourceControlRuntime({ cwd: surface.cwd }).refresh()
       const store = useCenterSurfaceStore.getState()
       store.close(surface.cwd, surface.id)
       store.openFile({
         cwd: surface.cwd,
-        sessionId: surface.sessionId,
         filePath: absolutePath,
         title: name,
         preview: false,
@@ -93,7 +92,7 @@ export function ConflictSurfaceView({
       setError(message)
       toast(t('toast.save-failed', { message }))
     })
-  }, [absolutePath, surface.cwd, surface.filePath, surface.sessionId, surface.id, name, t])
+  }, [absolutePath, surface.cwd, surface.filePath, surface.id, name, t])
 
   const file = useMemo<FileContents>(() => ({
     name,

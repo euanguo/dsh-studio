@@ -135,27 +135,45 @@ export function CenterSurfaceTabs({
       .map(([id, summary]) => ({ id, cwd: summary.cwd!, summary }))
   }, [cwd, sessionList])
 
-  // Keep the open set in sync with the session list: new sessions get a
-  // tab (without stealing activation), removed sessions drop their tab,
-  // and a dead/missing activeId falls back to the current conversation.
+  // Keep the open set in sync with the session list WITHOUT re-listing every
+  // project conversation: a conversation is an ordinary center tab, so the
+  // open set is a WHITELIST — restore brings back only what the user had
+  // open (never all of the project's sessions), and closing a tab persists
+  // its removal. The one guarantee: NAVIGATING within the SAME project (the
+  // active session changed while the cwd did not — a left-rail click, a
+  // session switch, a fork/new) opens that conversation's tab, exactly like
+  // clicking a file opens a file tab. Entering/returning to a project
+  // (cwd changed) is a RESTORE, not a navigation: only the persisted open[]
+  // whitelist comes back, so a conversation the user closed before leaving
+  // the project stays closed. Removed sessions drop their tab.
+  const prevCwdRef = useRef<string | undefined>(undefined)
+  const prevCurrentByCwdRef = useRef<Record<string, string | undefined>>({})
   useEffect(() => {
     if (cwd === undefined) return
     const state = useCenterSurfaceStore.getState()
     const workspaceSlice = state.getSlice(cwd)
     const validIds = new Set(conversationTabs.map(tab => conversationSurfaceId(tab.id)))
-    const dismissed = state.dismissedSessions[cwd] ?? []
-    for (const tab of conversationTabs) {
-      const id = conversationSurfaceId(tab.id)
-      const exists = workspaceSlice.open.some(surface => surface.id === id)
-      if (!exists && !dismissed.includes(tab.id)) {
+    const cwdChanged = prevCwdRef.current !== cwd
+    const prevCurrent = prevCurrentByCwdRef.current[cwd]
+    if (!cwdChanged && current !== undefined && prevCurrent !== current) {
+      // Navigating to a conversation (same project): ensure its tab exists
+      // and ACTIVATE it — the target conversation's tab is the one the user
+      // just switched to, so it must take the highlight (an ordinary tab:
+      // clicking a tab selects it).
+      const currentId = conversationSurfaceId(current)
+      if (!workspaceSlice.open.some(surface => surface.id === currentId)) {
         state.openConversation({
           cwd,
-          sessionId: tab.id,
-          title: conversationTabTitle(tab.id, tab.cwd, tab.summary),
-          activate: false,
+          sessionId: current,
+          title: conversationTabTitle(current, cwd, sessionList.byId[current]),
+          activate: true,
         })
+      } else {
+        state.activate(cwd, currentId)
       }
     }
+    // Any conversation tab whose session disappeared drops out. Everything
+    // else in `open[]` stays exactly as the user left it.
     for (const surface of workspaceSlice.open) {
       if (surface.kind === 'conversation' && !validIds.has(surface.id)) {
         state.close(cwd, surface.id)
@@ -167,13 +185,9 @@ export function CenterSurfaceTabs({
     if (!activeExists && current !== undefined) {
       state.activate(cwd, conversationSurfaceId(current))
     }
-  }, [conversationTabs, cwd, current])
-
-  // Reopening a session from elsewhere (left rail click) restores its tab.
-  useEffect(() => {
-    if (current === undefined || cwd === undefined) return
-    useCenterSurfaceStore.getState().undismissSession(cwd, current)
-  }, [cwd, current])
+    prevCurrentByCwdRef.current = { ...prevCurrentByCwdRef.current, [cwd]: current }
+    prevCwdRef.current = cwd
+  }, [conversationTabs, cwd, current, sessionList])
 
   return (
     <SurfaceTabStrip aria-label={t('center.tablist')}>
@@ -211,16 +225,15 @@ export function CenterSurfaceTabs({
               ? { onPin: () => { useCenterSurfaceStore.getState().pin(cwd!, surface.id) } }
               : {})}
             onClose={() => {
-              if (isConversation) {
-                // Closing the tab hides it for this workspace until the
-                // session is opened again — the session itself stays.
-                useCenterSurfaceStore.getState().dismissSession(cwd!, surface.sessionId)
+              // Closing ANY tab (conversation included) removes it from the
+              // open set — a conversation tab is just a tab: the session
+              // itself is untouched and stays in the session list (reopen it
+              // from the left rail and the tab returns).
+              if (surface.kind === 'terminal' && cwd !== undefined) {
+                releaseTerminalInstance({ cwd }, surface.id)
+                void sidebarApi.ptyClose({ cwd }, surface.id)
               }
-              if (surface.kind === 'terminal' && current !== undefined && cwd !== undefined) {
-               releaseTerminalInstance({ sessionId: current, cwd }, surface.id)
-               void sidebarApi.ptyClose({ sessionId: current, cwd }, surface.id)
-               }
-               useCenterSurfaceStore.getState().close(cwd!, surface.id)
+              useCenterSurfaceStore.getState().close(cwd!, surface.id)
             }}
           />
         )
@@ -446,7 +459,7 @@ function CenterAddMenu({
         sidebar.setOpen(true)
         return
       }
-      const scope = { sessionId: currentSessionId, cwd }
+      const scope = { cwd }
       if (!canOpenTerminalInstance(scope)) return
       const surface = useCenterSurfaceStore.getState().openTerminal({ cwd, title: t('terminal') })
       touchTerminalInstance(scope, surface.id)

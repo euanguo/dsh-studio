@@ -13,7 +13,16 @@
 
 /* The change-list rows need no container inset: the parent section owns the
    8px top/bottom/left/right padding, and inter-row rhythm comes from
-   ListRow's margin-bottom. The toolbar owns its own divider gap below. */
+   ListRow's margin-bottom. The toolbar owns its own divider gap below.
+
+   Flex column (not plain block): the portaled row context-menu's empty
+   anchor wrapper span becomes a blockified flex item instead of an inline
+   box — an inline box would inject a ~15px line-box strut below the last
+   row (the visible dead gap before the next section). */
+.oh-dsh-sc-list {
+  display: flex;
+  flex-direction: column;
+}
 
 /* Tree indentation for source-control rows (shared with the file browser). */
 .oh-dsh-sc-depth-main {

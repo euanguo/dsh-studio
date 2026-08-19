@@ -4,6 +4,10 @@
  * it). Every terminal instance owns an independent pty: the instance id
  * (`tabId`) is the terminal's identity in the host's `/sidebar/ws/terminal`
  * protocol, so opening N terminal tabs spins up N shells.
+ *
+ * The terminal is PROJECT-dimension: the instance belongs to the project
+ * cwd, so a terminal opened in one conversation of a project is the same
+ * shell in every conversation of that project (B1: project-shared PTY).
  */
 import { useEffect, useSyncExternalStore } from 'react'
 import { TerminalView } from '@oh-dsh/shared/terminal-view'
@@ -13,7 +17,6 @@ import type { WorkspaceMessage } from './i18n.ts'
 import type { SidebarRuntimeSettingsService } from './runtime-settings.ts'
 
 export interface TerminalTabContentProps {
-  sessionId: string
   cwd: string | null
   /** Unique instance id — one shell per tab (right-rail tab id or center
    *  surface id). */
@@ -36,13 +39,13 @@ export function TerminalTabContent(props: TerminalTabContentProps): JSX.Element 
   const t: (key: string, params?: Record<string, unknown>) => string =
     (key, params) => props.t(key as WorkspaceMessage, params)
   useEffect(() => {
-    if (props.sessionId === '' || props.cwd === null || props.cwd === '') return
-    touchTerminalInstance({ sessionId: props.sessionId, cwd: props.cwd }, props.tabId)
-  }, [props.cwd, props.sessionId, props.tabId])
+    if (props.cwd === null || props.cwd === '') return
+    touchTerminalInstance({ cwd: props.cwd }, props.tabId)
+  }, [props.cwd, props.tabId])
   return (
     <div className="oh-dsh-side-terminal">
       <TerminalView
-        sessionId={props.sessionId}
+        sessionId={props.cwd ?? ''}
         tabId={props.tabId}
         cwd={props.cwd}
         fontFamily={preferences.terminalFontFamily}

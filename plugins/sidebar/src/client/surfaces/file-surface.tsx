@@ -57,8 +57,8 @@ export function FileSurfaceView({
   reviewComments?: ReviewCommentsService
 }): JSX.Element {
   const runtime = useMemo(
-    () => getFileRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
-    [surface.cwd, surface.sessionId],
+    () => getFileRuntime({ cwd: surface.cwd }),
+    [surface.cwd],
   )
   const [fingerprint, setFingerprint] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
@@ -79,7 +79,6 @@ export function FileSurfaceView({
   }, [runtime, surface.filePath])
 
   const editable = useEditableFile({
-    sessionId: surface.sessionId,
     cwd: surface.cwd,
     filePath: surface.filePath,
     runtime,
@@ -145,7 +144,7 @@ export function FileSurfaceView({
     setWriteError('')
     writeQueueRef.current = writeQueueRef.current
       .then(() => sidebarApi.fsWrite(
-        { sessionId: surface.sessionId, cwd: surface.cwd },
+        { cwd: surface.cwd },
         surface.filePath,
         next,
       ))
@@ -161,7 +160,7 @@ export function FileSurfaceView({
         setWriteError(message)
         toast(t('toast.save-failed', { message }))
       })
-  }, [runtime, surface.cwd, surface.filePath, surface.sessionId, t])
+  }, [runtime, surface.cwd, surface.filePath, t])
 
   const onOpenExternal = useCallback(() => {
     if (window.dshDesktop !== undefined) {

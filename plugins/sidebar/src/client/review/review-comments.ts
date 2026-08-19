@@ -4,7 +4,6 @@ export type ReviewCommentSide = 'new' | 'old' | null
 
 export interface ReviewComment {
   id: string
-  sessionId: string | null
   workspacePath: string
   branch: string
   commitId: string
@@ -111,7 +110,6 @@ function isReviewComment(value: unknown): value is ReviewComment {
   if (typeof value !== 'object' || value === null) return false
   const comment = value as Partial<ReviewComment>
   return typeof comment.id === 'string'
-    && (comment.sessionId === null || typeof comment.sessionId === 'string')
     && typeof comment.workspacePath === 'string'
     && typeof comment.branch === 'string'
     && typeof comment.commitId === 'string'
@@ -452,14 +450,13 @@ export class ReviewCommentsService {
     return this.bridge.appendText(text)
   }
 
-  activate(sessionId: string | null, workspacePath: string, branch: string): void {
+  activate(workspacePath: string, branch: string): void {
     this.bridge.setScope(branch)
-    const scope = `${sessionId ?? ''}\0${workspacePath}\0${branch}`
+    const scope = `${workspacePath}\0${branch}`
     if (this.seededScopes.has(scope)) return
     this.seededScopes.add(scope)
     for (const comment of this.comments) {
-      if (comment.sessionId === sessionId && comment.workspacePath === workspacePath
-        && comment.branch === branch) {
+      if (comment.workspacePath === workspacePath && comment.branch === branch) {
         this.bridge.addComment(comment.request, comment.id, branch)
       }
     }

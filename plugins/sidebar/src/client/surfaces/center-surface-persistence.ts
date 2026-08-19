@@ -4,21 +4,28 @@
  * open set to localStorage (debounced) and rebuilds the queues on
  * startup. Deliberately NOT zustand `persist` middleware so the identity
  * store stays pure.
+ *
+ * The center surfaces are project-dimension (keyed by cwd), and the open
+ * set is a WHITELIST: only conversations the user has open (or files/diffs
+ * they pinned) persist. Closing an open tab removes it from the queue and
+ * the persisted document — next restart restores exactly what was left
+ * open. A conversation is an ordinary center tab: closing it never archives
+ * the session; the session stays in the session list and clicking it in the
+ * left rail re-opens its tab.
  */
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import type { CenterSurface } from './types.ts'
 
-const CENTER_SURFACES_STORAGE_KEY = 'oh-dsh-desktop.center-surfaces'
+const CENTER_SURFACES_STORAGE_KEY = 'oh-dsh-desktop.center-surfaces.v2'
 
 export interface PersistedCenterSurfaces {
-  /** v3: per-workspace (cwd) tab queues. */
-  version: 3
+  /** v4: per-workspace (cwd) tab queues, project dimension, no session
+   *  blacklist. */
+  version: 4
   byCwd: Record<string, {
     open: ReadonlyArray<CenterSurface>
     activeId: string | null
   }>
-  /** Session tabs the user closed, per workspace; sync skips them. */
-  dismissedSessions?: Record<string, string[]>
 }
 
 /** Trailing-debounce for persistence: tab bursts (open/close/preview
@@ -35,14 +42,11 @@ export function persistCenterSurfaces(): () => void {
       const state = useCenterSurfaceStore.getState()
       try {
         const payload: PersistedCenterSurfaces = {
-          version: 3,
+          version: 4,
           byCwd: Object.fromEntries(Object.entries(state.byCwd).map(([cwd, slice]) => [
             cwd,
             { open: slice.open, activeId: slice.activeId },
           ])),
-          ...(Object.keys(state.dismissedSessions).length > 0
-            ? { dismissedSessions: state.dismissedSessions }
-            : {}),
         }
         window.localStorage.setItem(CENTER_SURFACES_STORAGE_KEY, JSON.stringify(payload))
       } catch {
@@ -63,13 +67,10 @@ export function restoreCenterSurfaces(): void {
     const raw = window.localStorage.getItem(CENTER_SURFACES_STORAGE_KEY)
     if (raw !== null) {
       const parsed = JSON.parse(raw) as Partial<PersistedCenterSurfaces>
-      if (parsed.version === 3 && parsed.byCwd !== null && typeof parsed.byCwd === 'object') {
+      if (parsed.version === 4 && parsed.byCwd !== null && typeof parsed.byCwd === 'object') {
         payload = {
-          version: 3,
+          version: 4,
           byCwd: parsed.byCwd as PersistedCenterSurfaces['byCwd'],
-          ...(parsed.dismissedSessions !== null && typeof parsed.dismissedSessions === 'object'
-            ? { dismissedSessions: parsed.dismissedSessions as Record<string, string[]> }
-            : {}),
         }
       }
     }
@@ -87,9 +88,6 @@ export function restoreCenterSurfaces(): void {
   if (payload === null) return
   const state = useCenterSurfaceStore.getState()
   state.clearAll()
-  if (payload.dismissedSessions !== undefined) {
-    useCenterSurfaceStore.setState({ dismissedSessions: payload.dismissedSessions })
-  }
   for (const [cwd, entry] of Object.entries(payload.byCwd)) {
     if (!Array.isArray(entry?.open)) continue
     const open = entry.open.filter(
@@ -101,38 +99,38 @@ export function restoreCenterSurfaces(): void {
         && typeof surface.isPreview === 'boolean'
         && typeof surface.cwd === 'string',
     )
-    // Re-insert through the store so ids/order stay canonical.
+    // Re-insert through the store so ids/order stay canonical. The open set
+    // is a whitelist: only the surface objects persisted were open — a
+    // closed conversation is simply absent, so it never comes back.
     for (const surface of open) {
       if (surface.kind === 'conversation') {
         state.openConversation({ cwd, sessionId: surface.sessionId, title: surface.title, activate: false })
       } else if (surface.kind === 'file') {
         state.openFile({
           cwd,
-          sessionId: surface.sessionId,
           filePath: surface.filePath,
           title: surface.title,
           preview: false,
           ...(surface.markdownPreview === undefined ? {} : { markdownPreview: surface.markdownPreview }),
         })
       } else if (surface.kind === 'diff') {
-        state.openDiff({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, staged: surface.staged, title: surface.title, preview: false })
+        state.openDiff({ cwd, filePath: surface.filePath, staged: surface.staged, title: surface.title, preview: false })
       } else if (surface.kind === 'diff-all') {
-        state.openDiffAll({ cwd, sessionId: surface.sessionId, staged: surface.staged, title: surface.title, preview: false })
+        state.openDiffAll({ cwd, staged: surface.staged, title: surface.title, preview: false })
       } else if (surface.kind === 'commit') {
-        state.openCommit({ cwd, sessionId: surface.sessionId, hash: surface.hash, title: surface.title, preview: false })
+        state.openCommit({ cwd, hash: surface.hash, title: surface.title, preview: false })
       } else if (surface.kind === 'commit-file') {
-        state.openCommitFile({ cwd, sessionId: surface.sessionId, hash: surface.hash, filePath: surface.filePath, title: surface.title, preview: false })
+        state.openCommitFile({ cwd, hash: surface.hash, filePath: surface.filePath, title: surface.title, preview: false })
       } else if (surface.kind === 'committed') {
         state.openCommitted({
           cwd,
-          sessionId: surface.sessionId,
           baseRef: surface.baseRef,
           ...(surface.filePath === undefined ? {} : { filePath: surface.filePath }),
           title: surface.title,
           preview: false,
         })
       } else if (surface.kind === 'conflict') {
-        state.openConflict({ cwd, sessionId: surface.sessionId, filePath: surface.filePath, title: surface.title, preview: false })
+        state.openConflict({ cwd, filePath: surface.filePath, title: surface.title, preview: false })
       } else if (surface.kind === 'browser') {
         state.openBrowser({
           cwd,

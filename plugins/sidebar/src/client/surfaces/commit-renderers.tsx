@@ -115,8 +115,8 @@ export function CommitDiffSurfaceView({
 
   // Commit file list lives in the diff runtime; tree chrome is shared.
   const runtime = useMemo(
-    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
-    [surface.cwd, surface.sessionId],
+    () => getDiffRuntime({ cwd: surface.cwd }),
+    [surface.cwd],
   )
   useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
   const listKey = commitListKey(surface.hash)
@@ -127,7 +127,7 @@ export function CommitDiffSurfaceView({
       void runtime.ensureCommitList(surface.hash)
     }
   }, [runtime, listKey, surface.hash])
-  const scopeKey = sidebarScopeKey({ sessionId: surface.sessionId, cwd: surface.cwd })
+  const scopeKey = sidebarScopeKey({ cwd: surface.cwd })
   const chrome = useSidebarChromeStore(state => state.getSlice(scopeKey))
   const selectedPath = chrome.sourceControl.selectedPath
   const collapsedDirs = useMemo(
@@ -184,8 +184,8 @@ export function CommitFileSurfaceView({
 }): JSX.Element {
   const theme = usePierreDiffTheme()
   const runtime = useMemo(
-    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
-    [surface.cwd, surface.sessionId],
+    () => getDiffRuntime({ cwd: surface.cwd }),
+    [surface.cwd],
   )
   useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
   const docKey = commitDocKey(surface.hash, surface.filePath)
@@ -261,8 +261,8 @@ function CommittedAllDiffView({
 
   // Committed file list lives in the diff runtime; tree chrome is shared.
   const runtime = useMemo(
-    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
-    [surface.cwd, surface.sessionId],
+    () => getDiffRuntime({ cwd: surface.cwd }),
+    [surface.cwd],
   )
   useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
   const listKey = committedListKey(surface.baseRef)
@@ -273,7 +273,7 @@ function CommittedAllDiffView({
       void runtime.ensureCommittedList(surface.baseRef)
     }
   }, [runtime, listKey, surface.baseRef])
-  const scopeKey = sidebarScopeKey({ sessionId: surface.sessionId, cwd: surface.cwd })
+  const scopeKey = sidebarScopeKey({ cwd: surface.cwd })
   const chrome = useSidebarChromeStore(state => state.getSlice(scopeKey))
   const selectedPath = chrome.sourceControl.selectedPath
   const collapsedDirs = useMemo(
@@ -327,8 +327,8 @@ function CommittedFileDiffView({
   const filePath = surface.filePath ?? ''
   const theme = usePierreDiffTheme()
   const runtime = useMemo(
-    () => getDiffRuntime({ sessionId: surface.sessionId, cwd: surface.cwd }),
-    [surface.cwd, surface.sessionId],
+    () => getDiffRuntime({ cwd: surface.cwd }),
+    [surface.cwd],
   )
   useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
   const docKey = committedDocKey(surface.baseRef, filePath)

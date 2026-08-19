@@ -17,7 +17,7 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
   constructor(value?: DesktopSidebarPreferences) {
     this.value = value ?? {
       ...DEFAULT_SIDEBAR_PREFERENCES,
-      sessions: {},
+      workspaces: {},
       tabsEnabled: {},
       viewersEnabled: {},
       pluginSettings: {},
@@ -53,7 +53,7 @@ async function readySidebar(
   sidebar.registerTab(tab('file'))
   sidebar.registerTab(tab('browser'))
   sidebar.registerTab(tab('side-chat'))
-  sidebar.setSession('session-1', '/work')
+  sidebar.setWorkspace('/work')
   await sidebar.start()
   for (const id of options.opened ?? []) {
     sidebar.openTab({ type: id, id, title: id })
@@ -61,11 +61,11 @@ async function readySidebar(
   return { sidebar, storage }
 }
 
-test('legacy sessions without a bottom workbench parse to an empty one', () => {
+test('legacy workspaces without a bottom workbench parse to an empty one', () => {
   const legacy = {
     ...DEFAULT_SIDEBAR_PREFERENCES,
-    sessions: {
-      old: {
+    workspaces: {
+      '/work/repo': {
         activeId: null,
         lastUsed: 1,
         tabs: [],
@@ -77,8 +77,8 @@ test('legacy sessions without a bottom workbench parse to an empty one', () => {
   }
   const parsed = parseSidebarPreferences(legacy)
   assert.ok(parsed !== undefined)
-  assert.deepEqual(parsed.sessions.old?.bottomTabs, [])
-  assert.equal(parsed.sessions.old?.bottomActiveId, null)
+  assert.deepEqual(parsed.workspaces['/work/repo']?.bottomTabs, [])
+  assert.equal(parsed.workspaces['/work/repo']?.bottomActiveId, null)
 })
 
 test('moveTab reorders the right rail and persists the order', async () => {
@@ -91,7 +91,7 @@ test('moveTab reorders the right rail and persists the order', async () => {
     ['browser', 'file', 'side-chat'],
   )
   await sidebar.settle()
-  const restored = storage.value.sessions['session-1']
+  const restored = storage.value.workspaces['/work']
   assert.deepEqual(restored?.tabs.map(tab => tab.id), ['browser', 'file', 'side-chat'])
 })
 
@@ -138,7 +138,7 @@ test('activateBottomTab switches the docked pane; closeBottomTab fires onClose',
   sidebar.registerTab(tab('browser', {
     onClose: (closedTab) => { closed.push(closedTab.id) },
   }))
-  sidebar.setSession('session-1', '/work')
+  sidebar.setWorkspace('/work')
   await sidebar.start()
   sidebar.openTab({ type: 'browser', id: 'browser', title: 'browser' })
   sidebar.openTab({ type: 'file', id: 'file', title: 'file' })
@@ -169,7 +169,7 @@ test('the bottom workbench survives a reload through the persisted preferences',
 
   const second = new DesktopSidebarService(storage)
   second.registerTab(tab('browser'))
-  second.setSession('session-1', '/work')
+  second.setWorkspace('/work')
   await second.start()
   const snapshot = second.getSnapshot()
   assert.deepEqual(snapshot.bottomTabs.map(tab => tab.id), ['browser'])

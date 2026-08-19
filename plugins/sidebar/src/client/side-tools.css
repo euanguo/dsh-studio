@@ -386,11 +386,12 @@
 
 .oh-dsh-side-menu {
   display: grid;
-  align-content: start;
+  /* Center the tool list as a block in the panel (launcher look); `safe`
+     falls back to start-aligned when the rows are taller than the panel. */
+  align-content: safe center;
   gap: var(--oh-dsh-space-1);
   flex: 1;
-  /* Insets come from the Scrollable host (default 8px); align-content:start
-     keeps the rows at the top. */
+  /* Insets come from the Scrollable host (default 8px). */
 }
 
 /* Close button for the menu view: the menu has no tab row, so it keeps its
@@ -480,6 +481,13 @@
 .oh-dsh-browser-bar button:disabled,
 .oh-dsh-files-path button:disabled { opacity: 0.35; cursor: default; }
 
+/* Browser-bar trigger hover wash (the browser bar keeps its filled 28px
+   toolbar buttons). */
+.oh-dsh-browser-bar button:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 8%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
 .oh-dsh-browser-bar > span {
   flex: 1;
   min-width: 0;
@@ -490,7 +498,18 @@
 .oh-dsh-browser-error,
 .oh-dsh-side-error { margin: var(--oh-dsh-space-2) var(--oh-dsh-space-3); padding: var(--oh-dsh-space-1-5) var(--oh-dsh-space-2); border-radius: var(--oh-dsh-radius-sm); background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 10%, transparent); color: var(--dsw-alias-state-error-primary, #cf222e); font-size: var(--oh-dsh-font-sm); }
 
-.oh-dsh-files-path span { flex: 1; min-width: 0; overflow: hidden; color: var(--dsw-alias-label-secondary, #57606a); font-size: var(--oh-dsh-font-sm); text-overflow: ellipsis; white-space: nowrap; }
+/* The directory name owns the free space (pushes the icon triggers flush
+   right); scoped to the named span — a bare `span` selector would also
+   match the official Menu's empty anchor wrapper inside the flex row. */
+.oh-dsh-files-path .oh-dsh-files-path-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--oh-dsh-font-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .oh-dsh-file-list { flex: 1; }
 .oh-dsh-file-preview { flex: 1; }
 .oh-dsh-file-preview > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: var(--oh-dsh-space-2); margin-bottom: var(--oh-dsh-space-2); }
@@ -775,37 +794,65 @@
 
 /* ---------- File browser (tree mode) ---------- */
 
-.oh-dsh-files-path > span {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--oh-dsh-font-sm);
-}
-
+/* Files header icon triggers (new-file menu, refresh) mirror the panel
+   action buttons in the top-right corner (26px, transparent, dimmed
+   glyph, radius-sm, hover wash only) — not the filled browser-bar wash.
+   Row-scoped actions (rename/copy/delete) live on the rows themselves:
+   hover reveals a ⋯ button (shared list-row actions) that opens the same
+   context menu at the row; the header never shows them. */
 .oh-dsh-files-path > button {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  min-width: 26px;
+  width: 26px;
+  height: 26px;
   padding: 0;
+  flex: none;
   border: 0;
   border-radius: var(--oh-dsh-radius-sm);
   background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
+  color: var(--dsw-alias-label-tertiary, #8c959f);
   cursor: pointer;
 }
 
-.oh-dsh-files-path > button:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.oh-dsh-files-path > button:hover {
+.oh-dsh-files-path > button:hover,
+.oh-dsh-files-path > button[aria-expanded='true'] {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+/* Inline create editor row: the official Input sits on a flex row aligned
+   with the tree indent ladder (same --tree-depth math as file rows). */
+.oh-dsh-files-inline-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  padding-left: calc(var(--oh-dsh-space-1-5) + var(--oh-dsh-tree-indent) * var(--tree-depth, 0));
+  padding-right: var(--oh-dsh-space-1);
+}
+
+.oh-dsh-files-inline-input {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.oh-dsh-files-inline-input input {
+  width: 100%;
+  height: 24px;
+  padding: 0 var(--oh-dsh-space-2);
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 12%));
+  border-radius: var(--oh-dsh-radius-sm);
+  background: var(--dsw-alias-bg-base, #fff);
+  color: var(--dsw-alias-label-primary, #1f2328);
+  font-size: var(--oh-dsh-font-sm);
+  outline: none;
+}
+
+.oh-dsh-files-inline-input input:focus {
+  border-color: var(--oh-dsh-accent, #0969da);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--oh-dsh-accent, #0969da) 20%, transparent);
 }
 
 /* Tree indentation for file-browser rows (shared with source control). */

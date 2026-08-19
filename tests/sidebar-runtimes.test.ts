@@ -122,7 +122,7 @@ function fakeSourceControlRuntime(): SourceControlRuntimeOptions['transport'] & 
 test('source-control runtime: ready snapshot short-circuits ensureLoaded', async () => {
   const transport = fakeSourceControlRuntime()
   const runtime = new SourceControlRuntime({ transport })
-  runtime.setScope({ sessionId: 's1', cwd: '/ws' })
+  runtime.setScope({ cwd: '/ws' })
   await runtime.ensureLoaded()
   assert.equal(runtime.getSnapshot().phase, 'ready')
   const callsAfterFirst = transport.statusCalls
@@ -133,7 +133,7 @@ test('source-control runtime: ready snapshot short-circuits ensureLoaded', async
 test('source-control runtime: refresh keeps ready rows visible (soft revalidate)', async () => {
   const transport = fakeSourceControlRuntime()
   const runtime = new SourceControlRuntime({ transport })
-  runtime.setScope({ sessionId: 's1', cwd: '/ws' })
+  runtime.setScope({ cwd: '/ws' })
   await runtime.ensureLoaded()
   const promise = runtime.refresh()
   // During a soft refresh the phase must stay 'ready' (no loading flash).
@@ -145,10 +145,10 @@ test('source-control runtime: refresh keeps ready rows visible (soft revalidate)
 test('source-control runtime: scope switch drops stale data', async () => {
   const transport = fakeSourceControlRuntime()
   const runtime = new SourceControlRuntime({ transport })
-  runtime.setScope({ sessionId: 's1', cwd: '/ws' })
+  runtime.setScope({ cwd: '/ws' })
   await runtime.ensureLoaded()
   assert.equal(runtime.getSnapshot().phase, 'ready')
-  runtime.setScope({ sessionId: 's1', cwd: '/ws2' })
+  runtime.setScope({ cwd: '/ws2' })
   assert.equal(runtime.getSnapshot().phase, 'loading')
   await runtime.ensureLoaded()
   assert.equal(runtime.getSnapshot().phase, 'ready')
@@ -158,7 +158,7 @@ test('source-control runtime: scope switch drops stale data', async () => {
 test('source-control runtime: reportError surfaces mutation failures', async () => {
   const transport = fakeSourceControlRuntime()
   const runtime = new SourceControlRuntime({ transport })
-  runtime.setScope({ sessionId: 's1', cwd: '/ws' })
+  runtime.setScope({ cwd: '/ws' })
   await runtime.ensureLoaded()
   runtime.reportError('stage failed')
   const snapshot = runtime.getSnapshot()

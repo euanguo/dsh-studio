@@ -7,10 +7,12 @@ import {
   useSyncExternalStore,
   type CSSProperties,
   type DragEvent as ReactDragEvent,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
 import {
+  Input,
   Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -22,8 +24,13 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconClose,
+  IconCopy,
   IconDots,
+  IconEdit,
+  IconEye,
+  IconFilePlus,
   IconFolderOpen,
+  IconFolderPlus,
   IconGitBranch,
   IconList,
   IconMaximize,
@@ -33,6 +40,7 @@ import {
   IconRefresh,
   IconSidebarRightFilled,
   IconTerminal,
+  IconTrash,
   IconWorld,
 } from '@oh-dsh/shared/tabler-icons'
 import {
@@ -49,9 +57,11 @@ import {
   sidebarApi,
   mapSidebarFile,
 } from './sidebar-api.ts'
-import { buildFileRows } from './files/file-tree-model.ts'
+import { buildFileRows, type FileRow } from './files/file-tree-model.ts'
 import {
   ListRow,
+  ListRowActionButton,
+  ListRowActions,
   ListRowBody,
   ListRowLeading,
   ListRowMain,
@@ -214,7 +224,58 @@ function formatSize(size: number | null): string {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
+/* Inline "new file / new folder" editor row: Enter commits, Escape or blur
+   cancels. Replaces the prompt dialog for creation — the row sits at the
+   top of the target directory and edits in place (VS Code explorer style). */
+function InlineCreateRow({ kind, depth, placeholder, onCommit, onCancel }: {
+  kind: 'file' | 'directory'
+  depth: number
+  placeholder: string
+  onCommit(name: string): Promise<void>
+  onCancel(): void
+}): JSX.Element {
+  const [value, setValue] = useState('')
+  const commit = (): void => {
+    if (value.trim() === '') {
+      onCancel()
+      return
+    }
+    void onCommit(value)
+  }
+  return (
+    <ListRow className="oh-dsh-files-inline-create" data-kind={kind}>
+      <ListRowLeading aria-hidden="true">
+        {kind === 'directory' ? <IconFolderPlus size={14} /> : <IconFilePlus size={14} />}
+      </ListRowLeading>
+      <div
+        className="oh-dsh-files-inline-main"
+        style={{ '--tree-depth': depth } as CSSProperties}
+      >
+        <Input
+          autoFocus
+          className="oh-dsh-files-inline-input"
+          placeholder={placeholder}
+          aria-label={placeholder}
+          value={value}
+          onChange={event => { setValue(event.currentTarget.value) }}
+          onKeyDown={event => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              commit()
+            } else if (event.key === 'Escape') {
+              event.preventDefault()
+              onCancel()
+            }
+          }}
+          onBlur={onCancel}
+        />
+      </div>
+    </ListRow>
+  )
+}
+
 export function FilesView({
+  active,
   patch,
   scope,
   sidebar,
@@ -230,8 +291,8 @@ export function FilesView({
   const runtime = useMemo(
     () => (scope === null || scope.cwd === undefined
       ? null
-      : getExplorerRuntime({ sessionId: scope.sessionId, cwd: scope.cwd })),
-    [scope?.cwd, scope?.sessionId],
+      : getExplorerRuntime({ cwd: scope.cwd })),
+    [scope?.cwd],
   )
   const listingsFingerprint = useSyncExternalStore(
     useCallback((listener: () => void) => runtime?.subscribe(listener) ?? (() => {}), [runtime]),
@@ -239,7 +300,7 @@ export function FilesView({
   )
   const scopeKey = scope === null || scope.cwd === undefined
     ? null
-    : sidebarScopeKey({ sessionId: scope.sessionId, cwd: scope.cwd })
+    : sidebarScopeKey({ cwd: scope.cwd })
   const chrome = useSidebarChromeStore(state =>
     scopeKey === null ? null : state.getSlice(scopeKey))
   const expandedDirs = useMemo(
@@ -250,6 +311,24 @@ export function FilesView({
   const [searchQuery, setSearchQuery] = useState('')
   const [searchHits, setSearchHits] = useState<Array<{ path: string; line: number; text: string }> | null>(null)
   const [searching, setSearching] = useState(false)
+  // Header [+] dropdown (official Menu, portaled; the trigger button keeps
+  // aria-expanded so the CSS can show the pressed state).
+  const [createMenuOpen, setCreateMenuOpen] = useState(false)
+  const createButtonRef = useRef<HTMLButtonElement | null>(null)
+  // Inline create editor row state (parent directory + entry kind).
+  const [inlineCreate, setInlineCreate] = useState<{
+    parent: string
+    kind: 'file' | 'directory'
+  } | null>(null)
+  // Row / background context menus (right-click, or the row hover ⋯).
+  const [rowMenu, setRowMenu] = useState<{
+    x: number
+    y: number
+    path: string
+    name: string
+    kind: 'file' | 'directory'
+  } | null>(null)
+  const [backgroundMenu, setBackgroundMenu] = useState<{ x: number; y: number } | null>(null)
 
   useEffect(() => {
     if (scope == null || cwd === undefined) return
@@ -273,7 +352,7 @@ export function FilesView({
       window.clearTimeout(timer)
       controller.abort()
     }
-  }, [cwd, scope?.sessionId, searchQuery])
+  }, [cwd, scope, searchQuery])
 
   // Tree mode expands from the workspace root; ensureListing short-circuits
   // on Ready/Empty — revisiting after a tab switch costs zero network.
@@ -350,22 +429,41 @@ export function FilesView({
     if (cwd === undefined) return
     // Single click = preview tab (replaces the current preview); double
     // click / explicit open = pinned tab.
-    useCenterSurfaceStore.getState().openFile({ sessionId: scope?.sessionId ?? '', cwd, filePath, title: name, preview })
+    useCenterSurfaceStore.getState().openFile({ cwd, filePath, title: name, preview })
   }
 
-  const createFsEntry = async (directory: boolean): Promise<void> => {
+  // Inline creation: open an editor row at the top of `parent` (expanding the
+  // directory first when it is collapsed) instead of asking through a dialog.
+  const beginInlineCreate = async (kind: 'file' | 'directory', parent: string): Promise<void> => {
     if (cwd === undefined || scope == null) return
-    const base = selectedPath ?? cwd
-    const name = await promptDialog({
-      title: directory ? t('files.new-folder-name') : t('files.new-file-name'),
-      confirmLabel: t('dialog.ok'),
-      cancelLabel: t('dialog.cancel'),
-    })
-    if (name === null || name.trim() === '') return
+    setSearchQuery('')
+    setInlineCreate(null)
+    if (parent !== cwd && !expandedDirs.has(parent)) {
+      if (!entriesByDir.has(parent)) {
+        const loaded = await ensureLoaded(parent)
+        if (!loaded) return
+      }
+      if (scopeKey !== null) {
+        useSidebarChromeStore.getState().toggleExplorerDirectory(scopeKey, parent)
+      }
+    }
+    setInlineCreate({ parent, kind })
+  }
+
+  const commitInlineCreate = async (name: string): Promise<void> => {
+    const pending = inlineCreate
+    if (pending === null || cwd === undefined || scope == null) return
+    const trimmed = name.trim()
+    if (trimmed === '') {
+      setInlineCreate(null)
+      return
+    }
     try {
-      await sidebarApi.fsCreate(scope, joinPath(base, name.trim()), directory)
+      await sidebarApi.fsCreate(scope, joinPath(pending.parent, trimmed), pending.kind === 'directory')
+      setInlineCreate(null)
       refreshListings()
     } catch (cause) {
+      setInlineCreate(null)
       await alertDialog({
         title: t('files.op-failed'),
         message: cause instanceof Error ? cause.message : String(cause),
@@ -374,18 +472,22 @@ export function FilesView({
     }
   }
 
-  const renameFsEntry = async (): Promise<void> => {
-    if (cwd === undefined || scope == null || selectedPath === null) return
+  const cancelInlineCreate = (): void => {
+    setInlineCreate(null)
+  }
+
+  const renameFsEntry = async (target: string | null = selectedPath): Promise<void> => {
+    if (cwd === undefined || scope == null || target === null) return
     const name = await promptDialog({
       title: t('files.rename-to'),
-      defaultValue: basename(selectedPath),
+      defaultValue: basename(target),
       confirmLabel: t('dialog.ok'),
       cancelLabel: t('dialog.cancel'),
     })
     if (name === null || name.trim() === '') return
-    const parent = dirname(selectedPath) || cwd
+    const parent = dirname(target) || cwd
     try {
-      await sidebarApi.fsRename(scope, selectedPath, joinPath(parent, name.trim()))
+      await sidebarApi.fsRename(scope, target, joinPath(parent, name.trim()))
       refreshListings()
     } catch (cause) {
       await alertDialog({
@@ -396,18 +498,18 @@ export function FilesView({
     }
   }
 
-  const deleteFsEntry = async (): Promise<void> => {
-    if (cwd === undefined || scope == null || selectedPath === null) return
+  const deleteFsEntry = async (target: string | null = selectedPath): Promise<void> => {
+    if (cwd === undefined || scope == null || target === null) return
     const confirmed = await confirmDialog({
       title: t('files.delete'),
-      message: t('files.delete-confirm', { path: selectedPath }),
+      message: t('files.delete-confirm', { path: target }),
       confirmLabel: t('files.delete'),
       cancelLabel: t('dialog.cancel'),
       danger: true,
     })
     if (!confirmed) return
     try {
-      await sidebarApi.fsDelete(scope, selectedPath)
+      await sidebarApi.fsDelete(scope, target)
       refreshListings()
     } catch (cause) {
       await alertDialog({
@@ -418,18 +520,18 @@ export function FilesView({
     }
   }
 
-  const copyFsEntry = async (): Promise<void> => {
-    if (cwd === undefined || scope == null || selectedPath === null) return
-    const base = basename(selectedPath)
-    const target = await promptDialog({
+  const copyFsEntry = async (target: string | null = selectedPath): Promise<void> => {
+    if (cwd === undefined || scope == null || target === null) return
+    const base = basename(target)
+    const name = await promptDialog({
       title: t('files.copy-to'),
       defaultValue: `${base}.copy`,
       confirmLabel: t('dialog.ok'),
       cancelLabel: t('dialog.cancel'),
     })
-    if (target === null || target.trim() === '') return
+    if (name === null || name.trim() === '') return
     try {
-      await sidebarApi.fsCopy(scope, selectedPath, target.trim())
+      await sidebarApi.fsCopy(scope, target, joinPath(dirname(target) || cwd, name.trim()))
       refreshListings()
     } catch (cause) {
       await alertDialog({
@@ -439,6 +541,156 @@ export function FilesView({
       })
     }
   }
+
+  // Explorer keyboard shortcuts while the files tab is the active panel:
+  // F2 renames the selected entry, Delete removes it (after confirmation).
+  // Ignored while a menu or dialog is open, or when a text field is focused.
+  useEffect(() => {
+    if (!active || cwd === undefined || scope == null) return
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target
+      if (target instanceof HTMLElement
+        && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA'
+          || target.tagName === 'SELECT' || target.isContentEditable)) {
+        return
+      }
+      if (event.metaKey || event.ctrlKey || event.altKey) return
+      if (document.querySelector('[role="menu"], [role="dialog"]') !== null) return
+      if (event.key === 'F2' && selectedPath !== null) {
+        event.preventDefault()
+        void renameFsEntry(selectedPath)
+      } else if (event.key === 'Delete' && selectedPath !== null) {
+        event.preventDefault()
+        void deleteFsEntry(selectedPath)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => { window.removeEventListener('keydown', onKeyDown) }
+  })
+
+  // Row context menu: right-click anywhere on a row, or the hover ⋯ button.
+  // File rows also become the selected entry so the header menu follows.
+  // Symlink rows behave like files here (fs ops operate on the link itself).
+  const openRowMenu = (event: ReactMouseEvent, row: FileRow): void => {
+    event.preventDefault()
+    event.stopPropagation()
+    const kind = row.kind === 'directory' ? 'directory' : 'file'
+    if (kind === 'file' && scopeKey !== null) {
+      useSidebarChromeStore.getState().setExplorerSelectedPath(scopeKey, row.path)
+    }
+    setRowMenu({ x: event.clientX, y: event.clientY, path: row.path, name: row.name, kind })
+  }
+
+  const openRowMenuFromButton = (event: ReactMouseEvent<HTMLButtonElement>, row: FileRow): void => {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const kind = row.kind === 'directory' ? 'directory' : 'file'
+    if (kind === 'file' && scopeKey !== null) {
+      useSidebarChromeStore.getState().setExplorerSelectedPath(scopeKey, row.path)
+    }
+    setRowMenu({ x: rect.left, y: rect.bottom + 4, path: row.path, name: row.name, kind })
+  }
+
+  // Empty-area context menu: create in the workspace root or refresh.
+  const openBackgroundMenu = (event: ReactMouseEvent): void => {
+    event.preventDefault()
+    setBackgroundMenu({ x: event.clientX, y: event.clientY })
+  }
+
+  const createMenuItems: MenuEntry[] = [
+    { id: 'new-file', label: t('files.new-file'), icon: <IconFilePlus size={14} /> },
+    { id: 'new-folder', label: t('files.new-folder'), icon: <IconFolderPlus size={14} /> },
+  ]
+
+  const handleCreateMenuSelect = (id: string): void => {
+    setCreateMenuOpen(false)
+    if (cwd === undefined) return
+    void beginInlineCreate(id === 'new-file' ? 'file' : 'directory', cwd)
+  }
+
+  // Directory rows create inside the directory; fs.copy is file-only
+  // (host copyFile), so copy is offered for files only.
+  const rowMenuItems: MenuEntry[] = rowMenu === null ? [] : (
+    rowMenu.kind === 'file'
+      ? [
+        { id: 'open', label: t('files.open'), icon: <IconEye size={14} /> },
+        { type: 'separator', id: 'row-sep-1' },
+        { id: 'rename', label: t('files.rename'), icon: <IconEdit size={14} /> },
+        { id: 'copy', label: t('files.copy'), icon: <IconCopy size={14} /> },
+        { type: 'separator', id: 'row-sep-2' },
+        { id: 'delete', label: t('files.delete'), icon: <IconTrash size={14} />, danger: true },
+      ]
+      : [
+        { id: 'new-file', label: t('files.new-file'), icon: <IconFilePlus size={14} /> },
+        { id: 'new-folder', label: t('files.new-folder'), icon: <IconFolderPlus size={14} /> },
+        { type: 'separator', id: 'row-sep-1' },
+        { id: 'rename', label: t('files.rename'), icon: <IconEdit size={14} /> },
+        { type: 'separator', id: 'row-sep-2' },
+        { id: 'delete', label: t('files.delete'), icon: <IconTrash size={14} />, danger: true },
+      ]
+  )
+
+  const handleRowMenuSelect = (id: string): void => {
+    const menu = rowMenu
+    setRowMenu(null)
+    if (menu === null) return
+    switch (id) {
+      case 'open':
+        openFileInCenter(menu.path, menu.name, true)
+        break
+      case 'new-file':
+        void beginInlineCreate('file', menu.path)
+        break
+      case 'new-folder':
+        void beginInlineCreate('directory', menu.path)
+        break
+      case 'rename':
+        void renameFsEntry(menu.path)
+        break
+      case 'copy':
+        void copyFsEntry(menu.path)
+        break
+      case 'delete':
+        void deleteFsEntry(menu.path)
+        break
+      default:
+        break
+    }
+  }
+
+  const backgroundMenuItems: MenuEntry[] = [
+    { id: 'new-file', label: t('files.new-file'), icon: <IconFilePlus size={14} /> },
+    { id: 'new-folder', label: t('files.new-folder'), icon: <IconFolderPlus size={14} /> },
+    { type: 'separator', id: 'bg-sep' },
+    { id: 'refresh', label: t('files.refresh'), icon: <IconRefresh size={14} /> },
+  ]
+
+  const handleBackgroundMenuSelect = (id: string): void => {
+    setBackgroundMenu(null)
+    if (id === 'refresh') {
+      refreshListings()
+      return
+    }
+    if (cwd === undefined) return
+    void beginInlineCreate(id === 'new-file' ? 'file' : 'directory', cwd)
+  }
+
+  // The inline create editor row is spliced into the row stream right after
+  // its parent directory row (or at the top for the workspace root).
+  const displayItems: Array<
+    { kind: 'row'; row: FileRow } | { kind: 'inline'; entryKind: 'file' | 'directory'; depth: number }
+  > = []
+  if (inlineCreate !== null && inlineCreate.parent === cwd && rows.length === 0) {
+    displayItems.push({ kind: 'inline', entryKind: inlineCreate.kind, depth: 0 })
+  }
+  rows.forEach((row, index) => {
+    if (inlineCreate !== null && inlineCreate.parent === cwd && index === 0) {
+      displayItems.push({ kind: 'inline', entryKind: inlineCreate.kind, depth: 0 })
+    }
+    displayItems.push({ kind: 'row', row })
+    if (inlineCreate !== null && row.path === inlineCreate.parent) {
+      displayItems.push({ kind: 'inline', entryKind: inlineCreate.kind, depth: row.depth + 1 })
+    }
+  })
 
   if (cwd === undefined) {
     return <div className="oh-dsh-side-empty">{t('files.select-workspace')}</div>
@@ -446,12 +698,15 @@ export function FilesView({
   return (
     <div className="oh-dsh-files-view">
       <div className="oh-dsh-files-path" title={cwd}>
-        <span>{basename(cwd)}</span>
-        <button type="button" title={t('files.new-file')} onClick={() => { void createFsEntry(false) }}>+F</button>
-        <button type="button" title={t('files.new-folder')} onClick={() => { void createFsEntry(true) }}>+D</button>
-        <button type="button" title={t('files.rename')} disabled={selectedPath === null} onClick={() => { void renameFsEntry() }}>↳</button>
-        <button type="button" title={t('files.copy')} disabled={selectedPath === null} onClick={() => { void copyFsEntry() }}>⧉</button>
-        <button type="button" title={t('files.delete')} disabled={selectedPath === null} onClick={() => { void deleteFsEntry() }}>✕</button>
+        <span className="oh-dsh-files-path-name">{basename(cwd)}</span>
+        <button
+          ref={createButtonRef}
+          type="button"
+          aria-label={t('files.new')}
+          aria-expanded={createMenuOpen}
+          title={t('files.new')}
+          onClick={() => { setCreateMenuOpen(value => !value) }}
+        ><IconPlus size={16} /></button>
         <button
           type="button"
           aria-label={t('files.refresh')}
@@ -459,6 +714,21 @@ export function FilesView({
           onClick={refreshListings}
         ><IconRefresh size={16} /></button>
       </div>
+      {/* Portaled menu — kept OUTSIDE the flex row: the official Menu always
+          renders an anchor wrapper span, and a bare `span` selector on the
+          path bar would hand that empty wrapper flex:1, pushing the buttons
+          off the right edge. Portal mode positions from the button rect, so
+          placement is unaffected. */}
+      <Menu
+        open={createMenuOpen}
+        anchor={null}
+        align="end"
+        portal
+        getAnchorRect={() => createButtonRef.current?.getBoundingClientRect() ?? null}
+        items={createMenuItems}
+        onSelect={handleCreateMenuSelect}
+        onClose={() => { setCreateMenuOpen(false) }}
+      />
       <div className="oh-dsh-files-search">
         <input
           type="search"
@@ -486,7 +756,6 @@ export function FilesView({
                 if (cwd2 === undefined) return
                 const abs = isUnderRoot(cwd2, hit.path) ? hit.path : joinPath(cwd2, hit.path)
                 useCenterSurfaceStore.getState().openFile({
-                  sessionId: scope?.sessionId ?? '',
                   cwd: cwd2,
                   filePath: abs,
                   title: basename(hit.path),
@@ -502,57 +771,96 @@ export function FilesView({
       ) : null}
       {loading && !entriesByDir.has(cwd) && <LoadingView label={t('files.loading')} />}
       {error !== '' && <ErrorView message={error} />}
-      <Scrollable className="oh-dsh-file-list">
-        {rows.map(row => (
-          <ListRow
-            key={row.key}
-            selected={row.selected}
-            title={row.path}
-            data-path={row.path}
-          >
-            <ListRowMain
-              className="oh-dsh-files-depth-main"
-              style={{ '--tree-depth': row.depth } as CSSProperties}
-              aria-expanded={row.kind === 'directory' ? row.expanded : undefined}
-              onClick={() => {
-                if (row.kind === 'directory') {
-                  void toggleDirectory(row.path)
-                } else {
-                  // Select the file (drives rename/copy/delete) and preview
-                  // it in the center; double click pins the tab.
-                  if (scopeKey !== null) {
-                    useSidebarChromeStore.getState().setExplorerSelectedPath(scopeKey, row.path)
-                  }
-                  openFileInCenter(row.path, row.name, true)
-                }
-              }}
-              onDoubleClick={() => {
-                if (row.kind !== 'directory') {
-                  openFileInCenter(row.path, row.name, false)
-                }
-              }}
+      <Scrollable className="oh-dsh-file-list" onContextMenu={openBackgroundMenu}>
+        {displayItems.map(item => (
+          item.kind === 'inline' ? (
+            <InlineCreateRow
+              key="oh-dsh-inline-create"
+              kind={item.entryKind}
+              depth={item.depth}
+              placeholder={item.entryKind === 'directory' ? t('files.new-folder') : t('files.new-file')}
+              onCommit={commitInlineCreate}
+              onCancel={cancelInlineCreate}
+            />
+          ) : (
+            <ListRow
+              key={item.row.key}
+              selected={item.row.selected}
+              title={item.row.path}
+              data-path={item.row.path}
+              onContextMenu={event => { openRowMenu(event, item.row) }}
             >
-              <ListRowLeading aria-hidden="true">
-                {row.kind === 'directory'
-                  ? row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />
-                  : null}
-              </ListRowLeading>
-              <FileGlyph path={row.path} kind={row.kind} expanded={row.expanded} />
-              <ListRowBody>
-                <FilenameLabel name={row.name} title={row.path} />
-              </ListRowBody>
-            </ListRowMain>
-            {row.kind !== 'directory' && (
-              <ListRowTrailing>
-                <span className="oh-dsh-files-size">{formatSize(row.size)}</span>
-              </ListRowTrailing>
-            )}
-          </ListRow>
+              <ListRowMain
+                className="oh-dsh-files-depth-main"
+                style={{ '--tree-depth': item.row.depth } as CSSProperties}
+                aria-expanded={item.row.kind === 'directory' ? item.row.expanded : undefined}
+                onClick={() => {
+                  if (item.row.kind === 'directory') {
+                    void toggleDirectory(item.row.path)
+                  } else {
+                    // Select the file (drives rename/copy/delete) and preview
+                    // it in the center; double click pins the tab.
+                    if (scopeKey !== null) {
+                      useSidebarChromeStore.getState().setExplorerSelectedPath(scopeKey, item.row.path)
+                    }
+                    openFileInCenter(item.row.path, item.row.name, true)
+                  }
+                }}
+                onDoubleClick={() => {
+                  if (item.row.kind !== 'directory') {
+                    openFileInCenter(item.row.path, item.row.name, false)
+                  }
+                }}
+              >
+                <ListRowLeading aria-hidden="true">
+                  {item.row.kind === 'directory'
+                    ? item.row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />
+                    : null}
+                </ListRowLeading>
+                <FileGlyph path={item.row.path} kind={item.row.kind} expanded={item.row.expanded} />
+                <ListRowBody>
+                  <FilenameLabel name={item.row.name} title={item.row.path} />
+                </ListRowBody>
+              </ListRowMain>
+              {item.row.kind !== 'directory' && (
+                <ListRowTrailing>
+                  <span className="oh-dsh-files-size">{formatSize(item.row.size)}</span>
+                </ListRowTrailing>
+              )}
+              <ListRowActions>
+                <ListRowActionButton
+                  type="button"
+                  aria-label={t('files.more-actions')}
+                  title={t('files.more-actions')}
+                  data-popup-open={rowMenu?.path === item.row.path ? '' : undefined}
+                  onClick={event => { openRowMenuFromButton(event, item.row) }}
+                ><IconDots size={14} /></ListRowActionButton>
+              </ListRowActions>
+            </ListRow>
+          )
         ))}
-        {!loading && !error && rows.length === 0 && (
+        {!loading && !error && rows.length === 0 && inlineCreate === null && (
           <EmptyView title={t('files.empty-directory')} />
         )}
       </Scrollable>
+      <Menu
+        open={rowMenu !== null}
+        anchor={null}
+        portal
+        getAnchorRect={() => rowMenu === null ? null : new DOMRect(rowMenu.x, rowMenu.y, 0, 0)}
+        items={rowMenuItems}
+        onSelect={handleRowMenuSelect}
+        onClose={() => { setRowMenu(null) }}
+      />
+      <Menu
+        open={backgroundMenu !== null}
+        anchor={null}
+        portal
+        getAnchorRect={() => backgroundMenu === null ? null : new DOMRect(backgroundMenu.x, backgroundMenu.y, 0, 0)}
+        items={backgroundMenuItems}
+        onSelect={handleBackgroundMenuSelect}
+        onClose={() => { setBackgroundMenu(null) }}
+      />
     </div>
   )
 }
@@ -589,7 +897,7 @@ export function FileView({
       }
     })
     return () => { controller.abort() }
-  }, [cwd, path, scope?.sessionId])
+  }, [cwd, path, scope])
 
   if (cwd === undefined || path === undefined) {
     return <div className="oh-dsh-side-empty">{t('files.select-workspace')}</div>
