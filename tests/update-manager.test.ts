@@ -38,7 +38,7 @@ class FakeUpdater extends EventEmitter {
 function updateInfo(version: string, file = 'DSH Studio-1.2.0-arm64.zip'): UpdateInfo {
   return {
     version,
-    files: [{ url: `https://github.com/euanguo/oh-dsh-app/releases/download/v${version}/${file}`, sha512: 'hash', size: 100 }],
+    files: [{ url: `https://github.com/euanguo/dsh-studio/releases/download/v${version}/${file}`, sha512: 'hash', size: 100 }],
     path: file,
     sha512: 'hash',
     releaseDate: '2026-08-15T00:00:00Z',
@@ -55,7 +55,7 @@ test('selectUpdateFile chooses exactly the current architecture asset', () => {
 })
 
 test('official release URLs are fixed to the trusted repository', () => {
-  assert.equal(officialReleaseUrl('1.2.3'), 'https://github.com/euanguo/oh-dsh-app/releases/tag/v1.2.3')
+  assert.equal(officialReleaseUrl('1.2.3'), 'https://github.com/euanguo/dsh-studio/releases/tag/v1.2.3')
   assert.throws(() => officialReleaseUrl('../evil'), /invalid release version/)
 })
 
@@ -88,7 +88,7 @@ test('manager offers the official Release page when the platform asset is missin
   const state = await manager.check()
   assert.equal(state.status, 'unsupported')
   if (state.status === 'unsupported') {
-    assert.equal(state.releaseUrl, 'https://github.com/euanguo/oh-dsh-app/releases/tag/v1.2.0')
+    assert.equal(state.releaseUrl, 'https://github.com/euanguo/dsh-studio/releases/tag/v1.2.0')
   }
 })
 

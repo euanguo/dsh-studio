@@ -12,7 +12,7 @@ function scheduledState(): DesktopUpdateState {
     releaseNotes: 'notes',
     size: 100,
     platform: 'mac',
-    releaseUrl: 'https://github.com/euanguo/oh-dsh-app/releases/tag/v1.2.0',
+    releaseUrl: 'https://github.com/euanguo/dsh-studio/releases/tag/v1.2.0',
   }
 }
 

@@ -11,15 +11,15 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/euanguo/oh-dsh-app/releases/latest"><img alt="GitHub release" src="https://img.shields.io/github/v/release/euanguo/oh-dsh-app?display_name=tag&amp;sort=semver&amp;style=flat-square&amp;color=2f81f7"></a>
-  <a href="https://github.com/euanguo/oh-dsh-app/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/euanguo/oh-dsh-app?style=flat-square&amp;color=f5a623"></a>
+  <a href="https://github.com/euanguo/dsh-studio/releases/latest"><img alt="GitHub release" src="https://img.shields.io/github/v/release/euanguo/dsh-studio?display_name=tag&amp;sort=semver&amp;style=flat-square&amp;color=2f81f7"></a>
+  <a href="https://github.com/euanguo/dsh-studio/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/euanguo/dsh-studio?style=flat-square&amp;color=f5a623"></a>
   <img alt="Desktop and Web" src="https://img.shields.io/badge/Desktop%20%7C%20Web-3b82f6?style=flat-square">
   <img alt="macOS, Linux and Windows" src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-111827?style=flat-square">
   <a href="./LICENSE"><img alt="MIT License" src="https://img.shields.io/badge/license-MIT-34a853?style=flat-square"></a>
 </p>
 
 <p align="center">
-  <a href="https://github.com/euanguo/oh-dsh-app/releases/latest"><strong>Download the latest release</strong></a>
+  <a href="https://github.com/euanguo/dsh-studio/releases/latest"><strong>Download the latest release</strong></a>
   ·
   <a href="./docs/usage.en.md">Usage guide</a>
   ·
@@ -73,7 +73,7 @@ Source Control AI is under active development. It generates commit messages from
 
 ## Download and install
 
-Choose a distribution from [DSH Studio Releases](https://github.com/euanguo/oh-dsh-app/releases/latest):
+Choose a distribution from [DSH Studio Releases](https://github.com/euanguo/dsh-studio/releases/latest):
 
 | Distribution | Includes | Best for |
 | --- | --- | --- |

@@ -1,7 +1,7 @@
-const repositoryUrl = "https://github.com/euanguo/oh-dsh-app";
+const repositoryUrl = "https://github.com/euanguo/dsh-studio";
 const latestReleaseUrl = `${repositoryUrl}/releases/latest`;
 const releaseApiUrl =
-    "https://api.github.com/repos/euanguo/oh-dsh-app/releases/latest";
+    "https://api.github.com/repos/euanguo/dsh-studio/releases/latest";
 
 const translations = {
     "zh-CN": {

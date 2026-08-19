@@ -157,7 +157,7 @@
     "publish": {
       "provider": "github",
       "owner": "euanguo",
-      "repo": "oh-dsh-app"
+      "repo": "dsh-studio"
     },
     "mac": {
       "category": "public.app-category.developer-tools",
