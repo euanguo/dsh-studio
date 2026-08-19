@@ -137,6 +137,8 @@ log(`initial build done, synced ${syncedCount} bundles to ${join('.stage', 'dsh-
 
 let electron = undefined
 let restartTimer = undefined
+/** The Electron entry files a spawn must never race (see startElectronWhenReady). */
+const ELECTRON_ENTRIES = ['main.js', 'preload.cjs', 'splash.html']
 
 function startElectron() {
   if (electron !== undefined) return
@@ -159,6 +161,24 @@ function startElectron() {
   })
 }
 
+/**
+ * Spawn Electron only once every entry file exists. A concurrent full build
+ * (`pnpm run build`) cleans dist/ and rewrites it non-atomically; spawning
+ * mid-rewrite used to hit a missing splash.html and die with
+ * ERR_FILE_NOT_FOUND. Waiting (bounded) makes the restart self-healing
+ * instead of fatal.
+ */
+async function startElectronWhenReady() {
+  for (let attempt = 0; attempt < 150; attempt++) {
+    if (ELECTRON_ENTRIES.every(name => existsSync(join(dist, name)))) {
+      startElectron()
+      return
+    }
+    await new Promise(resolve => setTimeout(resolve, 200))
+  }
+  log('electron main-process bundles incomplete for 30s; skipping this restart')
+}
+
 function stopElectron() {
   if (electron === undefined) return
   log('restarting electron…')
@@ -174,11 +194,11 @@ watch(dist, { persistent: true }, (_event, filename) => {
   restartTimer = setTimeout(() => {
     log(`main-process bundle changed: ${filename}`)
     stopElectron()
-    setTimeout(startElectron, 250)
+    void startElectronWhenReady()
   }, 250)
 })
 
-startElectron()
+await startElectronWhenReady()
 log('hot reload ready — edit plugins/*/src/client.* for live UI updates;')
 log('host-side and Electron changes restart automatically.')
 

@@ -37,6 +37,12 @@ function runNode(script, args = []) {
 
 rmSync(dist, { recursive: true, force: true })
 mkdirSync(dist, { recursive: true })
+// Static entry files go back IMMEDIATELY after the clean: scripts/dev.mjs
+// restarts Electron from dist events without waiting for this build, and the
+// app's first load is splash.html — copying it last left a whole-build window
+// where a concurrent dev restart spawned Electron into ERR_FILE_NOT_FOUND.
+copyFileSync(join(root, 'src', 'splash.html'), join(dist, 'splash.html'))
+copyFileSync(join(root, 'src', 'update.html'), join(dist, 'update.html'))
 
 const pluginPackages = [
   { directory: 'sidebar-host', hostOnly: true },
@@ -247,8 +253,8 @@ if (mainBundle.includes('Dynamic require of')
   throw new Error('desktop main bundle has dynamic requires without an ESM require bridge')
 }
 
-copyFileSync(join(root, 'src', 'splash.html'), join(dist, 'splash.html'))
-copyFileSync(join(root, 'src', 'update.html'), join(dist, 'update.html'))
+// splash.html / update.html are copied right after the dist clean (see the
+// top of this script); only the manifest and patch layers remain here.
 copyFileSync(join(root, 'cordis.patch.yml'), join(dist, 'cordis.patch.yml'))
 const releaseManifest = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
 releaseManifest.version = productVersion
