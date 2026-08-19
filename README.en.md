@@ -32,53 +32,73 @@
 
 DSH Studio is built on the DeepSeek Harness runtime. It brings AI agents, workspaces, local development tools, and the plugin ecosystem into an installable Desktop/Web workbench. Model services can still run in the cloud; projects, sessions, terminals, files, Git review, browser state, and plugin state are organized by one local workspace.
 
+The screenshot above shows the typical DSH Studio layout: the left rail lists multiple projects and branches, the center area keeps conversation, terminal, and browser tabs open simultaneously while staying on the conversation tab, and the right-rail Git panel shows staged changes and diffs in real time.
+
 ## Interface preview
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>🗂️ Project tree — left rail</h3>
-      <p>Project → Worktree → Session tree with multiple projects, branches, groups, aliases, project icons, search, and persistent view state.</p>
-      <img src="./assets/dsh-studio-left-rail.png" alt="Left rail project tree" width="100%">
-    </td>
-    <td width="50%" valign="top">
-      <h3>🔍 Git review — right rail</h3>
-      <p>Staged / unstaged / untracked sections, commit history, commit file trees, committed / unpushed diffs, and review targets on code lines.</p>
-      <img src="./assets/dsh-studio-git-review.png" alt="Git review panel" width="100%">
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>📄 Diff viewer</h3>
-      <p>Multi-file path tree, line-level diff, image diff, conflict view, and inline comment targets for committed and unpushed changes.</p>
-      <img src="./assets/dsh-studio-diff.png" alt="Diff viewer" width="100%">
-    </td>
-    <td width="50%" valign="top">
-      <h3>📁 File browsing</h3>
-      <p>Project-scoped file tree and file preview with search, sort, and quick navigation.</p>
-      <img src="./assets/dsh-studio-files.png" alt="File browsing" width="100%">
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>🖥️ Project terminal</h3>
-      <p>Native PTY, unified shell resolution, project-scoped sessions, streaming and replay — available as a center tab or right-rail panel.</p>
-      <img src="./assets/dsh-studio-terminal.png" alt="Project terminal" width="100%">
-    </td>
-    <td width="50%" valign="top">
-      <h3>⚙️ Settings</h3>
-      <p>General settings, model config, Agent presets, sidebar options, and skin switching in one panel shared across Desktop and Web.</p>
-      <img src="./assets/dsh-studio-settings.png" alt="Settings panel" width="100%">
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top" colspan="2">
-      <h3>🧩 Plugin marketplace</h3>
-      <p>Browse and manage DSH plugins from multiple sources. Candidates go through preview and approval, with source locking, bundle validation, apply, and restore flows.</p>
-      <img src="./assets/dsh-studio-plugin-marketplace.png" alt="Plugin marketplace" width="100%">
-    </td>
-  </tr>
-</table>
+### 🗂️ Project tree with automatic icons
+
+The left rail organizes context in a **Project → Worktree → Session** tree. Each project's icon is automatically detected from static assets inside the project directory — it first reads the `icon` field declared in `package.json`, then searches for PNG files in the project, and can also pull from the project homepage favicon or the Git provider avatar — no manual configuration needed.
+
+<p align="center">
+  <img src="./assets/dsh-studio-project-icons.png" alt="Left rail project tree with automatic icons" width="280">
+</p>
+
+If the automatic detection is not what you want, right-click the project to choose a built-in icon or upload a custom PNG. The left rail also supports multiple projects, branches, groups, aliases, search, and persistent view state.
+
+### 🔍 Git review and smart commit
+
+The right-rail Git panel brings staged, unstaged, untracked sections and commit history together in one panel. Click "Generate commit message" to call the model and auto-write a commit title and body from the current changes, with configurable model and reasoning effort.
+
+<p align="center">
+  <img src="./assets/dsh-studio-ai-commit.png" alt="AI-generated commit message" width="100%">
+</p>
+
+After generation you can edit the message inline and commit all staged changes with one click. Clicking "View all" in the staged section opens the staged files as a standalone center tab with the file tree on the left, making it easy to compare code and diffs side by side.
+
+<p align="center">
+  <img src="./assets/dsh-studio-view-all.png" alt="View all staged files" width="100%">
+</p>
+
+### 📄 Diff viewer
+
+Click any file in the Git panel to open the diff viewer in the right rail. It supports line-level diff, image diff, conflict view, and inline comment targets, and can compare committed and unpushed changes.
+
+<p align="center">
+  <img src="./assets/dsh-studio-diff.png" alt="Diff viewer" width="100%">
+</p>
+
+### 📁 File browsing
+
+Switch the right rail to the Files tab to browse the project-level file tree and preview files, with search, sort, and quick navigation. The center conversation tab stays open, so file browsing does not interrupt the chat.
+
+<p align="center">
+  <img src="./assets/dsh-studio-files.png" alt="File browsing" width="100%">
+</p>
+
+### 🖥️ Project terminal
+
+The terminal opens as a center tab with a native PTY, unified shell resolution, and project-scoped sessions. Conversation and browser tabs stay in the tab bar for instant switching.
+
+<p align="center">
+  <img src="./assets/dsh-studio-terminal.png" alt="Project terminal" width="100%">
+</p>
+
+### ⚙️ Settings
+
+General settings, model config, Agent presets, sidebar options, and skin switching share one panel across Desktop and Web.
+
+<p align="center">
+  <img src="./assets/dsh-studio-settings.png" alt="Settings panel" width="100%">
+</p>
+
+### 🧩 Plugin marketplace
+
+Browse and manage DSH plugins from multiple sources. Candidates go through preview and approval, with source locking, bundle validation, apply, and restore flows.
+
+<p align="center">
+  <img src="./assets/dsh-studio-plugin-marketplace.png" alt="Plugin marketplace" width="100%">
+</p>
 
 ## Features
 

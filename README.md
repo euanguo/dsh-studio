@@ -32,53 +32,73 @@
 
 DSH Studio 基于 DeepSeek Harness runtime 构建，把 AI Agent、Workspace、本地开发工具和插件生态组织到一个可安装的 Desktop/Web 工作台中。模型服务仍可按需运行在云端；项目、会话、终端、文件、Git Review、浏览器和插件状态由本地工作区统一组织。
 
+上图展示了 DSH Studio 的典型工作布局：左栏项目树列出多个项目和分支，中间区域同时挂载对话、终端和浏览器三个标签页并停留在对话标签，右栏 Git 面板实时显示暂存区与变更。
+
 ## 界面预览
 
-<table>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>🗂️ 项目树 — 左栏</h3>
-      <p>Project → Worktree → Session 三层项目树，支持多项目、多分支、分组、别名、项目图标、搜索和持久化视图状态。</p>
-      <img src="./assets/dsh-studio-left-rail.png" alt="左栏项目树" width="100%">
-    </td>
-    <td width="50%" valign="top">
-      <h3>🔍 Git Review — 右栏</h3>
-      <p>查看 staged / unstaged / untracked 分区，浏览提交历史、commit 文件树、committed / unpushed diff，在代码行上留下审阅目标。</p>
-      <img src="./assets/dsh-studio-git-review.png" alt="Git Review 面板" width="100%">
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>📄 Diff 查看器</h3>
-      <p>多文件路径树、行级 diff、图片 diff、冲突查看和行内评论目标，支持 committed 与 unpushed 变更对比。</p>
-      <img src="./assets/dsh-studio-diff.png" alt="Diff 查看器" width="100%">
-    </td>
-    <td width="50%" valign="top">
-      <h3>📁 文件浏览</h3>
-      <p>项目级文件树与文件预览，支持搜索、排序和快速跳转。</p>
-      <img src="./assets/dsh-studio-files.png" alt="文件浏览" width="100%">
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top">
-      <h3>🖥️ 项目级终端</h3>
-      <p>原生 PTY、shell 解析链统一、项目级作用域、流式输出与重放，可作为中心 Tab 或右栏面板打开。</p>
-      <img src="./assets/dsh-studio-terminal.png" alt="项目级终端" width="100%">
-    </td>
-    <td width="50%" valign="top">
-      <h3>⚙️ 设置面板</h3>
-      <p>通用设置、模型配置、Agent 预设、侧边栏选项和皮肤切换集中在一个面板内，Desktop 与 Web 共享同一套配置。</p>
-      <img src="./assets/dsh-studio-settings.png" alt="设置面板" width="100%">
-    </td>
-  </tr>
-  <tr>
-    <td width="50%" valign="top" colspan="2">
-      <h3>🧩 插件市场</h3>
-      <p>浏览和管理来自多个来源的 DSH 插件。安装前经过候选预览与审批，保留来源锁定、bundle 校验、应用和恢复流程。</p>
-      <img src="./assets/dsh-studio-plugin-marketplace.png" alt="插件市场" width="100%">
-    </td>
-  </tr>
-</table>
+### 🗂️ 项目树与自动图标
+
+左栏按 **Project → Worktree → Session** 三层组织工作上下文。每个项目的图标会自动探测项目目录中的静态资源——优先读取 `package.json` 声明的 icon 字段，其次搜索项目内的 PNG 文件，还可以从项目主页 favicon 或 Git 平台头像获取——无需手动配置即可显示项目专属图标。
+
+<p align="center">
+  <img src="./assets/dsh-studio-project-icons.png" alt="左栏项目树与自动图标" width="280">
+</p>
+
+如果自动探测不符合预期，也可以右键项目手动设置内置图标或上传自定义 PNG。左栏同时支持多项目、多分支、项目分组、别名、搜索和持久化视图状态。
+
+### 🔍 Git Review 与智能提交
+
+右栏 Git 面板把暂存区、未暂存、未跟踪分区和提交历史集中在一个面板内。点击「生成提交信息」即可调用模型根据当前变更自动撰写提交标题和正文，支持选择模型和思考强度。
+
+<p align="center">
+  <img src="./assets/dsh-studio-ai-commit.png" alt="智能生成提交信息" width="100%">
+</p>
+
+提交信息生成后可以直接在提交信息框里编辑，确认后一键提交全部暂存变更。点击已暂存区的「查看全部」会把暂存文件展开为中心区域的一个独立标签页，左边保留文件树导航，方便对照代码和 diff。
+
+<p align="center">
+  <img src="./assets/dsh-studio-view-all.png" alt="查看全部暂存文件" width="100%">
+</p>
+
+### 📄 Diff 查看器
+
+点击 Git 面板中的任意文件即可在右栏打开 diff 查看器。支持行级 diff、图片 diff、冲突查看和行内评论目标，同时可以对比 committed 与 unpushed 变更。
+
+<p align="center">
+  <img src="./assets/dsh-studio-diff.png" alt="Diff 查看器" width="100%">
+</p>
+
+### 📁 文件浏览
+
+右栏切换到文件标签即可浏览项目级文件树与文件预览，支持搜索、排序和快速跳转。中心区域的对话标签保持打开，不影响文件浏览。
+
+<p align="center">
+  <img src="./assets/dsh-studio-files.png" alt="文件浏览" width="100%">
+</p>
+
+### 🖥️ 项目级终端
+
+终端作为中心标签页打开，使用原生 PTY、统一的 shell 解析链和项目级作用域。对话和浏览器标签同时挂在标签栏，随时切换。
+
+<p align="center">
+  <img src="./assets/dsh-studio-terminal.png" alt="项目级终端" width="100%">
+</p>
+
+### ⚙️ 设置面板
+
+通用设置、模型配置、Agent 预设、侧边栏选项和皮肤切换集中在一个面板内，Desktop 与 Web 共享同一套配置。
+
+<p align="center">
+  <img src="./assets/dsh-studio-settings.png" alt="设置面板" width="100%">
+</p>
+
+### 🧩 插件市场
+
+浏览和管理来自多个来源的 DSH 插件。安装前经过候选预览与审批，保留来源锁定、bundle 校验、应用和恢复流程。
+
+<p align="center">
+  <img src="./assets/dsh-studio-plugin-marketplace.png" alt="插件市场" width="100%">
+</p>
 
 ## 主要能力
 
