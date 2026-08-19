@@ -34,6 +34,8 @@ export type SourceControlRuntimePhase =
  *  runtime data, not part of the wire WorkspaceSnapshot). */
 export interface SourceControlWorkspaceSnapshot extends WorkspaceSnapshot {
   history: SidebarGitLogEntry[]
+  /** Authoritative remote and operation state fetched with Git status. */
+  upstream: SidebarGitStatus['upstream']
 }
 
 export interface SourceControlRuntimeSnapshot {
@@ -81,6 +83,7 @@ function defaultBuildSnapshot(input: {
       branches: [],
       changes: [],
       history: [],
+      upstream: status.upstream,
     }
   }
   return {
@@ -90,6 +93,7 @@ function defaultBuildSnapshot(input: {
     branches: branch.names,
     changes: workspaceChangesFromWire(status.entries, status.stats),
     history,
+    upstream: status.upstream,
   }
 }
 

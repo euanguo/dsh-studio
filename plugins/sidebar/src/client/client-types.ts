@@ -163,16 +163,22 @@ export interface SlotsService {
   inject(name: string, register: () => unknown): void
   register(options: {
     id: string
-    inject(actions: BoundSidebarSettingsActions): Omit<
-      SidebarSettingsProps,
-      't' | 'useStore'
-    >
+    inject(actions: BoundSidebarSettingsActions): Omit<SidebarSettingsProps, 't' | 'useStore'>
     locale: string
     label: () => string
     name: string
     order: number
     store: unknown
   }, component: (props: SidebarSettingsProps) => JSX.Element): unknown
+  register<P>(options: {
+    id: string
+    inject?: (...args: never[]) => P
+    locale: string
+    label: () => string
+    name: string
+    order: number
+    store?: unknown
+  }, component: (props: P) => JSX.Element): unknown
 }
 
 export interface WorkspaceToolsState {

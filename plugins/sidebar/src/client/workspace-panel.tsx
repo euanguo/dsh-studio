@@ -21,11 +21,7 @@ import type {
 } from '../protocol.ts'
 import type { Translate } from '@oh-dsh/shared/i18n'
 import { basename } from '@oh-dsh/shared/path'
-import {
-  Button,
-  Menu,
-  writeClipboard,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { runPanelMutation } from './source-control/panel-mutations.ts'
 import { toast } from '@oh-dsh/shared/toast'
 import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
@@ -35,7 +31,6 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconEye,
-  IconGitBranch,
   IconGitCommit,
   IconHistory,
 } from '@oh-dsh/shared/tabler-icons'
@@ -58,6 +53,9 @@ import {
   SourceControlPanel,
   type SourceControlPendingAction,
 } from './source-control/source-control-panel.tsx'
+import { CommitArea } from './source-control/commit-area.tsx'
+import { resolveSourceControlActions } from './source-control/source-control-actions.ts'
+import { useSourceControlActionController } from './source-control/source-control-action-controller.ts'
 import {
   ListRow,
   ListRowActionButton,
@@ -95,6 +93,13 @@ const VISIBLE_CHANGES_LIMIT = 200
 
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
+}
+
+function actionLabelForConfirmation(
+  kind: 'abort-merge' | 'abort-rebase',
+  t: Translate<WorkspaceMessage>,
+): string {
+  return kind === 'abort-merge' ? t('workspace.commit-abort-merge') : t('workspace.commit-abort-rebase')
 }
 
 /** Lazy-loaded file list for one expanded history row. */
@@ -306,11 +311,8 @@ export function WorkspacePanel({
   const snapshot = runtimeSnapshot?.snapshot ?? null
   const error = runtimeSnapshot?.phase === 'error' ? (runtimeSnapshot.message ?? '') : ''
   const history = snapshot?.history ?? []
-  const [busy, setBusy] = useState(false)
-  // Branch picker: an official Menu dropdown (the primitives kit has no
-  // Select; the native <select> is replaced by this app-consistent picker).
-  const [branchMenuOpen, setBranchMenuOpen] = useState(false)
-  const branchButtonRef = useRef<HTMLButtonElement | null>(null)
+  const [generatingCommitMessage, setGeneratingCommitMessage] = useState(false)
+  const [generationError, setGenerationError] = useState<string | null>(null)
   const scopeKey = cwd === undefined
     ? null
     : sidebarScopeKey({ cwd })
@@ -431,6 +433,21 @@ export function WorkspacePanel({
       setCommitted({ status: 'error', error: errorMessage(cause) })
     }
   }, [scope])
+  const refreshAfterAction = useCallback(async (): Promise<void> => {
+    await Promise.all([refresh(), refreshCommitted()])
+  }, [refresh, refreshCommitted])
+  const actionController = useSourceControlActionController({
+    scope,
+    refresh: refreshAfterAction,
+    onCommitted: () => { setCommitMessage('') },
+  })
+  const sourceControlActions = useMemo(() => resolveSourceControlActions({
+    hasChanges: (snapshot?.changes.length ?? 0) > 0,
+    hasUnresolvedConflicts: snapshot?.changes.some(change => change.status === 'conflicted') ?? false,
+    hasMessage: commitMessage.trim() !== '',
+    busy: actionController.state.phase === 'running',
+    upstream: snapshot?.upstream,
+  }), [actionController.state.phase, commitMessage, snapshot?.changes.length, snapshot?.upstream])
 
   useEffect(() => {
     if (!panelState.open || panelState.view !== 'review' || runtime === null) return
@@ -536,20 +553,34 @@ export function WorkspacePanel({
   }, [branch, cwd, reviewComments])
 
   const mutate = async (mutation: WorkspaceMutation): Promise<void> => {
-    if (cwd === undefined || scope === undefined || busy) return
-    setBusy(true)
+    if (cwd === undefined || scope === undefined || actionController.state.phase === 'running') return
+    await runPanelMutation(mutation, {
+      scope,
+      cwd,
+      t,
+      onCommitted: () => { setCommitMessage('') },
+      refresh: refreshAfterAction,
+      reportError: message => { runtime?.reportError(message) },
+    })
+  }
+
+  const generateCommitMessage = async (): Promise<void> => {
+    if (scope === undefined || generatingCommitMessage) return
+    setGeneratingCommitMessage(true)
+    setGenerationError(null)
     try {
-      await runPanelMutation(mutation, {
-        scope,
-        cwd,
-        t,
-        onCommitted: () => { setCommitMessage('') },
-        refresh,
-        reportError: message => { runtime?.reportError(message) },
-      })
+      const result = await sidebarApi.gitGenerateCommitMessage(scope)
+      setCommitMessage(result.message)
+    } catch (cause) {
+      setGenerationError(errorMessage(cause))
     } finally {
-      setBusy(false)
+      setGeneratingCommitMessage(false)
     }
+  }
+
+  const cancelCommitMessageGeneration = (): void => {
+    if (scope !== undefined) void sidebarApi.gitCancelGenerateCommitMessage(scope)
+    setGeneratingCommitMessage(false)
   }
 
   const openDiffInCenter = (path: string, preview: boolean): void => {
@@ -630,66 +661,49 @@ export function WorkspacePanel({
             <Scrollable className="oh-dsh-workspace-content">
             {error !== '' && <ErrorView message={error} />}
 
-            {/* Commit area rides the top (orca parity): branch + message +
-                commit/push stay visible above the change list instead of
-                hiding behind a bottom fold. */}
             {snapshot?.kind === 'repository' && (
-              <section className="oh-dsh-commit-area">
-                <button
-                  ref={branchButtonRef}
-                  type="button"
-                  className="oh-dsh-branch-picker"
-                  aria-label={t('workspace.current-branch')}
-                  aria-expanded={branchMenuOpen}
-                  disabled={busy}
-                  onClick={() => { setBranchMenuOpen(value => !value) }}
-                >
-                  <span className="oh-dsh-workspace-fact-icon"><IconGitBranch size={16} /></span>
-                  <span className="oh-dsh-branch-picker-name">{snapshot?.branch ?? ''}</span>
-                  <IconChevronDown size={14} className="oh-dsh-workspace-chevron" />
-                </button>
-                <textarea
-                  value={commitMessage}
-                  placeholder={t('workspace.commit-message')}
-                  aria-label={t('workspace.commit-message')}
-                  onChange={event => { setCommitMessage(event.currentTarget.value) }}
-                />
-                <div className="oh-dsh-commit-actions">
-                  <Button
-                    variant="primary"
-                    size="sm"
-                    disabled={busy || snapshot.changes.length === 0 || commitMessage.trim() === ''}
-                    onClick={() => { void mutate({ action: 'commit', message: commitMessage }) }}
-                  >{t('workspace.commit-all')}</Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={busy || !snapshot.hasRemote}
-                    onClick={() => { void mutate({ action: 'push' }) }}
-                  >{t('workspace.push')}{snapshot.ahead > 0 ? ` (${String(snapshot.ahead)})` : ''}</Button>
-                </div>
-                {snapshot.behind > 0 && (
-                  <small>{t('workspace.behind', { count: snapshot.behind })}</small>
-                )}
-              </section>
+              <CommitArea
+                branch={snapshot.branch}
+                branches={snapshot.branches}
+                message={commitMessage}
+                actions={sourceControlActions}
+                operation={actionController.state}
+                canGenerate={snapshot.changes.length > 0}
+                generating={generatingCommitMessage}
+                generationError={generationError}
+                t={t}
+                onMessageChange={setCommitMessage}
+                onAction={kind => {
+                  const runAction = async (): Promise<void> => {
+                    if (kind === 'force-push') {
+                      const confirmed = await confirmDialog({
+                        title: t('workspace.commit-force-push'),
+                        message: t('workspace.commit-force-push-confirm'),
+                        confirmLabel: t('workspace.commit-force-push'),
+                        cancelLabel: t('settings.done'),
+                        danger: true,
+                      })
+                      if (!confirmed) return
+                    }
+                    if (kind === 'abort-merge' || kind === 'abort-rebase') {
+                      const confirmed = await confirmDialog({
+                        title: actionLabelForConfirmation(kind, t),
+                        message: t('workspace.commit-abort-confirm'),
+                        confirmLabel: actionLabelForConfirmation(kind, t),
+                        cancelLabel: t('settings.done'),
+                        danger: true,
+                      })
+                      if (!confirmed) return
+                    }
+                    await actionController.run(kind, kind === 'commit' ? commitMessage : '')
+                  }
+                  void runAction()
+                }}
+                onCheckout={branch => { void mutate({ action: 'checkout', branch }) }}
+                onGenerate={() => { void generateCommitMessage() }}
+                onCancelGenerate={cancelCommitMessageGeneration}
+              />
             )}
-            {/* Portaled branch menu — outside the commit-area section so the
-                Menu's empty anchor wrapper span cannot join its grid layout. */}
-            <Menu
-              open={branchMenuOpen}
-              anchor={null}
-              portal
-              getAnchorRect={() => branchButtonRef.current?.getBoundingClientRect() ?? null}
-              items={(snapshot?.branches ?? []).map(branch => ({ id: branch, label: branch }))}
-              selectedId={snapshot?.branch ?? undefined}
-              onSelect={branch => {
-                setBranchMenuOpen(false)
-                if (branch !== snapshot?.branch) {
-                  void mutate({ action: 'checkout', branch })
-                }
-              }}
-              onClose={() => { setBranchMenuOpen(false) }}
-            />
 
             <section>
               <div className="oh-dsh-change-list">

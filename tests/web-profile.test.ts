@@ -28,6 +28,7 @@ import {
   DEFAULT_WEB_HOST,
   DEFAULT_WEB_PORT,
   main,
+  normalizeWebArgs,
   parseLaunchArgs,
   resolveWebVersion,
   UsageError,
@@ -123,6 +124,11 @@ test('web bundle patch mounts the web-capable Oh-DSH plugins', () => {
   // SHELL row must be absent while the desktop-SKINS provider rides along.
   assert.doesNotMatch(patch, /- id: oh-desktop\n/)
   assert.doesNotMatch(patch, /- id: oh-plugin-marketplace\n/)
+})
+
+test('web launcher accepts the pnpm argument separator', () => {
+  assert.deepEqual(normalizeWebArgs(['--', '--port', '3180']), ['--port', '3180'])
+  assert.deepEqual(normalizeWebArgs(['--port', '3180']), ['--port', '3180'])
 })
 
 test('web launcher defaults match the dsh-web-app bundle surface', () => {

@@ -40,6 +40,11 @@ export interface LaunchOptions {
   trustedHosts: string[]
 }
 
+/** Accept the separator emitted by `pnpm run web -- <launcher args>`. */
+export function normalizeWebArgs(args: readonly string[]): readonly string[] {
+  return args[0] === '--' ? args.slice(1) : args
+}
+
 export { UsageError } from './errors.ts'
 
 const USAGE = `usage: ohdsh web [options]
@@ -204,7 +209,7 @@ export async function main(
 ): Promise<number> {
   const defaultDataRoot = resolveOhDshHome(env)
   const options = parseLaunchArgs(
-    argv,
+    normalizeWebArgs(argv),
     env,
     stdout.isTTY === true,
     defaultDataRoot,

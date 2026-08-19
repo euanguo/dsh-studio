@@ -9,7 +9,7 @@
  */
 import { execFile } from 'node:child_process'
 import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { dirname, isAbsolute, join } from 'node:path'
+import { basename, dirname, isAbsolute, join } from 'node:path'
 import type { Context } from './context-types.ts'
 import { isLoopbackHostname } from './trust-fence.ts'
 import { extractFrameAncestors } from './browser-probe.ts'
@@ -22,6 +22,13 @@ import type { AgentPtyRegistry } from './agent-pty.ts'
 import { buildJobsApi, type SidebarJobsRoutes } from './jobs-routes.ts'
 import { detectProjectIcon } from './project-icon.ts'
 import { terminalSessionKey } from './terminal-session-store.ts'
+import {
+  DEFAULT_COMMIT_MESSAGE_PROMPT,
+  SOURCE_CONTROL_AI_SETTINGS_NS,
+  type SourceControlAiGenerator,
+  type SourceControlAiSettings,
+  type SourceControlModelSelection,
+} from './source-control-ai.ts'
 import {
   isSidebarWorkspaceMutation,
   mutateWorkspace,
@@ -69,6 +76,25 @@ function settingsNamespaceOf(payload: unknown): string {
   // NAMESPACE_PATTERN. A foreign dot-name never matches a registration and is
   // refused by the seam, which is exactly the fence we want.
   return raw ?? SIDEBAR_PREFS_NS
+}
+
+function modelSelectionOf(value: unknown): SourceControlModelSelection | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  const record = value as { provider?: unknown; model?: unknown; reasoningEffort?: unknown }
+  if (typeof record.provider !== 'string' || record.provider === '' || typeof record.model !== 'string' || record.model === '') {
+    return undefined
+  }
+  const reasoningEffort = typeof record.reasoningEffort === 'string'
+    ? record.reasoningEffort as SourceControlModelSelection['reasoningEffort']
+    : undefined
+  return reasoningEffort === undefined
+    ? { provider: record.provider, model: record.model }
+    : { provider: record.provider, model: record.model, reasoningEffort }
+}
+
+function sourceControlAiSettingsOf(value: unknown): SourceControlAiSettings | undefined {
+  if (typeof value !== 'object' || value === null) return undefined
+  return value as SourceControlAiSettings
 }
 
 /**
@@ -247,6 +273,7 @@ export function buildSidebarRoutes(
   agentPtyRegistry: AgentPtyRegistry,
   resolved: ResolvedSidebarConfig,
   getSettings: () => SidebarSettingsFace | undefined,
+  getSourceControlAiGenerator: () => SourceControlAiGenerator | undefined,
 ): Record<string, ApiMethod> {
   const cwdOf = (payload: unknown): { cwd: string } => {
     const record = payload as { cwd?: unknown } | null
@@ -392,10 +419,11 @@ export function buildSidebarRoutes(
       // One porcelain v2 subprocess yields isRepo + branch + entries (and
       // upstream/ahead/behind for free); attach per-entry +N/−M counts so the
       // client's change list can render file stats without extra round-trips.
-      const result = await git.statusV2(cwd)
-      const [worktree, cached] = await Promise.all([
+      const [result, worktree, cached, upstream] = await Promise.all([
+        git.statusV2(cwd),
         git.numstat(cwd, false).catch(() => []),
         git.numstat(cwd, true).catch(() => []),
+        git.readUpstreamStatus(cwd),
       ])
       const statsByPath = new Map(
         [...worktree, ...cached].map(stat => [stat.path, stat] as const),
@@ -404,7 +432,13 @@ export function buildSidebarRoutes(
         const found = statsByPath.get(entry.path)
         return found ?? { path: entry.path, additions: 0, deletions: 0 }
       })
-      return { isRepo: result.isRepo, branch: result.branch, entries: result.entries, stats }
+      return {
+        isRepo: result.isRepo,
+        branch: result.branch,
+        entries: result.entries,
+        stats,
+        upstream,
+      }
     },
     'git.diff': async (payload) => {
       const { cwd } = cwdOf(payload)
@@ -440,9 +474,135 @@ export function buildSidebarRoutes(
       await git.commit(cwd, message)
       return { ok: true }
     },
+    'git.generate-commit-message': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      const generator = getSourceControlAiGenerator()
+      const settings = getSettings()
+      if (generator === undefined || settings === undefined) {
+        throw new SidebarError('settings-rejected', 'Source Control AI is not available in this deployment', 503)
+      }
+      const [configured, fallback, upstream, root] = await Promise.all([
+        settings.get(SOURCE_CONTROL_AI_SETTINGS_NS),
+        settings.get('agent-default-model'),
+        git.readUpstreamStatus(cwd),
+        git.repoRoot(cwd),
+      ])
+      const configuredSettings = sourceControlAiSettingsOf(configured.value)
+      if (configuredSettings?.enabled === false) {
+        throw new SidebarError('settings-rejected', 'Source Control AI is disabled in Settings', 409)
+      }
+      const selection = modelSelectionOf(configuredSettings?.defaultModel)
+        ?? modelSelectionOf(fallback.value)
+      if (selection === undefined) {
+        throw new SidebarError('settings-rejected', 'Choose a default model in Settings before generating a commit message', 409)
+      }
+      if (upstream.branch === null) {
+        throw new SidebarError('git-error', 'cannot generate a commit message from a detached HEAD', 409)
+      }
+      return generator.generate({
+        cwd,
+        repository: basename(root),
+        branch: upstream.branch,
+        selection,
+        template: configuredSettings?.promptTemplate ?? DEFAULT_COMMIT_MESSAGE_PROMPT,
+      })
+    },
+    'git.cancel-generate-commit-message': (payload) => {
+      const { cwd } = cwdOf(payload)
+      getSourceControlAiGenerator()?.cancel(cwd)
+      return { ok: true }
+    },
+    'source-control-ai.settings': async () => {
+      const settings = getSettings()
+      if (settings === undefined) {
+        throw new SidebarError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
+      }
+      return settings.get(SOURCE_CONTROL_AI_SETTINGS_NS)
+    },
+    'source-control-ai.update-settings': async (payload) => {
+      const settings = getSettings()
+      if (settings === undefined) {
+        throw new SidebarError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
+      }
+      const record = payload as { patch?: unknown; expectedRevision?: unknown } | null
+      const patch = record?.patch
+      if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
+        throw new SidebarError('bad-request', 'patch must be a plain object')
+      }
+      const expectedRevision = typeof record?.expectedRevision === 'number' ? record.expectedRevision : undefined
+      const nextPatch = patch as Record<string, unknown>
+      if (nextPatch.defaultModel === null) {
+        const { defaultModel: _clear, ...rest } = nextPatch
+        await settings.update(SOURCE_CONTROL_AI_SETTINGS_NS, rest, expectedRevision)
+        return settings.mutate(SOURCE_CONTROL_AI_SETTINGS_NS, [{ op: 'unset', path: ['defaultModel'] }])
+      }
+      return settings.update(SOURCE_CONTROL_AI_SETTINGS_NS, nextPatch, expectedRevision)
+    },
+    'source-control-ai.models': async () => {
+      const settings = getSettings()
+      const fallback = settings === undefined ? {} : await settings.get('agent-default-model')
+      const groups = await Promise.all(ctx.llm.listProviders().map(async provider => {
+        const catalog = await ctx.llm.listModels(provider.id)
+        return Promise.all(catalog.map(async model => {
+          const resolvedModel = await ctx.llm.resolveModelInfo(provider.id, model.id)
+          return {
+            provider: provider.id,
+            id: model.id,
+            name: model.name,
+            reasoningEfforts: [...(resolvedModel.reasoning?.efforts ?? [])].map(effort => ({
+              id: effort.id,
+              name: effort.name,
+            })),
+          }
+        }))
+      }))
+      return {
+        models: groups.flat(),
+        defaultModel: (fallback.value ?? {}) as { provider?: string; model?: string; reasoningEffort?: string },
+      }
+    },
     'git.branch': async (payload) => {
       const { cwd } = cwdOf(payload)
       return git.branches(cwd)
+    },
+    'git.upstream': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      return git.readUpstreamStatus(cwd)
+    },
+    'git.fetch': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      await git.fetch(cwd)
+      return { ok: true }
+    },
+    'git.pull': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      await git.pullFastForward(cwd)
+      return { ok: true }
+    },
+    'git.push': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      await git.push(cwd)
+      return { ok: true }
+    },
+    'git.force-push': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      await git.forcePushWithLease(cwd)
+      return { ok: true }
+    },
+    'git.sync': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      await git.syncFastForward(cwd)
+      return { ok: true }
+    },
+    'git.abort-merge': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      await git.abortMerge(cwd)
+      return { ok: true }
+    },
+    'git.abort-rebase': async (payload) => {
+      const { cwd } = cwdOf(payload)
+      await git.abortRebase(cwd)
+      return { ok: true }
     },
     'git.checkout': async (payload) => {
       const { cwd } = cwdOf(payload)

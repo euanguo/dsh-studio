@@ -62,6 +62,19 @@ export interface SidebarGitStat {
   deletions: number
 }
 
+export type SidebarGitConflictOperation = 'merge' | 'rebase' | null
+
+/** Remote and in-progress-operation facts used by Source Control actions. */
+export interface SidebarGitUpstreamStatus {
+  branch: string | null
+  upstream: string | null
+  hasRemote: boolean
+  hasUpstream: boolean
+  ahead: number
+  behind: number
+  conflictOperation: SidebarGitConflictOperation
+}
+
 /** The source-control snapshot. */
 export interface SidebarGitStatus {
   isRepo: boolean
@@ -69,6 +82,24 @@ export interface SidebarGitStatus {
   entries: SidebarGitStatusEntry[]
   /** Optional per-entry +N/−M counts (missing entries mean 0/0). */
   stats?: SidebarGitStat[]
+  /** Branch tracking and operation facts fetched with this status snapshot. */
+  upstream?: SidebarGitUpstreamStatus
+}
+
+export interface SidebarSourceControlAiModel {
+  provider: string
+  id: string
+  name: string
+  reasoningEfforts: Array<{ id: string; name: string }>
+}
+
+export interface SidebarSourceControlAiModels {
+  models: SidebarSourceControlAiModel[]
+  defaultModel: {
+    provider?: string
+    model?: string
+    reasoningEffort?: string
+  }
 }
 
 /** `git branch` snapshot. */
@@ -186,6 +217,23 @@ export interface SidebarApiRequests {
   'git.unstage': { paths?: string[] }
   'git.commit': { message: string }
   'git.branch': Record<string, never>
+  'git.upstream': Record<string, never>
+  'git.fetch': Record<string, never>
+  /** Safe pull: host always executes `git pull --ff-only`. */
+  'git.pull': Record<string, never>
+  /** Pushes the current branch; publishes it when no upstream exists. */
+  'git.push': Record<string, never>
+  /** Safe force push: host always executes `git push --force-with-lease`. */
+  'git.force-push': Record<string, never>
+  /** Host-owned safe sequence: fast-forward pull followed by push. */
+  'git.sync': Record<string, never>
+  'git.abort-merge': Record<string, never>
+  'git.abort-rebase': Record<string, never>
+  'git.generate-commit-message': Record<string, never>
+  'git.cancel-generate-commit-message': Record<string, never>
+  'source-control-ai.settings': Record<string, never>
+  'source-control-ai.update-settings': { patch: Record<string, unknown>; expectedRevision?: number }
+  'source-control-ai.models': Record<string, never>
   'git.checkout': { branch: string }
   'git.log': { count?: number; skip?: number }
   'git.commit-diff': { hash: string }

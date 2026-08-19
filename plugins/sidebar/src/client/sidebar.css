@@ -389,20 +389,6 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   font: inherit;
 }
 
-.oh-dsh-commit-actions button {
-  padding: var(--oh-dsh-space-1) var(--oh-dsh-space-2);
-  border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: var(--oh-dsh-radius-sm);
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--oh-dsh-font-sm);
-  line-height: 1.2;
-}
-
-.oh-dsh-commit-actions button:disabled { opacity: 0.45; cursor: default; }
-
 /* Top-of-panel commit area (branch + message + commit/push). */
 .oh-dsh-commit-area {
   display: grid;
@@ -420,8 +406,25 @@ html[data-oh-dsh-panel-maximized='true'] #oh-dsh-sidebar-root {
   font-size: var(--oh-dsh-font-sm);
 }
 
-.oh-dsh-commit-actions { display: flex; gap: var(--oh-dsh-space-1-5); }
+.oh-dsh-commit-branch-row,
+.oh-dsh-commit-message-wrap,
+.oh-dsh-commit-actions { display: flex; align-items: center; gap: var(--oh-dsh-space-1-5); }
+.oh-dsh-commit-area-spacer { flex: 1; }
+.oh-dsh-commit-message-wrap textarea { flex: 1; }
+.oh-dsh-commit-cancel-generation { flex: none; }
+.oh-dsh-commit-action-menu-anchor { display: inline-flex; position: relative; }
+.oh-dsh-commit-error { color: var(--dsw-alias-label-error, #b42318); }
 .oh-dsh-commit-area small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--oh-dsh-font-xs); }
+.oh-dsh-sidebar-settings-ai { display: grid; gap: var(--oh-dsh-space-2); }
+.oh-dsh-sidebar-settings-ai-heading { display: flex; align-items: center; justify-content: space-between; }
+.oh-dsh-sidebar-settings-menu-anchor { display: inline-flex; min-width: 0; position: relative; }
+.oh-dsh-sidebar-settings-menu-anchor > button { max-width: 260px; }
+.oh-dsh-sidebar-settings-menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.oh-dsh-sidebar-settings-ai-prompt { display: grid; gap: var(--oh-dsh-space-1); }
+.oh-dsh-sidebar-settings-ai-prompt textarea { box-sizing: border-box; width: 100%; min-height: 136px; padding: var(--oh-dsh-space-1-5); border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%)); border-radius: var(--oh-dsh-radius-sm); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font: inherit; resize: vertical; }
+.oh-dsh-sidebar-settings-ai-prompt small,
+.oh-dsh-sidebar-settings-ai-actions small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--oh-dsh-font-xs); }
+.oh-dsh-sidebar-settings-ai-actions { display: flex; align-items: center; gap: var(--oh-dsh-space-2); }
 
 @media (max-width: 900px) {
   .oh-dsh-workspace-panel { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }

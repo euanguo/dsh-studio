@@ -17,6 +17,8 @@ import {
   type SidebarGitStat,
   type SidebarGitStatus,
   type SidebarGitStatusEntry,
+  type SidebarGitUpstreamStatus,
+  type SidebarSourceControlAiModels,
   type SidebarScope,
   type SidebarSettingsView,
   type SidebarWorkspaceFacts,
@@ -40,6 +42,8 @@ export type {
   SidebarGitLogEntry,
   SidebarGitStatus,
   SidebarGitStatusEntry,
+  SidebarGitUpstreamStatus,
+  SidebarSourceControlAiModels,
   SidebarScope,
   SidebarSettingsView,
   SidebarWorkspaceFacts,
@@ -131,6 +135,40 @@ export const sidebarApi = {
     scope: SidebarScope,
     signal?: AbortSignal,
   ): Promise<SidebarGitBranch> => callSidebarApi('git.branch', scope, {}, signal),
+  gitUpstream: (
+    scope: SidebarScope,
+    signal?: AbortSignal,
+  ): Promise<SidebarGitUpstreamStatus> => callSidebarApi('git.upstream', scope, {}, signal),
+  gitFetch: (scope: SidebarScope): Promise<void> => callSidebarApi('git.fetch', scope, {}),
+  gitPull: (scope: SidebarScope): Promise<void> => callSidebarApi('git.pull', scope, {}),
+  gitPush: (scope: SidebarScope): Promise<void> => callSidebarApi('git.push', scope, {}),
+  gitForcePush: (scope: SidebarScope): Promise<void> => callSidebarApi('git.force-push', scope, {}),
+  gitSync: (scope: SidebarScope): Promise<void> => callSidebarApi('git.sync', scope, {}),
+  gitAbortMerge: (scope: SidebarScope): Promise<void> => callSidebarApi('git.abort-merge', scope, {}),
+  gitAbortRebase: (scope: SidebarScope): Promise<void> => callSidebarApi('git.abort-rebase', scope, {}),
+  gitGenerateCommitMessage: (
+    scope: SidebarScope,
+  ): Promise<{ message: string }> => callSidebarApi('git.generate-commit-message', scope, {}),
+  gitCancelGenerateCommitMessage: (scope: SidebarScope): Promise<void> => callSidebarApi(
+    'git.cancel-generate-commit-message',
+    scope,
+    {},
+  ),
+  sourceControlAiSettings: (): Promise<{ value?: unknown; revision?: number }> => callSidebarGlobalApi(
+    'source-control-ai.settings',
+    {},
+  ),
+  updateSourceControlAiSettings: (
+    patch: Record<string, unknown>,
+    expectedRevision?: number,
+  ): Promise<{ value?: unknown; revision?: number }> => callSidebarGlobalApi(
+    'source-control-ai.update-settings',
+    { patch, ...(expectedRevision === undefined ? {} : { expectedRevision }) },
+  ),
+  sourceControlAiModels: (): Promise<SidebarSourceControlAiModels> => callSidebarGlobalApi(
+    'source-control-ai.models',
+    {},
+  ),
   gitCheckout: (
     scope: SidebarScope,
     branch: string,

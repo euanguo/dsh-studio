@@ -35,6 +35,7 @@ import {
   SIDEBAR_MIN_WIDTH,
 } from '../sidebar-preferences.ts'
 import { ErrorView } from './kit/status.tsx'
+import { SourceControlAiSettingsSection } from './source-control/source-control-ai-settings.tsx'
 
 export function sidebarLabel(value: string | (() => string)): string {
   return typeof value === 'function' ? value() : value
@@ -423,6 +424,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           />
         )}
       </section>
+      <SourceControlAiSettingsSection t={props.t} />
       <section>
         <div className="oh-dsh-sidebar-settings-copy oh-dsh-sidebar-settings-section-head">
           <strong>{props.t('settings.tools')}</strong>

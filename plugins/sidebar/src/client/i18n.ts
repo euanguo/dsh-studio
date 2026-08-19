@@ -167,7 +167,40 @@ export type WorkspaceMessage =
   | 'workspace.current-branch'
   | 'workspace.commit-message'
   | 'workspace.commit-all'
+  | 'workspace.commit-publish'
+  | 'workspace.commit-force-push'
+  | 'workspace.commit-force-push-confirm'
+  | 'workspace.commit-abort-confirm'
+  | 'workspace.commit-pull'
+  | 'workspace.commit-sync'
+  | 'workspace.commit-fetch'
+  | 'workspace.commit-abort-merge'
+  | 'workspace.commit-abort-rebase'
+  | 'workspace.commit-actions'
+  | 'workspace.commit-generate'
+  | 'workspace.commit-generation-cancel'
+  | 'workspace.commit-action-busy'
+  | 'workspace.commit-action-no-changes'
+  | 'workspace.commit-action-message-required'
+  | 'workspace.commit-action-conflict'
+  | 'workspace.commit-action-no-remote'
+  | 'workspace.commit-action-no-upstream'
+  | 'workspace.commit-action-detached'
+  | 'workspace.commit-action-up-to-date'
   | 'workspace.push'
+  | 'source-control-ai.title'
+  | 'source-control-ai.description'
+  | 'source-control-ai.refresh'
+  | 'source-control-ai.loading'
+  | 'source-control-ai.enabled'
+  | 'source-control-ai.model'
+  | 'source-control-ai.default-model'
+  | 'source-control-ai.reasoning'
+  | 'source-control-ai.provider-default'
+  | 'source-control-ai.prompt-template'
+  | 'source-control-ai.variables'
+  | 'source-control-ai.save'
+  | 'source-control-ai.saved'
   | 'workspace.behind'
   | 'workspace.loading-diff'
   | 'workspace.no-text-diff'
@@ -395,7 +428,40 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.current-branch': 'Current branch',
     'workspace.commit-message': 'Commit message',
     'workspace.commit-all': 'Commit all',
+    'workspace.commit-publish': 'Publish branch',
+    'workspace.commit-force-push': 'Force push with lease',
+    'workspace.commit-force-push-confirm': 'Force push the current branch with lease protection?',
+    'workspace.commit-abort-confirm': 'Abort the current Git operation and restore its pre-operation state?',
+    'workspace.commit-pull': 'Pull (fast-forward only)',
+    'workspace.commit-sync': 'Sync',
+    'workspace.commit-fetch': 'Fetch',
+    'workspace.commit-abort-merge': 'Abort merge',
+    'workspace.commit-abort-rebase': 'Abort rebase',
+    'workspace.commit-actions': 'More commit actions',
+    'workspace.commit-generate': 'Generate commit message',
+    'workspace.commit-generation-cancel': 'Cancel commit-message generation',
+    'workspace.commit-action-busy': 'Another source-control action is running',
+    'workspace.commit-action-no-changes': 'There are no changes to commit',
+    'workspace.commit-action-message-required': 'Enter a commit message first',
+    'workspace.commit-action-conflict': 'Resolve or abort the current Git operation first',
+    'workspace.commit-action-no-remote': 'This repository has no Git remote',
+    'workspace.commit-action-no-upstream': 'The current branch has no upstream',
+    'workspace.commit-action-detached': 'Cannot publish from a detached HEAD',
+    'workspace.commit-action-up-to-date': 'Already up to date',
     'workspace.push': 'Push',
+    'source-control-ai.title': 'Source Control AI',
+    'source-control-ai.description': 'Generate commit messages with the configured DSH model.',
+    'source-control-ai.refresh': 'Refresh model list',
+    'source-control-ai.loading': 'Loading...',
+    'source-control-ai.enabled': 'Enable AI commit-message generation',
+    'source-control-ai.model': 'Model',
+    'source-control-ai.default-model': 'Use DSH default ({provider} / {model})',
+    'source-control-ai.reasoning': 'Reasoning strength',
+    'source-control-ai.provider-default': 'Provider default',
+    'source-control-ai.prompt-template': 'Prompt template',
+    'source-control-ai.variables': 'Supported variables: {repository}, {branch}, {stagedPatch}',
+    'source-control-ai.save': 'Save',
+    'source-control-ai.saved': 'Saved',
     'workspace.behind': 'Behind upstream by {count}',
     'workspace.loading-diff': 'Loading diff…',
     'workspace.no-text-diff': 'No textual diff is available.',
@@ -622,7 +688,40 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.current-branch': '当前分支',
     'workspace.commit-message': '提交信息',
     'workspace.commit-all': '提交全部',
+    'workspace.commit-publish': '发布分支',
+    'workspace.commit-force-push': '强制推送（带租约）',
+    'workspace.commit-force-push-confirm': '确定使用租约保护强制推送当前分支吗？',
+    'workspace.commit-abort-confirm': '确定中止当前 Git 操作并恢复到操作前状态吗？',
+    'workspace.commit-pull': '拉取（仅快进）',
+    'workspace.commit-sync': '同步',
+    'workspace.commit-fetch': '获取更新',
+    'workspace.commit-abort-merge': '中止合并',
+    'workspace.commit-abort-rebase': '中止变基',
+    'workspace.commit-actions': '更多提交操作',
+    'workspace.commit-generate': '生成提交信息',
+    'workspace.commit-generation-cancel': '取消生成提交信息',
+    'workspace.commit-action-busy': '另一个源代码管理操作正在运行',
+    'workspace.commit-action-no-changes': '没有可提交的更改',
+    'workspace.commit-action-message-required': '请先输入提交信息',
+    'workspace.commit-action-conflict': '请先解决或中止当前 Git 操作',
+    'workspace.commit-action-no-remote': '此仓库没有 Git 远程仓库',
+    'workspace.commit-action-no-upstream': '当前分支没有上游分支',
+    'workspace.commit-action-detached': '无法从分离的 HEAD 发布',
+    'workspace.commit-action-up-to-date': '已是最新状态',
     'workspace.push': '推送',
+    'source-control-ai.title': '提交代码 AI',
+    'source-control-ai.description': '使用配置的 DSH 模型生成提交信息。',
+    'source-control-ai.refresh': '刷新模型列表',
+    'source-control-ai.loading': '加载中...',
+    'source-control-ai.enabled': '启用 AI 生成提交信息',
+    'source-control-ai.model': '模型',
+    'source-control-ai.default-model': '使用 DSH 默认模型（{provider} / {model}）',
+    'source-control-ai.reasoning': '思考强度',
+    'source-control-ai.provider-default': '模型默认值',
+    'source-control-ai.prompt-template': '提示词模板',
+    'source-control-ai.variables': '支持变量：{repository}、{branch}、{stagedPatch}',
+    'source-control-ai.save': '保存',
+    'source-control-ai.saved': '已保存',
     'workspace.behind': '落后上游 {count} 个提交',
     'workspace.loading-diff': '正在加载差异…',
     'workspace.no-text-diff': '没有可用的文本差异。',

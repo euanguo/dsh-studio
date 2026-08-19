@@ -42,6 +42,11 @@ import { extractFrameAncestors } from './browser-probe.ts'
 import { isTrustedApiRequest, isLoopbackHostname } from './trust-fence.ts'
 import { registerBundleRoute } from './bundle-route.ts'
 import { buildSidebarRoutes, sessionCwdOf, type SidebarSettingsFace } from './routes.ts'
+import {
+  SOURCE_CONTROL_AI_SETTINGS_NS,
+  SourceControlAiGenerator,
+  SourceControlAiSettingsSchema,
+} from './source-control-ai.ts'
 import { settingsNamespace, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import { ensureSpawnHelper, PtyManager } from './pty-manager.ts'
 import { TerminalSessionStore } from './terminal-session-store.ts'
@@ -84,7 +89,7 @@ export type {
 export const name = 'dsh-better-sidebar'
 
 /** Services required before mounting: the webserver routes, the session store, the loader's connection row, and the tool registry. */
-export const inject = ['webServer', 'sessions', 'loader', 'tools']
+export const inject = ['webServer', 'sessions', 'loader', 'tools', 'settings', 'llm']
 
 /** Content types for the media route, by extension. */
 const MEDIA_TYPES: Record<string, string> = {
@@ -209,6 +214,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   // which call the seam in-process. Deployments without a settings service
   // simply never fill the face and the client falls back to the defaults.
   let settingsFace: SidebarSettingsFace | undefined
+  let sourceControlAiGenerator: SourceControlAiGenerator | undefined
   // Migration of any legacy left-rail slice out of the sidebar namespace into
   // oh-dsh-left-rail. The routes gate the left-rail namespace on this promise
   // so a cold-start first read never observes the empty pre-migration window.
@@ -238,7 +244,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
       agentPtyRegistry.disposeAll()
     }
   }
-  ctx.inject(['settings'], (sctx) => {
+  ctx.inject(['settings', 'llm'], (sctx) => {
     const sidebarNs: SettingsNamespace = settingsNamespace(SIDEBAR_PREFS_NS)
     // The left-rail view slice gets its OWN namespace + schema (see
     // docs/persistence-architecture.md, decision B). Registering it here
@@ -255,6 +261,12 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
       watch(callback: (next: SidebarPrefs, prev: SidebarPrefs) => void): () => void
     }
     sctx.settings.register(leftRailNs, LeftRailSettingsSchema)
+    sctx.settings.register(
+      settingsNamespace(SOURCE_CONTROL_AI_SETTINGS_NS),
+      SourceControlAiSettingsSchema,
+      { applies: 'live' },
+    )
+    sourceControlAiGenerator = new SourceControlAiGenerator(sctx.llm)
     // Move any slice that historically rode in the sidebar namespace into the
     // dedicated namespace, once, idempotently. Failure is contained: the
     // routes still work (reads fall back to the sidebar view), a retry next
@@ -317,7 +329,14 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   })
 
   // ── JSON API ────────────────────────────────────────────────────────────
-  const api = buildSidebarRoutes(ctx, ptyManager, agentPtyRegistry, resolved, () => settingsFace)
+  const api = buildSidebarRoutes(
+    ctx,
+    ptyManager,
+    agentPtyRegistry,
+    resolved,
+    () => settingsFace,
+    () => sourceControlAiGenerator,
+  )
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
     path: '/sidebar/api',

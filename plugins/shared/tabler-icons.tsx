@@ -52,6 +52,8 @@ import {
   IconRefresh as TbRefresh,
   IconRotateClockwise as TbRotateClockwise,
   IconSearch as TbSearch,
+  IconSparkles as TbSparkles,
+  IconPlayerStop as TbPlayerStop,
   IconSquareMinus as TbSquareMinus,
   IconSquarePlus as TbSquarePlus,
   IconSquareX as TbSquareX,
@@ -89,6 +91,8 @@ export const IconMinus = tabler(TbMinus)
 export const IconTrash = tabler(TbTrash)
 export const IconCopy = tabler(TbCopy)
 export const IconRefresh = tabler(TbRefresh)
+export const IconSparkles = tabler(TbSparkles)
+export const IconPlayerStop = tabler(TbPlayerStop)
 export const IconEye = tabler(TbEye)
 export const IconHistory = tabler(TbHistory)
 export const IconTerminal = tabler(TbTerminal2)

@@ -367,6 +367,24 @@ export interface SidebarToolsService {
   register(tool: unknown): () => void
 }
 
+/** Structural LLM runtime face required by Source Control AI. */
+export interface SidebarLlmService {
+  listProviders(): Array<{ id: string }>
+  listModels(provider: string): Promise<Array<{ id: string; name: string }>>
+  resolveModelInfo(provider: string, model: string): Promise<{
+    reasoning?: { efforts: ReadonlyArray<{ id: string; name: string }> }
+  }>
+  stream(options: {
+    provider: string
+    model: string
+    reasoningEffort?: string
+    system?: string
+    messages: readonly unknown[]
+    maxTokens?: number
+    signal?: AbortSignal
+  }): AsyncIterable<{ type: string; text?: string; reason?: { kind?: string } }>
+}
+
 /**
  * The agent face a tool sees on `exec.agent` (mirror of @deepseek-ai/dsh-agent's
  * Agent). Only the slices the terminal tools touch are restated: the live
@@ -393,6 +411,7 @@ declare module 'cordis' {
     settings: SidebarSettingsService
     invariants: SidebarInvariantsService
     tools: SidebarToolsService
+    llm: SidebarLlmService
     /**
      * The client locale service (`@deepseek-ai/dsh-client-locale`): the
      * sidebar's copy follows its active locale and registers its

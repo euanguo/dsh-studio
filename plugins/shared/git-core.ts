@@ -18,6 +18,7 @@
  * user.name/user.email).
  */
 import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { resolve as resolvePath } from 'node:path'
 
 /** A parsed `git status --porcelain=v1 -z` entry. */
@@ -717,6 +718,137 @@ export async function upstreamRef(cwd: string): Promise<string | null> {
   } catch {
     return null
   }
+}
+
+/** One active Git operation that must be explicitly resolved or aborted. */
+export type GitConflictOperation = 'merge' | 'rebase' | null
+
+/**
+ * The source-control remote state derived from Git itself. This deep module
+ * hides detached-head handling, absent upstreams, and operation detection so
+ * UI callers only consume one stable factual snapshot.
+ */
+export interface GitUpstreamStatus {
+  branch: string | null
+  upstream: string | null
+  hasRemote: boolean
+  hasUpstream: boolean
+  ahead: number
+  behind: number
+  conflictOperation: GitConflictOperation
+}
+
+const REMOTE_TIMEOUT_MS = 120_000
+const REMOTE_MAX_OUTPUT_BYTES = 8 * 1024 * 1024
+
+async function runRemoteGit(cwd: string, args: readonly string[]): Promise<string> {
+  return runGit(cwd, args, {
+    timeoutMs: REMOTE_TIMEOUT_MS,
+    maxOutputBytes: REMOTE_MAX_OUTPUT_BYTES,
+  })
+}
+
+async function conflictOperation(cwd: string): Promise<GitConflictOperation> {
+  const mergeHead = await runGitResult(cwd, ['rev-parse', '-q', '--verify', 'MERGE_HEAD'])
+  if (mergeHead.code === 0) return 'merge'
+  for (const location of ['rebase-merge', 'rebase-apply']) {
+    const result = await runGitResult(cwd, ['rev-parse', '--git-path', location])
+    if (result.code === 0 && existsSync(resolvePath(cwd, result.stdout.trim()))) return 'rebase'
+  }
+  return null
+}
+
+/** Read branch tracking, ahead/behind, remote, and in-progress operation facts. */
+export async function readUpstreamStatus(cwd: string): Promise<GitUpstreamStatus> {
+  if (!await isGitRepo(cwd)) {
+    return {
+      branch: null,
+      upstream: null,
+      hasRemote: false,
+      hasUpstream: false,
+      ahead: 0,
+      behind: 0,
+      conflictOperation: null,
+    }
+  }
+  const [branchRaw, remotes, upstream, activeOperation] = await Promise.all([
+    currentBranch(cwd).catch(() => 'HEAD'),
+    runGit(cwd, ['remote']).catch(() => ''),
+    upstreamRef(cwd),
+    conflictOperation(cwd),
+  ])
+  const branch = branchRaw === '' || branchRaw === 'HEAD' ? null : branchRaw
+  let ahead = 0
+  let behind = 0
+  if (upstream !== null) {
+    const counts = await runGit(cwd, ['rev-list', '--left-right', '--count', `HEAD...${upstream}`])
+      .catch(() => '')
+    const [aheadRaw, behindRaw] = counts.trim().split(/\s+/)
+    const nextAhead = Number(aheadRaw)
+    const nextBehind = Number(behindRaw)
+    ahead = Number.isFinite(nextAhead) ? nextAhead : 0
+    behind = Number.isFinite(nextBehind) ? nextBehind : 0
+  }
+  return {
+    branch,
+    upstream,
+    hasRemote: remotes.trim() !== '',
+    hasUpstream: upstream !== null,
+    ahead,
+    behind,
+    conflictOperation: activeOperation,
+  }
+}
+
+/** Fetch all configured remotes using the user's Git configuration. */
+export async function fetch(cwd: string): Promise<void> {
+  await runRemoteGit(cwd, ['fetch'])
+}
+
+/** Pull the current upstream without allowing an implicit merge or rebase. */
+export async function pullFastForward(cwd: string): Promise<void> {
+  await runRemoteGit(cwd, ['pull', '--ff-only'])
+}
+
+/** Push the current branch, publishing it to origin when it has no upstream. */
+export async function push(cwd: string): Promise<void> {
+  const state = await readUpstreamStatus(cwd)
+  if (!state.hasRemote) throw new GitCommandError('repository has no Git remote', 'git-no-remote', 'push')
+  if (state.hasUpstream) {
+    await runRemoteGit(cwd, ['push'])
+    return
+  }
+  if (state.branch === null) throw new GitCommandError('cannot push a detached HEAD', 'git-detached-head', 'push')
+  await runRemoteGit(cwd, ['push', '--set-upstream', 'origin', state.branch])
+}
+
+/** Safely force-push the current branch without overwriting a moved upstream. */
+export async function forcePushWithLease(cwd: string): Promise<void> {
+  const state = await readUpstreamStatus(cwd)
+  if (!state.hasUpstream) throw new GitCommandError('current branch has no upstream', 'git-no-upstream', 'push --force-with-lease')
+  await runRemoteGit(cwd, ['push', '--force-with-lease'])
+}
+
+/** Safely synchronize the current branch: fast-forward pull, then push. */
+export async function syncFastForward(cwd: string): Promise<void> {
+  await pullFastForward(cwd)
+  await push(cwd)
+}
+
+/** Abort an in-progress merge only when Git reports one. */
+export async function abortMerge(cwd: string): Promise<void> {
+  if (await conflictOperation(cwd) !== 'merge') {
+    throw new GitCommandError('no merge is in progress', 'git-no-merge', 'merge --abort')
+  }
+  await runGit(cwd, ['merge', '--abort'])
+}
+
+/** Abort an in-progress rebase only when Git reports one. */
+export async function abortRebase(cwd: string): Promise<void> {
+  if (await conflictOperation(cwd) !== 'rebase') {
+    throw new GitCommandError('no rebase is in progress', 'git-no-rebase', 'rebase --abort')
+  }
+  await runGit(cwd, ['rebase', '--abort'])
 }
 
 /** Files changed in the local commits ahead of `baseRef` (three-dot diff). */

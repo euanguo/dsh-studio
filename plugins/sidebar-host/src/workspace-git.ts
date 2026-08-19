@@ -10,7 +10,7 @@
  */
 import { existsSync, statSync } from 'node:fs'
 import { basename, isAbsolute } from 'node:path'
-import { runGit } from '@oh-dsh/shared/git-core'
+import { push as pushCurrentBranch, runGit } from '@oh-dsh/shared/git-core'
 import type {
   SidebarWorkspaceFacts,
   SidebarWorkspaceMutation,
@@ -129,33 +129,10 @@ export async function mutateWorkspace(
     await git(['switch', '-c', branch], before.root)
     message = `Created ${branch}`
   } else {
-    if (!before.hasRemote) throw new Error('repository has no Git remote')
-    let hasUpstream = true
-    try {
-      await git([
-        'rev-parse',
-        '--abbrev-ref',
-        '--symbolic-full-name',
-        '@{upstream}',
-      ], before.root)
-    } catch {
-      hasUpstream = false
-    }
-    if (hasUpstream) {
-      await git(['push'], before.root, 120_000)
-    } else {
-      const branch = (await git([
-        'branch',
-        '--show-current',
-      ], before.root)).trim()
-      if (branch === '') throw new Error('cannot push a detached HEAD')
-      await git([
-        'push',
-        '--set-upstream',
-        'origin',
-        branch,
-      ], before.root, 120_000)
-    }
+    // Legacy workspace.mutate callers retain their contract, while the actual
+    // publish policy lives once in git-core and is also used by the session-
+    // scoped commit-area action routes.
+    await pushCurrentBranch(before.root)
     message = 'Pushed the current branch'
   }
 

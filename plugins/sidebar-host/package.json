@@ -22,7 +22,8 @@
   "ohDsh": {
     "hostDependencies": [
       "@deepseek-ai/dsh-settings",
-      "@deepseek-ai/dsh-tools"
+      "@deepseek-ai/dsh-tools",
+      "@deepseek-ai/dsh-llm"
     ]
   },
   "devDependencies": {
