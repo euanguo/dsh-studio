@@ -224,8 +224,8 @@ try {
     return envelope.value
   }
   const sidebarScope = { sessionId: 'desktop-smoke', cwd: smokeRoot }
-  const sessionCwd = await sidebarCall('session.cwd', sidebarScope)
-  assert.equal(sessionCwd.cwd, smokeRoot)
+  const workspaceCwd = await sidebarCall('workspace.cwd', sidebarScope)
+  assert.equal(workspaceCwd.cwd, smokeRoot)
   const workspaceTree = await sidebarCall('fs.tree', sidebarScope)
   assert.equal(workspaceTree.path, smokeRoot)
   const gitStatus = await sidebarCall('git.status', sidebarScope)

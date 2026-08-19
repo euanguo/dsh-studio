@@ -113,8 +113,8 @@ function scopePayload(scope: SessionScope, extra: Record<string, unknown>): Reco
 
 /** The sidebar API surface (session scope threaded through every call). */
 export const api = {
-  sessionCwd: (scope: SessionScope, signal?: AbortSignal) =>
-    call<{ sessionId: string; cwd: string; root: string; parent: string | null }>('session.cwd', scopePayload(scope, {}), signal),
+  workspaceCwd: (scope: SessionScope, signal?: AbortSignal) =>
+    call<{ cwd: string; root: string; parent: string | null }>('workspace.cwd', scopePayload(scope, {}), signal),
   fsTree: (scope: SessionScope, path: string, signal?: AbortSignal) =>
     call<{ path: string; entries: FsEntry[]; truncated: boolean }>('fs.tree', scopePayload(scope, { path }), signal),
   fsRead: (scope: SessionScope, path: string, signal?: AbortSignal) =>
