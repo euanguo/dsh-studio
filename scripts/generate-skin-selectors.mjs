@@ -58,6 +58,7 @@ const ANCHORS = [
   { name: 'PROJECT_ROW', patterns: ['_projectRow'] },
   { name: 'WORKSPACE_ROW', patterns: ['_workspaceRow'] },
   { name: 'CARD', patterns: ['_card'] },
+  { name: 'HOVER_CARD', semantic: 'hovercard', patterns: ['--dsw-hovercard-bg'] },
   { name: 'DIALOG', patterns: ['_dialog'] },
   { name: 'RENAME_INPUT', patterns: ['_renameInput'] },
   { name: 'THEME_CUBE', patterns: ['_themeCube'] },
@@ -90,6 +91,7 @@ function collectClasses(source) {
   const packages = join(source, 'packages')
   if (existsSync(packages)) walk(packages)
   const classes = new Set()
+  const semanticClasses = new Map()
   for (const file of files) {
     const text = readFileSync(file, 'utf8')
     // css 文件直接扫全部点号类名；js 文件只扫「含 { 的字符串字面量」——
@@ -107,14 +109,25 @@ function collectClasses(source) {
         if (token.length === 0 || !/[A-Za-z]/.test(token)) continue
         classes.add(token)
       }
+      for (const match of source.matchAll(/\.([A-Za-z0-9_-]+)\s*\{[^{}]*--dsw-hovercard-bg\s*:/g)) {
+        const token = match[1]
+        if (!token.includes('_card_')) continue
+        const current = semanticClasses.get('hovercard') ?? []
+        current.push(token)
+        semanticClasses.set('hovercard', current)
+      }
     }
   }
-  return [...classes].sort()
+  return { classes: [...classes].sort(), semanticClasses }
 }
 
-function resolveAnchors(classes) {
+function resolveAnchors(classes, semanticClasses) {
   const result = {}
   for (const anchor of ANCHORS) {
+    if (anchor.semantic !== undefined) {
+      result[anchor.name] = [...new Set((semanticClasses.get(anchor.semantic) ?? []).map(c => `.${c}`))].sort()
+      continue
+    }
     if (anchor.combined === true) {
       // 组合锚点：按钮类 × 尺寸类（同一元素同挂两类才命中旧规则）。
       const buttonClasses = classes.filter(c => anchor.patterns[0] && c.includes(anchor.patterns[0]))
@@ -198,8 +211,8 @@ function main() {
     }
     throw error
   }
-  const classes = collectClasses(source)
-  const anchors = resolveAnchors(classes)
+  const collected = collectClasses(source)
+  const anchors = resolveAnchors(collected.classes, collected.semanticClasses)
   const failures = []
   for (const anchor of ANCHORS) {
     if (anchors[anchor.name].length === 0) {
