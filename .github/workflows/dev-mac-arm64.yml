@@ -1,0 +1,56 @@
+name: DSH Studio Dev macOS arm64
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dsh-studio-dev-mac-arm64
+  cancel-in-progress: true
+
+jobs:
+  build-mac-arm64:
+    runs-on: macos-14
+    timeout-minutes: 45
+    env:
+      DSH_STUDIO_CHANNEL: dev
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm run typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build macOS arm64 package
+        run: pnpm run dist:mac
+
+      - name: Upload macOS arm64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dsh-studio-dev-macos-arm64
+          path: release/*
+          if-no-files-found: error
