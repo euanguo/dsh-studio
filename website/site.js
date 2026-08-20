@@ -1,7 +1,7 @@
-const repositoryUrl = "https://github.com/euanguo/dsh-studio";
+const repositoryUrl = "https://github.com/euanguo/dsh-studio-app";
 const latestReleaseUrl = `${repositoryUrl}/releases/latest`;
 const releaseApiUrl =
-    "https://api.github.com/repos/euanguo/dsh-studio/releases/latest";
+    "https://api.github.com/repos/euanguo/dsh-studio-app/releases/latest";
 
 const translations = {
     "zh-CN": {
@@ -336,7 +336,7 @@ elements.starDownload.addEventListener("click", () => {
 });
 
 if (typeof fetch === "function") {
-    fetch("https://api.github.com/repos/euanguo/dsh-studio")
+    fetch("https://api.github.com/repos/euanguo/dsh-studio-app")
         .then((response) => (response.ok ? response.json() : Promise.reject()))
         .then((repository) => {
             elements.starCount.textContent = new Intl.NumberFormat().format(

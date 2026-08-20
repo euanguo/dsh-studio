@@ -98,7 +98,7 @@ Start it with \`./bin/dsh-studio tui\` (or \`bin\\dsh-studio.cmd tui\` on Window
 Run \`./bin/dsh-studio tui --help\` for workspace, resume, language, preset, and
 rendering options.
 
-Documentation: https://github.com/euanguo/dsh-studio/tree/main/docs
+Documentation: https://github.com/euanguo/dsh-studio-app/tree/main/docs
 `)
 
 const tarball = join(release, `${dirName}.tar.gz`)

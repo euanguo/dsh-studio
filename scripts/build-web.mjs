@@ -125,7 +125,7 @@ The default URL is \`http://127.0.0.1:3080\`. Run
 \`./bin/dsh-studio web --help\` for host, port, data-directory, and trusted-host
 options. Press \`Ctrl+C\` for a graceful shutdown.
 
-Documentation: https://github.com/euanguo/dsh-studio/tree/main/docs
+Documentation: https://github.com/euanguo/dsh-studio-app/tree/main/docs
 `)
 
 const tarball = join(release, `${dirName}.tar.gz`)

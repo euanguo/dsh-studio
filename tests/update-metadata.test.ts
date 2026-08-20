@@ -21,7 +21,7 @@ async function asset(dir: string, name: string, content: string) {
   const data = Buffer.from(content)
   await writeFile(path, data)
   return {
-    url: `https://github.com/euanguo/dsh-studio/releases/download/v1.2.0/${name}`,
+    url: `https://github.com/euanguo/dsh-studio-app/releases/download/v1.2.0/${name}`,
     sha512: sha512(data),
     size: data.length,
   }
@@ -38,7 +38,7 @@ async function appImageAsset(dir: string, name: string, content: string) {
   const data = Buffer.concat([Buffer.from(content), compressed, trailer])
   await writeFile(join(dir, name), data)
   return {
-    url: `https://github.com/euanguo/dsh-studio/releases/download/v1.2.0/${name}`,
+    url: `https://github.com/euanguo/dsh-studio-app/releases/download/v1.2.0/${name}`,
     sha512: sha512(data),
     size: data.length,
     blockMapSize: compressed.length,
