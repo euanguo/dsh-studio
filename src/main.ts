@@ -369,6 +369,7 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
       if (isAllowedBrowserNavigation(url)) return
       event.preventDefault()
     })
+    attachEditingContextMenu(contents)
   })
   window.webContents.on('will-navigate', (event, url) => {
     const allowedOrigin = options.preview === true ? previewOrigin : runtimeOrigin
@@ -376,6 +377,7 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
     event.preventDefault()
     if (url.startsWith('https:') || url.startsWith('http:')) void shell.openExternal(url)
   })
+  attachEditingContextMenu(window.webContents)
   return window
 }
 
@@ -859,6 +861,41 @@ function buildMenu(): void {
     { role: 'windowMenu' },
   ]
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
+/**
+ * Attach the native editing context menu (cut/copy/paste/selectAll/undo/redo)
+ * to a webContents. Without this, right-click in input fields and text areas
+ * shows nothing on macOS/Windows/Linux — the user has no way to copy or paste
+ * except via keyboard shortcuts, which many users expect from the right-click.
+ */
+function attachEditingContextMenu(contents: Electron.WebContents): void {
+  contents.on('context-menu', (_event, params) => {
+    const template: MenuItemConstructorOptions[] = []
+    if (params.isEditable) {
+      template.push(
+        { role: 'undo', accelerator: 'CmdOrCtrl+Z' },
+        { role: 'redo', accelerator: 'CmdOrCtrl+Shift+Z' },
+        { type: 'separator' },
+        { role: 'cut', accelerator: 'CmdOrCtrl+X' },
+        { role: 'copy', accelerator: 'CmdOrCtrl+C' },
+        { role: 'paste', accelerator: 'CmdOrCtrl+V' },
+        { type: 'separator' },
+        { role: 'selectAll', accelerator: 'CmdOrCtrl+A' },
+      )
+    } else if (params.selectionText !== undefined && params.selectionText !== '') {
+      template.push(
+        { role: 'copy', accelerator: 'CmdOrCtrl+C' },
+        { type: 'separator' },
+        { role: 'selectAll', accelerator: 'CmdOrCtrl+A' },
+      )
+    }
+    if (template.length === 0) return
+    const menu = Menu.buildFromTemplate(template)
+    const win = BrowserWindow.fromWebContents(contents) ?? undefined
+    if (win !== undefined) menu.popup({ window: win })
+    else menu.popup({})
+  })
 }
 
 function installIpc(): void {
