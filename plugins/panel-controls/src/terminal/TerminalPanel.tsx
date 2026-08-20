@@ -28,6 +28,11 @@ import {
   Input,
   StateDot,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  EmptyState,
+  SettingsRow,
+  ToolbarAction,
+} from '@dsh-studio/shared/ui'
 import type { TerminalMessage } from './i18n.ts'
 
 export interface TerminalPanelProps {
@@ -56,7 +61,8 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
   const [resizing, setResizing] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [fontFamilyDraft, setFontFamilyDraft] = useState(state.fontFamily)
-  const fontPresetListId = `dsh-studio-terminal-fonts-${encodeURIComponent(scopeKey)}`
+  const fontInputId = `dsh-studio-terminal-font-input-${encodeURIComponent(scopeKey)}`
+  const fontPresetListId = `dsh-studio-terminal-font-list-${encodeURIComponent(scopeKey)}`
 
   useEffect(() => { setFontFamilyDraft(state.fontFamily) }, [state.fontFamily])
   useEffect(() => {
@@ -168,21 +174,18 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
           {state.tabs.length === 0 && <span className="dsh-studio-terminal-hint">{t('terminal')}</span>}
         </div>
         <div className="dsh-studio-terminal-actions">
-          <button
-            type="button"
-            className="dsh-studio-terminal-action"
-            onClick={() => { setSettingsOpen(open => !open) }}
-            title={t('terminal.font')}
-            aria-label={t('terminal.font-settings')}
+          <ToolbarAction
+            icon="Aa"
+            label={t('terminal.font-settings')}
+            pressed={settingsOpen}
             aria-expanded={settingsOpen}
-          >Aa</button>
-          <button
-            type="button"
-            className="dsh-studio-terminal-action"
+            onClick={() => { setSettingsOpen(open => !open) }}
+          />
+          <ToolbarAction
+            icon={state.collapsed ? <IconChevronUpOutline14 size={13} /> : <IconChevronDownOutline14 size={13} />}
+            label={state.collapsed ? t('terminal.expand') : t('terminal.collapse')}
             onClick={() => { store.dispatch({ type: 'toggle-collapsed' }) }}
-            title={state.collapsed ? t('terminal.expand') : t('terminal.collapse')}
-            aria-label={state.collapsed ? t('terminal.expand') : t('terminal.collapse')}
-          >{state.collapsed ? <IconChevronUpOutline14 size={13} /> : <IconChevronDownOutline14 size={13} />}</button>
+          />
         </div>
       </div>
       {settingsOpen && (
@@ -197,37 +200,43 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
               onClick={() => { setSettingsOpen(false) }}
             />
           </div>
-          <label>
-            <span>{t('terminal.font-family')}</span>
-            <Input
-              type="text"
-              list={fontPresetListId}
-              value={fontFamilyDraft}
-              onChange={event => { setFontFamilyDraft(event.currentTarget.value) }}
-              onBlur={commitFontFamily}
-              onKeyDown={event => {
-                if (event.key !== 'Enter') return
-                commitFontFamily()
-                event.currentTarget.blur()
-              }}
-            />
-            <datalist id={fontPresetListId}>
-              <option value={DEFAULT_TERMINAL_FONT_FAMILY} />
-              <option value="'JetBrains Mono', ui-monospace, monospace" />
-              <option value="'Maple Mono', ui-monospace, monospace" />
-              <option value="'Fira Code', ui-monospace, monospace" />
-            </datalist>
-          </label>
-          <label>
-            <span>{t('terminal.font-size')}</span>
-            <Input
-              type="number"
-              min={MIN_TERMINAL_FONT_SIZE}
-              max={MAX_TERMINAL_FONT_SIZE}
-              value={state.fontSize}
-              onChange={event => { store.dispatch({ type: 'set-font-size', fontSize: event.currentTarget.valueAsNumber }) }}
-            />
-          </label>
+          <SettingsRow
+            title={t('terminal.font-family')}
+            control={(
+              <Input
+                id={fontInputId}
+                type="text"
+                list={fontPresetListId}
+                value={fontFamilyDraft}
+                onChange={event => { setFontFamilyDraft(event.currentTarget.value) }}
+                onBlur={commitFontFamily}
+                onKeyDown={event => {
+                  if (event.key !== 'Enter') return
+                  commitFontFamily()
+                  event.currentTarget.blur()
+                }}
+              />
+            )}
+          />
+          <datalist id={fontPresetListId}>
+            <option value={DEFAULT_TERMINAL_FONT_FAMILY} />
+            <option value="'JetBrains Mono', ui-monospace, monospace" />
+            <option value="'Maple Mono', ui-monospace, monospace" />
+            <option value="'Fira Code', ui-monospace, monospace" />
+          </datalist>
+          <SettingsRow
+            title={t('terminal.font-size')}
+            control={(
+              <Input
+                type="number"
+                min={MIN_TERMINAL_FONT_SIZE}
+                max={MAX_TERMINAL_FONT_SIZE}
+                value={state.fontSize}
+                aria-label={t('terminal.font-size')}
+                onChange={event => { store.dispatch({ type: 'set-font-size', fontSize: event.currentTarget.valueAsNumber }) }}
+              />
+            )}
+          />
           <div className="dsh-studio-terminal-settings-footer">
             <span>{MIN_TERMINAL_FONT_SIZE}–{MAX_TERMINAL_FONT_SIZE}px</span>
             <Button variant="outline" size="sm" onClick={() => { store.dispatch({ type: 'reset-font' }) }}>
@@ -270,10 +279,16 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
           </div>
         ))}
         {state.tabs.length === 0 && (
-          <div className="dsh-studio-terminal-empty">
-            <span>{t('terminal.empty')}</span>
-            <button type="button" onClick={addTab}>{t('terminal.new-shell')}</button>
-          </div>
+          <EmptyState
+            className="dsh-studio-terminal-empty"
+            title={t('terminal.empty')}
+            layout="centered"
+            action={(
+              <Button variant="outline" size="sm" onClick={addTab}>
+                {t('terminal.new-shell')}
+              </Button>
+            )}
+          />
         )}
       </div>
     </section>

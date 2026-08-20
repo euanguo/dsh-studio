@@ -26,6 +26,11 @@ test('shadcn package config targets the existing DSH theme and shared UI seam', 
   }
   assert.equal(packageJson.exports['./ui'], './ui/index.ts')
   assert.equal(packageJson.exports['./ui/card'], './ui/card.tsx')
+  assert.equal(packageJson.exports['./ui/feedback-state'], './ui/feedback-state.tsx')
+  assert.equal(packageJson.exports['./ui/settings-row'], './ui/settings-row.tsx')
+  assert.equal(packageJson.exports['./ui/settings-section'], './ui/settings-section.tsx')
+  assert.equal(packageJson.exports['./ui/status-line'], './ui/status-line.tsx')
+  assert.equal(packageJson.exports['./ui/toolbar-action'], './ui/toolbar-action.tsx')
   assert.equal(packageJson.exports['./ui-styles'], './ui/styles.ts')
   assert.equal(packageJson.exports['./ui.css'], './ui/ui.css')
 })
@@ -57,6 +62,38 @@ test('shared UI source layer avoids duplicate official atoms and styling runtime
   ].join('\n')
   assert.doesNotMatch(sources, /@deepseek-ai\/dsh-client-ui-primitives/)
   assert.doesNotMatch(sources, /@base-ui\/react|radix-ui|lucide-react|tailwindcss/)
+})
+
+test('plugin shared composites keep official chrome ownership explicit', () => {
+  const settingsRow = read('plugins/shared/ui/settings-row.tsx')
+  const toolbarAction = read('plugins/shared/ui/toolbar-action.tsx')
+  const statusLine = read('plugins/shared/ui/status-line.tsx')
+  const feedbackState = read('plugins/shared/ui/feedback-state.tsx')
+
+  assert.match(settingsRow, /control: ReactNode/)
+  assert.match(settingsRow, /dsh-studio-ui-settings-row/)
+  assert.match(settingsRow, /aria-labelledby=/)
+  assert.match(toolbarAction, /Button[\s\S]*variant="toolbar"/)
+  assert.match(toolbarAction, /toolbar-action-anchor/)
+  assert.match(toolbarAction, /data-slot="toolbar-action"/)
+  assert.match(toolbarAction, /Tooltip/)
+  assert.doesNotMatch(statusLine, /@deepseek-ai\/dsh-client-ui-primitives/)
+  assert.doesNotMatch(feedbackState, /@deepseek-ai\/dsh-client-ui-primitives/)
+  assert.match(feedbackState, /data-layout={layout}/)
+  assert.match(feedbackState, /EmptyState|LoadingState|ErrorState/)
+  assert.match(read('plugins/shared/ui/styles.ts'), /ensureSharedUiStyles\(id: string\)/)
+})
+
+test('migrated plugin surfaces consume the shared settings and feedback seams', () => {
+  assert.match(read('plugins/desktop-skins/src/client/plugin.tsx'), /SettingsRow/)
+  assert.match(read('plugins/desktop-left-rail/src/client/WorktreeSettingsSection.tsx'), /SettingsSection/)
+  assert.match(read('plugins/panel-controls/src/terminal/TerminalPanel.tsx'), /ToolbarAction/)
+  assert.match(read('plugins/sidebar/src/client/source-control/source-control-ai-settings.tsx'), /SettingsRow/)
+  const sidebarSettings = read('plugins/sidebar/src/client/settings.tsx')
+  assert.match(sidebarSettings, /const description = meta === '' \? undefined : meta/)
+  assert.doesNotMatch(sidebarSettings, /const detail = meta === '' \? id/)
+  assert.match(read('plugins/plugin-marketplace/src/client/plugin.tsx'), /AlertAction/)
+  assert.doesNotMatch(read('plugins/desktop-skins/src/client/plugin.tsx'), /skins-tile|skins-grid/)
 })
 
 test('cn composes conditional classes without a runtime dependency', () => {

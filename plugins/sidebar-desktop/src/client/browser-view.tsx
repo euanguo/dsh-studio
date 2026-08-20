@@ -6,6 +6,7 @@ import {
   Input,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
+import { ErrorState } from '@dsh-studio/shared/ui'
 import type { SidebarRenderProps } from '@dsh-studio/sidebar/client/contract'
 import type { BrowserCenterSurface } from '@dsh-studio/sidebar/client/surfaces-types'
 import type { WorkspaceMessage } from '@dsh-studio/sidebar/client/i18n'
@@ -149,7 +150,7 @@ export function BrowserView({
         />
         <Button type="submit" variant="primary" size="sm">{t('browser.go')}</Button>
       </form>
-      {error !== '' && <div className="dsh-studio-browser-error" role="alert">{error}</div>}
+      {error !== '' && <ErrorState className="dsh-studio-browser-error" message={error} />}
       <div ref={container} className="dsh-studio-browser-host" />
     </div>
   )
@@ -264,7 +265,7 @@ export function BrowserSurfaceView({
         />
         <Button type="submit" variant="primary" size="sm">{t('browser.go')}</Button>
       </form>
-      {error !== '' && <div className="dsh-studio-browser-error" role="alert">{error}</div>}
+      {error !== '' && <ErrorState className="dsh-studio-browser-error" message={error} />}
       <div ref={container} className="dsh-studio-browser-host" />
     </div>
   )

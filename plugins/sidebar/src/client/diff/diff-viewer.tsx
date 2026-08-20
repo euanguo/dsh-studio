@@ -20,6 +20,7 @@ import {
 } from './file-diff.ts'
 import { renderPierreDiff, type PierreDiffTheme } from './pierre-adapter.tsx'
 import type { DiffComment } from './diff-comments-store.ts'
+import { EmptyState } from '@dsh-studio/shared/ui'
 
 export type DiffViewerProps = Readonly<{
   document: DiffDocument
@@ -108,12 +109,11 @@ export const DiffViewer = memo(function DiffViewer({
             <span>{summary}</span>
           </div>
         )}
-        <div
+        <EmptyState
+          layout="centered"
           className="dsh-studio-diff-empty"
-          data-kind={document.change === 'renamed' ? 'renamed' : 'empty'}
-        >
-          {document.change === 'renamed' ? t('workspace.renamed-only') : t('workspace.no-content-changes')}
-        </div>
+          title={document.change === 'renamed' ? t('workspace.renamed-only') : t('workspace.no-content-changes')}
+        />
       </div>
     )
   }

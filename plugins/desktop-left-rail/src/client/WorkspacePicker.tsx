@@ -24,6 +24,7 @@ import type { DirectoryFlowOwnerProps, WorkspacePickerProps } from './contract/s
 // scripts/left-rail-styles.mjs). The picker's dialogs portal through the
 // shim, which mounts the scope attribute on the portal wrapper.
 import { WorkspacePickerCss as css } from './styles.js'
+import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 
 const ADD_WORKSPACE = '::add-workspace'
 
@@ -199,7 +200,9 @@ export function WorkspacePickFlow({
         portal
         getAnchorRect={getAnchorRect}
       />
-      {open && !addIsTheOnlyEntry && !menuIsEmpty && workspaceSnapshot.phase === 'pending' && <div className={css.menuStatus} role="status">{t('picker.loading')}</div>}
+      {open && !addIsTheOnlyEntry && !menuIsEmpty && workspaceSnapshot.phase === 'pending' && (
+        <LoadingState className={css.menuStatus} label={t('picker.loading')} />
+      )}
       {renderDirectoryFlow(flowOwner)}
       <Modal
         open={errorOpen}
@@ -215,7 +218,7 @@ export function WorkspacePickFlow({
           </>
         )}
       >
-        <div className={css.modalError} role="alert">{modalError}</div>
+        <ErrorState className={css.modalError} message={modalError} />
       </Modal>
     </>
   )

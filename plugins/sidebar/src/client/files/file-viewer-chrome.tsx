@@ -8,6 +8,7 @@ import { Fragment, useMemo } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { basename } from '@dsh-studio/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
+import { ToolbarAction } from '@dsh-studio/shared/ui'
 import {
   IconChevronRight,
   IconEdit,
@@ -111,25 +112,21 @@ export function FileViewerChrome({
       ) : null}
 
       {onEdit !== undefined ? (
-        <button
-          type="button"
+        <ToolbarAction
           className="dsh-studio-file-viewer-chrome-action"
-          title={t('files.edit')}
+          icon={<IconEdit size={14} />}
+          label={t('files.edit')}
           onClick={onEdit}
-        >
-          <IconEdit size={14} />
-        </button>
+        />
       ) : null}
 
       {onOpenExternal !== undefined ? (
-        <button
-          type="button"
+        <ToolbarAction
           className="dsh-studio-file-viewer-chrome-action"
-          title={t('files.open-externally')}
+          icon={<IconExternalLink size={14} />}
+          label={t('files.open-externally')}
           onClick={onOpenExternal}
-        >
-          <IconExternalLink size={14} />
-        </button>
+        />
       ) : null}
     </div>
   )

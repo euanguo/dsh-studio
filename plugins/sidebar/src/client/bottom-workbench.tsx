@@ -15,7 +15,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import { SurfaceTab, SurfaceTabStrip } from '@dsh-studio/shared/ui'
+import { EmptyState, SurfaceTab, SurfaceTabStrip } from '@dsh-studio/shared/ui'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from './i18n.ts'
 import type {
@@ -98,7 +98,7 @@ export function BottomWorkbench({ sidebar, t }: BottomWorkbenchProps): JSX.Eleme
         aria-label={t('bottom-workbench.title')}
         {...drag.strip.handlers}
       >
-        <span>{t('bottom-workbench.empty')}</span>
+        <EmptyState layout="centered" title={t('bottom-workbench.empty')} />
       </section>
     )
   }

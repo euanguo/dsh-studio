@@ -16,7 +16,7 @@ import {
   committedDocKey,
   committedListKey,
 } from '../runtimes/diff-runtime.ts'
-import { EmptyView, ErrorView, LoadingView } from '../kit/status.tsx'
+import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffPathTreeNav } from '../diff/path-tree-nav.tsx'
 import { Scrollable } from '@dsh-studio/shared/ui'
@@ -97,7 +97,7 @@ function CommitFileStack({
         <CommitFileBlock key={`${file.oldPath ?? ''}:${file.path}`} file={file} theme={theme} t={t} cacheBust={cacheBust} />
       ))}
       {files.length === 0 && (
-        <EmptyView title={t('workspace.no-text-diff')} />
+        <EmptyState title={t('workspace.no-text-diff')} />
       )}
     </>
   )
@@ -136,10 +136,10 @@ export function CommitDiffSurfaceView({
   )
   const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
   if (list !== undefined && list.phase === 'error') {
-    return <ErrorView message={list.message ?? t('overlay.no-content')} />
+    return <ErrorState message={list.message ?? t('overlay.no-content')} />
   }
   if (files === null) {
-    return <LoadingView label={t('overlay.loading')} />
+    return <LoadingState label={t('overlay.loading')} />
   }
   return (
     <div className="dsh-studio-commit-surface">
@@ -207,13 +207,13 @@ export function CommitFileSurfaceView({
     [diff, surface.filePath],
   )
   if (doc !== undefined && doc.phase === 'error') {
-    return <ErrorView message={doc.message ?? t('overlay.no-content')} />
+    return <ErrorState message={doc.message ?? t('overlay.no-content')} />
   }
   if (doc === undefined || doc.phase === 'loading' || diff === null || document === null) {
-    return <LoadingView label={t('overlay.loading')} />
+    return <LoadingState label={t('overlay.loading')} />
   }
   if (diff.trim() === '') {
-    return <ErrorView message={t('workspace.no-text-diff')} />
+    return <ErrorState message={t('workspace.no-text-diff')} />
   }
   return (
     <div className="dsh-studio-diff-surface">
@@ -282,9 +282,9 @@ function CommittedAllDiffView({
   )
   const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
   if (list !== undefined && list.phase === 'error') {
-    return <ErrorView message={list.message ?? t('overlay.no-content')} />
+    return <ErrorState message={list.message ?? t('overlay.no-content')} />
   }
-  if (files === null) return <LoadingView label={t('overlay.loading')} />
+  if (files === null) return <LoadingState label={t('overlay.loading')} />
   return (
     <div className="dsh-studio-commit-surface">
       <div className="dsh-studio-commit-surface-header">
@@ -350,13 +350,13 @@ function CommittedFileDiffView({
     [diff, filePath],
   )
   if (doc !== undefined && doc.phase === 'error') {
-    return <ErrorView message={doc.message ?? t('overlay.no-content')} />
+    return <ErrorState message={doc.message ?? t('overlay.no-content')} />
   }
   if (doc === undefined || doc.phase === 'loading' || diff === null || document === null) {
-    return <LoadingView label={t('overlay.loading')} />
+    return <LoadingState label={t('overlay.loading')} />
   }
   if (diff.trim() === '') {
-    return <ErrorView message={t('workspace.no-text-diff')} />
+    return <ErrorState message={t('workspace.no-text-diff')} />
   }
   return (
     <div className="dsh-studio-diff-surface">

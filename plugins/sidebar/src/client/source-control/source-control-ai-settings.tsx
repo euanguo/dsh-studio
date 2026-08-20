@@ -9,6 +9,15 @@ import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import type { SidebarSourceControlAiModel } from '@dsh-studio/shared/sidebar-api'
+import {
+  Field,
+  FieldDescription,
+  FieldLabel,
+  LoadingState,
+  SettingsRow,
+  StatusLine,
+  ToolbarAction,
+} from '@dsh-studio/shared/ui'
 
 interface SourceControlAiSettingsValue {
   enabled: boolean
@@ -40,7 +49,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
   const [fallback, setFallback] = useState<{ provider?: string; model?: string; reasoningEffort?: string }>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [status, setStatus] = useState<string | null>(null)
+  const [status, setStatus] = useState<{ tone: 'success' | 'error'; message: string } | null>(null)
   const [openMenu, setOpenMenu] = useState<OpenMenu>(null)
   const modelAnchorRef = useRef<HTMLSpanElement | null>(null)
   const reasoningAnchorRef = useRef<HTMLSpanElement | null>(null)
@@ -64,7 +73,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
       setModels(catalog.models)
       setFallback(catalog.defaultModel)
     } catch (cause) {
-      setStatus(cause instanceof Error ? cause.message : String(cause))
+      setStatus({ tone: 'error', message: cause instanceof Error ? cause.message : String(cause) })
     } finally {
       setLoading(false)
     }
@@ -129,115 +138,120 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
       })
       const value = result.value as SourceControlAiSettingsValue | undefined
       if (value !== undefined) setSettings(value)
-      setStatus(props.t('source-control-ai.saved'))
+      setStatus({ tone: 'success', message: props.t('source-control-ai.saved') })
     } catch (cause) {
-      setStatus(cause instanceof Error ? cause.message : String(cause))
+      setStatus({ tone: 'error', message: cause instanceof Error ? cause.message : String(cause) })
     } finally {
       setSaving(false)
     }
   }
 
-  if (loading) return <div className="dsh-studio-sidebar-settings-ai">{props.t('source-control-ai.loading')}</div>
+  if (loading) return <LoadingState label={props.t('source-control-ai.loading')} />
   return (
     <div className="dsh-studio-sidebar-settings-ai">
       <div className="dsh-studio-sidebar-settings-ai-toolbar">
-        <Button
-          variant="ghost"
-          size="sm"
+        <ToolbarAction
+          icon={<IconRefresh size={15} />}
+          label={props.t('source-control-ai.refresh')}
           onClick={() => { void load() }}
-          title={props.t('source-control-ai.refresh')}
-          aria-label={props.t('source-control-ai.refresh')}
-        >
-          <IconRefresh size={15} />
-        </Button>
+        />
       </div>
       <div className="dsh-studio-sidebar-settings-grid">
-        <label className="dsh-studio-sidebar-settings-row" title={props.t('source-control-ai.enabled')}>
-          <span className="dsh-studio-sidebar-settings-copy"><strong>{props.t('source-control-ai.enabled')}</strong></span>
-          <input
-            type="checkbox"
-            checked={settings.enabled}
-            aria-label={props.t('source-control-ai.enabled')}
-            onChange={event => {
-              const enabled = event.currentTarget.checked
-              setSettings(current => ({ ...current, enabled }))
-            }}
-          />
-        </label>
-        <div className="dsh-studio-sidebar-settings-row">
-          <span className="dsh-studio-sidebar-settings-copy"><strong>{props.t('source-control-ai.model')}</strong></span>
-          <span ref={modelAnchorRef} className="dsh-studio-sidebar-settings-menu-anchor">
-            <Button
-              variant="outline"
-              size="sm"
-              aria-label={props.t('source-control-ai.model')}
-              aria-expanded={openMenu === 'model'}
-              onClick={() => { setOpenMenu(current => current === 'model' ? null : 'model') }}
-            >
-              <span className="dsh-studio-sidebar-settings-menu-label">{modelLabel}</span>
-              <IconChevronDown size={14} />
-            </Button>
-            <Menu
-              open={openMenu === 'model'}
-              anchor={null}
-              portal
-              getAnchorRect={() => modelAnchorRef.current?.getBoundingClientRect() ?? null}
-              items={modelItems}
-              selectedId={modelSelectionId}
-              onSelect={id => {
-                setOpenMenu(null)
-                if (id === 'inherit') {
-                  setSettings(current => {
-                    const { defaultModel: _defaultModel, ...rest } = current
-                    return rest
-                  })
-                  return
-                }
-                const [provider, model] = id.split(':')
-                if (provider !== undefined && model !== undefined) updateSelection(provider, model)
+        <SettingsRow
+          title={props.t('source-control-ai.enabled')}
+          control={(
+            <input
+              type="checkbox"
+              checked={settings.enabled}
+              aria-label={props.t('source-control-ai.enabled')}
+              onChange={event => {
+                const enabled = event.currentTarget.checked
+                setSettings(current => ({ ...current, enabled }))
               }}
-              onClose={() => { setOpenMenu(null) }}
             />
-          </span>
-        </div>
-        <div className="dsh-studio-sidebar-settings-row">
-          <span className="dsh-studio-sidebar-settings-copy"><strong>{props.t('source-control-ai.reasoning')}</strong></span>
-          <span ref={reasoningAnchorRef} className="dsh-studio-sidebar-settings-menu-anchor">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={selectedModel === undefined || settings.defaultModel === undefined}
-              aria-label={props.t('source-control-ai.reasoning')}
-              aria-expanded={openMenu === 'reasoning'}
-              onClick={() => { setOpenMenu(current => current === 'reasoning' ? null : 'reasoning') }}
-            >
-              <span className="dsh-studio-sidebar-settings-menu-label">{reasoningLabel}</span>
-              <IconChevronDown size={14} />
-            </Button>
-            <Menu
-              open={openMenu === 'reasoning'}
-              anchor={null}
-              portal
-              getAnchorRect={() => reasoningAnchorRef.current?.getBoundingClientRect() ?? null}
-              items={reasoningItems}
-              selectedId={settings.defaultModel?.reasoningEffort ?? 'default'}
-              onSelect={id => {
-                setOpenMenu(null)
-                if (settings.defaultModel !== undefined) {
-                  updateSelection(
-                    settings.defaultModel.provider,
-                    settings.defaultModel.model,
-                    id === 'default' ? undefined : id,
-                  )
-                }
-              }}
-              onClose={() => { setOpenMenu(null) }}
-            />
-          </span>
-        </div>
-        <label className="dsh-studio-sidebar-settings-ai-prompt">
-          <span className="dsh-studio-sidebar-settings-copy"><strong>{props.t('source-control-ai.prompt-template')}</strong></span>
+          )}
+        />
+        <SettingsRow
+          title={props.t('source-control-ai.model')}
+          control={(
+            <span ref={modelAnchorRef} className="dsh-studio-sidebar-settings-menu-anchor">
+              <Button
+                variant="outline"
+                size="sm"
+                aria-label={props.t('source-control-ai.model')}
+                aria-expanded={openMenu === 'model'}
+                onClick={() => { setOpenMenu(current => current === 'model' ? null : 'model') }}
+              >
+                <span className="dsh-studio-sidebar-settings-menu-label">{modelLabel}</span>
+                <IconChevronDown size={14} />
+              </Button>
+              <Menu
+                open={openMenu === 'model'}
+                anchor={null}
+                portal
+                getAnchorRect={() => modelAnchorRef.current?.getBoundingClientRect() ?? null}
+                items={modelItems}
+                selectedId={modelSelectionId}
+                onSelect={id => {
+                  setOpenMenu(null)
+                  if (id === 'inherit') {
+                    setSettings(current => {
+                      const { defaultModel: _defaultModel, ...rest } = current
+                      return rest
+                    })
+                    return
+                  }
+                  const [provider, model] = id.split(':')
+                  if (provider !== undefined && model !== undefined) updateSelection(provider, model)
+                }}
+                onClose={() => { setOpenMenu(null) }}
+              />
+            </span>
+          )}
+        />
+        <SettingsRow
+          title={props.t('source-control-ai.reasoning')}
+          control={(
+            <span ref={reasoningAnchorRef} className="dsh-studio-sidebar-settings-menu-anchor">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={selectedModel === undefined || settings.defaultModel === undefined}
+                aria-label={props.t('source-control-ai.reasoning')}
+                aria-expanded={openMenu === 'reasoning'}
+                onClick={() => { setOpenMenu(current => current === 'reasoning' ? null : 'reasoning') }}
+              >
+                <span className="dsh-studio-sidebar-settings-menu-label">{reasoningLabel}</span>
+                <IconChevronDown size={14} />
+              </Button>
+              <Menu
+                open={openMenu === 'reasoning'}
+                anchor={null}
+                portal
+                getAnchorRect={() => reasoningAnchorRef.current?.getBoundingClientRect() ?? null}
+                items={reasoningItems}
+                selectedId={settings.defaultModel?.reasoningEffort ?? 'default'}
+                onSelect={id => {
+                  setOpenMenu(null)
+                  if (settings.defaultModel !== undefined) {
+                    updateSelection(
+                      settings.defaultModel.provider,
+                      settings.defaultModel.model,
+                      id === 'default' ? undefined : id,
+                    )
+                  }
+                }}
+                onClose={() => { setOpenMenu(null) }}
+              />
+            </span>
+          )}
+        />
+        <Field>
+          <FieldLabel htmlFor="dsh-studio-source-control-ai-prompt">
+            {props.t('source-control-ai.prompt-template')}
+          </FieldLabel>
           <textarea
+            id="dsh-studio-source-control-ai-prompt"
             value={settings.promptTemplate}
             aria-label={props.t('source-control-ai.prompt-template')}
             onChange={event => {
@@ -245,14 +259,14 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
               setSettings(current => ({ ...current, promptTemplate }))
             }}
           />
-          <small>{props.t('source-control-ai.variables')}</small>
-        </label>
+          <FieldDescription>{props.t('source-control-ai.variables')}</FieldDescription>
+        </Field>
       </div>
       <div className="dsh-studio-sidebar-settings-ai-actions">
         <Button variant="primary" size="sm" disabled={saving} onClick={() => { void save() }}>
           {props.t('source-control-ai.save')}
         </Button>
-        {status !== null && <small>{status}</small>}
+        {status !== null && <StatusLine tone={status.tone}>{status.message}</StatusLine>}
       </div>
     </div>
   )

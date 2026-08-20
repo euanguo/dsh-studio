@@ -29,7 +29,7 @@ import { getFileRuntime } from '../runtimes/registry.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
 import { Scrollable } from '@dsh-studio/shared/ui'
-import { ErrorView, LoadingView } from '../kit/status.tsx'
+import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
 import type { ReviewCommentsService } from '../review/review-comments.ts'
@@ -232,8 +232,8 @@ export function FileSurfaceView({
   /* ---------- editing state ---------- */
 
   if (editable.editMode) {
-    if (editable.error !== '') return <ErrorView message={editable.error} />
-    if (editable.content === null) return <LoadingView label={t('overlay.loading')} />
+    if (editable.error !== '') return <ErrorState message={editable.error} />
+    if (editable.content === null) return <LoadingState label={t('overlay.loading')} />
     return (
       <div className="dsh-studio-editor-surface" data-testid="editor-surface">
         <div className="dsh-studio-editor-header">
@@ -279,17 +279,24 @@ export function FileSurfaceView({
 
   const entry = runtime.getEntry(surface.filePath)
   if (entry === undefined || entry.phase === 'loading') {
-    return <LoadingView label={t('overlay.loading')} />
+    return <LoadingState label={t('overlay.loading')} />
   }
   if (entry.phase === 'error' || entry.snapshot === null) {
     return (
-      <ErrorView
+      <ErrorState
         message={entry.message ?? t('overlay.no-content')}
-        retryLabel={t('overlay.retry')}
-        onRetry={() => {
-          runtime.invalidate(surface.filePath)
-          setReloadKey(value => value + 1)
-        }}
+        action={(
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              runtime.invalidate(surface.filePath)
+              setReloadKey(value => value + 1)
+            }}
+          >
+            {t('overlay.retry')}
+          </Button>
+        )}
       />
     )
   }
@@ -313,7 +320,7 @@ export function FileSurfaceView({
         {...(canEdit ? { onEdit: editable.enterEdit } : {})}
       />
       {writeError !== '' ? (
-        <ErrorView message={writeError} />
+        <ErrorState message={writeError} />
       ) : null}
       <Scrollable className="dsh-studio-file-surface-body" onMouseUp={onSourceMouseUp}>
         <ContentViewer

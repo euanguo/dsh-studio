@@ -8,7 +8,14 @@ import {
 import { createRoot, type Root } from 'react-dom/client'
 import type { DesktopBridge } from '@dsh-studio/shared/desktop-contracts'
 import { ensureStyle } from '@dsh-studio/shared/style-injector'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  EmptyState,
+  LoadingState,
+  Scrollable,
+} from '@dsh-studio/shared/ui'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
 import { localeTag } from '@dsh-studio/shared/i18n'
 import { useTranslate } from '@dsh-studio/shared/use-i18n'
@@ -861,17 +868,19 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
           </div>
         )}
         {error !== null && (
-          <div className="oh-marketplace-error">
-            <span>{error}</span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={pending}
-              onClick={() => { resetView(); void run({ type: 'refresh', force: true }) }}
-            >
-              {t('reset-and-reload')}
-            </Button>
-          </div>
+          <Alert variant="destructive" className="oh-marketplace-error">
+            <AlertDescription>{error}</AlertDescription>
+            <AlertAction>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={pending}
+                onClick={() => { resetView(); void run({ type: 'refresh', force: true }) }}
+              >
+                {t('reset-and-reload')}
+              </Button>
+            </AlertAction>
+          </Alert>
         )}
         {showActionNotice && (
           <div className="oh-marketplace-notice">
@@ -956,16 +965,16 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
         )}
         <Scrollable className="oh-marketplace-main">
           {snapshot === null || pending && snapshot.catalog.length === 0 ? (
-            <div className="oh-marketplace-empty">{t('loading-catalog')}</div>
+            <LoadingState className="oh-marketplace-empty" label={t('loading-catalog')} />
           ) : snapshot.auth.status !== 'ready' && snapshot.catalog.length === 0 ? (
-            <div className="oh-marketplace-empty">
-              <div>
-                <strong>{t('github-auth-required')}</strong><br />
-                {localizedAuthDetail(snapshot.auth.detail, t)}
-              </div>
-            </div>
+            <EmptyState
+              layout="centered"
+              className="oh-marketplace-empty"
+              title={t('github-auth-required')}
+              description={localizedAuthDetail(snapshot.auth.detail, t)}
+            />
           ) : plugins.length === 0 ? (
-            <div className="oh-marketplace-empty">{t('no-match')}</div>
+            <EmptyState layout="centered" className="oh-marketplace-empty" title={t('no-match')} />
           ) : (
             <div className="oh-marketplace-grid">
               {plugins.map(plugin => (

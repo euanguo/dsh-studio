@@ -16,6 +16,7 @@ import type { ClientContext } from '@deepseek-ai/dsh-client-runtime/client'
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type { WorkspaceBrowserInjected, WorkspacePickerInjected } from './contract/slots.ts'
 import { ensureStyle } from '@dsh-studio/shared/style-injector'
+import { ensureSharedUiStyles } from '@dsh-studio/shared/ui'
 import type { LocaleService } from '@dsh-studio/shared/i18n'
 import { createWorkspaceViewStore } from './stores.ts'
 import { WorkspaceBrowser } from './WorkspaceBrowser.tsx'
@@ -71,8 +72,13 @@ export const inject = ['slots', 'sessions', 'workspaces', 'locale']
  * Idempotent, self-healing mount of the scoped left-rail stylesheet
  * (generated from the forked CSS Modules; see shared/style-injector.ts).
  */
-function injectLeftRailStyles(): void {
-  ensureStyle('dsh-studio-left-rail-styles', pluginCss)
+function injectLeftRailStyles(): () => void {
+  const stopShared = ensureSharedUiStyles('dsh-studio-left-rail-shared-ui')
+  const stopRail = ensureStyle('dsh-studio-left-rail-styles', pluginCss)
+  return () => {
+    stopRail()
+    stopShared()
+  }
 }
 
 /**
@@ -82,7 +88,7 @@ function injectLeftRailStyles(): void {
  * @param ctx - client root context.
  */
 export function apply(ctx: ClientContext): void {
-  injectLeftRailStyles()
+  ctx.effect(() => injectLeftRailStyles(), 'ui-workspace: shared and left-rail styles')
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-workspace: dictionaries')
   // Nav label for the Settings shell entry; bound once against the live
   // service so a locale switch re-reads through the same translate face.

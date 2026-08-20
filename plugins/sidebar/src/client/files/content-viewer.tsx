@@ -21,7 +21,7 @@ import {
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { basename } from '@dsh-studio/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { EmptyState, ErrorState, LoadingState, Scrollable, ToolbarAction } from '@dsh-studio/shared/ui'
 import { isPlainLanguage, languageForPath, MAX_NUMBERED_LINES } from './language.ts'
 import { PierreFileView } from './pierre-file-view.tsx'
 import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
@@ -195,34 +195,40 @@ export function ContentViewer({
   if (kind === 'binary') {
     const isEmpty = size !== undefined && size === 0
     return (
-      <div className="dsh-studio-content-empty" data-kind={isEmpty ? 'empty' : 'binary'}>
-        <IconFileText size={20} />
-        <strong>{name}</strong>
-        <span>{isEmpty ? t('files.empty-file') : t('files.viewer.binary')}</span>
-        {onOpenExternal !== undefined && (
+      <EmptyState
+        layout="centered"
+        className="dsh-studio-content-empty"
+        title={name}
+        description={isEmpty ? t('files.empty-file') : t('files.viewer.binary')}
+        indicator={<IconFileText size={20} />}
+        action={onOpenExternal === undefined ? undefined : (
           <Button variant="outline" size="sm" onClick={onOpenExternal}>{t('files.open')}</Button>
         )}
-      </div>
+      />
     )
   }
 
   if (content === null) {
     return (
-      <div className="dsh-studio-content-empty" data-kind="unavailable">
-        <IconFileText size={20} />
-        <strong>{name}</strong>
-        <span>{t('overlay.no-content')}</span>
-      </div>
+      <EmptyState
+        layout="centered"
+        className="dsh-studio-content-empty"
+        title={name}
+        description={t('overlay.no-content')}
+        indicator={<IconFileText size={20} />}
+      />
     )
   }
 
   if (content.length === 0) {
     return (
-      <div className="dsh-studio-content-empty" data-kind="empty">
-        <IconFileText size={20} />
-        <strong>{name}</strong>
-        <span>{t('files.empty-file')}</span>
-      </div>
+      <EmptyState
+        layout="centered"
+        className="dsh-studio-content-empty"
+        title={name}
+        description={t('files.empty-file')}
+        indicator={<IconFileText size={20} />}
+      />
     )
   }
 
@@ -388,33 +394,39 @@ function ImageViewer({
   return (
     <div className="dsh-studio-content-media" data-status={status}>
       {status === 'error' ? (
-        <div className="dsh-studio-content-empty">
-          <IconFileText size={20} />
-          <strong>{name}</strong>
-          <span>{t('files.image-load-failed')}</span>
-          {onOpenExternal !== undefined && (
+        <ErrorState
+          className="dsh-studio-content-empty"
+          message={t('files.image-load-failed')}
+          indicator={<IconFileText size={20} />}
+          action={onOpenExternal === undefined ? undefined : (
             <Button variant="outline" size="sm" onClick={onOpenExternal}>{t('files.open')}</Button>
           )}
-        </div>
+        />
       ) : (
         <>
           <div className="dsh-studio-image-toolbar">
-            <button type="button" onClick={() => setZoom(value => Math.max(0.25, value - 0.25))} aria-label={t('files.zoom-out')}>
-              <IconMinus size={14} />
-            </button>
+            <ToolbarAction
+              icon={<IconMinus size={14} />}
+              label={t('files.zoom-out')}
+              onClick={() => setZoom(value => Math.max(0.25, value - 0.25))}
+            />
             <span>{`${Math.round(zoom * 100)}%`}</span>
-            <button type="button" onClick={() => setZoom(value => Math.min(8, value + 0.25))} aria-label={t('files.zoom-in')}>
-              <IconPlus size={14} />
-            </button>
+            <ToolbarAction
+              icon={<IconPlus size={14} />}
+              label={t('files.zoom-in')}
+              onClick={() => setZoom(value => Math.min(8, value + 0.25))}
+            />
             <Button variant="ghost" size="sm" onClick={() => setZoom(1)}>{t('files.zoom-reset')}</Button>
             {onOpenExternal !== undefined ? (
-              <button type="button" onClick={onOpenExternal} aria-label={t('files.open-externally')}>
-                <IconExternalLink size={14} />
-              </button>
+              <ToolbarAction
+                icon={<IconExternalLink size={14} />}
+                label={t('files.open-externally')}
+                onClick={onOpenExternal}
+              />
             ) : null}
           </div>
           <Scrollable axis="both" className="dsh-studio-content-media-stage">
-            {status === 'loading' ? <span className="dsh-studio-side-muted">{t('files.image-loading')}</span> : null}
+            {status === 'loading' ? <LoadingState className="dsh-studio-side-muted" label={t('files.image-loading')} /> : null}
             <img
               src={`data:${mime};base64,${data}`}
               alt={name}
@@ -446,9 +458,11 @@ function PdfViewer({
       <div className="dsh-studio-pdf-toolbar">
         <span title={path}>{name}</span>
         {onOpenExternal !== undefined ? (
-          <button type="button" onClick={onOpenExternal} aria-label="Open externally">
-            <IconExternalLink size={14} />
-          </button>
+          <ToolbarAction
+            icon={<IconExternalLink size={14} />}
+            label="Open externally"
+            onClick={onOpenExternal}
+          />
         ) : null}
       </div>
       <iframe title={name} src={`data:application/pdf;base64,${data}`} />

@@ -7,8 +7,7 @@ import { useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { EmptyView } from '../kit/status.tsx'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { Alert, AlertDescription, EmptyState, Scrollable } from '@dsh-studio/shared/ui'
 import type { SidebarRuntimeSettingsService } from '../runtime-settings.ts'
 import {
   htmlIframeSandboxAttribute,
@@ -35,7 +34,7 @@ export function BinaryFileViewer({
           {t('files.open')}
         </Button>
       </div>
-      <EmptyView title={t('files.viewer.binary')} />
+      <EmptyState title={t('files.viewer.binary')} />
     </Scrollable>
   )
 }
@@ -83,9 +82,9 @@ export function HtmlFileViewer({
         </Button>
       </div>
       {unsandboxed && (
-        <p className="dsh-studio-html-warning" role="alert">
-          {t('files.viewer.html-unsandboxed-warning')}
-        </p>
+        <Alert variant="destructive" className="dsh-studio-html-warning">
+          <AlertDescription>{t('files.viewer.html-unsandboxed-warning')}</AlertDescription>
+        </Alert>
       )}
       <iframe
         title={title}

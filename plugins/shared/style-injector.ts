@@ -23,6 +23,7 @@
 interface InjectedStyle {
   element: HTMLStyleElement
   observer: MutationObserver
+  references: number
 }
 
 /** Every ensureStyle id currently mounted in this document. */
@@ -36,7 +37,8 @@ const liveStyles = new Map<string, InjectedStyle>()
  *   no matter how many callers ensure it.
  * @param css - The stylesheet text (usually the plugin's concatenated
  *   CSS-module strings).
- * @returns A disposer that removes the style and stops healing it.
+ * @returns A disposer that releases one reference; the style is removed after
+ *   the final disposer runs.
  */
 export function ensureStyle(id: string, css: string): () => void {
   const existing = liveStyles.get(id)
@@ -44,7 +46,13 @@ export function ensureStyle(id: string, css: string): () => void {
     if (existing.element.textContent !== css) {
       existing.element.textContent = css
     }
-    return () => { removeStyle(id) }
+    existing.references += 1
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      releaseStyle(id)
+    }
   }
   const element = document.createElement('style')
   element.dataset.dshStudioStyle = id
@@ -59,14 +67,21 @@ export function ensureStyle(id: string, css: string): () => void {
     document.head.append(element)
   })
   observer.observe(document.head, { childList: true })
-  liveStyles.set(id, { element, observer })
-  return () => { removeStyle(id) }
+  liveStyles.set(id, { element, observer, references: 1 })
+  let released = false
+  return () => {
+    if (released) return
+    released = true
+    releaseStyle(id)
+  }
 }
 
-/** Remove one injected style and stop healing it (idempotent). */
-function removeStyle(id: string): void {
+/** Release one mount reference and tear down the final live style. */
+function releaseStyle(id: string): void {
   const live = liveStyles.get(id)
   if (live === undefined) return
+  live.references -= 1
+  if (live.references > 0) return
   liveStyles.delete(id)
   live.observer.disconnect()
   live.element.remove()

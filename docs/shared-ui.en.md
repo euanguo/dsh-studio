@@ -32,6 +32,21 @@ directly. This keeps one chrome language and one platform runtime.
 - `Empty`, `EmptyHeader`, `EmptyMedia`, `EmptyTitle`,
   `EmptyDescription`, and `EmptyContent`.
 - `Skeleton` and `FilenameLabel`.
+- `SettingsSection` and `SettingsRow` for the General-row title, description,
+  separator, and right-side control layout.
+- `ToolbarAction`, an icon action that composes the official
+  `Button variant="toolbar"` and provides a tooltip and accessible label.
+- `StatusLine` for compact loading, error, warning, neutral, and success rows.
+- `FeedbackState`, `LoadingState`, `ErrorState`, and `EmptyState` for shared
+  feedback semantics. Buttons, icons, and `StateDot` remain caller-owned.
+  `EmptyState` is compact by default; use `layout="centered"` for a centered
+  content-area state.
+
+`SettingsRow` owns layout and Field semantics only. It does not own drafts,
+validation, CAS, RPC, menu lifecycle, or feature state. `ToolbarAction` does
+not replace the official Button; it is a deliberately narrow toolbar
+composition. Feedback compositions never create a second Button, Toast, or
+StateDot kit.
 
 The old `@dsh-studio/shared/list-row`, `surface-tab`, and `scrollable` paths
 remain compatibility exports. New repository code should prefer
@@ -75,16 +90,15 @@ composition and `data-slot` conventions, then adapt the implementation to
 plain React and DSW tokens. Do not bring the registry's default Button,
 Dialog, Radix, or Tailwind runtime into the production bundle.
 
-A plugin that renders shared UI should inject `theme.css` and `ui-styles` with
-`ensureStyle`:
+A plugin can inject `theme.css` and `ui-styles` directly. When using the
+shared lifecycle helper, pass a stable, plugin-unique style id. Repeated mounts
+within one bundle are reference-counted and the final disposer removes the
+style; separate bundles must still use different ids:
 
 ```tsx
-import { Card, CardContent, CardHeader, CardTitle } from '@dsh-studio/shared/ui'
-import sharedStyles from '@dsh-studio/shared/ui-styles'
-import themeCss from '@dsh-studio/shared/theme.css'
-import { ensureStyle } from '@dsh-studio/shared/style-injector'
+import { ensureSharedUiStyles } from '@dsh-studio/shared/ui'
 
-const stopStyle = ensureStyle('my-plugin-shared-ui', `${themeCss}\n${sharedStyles}`)
+const stopStyle = ensureSharedUiStyles('my-plugin-shared-ui')
 ```
 
 Actions inside that card still use the official atom directly:

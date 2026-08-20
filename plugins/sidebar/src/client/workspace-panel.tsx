@@ -24,7 +24,7 @@ import { basename } from '@dsh-studio/shared/path'
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { runPanelMutation } from './source-control/panel-mutations.ts'
 import { toast } from '@dsh-studio/shared/toast'
-import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
+import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { confirmDialog } from './kit/dialog.tsx'
 import {
   FileGlyph,
@@ -218,21 +218,21 @@ function CommitFilesBody({
   if (state === undefined || state.status === 'loading') {
     return (
       <div className="dsh-studio-review-commit-files">
-        <LoadingView label={t('overlay.loading')} />
+        <LoadingState label={t('overlay.loading')} />
       </div>
     )
   }
   if (state.status === 'error') {
     return (
       <div className="dsh-studio-review-commit-files">
-        <ErrorView message={state.error} />
+        <ErrorState message={state.error} />
       </div>
     )
   }
   if (state.entries.length === 0) {
     return (
       <div className="dsh-studio-review-commit-files">
-        <EmptyView title={t('workspace.commit-no-files')} />
+        <EmptyState title={t('workspace.commit-no-files')} />
       </div>
     )
   }
@@ -655,11 +655,11 @@ export function WorkspacePanel({
   return (
     <div className="dsh-studio-review-view" aria-label={t('workspace.changes')}>
       {cwd === undefined
-        ? <EmptyView title={t('workspace.select')} />
+        ? <EmptyState title={t('workspace.select')} />
         : (
           <>
             <Scrollable className="dsh-studio-workspace-content">
-            {error !== '' && <ErrorView message={error} />}
+            {error !== '' && <ErrorState message={error} />}
 
             {snapshot?.kind === 'repository' && (
               <CommitArea
@@ -737,17 +737,17 @@ export function WorkspacePanel({
                   onCopyPath={copyPath}
                 />
                 {(snapshot?.changes.length ?? 0) > visibleChanges.length && (
-                  <EmptyView
+                  <EmptyState
                     title={t('workspace.more-changes', {
                       count: (snapshot?.changes.length ?? 0) - visibleChanges.length,
                     })}
                   />
                 )}
                 {snapshot?.kind === 'repository' && snapshot.changes.length === 0 && (
-                  <EmptyView title={t('workspace.clean')} />
+                  <EmptyState title={t('workspace.clean')} />
                 )}
                 {snapshot?.kind === 'directory' && (
-                  <EmptyView title={t('workspace.not-git')} />
+                  <EmptyState title={t('workspace.not-git')} />
                 )}
               </div>
             </section>
@@ -884,7 +884,7 @@ export function WorkspacePanel({
                     )
                   })}
                   {history.length === 0 && (
-                    <EmptyView title={t('workspace.no-commits')} />
+                    <EmptyState title={t('workspace.no-commits')} />
                   )}
                 </Scrollable>
               )}

@@ -34,7 +34,7 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from '../sidebar-preferences.ts'
-import { ErrorView } from './kit/status.tsx'
+import { ErrorState, SettingsRow, SettingsSection, ToolbarAction } from '@dsh-studio/shared/ui'
 import { SourceControlAiSettingsPanel } from './source-control/source-control-ai-settings.tsx'
 
 export function sidebarLabel(value: string | (() => string)): string {
@@ -63,17 +63,18 @@ function SwitchRow(props: {
   onChange(checked: boolean): void
 }): JSX.Element {
   return (
-    <label className="dsh-studio-sidebar-settings-row" title={props.desc}>
-      <span className="dsh-studio-sidebar-settings-copy">
-        <strong>{props.title}</strong>
-      </span>
-      <input
-        type="checkbox"
-        checked={props.checked}
-        aria-label={props.desc ?? props.title}
-        onChange={event => { props.onChange(event.currentTarget.checked) }}
-      />
-    </label>
+    <SettingsRow
+      title={props.title}
+      {...(props.desc === undefined ? {} : { description: props.desc })}
+      control={(
+        <input
+          type="checkbox"
+          checked={props.checked}
+          aria-label={props.desc ?? props.title}
+          onChange={event => { props.onChange(event.currentTarget.checked) }}
+        />
+      )}
+    />
   )
 }
 
@@ -100,33 +101,34 @@ function InputRow(props: {
     props.onCommit(value)
   }
   return (
-    <label className="dsh-studio-sidebar-settings-row" title={props.desc}>
-      <span className="dsh-studio-sidebar-settings-copy">
-        <strong>{props.title}</strong>
-      </span>
-      <span className="dsh-studio-sidebar-settings-input">
-        <Input
-          type={props.type}
-          value={draft}
-          min={props.min}
-          max={props.max}
-          placeholder={props.placeholder}
-          onChange={event => { setDraft(event.currentTarget.value) }}
-          onBlur={commit}
-          onKeyDown={event => {
-            if (event.key === 'Enter') {
-              event.preventDefault()
-              ;(event.target as HTMLInputElement).blur()
-            }
-            if (event.key === 'Escape') {
-              setDraft(props.value === undefined ? '' : String(props.value))
-              ;(event.target as HTMLInputElement).blur()
-            }
-          }}
-        />
-        {props.unit !== undefined && <span className="dsh-studio-sidebar-settings-unit">{props.unit}</span>}
-      </span>
-    </label>
+    <SettingsRow
+      title={props.title}
+      {...(props.desc === undefined ? {} : { description: props.desc })}
+      control={(
+        <span className="dsh-studio-sidebar-settings-input">
+          <Input
+            type={props.type}
+            value={draft}
+            min={props.min}
+            max={props.max}
+            placeholder={props.placeholder}
+            onChange={event => { setDraft(event.currentTarget.value) }}
+            onBlur={commit}
+            onKeyDown={event => {
+              if (event.key === 'Enter') {
+                event.preventDefault()
+                ;(event.target as HTMLInputElement).blur()
+              }
+              if (event.key === 'Escape') {
+                setDraft(props.value === undefined ? '' : String(props.value))
+                ;(event.target as HTMLInputElement).blur()
+              }
+            }}
+          />
+          {props.unit !== undefined && <span className="dsh-studio-sidebar-settings-unit">{props.unit}</span>}
+        </span>
+      )}
+    />
   )
 }
 
@@ -195,7 +197,7 @@ function FeatureSettingsPopup(props: {
         close: onClose,
       } satisfies SidebarSettingsRenderProps)
     } catch (error) {
-      body = <ErrorView message={error instanceof Error ? error.message : String(error)} />
+      body = <ErrorState message={error instanceof Error ? error.message : String(error)} />
     }
   } else {
     body = (
@@ -277,32 +279,31 @@ function FeatureCard(props: {
   const { feature, enabled, onToggle, onOpenSettings, hasSettings, meta, t } = props
   const id = feature.id
   const label = sidebarLabel(feature.title ?? id)
-  const detail = meta === '' ? id : `${id} · ${meta}`
+  const description = meta === '' ? undefined : meta
   return (
-    <div className="dsh-studio-sidebar-settings-row" data-feature-id={id} title={detail}>
-      <span className="dsh-studio-sidebar-settings-copy">
-        <strong>{label}</strong>
-      </span>
-      <span className="dsh-studio-sidebar-settings-controls">
-        {hasSettings && enabled && (
-          <button
-            type="button"
-            className="dsh-studio-sidebar-feature-gear"
-            aria-label={t('settings.feature-settings')}
-            title={t('settings.feature-settings')}
-            onClick={() => { onOpenSettings() }}
-          >
-            <IconAdjustments size={16} />
-          </button>
-        )}
-        <input
-          type="checkbox"
-          checked={enabled}
-          aria-label={sidebarLabel(feature.title ?? id)}
-          onChange={event => { onToggle(event.currentTarget.checked) }}
-        />
-      </span>
-    </div>
+    <SettingsRow
+      data-feature-id={id}
+      title={label}
+      {...(description === undefined ? {} : { description })}
+      control={(
+        <span className="dsh-studio-sidebar-settings-controls">
+          {hasSettings && enabled && (
+            <ToolbarAction
+              className="dsh-studio-sidebar-feature-gear"
+              icon={<IconAdjustments size={16} />}
+              label={t('settings.feature-settings')}
+              onClick={() => { onOpenSettings() }}
+            />
+          )}
+          <input
+            type="checkbox"
+            checked={enabled}
+            aria-label={sidebarLabel(feature.title ?? id)}
+            onChange={event => { onToggle(event.currentTarget.checked) }}
+          />
+        </span>
+      )}
+    />
   )
 }
 
@@ -347,46 +348,50 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
     />
   )
   return (
-    <div className="dsh-studio-sidebar-settings">
-      <div className="dsh-studio-sidebar-settings-heading">
-        <div className="dsh-studio-sidebar-settings-copy">
-          <strong>{props.t('settings.title')}</strong>
-          <p>{props.t('settings.description')}</p>
-        </div>
+    <SettingsSection
+      className="dsh-studio-sidebar-settings"
+      title={props.t('settings.title')}
+      description={props.t('settings.description')}
+      actions={(
         <Button variant="outline" size="sm" onClick={props.reset}>
           {props.t('settings.reset')}
         </Button>
-      </div>
+      )}
+    >
       <div className="dsh-studio-sidebar-settings-grid">
-        <label className="dsh-studio-sidebar-settings-row" title={props.t('settings.open-by-default-description')}>
-          <span className="dsh-studio-sidebar-settings-copy">
-            <strong>{props.t('settings.open-by-default')}</strong>
-          </span>
-          <input
-            type="checkbox"
-            checked={state.openByDefault}
-            onChange={event => { props.setOpenByDefault(event.currentTarget.checked) }}
-          />
-        </label>
-        <label className="dsh-studio-sidebar-settings-row dsh-studio-sidebar-settings-size" title={props.t('settings.width-value', { width: state.width })}>
-          <span className="dsh-studio-sidebar-settings-copy">
-            <strong>{props.t('settings.width')}</strong>
-          </span>
-          <input
-            type="range"
-            min={SIDEBAR_MIN_WIDTH}
-            max={SIDEBAR_MAX_WIDTH}
-            step="10"
-            value={state.width}
-            onChange={event => { props.setWidth(Number(event.currentTarget.value)) }}
-          />
-        </label>
+        <SettingsRow
+          title={props.t('settings.open-by-default')}
+          description={props.t('settings.open-by-default-description')}
+          control={(
+            <input
+              type="checkbox"
+              checked={state.openByDefault}
+              aria-label={props.t('settings.open-by-default')}
+              onChange={event => { props.setOpenByDefault(event.currentTarget.checked) }}
+            />
+          )}
+        />
+        <SettingsRow
+          className="dsh-studio-sidebar-settings-size"
+          title={props.t('settings.width')}
+          description={props.t('settings.width-value', { width: state.width })}
+          control={(
+            <input
+              type="range"
+              min={SIDEBAR_MIN_WIDTH}
+              max={SIDEBAR_MAX_WIDTH}
+              step="10"
+              value={state.width}
+              aria-label={props.t('settings.width')}
+              onChange={event => { props.setWidth(Number(event.currentTarget.value)) }}
+            />
+          )}
+        />
       </div>
-      <section>
-        <div className="dsh-studio-sidebar-settings-copy dsh-studio-sidebar-settings-section-head">
-          <strong>{props.t('settings.runtime')}</strong>
-          <p>{props.t('settings.runtime-description')}</p>
-        </div>
+      <SettingsSection
+        title={props.t('settings.runtime')}
+        description={props.t('settings.runtime-description')}
+      >
         <div className="dsh-studio-sidebar-settings-grid">
         <SwitchRow
           title={props.t('settings.agent-terminal-tools')}
@@ -418,35 +423,34 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         />
         </div>
         {runtimeState.error !== null && (
-          <ErrorView
+          <ErrorState
             message={props.t(runtimeState.error === 'load'
               ? 'settings.runtime-load-failed'
               : 'settings.runtime-save-failed')}
           />
         )}
-      </section>
+      </SettingsSection>
       <section>
         <div className="dsh-studio-sidebar-settings-grid">
-          <div className="dsh-studio-sidebar-settings-row">
-            <span className="dsh-studio-sidebar-settings-copy">
-              <strong>{props.t('source-control-ai.title')}</strong>
-              <p>{props.t('source-control-ai.description')}</p>
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => { setSourceControlAiSettingsOpen(true) }}
-            >
-              {props.t('settings.feature-settings')}
-            </Button>
-          </div>
+          <SettingsRow
+            title={props.t('source-control-ai.title')}
+            description={props.t('source-control-ai.description')}
+            control={(
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { setSourceControlAiSettingsOpen(true) }}
+              >
+                {props.t('settings.feature-settings')}
+              </Button>
+            )}
+          />
         </div>
       </section>
-      <section>
-        <div className="dsh-studio-sidebar-settings-copy dsh-studio-sidebar-settings-section-head">
-          <strong>{props.t('settings.tools')}</strong>
-          <p>{props.t('settings.tools-description')}</p>
-        </div>
+      <SettingsSection
+        title={props.t('settings.tools')}
+        description={props.t('settings.tools-description')}
+      >
         <div className="dsh-studio-sidebar-settings-grid">
           {tabs.map(descriptor => (
             <FeatureCard
@@ -461,12 +465,11 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
             />
           ))}
         </div>
-      </section>
-      <section>
-        <div className="dsh-studio-sidebar-settings-copy dsh-studio-sidebar-settings-section-head">
-          <strong>{props.t('settings.viewers')}</strong>
-          <p>{props.t('settings.viewers-description')}</p>
-        </div>
+      </SettingsSection>
+      <SettingsSection
+        title={props.t('settings.viewers')}
+        description={props.t('settings.viewers-description')}
+      >
         <div className="dsh-studio-sidebar-settings-grid">
           {viewers.map(descriptor => (
             <FeatureCard
@@ -481,7 +484,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
             />
           ))}
         </div>
-      </section>
+      </SettingsSection>
       {popup}
       <Modal
         open={sourceControlAiSettingsOpen}
@@ -501,7 +504,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           <SourceControlAiSettingsPanel t={props.t} />
         </div>
       </Modal>
-    </div>
+    </SettingsSection>
   )
 }
 

@@ -12,7 +12,7 @@ import { getDiffRuntime, sidebarScopeKey } from '../runtimes/registry.ts'
 import { useSidebarChromeStore } from '../runtimes/chrome-store.ts'
 import { worktreeDocKey, worktreeListKey } from '../runtimes/diff-runtime.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
-import { EmptyView, ErrorView, LoadingView } from '../kit/status.tsx'
+import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffToolbar } from '../diff/diff-toolbar.tsx'
 import { Scrollable } from '@dsh-studio/shared/ui'
@@ -131,13 +131,13 @@ export function DiffSurfaceView({
     return () => { alive = false }
   }, [diff, isImagePath, surface.cwd, surface.filePath, surface.staged])
   if (doc !== undefined && doc.phase === 'error') {
-    return <ErrorView message={doc.message ?? t('overlay.no-content')} />
+    return <ErrorState message={doc.message ?? t('overlay.no-content')} />
   }
   if (doc === undefined || doc.phase === 'loading' || diff === null || document === null) {
-    return <LoadingView label={t('overlay.loading')} />
+    return <LoadingState label={t('overlay.loading')} />
   }
   if (diff.trim() === '') {
-    return <ErrorView message={t('workspace.no-text-diff')} />
+    return <ErrorState message={t('workspace.no-text-diff')} />
   }
   if (diff.includes('Binary files ') && diff.includes(' differ')) {
     return (
@@ -153,7 +153,7 @@ export function DiffSurfaceView({
             />
           </Scrollable>
         ) : (
-          <LoadingView label={t('workspace.loading-diff')} />
+          <LoadingState label={t('workspace.loading-diff')} />
         )}
       </div>
     )
@@ -162,7 +162,7 @@ export function DiffSurfaceView({
     return (
       <div className="dsh-studio-diff-surface">
         <DiffToolbar t={t} />
-        <EmptyView title={t('diff.too-large', { lines: document.lines.length })} />
+        <EmptyState title={t('diff.too-large', { lines: document.lines.length })} />
       </div>
     )
   }
@@ -414,15 +414,15 @@ export function DiffAllSurfaceView({
 
   const rows = useMemo(() => buildDiffTreeRows(files ?? [], selectedPath, collapsedDirs), [files, selectedPath, collapsedDirs])
 
-  if (error !== '') return <ErrorView message={error} />
+  if (error !== '') return <ErrorState message={error} />
   if (list !== undefined && list.phase === 'error') {
-    return <ErrorView message={list.message ?? t('overlay.no-content')} />
+    return <ErrorState message={list.message ?? t('overlay.no-content')} />
   }
   if (files === null) {
-    return <LoadingView label={t('overlay.loading')} />
+    return <LoadingState label={t('overlay.loading')} />
   }
   if (files.length === 0) {
-    return <ErrorView message={t('workspace.no-text-diff')} />
+    return <ErrorState message={t('workspace.no-text-diff')} />
   }
   return (
     <div className="dsh-studio-diff-all-surface">
@@ -464,7 +464,7 @@ export function DiffAllSurfaceView({
             wordWrap={wordWrap}
             onExpandContext={expandContext}
           />
-          {expanding.size > 0 ? <LoadingView label={t('workspace.loading-diff')} /> : null}
+          {expanding.size > 0 ? <LoadingState label={t('workspace.loading-diff')} /> : null}
         </Scrollable>
       </div>
     </div>

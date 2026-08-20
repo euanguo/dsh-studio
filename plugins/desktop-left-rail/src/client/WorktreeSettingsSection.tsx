@@ -17,6 +17,7 @@ import {
 } from './left-rail-settings.ts'
 import { fetchWorktreeDefaults } from './worktree-api.ts'
 import { sanitizeWorktreeDir, type WorktreeDefaultsResult } from '@dsh-studio/shared/worktree-preferences'
+import { FieldError, SettingsRow, SettingsSection } from '@dsh-studio/shared/ui'
 import { SettingsSectionCss as css } from './styles.js'
 
 type SectionTranslate = WorkspaceBrowserProps['t']
@@ -129,69 +130,66 @@ export function WorktreeSettingsSection({ t }: WorktreeSettingsSectionProps) {
   }
 
   return (
-    <div className={css.section}>
-      <div className={css.sectionHead}>
-        <strong>{t('settings.worktree.title')}</strong>
-        <p>{t('settings.worktree.description')}</p>
-      </div>
-      <div className={css.row} title={t('settings.worktree.dirDesc')}>
-        <span className={css.rowCopy}>
-          <strong>{t('settings.worktree.dir')}</strong>
-          <span className={css.rowHint}>
-            {custom
-              ? t('settings.worktree.dirCustom')
-              : (effectiveRoot !== undefined
-                ? t('settings.worktree.dirDefault', { path: effectiveRoot })
-                : t('settings.worktree.dirDefaultPending'))}
-          </span>
-        </span>
-        <span className={css.rowControl}>
-          <Input
-            type="text"
-            value={dirDraft}
-            placeholder={effectiveRoot ?? t('settings.worktree.dirPlaceholder')}
-            aria-label={t('settings.worktree.dir')}
-            disabled={saving || !loadedOnce}
-            onChange={event => { setDirDraft(event.currentTarget.value) }}
-            onKeyDown={event => {
-              if (event.key === 'Enter') { event.preventDefault(); void commit() }
-              if (event.key === 'Escape') {
-                setDirDraft(slice?.value.worktreeDir ?? '')
-                event.currentTarget.blur()
-              }
-            }}
-            onBlur={() => { void commit() }}
-          />
-          {custom && (
-            <Button variant="ghost" size="sm" disabled={saving} onClick={resetDir}>
-              {t('settings.worktree.dirReset')}
-            </Button>
-          )}
-        </span>
-      </div>
-      <label className={css.row} title={t('settings.worktree.nestDesc')}>
-        <span className={css.rowCopy}>
-          <strong>{t('settings.worktree.nest')}</strong>
-        </span>
-        <span className={css.rowControl}>
+    <SettingsSection
+      title={t('settings.worktree.title')}
+      description={t('settings.worktree.description')}
+    >
+      <SettingsRow
+        title={t('settings.worktree.dir')}
+        description={custom
+          ? t('settings.worktree.dirCustom')
+          : (effectiveRoot !== undefined
+            ? t('settings.worktree.dirDefault', { path: effectiveRoot })
+            : t('settings.worktree.dirDefaultPending'))}
+        disabled={saving || !loadedOnce}
+        control={(
+          <>
+            <Input
+              id="dsh-studio-worktree-dir"
+              type="text"
+              value={dirDraft}
+              placeholder={effectiveRoot ?? t('settings.worktree.dirPlaceholder')}
+              aria-label={t('settings.worktree.dir')}
+              disabled={saving || !loadedOnce}
+              onChange={event => { setDirDraft(event.currentTarget.value) }}
+              onKeyDown={event => {
+                if (event.key === 'Enter') { event.preventDefault(); void commit() }
+                if (event.key === 'Escape') {
+                  setDirDraft(slice?.value.worktreeDir ?? '')
+                  event.currentTarget.blur()
+                }
+              }}
+              onBlur={() => { void commit() }}
+            />
+            {custom && (
+              <Button variant="ghost" size="sm" disabled={saving} onClick={resetDir}>
+                {t('settings.worktree.dirReset')}
+              </Button>
+            )}
+          </>
+        )}
+      />
+      <SettingsRow
+        title={t('settings.worktree.nest')}
+        description={t('settings.worktree.nestDesc')}
+        disabled={saving || !loadedOnce}
+        control={(
           <input
             type="checkbox"
             checked={nest}
             aria-label={t('settings.worktree.nest')}
             disabled={saving || !loadedOnce}
-            onChange={event => {
-              setNest(event.currentTarget.checked)
-            }}
+            onChange={event => { setNest(event.currentTarget.checked) }}
           />
-        </span>
-      </label>
+        )}
+      />
       {dirDirty && !saving && (
         <p className={css.pendingHint}>{t('settings.worktree.dirPending')}</p>
       )}
       {nestDirty && !saving && !dirDirty && (
         <p className={css.pendingHint}>{t('settings.worktree.nestPending')}</p>
       )}
-      {error !== null && <p className={css.error} role="alert">{error}</p>}
-    </div>
+      {error !== null && <FieldError>{error}</FieldError>}
+    </SettingsSection>
   )
 }

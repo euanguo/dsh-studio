@@ -545,25 +545,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
 }
 
-.dsh-studio-file-viewer-chrome-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  cursor: pointer;
-}
-
-.dsh-studio-file-viewer-chrome-action:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
 .dsh-studio-file-surface-body {
   flex: 1;
 }
@@ -715,27 +696,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   flex: none;
 }
 
-.dsh-studio-image-toolbar button,
-.dsh-studio-pdf-toolbar button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 24px;
-  height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-primary, #1f2328);
-  font-size: var(--dsh-studio-font-xs);
-  cursor: pointer;
-}
-
-.dsh-studio-image-toolbar button:hover,
-.dsh-studio-pdf-toolbar button:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-}
-
 .dsh-studio-image-toolbar span {
   min-width: 44px;
   text-align: center;
@@ -856,26 +816,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   align-items: center;
   gap: 4px;
   flex: none;
-}
-
-.dsh-studio-diff-toolbar-actions button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-  height: 24px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  cursor: pointer;
-}
-
-.dsh-studio-diff-toolbar-actions button:hover,
-.dsh-studio-diff-toolbar-actions button[aria-pressed='true'] {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
 }
 
 .dsh-studio-diff-context-bar {

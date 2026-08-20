@@ -45,14 +45,14 @@ import workspaceCss from './sidebar.css'
 import sourceControlCss from './source-control/source-control.css'
 import centerSurfaceCss from './surfaces/center-surface.css'
 import diffViewerCss from './diff/diff-viewer.css'
-import sharedUiStyles from '@dsh-studio/shared/ui-styles'
-import themeCss from '@dsh-studio/shared/theme.css'
+import { ensureSharedUiStyles } from '@dsh-studio/shared/ui'
 import terminalViewCss from '@dsh-studio/shared/terminal-view.css'
 import xtermCss from '@xterm/xterm/css/xterm.css'
 
 export class WorkspaceToolsService implements WorkspaceTools {
   private state: WorkspaceToolsState
   private readonly listeners = new Set<() => void>()
+  private stopSharedStyle: (() => void) | undefined
   private stopStyle: (() => void) | undefined
   private element: HTMLDivElement | undefined
   private root: Root | undefined
@@ -252,9 +252,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
   mount(): void {
     if (this.state.open) this.pinnedSummary.setOpen(false)
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
+    this.stopSharedStyle = ensureSharedUiStyles('dsh-studio-sidebar-shared-ui')
     this.stopStyle = ensureStyle('dsh-studio-sidebar', [
-      themeCss,
-      sharedUiStyles,
       xtermCss,
       terminalViewCss,
       workspaceCss,
@@ -352,6 +351,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.element?.remove()
     this.toastRoot?.unmount()
     this.toastElement?.remove()
+    this.stopSharedStyle?.()
+    this.stopSharedStyle = undefined
     this.stopStyle?.()
     this.stopStyle = undefined
     delete document.documentElement.dataset.dshStudioDesktopSidebarOpen

@@ -52,7 +52,7 @@ import {
   resolveSidebarPath,
 } from '@dsh-studio/shared/path'
 import type { WorkspaceFilesResponse, WorkspaceFileEntry, WorkspaceFileKind } from '../protocol.ts'
-import { EmptyView, ErrorView, LoadingView } from './kit/status.tsx'
+import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import {
   sidebarApi,
   mapSidebarFile,
@@ -218,7 +218,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
           />
         )
       })}
-      {error !== '' && <ErrorView message={error} />}
+      {error !== '' && <ErrorState message={error} />}
       <button
         type="button"
         className="dsh-studio-side-menu-close"
@@ -705,7 +705,7 @@ export function FilesView({
   })
 
   if (cwd === undefined) {
-    return <div className="dsh-studio-side-empty">{t('files.select-workspace')}</div>
+    return <EmptyState className="dsh-studio-side-empty" title={t('files.select-workspace')} />
   }
   return (
     <div className="dsh-studio-files-view">
@@ -754,9 +754,9 @@ export function FilesView({
       </div>
       {searchHits !== null ? (
         <Scrollable className="dsh-studio-file-search-results">
-          {searching ? <LoadingView label={t('files.loading')} /> : null}
+          {searching ? <LoadingState label={t('files.loading')} /> : null}
           {!searching && searchHits.length === 0 ? (
-            <EmptyView title={t('files.search-no-matches')} />
+            <EmptyState title={t('files.search-no-matches')} />
           ) : null}
           {searchHits.slice(0, SEARCH_RESULT_LIMIT).map(hit => (
             <button
@@ -781,8 +781,8 @@ export function FilesView({
           ))}
         </Scrollable>
       ) : null}
-      {loading && !entriesByDir.has(cwd) && <LoadingView label={t('files.loading')} />}
-      {error !== '' && <ErrorView message={error} />}
+      {loading && !entriesByDir.has(cwd) && <LoadingState label={t('files.loading')} />}
+      {error !== '' && <ErrorState message={error} />}
       <Scrollable className="dsh-studio-file-list" onContextMenu={openBackgroundMenu}>
         {displayItems.map(item => (
           item.kind === 'inline' ? (
@@ -852,7 +852,7 @@ export function FilesView({
           )
         ))}
         {!loading && !error && rows.length === 0 && inlineCreate === null && (
-          <EmptyView title={t('files.empty-directory')} />
+          <EmptyState title={t('files.empty-directory')} />
         )}
       </Scrollable>
       <Menu
@@ -912,12 +912,12 @@ export function FileView({
   }, [cwd, path, scope])
 
   if (cwd === undefined || path === undefined) {
-    return <div className="dsh-studio-side-empty">{t('files.select-workspace')}</div>
+    return <EmptyState className="dsh-studio-side-empty" title={t('files.select-workspace')} />
   }
-  if (error !== '') return <ErrorView message={error} />
-  if (snapshot === null) return <LoadingView label={t('files.loading')} />
+  if (error !== '') return <ErrorState message={error} />
+  if (snapshot === null) return <LoadingState label={t('files.loading')} />
   if (snapshot.kind !== 'file') {
-    return <EmptyView title={t('files.not-file')} />
+    return <EmptyState title={t('files.not-file')} />
   }
   const head = snapshot.binary
     ? new Uint8Array([0])
@@ -941,7 +941,7 @@ export function FileView({
           {t('files.open')}
         </button>
       </div>
-      <EmptyView title={t('files.no-viewer', { size: formatSize(snapshot.size) })} />
+      <EmptyState title={t('files.no-viewer', { size: formatSize(snapshot.size) })} />
     </Scrollable>
   )
 }
@@ -951,11 +951,12 @@ function OrphanedTab({ tab, t }: {
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   return (
-    <div className="dsh-studio-side-empty">
-      <strong>{tab.title}</strong>
-      <p>{t('side.orphaned-tab')}</p>
-      <code className="dsh-studio-orphaned-type">{tab.type}</code>
-    </div>
+    <EmptyState
+      className="dsh-studio-side-empty"
+      title={tab.title}
+      description={t('side.orphaned-tab')}
+      action={<code className="dsh-studio-orphaned-type">{tab.type}</code>}
+    />
   )
 }
 

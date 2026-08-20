@@ -1,7 +1,9 @@
+import { useState } from 'react'
 import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
+import { Button, Menu, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import { IconCheckOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { ensureSharedUiStyles, SettingsRow } from '@dsh-studio/shared/ui'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
-import desktopSkinsCss from './desktop-skins.css'
 import {
   DESKTOP_SKINS_MESSAGES,
   type DesktopSkinsMessage,
@@ -60,21 +62,16 @@ interface SkinOption {
   id: string | null
   label: DesktopSkinsMessage
   mode: DesktopSkinsMessage
-  preview: string
-  accent: string
 }
 
 export const inject = ['locale', 'slots', 'theme']
 
 const SETTINGS_NAMESPACE = 'dsh-studio.desktop-skins'
-const SETTINGS_STYLE_ATTRIBUTE = 'data-dsh-studio-skins'
 
 const DEFAULT_OPTION: SkinOption = {
   id: null,
   label: 'skins.name.default',
   mode: 'skins.mode.system',
-  preview: 'linear-gradient(135deg, #fafafa 0 49%, #30343b 50% 100%)',
-  accent: '#80868f',
 }
 
 function optionFor(skin: DesktopSkin): SkinOption {
@@ -82,8 +79,6 @@ function optionFor(skin: DesktopSkin): SkinOption {
     id: skin.id,
     label: skin.label,
     mode: skin.colorScheme === 'light' ? 'skins.mode.light' : 'skins.mode.dark',
-    preview: skin.preview,
-    accent: skin.accent,
   }
 }
 
@@ -92,56 +87,47 @@ const OPTIONS = [DEFAULT_OPTION, ...DESKTOP_SKINS.map(optionFor)]
 function SkinSettingsRow({ setSkin, t, useStore }: SkinRowProps): JSX.Element {
   const activeId = useStore(state => state.activeId)
   const ready = useStore(state => state.ready)
-  return (
-    <div className="dsh-studio-skins-group">
-      <div className="dsh-studio-skins-heading">
-        <div className="dsh-studio-skins-title">{t('skins.title')}</div>
-        <div className="dsh-studio-skins-description">{t('skins.description')}</div>
-      </div>
-      <div className="dsh-studio-skins-grid">
-        {OPTIONS.map(option => {
-          const selected = activeId === (option.id ?? '')
-          return (
-            <button
-              key={option.id ?? 'default'}
-              type="button"
-              className="dsh-studio-skins-tile"
-              data-selected={selected}
-              aria-label={t(option.label)}
-              aria-pressed={selected}
-              disabled={!ready}
-              onClick={() => { setSkin(option.id) }}
-            >
-              <span
-                className="dsh-studio-skins-preview"
-                style={{ background: option.preview }}
-              />
-              <span className="dsh-studio-skins-meta">
-                <span className="dsh-studio-skins-swatch" style={{ background: option.accent }} />
-                <span className="dsh-studio-skins-copy">
-                  <span className="dsh-studio-skins-name">{t(option.label)}</span>
-                  <span className="dsh-studio-skins-mode">{t(option.mode)}</span>
-                </span>
-                {selected && (
-                  <span className="dsh-studio-skins-check" title={t('skins.selected')}>
-                    <IconCheckOutline16 size={14} />
-                  </span>
-                )}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
+  const [open, setOpen] = useState(false)
+  const selected = OPTIONS.find(option => (option.id ?? '') === activeId) ?? DEFAULT_OPTION
+  const items: MenuEntry[] = OPTIONS.map(option => ({
+    id: option.id ?? '',
+    label: `${t(option.label)} · ${t(option.mode)}`,
+    ...(option.id === selected.id ? { icon: <IconCheckOutline16 size={14} /> } : {}),
+  }))
 
-function installSettingsStyles(): () => void {
-  const style = document.createElement('style')
-  style.setAttribute(SETTINGS_STYLE_ATTRIBUTE, 'true')
-  style.textContent = desktopSkinsCss
-  document.head.append(style)
-  return () => { style.remove() }
+  return (
+    <SettingsRow
+      title={t('skins.title')}
+      description={t('skins.description')}
+      disabled={!ready}
+      control={(
+        <Menu
+          open={open}
+          anchor={(
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={!ready}
+              aria-haspopup="menu"
+              aria-expanded={open}
+              onClick={() => { setOpen(value => !value) }}
+            >
+              {t(selected.label)}
+            </Button>
+          )}
+          portal
+          compact
+          selectedId={selected.id ?? ''}
+          items={items}
+          onSelect={id => {
+            setOpen(false)
+            setSkin(id === '' ? null : id)
+          }}
+          onClose={() => { setOpen(false) }}
+        />
+      )}
+    />
+  )
 }
 
 function syncActions(
@@ -161,9 +147,12 @@ export function apply(ctx: ClientContext): void {
     () => locale.register('dsh-studio.desktop-skins', DESKTOP_SKINS_MESSAGES),
     'dsh-studio: desktop skins dictionaries',
   )
+
   ctx.effect(
-    () => typeof document === 'undefined' ? undefined : installSettingsStyles(),
-    'dsh-studio: desktop skins settings styles',
+    () => typeof document === 'undefined'
+      ? undefined
+      : ensureSharedUiStyles('dsh-studio-desktop-skins-shared-ui'),
+    'dsh-studio: desktop settings shared UI styles',
   )
 
   const storage = typeof fetch === 'undefined'

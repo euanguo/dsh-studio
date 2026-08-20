@@ -16,6 +16,7 @@ import type { ErrorInfo, ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import {
+  Button,
   Menu,
   type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -33,7 +34,7 @@ import {
   getIconForFile,
 } from '@dsh-studio/shared/tabler-icons'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { ErrorView } from '../kit/status.tsx'
+import { EmptyState, ErrorState } from '@dsh-studio/shared/ui'
 import { centerColumnElement, leftRailToggleButton, readLeftRailOpen } from './dsh-dom.ts'
 import type { SessionsService, WorkspacesService } from '../client-types.ts'
 import { sidebarApi } from '../sidebar-api.ts'
@@ -397,7 +398,7 @@ export function CenterSurfaceBody({
   return (
     <div className="dsh-studio-center-surface-body" data-hidden={hidden || undefined}>
       {content ?? (
-        <div className="dsh-studio-center-surface-empty">—</div>
+        <EmptyState layout="centered" className="dsh-studio-center-surface-empty" title="—" />
       )}
     </div>
   )
@@ -663,10 +664,13 @@ class CenterSurfaceHostErrorBoundary extends Component<
     if (this.state.error === null) return this.props.children
     return (
       <div className="dsh-studio-center-host-crash">
-        <ErrorView
+        <ErrorState
           message={this.props.t('center.crash')}
-          retryLabel={this.props.t('overlay.retry')}
-          onRetry={() => { this.setState({ error: null }) }}
+          action={(
+            <Button variant="outline" size="sm" onClick={() => { this.setState({ error: null }) }}>
+              {this.props.t('overlay.retry')}
+            </Button>
+          )}
         />
       </div>
     )

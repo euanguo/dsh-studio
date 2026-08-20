@@ -12,6 +12,7 @@ import {
 } from '@dsh-studio/shared/tabler-icons'
 import { useDiffViewPreferences } from './diff-view-preferences.ts'
 import { binding, formatKeymapHint } from '../kit/keymap.ts'
+import { ToolbarAction } from '@dsh-studio/shared/ui'
 
 /** F7 / Shift+F7 change-navigation hints (match the keymap registrations). */
 const PREV_CHANGE_HINT = formatKeymapHint(binding({ key: 'F7' }))
@@ -38,31 +39,31 @@ export function DiffToolbar({
       <div className="dsh-studio-diff-toolbar-leading">{leading}</div>
       <div className="dsh-studio-diff-toolbar-actions">
         {onPrevChange !== undefined ? (
-          <button type="button" onClick={onPrevChange} title={`Previous change (${PREV_CHANGE_HINT})`}>
-            <IconChevronDown size={14} />
-          </button>
+          <ToolbarAction
+            icon={<IconChevronDown size={14} />}
+            label={`Previous change (${PREV_CHANGE_HINT})`}
+            onClick={onPrevChange}
+          />
         ) : null}
         {onNextChange !== undefined ? (
-          <button type="button" onClick={onNextChange} title={`Next change (${NEXT_CHANGE_HINT})`}>
-            <IconChevronRight size={14} />
-          </button>
+          <ToolbarAction
+            icon={<IconChevronRight size={14} />}
+            label={`Next change (${NEXT_CHANGE_HINT})`}
+            onClick={onNextChange}
+          />
         ) : null}
-        <button
-          type="button"
-          aria-pressed={layout === 'split'}
-          title={layout === 'split' ? t('diff.layout.split') : t('diff.layout.unified')}
+        <ToolbarAction
+          icon={<IconLayoutList size={14} />}
+          label={layout === 'split' ? t('diff.layout.split') : t('diff.layout.unified')}
+          pressed={layout === 'split'}
           onClick={toggleLayout}
-        >
-          <IconLayoutList size={14} />
-        </button>
-        <button
-          type="button"
-          aria-pressed={wordWrap}
-          title={t('diff.wrap')}
+        />
+        <ToolbarAction
+          icon={<IconList size={14} />}
+          label={t('diff.wrap')}
+          pressed={wordWrap}
           onClick={toggleWordWrap}
-        >
-          <IconList size={14} />
-        </button>
+        />
       </div>
     </div>
   )

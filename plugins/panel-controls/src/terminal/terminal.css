@@ -68,9 +68,7 @@
 }
 
 .dsh-studio-terminal-tab-close,
-.dsh-studio-terminal-add,
-.dsh-studio-terminal-action,
-.dsh-studio-terminal-empty button {
+.dsh-studio-terminal-add {
   border: 0;
   font: inherit;
   cursor: pointer;
@@ -89,8 +87,7 @@
 }
 
 .dsh-studio-terminal-tab-close:hover,
-.dsh-studio-terminal-add:hover,
-.dsh-studio-terminal-action:hover {
+.dsh-studio-terminal-add:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
@@ -123,18 +120,6 @@
 
 .dsh-studio-terminal-actions { gap: var(--dsh-studio-space-0); }
 
-.dsh-studio-terminal-action {
-  display: grid;
-  place-items: center;
-  width: 27px;
-  height: var(--dsh-studio-control-sm);
-  padding: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--dsh-studio-font-sm);
-}
-
 .dsh-studio-terminal-settings {
   position: absolute;
   z-index: 8;
@@ -163,24 +148,8 @@
   gap: var(--dsh-studio-space-3);
 }
 
-.dsh-studio-terminal-settings label {
-  display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
-  align-items: center;
-  gap: var(--dsh-studio-space-3);
-  color: var(--dsw-alias-label-secondary, #57606a);
-}
-
 .dsh-studio-terminal-settings-footer {
   color: var(--dsw-alias-label-dimmed, #8c959f);
-}
-
-.dsh-studio-terminal-empty button {
-  padding: var(--dsh-studio-space-1) 9px;
-  border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-primary, #1f2328);
 }
 
 /* The resize handle floats over the dock's top edge (center strip only, so
@@ -276,16 +245,6 @@
    (scrollbarSlider* bound to the --dsw-alias-scrollbar-* tokens). */
 .dsh-studio-terminal-view .xterm .xterm-scrollable-element > .xterm-scrollbar > .xterm-slider {
   border-radius: 4px;
-}
-
-.dsh-studio-terminal-empty {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--dsh-studio-space-3);
-  color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: var(--dsh-studio-font-md);
 }
 
 @media (prefers-reduced-motion: reduce) {

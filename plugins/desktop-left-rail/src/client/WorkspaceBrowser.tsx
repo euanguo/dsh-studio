@@ -51,6 +51,7 @@ import { toast } from '@dsh-studio/shared/toast'
 // forked CSS Modules — see scripts/left-rail-styles.mjs). The scope
 // attribute is mounted on the region root below.
 import { WorkspaceBrowserCss as css } from './styles.js'
+import { FieldError, StatusLine } from '@dsh-studio/shared/ui'
 
 /**
  * Column slide length (--ds-transition-duration-slow): rail-search focus waits it out —
@@ -1170,9 +1171,9 @@ export function WorkspaceBrowser({
           }}
         />
         {renameDuplicate && (
-          <div className={css.renameError} role="alert">{t('conflict.named', { name: renameTrimmed })}</div>
+          <FieldError className={css.renameError}>{t('conflict.named', { name: renameTrimmed })}</FieldError>
         )}
-        {renameError !== null && <div className={css.renameError} role="alert">{renameError}</div>}
+        {renameError !== null && <FieldError className={css.renameError}>{renameError}</FieldError>}
       </Modal>
 
       <Modal
@@ -1204,7 +1205,7 @@ export function WorkspaceBrowser({
             }
           }}
         />
-        {sessionRenameError !== null && <div className={css.renameError} role="alert">{sessionRenameError}</div>}
+        {sessionRenameError !== null && <FieldError className={css.renameError}>{sessionRenameError}</FieldError>}
       </Modal>
       <Modal
         open={deleteTarget !== null}
@@ -1249,8 +1250,8 @@ export function WorkspaceBrowser({
             </span>
           </label>
         )}
-        {deleting && <div className={css.deleteStatus} role="status">{t('delete.pending')}</div>}
-        {deleteError !== null && <div className={css.renameError} role="alert">{deleteError}</div>}
+        {deleting && <StatusLine className={css.deleteStatus} tone="loading">{t('delete.pending')}</StatusLine>}
+        {deleteError !== null && <FieldError className={css.renameError}>{deleteError}</FieldError>}
       </Modal>
 
       {/* New WorkTree */}
@@ -1385,7 +1386,7 @@ export function WorkspaceBrowser({
             </div>
           </div>
         )}
-        {newWtError !== null && <div className={css.renameError} role="alert">{newWtError}</div>}
+        {newWtError !== null && <FieldError className={css.renameError}>{newWtError}</FieldError>}
       </Modal>
 
       {/* Rename project alias */}
@@ -1504,7 +1505,7 @@ export function WorkspaceBrowser({
           title={t('worktree.removePhysical')}
           footer={<Button variant="outline" onClick={closePhysicalRemove}>{t('close')}</Button>}
         >
-          <div className={css.renameError} role="alert">{physicalRemoveError}</div>
+          <FieldError className={css.renameError}>{physicalRemoveError}</FieldError>
         </Modal>
       )}
       {/* Remove project */}
@@ -1530,7 +1531,7 @@ export function WorkspaceBrowser({
           </>
         )}
       >
-        {removeProjectError !== null && <div className={css.renameError} role="alert">{removeProjectError}</div>}
+        {removeProjectError !== null && <FieldError className={css.renameError}>{removeProjectError}</FieldError>}
       </Modal>
     </div>
   )

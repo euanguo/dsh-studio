@@ -74,9 +74,10 @@ test('ensureStyle is idempotent per id and refreshes changed css', () => {
   assert.equal(head.children.size, 1)
   assert.equal(element.textContent, 'a{color:blue}')
 
-  // One id, one mount: either disposer unmounts it (no refcounting — every
-  // consumer owns exactly one mount/dismount pair).
+  // Shared ids retain the element until every consumer releases its mount.
   disposeFirst()
+  assert.equal(head.children.size, 1)
+  disposeSecond()
   assert.equal(head.children.size, 0)
   disposeSecond()
   assert.equal(head.children.size, 0)

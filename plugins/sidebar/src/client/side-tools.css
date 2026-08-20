@@ -111,6 +111,19 @@
   font-size: var(--dsh-studio-font-xs);
   cursor: default;
 }
+.dsh-studio-bottom-workbench.is-empty .dsh-studio-ui-empty {
+  min-height: 0;
+  flex: none;
+  gap: 0;
+  padding: 0;
+}
+
+.dsh-studio-bottom-workbench.is-empty .dsh-studio-ui-empty-title {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 400;
+}
+
 .dsh-studio-bottom-workbench.is-empty[data-dragging='true'] {
   background: color-mix(in srgb, var(--dsh-studio-accent, #0969da) 8%, transparent);
 }
@@ -613,54 +626,10 @@
   color: var(--dsw-alias-label-primary);
 }
 
-.dsh-studio-sidebar-settings-copy {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.dsh-studio-sidebar-settings-heading {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 4px 0 8px;
-}
-
 .dsh-studio-sidebar-settings-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 24px;
-}
-
-.dsh-studio-sidebar-settings-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-  min-height: 36px;
-  padding: 6px 0;
-  border-bottom: 1px solid var(--dsw-alias-border-l2);
-}
-
-.dsh-studio-sidebar-settings-copy strong {
-  overflow: hidden;
-  font-size: 13px;
-  font-weight: 400;
-  line-height: 20px;
-  color: var(--dsw-alias-label-primary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dsh-studio-sidebar-settings p,
-.dsh-studio-sidebar-settings small {
-  margin: 0;
-  font-size: 12px;
-  font-weight: 400;
-  line-height: 18px;
-  color: var(--dsw-alias-label-tertiary);
+  grid-template-columns: minmax(0, 1fr);
+  column-gap: 0;
 }
 
 .dsh-studio-sidebar-settings-controls {
@@ -712,15 +681,6 @@
   transform: translateX(14px);
 }
 
-.dsh-studio-sidebar-settings section {
-  display: flex;
-  flex-direction: column;
-}
-
-.dsh-studio-sidebar-settings-section-head {
-  padding: 12px 0 4px;
-}
-
 .dsh-studio-sidebar-feature-gear {
   display: grid;
   place-items: center;
@@ -755,7 +715,7 @@
   flex-direction: column;
 }
 
-.dsh-studio-sidebar-settings-popup-body .dsh-studio-sidebar-settings-row {
+.dsh-studio-sidebar-settings-popup-body .dsh-studio-ui-settings-row {
   padding-right: 0;
 }
 

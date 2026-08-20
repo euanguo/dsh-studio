@@ -7,7 +7,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { loadMermaidChunk } from '../chunk-loader.ts'
-import { LoadingView } from '../kit/status.tsx'
+import { LoadingState } from '@dsh-studio/shared/ui'
 import { Scrollable } from '@dsh-studio/shared/ui'
 
 export function MermaidViewer({
@@ -41,7 +41,7 @@ export function MermaidViewer({
 
   return (
     <Scrollable axis="both" className="dsh-studio-mermaid-viewer" data-testid="mermaid-viewer">
-      {loading ? <LoadingView label={t('files.rendering-diagram')} /> : null}
+      {loading ? <LoadingState label={t('files.rendering-diagram')} /> : null}
       {error !== '' ? (
         <pre className="dsh-studio-mermaid-source">
           <code>{content}</code>

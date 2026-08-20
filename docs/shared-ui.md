@@ -32,6 +32,13 @@
 - `Empty`、`EmptyHeader`、`EmptyMedia`、`EmptyTitle`、
   `EmptyDescription`、`EmptyContent`。
 - `Skeleton` 和 `FilenameLabel`。
+- `SettingsSection` 和 `SettingsRow`：符合 General-row 规范的标题、描述、分隔线和右侧控制布局。
+- `ToolbarAction`：使用官方 `Button variant="toolbar"` 的图标操作，并提供 tooltip 与无障碍名称。
+- `StatusLine`：loading、error、warning、neutral、success 的紧凑状态行。
+- `FeedbackState`、`LoadingState`、`ErrorState`、`EmptyState`：统一反馈语义；按钮、图标和 `StateDot` 仍由插件直接传入。`EmptyState` 默认使用紧凑布局，需要内容区居中时传 `layout="centered"`。
+
+`SettingsRow` 只管理布局和 Field 语义，不管理 draft、校验、CAS、RPC、Menu 生命周期或业务状态。
+`ToolbarAction` 不替代官方 Button；它只是一个明确的 toolbar 组合。反馈组合也不会创建第二套 Button、Toast 或 StateDot。
 
 旧的 `@dsh-studio/shared/list-row`、`surface-tab`、`scrollable` 路径仍然
 保留兼容导出；仓库内部的新代码应优先使用 `@dsh-studio/shared/ui`。
@@ -71,16 +78,12 @@ pnpm --dir plugins/shared dlx shadcn@latest add card --dry-run
 再改成 plain React 与 DSW token。不要直接把 registry 默认的 Button、Dialog、
 Radix 或 Tailwind 运行时带进生产包。
 
-插件渲染 shared UI 时，通过 `ensureStyle` 注入 `theme.css` 与
-`ui-styles`：
+插件渲染 shared UI 时，可以直接注入 `theme.css` 与 `ui-styles`。如果插件使用 shared 的生命周期 helper，传入插件稳定且唯一的 style id。相同 bundle 内的重复挂载会引用计数，最后一个 disposer 才会移除样式；不同 bundle 仍然必须使用不同 id：
 
 ```tsx
-import { Card, CardContent, CardHeader, CardTitle } from '@dsh-studio/shared/ui'
-import sharedStyles from '@dsh-studio/shared/ui-styles'
-import themeCss from '@dsh-studio/shared/theme.css'
-import { ensureStyle } from '@dsh-studio/shared/style-injector'
+import { ensureSharedUiStyles } from '@dsh-studio/shared/ui'
 
-const stopStyle = ensureStyle('my-plugin-shared-ui', `${themeCss}\n${sharedStyles}`)
+const stopStyle = ensureSharedUiStyles('my-plugin-shared-ui')
 ```
 
 卡片内的操作仍然直接使用官方原子：

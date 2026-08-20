@@ -16,6 +16,7 @@ import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.t
 import { FLAT_SESSION_ORDER_KEY } from './stores.ts'
 import { WorkspaceBrowserCss as css } from './styles.js'
 import { cn } from './shim/cn.ts'
+import { EmptyState, LoadingState, StatusLine } from '@dsh-studio/shared/ui'
 
 /** Immutable membership toggle for the local expand-all array. */
 function toggled(list: readonly string[], key: string): string[] {
@@ -389,7 +390,7 @@ export function SessionTree({
         aria-label={t('section.sessions')}
       >
         {groups.length === 0 && (
-          <div className={css.empty}>{t('empty.none')}</div>
+          <EmptyState className={css.empty} title={t('empty.none')} />
         )}
         {groups.map((group) => {
           const workspaceId = group.workspaceId
@@ -635,7 +636,7 @@ export function FlatList({
     <div className={cn(css.treeBody, css.wide)}>
       <div className={cn(css.list, css.flatList)} role="tree" aria-label={t('section.sessions')}>
         {rows.length === 0 && (
-          <div className={css.empty}>{t('empty.none')}</div>
+          <EmptyState className={css.empty} title={t('empty.none')} />
         )}
         {rows.map((node) => {
           const active = drag !== null
@@ -733,16 +734,10 @@ export function SearchResults({
             />
           ))}
         </div>
-        {pending && (
-          <div className={css.searchStatus} role="status">{t('search.pending')}</div>
-        )}
-        {failed && (
-          <div className={css.searchWarning} role="status">
-            {t('search.unavailable')}
-          </div>
-        )}
+        {pending && <LoadingState className={css.searchStatus} label={t('search.pending')} />}
+        {failed && <StatusLine className={css.searchWarning} tone="warning">{t('search.unavailable')}</StatusLine>}
         {!pending && results.items.length === 0 && (
-          <div className={css.empty}>{t('search.noMatches')}</div>
+          <EmptyState className={css.empty} title={t('search.noMatches')} />
         )}
         {results.hasMore && (
           <div className={css.searchStatus}>

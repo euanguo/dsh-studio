@@ -13,6 +13,7 @@ import type { GroupTab } from './tree.ts'
 import { worktreeVisibleSessions } from './tree.ts'
 import { WorkspaceBrowserCss as css } from './styles.js'
 import { cn } from './shim/cn.ts'
+import { EmptyState, LoadingState } from '@dsh-studio/shared/ui'
 import { SessionNodeItem } from './rows/Rows.tsx'
 import { ProjectRowItem, WorktreeRowItem, type WorktreeWorkspace } from './rows/ProjectRows.tsx'
 
@@ -87,8 +88,8 @@ export function ProjectTreeBody({
       </div>
 
       <div className={css.list} role="tree" aria-label={t('section.workspaces')}>
-        {loading && tree.projects.length === 0 && <div className={css.empty}>{t('picker.loading')}</div>}
-        {tree.projects.length === 0 && !loading && <div className={css.empty}>{t('empty.none')}</div>}
+        {loading && tree.projects.length === 0 && <LoadingState className={css.empty} label={t('picker.loading')} />}
+        {tree.projects.length === 0 && !loading && <EmptyState className={css.empty} title={t('empty.none')} />}
         {tree.projects.map(project => {
           const wtRows = project.worktrees
           return (

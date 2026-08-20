@@ -1,3 +1,5 @@
+import { ensureStyle } from '../style-injector.ts'
+import themeCss from '../theme.css'
 import listRowCss from '../list-row.css'
 import filenameLabelCss from '../filename-label.css'
 import scrollableCss from '../scrollable.css'
@@ -16,5 +18,9 @@ export const sharedUiStyles = [
   surfaceTabCss,
   scrollableCss,
 ].join('\n')
+
+export function ensureSharedUiStyles(id: string): () => void {
+  return ensureStyle(id, `${themeCss}\n${sharedUiStyles}`)
+}
 
 export default sharedUiStyles

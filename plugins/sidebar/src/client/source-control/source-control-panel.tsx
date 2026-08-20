@@ -37,6 +37,7 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
+  ToolbarAction,
 } from '@dsh-studio/shared/ui'
 import { FilenameLabel } from '@dsh-studio/shared/filename-label'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -116,20 +117,18 @@ export function SourceControlPanel(props: SourceControlPanelProps): JSX.Element 
           <em>{props.count}</em>
         </span>
         <div className="dsh-studio-sc-toolbar-modes" role="group" aria-label={props.t('source-control.mode.tree')}>
-          <button
-            type="button"
-            aria-label={props.t('source-control.mode.flat')}
-            title={props.t('source-control.mode.flat')}
-            aria-pressed={props.mode === 'flat'}
+          <ToolbarAction
+            icon={<IconLayoutList size={14} />}
+            label={props.t('source-control.mode.flat')}
+            pressed={props.mode === 'flat'}
             onClick={() => { props.onModeChange('flat') }}
-          ><IconLayoutList size={14} /></button>
-          <button
-            type="button"
-            aria-label={props.t('source-control.mode.tree')}
-            title={props.t('source-control.mode.tree')}
-            aria-pressed={props.mode === 'tree'}
+          />
+          <ToolbarAction
+            icon={<IconListTree size={14} />}
+            label={props.t('source-control.mode.tree')}
+            pressed={props.mode === 'tree'}
             onClick={() => { props.onModeChange('tree') }}
-          ><IconListTree size={14} /></button>
+          />
         </div>
       </div>
       {props.rows.map(row => (

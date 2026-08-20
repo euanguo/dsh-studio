@@ -15,7 +15,7 @@ import { UnresolvedFile, Virtualizer } from '@pierre/diffs/react'
 import { getFileRuntime, getSourceControlRuntime } from '../runtimes/registry.ts'
 import { basename, resolveSidebarPath } from '@dsh-studio/shared/path'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
-import { ErrorView, LoadingView } from '../kit/status.tsx'
+import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import type { ConflictCenterSurface } from './types.ts'
@@ -100,14 +100,14 @@ export function ConflictSurfaceView({
     cacheKey: `conflict:${surface.filePath}`,
   }), [content, name, surface.filePath])
 
-  if (error !== '') return <ErrorView message={error} />
+  if (error !== '') return <ErrorState message={error} />
   if (entry !== undefined && entry.phase === 'error') {
-    return <ErrorView message={entry.message ?? t('overlay.no-content')} />
+    return <ErrorState message={entry.message ?? t('overlay.no-content')} />
   }
   if (entry !== undefined && entry.phase === 'ready' && entry.snapshot !== null && entry.snapshot.kind !== 'text') {
-    return <ErrorView message={t('files.viewer.binary')} />
+    return <ErrorState message={t('files.viewer.binary')} />
   }
-  if (content === null) return <LoadingView label={t('overlay.loading')} />
+  if (content === null) return <LoadingState label={t('overlay.loading')} />
   return (
     <div className="dsh-studio-conflict-surface" data-testid="conflict-surface">
       <div className="dsh-studio-conflict-header">

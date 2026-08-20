@@ -5,7 +5,7 @@
  */
 import { MarkdownViewer } from './markdown-viewer.tsx'
 import { parseIpynb, type IpynbCell } from './ipynb-parse.ts'
-import { EmptyView, ErrorView } from '../kit/status.tsx'
+import { EmptyState, ErrorState } from '@dsh-studio/shared/ui'
 
 function cellSource(cell: IpynbCell): string {
   return Array.isArray(cell.source) ? cell.source.join('') : cell.source
@@ -14,7 +14,7 @@ function cellSource(cell: IpynbCell): string {
 export function IpynbViewer({ content }: { content: string }): JSX.Element {
   const { cells, error } = parseIpynb(content)
   if (error !== null) {
-    return <ErrorView message={error} />
+    return <ErrorState message={error} />
   }
   return (
     <div className="dsh-studio-ipynb-viewer" data-testid="ipynb-viewer">
@@ -34,7 +34,7 @@ export function IpynbViewer({ content }: { content: string }): JSX.Element {
           )}
         </div>
       ))}
-      {cells.length === 0 ? <EmptyView title="Empty notebook" /> : null}
+      {cells.length === 0 ? <EmptyState title="Empty notebook" /> : null}
     </div>
   )
 }
