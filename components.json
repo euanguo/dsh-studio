@@ -1,0 +1,23 @@
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-nova",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "plugins/shared/theme.css",
+    "baseColor": "neutral",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "tabler",
+  "rtl": false,
+  "aliases": {
+    "components": "plugins/shared/ui",
+    "utils": "plugins/shared/ui/cn",
+    "ui": "plugins/shared/ui",
+    "lib": "plugins/shared",
+    "hooks": "plugins/shared"
+  },
+  "registries": {}
+}

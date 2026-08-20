@@ -8,7 +8,7 @@ import {
 import { createRoot, type Root } from 'react-dom/client'
 import type { DesktopBridge } from '@dsh-studio/shared/desktop-contracts'
 import { ensureStyle } from '@dsh-studio/shared/style-injector'
-import { Scrollable } from '@dsh-studio/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/ui'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
 import { localeTag } from '@dsh-studio/shared/i18n'
 import { useTranslate } from '@dsh-studio/shared/use-i18n'

@@ -3,6 +3,12 @@
  * pre-translated from call sites — the components stay i18n-agnostic.
  */
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from '@dsh-studio/shared/ui'
 
 export function LoadingView({ label }: { label: string }): JSX.Element {
   return (
@@ -41,11 +47,13 @@ export function EmptyView({
   description?: string
 }): JSX.Element {
   return (
-    <div className="dsh-studio-side-muted dsh-studio-status" data-kind="empty">
-      <div className="dsh-studio-status-title">{title}</div>
-      {description !== undefined && (
-        <div className="dsh-studio-status-description">{description}</div>
-      )}
-    </div>
+    <Empty className="dsh-studio-side-muted dsh-studio-status" data-kind="empty">
+      <EmptyHeader>
+        <EmptyTitle className="dsh-studio-status-title">{title}</EmptyTitle>
+        {description !== undefined && (
+          <EmptyDescription className="dsh-studio-status-description">{description}</EmptyDescription>
+        )}
+      </EmptyHeader>
+    </Empty>
   )
 }

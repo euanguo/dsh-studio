@@ -37,7 +37,7 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
-} from '@dsh-studio/shared/list-row'
+} from '@dsh-studio/shared/ui'
 import { FilenameLabel } from '@dsh-studio/shared/filename-label'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { WorkspaceChangeStatus } from '../../protocol.ts'

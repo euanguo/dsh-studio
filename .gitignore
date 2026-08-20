@@ -22,3 +22,5 @@ docs/*
 !docs/PLUGIN-DEVELOPMENT.md
 !docs/external-plugin-guide.md
 !docs/official-plugin-migration.md
+!docs/shared-ui.md
+!docs/shared-ui.en.md

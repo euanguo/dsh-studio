@@ -65,8 +65,8 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
-} from '@dsh-studio/shared/list-row'
-import { Scrollable } from '@dsh-studio/shared/scrollable'
+} from '@dsh-studio/shared/ui'
+import { Scrollable } from '@dsh-studio/shared/ui'
 import {
   buildSourceControlRows,
   type SourceControlListMode,

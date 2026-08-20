@@ -66,12 +66,12 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowTrailing,
-} from '@dsh-studio/shared/list-row'
+} from '@dsh-studio/shared/ui'
 import { FilenameLabel } from '@dsh-studio/shared/filename-label'
-import { SurfaceTab } from '@dsh-studio/shared/surface-tab'
+import { SurfaceTab } from '@dsh-studio/shared/ui'
 import { bindTabStripWheel } from '@dsh-studio/shared/tab-strip-wheel'
 import { useTabStripDrag } from './use-tab-strip-drag.ts'
-import { Scrollable } from '@dsh-studio/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/ui'
 import {
   getExplorerRuntime,
   sidebarScopeKey,

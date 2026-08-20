@@ -15,7 +15,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import { SurfaceTab, SurfaceTabStrip } from '@dsh-studio/shared/surface-tab'
+import { SurfaceTab, SurfaceTabStrip } from '@dsh-studio/shared/ui'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from './i18n.ts'
 import type {

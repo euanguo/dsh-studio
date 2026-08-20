@@ -8,7 +8,7 @@ import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { loadMermaidChunk } from '../chunk-loader.ts'
 import { LoadingView } from '../kit/status.tsx'
-import { Scrollable } from '@dsh-studio/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/ui'
 
 export function MermaidViewer({
   content,

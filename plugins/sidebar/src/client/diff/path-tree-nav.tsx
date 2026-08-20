@@ -14,7 +14,7 @@ import {
   IconChevronDown,
   IconChevronRight,
 } from '@dsh-studio/shared/tabler-icons'
-import { Scrollable } from '@dsh-studio/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/ui'
 import {
   ListRow,
   ListRowLabel,
@@ -22,7 +22,7 @@ import {
   ListRowLeading,
   ListRowMain,
   ListRowMeta,
-} from '@dsh-studio/shared/list-row'
+} from '@dsh-studio/shared/ui'
 
 export interface DiffPathTreeRow {
   key: string

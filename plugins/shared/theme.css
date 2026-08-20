@@ -102,6 +102,24 @@
      统一收口到这里。 */
   --dsh-studio-accent: var(--dsw-alias-brand-primary-new-colorprimary-new-color, #0969da);
 
+  /* shadcn semantic bridge. These names are namespaced because DSH owns the
+     document root; every value still resolves to an official DSW token. */
+  --dsh-studio-ui-background: var(--dsw-alias-bg-base, #fff);
+  --dsh-studio-ui-foreground: var(--dsw-alias-label-primary, #1f2328);
+  --dsh-studio-ui-card: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
+  --dsh-studio-ui-card-foreground: var(--dsw-alias-label-primary, #1f2328);
+  --dsh-studio-ui-muted: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  --dsh-studio-ui-muted-foreground: var(--dsw-alias-label-tertiary, #8c959f);
+  --dsh-studio-ui-accent: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+  --dsh-studio-ui-accent-foreground: var(--dsw-alias-label-primary, #1f2328);
+  --dsh-studio-ui-border: var(--dsw-alias-border-l1, rgb(0 0 0 / 9%));
+  --dsh-studio-ui-input: var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
+  --dsh-studio-ui-ring: var(--dsw-alias-brand-primary, #0969da);
+  --dsh-studio-ui-primary: var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary, #0969da));
+  --dsh-studio-ui-primary-foreground: var(--dsw-alias-label-primary-foreground, #fff);
+  --dsh-studio-ui-destructive: var(--dsw-alias-state-error-primary, #cf222e);
+  --dsh-studio-ui-radius: var(--dsh-studio-radius-md);
+
   /* 音调桥：DSW 调色板没有紫色语义别名（marketplace 的 protected 徽标），
      在共享层定义亮色默认值并跟随 DSH 暗色主题，皮肤层亦可覆盖。 */
   --dsh-studio-tone-protected-bg: #f1eaff;

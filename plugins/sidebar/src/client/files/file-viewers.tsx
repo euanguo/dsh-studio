@@ -8,7 +8,7 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { EmptyView } from '../kit/status.tsx'
-import { Scrollable } from '@dsh-studio/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/ui'
 import type { SidebarRuntimeSettingsService } from '../runtime-settings.ts'
 import {
   htmlIframeSandboxAttribute,

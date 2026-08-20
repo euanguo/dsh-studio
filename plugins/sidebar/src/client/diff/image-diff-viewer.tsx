@@ -2,7 +2,7 @@
  * Image diff viewer: Original / Modified side-by-side panes.
  * Both panes are base64 data URIs served by the host's `git.image-diff`.
  */
-import { Scrollable } from '@dsh-studio/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/ui'
 
 export function ImageDiffViewer({
   oldData,

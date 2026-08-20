@@ -19,7 +19,7 @@ import {
 import { EmptyView, ErrorView, LoadingView } from '../kit/status.tsx'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffPathTreeNav } from '../diff/path-tree-nav.tsx'
-import { Scrollable } from '@dsh-studio/shared/scrollable'
+import { Scrollable } from '@dsh-studio/shared/ui'
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
 import { usePierreDiffTheme, type PierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { useLazyDiffBlockMount } from '../diff/use-lazy-diff-block-mount.ts'

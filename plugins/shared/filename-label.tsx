@@ -5,7 +5,7 @@
  * between name and suffix; extension is prefer-kept when space is tight.
  */
 import { useLayoutEffect, useMemo, useState } from 'react'
-import { ListRowLabel } from './list-row.tsx'
+import { ListRowLabel } from './ui/list-row.tsx'
 import { splitFilenameDisplayParts } from './filename-display.ts'
 import {
   measureTextWidth,

@@ -63,7 +63,7 @@ import {
 import {
   SurfaceTab,
   SurfaceTabStrip,
-} from '@dsh-studio/shared/surface-tab'
+} from '@dsh-studio/shared/ui'
 import {
   useTabStripDrag,
 } from '../use-tab-strip-drag.ts'

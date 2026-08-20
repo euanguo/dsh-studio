@@ -573,9 +573,21 @@
 .dsh-studio-side-empty,
 .dsh-studio-side-muted { padding: 18px; color: var(--dsw-alias-label-tertiary, #8c959f); font-size: var(--dsh-studio-font-sm); }
 
-/* Unified status views (kit/status.tsx): the error kind becomes a flex row
-   so the retry button sits beside the message; the empty kind stacks a
-   title over an optional description. */
+.dsh-studio-status.dsh-studio-ui-empty {
+  min-height: 0;
+  flex: none;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--dsh-studio-space-1);
+  text-align: left;
+}
+
+.dsh-studio-status .dsh-studio-ui-empty-header {
+  max-width: none;
+  align-items: stretch;
+  text-align: left;
+}
+
 .dsh-studio-status[data-kind='error'] {
   display: flex;
   align-items: center;

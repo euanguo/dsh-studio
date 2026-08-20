@@ -45,11 +45,7 @@ import workspaceCss from './sidebar.css'
 import sourceControlCss from './source-control/source-control.css'
 import centerSurfaceCss from './surfaces/center-surface.css'
 import diffViewerCss from './diff/diff-viewer.css'
-import listRowCss from '@dsh-studio/shared/list-row.css'
-import scrollableCss from '@dsh-studio/shared/scrollable.css'
-import filenameLabelCss from '@dsh-studio/shared/filename-label.css'
-import surfaceTabCss from '@dsh-studio/shared/surface-tab.css'
-
+import sharedUiStyles from '@dsh-studio/shared/ui-styles'
 import themeCss from '@dsh-studio/shared/theme.css'
 import terminalViewCss from '@dsh-studio/shared/terminal-view.css'
 import xtermCss from '@xterm/xterm/css/xterm.css'
@@ -258,12 +254,9 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
     this.stopStyle = ensureStyle('dsh-studio-sidebar', [
       themeCss,
+      sharedUiStyles,
       xtermCss,
       terminalViewCss,
-      listRowCss,
-      scrollableCss,
-      filenameLabelCss,
-      surfaceTabCss,
       workspaceCss,
       sideToolsCss,
       sourceControlCss,
