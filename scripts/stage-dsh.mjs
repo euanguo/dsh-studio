@@ -1102,12 +1102,22 @@ sweepForeignNativeArtifacts()
 // 只烘焙 stage 拷贝，.cache/dsh-source checkout 保持干净。幂等。
 {
   const assets = join(runtime, 'workspace', 'apps', 'web', 'dist', 'assets')
-  if (existsSync(assets)) {
-    bakeSkinPalette(assets)
-    console.log('Baked ChatGPT default palette into staged web shell css')
-  } else {
-    throw new Error(`staged web shell assets missing at ${assets}; cannot bake skin palette`)
+  if (!existsSync(assets)) {
+    // The hoisted Windows deploy mode does not materialize workspace app
+    // build outputs the way the legacy copy import does. Copy the web
+    // shell dist from the DSH source so the runtime is self-contained.
+    const sourceDist = join(dshSource, 'apps', 'web', 'dist')
+    const targetDist = join(runtime, 'workspace', 'apps', 'web', 'dist')
+    if (existsSync(join(sourceDist, 'assets'))) {
+      mkdirSync(join(runtime, 'workspace', 'apps', 'web'), { recursive: true })
+      cpSync(sourceDist, targetDist, { recursive: true, preserveTimestamps: true })
+      console.log(`Copied web shell dist from DSH source (deploy gap fill)`)
+    } else {
+      throw new Error(`staged web shell assets missing at ${assets}; cannot bake skin palette`)
+    }
   }
+  bakeSkinPalette(assets)
+  console.log('Baked ChatGPT default palette into staged web shell css')
 }
 copyFileSync(join(dshSource, 'THIRD_PARTY_NOTICES.md'), join(runtime, 'THIRD_PARTY_NOTICES.md'))
 restoreExecutableHelpers()

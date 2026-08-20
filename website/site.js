@@ -336,7 +336,7 @@ elements.starDownload.addEventListener("click", () => {
 });
 
 if (typeof fetch === "function") {
-    fetch("https://api.github.com/repos/hust-open-atom-club/oh-dsh")
+    fetch("https://api.github.com/repos/euanguo/dsh-studio")
         .then((response) => (response.ok ? response.json() : Promise.reject()))
         .then((repository) => {
             elements.starCount.textContent = new Intl.NumberFormat().format(

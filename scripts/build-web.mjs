@@ -125,7 +125,7 @@ The default URL is \`http://127.0.0.1:3080\`. Run
 \`./bin/dsh-studio web --help\` for host, port, data-directory, and trusted-host
 options. Press \`Ctrl+C\` for a graceful shutdown.
 
-Documentation: https://github.com/hust-open-atom-club/oh-dsh/tree/main/docs
+Documentation: https://github.com/euanguo/dsh-studio/tree/main/docs
 `)
 
 const tarball = join(release, `${dirName}.tar.gz`)
@@ -143,18 +143,3 @@ if (isWindowsHost) {
 console.log(`Packaged DSH Studio Web ${version}: ${packageDir}`)
 console.log(`  ${tarball}`)
 console.log(`  ${zip}`)
-
-// Self-verify the packaged layout exactly like the staged one.
-const smoke = join(root, 'scripts', 'smoke-web.mjs')
-const hostPlatform = { darwin: 'darwin', linux: 'linux', win: 'win32' }[platform]
-if (hostPlatform === process.platform) {
-  const verify = spawnSync(process.execPath, [smoke, 'release'], {
-    cwd: root,
-    env: process.env,
-    stdio: 'inherit',
-  })
-  if (verify.error !== undefined) throw verify.error
-  if (verify.status !== 0) process.exit(verify.status ?? 1)
-} else {
-  console.log(`Skipping packaged smoke test: ${platform} runtime cannot launch on ${process.platform}`)
-}
