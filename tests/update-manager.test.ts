@@ -15,7 +15,7 @@ class FakeUpdater extends EventEmitter {
   allowDowngrade = true
   disableDifferentialDownload = false
   result: { isUpdateAvailable: boolean; updateInfo: UpdateInfo } | null = null
-  downloadResult = ['/tmp/DSH Studio-update.zip']
+  downloadResult = ['/tmp/DSH-Studio-update.zip']
   quitCalls = 0
   installError: Error | undefined
   async checkForUpdates() {
@@ -35,7 +35,7 @@ class FakeUpdater extends EventEmitter {
   }
 }
 
-function updateInfo(version: string, file = 'DSH Studio-1.2.0-arm64.zip'): UpdateInfo {
+function updateInfo(version: string, file = 'DSH-Studio-1.2.0-arm64.zip'): UpdateInfo {
   return {
     version,
     files: [{ url: `https://github.com/euanguo/dsh-studio/releases/download/v${version}/${file}`, sha512: 'hash', size: 100 }],
@@ -49,7 +49,7 @@ function updateInfo(version: string, file = 'DSH Studio-1.2.0-arm64.zip'): Updat
 
 test('selectUpdateFile chooses exactly the current architecture asset', () => {
   const info = updateInfo('1.2.0')
-  info.files.push({ url: 'https://example.invalid/DSH Studio-1.2.0-x64.zip', sha512: 'hash', size: 100 })
+  info.files.push({ url: 'https://example.invalid/DSH-Studio-1.2.0-x64.zip', sha512: 'hash', size: 100 })
   assert.equal(selectUpdateFile(info, 'mac', 'arm64').url.endsWith('arm64.zip'), true)
   assert.throws(() => selectUpdateFile(info, 'mac', 'ia32'), /no installable update asset/)
 })
@@ -83,7 +83,7 @@ test('manager rejects prereleases and downgrades', async () => {
 
 test('manager offers the official Release page when the platform asset is missing', async () => {
   const updater = new FakeUpdater()
-  updater.result = { isUpdateAvailable: true, updateInfo: updateInfo('1.2.0', 'DSH Studio-1.2.0-x64.zip') }
+  updater.result = { isUpdateAvailable: true, updateInfo: updateInfo('1.2.0', 'DSH-Studio-1.2.0-x64.zip') }
   const manager = new DesktopUpdateManager({ currentVersion: '1.1.0', platform: 'darwin', arch: 'arm64', updater })
   const state = await manager.check()
   assert.equal(state.status, 'unsupported')
@@ -94,7 +94,7 @@ test('manager offers the official Release page when the platform asset is missin
 
 test('manager provides a deb installer fallback without invoking updater install', async () => {
   const updater = new FakeUpdater()
-  updater.result = { isUpdateAvailable: true, updateInfo: updateInfo('1.2.0', 'DSH Studio-1.2.0-amd64.deb') }
+  updater.result = { isUpdateAvailable: true, updateInfo: updateInfo('1.2.0', 'DSH-Studio-1.2.0-amd64.deb') }
   const opened: string[] = []
   const manager = new DesktopUpdateManager({
     currentVersion: '1.1.0',
@@ -108,7 +108,7 @@ test('manager provides a deb installer fallback without invoking updater install
   await manager.download()
   assert.equal('installerPath' in manager.getState(), false)
   assert.equal((await manager.command({ type: 'install-now' })).status, 'scheduled')
-  assert.deepEqual(opened, ['/tmp/DSH Studio-update.zip'])
+  assert.deepEqual(opened, ['/tmp/DSH-Studio-update.zip'])
   assert.equal(updater.quitCalls, 0)
   assert.deepEqual(await manager.command({ type: 'install-on-quit' }), manager.getState())
 })

@@ -149,7 +149,7 @@ jobs:
           name: release-${{ matrix.id }}
           compression-level: 0
           path: |
-            release/DSH Studio-*
+            release/DSH-Studio-*
             release/dsh-studio-web-*.tar.gz
             release/dsh-studio-web-*.zip
             release/updater-metadata/**

@@ -44,6 +44,6 @@ const result = spawnSync(process.execPath, [
 })
 if (result.error !== undefined) throw result.error
 if (result.status !== 0) process.exit(result.status ?? 1)
-const installer = join(root, 'release', `DSH Studio-${version}-x64.exe`)
+const installer = join(root, 'release', `DSH-Studio-${version}-x64.exe`)
 if (!existsSync(installer)) throw new Error(`Windows NSIS installer was not produced: ${installer}`)
 console.log(`Packaged DSH Studio ${version}: ${installer}`)

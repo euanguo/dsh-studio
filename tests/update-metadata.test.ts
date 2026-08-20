@@ -47,10 +47,10 @@ async function appImageAsset(dir: string, name: string, content: string) {
 
 test('metadata verification selects one architecture and validates SHA-512', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'dsh-studio-metadata-'))
-  const arm = await asset(dir, 'DSH Studio-1.2.0-arm64.zip', 'arm')
-  const x64 = await asset(dir, 'DSH Studio-1.2.0-x64.zip', 'x64')
-  await externalBlockmap(dir, 'DSH Studio-1.2.0-arm64.zip')
-  await externalBlockmap(dir, 'DSH Studio-1.2.0-x64.zip')
+  const arm = await asset(dir, 'DSH-Studio-1.2.0-arm64.zip', 'arm')
+  const x64 = await asset(dir, 'DSH-Studio-1.2.0-x64.zip', 'x64')
+  await externalBlockmap(dir, 'DSH-Studio-1.2.0-arm64.zip')
+  await externalBlockmap(dir, 'DSH-Studio-1.2.0-x64.zip')
   await writeFile(join(dir, 'latest-mac.yml'), [
     'version: 1.2.0',
     'files:',
@@ -59,13 +59,13 @@ test('metadata verification selects one architecture and validates SHA-512', asy
   ].join('\n'))
   const result = verifyMetadata({ dir, version: '1.2.0', platform: 'mac-arm64' })
   assert.equal(result.selected, arm.url.split('/').pop())
-  await writeFile(join(dir, 'DSH Studio-1.2.0-arm64.zip'), 'tampered')
+  await writeFile(join(dir, 'DSH-Studio-1.2.0-arm64.zip'), 'tampered')
   assert.throws(() => verifyMetadata({ dir, version: '1.2.0', platform: 'mac-arm64' }), /sha512 mismatch/)
 })
 
 test('metadata verification accepts an embedded AppImage blockmap', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'dsh-studio-metadata-'))
-  const name = 'DSH Studio-1.2.0-x86_64.AppImage'
+  const name = 'DSH-Studio-1.2.0-x86_64.AppImage'
   const app = await appImageAsset(dir, name, 'app')
   const metadata = () => [
     'version: 1.2.0',
@@ -86,7 +86,7 @@ test('metadata verification accepts an embedded AppImage blockmap', async () => 
 
 test('metadata verification requires external desktop blockmaps', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'dsh-studio-metadata-'))
-  const app = await asset(dir, 'DSH Studio-1.2.0-arm64.zip', 'app')
+  const app = await asset(dir, 'DSH-Studio-1.2.0-arm64.zip', 'app')
   await writeFile(join(dir, 'latest-mac.yml'), [
     'version: 1.2.0',
     'files:',
@@ -106,7 +106,7 @@ test('metadata merge combines macOS architectures and rejects version conflicts'
 test('metadata verification rejects web distribution assets', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'dsh-studio-metadata-'))
   await mkdir(join(dir, 'nested'))
-  const app = await appImageAsset(dir, 'DSH Studio-1.2.0-x86_64.AppImage', 'app')
+  const app = await appImageAsset(dir, 'DSH-Studio-1.2.0-x86_64.AppImage', 'app')
   const web = await asset(dir, 'dsh-studio-web-1.2.0-linux-x64.zip', 'web')
   await writeFile(join(dir, 'latest-linux.yml'), [
     'version: 1.2.0',

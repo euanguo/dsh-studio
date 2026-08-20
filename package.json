@@ -219,7 +219,7 @@
     },
     "dmg": {
       "title": "DSH Studio ${version}",
-      "artifactName": "DSH Studio-${version}-${arch}.${ext}",
+      "artifactName": "DSH-Studio-${version}-${arch}.${ext}",
       "window": {
         "width": 540,
         "height": 380
@@ -238,7 +238,7 @@
         }
       ]
     },
-    "artifactName": "DSH Studio-${version}-${arch}.${ext}"
+    "artifactName": "DSH-Studio-${version}-${arch}.${ext}"
   },
   "dshStudio": {
     "clientDependencies": [
