@@ -67,5 +67,5 @@ jobs:
         with:
           name: dsh-studio-dmg-arm64
           compression-level: 0
-          path: release/DSH Studio-*.dmg
+          path: release/DSH-Studio-*.dmg
           if-no-files-found: error

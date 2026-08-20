@@ -62,6 +62,10 @@ test('dev macOS package builds only when manually dispatched', () => {
   assert.deepEqual(config.on, { workflow_dispatch: null })
   assert.equal(config.jobs.package['runs-on'], 'macos-15')
   assert.equal(config.jobs.package.env.DSH_STUDIO_NODE_ARCH, 'arm64')
+  const uploadStep = config.jobs.package.steps.find(
+    (step: { name?: string }) => step.name === 'Upload DMG artifact',
+  )
+  assert.equal(uploadStep.with.path, 'release/DSH-Studio-*.dmg')
 })
 
 test('release tags must match a stable package version', () => {
