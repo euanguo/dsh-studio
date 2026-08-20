@@ -1,7 +1,7 @@
 {
   "name": "@dsh-studio/desktop",
   "productName": "DSH Studio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DSH Studio: a local Desktop and Web workbench over DeepSeek Harness",
   "author": "dsh-external",
   "desktopName": "dsh-studio.desktop",
