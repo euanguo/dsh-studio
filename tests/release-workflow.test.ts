@@ -52,6 +52,18 @@ test('tagged releases build and upload web and desktop distributions', () => {
   assert.match(signedWindowsStep.env.CSC_LINK, /secrets\.WINDOWS_CSC_LINK/)
 })
 
+test('dev macOS package builds only when manually dispatched', () => {
+  const workflow = readFileSync(
+    join(root, '.github', 'workflows', 'dev-dmg.yml'),
+    'utf8',
+  )
+  const config = parse(workflow)
+
+  assert.deepEqual(config.on, { workflow_dispatch: null })
+  assert.equal(config.jobs.package['runs-on'], 'macos-15')
+  assert.equal(config.jobs.package.env.DSH_STUDIO_NODE_ARCH, 'arm64')
+})
+
 test('release tags must match a stable package version', () => {
   assert.equal(validateReleaseTag('v1.2.3', '1.2.3'), '1.2.3')
   assert.throws(() => validateReleaseTag('v1.2.3-beta.1', '1.2.3-beta.1'), /stable semver/)

@@ -1,6 +1,6 @@
 name: Dev DMG
 
-# Builds a macOS arm64 DMG on every push to the dev branch and uploads it
+# Manually builds a macOS arm64 DMG from the selected branch and uploads it
 # as a workflow artifact only. No GitHub release or tag is created; the
 # installer is downloaded from the Actions run page.
 #
@@ -12,9 +12,6 @@ name: Dev DMG
 # repository to switch to signed and notarized builds.
 
 on:
-  push:
-    branches:
-      - dev
   workflow_dispatch:
 
 permissions:
