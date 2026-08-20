@@ -704,14 +704,31 @@ function installWindowsPackageDependencies(sourceManifestPath, packageDir) {
   rmSync(deployment, { recursive: true, force: true })
 }
 
+/** Runtime dependency store shared by every staged plugin package.
+ *
+ * Each package used to carry a private `.dsh-studio-store` copy of its
+ * dependency closure, which duplicated @tabler/icons-react (~91 MB),
+ * tabler icons (~49 MB), React, and xterm nine times — about 1.4 GB of
+ * redundant content in the packed app. One store at the runtime
+ * `node_modules` root serves all packages; dedupe state lives beside it
+ * so repeated invocations stay idempotent. */
+const runtimeDependencyStore = {
+  root: undefined,
+  installed: new Map(),
+}
+
 function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
   if (isWindowsNode) {
     installWindowsPackageDependencies(sourceManifestPath, packageDir)
     return
   }
   const installRoot = join(packageDir, 'node_modules')
-  const storeRoot = join(installRoot, '.dsh-studio-store')
-  const installed = new Map()
+  // packageDir = <runtime>/node_modules/@dsh-studio/<name> — share one
+  // store across sibling packages at the runtime node_modules root.
+  const runtimeNodeModules = resolve(packageDir, '..', '..')
+  const storeRoot = join(runtimeNodeModules, '.dsh-studio-store')
+  const installed = runtimeDependencyStore.installed
+  runtimeDependencyStore.root = storeRoot
 
   const instanceName = (manifestPath, manifest) => {
     const parts = resolve(manifestPath).split(sep)
