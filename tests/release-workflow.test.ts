@@ -8,15 +8,17 @@ import { validateReleaseTag } from '../scripts/validate-release-tag.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
-test('tagged releases build and upload both TUI archive formats', () => {
+test('tagged releases build and upload web and desktop distributions', () => {
   const workflow = readFileSync(
     join(root, '.github', 'workflows', 'release.yml'),
     'utf8',
   ).replace(/\r\n?/g, '\n')
 
-  assert.match(workflow, /run: node scripts\/build-tui\.mjs/)
-  assert.match(workflow, /release\/dsh-studio-tui-\*\.tar\.gz/)
-  assert.match(workflow, /release\/dsh-studio-tui-\*\.zip/)
+  assert.match(workflow, /run: node scripts\/build-web\.mjs/)
+  assert.match(workflow, /release\/dsh-studio-web-\*\.tar\.gz/)
+  assert.match(workflow, /release\/dsh-studio-web-\*\.zip/)
+  assert.doesNotMatch(workflow, /build-tui/)
+  assert.doesNotMatch(workflow, /dsh-studio-tui/)
   assert.match(workflow, /fetch-depth: 0/)
   assert.match(workflow, /fetch-tags: true/)
   assert.match(workflow, /validate-release-tag\.mjs --tag/)
