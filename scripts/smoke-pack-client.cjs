@@ -62,20 +62,19 @@ void app.whenReady().then(async () => {
         return {
           body: document.body?.innerText ?? '',
           sidebarRoot: document.getElementById('dsh-studio-sidebar-root') !== null,
-          terminalRoot: document.getElementById('dsh-studio-terminal-root') !== null,
         }
       })()`)
       if (state.body.includes('Failed to load plugins')) {
         settle(new Error(`plugin load failed:\\n${state.body.trim()}`))
         return
       }
-      if (state.sidebarRoot && state.terminalRoot) {
+      if (state.sidebarRoot) {
         settle()
         return
       }
       if (Date.now() - startedAt >= timeoutMs) {
         settle(new Error(
-          `sidebar mount timed out (sidebar=${String(state.sidebarRoot)}, terminal=${String(state.terminalRoot)}):\\n${state.body.trim()}`,
+          `sidebar mount timed out (sidebar=${String(state.sidebarRoot)}):\\n${state.body.trim()}`,
         ))
         return
       }

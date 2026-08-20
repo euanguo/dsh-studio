@@ -48,7 +48,6 @@
   },
   "scripts": {
     "build": "node scripts/build.mjs",
-    "postinstall": "node scripts/apply-xterm-patch.mjs",
     "build:pages": "node scripts/build-pages.mjs",
     "build:dsh": "node scripts/build-dsh.mjs",
     "stage:dsh": "node scripts/stage-dsh.mjs",
@@ -60,6 +59,7 @@
     "smoke:web": "node scripts/smoke-web.mjs",
     "smoke:web:package": "node scripts/smoke-web.mjs release",
     "install:mac": "node scripts/install-mac.mjs",
+    "prepare": "node scripts/apply-xterm-patch.mjs",
     "dsh-studio": "pnpm run build && pnpm run stage:dsh && node dist/dsh-studio.js",
     "web": "pnpm run build && pnpm run stage:dsh && node dist/web.js",
     "tui": "pnpm run build && pnpm run stage:dsh && node dist/dsh-studio.js tui",
