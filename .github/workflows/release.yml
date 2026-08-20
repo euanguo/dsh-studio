@@ -136,9 +136,6 @@ jobs:
       - name: Package DSH Studio-Web distribution
         run: node scripts/build-web.mjs
 
-      - name: Package DSH Studio TUI distribution
-        run: node scripts/build-tui.mjs
-
       - name: Verify updater metadata
         shell: bash
         run: node scripts/verify-update-metadata.mjs --dir release --version "$(node -p "require('./package.json').version")" --platform "${{ matrix.update_platform }}"
@@ -155,8 +152,6 @@ jobs:
             release/DSH Studio-*
             release/dsh-studio-web-*.tar.gz
             release/dsh-studio-web-*.zip
-            release/dsh-studio-tui-*.tar.gz
-            release/dsh-studio-tui-*.zip
             release/updater-metadata/**
           if-no-files-found: error
 
