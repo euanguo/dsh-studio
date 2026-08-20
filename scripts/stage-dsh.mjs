@@ -982,6 +982,56 @@ function ensureLinuxPtyBuild() {
   }
 }
 
+/**
+ * Strip foreign-platform native artifacts the pnpm deploy copies verbatim:
+ *
+ * - Windows PDB debug symbols (~36 MB per node-pty copy) — debug data is
+ *   never loaded at runtime, on any platform.
+ * - prebuilds for platforms other than the packaging target (~45 MB per
+ *   node-pty copy). node-pty is the only prebuild-shipping dependency in
+ *   the closure (sharp deploys per-platform already). Linux keeps its
+ *   prebuild dirs — ensureLinuxPtyBuild rebuilds into them when missing —
+ *   and `arch` mismatches (e.g. darwin-x64 on an arm64 build) are also
+ *   dropped, matching the runtime's own per-platform deploy.
+ */
+function sweepForeignNativeArtifacts() {
+  const platformPrefix = { darwin: 'darwin', linux: 'linux', win32: 'win32' }[nodePlatform]
+  if (platformPrefix === undefined) return
+  let removedPdb = 0
+  let removedPrebuildDirs = 0
+  const pdbDirs = []
+  const visitDirectory = directory => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      if (entry.name === '.pnpm-store' || entry.name === '.cache') continue
+      const path = join(directory, entry.name)
+      if (entry.isSymbolicLink()) continue
+      if (!entry.isDirectory()) continue
+      if (entry.name === 'prebuilds') { pdbDirs.push(path); continue }
+      visitDirectory(path)
+    }
+  }
+  visitDirectory(runtime)
+  for (const prebuilds of pdbDirs) {
+    for (const entry of readdirSync(prebuilds, { withFileTypes: true })) {
+      if (entry.name.startsWith(platformPrefix)) continue
+      rmSync(join(prebuilds, entry.name), { recursive: true, force: true })
+      removedPrebuildDirs += 1
+    }
+    for (const file of readdirSync(prebuilds)) {
+      if (file.endsWith('.pdb')) {
+        rmSync(join(prebuilds, file), { force: true })
+        removedPdb += 1
+      }
+    }
+  }
+  if (removedPdb > 0 || removedPrebuildDirs > 0) {
+    console.log(
+      `Swept foreign native artifacts: ${String(removedPdb)} PDB files, `
+      + `${String(removedPrebuildDirs)} foreign prebuild directories`,
+    )
+  }
+}
+
 if (!existsSync(join(dshSource, 'apps', 'cli', 'package.json'))) {
   throw new Error(`DSH source checkout not found: ${dshSource}`)
 }
@@ -1046,6 +1096,7 @@ rewriteWorkspaceLinks()
 relinkInstallationWorkspacePackages()
 console.log('Installing desktop packages')
 installDesktopPackages()
+sweepForeignNativeArtifacts()
 // 构建期配色烘焙（架构文档 §3.4/§8.2）：把 ChatGPT 默认配色追加到 staged
 // web 壳的 index-*.css 末尾，内置 light/dark/system 原生即 ChatGPT；
 // 只烘焙 stage 拷贝，.cache/dsh-source checkout 保持干净。幂等。
