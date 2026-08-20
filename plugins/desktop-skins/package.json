@@ -35,7 +35,9 @@
     "react-dom": "^18.2.0"
   },
   "license": "MIT",
-  "dependencies": {
-    "@dsh-studio/shared": "workspace:*"
+  "dshStudio": {
+    "clientDependencies": [
+      "@dsh-studio/shared"
+    ]
   }
 }

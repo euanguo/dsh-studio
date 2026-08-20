@@ -222,8 +222,10 @@
     },
     "artifactName": "DSH Studio-${version}-${arch}.${ext}"
   },
-  "dependencies": {
-    "@upsetjs/venn.js": "^2.0.0",
-    "semver": "7.7.4"
+  "dshStudio": {
+    "clientDependencies": [
+      "@upsetjs/venn.js",
+      "semver"
+    ]
   }
 }

@@ -66,16 +66,18 @@
     "@types/react": "~18.3.1",
     "react": "^18.2.0"
   },
-  "dependencies": {
-    "@react-symbols/icons": "^1.4.1",
-    "@tabler/icons-react": "^3.46.0",
-    "@xterm/addon-fit": "0.12.0-beta.299",
-    "@xterm/addon-ligatures": "0.11.0-beta.299",
-    "@xterm/addon-search": "0.17.0-beta.299",
-    "@xterm/addon-serialize": "0.15.0-beta.299",
-    "@xterm/addon-unicode11": "0.10.0-beta.299",
-    "@xterm/addon-web-links": "0.13.0-beta.299",
-    "@xterm/addon-webgl": "0.20.0-beta.298",
-    "@xterm/xterm": "6.1.0-beta.302"
+  "dshStudio": {
+    "clientDependencies": [
+      "@react-symbols/icons",
+      "@tabler/icons-react",
+      "@xterm/addon-fit",
+      "@xterm/addon-ligatures",
+      "@xterm/addon-search",
+      "@xterm/addon-serialize",
+      "@xterm/addon-unicode11",
+      "@xterm/addon-web-links",
+      "@xterm/addon-webgl",
+      "@xterm/xterm"
+    ]
   }
 }

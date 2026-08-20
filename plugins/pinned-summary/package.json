@@ -27,8 +27,10 @@
     "dist/client.js",
     "dist/client.js.map"
   ],
-  "dependencies": {
-    "@dsh-studio/shared": "workspace:*",
-    "@dsh-studio/panel-controls": "workspace:*"
+  "dshStudio": {
+    "clientDependencies": [
+      "@dsh-studio/shared",
+      "@dsh-studio/panel-controls"
+    ]
   }
 }

@@ -35,7 +35,9 @@
       "immediately": true
     }
   },
-  "dependencies": {
-    "@dsh-studio/shared": "workspace:*"
+  "dshStudio": {
+    "clientDependencies": [
+      "@dsh-studio/shared"
+    ]
   }
 }
