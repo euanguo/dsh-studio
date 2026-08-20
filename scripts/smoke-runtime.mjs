@@ -180,7 +180,18 @@ try {
       'dist',
       'index.js',
     )), `${pluginId} Host bundle is missing`)
+    assert.equal(
+      bootEntries.some(entry => entry.id === pluginId),
+      false,
+      `${pluginId} is host-only and must not enter the DSH client graph`,
+    )
   }
+
+  const runtimeManifest = JSON.parse(readFileSync(join(resources, 'dsh-runtime', 'package.json'), 'utf8'))
+  assert.equal(runtimeManifest.version, dshVersion)
+  assert.equal(existsSync(join(resources, 'dsh-runtime', 'node_modules', 'cordis')), false)
+  const clientIds = bootEntries.map(entry => entry.id).filter(id => id.startsWith('@oh-dsh/'))
+  assert.equal(new Set(clientIds).size, clientIds.length, 'desktop client graph contains duplicate plugin loaders')
 
   const client = spawnSync(electronBinary, [
     join(root, 'scripts', 'smoke-client.cjs'),

@@ -1,6 +1,8 @@
 {
-  "repository": "https://github.com/deepseek-ai/deepseek-harness.git",
-  "ref": "47f943859bef60e4160492346772ded9b24f765a",
-  "revision": "47f943859bef60e4160492346772ded9b24f765a",
-  "version": "0.1.0-rc.5"
+  "source": "npm",
+  "package": "@deepseek-ai/dsh",
+  "version": "0.1.0-rc.8",
+  "integrity": "sha512-VQU5NlomrKLRgcXuOf+sxWFvqxPA8q9vMhrKPlPPXiOJEhGlGlAdiyxZvZxkCVI+v0zbhe21cY3/luLyxpSzzA==",
+  "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh/-/dsh-0.1.0-rc.8.tgz",
+  "packageManager": "pnpm@11.20.0"
 }

@@ -7,6 +7,7 @@ export const DESKTOP_PROFILE = 'desktop'
 /** Plugins that enroll a browser-side entry in the desktop client graph. */
 export const BUNDLED_DESKTOP_CLIENT_PLUGINS = [
   '@oh-dsh/desktop',
+  '@oh-dsh/desktop-left-rail',
   '@oh-dsh/desktop-skins',
   '@oh-dsh/desktop-sidebar',
   '@oh-dsh/panel-controls',

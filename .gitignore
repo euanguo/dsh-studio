@@ -8,3 +8,8 @@ tmp/
 *.log
 .DS_Store
 .workflow/
+
+# Local research, upstream checkouts, and agent execution logs.
+/docs/
+/upstream/
+/.agent-workflows/
