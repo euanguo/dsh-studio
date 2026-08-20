@@ -89,19 +89,19 @@ test('windowsPwshCandidateDirs preserves priority and de-dupes', () => {
     ProgramFiles: 'C:\\PF32',
     LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local',
   })
-  // The join uses the host separator (POSIX runners keep the Windows
-  // drive backslash from the input and join with '/'), but the path
-  // priority order and de-dup are the contract.
-  assert.deepEqual(dirs, [
-    'C:\\bin',
-    'C:\\PF64/PowerShell/7',
-    'C:\\PF64/PowerShell/7-preview',
-    'C:\\PF32/PowerShell/7',
-    'C:\\PF32/PowerShell/7-preview',
-    'C:\\Users\\me\\AppData\\Local/Microsoft/PowerShell/7',
-    'C:\\Users\\me\\AppData\\Local/Microsoft/PowerShell/7-preview',
-    'C:\\Users\\me\\AppData\\Local/Programs/PowerShell/7',
-    'C:\\Users\\me\\AppData\\Local/Programs/PowerShell/7-preview',
+  // The join uses the host separator, so normalize before comparing —
+  // the path priority order and de-dup are the contract.
+  const normalized = dirs.map(dir => dir.replaceAll('\\', '/'))
+  assert.deepEqual(normalized, [
+    'C:/bin',
+    'C:/PF64/PowerShell/7',
+    'C:/PF64/PowerShell/7-preview',
+    'C:/PF32/PowerShell/7',
+    'C:/PF32/PowerShell/7-preview',
+    'C:/Users/me/AppData/Local/Microsoft/PowerShell/7',
+    'C:/Users/me/AppData/Local/Microsoft/PowerShell/7-preview',
+    'C:/Users/me/AppData/Local/Programs/PowerShell/7',
+    'C:/Users/me/AppData/Local/Programs/PowerShell/7-preview',
   ])
 })
 
