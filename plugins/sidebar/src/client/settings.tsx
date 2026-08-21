@@ -34,7 +34,7 @@ import {
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
 } from '../sidebar-preferences.ts'
-import { ErrorState, SettingsRow, SettingsSection, ToolbarAction } from '@dsh-studio/shared/ui'
+import { ErrorState, SettingsRow, SettingsSection, Slider, Switch, ToolbarAction } from '@dsh-studio/shared/ui'
 import { SourceControlAiSettingsPanel } from './source-control/source-control-ai-settings.tsx'
 
 export function sidebarLabel(value: string | (() => string)): string {
@@ -67,11 +67,10 @@ function SwitchRow(props: {
       title={props.title}
       {...(props.desc === undefined ? {} : { description: props.desc })}
       control={(
-        <input
-          type="checkbox"
+        <Switch
           checked={props.checked}
           aria-label={props.desc ?? props.title}
-          onChange={event => { props.onChange(event.currentTarget.checked) }}
+          onCheckedChange={props.onChange}
         />
       )}
     />
@@ -295,11 +294,10 @@ function FeatureCard(props: {
               onClick={() => { onOpenSettings() }}
             />
           )}
-          <input
-            type="checkbox"
+          <Switch
             checked={enabled}
             aria-label={sidebarLabel(feature.title ?? id)}
-            onChange={event => { onToggle(event.currentTarget.checked) }}
+            onCheckedChange={onToggle}
           />
         </span>
       )}
@@ -358,16 +356,15 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         </Button>
       )}
     >
-      <div className="dsh-studio-sidebar-settings-grid">
+      <div className="dsh-studio-sidebar-settings-rows">
         <SettingsRow
           title={props.t('settings.open-by-default')}
           description={props.t('settings.open-by-default-description')}
           control={(
-            <input
-              type="checkbox"
+            <Switch
               checked={state.openByDefault}
               aria-label={props.t('settings.open-by-default')}
-              onChange={event => { props.setOpenByDefault(event.currentTarget.checked) }}
+              onCheckedChange={props.setOpenByDefault}
             />
           )}
         />
@@ -376,14 +373,15 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           title={props.t('settings.width')}
           description={props.t('settings.width-value', { width: state.width })}
           control={(
-            <input
-              type="range"
+            <Slider
               min={SIDEBAR_MIN_WIDTH}
               max={SIDEBAR_MAX_WIDTH}
-              step="10"
+              step={10}
               value={state.width}
               aria-label={props.t('settings.width')}
-              onChange={event => { props.setWidth(Number(event.currentTarget.value)) }}
+              onValueChange={value => {
+                if (typeof value === 'number') props.setWidth(value)
+              }}
             />
           )}
         />
@@ -392,7 +390,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         title={props.t('settings.runtime')}
         description={props.t('settings.runtime-description')}
       >
-        <div className="dsh-studio-sidebar-settings-grid">
+        <div className="dsh-studio-sidebar-settings-rows">
         <SwitchRow
           title={props.t('settings.agent-terminal-tools')}
           desc={props.t('settings.agent-terminal-tools-description')}
@@ -431,7 +429,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         )}
       </SettingsSection>
       <section>
-        <div className="dsh-studio-sidebar-settings-grid">
+        <div className="dsh-studio-sidebar-settings-rows">
           <SettingsRow
             title={props.t('source-control-ai.title')}
             description={props.t('source-control-ai.description')}

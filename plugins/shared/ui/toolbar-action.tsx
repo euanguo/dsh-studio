@@ -1,4 +1,5 @@
 import { Button, Tooltip } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { TooltipSide } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { cn } from './cn.ts'
 
@@ -10,9 +11,20 @@ export type ToolbarActionProps = Omit<ButtonHTMLAttributes<HTMLButtonElement>, '
   icon: ReactNode
   label: string
   pressed?: boolean
+  /** Tooltip placement; toolbar strips default to below the button, where the
+   *  bubble never slides back over the anchor at a viewport edge. */
+  tooltipSide?: TooltipSide
 }
 
-export function ToolbarAction({ icon, label, pressed, className, disabled, ...props }: ToolbarActionProps): JSX.Element {
+export function ToolbarAction({
+  icon,
+  label,
+  pressed,
+  tooltipSide = 'bottom',
+  className,
+  disabled,
+  ...props
+}: ToolbarActionProps): JSX.Element {
   const button = (
     <Button
       {...props}
@@ -28,6 +40,6 @@ export function ToolbarAction({ icon, label, pressed, className, disabled, ...pr
   )
   const anchor = <span className="dsh-studio-ui-toolbar-action-anchor">{button}</span>
   return disabled === undefined
-    ? <Tooltip label={label}>{anchor}</Tooltip>
-    : <Tooltip label={label} disabled={disabled}>{anchor}</Tooltip>
+    ? <Tooltip label={label} side={tooltipSide}>{anchor}</Tooltip>
+    : <Tooltip label={label} side={tooltipSide} disabled={disabled}>{anchor}</Tooltip>
 }

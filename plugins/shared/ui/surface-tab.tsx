@@ -1,3 +1,4 @@
+import { Children, useEffect, useRef } from 'react'
 import type {
   DragEvent as ReactDragEvent,
   KeyboardEvent,
@@ -5,7 +6,6 @@ import type {
   PointerEvent,
   ReactNode,
 } from 'react'
-import { useEffect, useRef } from 'react'
 import { IconClose } from '../tabler-icons.tsx'
 import { bindTabStripWheel } from '../tab-strip-wheel.ts'
 import { cn } from './cn.ts'
@@ -178,7 +178,7 @@ export function SurfaceTabStrip({
   return (
     <div
       ref={ref}
-      role="tablist"
+      role={Children.count(children) > 0 ? 'tablist' : undefined}
       aria-label={ariaLabel}
       data-slot="surface-tab-strip"
       className={cn('dsh-studio-surface-tab-strip', className)}

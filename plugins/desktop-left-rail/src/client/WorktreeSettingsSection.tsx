@@ -17,7 +17,7 @@ import {
 } from './left-rail-settings.ts'
 import { fetchWorktreeDefaults } from './worktree-api.ts'
 import { sanitizeWorktreeDir, type WorktreeDefaultsResult } from '@dsh-studio/shared/worktree-preferences'
-import { FieldError, SettingsRow, SettingsSection } from '@dsh-studio/shared/ui'
+import { FieldError, SettingsRow, SettingsSection, Switch } from '@dsh-studio/shared/ui'
 import { SettingsSectionCss as css } from './styles.js'
 
 type SectionTranslate = WorkspaceBrowserProps['t']
@@ -174,12 +174,11 @@ export function WorktreeSettingsSection({ t }: WorktreeSettingsSectionProps) {
         description={t('settings.worktree.nestDesc')}
         disabled={saving || !loadedOnce}
         control={(
-          <input
-            type="checkbox"
+          <Switch
             checked={nest}
             aria-label={t('settings.worktree.nest')}
             disabled={saving || !loadedOnce}
-            onChange={event => { setNest(event.currentTarget.checked) }}
+            onCheckedChange={setNest}
           />
         )}
       />

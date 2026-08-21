@@ -61,7 +61,8 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   overflow: hidden;
   border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 9%));
   border-radius: 22px;
-  background: var(--dsw-alias-bg-base, #fff);
+  /* No fill here: the right-rail surface roots (side-tools.css) own the
+     column background and surface bridges for every rail panel. */
   color: var(--dsw-alias-label-primary, #1f2328);
   box-shadow: 0 14px 42px rgb(0 0 0 / 9%);
   opacity: 0;
@@ -205,9 +206,9 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   /* Top border separates the docked history strip from the change list above
      (module separator). No inset of its own: the toggle aligns itself and
      the commit-list scroll host owns all four insets, so row edges line up
-     with the change list above (8px). */
+     with the change list above (8px). No fill either — the workspace panel
+     owns the column surface, so the strip follows the right-rail background. */
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  background: var(--dsw-alias-bg-base, #fff);
 }
 
 /* Drag the top edge of the expanded history to resize it (96–520px); the
@@ -412,7 +413,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
 .dsh-studio-commit-error { color: var(--dsw-alias-label-error, #b42318); }
 .dsh-studio-commit-area small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--dsh-studio-font-xs); }
 .dsh-studio-sidebar-settings-ai { display: grid; gap: var(--dsh-studio-space-2); }
-.dsh-studio-sidebar-settings-popup-body .dsh-studio-sidebar-settings-ai .dsh-studio-sidebar-settings-grid { grid-template-columns: minmax(0, 1fr); }
 .dsh-studio-sidebar-settings-ai-toolbar { display: flex; justify-content: flex-end; margin-bottom: calc(-1 * var(--dsh-studio-space-2)); }
 .dsh-studio-sidebar-settings-menu-anchor { display: inline-flex; min-width: 0; position: relative; }
 .dsh-studio-sidebar-settings-menu-anchor > button { max-width: 260px; }

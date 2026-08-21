@@ -9,7 +9,8 @@
      (and its buttons) stay exactly centered between the dock's visible
      edges. */
   box-shadow: inset 0 1px 0 var(--dsw-alias-border-l2, rgb(0 0 0 / 10%));
-  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
+  /* Transparent: the host panel owns the column surface (rail fill or the
+     center base); the dock only contributes structure and separators. */
   color: var(--dsw-alias-label-primary, #1f2328);
   -webkit-app-region: no-drag;
 }
@@ -24,7 +25,6 @@
   padding: 0 var(--dsh-studio-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 7%));
-  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base, #fff));
   font-size: var(--dsh-studio-font-sm);
 }
 
@@ -195,7 +195,6 @@
   min-height: 0;
   max-height: calc(100vh - 190px);
   overflow: hidden;
-  background: var(--dsw-alias-bg-layer-1, #fff);
   transition: height 150ms ease;
 }
 
@@ -222,7 +221,7 @@
    contract — padding would inset the xterm viewport/scrollbar and create
    asymmetric gaps; the surface owns any breathing room instead). */
 .dsh-studio-terminal-view {
-  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
+  background: var(--dsh-studio-terminal-backdrop, var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff)));
   font-family: ui-monospace, "SF Mono", "Menlo", "Monaco", "Cascadia Mono", "Consolas", "DejaVu Sans Mono", "Liberation Mono", "Symbols Nerd Font Mono", "MesloLGS Nerd Font", "JetBrainsMono Nerd Font", "FiraCode Nerd Font", "Hack Nerd Font", monospace;
 }
 
@@ -232,12 +231,12 @@
      grid stays in sync); same contract as the shared terminal-view.css. */
   padding: var(--dsh-studio-space-2);
   box-sizing: border-box;
-  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
+  background: var(--dsh-studio-terminal-backdrop, var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff)));
   font-family: inherit;
 }
 
 .dsh-studio-terminal-view .xterm-viewport {
-  background-color: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff)) !important;
+  background-color: var(--dsh-studio-terminal-backdrop, var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff))) !important;
 }
 
 /* Terminal scrollbar skin — same contract as the shared terminal-view.css:

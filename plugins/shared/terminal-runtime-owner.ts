@@ -109,6 +109,7 @@ export class TerminalRuntimeOwner {
   private scrollSubscription: { dispose(): void } | null = null
   private writeParsedSubscription: { dispose(): void } | null = null
   private themeObserver: MutationObserver | null = null
+  private appliedThemeKey: string | null = null
   private compositionHandler: (() => void) | null = null
   private scrollIntent: TerminalScrollIntentState = INITIAL_TERMINAL_SCROLL_INTENT
   private activity: TerminalActivitySnapshot = INITIAL_TERMINAL_ACTIVITY
@@ -212,6 +213,12 @@ export class TerminalRuntimeOwner {
       }
       this.opened = true
       this.installPersistentListeners()
+      // The screen canvas must match the surface this terminal actually
+      // renders on (rail fill vs center base): re-resolve from the container
+      // now that it exists, replacing the root-default theme from the
+      // constructor.
+      this.appliedThemeKey = null
+      this.applyTerminalTheme()
       this.socket.connect(this.terminal.cols, this.terminal.rows, {
         onOutput: (data, acknowledge) => {
           this.recentBuffer.append(data)
@@ -323,12 +330,31 @@ export class TerminalRuntimeOwner {
       if (isTerminalScrollPinned(next)) this.terminal.scrollToBottom()
     })
     this.themeObserver = new MutationObserver(() => {
-      this.terminal.options.theme = resolveTerminalTheme()
+      // The runtime toggles `data-ds-dark-theme` on <body> (ui-theme
+      // boot-theme.ts / ThemePresenter) — never on <html>, so the observer
+      // must watch the body or the flip never lands here.
+      this.applyTerminalTheme()
     })
-    this.themeObserver.observe(document.documentElement, {
+    this.themeObserver.observe(document.body, {
       attributes: true,
       attributeFilter: ['data-ds-dark-theme'],
     })
+  }
+
+  /**
+   * Re-resolve the xterm theme from the live container's computed surface and
+   * write it only when a slot actually changed — a no-op write would rebuild
+   * xterm's palette and discard TUI OSC color mutations (same gating Orca's
+   * composedTerminalThemesEqual applies before options.theme writes).
+   */
+  private applyTerminalTheme(): void {
+    // Re-resolve from the live container (rail fill vs center base); fall
+    // back to the root default before the first attach.
+    const next = resolveTerminalTheme(this.container ?? undefined)
+    const nextKey = JSON.stringify(next)
+    if (nextKey === this.appliedThemeKey) return
+    this.appliedThemeKey = nextKey
+    this.terminal.options.theme = next
   }
 
   private attachSurfaceListeners(): void {

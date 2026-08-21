@@ -113,7 +113,13 @@ test('review, pinned summary, and embedded side tools keep distinct layouts', ()
   assert.match(builtinTabs, /id: 'files'/)
   assert.match(builtinViewers, /id: 'binary'/)
   assert.match(plugin, /desktopSidebar\.setWorkspace\(/)
-  assert.match(sideToolsCss, /\.dsh-studio-side-panel\s*\{[^}]*width: 100% !important;[^}]*border-radius: 0;[^}]*box-shadow: none;/s)
+  assert.match(sideToolsCss, /\[data-dsh-studio-layout-frame\] > :nth-child\(3\)[\s\S]*--dsw-specific-sidebar-fill/)
+   // One surface owner: the rail roots in side-tools.css hold the fill and
+   // the surface bridges (scroll fade + terminal backdrop); the workspace
+   // panel itself paints no fill and follows the rail surface instead.
+   assert.match(sideToolsCss, /\.dsh-studio-workspace-panel[\s\S]*--dsh-studio-terminal-backdrop: var\(--dsw-specific-sidebar-fill/)
+   assert.doesNotMatch(workspaceCss, /\.dsh-studio-workspace-panel\s*\{[^}]*background:/s)
+   assert.match(sideToolsCss, /\.dsh-studio-side-panel\s*\{[^}]*width: 100% !important;[^}]*border-radius: 0;[^}]*box-shadow: none;/s)
   // The window controls live in the panel's top row, flush right — no
   // floating toolbar, no summary button riding the window edge.
   assert.doesNotMatch(workspace, /DesktopPanelToolbar/)
