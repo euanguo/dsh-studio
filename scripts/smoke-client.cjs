@@ -1,3 +1,8 @@
+// DEPRECATED: this broad Electron client harness is retained for history only.
+// Do not run it; it assumes a usable workspace and can block on the picker.
+console.log('Deprecated: smoke-client.cjs is not run')
+process.exit(0)
+
 const { app, BrowserWindow } = require('electron')
 const { join } = require('node:path')
 

@@ -26,11 +26,12 @@ import {
   sep,
 } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
+import { DSH_SOURCE_SPEC, resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
 import { bakeSkinPalette } from './bake-skin-palette.mjs'
 import { resolveNodeDistributionPlatform } from '../src/node-platform.ts'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
+const npmRelease = DSH_SOURCE_SPEC.source === 'npm'
 const dshSource = resolveDshSource()
 const stage = join(root, '.stage')
 const runtime = join(stage, 'dsh-runtime')
@@ -51,8 +52,8 @@ const nodeArchive = join(cache, nodeArchiveName)
 const nodeCache = join(cache, nodeFolder)
 const nodeExecutable = join(nodeCache, isWindowsNode ? 'node.exe' : join('bin', 'node'))
 
-if (!existsSync(join(dshSource, 'apps', 'web', 'dist', 'index.html'))
-  || !existsSync(join(dshSource, 'apps', 'cli', 'lib', 'bin.js'))) {
+if (!npmRelease && (!existsSync(join(dshSource, 'apps', 'web', 'dist', 'index.html'))
+  || !existsSync(join(dshSource, 'apps', 'cli', 'lib', 'bin.js')))) {
   throw new Error(`DSH build artifacts are missing at ${dshSource}; run pnpm run build:dsh first`)
 }
 
@@ -90,6 +91,61 @@ function download(url, target) {
 
 function sha256(path) {
   return createHash('sha256').update(readFileSync(path)).digest('hex')
+}
+
+/** Expose pnpm's hoisted package graph for profile plugin resolution. */
+function exposeHoistedPackages() {
+  const hoist = join(runtime, 'node_modules', '.pnpm', 'node_modules')
+  const prefix = join(runtime, 'node_modules')
+  if (!existsSync(hoist)) return
+  const visit = directory => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const source = join(directory, entry.name)
+      if (entry.isSymbolicLink()) {
+        const target = join(prefix, relative(hoist, source))
+        if (existsSync(target)) continue
+        mkdirSync(dirname(target), { recursive: true })
+        const logical = resolve(dirname(source), readlinkSync(source))
+        portableSymlink(relative(dirname(target), logical), target)
+      } else if (entry.isDirectory()) {
+        visit(source)
+      }
+    }
+  }
+  visit(hoist)
+}
+
+/** Record the deployed package graph in the runtime manifest for profile loading. */
+function recordExposedDependencies() {
+  const manifestPath = join(runtime, 'package.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+  const dependencies = { ...manifest.dependencies }
+  const visit = directory => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const path = join(directory, entry.name)
+      if (entry.isSymbolicLink()) {
+        const packagePath = join(realpathSync(path), 'package.json')
+        if (!existsSync(packagePath)) continue
+        const packageManifest = JSON.parse(readFileSync(packagePath, 'utf8'))
+        if (typeof packageManifest.name === 'string' && typeof packageManifest.version === 'string') {
+          dependencies[packageManifest.name] = packageManifest.version
+        }
+      } else if (entry.isDirectory()) {
+        const packagePath = join(path, 'package.json')
+        if (existsSync(packagePath)) {
+          const packageManifest = JSON.parse(readFileSync(packagePath, 'utf8'))
+          if (typeof packageManifest.name === 'string' && typeof packageManifest.version === 'string') {
+            dependencies[packageManifest.name] = packageManifest.version
+          }
+          continue
+        }
+        visit(path)
+      }
+    }
+  }
+  visit(join(runtime, 'node_modules'))
+  manifest.dependencies = dependencies
+  writeFileSync(manifestPath, JSON.stringify(manifest, undefined, 2) + '\n')
 }
 
 function ensureNodeRuntime() {
@@ -805,11 +861,42 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
   }
 }
 
+function runtimeDependencyTarget(dependency) {
+  const parts = dependency.split('/')
+  const link = join(runtime, 'node_modules', ...parts)
+  if (existsSync(join(link, 'package.json'))) return link
+  const hoisted = join(runtime, 'node_modules', '.pnpm', 'node_modules', ...parts)
+  if (existsSync(join(hoisted, 'package.json'))) return hoisted
+
+  const store = join(runtime, 'node_modules', '.pnpm')
+  const prefix = dependency.replace('/', '+')
+  let fallback
+  for (const entry of readdirSync(store, { withFileTypes: true })) {
+    if (!entry.isDirectory() || !entry.name.startsWith(`${prefix}@`)) continue
+    const candidate = join(store, entry.name, 'node_modules', ...parts)
+    const manifestPath = join(candidate, 'package.json')
+    if (!existsSync(manifestPath)) continue
+    const candidateManifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+    if (candidateManifest.name !== dependency) continue
+    if (candidateManifest.version === DSH_SOURCE_SPEC.version) return candidate
+    fallback ??= candidate
+  }
+  if (fallback !== undefined) return fallback
+  throw new Error(`DSH runtime is missing host dependency ${dependency}`)
+}
+
 function installCompiledPackageHostDependencies(sourceManifestPath, packageDir) {
   const manifest = JSON.parse(readFileSync(sourceManifestPath, 'utf8'))
-  const sourcePackages = discoverSourcePackages()
+  const sourcePackages = npmRelease ? undefined : discoverSourcePackages()
   for (const dependency of manifest.dshStudio?.hostDependencies ?? []) {
-    const source = sourcePackages.get(dependency)
+    const source = sourcePackages?.get(dependency)
+    if (npmRelease) {
+      const target = runtimeDependencyTarget(dependency)
+      const link = join(packageDir, 'node_modules', ...dependency.split('/'))
+      mkdirSync(dirname(link), { recursive: true })
+      portableSymlink(relative(dirname(link), target), link)
+      continue
+    }
     if (source === undefined) {
       throw new Error(`${manifest.name} cannot resolve DSH peer ${dependency}`)
     }
@@ -1032,7 +1119,7 @@ function sweepForeignNativeArtifacts() {
   }
 }
 
-if (!existsSync(join(dshSource, 'apps', 'cli', 'package.json'))) {
+if (!npmRelease && !existsSync(join(dshSource, 'apps', 'cli', 'package.json'))) {
   throw new Error(`DSH source checkout not found: ${dshSource}`)
 }
 for (const required of [
@@ -1068,58 +1155,72 @@ for (const required of [
 rmSync(stage, { recursive: true, force: true })
 mkdirSync(stage, { recursive: true })
 const pnpm = resolvePinnedPnpm(dshSource)
-console.log(`Deploying pinned DSH runtime (${isWindowsNode ? 'hoisted copy' : 'copy import'} mode)`)
+if (npmRelease) {
+  const releaseLockfile = join(root, 'scripts', `dsh-runtime-${DSH_SOURCE_SPEC.version}-lock.yaml`)
+  const assemblyLockfile = join(dshSource, 'pnpm-lock.yaml')
+  if (!existsSync(releaseLockfile)) {
+    throw new Error(`missing pinned DSH runtime lockfile: ${releaseLockfile}`)
+  }
+  copyFileSync(releaseLockfile, assemblyLockfile)
+  console.log(`Installing pinned DSH npm release ${DSH_SOURCE_SPEC.version}`)
+  run(process.execPath, [pnpm.cliEntry, '--reporter=silent', '--ignore-scripts', 'install', '--frozen-lockfile'], {
+    cwd: dshSource,
+    env: { ...process.env, PATH: `${pnpm.binDir}${delimiter}${process.env.PATH ?? ''}` },
+  })
+}
+console.log(`Deploying pinned DSH runtime (${npmRelease ? 'npm assembly' : isWindowsNode ? 'hoisted copy' : 'copy import'} mode)`)
 run(process.execPath, [
   pnpm.cliEntry,
   '--reporter=silent',
   '--config.package-import-method=copy',
-  ...(isWindowsNode ? [
+  ...(!npmRelease && isWindowsNode ? [
     '--config.node-linker=hoisted',
     '--config.inject-workspace-packages=true',
   ] : []),
   '--ignore-scripts',
   '--filter', '@deepseek-ai/dsh',
-  'deploy', '--prod', ...(isWindowsNode ? [] : ['--legacy']), runtime,
+  'deploy', '--prod', ...(npmRelease || !isWindowsNode ? ['--legacy'] : []), runtime,
 ], {
   cwd: dshSource,
-  env: {
-    ...process.env,
-    PATH: `${pnpm.binDir}${delimiter}${process.env.PATH ?? ''}`,
-  },
+  env: { ...process.env, PATH: `${pnpm.binDir}${delimiter}${process.env.PATH ?? ''}` },
 })
 
-if (isWindowsNode) ensureWindowsWorkspacePackages()
 replaceDeprecatedDomExceptionShim()
 assertDeprecatedLockBranchesAreNotShipped()
-console.log('Relinking workspace packages')
-rewriteWorkspaceLinks()
-relinkInstallationWorkspacePackages()
+if (npmRelease) {
+  console.log('Exposing npm release packages for profile resolution')
+  exposeHoistedPackages()
+  recordExposedDependencies()
+} else {
+  if (isWindowsNode) ensureWindowsWorkspacePackages()
+  console.log('Relinking workspace packages')
+  rewriteWorkspaceLinks()
+  relinkInstallationWorkspacePackages()
+}
 console.log('Installing desktop packages')
 installDesktopPackages()
 sweepForeignNativeArtifacts()
-// 构建期配色烘焙（架构文档 §3.4/§8.2）：把 ChatGPT 默认配色追加到 staged
-// web 壳的 index-*.css 末尾，内置 light/dark/system 原生即 ChatGPT；
-// 只烘焙 stage 拷贝，.cache/dsh-source checkout 保持干净。幂等。
 {
-  const assets = join(runtime, 'workspace', 'apps', 'web', 'dist', 'assets')
-  if (!existsSync(assets)) {
-    // The hoisted Windows deploy mode does not materialize workspace app
-    // build outputs the way the legacy copy import does. Copy the web
-    // shell dist from the DSH source so the runtime is self-contained.
+  let assets = npmRelease
+    ? join(runtimeDependencyTarget('@deepseek-ai/dsh-web-frontend'), 'dist', 'assets')
+    : join(runtime, 'workspace', 'apps', 'web', 'dist', 'assets')
+  if (!existsSync(assets) && !npmRelease) {
     const sourceDist = join(dshSource, 'apps', 'web', 'dist')
     const targetDist = join(runtime, 'workspace', 'apps', 'web', 'dist')
     if (existsSync(join(sourceDist, 'assets'))) {
       mkdirSync(join(runtime, 'workspace', 'apps', 'web'), { recursive: true })
       cpSync(sourceDist, targetDist, { recursive: true, preserveTimestamps: true })
-      console.log(`Copied web shell dist from DSH source (deploy gap fill)`)
-    } else {
-      throw new Error(`staged web shell assets missing at ${assets}; cannot bake skin palette`)
+      assets = join(targetDist, 'assets')
+      console.log('Copied web shell dist from DSH source (deploy gap fill)')
     }
+  }
+  if (!existsSync(assets)) {
+    throw new Error(`staged web shell assets missing at ${assets}; cannot bake skin palette`)
   }
   bakeSkinPalette(assets)
   console.log('Baked ChatGPT default palette into staged web shell css')
 }
-copyFileSync(join(dshSource, 'THIRD_PARTY_NOTICES.md'), join(runtime, 'THIRD_PARTY_NOTICES.md'))
+copyFileSync(join(npmRelease ? root : dshSource, 'THIRD_PARTY_NOTICES.md'), join(runtime, 'THIRD_PARTY_NOTICES.md'))
 restoreExecutableHelpers()
 console.log('Normalizing runtime links')
 normalizeRuntimeLinks()

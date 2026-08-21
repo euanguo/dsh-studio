@@ -98,7 +98,7 @@ test('desktop sidebar exposes one configurable tool registry in settings', () =>
   assert.match(client, /desktopSidebar\.setTabEnabled/)
   assert.match(client, /desktopSidebar\.setViewerEnabled/)
   assert.match(manifest, /@deepseek-ai\/dsh-client-ui-settings/)
-  assert.match(manifest, /@deepseek-ai\/dsh-client-ui-slots/)
+  assert.doesNotMatch(manifest, /@deepseek-ai\/dsh-client-ui-slots/)
 })
 
 test('desktop Host plugin publishes capability, prompt, and bash environment', () => {

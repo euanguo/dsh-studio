@@ -1,3 +1,8 @@
+// DEPRECATED: this broad Electron smoke harness is retained for history only.
+// Do not run it; it creates an empty workspace and can block on the picker.
+console.log('Deprecated: smoke-runtime.mjs is not run')
+process.exit(0)
+
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
 import {
