@@ -26,6 +26,9 @@ export {
 /** Channels that share one code path and differ only by data root. */
 export const DSH_STUDIO_CHANNELS = [DSH_STUDIO_STABLE_CHANNEL, DSH_STUDIO_DEV_CHANNEL] as const
 
+/** Packaged manifest field used to select a build's default channel. */
+export const DSH_STUDIO_PACKAGED_CHANNEL_FIELD = 'dshStudioChannel'
+
 /** Stable vs verification instance. Behavior is identical except the data root. */
 export type DshStudioChannel = (typeof DSH_STUDIO_CHANNELS)[number]
 
@@ -93,11 +96,23 @@ export function takeDshStudioChannelArgs(args: readonly string[]): {
 /** Resolve the instance channel. */
 export function resolveDshStudioChannel(
   env: NodeJS.ProcessEnv = process.env,
-  options: { packaged?: boolean } = {},
+  options: { packaged?: boolean; packagedDefault?: DshStudioChannel } = {},
 ): DshStudioChannel {
   const configured = env[DSH_STUDIO_CHANNEL_ENV]
   if (configured !== undefined && configured !== '') return parseDshStudioChannel(configured)
-  return options.packaged === false ? DSH_STUDIO_DEV_CHANNEL : DSH_STUDIO_STABLE_CHANNEL
+  if (options.packaged === false) return DSH_STUDIO_DEV_CHANNEL
+  return options.packagedDefault ?? DSH_STUDIO_STABLE_CHANNEL
+}
+
+/** Read a packaged build's optional default channel marker. */
+export function resolvePackagedDshStudioChannel(manifest: unknown): DshStudioChannel | undefined {
+  if (typeof manifest !== 'object' || manifest === null || Array.isArray(manifest)) return undefined
+  const value = (manifest as Record<string, unknown>)[DSH_STUDIO_PACKAGED_CHANNEL_FIELD]
+  if (value === undefined) return undefined
+  if (typeof value !== 'string' || value === '') {
+    throw new Error(`${DSH_STUDIO_PACKAGED_CHANNEL_FIELD} must be a non-empty channel name`)
+  }
+  return parseDshStudioChannel(value)
 }
 
 /** Resolve the default DSH Studio state root for one user account. */

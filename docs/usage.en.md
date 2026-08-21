@@ -142,9 +142,10 @@ dsh-studio tui
 ```
 
 - `desktop` opens the installed app and falls back to the Electron development
-  entry when run from a source checkout. Packaged Desktop defaults to `stable`
-  (`~/.dsh-studio`); `pnpm start` / `pnpm dev` default to `dev` (`~/.dsh-studio-dev`).
-  Override with `--channel stable|dev`.
+  entry when run from a source checkout. The formal package defaults to `stable`
+  (`~/.dsh-studio`); the Dev DMG is stamped at packaging time to default to `dev`
+  (`~/.dsh-studio-dev`), as do `pnpm start` / `pnpm dev`. Override with
+  `--channel stable|dev`.
 - `gui` is an alias for `desktop`.
 - `web` starts the HTTP service and prints its URL.
 - `tui` initializes its Profile and attaches the upstream renderer to the
@@ -356,12 +357,12 @@ to `~/.dsh-studio-dev` with `DSH_STUDIO_CHANNEL=dev` / `--channel dev`. Isolate 
 Web or TUI process with `--data`. Configure the DeepSeek API key in Models
 settings or in `.env` under the active data root.
 
-An installed Desktop and a source verification instance can run together:
-the packaged app writes `~/.dsh-studio`, while `pnpm start` / `pnpm dev` write
-`~/.dsh-studio-dev`. Profiles, plugins, and workspace behavior stay the same; only
-the data root and single-instance lock change. The development window title
-includes `(Dev)`, and its Dock / window icon is the same whale with an orange
-`DEV` stamp in the lower-right corner. To make a source instance read
+The formal package, Dev DMG, and a source verification instance can run together:
+the formal package writes `~/.dsh-studio`, while the Dev DMG and
+`pnpm start` / `pnpm dev` write `~/.dsh-studio-dev`. Profiles, plugins, and
+workspace behavior stay the same; only the data root and single-instance lock
+change. The Dev window title includes `(Dev)`, and the Dev DMG uses a separate
+Dev app id and `DSH Studio-Dev` artifact name. To make a Dev instance read
 production state, launch it with `--channel stable` or set `DSH_STUDIO_HOME`.
 
 On first use of the shared root, Desktop imports sessions, credentials, plugins,

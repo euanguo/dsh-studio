@@ -8,6 +8,7 @@ import {
   dshStudioHomeDirectory,
   parseDshStudioChannel,
   resolveDshStudioChannel,
+  resolvePackagedDshStudioChannel,
   resolveDshStudioHome,
   takeDshStudioChannelArgs,
 } from '../src/data-root.ts'
@@ -32,9 +33,13 @@ test('all surfaces resolve the new shared DSH Studio state root', () => {
 test('stable and dev channels differ only by the new data root', () => {
   assert.equal(resolveDshStudioChannel({}), 'stable')
   assert.equal(resolveDshStudioChannel({}, { packaged: true }), 'stable')
+  assert.equal(resolveDshStudioChannel({}, { packaged: true, packagedDefault: 'dev' }), 'dev')
   assert.equal(resolveDshStudioChannel({}, { packaged: false }), 'dev')
-  assert.equal(resolveDshStudioChannel({ DSH_STUDIO_CHANNEL: 'dev' }, { packaged: true }), 'dev')
-  assert.equal(resolveDshStudioChannel({ DSH_STUDIO_CHANNEL: 'stable' }, { packaged: false }), 'stable')
+  assert.equal(resolveDshStudioChannel({ DSH_STUDIO_CHANNEL: 'dev' }, { packaged: true, packagedDefault: 'stable' }), 'dev')
+  assert.equal(resolveDshStudioChannel({ DSH_STUDIO_CHANNEL: 'stable' }, { packaged: false, packagedDefault: 'dev' }), 'stable')
+  assert.equal(resolvePackagedDshStudioChannel({ dshStudioChannel: 'dev' }), 'dev')
+  assert.equal(resolvePackagedDshStudioChannel({}), undefined)
+  assert.throws(() => resolvePackagedDshStudioChannel({ dshStudioChannel: 'nightly' }), /DSH_STUDIO_CHANNEL/)
   assert.equal(parseDshStudioChannel('production'), 'stable')
   assert.equal(parseDshStudioChannel('development'), 'dev')
   assert.equal(

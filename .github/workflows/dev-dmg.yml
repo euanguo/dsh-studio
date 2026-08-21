@@ -1,8 +1,8 @@
 name: Dev DMG
 
-# Manually builds a macOS arm64 DMG from the selected branch and uploads it
-# as a workflow artifact only. No GitHub release or tag is created; the
-# installer is downloaded from the Actions run page.
+# Manually builds an isolated macOS arm64 Dev DMG from the selected branch
+# and uploads it as a workflow artifact only. No GitHub release or tag is
+# created; the installer is downloaded from the Actions run page.
 #
 # Signing: no macOS signing secrets are expected on the fork, so the
 # package is always produced with the ad-hoc fallback (CSC_LINK unset).
@@ -60,12 +60,12 @@ jobs:
           # No signing credentials on the fork: force the ad-hoc
           # fallback instead of discovering a stale local identity.
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: pnpm run dist:mac
+        run: pnpm run dist:mac -- --channel dev
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dsh-studio-dmg-arm64
+          name: dsh-studio-dev-dmg-arm64
           compression-level: 0
-          path: release/DSH-Studio-*.dmg
+          path: release/DSH-Studio-Dev-*.dmg
           if-no-files-found: error

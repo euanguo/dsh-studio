@@ -132,8 +132,9 @@ dsh-studio tui
 ```
 
 - `desktop` 启动已安装应用；源码仓库中回退到 Electron 开发入口。
-  已安装包默认使用 `stable`（`~/.dsh-studio`），`pnpm start` / `pnpm dev`
-  默认使用 `dev`（`~/.dsh-studio-dev`）。可用 `--channel stable|dev` 覆盖。
+  正式安装包默认使用 `stable`（`~/.dsh-studio`），Dev DMG 在打包时固定使用
+  `dev`（`~/.dsh-studio-dev`），`pnpm start` / `pnpm dev` 也默认使用 `dev`。
+  可用 `--channel stable|dev` 覆盖。
 - `gui` 是 `desktop` 的启动别名。
 - `web` 启动 HTTP 服务并打印访问地址。
 - `tui` 初始化独立 Profile，并在当前终端中附着运行上游 renderer。
@@ -317,11 +318,12 @@ Desktop、Web 和 TUI 默认共同使用 `~/.dsh-studio`，且不会加载 `~/.d
 `--data` 只隔离当前进程。DeepSeek API key 可以在 Models 设置中配置，或写入
 当前数据根下的 `.env`。
 
-已安装的 Desktop 与源码验证实例可以同时运行：正式版写入 `~/.dsh-studio`，
-`pnpm start` / `pnpm dev` 写入 `~/.dsh-studio-dev`。两者 Profile、插件与工作区
-行为一致，只换数据根和单实例锁。开发窗口标题带 `(Dev)`，Dock / 窗口图标
-是同一只鲸标，右下角盖了橙色 `DEV`。要让源码实例读正式数据，启动时加
-`--channel stable` 或设置 `DSH_STUDIO_HOME`。
+正式版、Dev DMG 与源码验证实例可以同时运行：正式版写入
+`~/.dsh-studio`，Dev DMG 和 `pnpm start` / `pnpm dev` 写入
+`~/.dsh-studio-dev`。两者 Profile、插件与工作区行为一致，只换数据根和单实例锁。
+Dev 窗口标题带 `(Dev)`，Dev DMG 使用独立的 Dev app id 和 `DSH Studio-Dev` 产物名。
+要让 Dev 实例读正式数据，启动时明确加 `--channel stable` 或设置
+`DSH_STUDIO_HOME`。
 
 首次使用共享目录时，Desktop 会从系统应用数据目录中的旧
 `DSH Studio` 状态导入会话、凭据、插件与界面设置；Web 会导入旧

@@ -10,7 +10,7 @@ import {
   type MenuItemConstructorOptions,
 } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { createWriteStream, existsSync, mkdirSync, statSync, type WriteStream } from 'node:fs'
+import { createWriteStream, existsSync, mkdirSync, readFileSync, statSync, type WriteStream } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -42,6 +42,7 @@ import {
   DSH_STUDIO_HOME_ENV,
   parseDshStudioChannel,
   resolveDshStudioChannel,
+  resolvePackagedDshStudioChannel,
   resolveDshStudioHome,
   takeDshStudioChannelArgs,
   type DshStudioChannel,
@@ -964,9 +965,20 @@ function applyDesktopChannelFromArgv(): string[] {
   return taken.rest
 }
 
+function packagedDefaultChannel(): DshStudioChannel | undefined {
+  if (!app.isPackaged) return undefined
+  const manifestPath = join(currentDir, '..', 'package.json')
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown
+  return resolvePackagedDshStudioChannel(manifest)
+}
+
 async function bootstrap(): Promise<void> {
   const launchArguments = applyDesktopChannelFromArgv()
-  const channel = resolveDshStudioChannel(process.env, { packaged: app.isPackaged })
+  const packagedDefault = packagedDefaultChannel()
+  const channel = resolveDshStudioChannel(process.env, {
+    packaged: app.isPackaged,
+    ...(packagedDefault === undefined ? {} : { packagedDefault }),
+  })
   process.env[DSH_STUDIO_CHANNEL_ENV] = channel
   const dshStudioHome = resolveDshStudioHome(process.env)
   const electronDataRoot = desktopElectronDataRoot(dshStudioHome)
@@ -993,7 +1005,8 @@ async function bootstrap(): Promise<void> {
     return
   }
   app.on('second-instance', (_event, argv) => {
-    queuedPaths.push(...argv.slice(1).filter(argument => !argument.startsWith('-')))
+    const launchArguments = takeDshStudioChannelArgs(argv.slice(1))
+    queuedPaths.push(...launchArguments.rest.filter(argument => !argument.startsWith('-')))
     if (mainWindow === undefined || mainWindow.isDestroyed()) {
       mainWindow = createWindow()
       if (runtimeUrl !== undefined) void mainWindow.loadURL(runtimeUrl.href).then(flushQueuedPaths)
