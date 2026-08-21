@@ -314,6 +314,11 @@ const gate = (classes: readonly string[]): string =>
 const gatePseudo = (classes: readonly string[], pseudo: string): string =>
   classes.map(selector => `body[data-dsh-studio-skin] ${selector}${pseudo}`).join(',')
 
+/** The settings shell keeps the semantic nav-cell suffix while its CSS-module
+ * hash can vary between DSH builds. Keep the generated selector as the primary
+ * path and use this narrow fallback for the same navigation button. */
+const NAV_CELL_STABLE = ['button[class*="_navCell"]'] as const
+
 /** CARD 只含卡片**外壳**容器类：剔除内部内容/修饰子节点。CARD 的 34 个类里
  *  cardBody/cardContent/cardDesc/cardFoot/cardMain/cardHead……全是卡片内部节点，
  *  把它们当外壳套 radius/focus 会误伤——尤其 overflow:hidden 的文案节点会被
@@ -340,9 +345,10 @@ const CHATGPT_GEOMETRY_CSS = `
    原则：所有尺寸来自 token；行高 = 字号 × 1.43 + padding 垂直 × 2，
    由间距体系自然形成，不写死高度。
 
-   选择器来源：全部是构建期生成的精确哈希类名（generated-selectors.ts，
-   见 docs/SKINS-BUILD-TIME-ARCHITECTURE.md §5），类名子串匹配已全部退役
-   （_triggerEffort 这类误命中不会再复发）。
+   选择器来源：组件特定规则优先使用构建期生成的精确哈希类名
+   （generated-selectors.ts，见 docs/SKINS-BUILD-TIME-ARCHITECTURE.md §5）。
+   settings nav cell 另保留一个带语义后缀的窄 fallback，以容忍设置 shell
+   在不同 DSH 构建中的 hash 变化；它不参与其他类名匹配。
    ================================================================ */
 body[data-dsh-studio-skin] {
   --gw-skin-row-fs: 13px;
@@ -441,7 +447,7 @@ body[data-dsh-studio-skin] [role="menu"] [role="menuitem"] + [role="menuitem"] {
   margin-top: var(--gw-skin-gap-item);
 }
 
-${gate(NAV_CELL)} {
+${gate([...NAV_CELL, ...NAV_CELL_STABLE])} {
   box-sizing: border-box !important;
   height: auto !important;
   min-height: var(--gw-skin-row-h) !important;
@@ -477,13 +483,11 @@ ${gate([...TRIGGER_PILL, ...SEAT, ...WORKSPACE_PILL])} {
   border-radius: var(--gw-skin-radius-pill) !important;
   corner-shape: round;
 }
-/* ui-settings-general 的设置触发（xuwxfG_trigger，full-width row seat）
-   同时命中上方的 button[aria-haspopup] 胶囊门控与 TRIGGER_PILL
-   （0,3,1 特异性）：:has 把特异性提到 0,3,2，拉回行规范（12.5px
-   superellipse，与列表/市场一致）。类名随 DSH 上游哈希变更——rc.7
-   由原来的 -wizCq_trigger 重哈希为 xuwxfG_trigger（见 generated-selectors
-   TRIGGER_PILL）。 */
-body[data-dsh-studio-skin] button.xuwxfG_trigger:has([data-slot='settings.trigger']) {
+/* ui-settings-general 的设置触发会同时命中上方的
+   button[aria-haspopup] 胶囊门控与 TRIGGER_PILL。它是左栏底部的
+   settings.trigger，不是弹窗里的 navCell；用稳定的 slot 标记把它拉回
+   与 navCell 相同的行圆角，避免依赖会随 DSH 构建变化的 CSS-module hash。 */
+body[data-dsh-studio-skin] button[aria-haspopup]:has([data-slot='settings.trigger']) {
   border-radius: var(--gw-skin-radius-row) !important;
   corner-shape: superellipse(1.5) !important;
 }

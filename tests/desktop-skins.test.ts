@@ -133,6 +133,16 @@ test('desktop skins are namespaced and keep every app surface on one opaque base
   }
 })
 
+test('settings navigation keeps compact geometry across nav-cell hash changes', () => {
+  const day = DESKTOP_SKINS.find(skin => skin.id === 'dsh-studio-skin-chatgpt-day')
+  assert.ok(day?.css)
+  assert.match(day.css, /button\[class\*="_navCell"\]/)
+  assert.match(day.css, /button\[class\*="_navCell"\][\s\S]*height: auto !important/)
+  assert.match(day.css, /button\[class\*="_navCell"\][\s\S]*border-radius: var\(--gw-skin-radius-row\) !important/)
+  assert.match(day.css, /button\[aria-haspopup\]:has\(\[data-slot='settings\.trigger'\]\)/)
+  assert.match(day.css, /button\[aria-haspopup\]:has\(\[data-slot='settings\.trigger'\]\)[\s\S]*border-radius: var\(--gw-skin-radius-row\) !important/)
+})
+
 test('skins keep the HoverCard pinned dark surface (no light-mode fill override)', () => {
   const day = DESKTOP_SKINS.find(skin => skin.id === 'dsh-studio-skin-chatgpt-day')
   assert.ok(day?.css)
