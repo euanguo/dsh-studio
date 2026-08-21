@@ -19,6 +19,7 @@ test('desktop sidebar is a fixed overlay that never restructures #root', () => {
   // No grid wrapper: the sidebar overlays the app, #root stays in place.
   assert.doesNotMatch(css, /#dsh-studio-embedded-layout/)
   assert.match(css, /#dsh-studio-sidebar-root\s*\{[^}]*position: fixed;[^}]*z-index: 10;[^}]*pointer-events: none;/s)
+  assert.match(css, /@media \(max-width: 639px\)[\s\S]*\.dsh-studio-workspace-resize\s*\{[^}]*display: none;/s)
   assert.doesNotMatch(workspace, /appRoot\.before\(layout\)/)
   assert.match(workspace, /document\.body\.append\(this\.element\)/)
 
@@ -26,6 +27,15 @@ test('desktop sidebar is a fixed overlay that never restructures #root', () => {
   assert.match(workspace, /this\.panels\.claimRightPanel\('sidebar'/)
   assert.match(workspace, /this\.panels\.releaseRightPanel\('sidebar'/)
   assert.doesNotMatch(workspace, /dshStudioRightPanelOwner = /)
+  const sideTools = readFileSync(join(root, 'plugins/sidebar/src/client/SideToolsPanel.tsx'), 'utf8')
+  assert.match(sideTools, /let moved = false/)
+  assert.match(sideTools, /if \(moved\) props\.onResize\(lastWidth\)/)
+  assert.match(workspace, /SIDEBAR_COLLAPSE_THRESHOLD_PX/)
+  assert.doesNotMatch(workspace, /narrowViewport/)
+  // Window-floor model: no forced-close logic anywhere.
+  assert.doesNotMatch(workspace, /resolveViewportForcedOpenState/)
+  const main = readFileSync(join(root, 'src/main.ts'), 'utf8')
+  assert.match(main, /minWidth: 600/)
 })
 
 test('right panel footprint is coordinated by the desktopPanels service', () => {
@@ -42,6 +52,30 @@ test('right panel footprint is coordinated by the desktopPanels service', () => 
   // Plugins must not write the owner flag or #root padding themselves.
   assert.doesNotMatch(summary, /dshStudioRightPanelOwner = /)
   assert.doesNotMatch(summary, /getElementById\('root'\)\?\.style\.removeProperty\('padding-right'\)/)
+})
+
+test('the DSH layout patch removes narrow auto-collapse and the window is the only floor', () => {
+  const patch = readFileSync(
+    join(root, 'patches/dsh-runtime/ui-layout-independent-columns.patch'),
+    'utf8',
+  )
+  const staging = readFileSync(join(root, 'scripts/stage-dsh.mjs'), 'utf8')
+  const patcher = readFileSync(join(root, 'scripts/dsh-runtime-patches.mjs'), 'utf8')
+
+  assert.match(patch, /const sidebarCollapsed = panels\.sidebar === 0/)
+  assert.match(patch, /center: Math\.max\(0, viewport - s - d\)/)
+  assert.match(patch, /minmax\(0px, 1fr\)/)
+  assert.match(patch, /clampWidth\(sidebar, 200, 400\)/)
+  assert.match(patch, /clampWidth\(details, 220, 640\)/)
+  assert.match(patch, /Math\.min\(400, viewport - colsRef\.current\.details\)/)
+  assert.match(patch, /Math\.min\(640, viewport - colsRef\.current\.sidebar\)/)
+  assert.match(patch, /data-dsh-studio-layout-frame/)
+  assert.doesNotMatch(patch, /\+.*SIDEBAR_AUTO_COLLAPSE/)
+  assert.doesNotMatch(patch, /force-close-right-panel/)
+  assert.match(staging, /applyDshRuntimePatches\(runtime, root\)/)
+  assert.match(staging, /verifyStagedLayout\(runtime\)/)
+  assert.match(patcher, /DSH_SOURCE_SPEC\.source !== 'npm'/)
+  assert.match(patcher, /manifest\.name !== '@deepseek-ai\/dsh-client-ui-layout'/)
 })
 
 test('review, pinned summary, and embedded side tools keep distinct layouts', () => {
@@ -65,7 +99,7 @@ test('review, pinned summary, and embedded side tools keep distinct layouts', ()
   assert.match(workspacePanel, /className="dsh-studio-review-view"/)
   assert.doesNotMatch(workspacePanel, /dsh-studio-review-panel/)
   assert.doesNotMatch(workspacePanel, /const embeddedWidth/)
-  assert.match(workspace, /const fullWidth = this\.state\.maximized \|\| this\.narrowViewport\.matches/)
+  assert.match(workspace, /const fullWidth = this\.state\.maximized/)
   assert.match(workspace, /this\.element\.style\.width = this\.state\.open/)
   assert.match(workspaceCss, /\.dsh-studio-review-view\s*\{[^}]*display: flex;[^}]*flex: 1;[^}]*flex-direction: column;/s)
   assert.match(sideTools, /props\.sidebar\.getTabs\(\)/)

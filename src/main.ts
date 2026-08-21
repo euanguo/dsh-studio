@@ -282,7 +282,7 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
   const window = new BrowserWindow({
     width: options.preview === true ? 1160 : 1280,
     height: options.preview === true ? 760 : 840,
-    minWidth: 900,
+    minWidth: 600,
     minHeight: 620,
     show: false,
     title: options.title ?? instanceWindowTitle(),
@@ -911,6 +911,7 @@ function installIpc(): void {
       platform,
       trafficLight: platform === 'darwin' ? { x: 16, y: 14 } : null,
       trafficLightWidth: 52,
+      trafficLightHeight: 12,
     }
   })
   ipcMain.handle('desktop:update:get-state', async event => {

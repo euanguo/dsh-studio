@@ -39,7 +39,10 @@ import type {
   WorkspacesService,
 } from './client-types.ts'
 import { applyChromeGeometry } from './chrome-geometry.ts'
-import { clampSidebarWidth } from '../sidebar-preferences.ts'
+import {
+  clampSidebarWidthForLayout,
+  SIDEBAR_COLLAPSE_THRESHOLD_PX,
+} from '../sidebar-preferences.ts'
 import sideToolsCss from './side-tools.css'
 import workspaceCss from './sidebar.css'
 import sourceControlCss from './source-control/source-control.css'
@@ -62,8 +65,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
   private toastElement: HTMLDivElement | undefined
   private toastRoot: Root | undefined
   private stopSidebar: (() => void) | undefined
-  private readonly narrowViewport = window.matchMedia('(max-width: 900px)')
-  private readonly handleViewportChange = (): void => { this.applyLayout() }
+  private resizing = false
   private stopKeymap: (() => void) | undefined
   private stopChromeGeometry: (() => void) | undefined
   private readonly disposeKeymapActions: Array<() => void> = []
@@ -204,7 +206,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   setWidth(width: number): void {
-    this.sidebar.setWidth(width)
+    this.sidebar.setWidth(clampSidebarWidthForLayout(width))
   }
 
   /**
@@ -216,8 +218,17 @@ export class WorkspaceToolsService implements WorkspaceTools {
    * The final value is committed by {@link commitResizeWidth} on pointerup.
    */
   previewResizeWidth(rawWidth: number): void {
-    const width = clampSidebarWidth(rawWidth)
-    const fullWidth = this.state.maximized || this.narrowViewport.matches
+    if (rawWidth < SIDEBAR_COLLAPSE_THRESHOLD_PX) {
+      this.resizing = true
+      const html = document.documentElement
+      html.style.setProperty('--dsh-studio-sidebar-width', '0px')
+      if (this.element !== undefined) this.element.style.width = '0px'
+      if (this.state.open) this.panels.previewRightPanel('0px')
+      return
+    }
+    this.resizing = true
+    const width = clampSidebarWidthForLayout(rawWidth)
+    const fullWidth = this.state.maximized
     const html = document.documentElement
     html.style.setProperty('--dsh-studio-sidebar-width', `${String(width)}px`)
     if (this.element !== undefined) {
@@ -237,7 +248,12 @@ export class WorkspaceToolsService implements WorkspaceTools {
   /** End of a live drag: commit the final width through the store (which
    *  publishes, persists and re-asserts the right-panel claim). */
   commitResizeWidth(rawWidth: number): void {
-    const width = clampSidebarWidth(rawWidth)
+    this.resizing = false
+    if (rawWidth < SIDEBAR_COLLAPSE_THRESHOLD_PX) {
+      this.setOpen(false)
+      return
+    }
+    const width = clampSidebarWidthForLayout(rawWidth)
     if (width !== this.state.width) {
       this.sidebar.setWidth(width)
       // setWidth publishes → syncSidebar → applyLayout() when it changed.
@@ -290,7 +306,6 @@ export class WorkspaceToolsService implements WorkspaceTools {
         <DialogHost />
       </>,
     )
-    this.narrowViewport.addEventListener('change', this.handleViewportChange)
     this.stopKeymap = installKeymap()
     // Window-chrome geometry (traffic lights / Windows overlay caption) →
     // the top rail's left/right reservation CSS variables.
@@ -346,7 +361,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
     // this.workbenchRoot = undefined
     // this.workbenchElement?.remove()
     // this.workbenchElement = undefined
-    this.narrowViewport.removeEventListener('change', this.handleViewportChange)
+    delete document.documentElement.dataset.dshStudioRightPanelWidth
     this.root?.unmount()
     this.element?.remove()
     this.toastRoot?.unmount()
@@ -451,7 +466,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
 
   private applyLayout(): void {
     const html = document.documentElement
-    const fullWidth = this.state.maximized || this.narrowViewport.matches
+    const fullWidth = this.state.maximized
     const widthCss = `${String(this.state.width)}px`
     const overlayWidth = this.state.open
       ? (fullWidth ? '100vw' : widthCss)
@@ -463,13 +478,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
     if (html.style.getPropertyValue('--dsh-studio-sidebar-width') !== widthCss) {
       html.style.setProperty('--dsh-studio-sidebar-width', widthCss)
     }
-    // Narrow viewports (< 900px) open the sidebar as a full-width drawer:
-    // squeezing #root by the panel width would leave the app unusable, and
-    // collapsing the container to 0 (the old behavior) made an open sidebar
-    // invisible — "closed but cannot reopen". The full-width state drives the
-    // side panel's top-row chrome reservation (its top row starts at x=0,
-    // under the traffic lights) — published as an attribute so CSS keys off
-    // it directly; no measuring, no observers.
+    // Full-width only for explicit maximize; the window minWidth guarantees
+    // both side panels always fit, so no viewport-driven drawer mode exists.
     if (this.state.open && fullWidth) {
       if (html.dataset.dshStudioSidebarFullWidth !== 'true') html.dataset.dshStudioSidebarFullWidth = 'true'
     } else if (html.dataset.dshStudioSidebarFullWidth !== undefined) {
@@ -477,6 +487,10 @@ export class WorkspaceToolsService implements WorkspaceTools {
     }
     if (this.state.open) {
       if (html.dataset.dshStudioDesktopSidebarOpen !== 'true') html.dataset.dshStudioDesktopSidebarOpen = 'true'
+      // Publish the resolved footprint so the DSH AppFrame patch can include
+      // the plugin rail in its viewport-budget (forced-close) calculation.
+      const px = String(fullWidth ? window.innerWidth : this.state.width)
+      if (html.dataset.dshStudioRightPanelWidth !== px) html.dataset.dshStudioRightPanelWidth = px
       // The #root squeeze is owned by the desktopPanels right-panel
       // coordinator — claim the footprint instead of writing global state.
       // The overlay container is flush with the window's right edge (no
@@ -487,6 +501,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
       })
     } else {
       delete html.dataset.dshStudioDesktopSidebarOpen
+      if (html.dataset.dshStudioRightPanelWidth !== undefined) delete html.dataset.dshStudioRightPanelWidth
       this.panels.releaseRightPanel('sidebar')
     }
     // The overlay container only occupies the panel footprint while open on

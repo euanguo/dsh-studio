@@ -38,14 +38,10 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   width: 100vw;
 }
 
-/* Narrow viewports (< 900px): the sidebar opens as a full-width drawer
-   (edge to edge); the inline width still collapses to 0 while closed. */
-@media (max-width: 900px) {
-  #dsh-studio-sidebar-root {
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 100vw;
+/* Resize handle follows Synara: only on >=640px viewports. */
+@media (max-width: 639px) {
+  .dsh-studio-workspace-resize {
+    display: none;
   }
 }
 

@@ -79,6 +79,7 @@
     "./tool-icon": "./tool-icon.tsx",
     "./use-i18n": "./use-i18n.ts",
     "./wire": "./wire.ts",
+    "./panel-geometry": "./panel-geometry.ts",
     "./worktree-preferences": "./worktree-preferences.ts"
   },
   "devDependencies": {

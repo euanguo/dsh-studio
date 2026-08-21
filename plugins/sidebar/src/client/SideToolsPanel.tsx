@@ -1252,6 +1252,7 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
     // pointermove hot path (see workspace-tools.previewResizeWidth).
     let rafId = 0
     let lastWidth = startWidth
+    let moved = false
     const schedulePreview = (width: number): void => {
       lastWidth = width
       if (rafId !== 0) return
@@ -1261,6 +1262,7 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
       })
     }
     const move = (next: PointerEvent): void => {
+      if (next.clientX !== startX) moved = true
       schedulePreview(startWidth + startX - next.clientX)
     }
     const finish = (): void => {
@@ -1268,10 +1270,10 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
         cancelAnimationFrame(rafId)
         rafId = 0
       }
-      props.onResize(lastWidth)
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', finish)
       window.removeEventListener('pointercancel', finish)
+      if (moved) props.onResize(lastWidth)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', finish)

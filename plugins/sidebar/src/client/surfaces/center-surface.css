@@ -107,24 +107,22 @@
   padding-right: var(--dsh-studio-traffic-right, var(--dsh-studio-space-2));
 }
 
-/* The DSH left rail keeps its own expand/collapse toggle in its header
-   (the rail's first button when collapsed). It is restored and stays
-   clickable; the aria-label flip that tracks the rail state lives on this
-   same button and is read by the strip (`leftRailToggleButton()` /
-   `readLeftRailOpen`). The unified top rail's toggle remains a second,
-   equivalent affordance — `leftRailToggleButton().click()` targets this
-   same button either way. */
-/* Upstream rests the collapsed toggle as the whale mark and swaps in the
-   panel icon on hover (the "expand sidebar" affordance, figma sidebar-hover
-   flow). We keep the whale mark fixed: hovering never reveals the panel
-   icon. Selectors address the SVGs by child position (FishLogo then panel
-   icon) because the sidebar's CSS-module classes are obfuscated; the
-   `:not(...)` guards leave the expanded single-icon button untouched. */
-[data-slot='sidebar'] button[aria-label*='侧边栏'] svg:first-child:not(:last-child) {
-  display: inline !important;
-}
-[data-slot='sidebar'] button[aria-label*='侧边栏'] svg:last-child:not(:first-child) {
+/* The unified top rail's toggle is the SINGLE manager of the DSH left
+   rail: the native sidebar header keeps its own expand/collapse button,
+   which is hidden here. The strip still drives it programmatically —
+   `leftRailToggleButton().click()` dispatches on the hidden node and the
+   aria-label flip that tracks the rail state lives on that same node and
+   is read by `readLeftRailOpen`. Both states are covered ('收起侧边栏'
+   while expanded, '打开侧边栏' as the collapsed whale-mark control). */
+[data-slot='sidebar'] button[aria-label*='侧边栏'] {
   display: none !important;
+}
+
+/* macOS desktop only (--dsh-studio-traffic-top is 0 elsewhere): pad the
+   left rail column down past the system traffic lights so the whale mark
+   never collides with them. */
+[data-slot='sidebar'] > div {
+  padding-top: var(--dsh-studio-traffic-top, 0px);
 }
 
 /* The tab scroller is the ONLY scrolling member of the strip: the toggle
@@ -406,4 +404,12 @@ body > div[role='menu'] div:hover > [role='menuitem']:not([aria-disabled='true']
 .dsh-studio-commit-surface-lines {
   max-height: 420px;
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+/* The DSH hero glow is a decorative bleed (width:135%) centered on the
+   composer. Whenever the column is narrower than the glow's intrinsic
+   width it produces a one-sided clipped edge, so always clamp it to the
+   column — content must never exceed the window. */
+[class*='heroGlow'] {
+  width: 100%;
 }

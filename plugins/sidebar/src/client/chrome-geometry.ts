@@ -56,6 +56,13 @@ export function applyChromeGeometry(): () => void {
         ? 0
         : geometry.trafficLight.x + geometry.trafficLightWidth + TRAFFIC_LIGHT_GAP
       setVar('--dsh-studio-traffic-left', `${contentStart}px`)
+      // Full vertical clearance under the lights (anchor + button + gap):
+      // columns that start at x=0 (the DSH left rail) pad their header down
+      // by this so the whale mark never collides with the system controls.
+      const topClearance = geometry.trafficLight === null
+        ? '0px'
+        : `${String(geometry.trafficLight.y + geometry.trafficLightHeight + TRAFFIC_LIGHT_GAP)}px`
+      setVar('--dsh-studio-traffic-top', topClearance)
     }).catch(() => {
       // Keep the CSS fallbacks.
     })

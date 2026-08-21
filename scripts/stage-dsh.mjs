@@ -27,6 +27,8 @@ import {
 } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { DSH_SOURCE_SPEC, resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
+import { applyDshRuntimePatches } from './dsh-runtime-patches.mjs'
+import { verifyStagedLayout } from './verify-staged-layout.mjs'
 import { bakeSkinPalette } from './bake-skin-palette.mjs'
 import { resolveNodeDistributionPlatform } from '../src/node-platform.ts'
 
@@ -1197,6 +1199,10 @@ if (npmRelease) {
   rewriteWorkspaceLinks()
   relinkInstallationWorkspacePackages()
 }
+console.log('Applying DSH runtime patches')
+applyDshRuntimePatches(runtime, root)
+console.log('Verifying staged DSH layout interactions')
+verifyStagedLayout(runtime)
 console.log('Installing desktop packages')
 installDesktopPackages()
 sweepForeignNativeArtifacts()
