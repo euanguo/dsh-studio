@@ -49,7 +49,13 @@ import {
 } from './data-root.ts'
 import { allowsRuntimeClipboardWrite, originOf } from './permissions.ts'
 import { BUNDLED_DESKTOP_PLUGINS, DESKTOP_PROFILE, ensureDesktopProfile } from './profile.ts'
-import { DshRuntimeSupervisor, runDshCommand, type DshRuntimeOptions, type RuntimeExit } from './runtime.ts'
+import {
+  DshRuntimeSupervisor,
+  runDshCommand,
+  type DshRuntimeOptions,
+  type RuntimeExit,
+  type RuntimeLauncher,
+} from './runtime.ts'
 import {
   bundledRuntimePaths,
   resolveRuntimeResourcesRoot,
@@ -145,6 +151,19 @@ function desktopRuntimeSnapshot(): DesktopRuntimeSnapshot {
   }
 }
 
+/**
+ * The desktop surface shares the Electron-embedded Node as its runtime
+ * interpreter: every bundled runtime process (supervisor, marketplace pnpm,
+ * sandboxed previews, PATH-discovered launchers) runs as
+ * `process.execPath` with ELECTRON_RUN_AS_NODE, so the installed app ships
+ * one Node instead of two.
+ */
+const DESKTOP_NODE_ENV: NodeJS.ProcessEnv = { ELECTRON_RUN_AS_NODE: '1' }
+
+function desktopNodeLauncher(): RuntimeLauncher {
+  return { command: process.execPath, env: DESKTOP_NODE_ENV, interpreter: true }
+}
+
 function runtimeEnvironment(
   paths: ReturnType<typeof runtimePaths>,
   overrides: { appDataPath?: string; dshHome?: string; preview?: { pluginId: string; transactionId: string } } = {},
@@ -152,6 +171,7 @@ function runtimeEnvironment(
   const info = desktopInfo(overrides.preview ?? null)
   const environment: NodeJS.ProcessEnv = {
     ...process.env,
+    ...DESKTOP_NODE_ENV,
     DSH_STUDIO_DESKTOP: '1',
     DSH_STUDIO_DESKTOP_APP_DATA: overrides.appDataPath ?? info.appDataPath,
     DSH_STUDIO_DESKTOP_PROFILE: info.profile,
@@ -185,8 +205,12 @@ function runtimeOptions(): DshRuntimeOptions {
   return {
     args: ['--profile', DESKTOP_PROFILE],
     cliEntry: paths.cliEntry,
+    // The loader/HMR service accesses Node internals; both the standalone
+    // binary and the shared Electron interpreter honor this flag.
+    nodeFlags: ['--expose-internals'],
     cwd: workspaceRoot,
     env: runtimeEnvironment(paths),
+    launcher: desktopNodeLauncher(),
     nodeBinary: paths.nodeBinary,
     onLog: (stream, line) => { appendLog(stream, line) },
     readyTimeoutMs: 60_000,
@@ -208,12 +232,24 @@ function previewRuntimeOptions(input: {
   if (!existsSync(paths.cliEntry)) throw new Error(`packaged DSH CLI is missing: ${paths.cliEntry}`)
   const preview = { pluginId: input.pluginId, transactionId: input.transactionId }
   const sandbox = '/usr/bin/sandbox-exec'
-  const launcher = process.platform === 'darwin' && existsSync(sandbox)
-    ? { args: ['-p', previewSandboxPolicy(input.sandboxRoot)], command: sandbox }
-    : undefined
+  // The sandbox wraps the shared Electron interpreter, not the standalone
+  // node binary (which the desktop package no longer carries).
+  const launcher: RuntimeLauncher | undefined =
+    process.platform === 'darwin' && existsSync(sandbox)
+      ? {
+          args: ['-p', previewSandboxPolicy(input.sandboxRoot)],
+          command: sandbox,
+          env: DESKTOP_NODE_ENV,
+          interpreter: true,
+          interpreterCommand: process.execPath,
+        }
+      : desktopNodeLauncher()
   return {
     args: ['--profile', DESKTOP_PROFILE],
     cliEntry: paths.cliEntry,
+    // The loader/HMR service accesses Node internals; both the standalone
+    // binary and the shared Electron interpreter honor this flag.
+    nodeFlags: ['--expose-internals'],
     cwd: workspaceRoot,
     env: {
       ...runtimeEnvironment(paths, {
@@ -223,7 +259,7 @@ function previewRuntimeOptions(input: {
       }),
       TMPDIR: temporary,
     },
-    ...(launcher === undefined ? {} : { launcher }),
+    launcher,
     nodeBinary: paths.nodeBinary,
     onLog: (stream, line) => { appendLog(stream, `[preview:${input.pluginId}] ${line}`) },
     readyTimeoutMs: 90_000,
@@ -700,7 +736,9 @@ function createPluginMarketplace(): PluginMarketplaceManager {
       cliEntry: paths.cliEntry,
       cwd: workingDirectory,
       env: environment,
-      nodeBinary: paths.nodeBinary,
+      // The shared Electron interpreter runs pnpm; ELECTRON_RUN_AS_NODE is
+      // already present in `environment`.
+      nodeBinary: process.execPath,
       pnpmEntry: paths.pnpmEntry,
       onLog: line => { appendLog('desktop', `[marketplace] ${line}`) },
     }),

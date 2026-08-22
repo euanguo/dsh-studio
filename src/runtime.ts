@@ -4,19 +4,95 @@ import type { Readable } from 'node:stream'
 
 const READY_LINE = /^dsh web: (https?:\/\/\S+)(?:\s|$)/
 
+/** How the packaged runtime is launched on this surface. */
+export interface RuntimeLauncher {
+  /** Command that runs the CLI entry (e.g. Electron with ELECTRON_RUN_AS_NODE). */
+  command: string
+  args?: string[]
+  /** Extra environment merged into the child process env. */
+  env?: NodeJS.ProcessEnv
+  /**
+   * Interpreter mode: the launcher command (or `interpreterCommand` when
+   * wrapped) IS the Node interpreter — Electron with ELECTRON_RUN_AS_NODE —
+   * so the standalone `nodeBinary` is never passed as an argument. Without
+   * this flag the nodeBinary is appended after the launcher args (plain
+   * wrapper style).
+   */
+  interpreter?: boolean
+  /**
+   * The real interpreter when `command` is only a wrapper around it
+   * (sandbox-exec around Electron-as-Node).
+   */
+  interpreterCommand?: string
+}
+
 /** Process launch contract for the packaged DSH runtime. */
 export interface DshRuntimeOptions {
   args: string[]
   cliEntry: string
   cwd: string
   env: NodeJS.ProcessEnv
-  launcher?: {
-    args: string[]
-    command: string
-  }
+  launcher?: RuntimeLauncher
   nodeBinary: string
+  /**
+   * Node interpreter flags (e.g. `--expose-internals` for the loader/HMR
+   * service). Placed before the CLI entry in every launch shape so both the
+   * standalone binary and the shared Electron interpreter honor them.
+   */
+  nodeFlags?: string[]
   readyTimeoutMs?: number
   onLog?: (stream: 'stderr' | 'stdout', line: string) => void
+}
+
+/** Resolved spawn vector for one DSH runtime launch. */
+export interface LaunchCommand {
+  command: string
+  args: string[]
+  env: NodeJS.ProcessEnv
+}
+
+/**
+ * Assemble the spawn vector for the DSH runtime. Four shapes:
+ * - plain: nodeBinary + cliEntry (Web/TUI distribution without Electron).
+ * - interpreter launcher (Electron as Node): the launcher command IS the
+ *   interpreter; nodeBinary is never passed.
+ * - wrapped interpreter: `command` wraps `interpreterCommand`
+ *   (sandbox-exec around Electron-as-Node).
+ * - wrapper launcher: launcher args + nodeBinary + cliEntry.
+ */
+export function buildLaunchCommand(options: DshRuntimeOptions): LaunchCommand {
+  const processArgs = options.args
+  const launcher = options.launcher
+  // Interpreter flags must precede the CLI entry for the interpreter to
+  // honor them (node flags are only parsed before the script path).
+  const flags = options.nodeFlags ?? []
+  if (launcher === undefined) {
+    return {
+      command: options.nodeBinary,
+      args: [...flags, options.cliEntry, ...processArgs],
+      env: options.env,
+    }
+  }
+  const env = { ...options.env, ...launcher.env }
+  if (launcher.interpreter === true) {
+    if (launcher.interpreterCommand !== undefined) {
+      return {
+        command: launcher.command,
+        args: [...(launcher.args ?? []), launcher.interpreterCommand, ...flags, options.cliEntry, ...processArgs],
+        env,
+      }
+    }
+    return {
+      command: launcher.command,
+      args: [...(launcher.args ?? []), ...flags, options.cliEntry, ...processArgs],
+      env,
+    }
+  }
+  return {
+    command: launcher.command,
+    args: [...(launcher.args ?? []), options.nodeBinary, ...flags, options.cliEntry, ...processArgs],
+    env,
+  }
 }
 
 /** Exit details emitted after an already-ready runtime terminates. */
@@ -73,13 +149,10 @@ export class DshRuntimeSupervisor extends EventEmitter {
   async start(): Promise<URL> {
     if (this.child !== undefined) throw new Error('DSH runtime is already running')
     this.ready = false
-    const command = this.options.launcher?.command ?? this.options.nodeBinary
-    const args = this.options.launcher === undefined
-      ? [this.options.cliEntry, ...this.options.args]
-      : [...this.options.launcher.args, this.options.nodeBinary, this.options.cliEntry, ...this.options.args]
-    const child = spawn(command, args, {
+    const launch = buildLaunchCommand(this.options)
+    const child = spawn(launch.command, launch.args, {
       cwd: this.options.cwd,
-      env: this.options.env,
+      env: launch.env,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     this.child = child
@@ -153,9 +226,10 @@ export async function runDshCommand(
   timeoutMs = 120_000,
 ): Promise<{ stderr: string; stdout: string }> {
   return await new Promise((resolve, reject) => {
-    const child = spawn(options.nodeBinary, [options.cliEntry, ...args], {
+    const launch = buildLaunchCommand({ ...options, args })
+    const child = spawn(launch.command, launch.args, {
       cwd: options.cwd,
-      env: options.env,
+      env: launch.env,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let stdout = ''
