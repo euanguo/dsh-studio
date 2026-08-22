@@ -28,6 +28,7 @@ import {
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { DSH_SOURCE_SPEC, resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
 import { dietNodeRuntime, pruneRuntimeDependencies, summarize } from './prune-stage.mjs'
+import { assertRuntimeBudget, loadRuntimeContract } from './runtime-contract.mjs'
 import { applyDshRuntimePatches } from './dsh-runtime-patches.mjs'
 import { verifyStagedLayout } from './verify-staged-layout.mjs'
 import { bakeSkinPalette } from './bake-skin-palette.mjs'
@@ -40,11 +41,12 @@ const stage = join(root, '.stage')
 const runtime = join(stage, 'dsh-runtime')
 const nodeRuntime = join(stage, 'node-runtime')
 const cache = join(root, '.cache')
-// One Node version across every surface: Electron 42.3.0 embeds Node
-// 24.15.0, and the standalone runtime distribution pins the same release so
-// Desktop, Web, and TUI never run on divergent Node versions. ensureNodeRuntime
-// asserts this against the installed Electron dist when both can run.
-const nodeVersion = process.env.DSH_STUDIO_NODE_VERSION ?? '24.15.0'
+// One Node version across every surface: the pinned Electron embeds the same
+// release the standalone runtime distribution pins, so Desktop, Web, and TUI
+// never run on divergent Node versions. The version and the size budgets that
+// gate the staged tree live in config/runtime-contract.json (single source).
+const runtimeContract = loadRuntimeContract()
+const nodeVersion = process.env.DSH_STUDIO_NODE_VERSION ?? runtimeContract.runtime.nodeVersion
 // Node.js distribution triples use `linux`/`darwin`/`win` and `x64`/`arm64`.
 // Stage a Node runtime for the current host unless an override asks for a
 // specific platform (used for cross-packaging).
@@ -1317,6 +1319,18 @@ const pruneStats = {
 console.log(summarize(pruneStats))
 assertSelfContained(runtime, 'DSH runtime')
 assertSelfContained(nodeRuntime, 'Node runtime')
+
+// Size gate: the staged runtime may only grow inside the contract budget.
+// The packaged-app gate runs again after packaging (verify in build-*.mjs).
+const budgetPlatform = { darwin: 'darwin', linux: 'linux', win: 'win32' }[nodePlatform]
+if (budgetPlatform !== undefined) {
+  const gate = assertRuntimeBudget(runtime, budgetPlatform, runtimeContract)
+  console.log(
+    `Runtime budget: ${(gate.bytes / 1048576).toFixed(1)} MiB / ${String(gate.files)} files `
+    + `(limit ${(runtimeContract.runtime.sizeBudgetBytes[budgetPlatform] / 1048576).toFixed(1)} MiB / `
+    + `${String(runtimeContract.runtime.fileBudget)} files)`,
+  )
+}
 
 const stagedNode = join(nodeRuntime, isWindowsNode ? 'node.exe' : join('bin', 'node'))
 const hostPlatform = { darwin: 'darwin', linux: 'linux', win: 'win32' }[nodePlatform]

@@ -51,3 +51,14 @@ const result = spawnSync(builder, [
 })
 if (result.error !== undefined) throw result.error
 if (result.status !== 0) process.exit(result.status ?? 1)
+
+// Post-pack size gate: the packaged app and its shipped runtime must stay
+// inside the contract budgets; exceeding them fails the build.
+const { verifyPackagedApplication } = await import('./runtime-contract.mjs')
+const appBundle = join(root, 'release', 'linux-unpacked')
+const packReport = verifyPackagedApplication(appBundle, { platform: 'linux' })
+console.log(
+  `Verified packaged app ${(packReport.app.bytes / 1048576).toFixed(1)} MiB / `
+  + `${String(packReport.app.files)} files; runtime ${(packReport.runtime.bytes / 1048576).toFixed(1)} MiB / `
+  + `${String(packReport.runtime.files)} files`,
+)

@@ -44,6 +44,17 @@ const result = spawnSync(process.execPath, [
 })
 if (result.error !== undefined) throw result.error
 if (result.status !== 0) process.exit(result.status ?? 1)
+
+// Post-pack size gate: the packaged app and its shipped runtime must stay
+// inside the contract budgets; exceeding them fails the build.
+const { verifyPackagedApplication } = await import('./runtime-contract.mjs')
+const appBundle = join(root, 'release', 'win-unpacked')
+const packReport = verifyPackagedApplication(appBundle, { platform: 'win32' })
+console.log(
+  `Verified packaged app ${(packReport.app.bytes / 1048576).toFixed(1)} MiB / `
+  + `${String(packReport.app.files)} files; runtime ${(packReport.runtime.bytes / 1048576).toFixed(1)} MiB / `
+  + `${String(packReport.runtime.files)} files`,
+)
 const installer = join(root, 'release', `DSH-Studio-${version}-x64.exe`)
 if (!existsSync(installer)) throw new Error(`Windows NSIS installer was not produced: ${installer}`)
 console.log(`Packaged DSH Studio ${version}: ${installer}`)

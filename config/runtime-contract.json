@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "nodeVersion": "24.15.0",
+    "sizeBudgetBytes": {
+      "darwin": 304087040,
+      "linux": 304087040,
+      "win32": 304087040
+    },
+    "fileBudget": 24000
+  },
+  "app": {
+    "sizeBudgetBytes": {
+      "darwin": 545259520,
+      "linux": 650117120,
+      "win32": 650117120
+    }
+  }
+}
