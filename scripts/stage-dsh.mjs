@@ -1273,89 +1273,144 @@ for (const required of [
   }
 }
 
-rmSync(stage, { recursive: true, force: true })
-mkdirSync(stage, { recursive: true })
 const pnpm = resolvePinnedPnpm(dshSource)
-if (npmRelease) {
-  const releaseLockfile = join(root, 'scripts', `dsh-runtime-${DSH_SOURCE_SPEC.version}-lock.yaml`)
-  const assemblyLockfile = join(dshSource, 'pnpm-lock.yaml')
-  if (!existsSync(releaseLockfile)) {
-    throw new Error(`missing pinned DSH runtime lockfile: ${releaseLockfile}`)
+const fingerprintPath = join(stage, '.stage-fingerprint.json')
+
+/**
+ * Fingerprint of everything the dependency layout depends on: the pinned
+ * source spec, lockfiles and manifests, the Node distribution target, the
+ * pnpm entry, and the staging/pruning scripts themselves. When the recorded
+ * fingerprint matches, the previous stage's dependency layout (deploy +
+ * patches + baked assets + node runtime) is reused as-is; only content
+ * assembly and every validation gate still run. Any of these inputs
+ * changing re-runs the expensive layout build.
+ */
+function dependencyFingerprint() {
+  const lockfile = npmRelease
+    ? join(root, 'scripts', `dsh-runtime-${DSH_SOURCE_SPEC.version}-lock.yaml`)
+    : join(dshSource, 'pnpm-lock.yaml')
+  const stagedScripts = [
+    'stage-dsh.mjs',
+    'prune-stage.mjs',
+    'runtime-contract.mjs',
+    'dsh-source.mjs',
+    'dsh-runtime-patches.mjs',
+    'verify-staged-layout.mjs',
+    'runtime-closure-probe.mjs',
+    ...(npmRelease ? [] : ['bake-skin-palette.mjs']),
+  ].map(name => fileHash(join(root, 'scripts', name)))
+  const inputs = [
+    fileHash(join(root, 'dsh-source.json')),
+    fileHash(join(root, 'package.json')),
+    fileHash(join(dshSource, 'package.json')),
+    fileHash(lockfile),
+    nodeVersion,
+    nodePlatform,
+    nodeArch,
+    pnpm.cliEntry,
+    ...stagedScripts,
+  ]
+  return createHash('sha256').update(inputs.join('\n')).digest('hex')
+}
+
+function fileHash(path) {
+  return existsSync(path) ? sha256(path) : 'missing'
+}
+
+const fingerprint = dependencyFingerprint()
+const nodeEntry = join(nodeRuntime, isWindowsNode ? 'node.exe' : join('bin', 'node'))
+const reuseLayout = existsSync(fingerprintPath)
+  && readFileSync(fingerprintPath, 'utf8').trim() === fingerprint
+  && existsSync(join(runtime, 'node_modules'))
+  && existsSync(nodeEntry)
+
+if (reuseLayout) {
+  console.log('Dependency fingerprint unchanged; reusing staged runtime layout')
+} else {
+  rmSync(stage, { recursive: true, force: true })
+  mkdirSync(stage, { recursive: true })
+  if (npmRelease) {
+    const releaseLockfile = join(root, 'scripts', `dsh-runtime-${DSH_SOURCE_SPEC.version}-lock.yaml`)
+    const assemblyLockfile = join(dshSource, 'pnpm-lock.yaml')
+    if (!existsSync(releaseLockfile)) {
+      throw new Error(`missing pinned DSH runtime lockfile: ${releaseLockfile}`)
+    }
+    copyFileSync(releaseLockfile, assemblyLockfile)
+    console.log(`Installing pinned DSH npm release ${DSH_SOURCE_SPEC.version}`)
+    run(process.execPath, [pnpm.cliEntry, '--reporter=silent', '--ignore-scripts', 'install', '--frozen-lockfile'], {
+      cwd: dshSource,
+      env: { ...process.env, PATH: `${pnpm.binDir}${delimiter}${process.env.PATH ?? ''}` },
+    })
   }
-  copyFileSync(releaseLockfile, assemblyLockfile)
-  console.log(`Installing pinned DSH npm release ${DSH_SOURCE_SPEC.version}`)
-  run(process.execPath, [pnpm.cliEntry, '--reporter=silent', '--ignore-scripts', 'install', '--frozen-lockfile'], {
+  // Deploy a flat runtime: node-linker=hoisted materializes every package as a
+  // real directory (inject-workspace-packages copies workspace packages in
+  // place), so the staged tree has no .pnpm virtual store and no symlinks. The
+  // pruner and the pack tooling then walk plain directories, and the packaged
+  // app carries no junction/link surprises on any platform.
+  console.log(`Deploying pinned DSH runtime (${npmRelease ? 'npm assembly' : 'source'} hoisted mode)`)
+  run(process.execPath, [
+    pnpm.cliEntry,
+    '--reporter=silent',
+    '--config.package-import-method=copy',
+    '--config.node-linker=hoisted',
+    '--config.inject-workspace-packages=true',
+    '--ignore-scripts',
+    '--filter', '@deepseek-ai/dsh',
+    'deploy', '--prod', runtime,
+  ], {
     cwd: dshSource,
     env: { ...process.env, PATH: `${pnpm.binDir}${delimiter}${process.env.PATH ?? ''}` },
   })
-}
-// Deploy a flat runtime: node-linker=hoisted materializes every package as a
-// real directory (inject-workspace-packages copies workspace packages in
-// place), so the staged tree has no .pnpm virtual store and no symlinks. The
-// pruner and the pack tooling then walk plain directories, and the packaged
-// app carries no junction/link surprises on any platform.
-console.log(`Deploying pinned DSH runtime (${npmRelease ? 'npm assembly' : 'source'} hoisted mode)`)
-run(process.execPath, [
-  pnpm.cliEntry,
-  '--reporter=silent',
-  '--config.package-import-method=copy',
-  '--config.node-linker=hoisted',
-  '--config.inject-workspace-packages=true',
-  '--ignore-scripts',
-  '--filter', '@deepseek-ai/dsh',
-  'deploy', '--prod', runtime,
-], {
-  cwd: dshSource,
-  env: { ...process.env, PATH: `${pnpm.binDir}${delimiter}${process.env.PATH ?? ''}` },
-})
 
-replaceDeprecatedDomExceptionShim()
-assertDeprecatedLockBranchesAreNotShipped()
-if (npmRelease) {
-  console.log('Exposing npm release packages for profile resolution')
-  exposeHoistedPackages()
-  recordExposedDependencies()
-} else {
-  if (isWindowsNode) ensureWindowsWorkspacePackages()
-  console.log('Relinking workspace packages')
-  rewriteWorkspaceLinks()
-  relinkInstallationWorkspacePackages()
+  replaceDeprecatedDomExceptionShim()
+  if (npmRelease) {
+    console.log('Exposing npm release packages for profile resolution')
+    exposeHoistedPackages()
+    recordExposedDependencies()
+  } else {
+    if (isWindowsNode) ensureWindowsWorkspacePackages()
+    console.log('Relinking workspace packages')
+    rewriteWorkspaceLinks()
+    relinkInstallationWorkspacePackages()
+  }
+  console.log('Applying DSH runtime patches')
+  applyDshRuntimePatches(runtime, root)
+  {
+    let assets = npmRelease
+      ? join(runtimeDependencyTarget('@deepseek-ai/dsh-web-frontend'), 'dist', 'assets')
+      : join(runtime, 'workspace', 'apps', 'web', 'dist', 'assets')
+    if (!existsSync(assets) && !npmRelease) {
+      const sourceDist = join(dshSource, 'apps', 'web', 'dist')
+      const targetDist = join(runtime, 'workspace', 'apps', 'web', 'dist')
+      if (existsSync(join(sourceDist, 'assets'))) {
+        mkdirSync(join(runtime, 'workspace', 'apps', 'web'), { recursive: true })
+        cpSync(sourceDist, targetDist, { recursive: true, preserveTimestamps: true })
+        assets = join(targetDist, 'assets')
+        console.log('Copied web shell dist from DSH source (deploy gap fill)')
+      }
+    }
+    if (!existsSync(assets)) {
+      throw new Error(`staged web shell assets missing at ${assets}; cannot bake skin palette`)
+    }
+    bakeSkinPalette(assets)
+    console.log('Baked ChatGPT default palette into staged web shell css')
+  }
+  ensureNodeRuntime()
+  ensureLinuxPtyBuild()
 }
-console.log('Applying DSH runtime patches')
-applyDshRuntimePatches(runtime, root)
+
+assertDeprecatedLockBranchesAreNotShipped()
 console.log('Verifying staged DSH layout interactions')
 verifyStagedLayout(runtime)
 console.log('Installing desktop packages')
 installDesktopPackages()
 sweepForeignNativeArtifacts()
-{
-  let assets = npmRelease
-    ? join(runtimeDependencyTarget('@deepseek-ai/dsh-web-frontend'), 'dist', 'assets')
-    : join(runtime, 'workspace', 'apps', 'web', 'dist', 'assets')
-  if (!existsSync(assets) && !npmRelease) {
-    const sourceDist = join(dshSource, 'apps', 'web', 'dist')
-    const targetDist = join(runtime, 'workspace', 'apps', 'web', 'dist')
-    if (existsSync(join(sourceDist, 'assets'))) {
-      mkdirSync(join(runtime, 'workspace', 'apps', 'web'), { recursive: true })
-      cpSync(sourceDist, targetDist, { recursive: true, preserveTimestamps: true })
-      assets = join(targetDist, 'assets')
-      console.log('Copied web shell dist from DSH source (deploy gap fill)')
-    }
-  }
-  if (!existsSync(assets)) {
-    throw new Error(`staged web shell assets missing at ${assets}; cannot bake skin palette`)
-  }
-  bakeSkinPalette(assets)
-  console.log('Baked ChatGPT default palette into staged web shell css')
-}
 copyFileSync(join(npmRelease ? root : dshSource, 'THIRD_PARTY_NOTICES.md'), join(runtime, 'THIRD_PARTY_NOTICES.md'))
 restoreExecutableHelpers()
 console.log('Normalizing runtime links')
 normalizeRuntimeLinks()
 assertSelfContained(runtime, 'DSH runtime')
-ensureNodeRuntime()
 assertSelfContained(nodeRuntime, 'Node runtime')
-ensureLinuxPtyBuild()
 
 // Prune runtime-unreachable payload before the packaged artifacts consume
 // the stage: declaration files, dev-only directories, unreferenced src
@@ -1408,5 +1463,9 @@ if (hostPlatform === process.platform) {
   console.log(`Skipping staged runtime launch checks: ${nodePlatform} binaries cannot run on ${process.platform}`)
 }
 
+// A completed stage is the only valid baseline for the fast path: the
+// fingerprint is recorded after every gate passed, so an interrupted or
+// failed stage never marks its layout reusable.
+writeFileSync(fingerprintPath, `${fingerprint}\n`)
 console.log(`Staged DSH runtime: ${runtime}`)
 console.log(`Staged Node ${nodeVersion}: ${nodeRuntime}`)
