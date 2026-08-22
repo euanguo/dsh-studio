@@ -19,7 +19,7 @@ import { fileURLToPath } from 'node:url'
  * entry semantics. Everything the resolver can never reach — declaration
  * files, dev-only directories, `src/` trees no runtime condition references,
  * `esm`/`esnext`/`cjs` build variants outside the Node reachable set,
- * orphaned `.dsh-studio-store` entries, and the Node distribution's
+ * and the Node distribution's
  * compile-time payload — is dead weight in the install image. Source maps
  * are deliberately KEPT: they are the only symbolication aid for production
  * errors, so they are never removed here.
@@ -68,7 +68,6 @@ const EMPTY_STATS = () => ({
   devDirectoryBytes: 0,
   srcTreeBytes: 0,
   variantBytes: 0,
-  storeEntriesRemoved: 0,
   nodeDietBytes: 0,
   baggageBytes: 0,
   documentBytes: 0,
@@ -259,39 +258,6 @@ export function pruneRuntimeDependencies(runtimeRoot) {
     }
   }
   walk(moduleRoot)
-
-  // Sweep orphaned entries from the shared runtime dependency store.
-  const storeRoot = join(moduleRoot, '.dsh-studio-store')
-  if (existsSync(storeRoot)) {
-    const referenced = new Set()
-    const visitLinks = directory => {
-      let entries
-      try { entries = readdirSync(directory, { withFileTypes: true }) } catch { return }
-      for (const entry of entries) {
-        const path = join(directory, entry.name)
-        if (entry.isSymbolicLink()) {
-          const raw = readlinkSync(path)
-          const target = isAbsolute(raw) ? raw : resolve(dirname(path), raw)
-          const storeMarker = `${sep}.dsh-studio-store${sep}`
-          const at = target.indexOf(storeMarker)
-          if (at !== -1) {
-            const entryName = target.slice(at + storeMarker.length).split(sep, 1)[0]
-            if (entryName !== '') referenced.add(entryName)
-          }
-          continue
-        }
-        if (entry.isDirectory()) visitLinks(path)
-      }
-    }
-    visitLinks(moduleRoot)
-    for (const entry of readdirSync(storeRoot, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue
-      if (!referenced.has(entry.name)) {
-        stats.storeEntriesRemoved += 1
-        removeTree(join(storeRoot, entry.name))
-      }
-    }
-  }
   return stats
 }
 
@@ -566,9 +532,6 @@ export function summarize(stats) {
   }
   if (stats.buildCacheBytes > 0) {
     parts.push(`build caches ${(stats.buildCacheBytes / 1024 / 1024).toFixed(1)} MB`)
-  }
-  if (stats.storeEntriesRemoved > 0) {
-    parts.push(`${String(stats.storeEntriesRemoved)} orphaned store entries`)
   }
   if (stats.nodeDietBytes > 0) {
     parts.push(`node diet ${(stats.nodeDietBytes / 1024 / 1024).toFixed(1)} MB`)

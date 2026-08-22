@@ -103,28 +103,6 @@ function sha256(path) {
 }
 
 /** Expose pnpm's hoisted package graph for profile plugin resolution. */
-function exposeHoistedPackages() {
-  const hoist = join(runtime, 'node_modules', '.pnpm', 'node_modules')
-  const prefix = join(runtime, 'node_modules')
-  if (!existsSync(hoist)) return
-  const visit = directory => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const source = join(directory, entry.name)
-      if (entry.isSymbolicLink()) {
-        const target = join(prefix, relative(hoist, source))
-        if (existsSync(target)) continue
-        mkdirSync(dirname(target), { recursive: true })
-        const logical = resolve(dirname(source), readlinkSync(source))
-        portableSymlink(relative(dirname(target), logical), target)
-      } else if (entry.isDirectory()) {
-        visit(source)
-      }
-    }
-  }
-  visit(hoist)
-}
-
-/** Record the deployed package graph in the runtime manifest for profile loading. */
 function recordExposedDependencies() {
   const manifestPath = join(runtime, 'package.json')
   const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
@@ -285,19 +263,6 @@ function shouldCopyWorkspaceEntry(sourceRoot, source) {
  * small node_modules/.pnpm/lock.yaml, but materialize every package flat at
  * the node_modules root, so a store only counts when it contains package dirs.
  */
-function hasVirtualStore() {
-  const store = join(runtime, 'node_modules', '.pnpm')
-  if (!existsSync(store)) return false
-  for (const entry of readdirSync(store, { withFileTypes: true })) {
-    if (entry.isDirectory() && entry.name !== 'node_modules') return true
-  }
-  return false
-}
-
-const copiedTargets = new Map()
-const deployedPackageTargets = new Map()
-let sourcePackages
-
 function isWithin(parent, candidate) {
   return candidate === parent || candidate.startsWith(parent + sep)
 }
@@ -384,16 +349,13 @@ function findDeployedPackage(sourceTarget) {
   if (typeof manifest.name !== 'string' || typeof manifest.version !== 'string') return undefined
   const key = `${manifest.name}@${manifest.version}`
   if (deployedPackageTargets.has(key)) return deployedPackageTargets.get(key)
-  const store = join(runtime, 'node_modules', '.pnpm')
-  if (!hasVirtualStore()) {
-    if (existsSync(join(runtime, 'node_modules', ...manifest.name.split('/'), 'package.json'))) {
-      const hoisted = join(runtime, 'node_modules', ...manifest.name.split('/'))
-      deployedPackageTargets.set(key, hoisted)
-      return hoisted
-    }
-    deployedPackageTargets.set(key, undefined)
-    return undefined
+  if (existsSync(join(runtime, 'node_modules', ...manifest.name.split('/'), 'package.json'))) {
+    const hoisted = join(runtime, 'node_modules', ...manifest.name.split('/'))
+    deployedPackageTargets.set(key, hoisted)
+    return hoisted
   }
+  deployedPackageTargets.set(key, undefined)
+  return undefined
   for (const entry of readdirSync(store, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue
     const candidate = join(store, entry.name, 'node_modules', ...manifest.name.split('/'))
@@ -550,38 +512,26 @@ function walk(rootPath, visit) {
  * remove the now-unreferenced shim from the portable runtime.
  */
 function replaceDeprecatedDomExceptionShim() {
-  const store = join(runtime, 'node_modules', '.pnpm')
+  // Flat hoisted layout: fetch-blob and the shim both live at the runtime
+  // node_modules root; there is no virtual store to sweep.
   const dependency = 'node-domexception'
   const importPattern = /^import DOMException from ['"]node-domexception['"]\r?\n/m
-  const packageDirs = isWindowsNode || !hasVirtualStore()
-    ? [runtimePackageDirectory('fetch-blob')]
-    : readdirSync(store, { withFileTypes: true })
-      .filter(entry => entry.isDirectory() && entry.name.startsWith('fetch-blob@'))
-      .map(entry => join(store, entry.name, 'node_modules', 'fetch-blob'))
-
-  for (const packageDir of packageDirs) {
-    const sourcePath = join(packageDir, 'from.js')
-    const manifestPath = join(packageDir, 'package.json')
-    if (!existsSync(sourcePath) || !existsSync(manifestPath)) continue
-
+  const fetchBlob = runtimePackageDirectory('fetch-blob')
+  const sourcePath = join(fetchBlob, 'from.js')
+  const manifestPath = join(fetchBlob, 'package.json')
+  if (existsSync(sourcePath) && existsSync(manifestPath)) {
     const manifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-    if (manifest.dependencies?.[dependency] === undefined) continue
-    const source = readFileSync(sourcePath, 'utf8')
-    if (!importPattern.test(source)) {
-      throw new Error('fetch-blob still depends on node-domexception through an unknown import')
+    if (manifest.dependencies?.[dependency] !== undefined) {
+      const source = readFileSync(sourcePath, 'utf8')
+      if (!importPattern.test(source)) {
+        throw new Error('fetch-blob still depends on node-domexception through an unknown import')
+      }
+      writeFileSync(sourcePath, source.replace(importPattern, ''))
+      delete manifest.dependencies[dependency]
+      writeFileSync(manifestPath, JSON.stringify(manifest, undefined, 2) + '\n')
     }
-    writeFileSync(sourcePath, source.replace(importPattern, ''))
-    delete manifest.dependencies[dependency]
-    writeFileSync(manifestPath, JSON.stringify(manifest, undefined, 2) + '\n')
-    rmSync(join(dirname(packageDir), dependency), {
-      recursive: true,
-      force: true,
-    })
   }
-
-  const hoisted = isWindowsNode || !hasVirtualStore()
-    ? runtimePackageDirectory(dependency)
-    : join(store, 'node_modules', dependency)
+  const hoisted = runtimePackageDirectory(dependency)
   const consumers = []
   walk(runtime, path => {
     if (basename(path) === dependency && path !== hoisted) consumers.push(path)
@@ -590,13 +540,6 @@ function replaceDeprecatedDomExceptionShim() {
     throw new Error(`cannot remove ${dependency}; staged consumers remain:\n${consumers.join('\n')}`)
   }
   rmSync(hoisted, { recursive: true, force: true })
-  if (existsSync(store)) {
-    for (const entry of readdirSync(store, { withFileTypes: true })) {
-      if (entry.isDirectory() && entry.name.startsWith(`${dependency}@`)) {
-        rmSync(join(store, entry.name), { recursive: true, force: true })
-      }
-    }
-  }
 }
 
 function assertDeprecatedLockBranchesAreNotShipped() {
@@ -631,35 +574,6 @@ function assertDeprecatedLockBranchesAreNotShipped() {
  * (Windows junctions the `.pnpm` entries to the global store). Dangling
  * links were already repaired against the source checkout above.
  */
-function normalizeRuntimeLinks() {
-  const links = []
-  walk(runtime, path => { links.push(path) })
-  for (const link of links) {
-    const raw = readlinkSync(link)
-    const logical = resolve(dirname(link), raw)
-    if (logical === runtime || logical.startsWith(runtime + sep)) {
-      // Canonicalize every internal link, not only absolute ones: relative
-      // targets that over-walk past the runtime root resolve back into this
-      // build's `.stage` once the tree is copied into a package.
-      const canonical = relative(dirname(link), logical)
-      if (raw !== canonical || isWindowsNode) portableSymlink(canonical, link)
-      continue
-    }
-    if (!existsSync(logical)) continue
-    const real = realpathSync(link)
-    rmSync(link, { recursive: true, force: true })
-    if (lstatSync(real).isDirectory()) {
-      cpSync(real, link, {
-        recursive: true,
-        dereference: true,
-        preserveTimestamps: true,
-      })
-    } else {
-      copyFileSync(real, link)
-    }
-  }
-}
-
 function rewriteWorkspaceLinks() {
   const links = []
   walk(runtime, path => { links.push(path) })
@@ -699,10 +613,6 @@ function relinkInstallationWorkspacePackages() {
 function assertSelfContained(rootPath, label) {
   const failures = []
   walk(rootPath, link => {
-    if (isWindowsNode) {
-      failures.push(`${link} -> ${readlinkSync(link)} (link in Windows stage)`)
-      return
-    }
     const target = resolve(dirname(link), readlinkSync(link))
     if (!existsSync(target)) {
       failures.push(`${link} -> ${readlinkSync(link)} (dangling)`)
@@ -790,115 +700,9 @@ function packageMatches(directory, expected) {
   return actual.name === expected.name && actual.version === expected.version
 }
 
-function installWindowsPackageDependencies(sourceManifestPath, packageDir) {
-  const manifest = JSON.parse(readFileSync(sourceManifestPath, 'utf8'))
-  if (dependencyNames(manifest).size === 0) return
-  const deployment = join(
-    stage,
-    'windows-dependencies',
-    manifest.name.replace(/[^A-Za-z0-9._-]/g, '_'),
-  )
-  rmSync(deployment, { recursive: true, force: true })
-  run(process.execPath, [
-    join(root, 'node_modules', 'pnpm', 'bin', 'pnpm.cjs'),
-    '--reporter=silent',
-    '--config.package-import-method=copy',
-    '--config.node-linker=hoisted',
-    '--config.inject-workspace-packages=true',
-    '--ignore-scripts',
-    '--filter', manifest.name,
-    'deploy', '--prod', deployment,
-  ], { cwd: root, env: process.env })
-
-  const source = join(deployment, 'node_modules')
-  if (!existsSync(source)) {
-    throw new Error(`pnpm did not deploy runtime dependencies for ${manifest.name}`)
-  }
-  const target = join(packageDir, 'node_modules')
-  mkdirSync(target, { recursive: true })
-  for (const entry of readdirSync(source, { withFileTypes: true })) {
-    if (entry.name === '.bin' || entry.name === '.pnpm' || entry.name === '.modules.yaml') continue
-    cpSync(join(source, entry.name), join(target, entry.name), {
-      dereference: true,
-      preserveTimestamps: true,
-      recursive: true,
-    })
-  }
-  rmSync(deployment, { recursive: true, force: true })
-}
-
-/** Runtime dependency store shared by every staged plugin package.
- *
- * Each package used to carry a private `.dsh-studio-store` copy of its
- * dependency closure, which duplicated @tabler/icons-react (~91 MB),
- * tabler icons (~49 MB), React, and xterm nine times — about 1.4 GB of
- * redundant content in the packed app. One store at the runtime
- * `node_modules` root serves all packages; dedupe state lives beside it
- * so repeated invocations stay idempotent. */
-const runtimeDependencyStore = {
-  root: undefined,
-  installed: new Map(),
-}
-
 function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
-  if (isWindowsNode) {
-    installWindowsPackageDependencies(sourceManifestPath, packageDir)
-    return
-  }
-  const installRoot = join(packageDir, 'node_modules')
-  // packageDir = <runtime>/node_modules/@dsh-studio/<name> — share one
-  // store across sibling packages at the runtime node_modules root.
-  const runtimeNodeModules = resolve(packageDir, '..', '..')
-  const storeRoot = join(runtimeNodeModules, '.dsh-studio-store')
-  const installed = runtimeDependencyStore.installed
-  runtimeDependencyStore.root = storeRoot
-
-  const instanceName = (manifestPath, manifest) => {
-    const parts = resolve(manifestPath).split(sep)
-    const storeIndex = parts.lastIndexOf('.pnpm')
-    const identity = storeIndex >= 0 && parts[storeIndex + 1] !== undefined
-      ? parts[storeIndex + 1]
-      : `${manifest.name}@${manifest.version}`
-    return identity.replace(/[^A-Za-z0-9._-]/g, '_')
-  }
-
-  const linkDependency = (parent, dependency, target) => {
-    const link = join(parent, 'node_modules', ...dependency.split('/'))
-    mkdirSync(dirname(link), { recursive: true })
-    portableSymlink(relative(dirname(link), target), link)
-  }
-
-  const runtimePnpmEntry = (name, version) => {
-    const store = join(runtime, 'node_modules', '.pnpm')
-    if (!hasVirtualStore()) {
-      const hoisted = join(runtime, 'node_modules', ...name.split('/'))
-      if (packageMatches(hoisted, { name, version })) return hoisted
-      return undefined
-    }
-    const prefix = name.replace('/', '+')
-    for (const entry of readdirSync(store, { withFileTypes: true })) {
-      if (!entry.isDirectory() || !entry.name.startsWith(`${prefix}@`)) continue
-      const candidate = join(store, entry.name, 'node_modules', ...name.split('/'))
-      const manifestPath = join(candidate, 'package.json')
-      if (!existsSync(manifestPath)) continue
-      try {
-        const candidateManifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-        if (candidateManifest.name === name && candidateManifest.version === version) return candidate
-      } catch { /* malformed entry, keep looking */ }
-    }
-    return undefined
-  }
-
-  const pnpmEntryCache = new Map()
-  const sharedPnpmEntry = (name, version) => {
-    const key = `${name}@${version}`
-    let cached = pnpmEntryCache.get(key)
-    if (cached === undefined) {
-      cached = runtimePnpmEntry(name, version) ?? false
-      pnpmEntryCache.set(key, cached)
-    }
-    return cached === false ? undefined : cached
-  }
+  const runtimeNodeModules = join(runtime, 'node_modules')
+  const installed = new Map()
 
   const installManifest = manifestPath => {
     const canonicalManifest = realpathSync(manifestPath)
@@ -909,20 +713,12 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
     if (typeof manifest.name !== 'string' || typeof manifest.version !== 'string') {
       throw new Error(`invalid runtime dependency manifest: ${canonicalManifest}`)
     }
-    // Link straight into the runtime's pnpm store when the exact release is
-    // already deployed there: one physical copy serves the runtime and the
-    // compiled package, and the store copy is skipped entirely.
-    const sharedEntry = sharedPnpmEntry(manifest.name, manifest.version)
-    if (sharedEntry !== undefined) {
-      installed.set(canonicalManifest, sharedEntry)
-      return sharedEntry
+    const shared = join(runtimeNodeModules, ...manifest.name.split('/'))
+    if (existsSync(join(shared, 'package.json'))) {
+      installed.set(canonicalManifest, shared)
+      return shared
     }
-    const target = join(
-      storeRoot,
-      instanceName(canonicalManifest, manifest),
-      'node_modules',
-      ...manifest.name.split('/'),
-    )
+    const target = shared
     installed.set(canonicalManifest, target)
     rmSync(target, { recursive: true, force: true })
     mkdirSync(dirname(target), { recursive: true })
@@ -939,10 +735,9 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
     const requireFromPackage = createRequire(canonicalManifest)
     for (const [dependency, optional] of dependencyNames(manifest)) {
       try {
-        const dependencyTarget = installManifest(
+        installManifest(
           resolveDependencyManifest(requireFromPackage, dependency, canonicalManifest),
         )
-        linkDependency(target, dependency, dependencyTarget)
       } catch (error) {
         if (optional) continue
         throw new Error(`${manifest.name} is missing runtime dependency ${dependency}`, { cause: error })
@@ -955,12 +750,9 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
   const requireFromSource = createRequire(sourceManifestPath)
   for (const [dependency, optional] of dependencyNames(sourceManifest)) {
     try {
-      const dependencyTarget = installManifest(
+      installManifest(
         resolveDependencyManifest(requireFromSource, dependency, sourceManifestPath),
       )
-      const link = join(installRoot, ...dependency.split('/'))
-      mkdirSync(dirname(link), { recursive: true })
-      portableSymlink(relative(dirname(link), dependencyTarget), link)
     } catch (error) {
       if (optional) continue
       throw new Error(`${sourceManifest.name} is missing runtime dependency ${dependency}`, { cause: error })
@@ -969,58 +761,18 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
 }
 
 function runtimeDependencyTarget(dependency) {
-  const parts = dependency.split('/')
-  const link = join(runtime, 'node_modules', ...parts)
-  if (existsSync(join(link, 'package.json'))) return link
-  const hoisted = join(runtime, 'node_modules', '.pnpm', 'node_modules', ...parts)
-  if (existsSync(join(hoisted, 'package.json'))) return hoisted
-
-  const store = join(runtime, 'node_modules', '.pnpm')
-  if (!hasVirtualStore()) {
-    throw new Error(`DSH runtime is missing host dependency ${dependency}`)
-  }
-  const prefix = dependency.replace('/', '+')
-  let fallback
-  for (const entry of readdirSync(store, { withFileTypes: true })) {
-    if (!entry.isDirectory() || !entry.name.startsWith(`${prefix}@`)) continue
-    const candidate = join(store, entry.name, 'node_modules', ...parts)
-    const manifestPath = join(candidate, 'package.json')
-    if (!existsSync(manifestPath)) continue
-    const candidateManifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
-    if (candidateManifest.name !== dependency) continue
-    if (candidateManifest.version === DSH_SOURCE_SPEC.version) return candidate
-    fallback ??= candidate
-  }
-  if (fallback !== undefined) return fallback
+  const candidate = join(runtime, 'node_modules', ...dependency.split('/'))
+  if (existsSync(join(candidate, 'package.json'))) return candidate
   throw new Error(`DSH runtime is missing host dependency ${dependency}`)
 }
 
 function installCompiledPackageHostDependencies(sourceManifestPath, packageDir) {
   const manifest = JSON.parse(readFileSync(sourceManifestPath, 'utf8'))
-  const sourcePackages = npmRelease ? undefined : discoverSourcePackages()
   for (const dependency of manifest.dshStudio?.hostDependencies ?? []) {
-    const source = sourcePackages?.get(dependency)
-    if (npmRelease) {
-      const target = runtimeDependencyTarget(dependency)
-      const link = join(packageDir, 'node_modules', ...dependency.split('/'))
-      mkdirSync(dirname(link), { recursive: true })
-      portableSymlink(relative(dirname(link), target), link)
-      continue
+    const candidate = runtimePackageDirectory(dependency)
+    if (!existsSync(join(candidate, 'package.json'))) {
+      throw new Error(`${manifest.name} cannot resolve staged DSH peer ${dependency}`)
     }
-    if (source === undefined) {
-      throw new Error(`${manifest.name} cannot resolve DSH peer ${dependency}`)
-    }
-    if (isWindowsNode) {
-      const expected = JSON.parse(readFileSync(join(source, 'package.json'), 'utf8'))
-      if (!packageMatches(runtimePackageDirectory(dependency), expected)) {
-        throw new Error(`${manifest.name} cannot resolve staged DSH peer ${dependency}`)
-      }
-      continue
-    }
-    const target = stageWorkspaceTarget(source)
-    const link = join(packageDir, 'node_modules', ...dependency.split('/'))
-    mkdirSync(dirname(link), { recursive: true })
-    portableSymlink(relative(dirname(link), target), link)
   }
 }
 
@@ -1364,8 +1116,7 @@ if (reuseLayout) {
 
   replaceDeprecatedDomExceptionShim()
   if (npmRelease) {
-    console.log('Exposing npm release packages for profile resolution')
-    exposeHoistedPackages()
+    console.log('Recording npm release dependency graph')
     recordExposedDependencies()
   } else {
     if (isWindowsNode) ensureWindowsWorkspacePackages()
@@ -1407,8 +1158,6 @@ installDesktopPackages()
 sweepForeignNativeArtifacts()
 copyFileSync(join(npmRelease ? root : dshSource, 'THIRD_PARTY_NOTICES.md'), join(runtime, 'THIRD_PARTY_NOTICES.md'))
 restoreExecutableHelpers()
-console.log('Normalizing runtime links')
-normalizeRuntimeLinks()
 assertSelfContained(runtime, 'DSH runtime')
 assertSelfContained(nodeRuntime, 'Node runtime')
 

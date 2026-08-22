@@ -109,20 +109,6 @@ function makeRuntimeTree(root: string): void {
   // Build metadata + debug artifacts anywhere under node_modules are dead.
   writeFile(join(root, 'node_modules', 'pkg-plain', 'out', 'index.tsbuildinfo'), '{"version":3}\n')
   writeFile(join(root, 'node_modules', 'pkg-plain', 'out', 'native.pdb'), 'debug\n')
-
-  // Shared dependency store: one entry linked from a package, one orphaned.
-  const store = join(root, 'node_modules', '.dsh-studio-store')
-  writeFile(join(store, 'entry_keep', 'node_modules', 'pkg-keep', 'package.json'), JSON.stringify({
-    name: 'pkg-keep', version: '1.0.0', main: './index.js',
-  }))
-  writeFile(join(store, 'entry_keep', 'node_modules', 'pkg-keep', 'index.js'), 'module.exports = 5\n')
-  writeFile(join(store, 'entry_orphan', 'node_modules', 'pkg-orphan', 'package.json'), JSON.stringify({
-    name: 'pkg-orphan', version: '1.0.0', main: './index.js',
-  }))
-  writeFile(join(store, 'entry_orphan', 'node_modules', 'pkg-orphan', 'index.js'), 'module.exports = 7\n')
-  mkdirSync(join(root, 'node_modules', 'consumer', 'node_modules'), { recursive: true })
-  symlinkSync('../../.dsh-studio-store/entry_keep/node_modules/pkg-keep',
-    join(root, 'node_modules', 'consumer', 'node_modules', 'pkg-keep'))
 }
 
 test('pruneRuntimeDependencies strips unreachable payload and keeps maps + reachable builds', () => {
@@ -172,10 +158,6 @@ test('pruneRuntimeDependencies strips unreachable payload and keeps maps + reach
     assert.ok(!existsSync(join(nm, 'pkg-plain', 'out', 'index.tsbuildinfo')), 'tsbuildinfo removed')
     assert.ok(!existsSync(join(nm, 'pkg-plain', 'out', 'native.pdb')), 'pdb removed')
 
-    const store = join(nm, '.dsh-studio-store')
-    assert.ok(existsSync(join(store, 'entry_keep')))
-    assert.ok(!existsSync(join(store, 'entry_orphan')), 'orphaned store entry swept')
-    assert.equal(stats.storeEntriesRemoved, 1)
     assert.ok(stats.declarationFiles >= 1)
     assert.ok(stats.variantBytes > 0)
   } finally {
