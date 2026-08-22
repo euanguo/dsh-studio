@@ -4,6 +4,7 @@ const { join } = require('node:path')
 const {
   flipFuses,
   FuseV1Options,
+  FuseVersion,
 } = require('@electron/fuses')
 
 /**
@@ -17,16 +18,9 @@ function electronBinaryFor(context) {
   const { electronPlatformName, appOutDir } = context
   const productFilename = context.packager.appInfo.productFilename
   if (electronPlatformName === 'darwin') {
-    return join(
-      appOutDir,
-      `${productFilename}.app`,
-      'Contents',
-      'Frameworks',
-      'Electron Framework.framework',
-      'Versions',
-      'A',
-      'Electron Framework',
-    )
+    // @electron/fuses resolves the macOS fuse wire through the framework's
+    // symlinked Electron Framework file itself; pass the .app bundle.
+    return join(appOutDir, `${productFilename}.app`)
   }
   if (electronPlatformName === 'linux') {
     return join(appOutDir, 'dsh-studio')
@@ -39,19 +33,36 @@ function applyFuses(context) {
   if (!existsSync(binary)) {
     throw new Error(`cannot apply fuses: Electron binary missing at ${binary}`)
   }
-  const electronPackage = require(join(__dirname, '..', 'node_modules', 'electron', 'package.json'))
+  // The version here is the fuse wire version (V1), not the Electron release,
+  // and the fuse switches are top-level options (flat API). Production builds
+  // are re-signed by electron-builder after this hook, covering the flipped
+  // bytes; local ad-hoc builds skip fuses on macOS (see shouldApplyFuses).
   flipFuses(binary, {
-    version: electronPackage.version,
-    fuses: {
-      [FuseV1Options.RunAsNode]: true,
-      [FuseV1Options.EnableCookieEncryption]: true,
-      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
-      [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
-    },
+    version: FuseVersion.V1,
+    [FuseV1Options.RunAsNode]: true,
+    [FuseV1Options.EnableCookieEncryption]: true,
+    [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+    [FuseV1Options.EnableNodeCliInspectArguments]: false,
+    [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+    [FuseV1Options.OnlyLoadAppFromAsar]: true,
   })
-  console.log(`Applied Electron fuses (v${electronPackage.version}) to ${binary}`)
+  console.log(`Applied Electron fuses to ${binary}`)
+}
+
+/**
+ * Fuses on arm64 macOS invalidate the framework's code-signature page hashes:
+ * the kernel kills the app at the first fuse read ("Code Signature Invalid /
+ * Invalid Page" at IsRunAsNodeEnabled) even after an ad-hoc re-sign. Local
+ * test builds are ad-hoc-only, so macOS fuses are skipped there and only
+ * applied under real signing (CSC_* / APPLE_ID), where electron-builder's own
+ * signing step re-signs the flipped framework after this hook. Linux and
+ * Windows carry no page-signature constraint and always fuse.
+ */
+function shouldApplyFuses(context) {
+  if (context.electronPlatformName === 'darwin') {
+    return Boolean(process.env.CSC_LINK || process.env.CSC_NAME || process.env.APPLE_ID)
+  }
+  return true
 }
 
 /**
@@ -111,7 +122,11 @@ module.exports = async function afterPack(context) {
     )
   }
 
-  applyFuses(context)
+  if (shouldApplyFuses(context)) {
+    applyFuses(context)
+  } else {
+    console.log(`Skipped Electron fuses on ad-hoc ${electronPlatformName} build (arm64 signature constraint)`)
+  }
 
   if (electronPlatformName !== 'darwin') return
   const appPath = join(appOutDir, `${productFilename}.app`)
