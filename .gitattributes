@@ -1,0 +1,5 @@
+# DSH runtime patches are line-anchored (validated by header regexes and
+# consumed by `git apply`); force LF on every checkout so Windows runners
+# (default core.autocrlf=true) never rewrite them to CRLF.
+patches/** text eol=lf
+*.patch text eol=lf

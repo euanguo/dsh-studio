@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process'
-import { lstatSync, readFileSync, realpathSync } from 'node:fs'
+import { lstatSync, readFileSync, realpathSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, resolve, sep } from 'node:path'
 import { DSH_SOURCE_SPEC } from './dsh-source.mjs'
 
@@ -120,7 +120,14 @@ export function applyDshRuntimePatches(runtimeRoot, projectRoot) {
   for (const relativePath of PATCH_FILES) {
     validatePatchPath(relativePath)
     const patchPath = resolveInside(projectRoot, relativePath, 'DSH runtime patch')
-    const source = readFileSync(patchPath, 'utf8')
+    let source = readFileSync(patchPath, 'utf8')
+    // Normalize CRLF checkouts (Windows runners default core.autocrlf=true)
+    // back to LF before validation and before `git apply` consumes the file.
+    const normalized = source.replace(/\r\n/g, '\n')
+    if (normalized !== source) {
+      writeFileSync(patchPath, normalized, 'utf8')
+      source = normalized
+    }
     validatePatchSource(source, relativePath)
     const forward = gitApply(packageRoot, patchPath, true)
     if (forward.status === 0) {

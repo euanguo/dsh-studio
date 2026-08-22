@@ -409,12 +409,15 @@ export function dietNodeRuntime(nodeRuntime, _options = {}) {
     const reflinkRoot = join(vendor, 'node_modules', '@reflink')
     if (!existsSync(reflinkRoot)) continue
     const targetPrefix = 'reflink'
+    // Exact OS + arch match. A bare arch-prefix match would keep e.g.
+    // reflink-win32-x64-msvc on every x64 target, not just Windows.
+    const targetOs = process.platform
     for (const entry of readdirSync(reflinkRoot, { withFileTypes: true })) {
       if (!entry.isDirectory() || !entry.name.startsWith(`${targetPrefix}-`)) continue
       if (entry.name === 'reflink-darwin-universal') continue
       const suffix = entry.name.slice(targetPrefix.length + 1)
       const osName = suffix.split('-')[0]
-      const hostMatches = osName !== undefined && (
+      const hostMatches = osName === targetOs && (
         suffix === `${osName}-${nodeArch}`
         || suffix.startsWith(`${osName}-${nodeArch}-`)
       )

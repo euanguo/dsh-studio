@@ -202,9 +202,15 @@ test('dietNodeRuntime removes compile payload and keeps bin/node + pnpm', () => 
     writeFile(join(root, 'lib', 'node_modules', 'pnpm', 'dist', 'vendor', 'fastlist-0.3.0-x64.exe'), 'MZ\n')
     writeFileSync(join(root, 'lib', 'node_modules', 'pnpm', 'dist', 'vendor', 'fastlist-0.3.0-x86.exe'), 'MZ\n')
     const reflinkRoot = join(root, 'lib', 'node_modules', 'pnpm', 'dist', 'vendor', 'node_modules', '@reflink')
-    writeFile(join(reflinkRoot, 'reflink-darwin-arm64', 'index.node'), 'native\n')
-    writeFile(join(reflinkRoot, 'reflink-darwin-x64', 'index.node'), 'native\n')
-    writeFile(join(reflinkRoot, 'reflink-win32-x64-msvc', 'index.node'), 'native\n')
+    // Every platform family is present; the diet keeps only the running
+    // target's reflink build (darwin-universal is always preserved).
+    const targetOs = process.platform === 'win32' ? 'win32' : process.platform
+    const hostSuffix = `${targetOs}-${process.arch}` as const
+    const foreignOs = targetOs === 'win32' ? 'linux-x64' : 'win32-x64-msvc'
+    const foreignArch = `${targetOs}-${process.arch === 'arm64' ? 'x64' : 'arm64'}`
+    for (const suffix of [hostSuffix, foreignArch, foreignOs, 'darwin-universal']) {
+      writeFile(join(reflinkRoot, `reflink-${suffix}`, 'index.node'), 'native\n')
+    }
 
     const stats = dietNodeRuntime(root)
     assert.ok(!existsSync(join(root, 'include')))
@@ -215,11 +221,10 @@ test('dietNodeRuntime removes compile payload and keeps bin/node + pnpm', () => 
     assert.ok(existsSync(join(root, 'bin', 'node')), 'standalone node binary survives')
     assert.ok(existsSync(join(root, 'bin', 'pnpm')), 'pnpm launcher survives')
     assert.ok(!existsSync(join(root, 'lib', 'node_modules', 'pnpm', 'dist', 'vendor', 'fastlist-0.3.0-x64.exe')), 'fastlist removed')
-    const hostSuffix = `darwin-${process.arch}` as const
-    assert.ok(existsSync(join(reflinkRoot, `reflink-${hostSuffix}`)), 'host reflink kept')
-    const foreignSuffix = hostSuffix === 'darwin-arm64' ? 'darwin-x64' : 'darwin-arm64'
-    assert.ok(!existsSync(join(reflinkRoot, `reflink-${foreignSuffix}`)), 'foreign-arch reflink removed')
-    assert.ok(!existsSync(join(reflinkRoot, 'reflink-win32-x64-msvc')), 'foreign-os reflink removed')
+    assert.ok(existsSync(join(reflinkRoot, `reflink-${hostSuffix}`)), `host reflink kept (${hostSuffix})`)
+    assert.ok(!existsSync(join(reflinkRoot, `reflink-${foreignArch}`)), `foreign-arch reflink removed (${foreignArch})`)
+    assert.ok(!existsSync(join(reflinkRoot, `reflink-${foreignOs}`)), `foreign-os reflink removed (${foreignOs})`)
+    assert.ok(existsSync(join(reflinkRoot, 'reflink-darwin-universal')), 'darwin-universal reflink kept')
     assert.ok(stats.nodeDietBytes > 0)
   } finally {
     rmSync(root, { recursive: true, force: true })
