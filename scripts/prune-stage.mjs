@@ -426,29 +426,116 @@ export function dietNodeRuntime(nodeRuntime, _options = {}) {
   return stats
 }
 
+/** Environment names the adapters read before falling back to a baked-in
+ *  relative path. The desktop launcher injects both into every runtime child
+ *  (see src/main.ts desktopNodeEnv), so descendants always resolve their own
+ *  Electron interpreter and pnpm entry even after environment scrubbing. */
+export const NODE_EXECUTABLE_ENV = 'DSH_STUDIO_NODE_EXECUTABLE'
+export const PNPM_ENTRY_ENV = 'DSH_STUDIO_PNPM_ENTRY'
+
+function shAdapter(header, lines) {
+  return ['#!/bin/sh', 'set -eu', ...lines, ''].join('\n')
+}
+
+function cmdAdapter(lines) {
+  return ['@echo off', ...lines, ''].join('\r\n')
+}
+
+function posixSetDefault(name, fallback) {
+  return `: "\${${name}:=${fallback}}"`
+}
+
 /**
- * Replace the standalone Node binary with the shared-Node bridge for the
- * packaged desktop app: `bin/node` becomes a script that re-executes the
- * packaged Electron executable with ELECTRON_RUN_AS_NODE=1. The runtime
- * supervisor and marketplace spawn the interpreter directly via
- * process.execPath; this bridge exists for PATH-discovered consumers
- * (upstream `spawn("pnpm")`, CLI launchers, `env node` shebangs). Web/TUI
- * distributions keep the real binary and never call this.
+ * Replace the standalone Node binary with the shared-Node adapter set for
+ * the packaged desktop app. Every adapter (`node`/`pnpm`/`pnpx`/`dsh`, plus
+ * `.cmd` variants on Windows) re-executes the packaged Electron executable
+ * with ELECTRON_RUN_AS_NODE=1, so the desktop bundle carries no standalone
+ * Node distribution. The executable and pnpm entry resolve from the injected
+ * DSH_STUDIO_NODE_EXECUTABLE / DSH_STUDIO_PNPM_ENTRY environment first and
+ * fall back to a bundle-relative path, so PATH-discovered consumers
+ * (upstream `spawn("pnpm")`, CLI launchers, `env node` shebangs) work even
+ * without launcher env. Web/TUI distributions keep the real binary and never
+ * call this.
+ *
+ * `fallbacks` carries the bundle-relative executable expression, pnpm entry
+ * and dsh CLI entry for the platform's layout.
  */
-export function writeDesktopNodeBridge(nodeRuntime, targetExpression) {
-  const shim = join(nodeRuntime, 'bin', 'node')
-  const removed = existsSync(shim) || lstatSync(shim, { throwIfNoEntry: false }) !== undefined
-  rmSync(shim, { force: true })
-  writeFileSync(shim, [
-    '#!/bin/sh',
-    '# DSH Studio shared-Node bridge (Electron ELECTRON_RUN_AS_NODE).',
-    'ELECTRON_RUN_AS_NODE=1',
-    'export ELECTRON_RUN_AS_NODE',
-    `exec "${targetExpression}" "$@"`,
-    '',
-  ].join('\n'))
-  chmodSync(shim, 0o755)
-  return removed
+export function writeDesktopNodeAdapters(nodeRuntime, { platform, fallbacks }) {
+  const removedBytesRecord = []
+  const removeEntry = path => {
+    if (existsSync(path) || lstatSync(path, { throwIfNoEntry: false }) !== undefined) {
+      const before = lstatSync(path, { throwIfNoEntry: false })
+      removedBytesRecord.push(before && before.isSymbolicLink() ? 0 : before ? before.size : 0)
+      rmSync(path, { force: true })
+      return true
+    }
+    return false
+  }
+
+  if (platform === 'win32') {
+    removeEntry(join(nodeRuntime, 'node.exe'))
+    removeEntry(join(nodeRuntime, 'pnpm.cmd'))
+    const adapters = {
+      'node.cmd': cmdAdapter([
+        `if not defined ${NODE_EXECUTABLE_ENV} set "${NODE_EXECUTABLE_ENV}=${fallbacks.windowsExecutable}"`,
+        'set "ELECTRON_RUN_AS_NODE=1"',
+        `"%${NODE_EXECUTABLE_ENV}%" %*`,
+      ]),
+      'pnpm.cmd': cmdAdapter([
+        `if not defined ${NODE_EXECUTABLE_ENV} set "${NODE_EXECUTABLE_ENV}=${fallbacks.windowsExecutable}"`,
+        `if not defined ${PNPM_ENTRY_ENV} set "${PNPM_ENTRY_ENV}=${fallbacks.windowsPnpmEntry}"`,
+        'set "ELECTRON_RUN_AS_NODE=1"',
+        `"%${NODE_EXECUTABLE_ENV}%" "%${PNPM_ENTRY_ENV}%" %*`,
+      ]),
+      'pnpx.cmd': cmdAdapter([
+        `if not defined ${NODE_EXECUTABLE_ENV} set "${NODE_EXECUTABLE_ENV}=${fallbacks.windowsExecutable}"`,
+        `if not defined ${PNPM_ENTRY_ENV} set "${PNPM_ENTRY_ENV}=${fallbacks.windowsPnpmEntry}"`,
+        'set "ELECTRON_RUN_AS_NODE=1"',
+        `"%${NODE_EXECUTABLE_ENV}%" "%${PNPM_ENTRY_ENV}%" dlx %*`,
+      ]),
+      'dsh.cmd': cmdAdapter([
+        `if not defined ${NODE_EXECUTABLE_ENV} set "${NODE_EXECUTABLE_ENV}=${fallbacks.windowsExecutable}"`,
+        'set "ELECTRON_RUN_AS_NODE=1"',
+        `"%${NODE_EXECUTABLE_ENV}%" --expose-internals "${fallbacks.windowsDshEntry}" %*`,
+      ]),
+    }
+    for (const [name, body] of Object.entries(adapters)) {
+      writeFileSync(join(nodeRuntime, name), body)
+    }
+    return { replacedBinary: true, removedBytes: removedBytesRecord.reduce((a, b) => a + b, 0) }
+  }
+
+  removeEntry(join(nodeRuntime, 'bin', 'node'))
+  removeEntry(join(nodeRuntime, 'bin', 'pnpm'))
+  const executable = `\$(dirname "\$0")${fallbacks.posixExecutableSuffix}`
+  const pnpmEntry = `\$(dirname "\$0")${fallbacks.posixPnpmEntrySuffix}`
+  const dshEntry = `\$(dirname "\$0")${fallbacks.posixDshEntrySuffix}`
+  const adapters = {
+    node: shAdapter('node', [
+      posixSetDefault(NODE_EXECUTABLE_ENV, executable),
+      `exec env ELECTRON_RUN_AS_NODE=1 "\${${NODE_EXECUTABLE_ENV}}" "\$@"`,
+    ]),
+    pnpm: shAdapter('pnpm', [
+      posixSetDefault(NODE_EXECUTABLE_ENV, executable),
+      posixSetDefault(PNPM_ENTRY_ENV, pnpmEntry),
+      `exec env ELECTRON_RUN_AS_NODE=1 "\${${NODE_EXECUTABLE_ENV}}" "\${${PNPM_ENTRY_ENV}}" "\$@"`,
+    ]),
+    pnpx: shAdapter('pnpx', [
+      posixSetDefault(NODE_EXECUTABLE_ENV, executable),
+      posixSetDefault(PNPM_ENTRY_ENV, pnpmEntry),
+      `exec env ELECTRON_RUN_AS_NODE=1 "\${${NODE_EXECUTABLE_ENV}}" "\${${PNPM_ENTRY_ENV}}" dlx "\$@"`,
+    ]),
+    dsh: shAdapter('dsh CLI', [
+      posixSetDefault(NODE_EXECUTABLE_ENV, executable),
+      `exec env ELECTRON_RUN_AS_NODE=1 "\${${NODE_EXECUTABLE_ENV}}" --expose-internals "${dshEntry}" "\$@"`,
+    ]),
+  }
+  for (const [name, body] of Object.entries(adapters)) {
+    const target = join(nodeRuntime, 'bin', name)
+    writeFileSync(target, body)
+    chmodSync(target, 0o755)
+  }
+  return { replacedBinary: true, removedBytes: removedBytesRecord.reduce((a, b) => a + b, 0) }
 }
 
 export function summarize(stats) {

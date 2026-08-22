@@ -58,6 +58,7 @@ import {
 } from './runtime.ts'
 import {
   bundledRuntimePaths,
+  nodeInterpreterAvailable,
   resolveRuntimeResourcesRoot,
   runtimeSearchPath,
   type BundledRuntimePaths,
@@ -156,12 +157,21 @@ function desktopRuntimeSnapshot(): DesktopRuntimeSnapshot {
  * interpreter: every bundled runtime process (supervisor, marketplace pnpm,
  * sandboxed previews, PATH-discovered launchers) runs as
  * `process.execPath` with ELECTRON_RUN_AS_NODE, so the installed app ships
- * one Node instead of two.
+ * one Node instead of two. The shared-Node adapters under node-runtime/bin
+ * resolve their executable and pnpm entry from these injected variables
+ * first, so descendants keep pointing at this app's own Electron even after
+ * any environment scrubbing between launches.
  */
-const DESKTOP_NODE_ENV: NodeJS.ProcessEnv = { ELECTRON_RUN_AS_NODE: '1' }
+function desktopNodeEnv(paths: ReturnType<typeof runtimePaths>): NodeJS.ProcessEnv {
+  return {
+    ELECTRON_RUN_AS_NODE: '1',
+    DSH_STUDIO_NODE_EXECUTABLE: process.execPath,
+    DSH_STUDIO_PNPM_ENTRY: paths.pnpmEntry,
+  }
+}
 
-function desktopNodeLauncher(): RuntimeLauncher {
-  return { command: process.execPath, env: DESKTOP_NODE_ENV, interpreter: true }
+function desktopNodeLauncher(paths: ReturnType<typeof runtimePaths>): RuntimeLauncher {
+  return { command: process.execPath, env: desktopNodeEnv(paths), interpreter: true }
 }
 
 function runtimeEnvironment(
@@ -171,7 +181,7 @@ function runtimeEnvironment(
   const info = desktopInfo(overrides.preview ?? null)
   const environment: NodeJS.ProcessEnv = {
     ...process.env,
-    ...DESKTOP_NODE_ENV,
+    ...desktopNodeEnv(paths),
     DSH_STUDIO_DESKTOP: '1',
     DSH_STUDIO_DESKTOP_APP_DATA: overrides.appDataPath ?? info.appDataPath,
     DSH_STUDIO_DESKTOP_PROFILE: info.profile,
@@ -196,8 +206,8 @@ function runtimeOptions(): DshRuntimeOptions {
   const paths = runtimePaths()
   const workspaceRoot = join(homedir(), 'DSH Workspaces')
   mkdirSync(workspaceRoot, { recursive: true })
-  if (!existsSync(paths.nodeBinary)) {
-    throw new Error(`packaged Node runtime is missing: ${paths.nodeBinary}`)
+  if (!nodeInterpreterAvailable(paths)) {
+    throw new Error(`packaged Node interpreter is missing: ${paths.nodeCommand}`)
   }
   if (!existsSync(paths.cliEntry)) {
     throw new Error(`packaged DSH CLI is missing: ${paths.cliEntry}`)
@@ -210,8 +220,8 @@ function runtimeOptions(): DshRuntimeOptions {
     nodeFlags: ['--expose-internals'],
     cwd: workspaceRoot,
     env: runtimeEnvironment(paths),
-    launcher: desktopNodeLauncher(),
-    nodeBinary: paths.nodeBinary,
+    launcher: desktopNodeLauncher(paths),
+    nodeBinary: paths.nodeCommand,
     onLog: (stream, line) => { appendLog(stream, line) },
     readyTimeoutMs: 60_000,
   }
@@ -228,7 +238,7 @@ function previewRuntimeOptions(input: {
   const temporary = join(input.sandboxRoot, '.tmp')
   mkdirSync(workspaceRoot, { recursive: true, mode: 0o700 })
   mkdirSync(temporary, { recursive: true, mode: 0o700 })
-  if (!existsSync(paths.nodeBinary)) throw new Error(`packaged Node runtime is missing: ${paths.nodeBinary}`)
+  if (!nodeInterpreterAvailable(paths)) throw new Error(`packaged Node interpreter is missing: ${paths.nodeCommand}`)
   if (!existsSync(paths.cliEntry)) throw new Error(`packaged DSH CLI is missing: ${paths.cliEntry}`)
   const preview = { pluginId: input.pluginId, transactionId: input.transactionId }
   const sandbox = '/usr/bin/sandbox-exec'
@@ -239,11 +249,11 @@ function previewRuntimeOptions(input: {
       ? {
           args: ['-p', previewSandboxPolicy(input.sandboxRoot)],
           command: sandbox,
-          env: DESKTOP_NODE_ENV,
+          env: desktopNodeEnv(paths),
           interpreter: true,
           interpreterCommand: process.execPath,
         }
-      : desktopNodeLauncher()
+      : desktopNodeLauncher(paths)
   return {
     args: ['--profile', DESKTOP_PROFILE],
     cliEntry: paths.cliEntry,
@@ -260,7 +270,7 @@ function previewRuntimeOptions(input: {
       TMPDIR: temporary,
     },
     launcher,
-    nodeBinary: paths.nodeBinary,
+    nodeBinary: paths.nodeCommand,
     onLog: (stream, line) => { appendLog(stream, `[preview:${input.pluginId}] ${line}`) },
     readyTimeoutMs: 90_000,
   }

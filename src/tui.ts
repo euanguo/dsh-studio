@@ -10,6 +10,7 @@ import { UsageError } from './errors.ts'
 import { ensureTuiProfile, TUI_PROFILE } from './profile.ts'
 import {
   bundledRuntimePaths,
+  nodeInterpreterAvailable,
   runtimeSearchPath,
   type BundledRuntimePaths,
 } from './runtime-paths.ts'
@@ -266,8 +267,8 @@ export async function main(
       ? join(root, '.stage')
       : root
   const paths = bundledRuntimePaths(resourcesRoot)
-  if (!existsSync(paths.nodeBinary)) {
-    throw new Error(`packaged Node runtime is missing: ${paths.nodeBinary}`)
+  if (!nodeInterpreterAvailable(paths)) {
+    throw new Error(`packaged Node interpreter is missing: ${paths.nodeCommand}`)
   }
   if (!existsSync(paths.cliEntry)) {
     throw new Error(`packaged DSH CLI is missing: ${paths.cliEntry}`)

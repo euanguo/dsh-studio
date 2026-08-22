@@ -6,6 +6,10 @@ export interface PruneStats {
   variantBytes: number
   storeEntriesRemoved: number
   nodeDietBytes: number
+  baggageBytes: number
+  documentBytes: number
+  debugBytes: number
+  buildCacheBytes: number
 }
 
 export function pruneRuntimeDependencies(
@@ -14,7 +18,24 @@ export function pruneRuntimeDependencies(
 
 export function dietNodeRuntime(nodeRuntime: string): Pick<PruneStats, 'nodeDietBytes'>
 
-/** Replace the standalone node binary with the Electron shared-Node bridge. */
-export function writeDesktopNodeBridge(nodeRuntime: string, targetExpression: string): boolean
+export const NODE_EXECUTABLE_ENV: 'DSH_STUDIO_NODE_EXECUTABLE'
+export const PNPM_ENTRY_ENV: 'DSH_STUDIO_PNPM_ENTRY'
+
+export interface DesktopNodeAdapterFallbacks {
+  posixExecutableSuffix: string
+  posixPnpmEntrySuffix: string
+  posixDshEntrySuffix: string
+  windowsExecutable: string
+  windowsPnpmEntry: string
+  windowsDshEntry: string
+}
+
+export function writeDesktopNodeAdapters(
+  nodeRuntime: string,
+  options: {
+    platform: 'darwin' | 'linux' | 'win32'
+    fallbacks: DesktopNodeAdapterFallbacks
+  },
+): { replacedBinary: boolean; removedBytes: number }
 
 export function summarize(stats: PruneStats): string

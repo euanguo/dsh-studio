@@ -1,9 +1,17 @@
+import { existsSync } from 'node:fs'
 import { posix, win32 } from 'node:path'
 
 /** Files bundled beside the packaged Electron application. */
 export interface BundledRuntimePaths {
   cliEntry: string
+  /**
+   * The standalone Node interpreter file (Web/TUI distributions and the dev
+   * stage ship a real binary; the packaged desktop app replaces it with the
+   * `node`/`node.cmd` shared-Node adapter).
+   */
   nodeBinary: string
+  /** The spawnable Node command in this layout (adapter or real binary). */
+  nodeCommand: string
   nodeBinDirectory: string
   pnpmBinary: string
   pnpmEntry: string
@@ -40,6 +48,7 @@ export function bundledRuntimePaths(
   return {
     cliEntry: paths.join(runtimeRoot, 'lib', 'bin.js'),
     nodeBinary: paths.join(nodeBinDirectory, platform === 'win32' ? 'node.exe' : 'node'),
+    nodeCommand: paths.join(nodeBinDirectory, platform === 'win32' ? 'node.cmd' : 'node'),
     nodeBinDirectory,
     pnpmBinary: paths.join(nodeBinDirectory, platform === 'win32' ? 'pnpm.cmd' : 'pnpm'),
     pnpmEntry: paths.join(
@@ -51,6 +60,17 @@ export function bundledRuntimePaths(
     ),
     runtimeRoot,
   }
+}
+
+/**
+ * Whether this layout carries a spawnable Node interpreter: the standalone
+ * binary (Web/TUI distributions) or the shared-Node adapter (desktop app on
+ * every platform, where the real binary was replaced at package time).
+ */
+export function nodeInterpreterAvailable(
+  paths: BundledRuntimePaths,
+): boolean {
+  return existsSync(paths.nodeBinary) || existsSync(paths.nodeCommand)
 }
 
 /** Put bundled commands first without applying POSIX PATH rules on Windows. */

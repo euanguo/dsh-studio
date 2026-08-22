@@ -3,7 +3,11 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, symlinkSync, existsSync,
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
-import { pruneRuntimeDependencies, dietNodeRuntime, writeDesktopNodeBridge } from '../scripts/prune-stage.mjs'
+import {
+  dietNodeRuntime,
+  pruneRuntimeDependencies,
+  writeDesktopNodeAdapters,
+} from '../scripts/prune-stage.mjs'
 
 function writeFile(path: string, content: string): void {
   mkdirSync(join(path, '..'), { recursive: true })
@@ -222,18 +226,71 @@ test('dietNodeRuntime removes compile payload and keeps bin/node + pnpm', () => 
   }
 })
 
-test('writeDesktopNodeBridge replaces the binary with an Electron bridge', () => {
-  const root = mkdtempSync(join(tmpdir(), 'prune-bridge-'))
+test('writeDesktopNodeAdapters: POSIX adapters drop the binary and exec Electron', () => {
+  const root = mkdtempSync(join(tmpdir(), 'prune-adapters-'))
   try {
     mkdirSync(join(root, 'bin'), { recursive: true })
     writeFileSync(join(root, 'bin', 'node'), 'real node binary')
+    writeFileSync(join(root, 'bin', 'pnpm'), '#!/usr/bin/env node\n')
     chmodSync(join(root, 'bin', 'node'), 0o755)
-    const replaced = writeDesktopNodeBridge(root, '$(dirname "$0")/../../../MacOS/DSH Studio')
-    assert.equal(replaced, true)
-    const bridge = readFileSync(join(root, 'bin', 'node'), 'utf8')
-    assert.match(bridge, /ELECTRON_RUN_AS_NODE=1/)
-    assert.match(bridge, /MacOS\/DSH Studio/)
-    assert.ok(!bridge.includes('real node binary'))
+
+    const result = writeDesktopNodeAdapters(root, {
+      platform: 'darwin',
+      fallbacks: {
+        posixExecutableSuffix: '/../../../MacOS/DSH Studio',
+        posixPnpmEntrySuffix: '/../lib/node_modules/pnpm/bin/pnpm.mjs',
+        posixDshEntrySuffix: '/../../dsh-runtime/lib/bin.js',
+        windowsExecutable: '%\\~dp0..\\..\\..\\DSH Studio.exe',
+        windowsPnpmEntry: '%\\~dp0..\\node_modules\\pnpm\\bin\\pnpm.mjs',
+        windowsDshEntry: '%\\~dp0..\\..\\dsh-runtime\\lib\\bin.js',
+      },
+    })
+    assert.equal(result.replacedBinary, true)
+    assert.ok(result.removedBytes > 0, 'real node binary was replaced')
+
+    const node = readFileSync(join(root, 'bin', 'node'), 'utf8')
+    assert.ok(!node.includes('real node binary'))
+    assert.match(node, /ELECTRON_RUN_AS_NODE=1/)
+    assert.ok(node.includes('${DSH_STUDIO_NODE_EXECUTABLE:='), 'env-first fallback syntax')
+    assert.match(node, /MacOS\/DSH Studio/)
+    const pnpm = readFileSync(join(root, 'bin', 'pnpm'), 'utf8')
+    assert.ok(pnpm.includes('${DSH_STUDIO_PNPM_ENTRY:='))
+    assert.match(pnpm, /lib\/node_modules\/pnpm\/bin\/pnpm\.mjs/)
+    const dsh = readFileSync(join(root, 'bin', 'dsh'), 'utf8')
+    assert.match(dsh, /--expose-internals/)
+    assert.match(dsh, /dsh-runtime\/lib\/bin\.js/)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('writeDesktopNodeAdapters: Windows drops node.exe and writes .cmd shims', () => {
+  const root = mkdtempSync(join(tmpdir(), 'prune-adapters-win-'))
+  try {
+    writeFileSync(join(root, 'node.exe'), 'real node binary')
+    writeFileSync(join(root, 'pnpm.cmd'), '@echo off\r\nold\r\n')
+    const result = writeDesktopNodeAdapters(root, {
+      platform: 'win32',
+      fallbacks: {
+        posixExecutableSuffix: '/../../../MacOS/DSH Studio',
+        posixPnpmEntrySuffix: '/../lib/node_modules/pnpm/bin/pnpm.mjs',
+        posixDshEntrySuffix: '/../../dsh-runtime/lib/bin.js',
+        windowsExecutable: '%~dp0..\\..\\..\\DSH Studio.exe',
+        windowsPnpmEntry: '%~dp0..\\node_modules\\pnpm\\bin\\pnpm.mjs',
+        windowsDshEntry: '%~dp0..\\..\\dsh-runtime\\lib\\bin.js',
+      },
+    })
+    assert.equal(result.replacedBinary, true)
+    assert.ok(!existsSync(join(root, 'node.exe')), 'standalone node.exe dropped')
+    const nodeCmd = readFileSync(join(root, 'node.cmd'), 'utf8')
+    assert.ok(nodeCmd.includes('DSH_STUDIO_NODE_EXECUTABLE'))
+    assert.match(nodeCmd, /ELECTRON_RUN_AS_NODE=1/)
+    assert.match(nodeCmd, /DSH Studio\.exe/)
+    const pnpmCmd = readFileSync(join(root, 'pnpm.cmd'), 'utf8')
+    assert.ok(!pnpmCmd.includes('old'))
+    assert.match(pnpmCmd, /pnpm\.mjs/)
+    assert.ok(existsSync(join(root, 'pnpx.cmd')))
+    assert.ok(existsSync(join(root, 'dsh.cmd')))
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
