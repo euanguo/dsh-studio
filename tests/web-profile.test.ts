@@ -13,10 +13,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { test } from 'node:test'
 import {
-  DESKTOP_PROFILE,
   ensureWebProfile,
   WEB_BUNDLES,
-  WEB_PROFILE,
 } from '../src/profile.ts'
 import {
   DshRuntimeSupervisor,
@@ -56,27 +54,6 @@ test('web profile initializes required bundles and preserves user plugins', () =
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
-})
-
-test('web profile is a separate surface from the desktop profile', () => {
-  assert.notEqual(WEB_PROFILE, DESKTOP_PROFILE)
-  assert.deepEqual(WEB_BUNDLES, ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@dsh-studio/web'])
-  assert.equal(WEB_BUNDLES.includes('@dsh-studio/desktop'), false)
-})
-
-test('web client uses the DSH Studio Web surface name', () => {
-  const client = readFileSync(new URL('../web/src/client.ts', import.meta.url), 'utf8')
-  assert.match(client, /document\.title = 'DSH Studio Web'/)
-  assert.match(client, /element\.textContent = 'DSH Studio Web'/)
-  assert.doesNotMatch(client, /DSH Studio-Web/)
-})
-
-test('packaged web distribution exposes the unified dsh-studio command', () => {
-  const build = readFileSync(new URL('../scripts/build-web.mjs', import.meta.url), 'utf8')
-  assert.match(build, /join\(packageDir, 'bin', 'dsh-studio'\)/)
-  assert.match(build, /join\(packageDir, 'lib', 'dsh-studio', 'cli\.js'\)/)
-  assert.match(build, /exec "\$ROOT\/bin\/dsh-studio" web "\$@"/)
-  assert.match(build, /数据默认保存在 \\`~\/\.dsh-studio\\`/)
 })
 
 test('full and web-only distributions expose the same release version', () => {

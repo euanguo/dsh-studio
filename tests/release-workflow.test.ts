@@ -14,19 +14,8 @@ test('tagged releases build and upload web and desktop distributions', () => {
     'utf8',
   ).replace(/\r\n?/g, '\n')
 
-  assert.match(workflow, /run: node scripts\/build-web\.mjs/)
-  assert.match(workflow, /release\/dsh-studio-web-\*\.tar\.gz/)
-  assert.match(workflow, /release\/dsh-studio-web-\*\.zip/)
-  assert.doesNotMatch(workflow, /build-tui/)
-  assert.doesNotMatch(workflow, /dsh-studio-tui/)
-  assert.match(workflow, /fetch-depth: 0/)
-  assert.match(workflow, /fetch-tags: true/)
-  assert.match(workflow, /validate-release-tag\.mjs --tag/)
-  assert.match(workflow, /workflow_dispatch:/)
-  assert.match(workflow, /if: github\.event_name == 'push'/)
-  assert.match(workflow, /macOS signing credentials are incomplete; producing an ad-hoc-signed package/)
-  assert.match(workflow, /Windows signing credentials are incomplete; producing an unsigned installer/)
-
+  // Structured checks only: pin the signing/release-safety contract of the
+  // workflow, not its shell-command or warning-copy wording.
   const config = parse(workflow)
   const packageJob = config.jobs.package
   assert.equal('CSC_LINK' in packageJob.env, false)

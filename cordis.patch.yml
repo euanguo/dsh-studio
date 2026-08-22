@@ -9,6 +9,7 @@
 
 - id: web-runtime
   config:
+    openBrowser: false
     printUrl: true
     surfaceContext: false
     trustedHosts: []

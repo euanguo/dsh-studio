@@ -34,6 +34,9 @@
     "./ui/settings-row": "./ui/settings-row.tsx",
     "./ui/settings-section": "./ui/settings-section.tsx",
     "./ui/skeleton": "./ui/skeleton.tsx",
+    "./ui/slider": "./ui/slider.tsx",
+    "./ui/switch": "./ui/switch.tsx",
+    "./ui/textarea": "./ui/textarea.tsx",
     "./ui/status-line": "./ui/status-line.tsx",
     "./ui/styles": "./ui/styles.ts",
     "./ui/surface-tab": "./ui/surface-tab.tsx",
@@ -79,6 +82,7 @@
     "./tool-icon": "./tool-icon.tsx",
     "./use-i18n": "./use-i18n.ts",
     "./wire": "./wire.ts",
+    "./panel-geometry": "./panel-geometry.ts",
     "./worktree-preferences": "./worktree-preferences.ts"
   },
   "devDependencies": {
@@ -98,5 +102,8 @@
       "@xterm/addon-webgl",
       "@xterm/xterm"
     ]
+  },
+  "dependencies": {
+    "@base-ui/react": "^1.7.0"
   }
 }

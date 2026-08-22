@@ -66,9 +66,13 @@ function packPnpm() {
 }
 
 function parseBootEntries(index) {
-  const marker = 'window.__DSH_BOOT__ = '
+  const markers = [
+    'globalThis["__DSH_BOOT__"] = ',
+    'window.__DSH_BOOT__ = ',
+  ]
+  const marker = markers.find(candidate => index.includes(candidate))
+  assert.notEqual(marker, undefined, 'DSH index did not contain a client boot graph')
   const start = index.indexOf(marker)
-  assert.notEqual(start, -1, 'DSH index did not contain a client boot graph')
   const end = index.indexOf('</script>', start)
   assert.notEqual(end, -1, 'DSH client boot graph script was not closed')
   const graph = JSON.parse(index.slice(start + marker.length, end))

@@ -218,9 +218,15 @@ export function tuiLaunchSpec(
     DSH_STUDIO_HOME: dataRoot,
     PATH: runtimeSearchPath(paths, env),
   }
+  // When this process already runs on the shared Electron interpreter
+  // (packaged desktop CLI via the node bridge), spawn the child the same
+  // way — process.execPath is the interpreter and ELECTRON_RUN_AS_NODE is
+  // inherited in childEnv. Otherwise the standalone node binary is used
+  // (Web/headless distributions have no Electron).
+  const command = env.ELECTRON_RUN_AS_NODE === '1' ? process.execPath : paths.nodeBinary
   return {
     args: [paths.cliEntry, '--profile', TUI_PROFILE],
-    command: paths.nodeBinary,
+    command,
     cwd,
     env: childEnv,
     spawnOptions: {

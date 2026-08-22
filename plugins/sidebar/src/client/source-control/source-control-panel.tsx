@@ -118,12 +118,14 @@ export function SourceControlPanel(props: SourceControlPanelProps): JSX.Element 
         </span>
         <div className="dsh-studio-sc-toolbar-modes" role="group" aria-label={props.t('source-control.mode.tree')}>
           <ToolbarAction
+            className="dsh-studio-sc-toolbar-mode"
             icon={<IconLayoutList size={14} />}
             label={props.t('source-control.mode.flat')}
             pressed={props.mode === 'flat'}
             onClick={() => { props.onModeChange('flat') }}
           />
           <ToolbarAction
+            className="dsh-studio-sc-toolbar-mode"
             icon={<IconListTree size={14} />}
             label={props.t('source-control.mode.tree')}
             pressed={props.mode === 'tree'}
@@ -222,6 +224,7 @@ function SectionRowView(props: {
 }): JSX.Element {
   const { row } = props
   const canViewAll = row.id === 'staged' || row.id === 'unstaged'
+  const sectionLabel = props.t(`source-control.section.${row.id}`)
   return (
     <ListRow className="dsh-studio-sc-section-row" data-section={row.id}>
       <ListRowMain
@@ -234,7 +237,7 @@ function SectionRowView(props: {
         </ListRowLeading>
         <ListRowBody>
           <ListRowLabel>
-            <ListRowLabelText>{props.t(`source-control.section.${row.id}`)}</ListRowLabelText>
+            <ListRowLabelText>{sectionLabel}</ListRowLabelText>
             <span className="dsh-studio-workspace-count">{row.count}</span>
           </ListRowLabel>
         </ListRowBody>
@@ -242,30 +245,30 @@ function SectionRowView(props: {
       <ListRowTrailing>
         {canViewAll && (
           <ListRowActionButton
-            aria-label={props.t('source-control.view-all')}
-            title={props.t('source-control.view-all')}
+            aria-label={`${props.t('source-control.view-all')}: ${sectionLabel}`}
+            title={`${props.t('source-control.view-all')}: ${sectionLabel}`}
             onClick={() => { props.onViewAll(row.id) }}
           ><IconEye size={14} /></ListRowActionButton>
         )}
         <span className="dsh-studio-sc-section-bulk">
           {row.stagePaths.length > 0 && (
             <ListRowActionButton
-              aria-label={props.t('source-control.stage-all')}
-              title={props.t('source-control.stage-all')}
+              aria-label={`${props.t('source-control.stage-all')}: ${sectionLabel}`}
+              title={`${props.t('source-control.stage-all')}: ${sectionLabel}`}
               onClick={() => { props.onStage(row.stagePaths) }}
             ><IconPlus size={14} /></ListRowActionButton>
           )}
           {row.unstagePaths.length > 0 && (
             <ListRowActionButton
-              aria-label={props.t('source-control.unstage-all')}
-              title={props.t('source-control.unstage-all')}
+              aria-label={`${props.t('source-control.unstage-all')}: ${sectionLabel}`}
+              title={`${props.t('source-control.unstage-all')}: ${sectionLabel}`}
               onClick={() => { props.onUnstage(row.unstagePaths) }}
             ><IconMinus size={14} /></ListRowActionButton>
           )}
           {row.discardPaths.length > 0 && (
             <ListRowActionButton
-              aria-label={props.t('source-control.discard-all')}
-              title={props.t('source-control.discard-all')}
+              aria-label={`${props.t('source-control.discard-all')}: ${sectionLabel}`}
+              title={`${props.t('source-control.discard-all')}: ${sectionLabel}`}
               onClick={() => { props.onDiscard(row.discardPaths, props.t(`source-control.section.${row.id}`)) }}
             ><IconTrash size={14} /></ListRowActionButton>
           )}
@@ -306,22 +309,22 @@ function DirectoryRowView(props: {
       <ListRowActions>
         {row.stagePaths.length > 0 && (
           <ListRowActionButton
-            aria-label={props.t('source-control.stage-all')}
-            title={props.t('source-control.stage-all')}
+            aria-label={`${props.t('source-control.stage-all')}: ${row.path}`}
+            title={`${props.t('source-control.stage-all')}: ${row.path}`}
             onClick={() => { props.onStage(row.stagePaths) }}
           ><IconPlus size={14} /></ListRowActionButton>
         )}
         {row.unstagePaths.length > 0 && (
           <ListRowActionButton
-            aria-label={props.t('source-control.unstage-all')}
-            title={props.t('source-control.unstage-all')}
+            aria-label={`${props.t('source-control.unstage-all')}: ${row.path}`}
+            title={`${props.t('source-control.unstage-all')}: ${row.path}`}
             onClick={() => { props.onUnstage(row.unstagePaths) }}
           ><IconMinus size={14} /></ListRowActionButton>
         )}
         {row.discardPaths.length > 0 && (
           <ListRowActionButton
-            aria-label={props.t('source-control.discard-all')}
-            title={props.t('source-control.discard-all')}
+            aria-label={`${props.t('source-control.discard-all')}: ${row.path}`}
+            title={`${props.t('source-control.discard-all')}: ${row.path}`}
             onClick={() => { props.onDiscard(row.discardPaths, row.path) }}
           ><IconTrash size={14} /></ListRowActionButton>
         )}
@@ -396,24 +399,24 @@ function FileRowView(props: {
       <ListRowActions>
         {row.canStage && (
           <ListRowActionButton
-            aria-label={props.t('source-control.stage')}
-            title={props.t('source-control.stage')}
+            aria-label={`${props.t('source-control.stage')}: ${row.path}`}
+            title={`${props.t('source-control.stage')}: ${row.path}`}
             disabled={props.pending !== null}
             onClick={() => { props.onStage([row.path]) }}
           ><IconPlus size={14} /></ListRowActionButton>
         )}
         {row.canUnstage && (
           <ListRowActionButton
-            aria-label={props.t('source-control.unstage')}
-            title={props.t('source-control.unstage')}
+            aria-label={`${props.t('source-control.unstage')}: ${row.path}`}
+            title={`${props.t('source-control.unstage')}: ${row.path}`}
             disabled={props.pending !== null}
             onClick={() => { props.onUnstage([row.path]) }}
           ><IconMinus size={14} /></ListRowActionButton>
         )}
         {row.canDiscard && (
           <ListRowActionButton
-            aria-label={props.t('source-control.discard')}
-            title={props.t('source-control.discard')}
+            aria-label={`${props.t('source-control.discard')}: ${row.path}`}
+            title={`${props.t('source-control.discard')}: ${row.path}`}
             disabled={props.pending !== null}
             onClick={() => { props.onDiscard([row.path], row.path) }}
           ><IconTrash size={14} /></ListRowActionButton>

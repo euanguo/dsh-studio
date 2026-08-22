@@ -16,6 +16,8 @@ import {
   LoadingState,
   SettingsRow,
   StatusLine,
+  Switch,
+  Textarea,
   ToolbarAction,
 } from '@dsh-studio/shared/ui'
 
@@ -55,6 +57,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
   const reasoningAnchorRef = useRef<HTMLSpanElement | null>(null)
 
   const load = async (): Promise<void> => {
+    setOpenMenu(null)
     setLoading(true)
     setStatus(null)
     try {
@@ -128,6 +131,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
     }))
   }
   const save = async (): Promise<void> => {
+    setOpenMenu(null)
     setSaving(true)
     setStatus(null)
     try {
@@ -153,19 +157,19 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
         <ToolbarAction
           icon={<IconRefresh size={15} />}
           label={props.t('source-control-ai.refresh')}
+          disabled={loading || saving}
           onClick={() => { void load() }}
         />
       </div>
-      <div className="dsh-studio-sidebar-settings-grid">
+      <div className="dsh-studio-sidebar-settings-rows">
         <SettingsRow
           title={props.t('source-control-ai.enabled')}
           control={(
-            <input
-              type="checkbox"
+            <Switch
               checked={settings.enabled}
+              disabled={saving}
               aria-label={props.t('source-control-ai.enabled')}
-              onChange={event => {
-                const enabled = event.currentTarget.checked
+              onCheckedChange={enabled => {
                 setSettings(current => ({ ...current, enabled }))
               }}
             />
@@ -179,6 +183,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
                 variant="outline"
                 size="sm"
                 aria-label={props.t('source-control-ai.model')}
+                disabled={saving}
                 aria-expanded={openMenu === 'model'}
                 onClick={() => { setOpenMenu(current => current === 'model' ? null : 'model') }}
               >
@@ -186,7 +191,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
                 <IconChevronDown size={14} />
               </Button>
               <Menu
-                open={openMenu === 'model'}
+                open={openMenu === 'model' && !saving}
                 anchor={null}
                 portal
                 getAnchorRect={() => modelAnchorRef.current?.getBoundingClientRect() ?? null}
@@ -216,7 +221,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
               <Button
                 variant="outline"
                 size="sm"
-                disabled={selectedModel === undefined || settings.defaultModel === undefined}
+                disabled={saving || selectedModel === undefined || settings.defaultModel === undefined}
                 aria-label={props.t('source-control-ai.reasoning')}
                 aria-expanded={openMenu === 'reasoning'}
                 onClick={() => { setOpenMenu(current => current === 'reasoning' ? null : 'reasoning') }}
@@ -225,7 +230,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
                 <IconChevronDown size={14} />
               </Button>
               <Menu
-                open={openMenu === 'reasoning'}
+                open={openMenu === 'reasoning' && !saving}
                 anchor={null}
                 portal
                 getAnchorRect={() => reasoningAnchorRef.current?.getBoundingClientRect() ?? null}
@@ -250,9 +255,10 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
           <FieldLabel htmlFor="dsh-studio-source-control-ai-prompt">
             {props.t('source-control-ai.prompt-template')}
           </FieldLabel>
-          <textarea
+          <Textarea
             id="dsh-studio-source-control-ai-prompt"
             value={settings.promptTemplate}
+            disabled={saving}
             aria-label={props.t('source-control-ai.prompt-template')}
             onChange={event => {
               const promptTemplate = event.currentTarget.value

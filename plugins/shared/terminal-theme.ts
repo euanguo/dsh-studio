@@ -1,7 +1,11 @@
 import type { ITheme } from '@xterm/xterm'
 
 const TOKENS = {
-  background: '--dsw-alias-bg-layer-1',
+  // The screen canvas follows its host surface through the bridge variable
+  // (rail fill in the right rail, layered base in the center). resolveTerminal
+  // Theme() reads the computed value from the terminal's own container, so
+  // the var() substitution is already resolved by the browser.
+  background: '--dsh-studio-terminal-backdrop',
   foreground: '--dsw-alias-label-primary',
   cursor: '--dsw-alias-label-primary',
   selectionBackground: '--dsw-alias-interactive-bg-active',
@@ -42,8 +46,8 @@ const LIGHT_ANSI = {
   brightBlue: '#218bff', brightMagenta: '#bf3989', brightCyan: '#3192aa', brightWhite: '#afb8c1',
 }
 
-function colorValue(token: string, fallback: string): string {
-  const value = getComputedStyle(document.body).getPropertyValue(token).trim()
+function colorValue(token: string, fallback: string, source: Element): string {
+  const value = getComputedStyle(source).getPropertyValue(token).trim()
   return value || fallback
 }
 
@@ -58,10 +62,16 @@ function luminance(color: string): number | null {
     + 0.0722 * Number.parseInt(value.slice(4, 6), 16)
 }
 
-export function resolveTerminalTheme(): ITheme {
+/**
+ * Resolve the xterm theme from a host element's computed surface.
+ * @param source - the element whose surface the terminal renders on (the
+ * terminal's own container); defaults to `document.body` for callers that
+ * resolve before a container exists, which reads the root bridge default.
+ */
+export function resolveTerminalTheme(source: Element = document.body): ITheme {
   const theme: Record<string, string> = {}
   for (const [role, token] of Object.entries(TOKENS)) {
-    theme[role] = colorValue(token, FALLBACK[role as keyof typeof FALLBACK])
+    theme[role] = colorValue(token, FALLBACK[role as keyof typeof FALLBACK], source)
   }
   return {
     ...theme,

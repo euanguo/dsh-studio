@@ -8,6 +8,7 @@ import {
 } from '../plugins/sidebar/src/client/sidebar-service.ts'
 import type { SidebarPreferencesStorage } from '../plugins/sidebar/src/client/sidebar-storage.ts'
 import {
+  clampSidebarWidthForLayout,
   DEFAULT_SIDEBAR_PREFERENCES,
   parseSidebarPreferences,
   type DesktopSidebarPreferences,
@@ -36,6 +37,12 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
     this.writes.push(structuredClone(preferences))
   }
 }
+
+test('right sidebar width clamps to its own budget at any window size', () => {
+  assert.equal(clampSidebarWidthForLayout(700), 640)
+  assert.equal(clampSidebarWidthForLayout(200), 220)
+  assert.equal(clampSidebarWidthForLayout(480), 480)
+})
 
 function tab(
   id: string,
@@ -71,7 +78,7 @@ test('desktop sidebar validates the durable preference envelope', () => {
   assert.equal(parseSidebarPreferences({ ...valid, defaultWidth: 100 }), undefined)
   assert.equal(
     parseSidebarPreferences({ ...valid, defaultWidth: 720 })?.defaultWidth,
-    480,
+    640,
   )
   assert.equal(parseSidebarPreferences({
     ...valid,
@@ -204,7 +211,7 @@ test('desktop sidebar persists bounded per-project state outside Web storage', a
   sidebar.setViewerEnabled('text', false)
   await sidebar.settle()
 
-  assert.equal(storage.value.defaultWidth, 480)
+  assert.equal(storage.value.defaultWidth, 512)
   assert.equal(storage.value.openByDefault, true)
   assert.equal(storage.value.tabsEnabled.browser, false)
   assert.equal(storage.value.viewersEnabled.text, false)

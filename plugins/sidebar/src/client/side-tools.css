@@ -1,3 +1,17 @@
+/* ── 右栏表面唯一持有者 ──────────────────────────────────────────
+   三个右栏根（runtime details 列、侧栏工具面板、浮动 Git 工作区面板）
+   在这里统一持有栏级背景与表面桥。内部内容容器一律透明透出此层；
+   浮层（菜单/弹窗/设置卡片）与输入控件保留自己的抬升表面。
+   桥变量让通用组件（滚动渐变、终端画布）跟随宿主而不自行刷色：
+   中心列消费同一变量时回退到 theme.css 的根默认值。 */
+[data-dsh-studio-layout-frame] > :nth-child(3),
+.dsh-studio-side-panel,
+.dsh-studio-workspace-panel {
+  background: var(--dsw-specific-sidebar-fill, var(--dsw-alias-bg-base, #fff));
+  --dsh-studio-scrollable-fade-color: var(--dsw-specific-sidebar-fill, var(--dsw-alias-bg-base, #fff));
+  --dsh-studio-terminal-backdrop: var(--dsw-specific-sidebar-fill, var(--dsw-alias-bg-base, #fff));
+}
+
 .dsh-studio-side-panel {
   /* Flush with the window's top edge (see .dsh-studio-workspace-panel); its top
      row (tabs + window controls) is part of the panel itself. */
@@ -626,10 +640,19 @@
   color: var(--dsw-alias-label-primary);
 }
 
-.dsh-studio-sidebar-settings-grid {
+.dsh-studio-sidebar-settings-rows {
+  /* Settings rows (sliders, model menus, prompt textareas) own full-width
+     tracks: one column, the rows' own padding owns the rhythm. */
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  column-gap: 0;
+}
+
+.dsh-studio-sidebar-settings-grid {
+  display: grid;
+  /* Only the compact feature cards (工具 / 文件预览) take two columns; the
+     settings-row sections stack via .dsh-studio-sidebar-settings-rows. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--dsh-studio-space-6);
 }
 
 .dsh-studio-sidebar-settings-controls {
@@ -639,46 +662,9 @@
   gap: 4px;
 }
 
-.dsh-studio-sidebar-settings-size input[type='range'] {
+.dsh-studio-sidebar-settings-size .dsh-studio-ui-slider {
   width: 96px;
   flex: none;
-  accent-color: var(--dsw-alias-brand-primary);
-}
-
-.dsh-studio-sidebar-settings input[type='checkbox'] {
-  position: relative;
-  flex: none;
-  width: 32px;
-  height: 18px;
-  margin: 0;
-  appearance: none;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 999px;
-  background: var(--dsw-alias-bg-module-platform);
-  cursor: pointer;
-  transition: background 140ms ease, border-color 140ms ease;
-}
-
-.dsh-studio-sidebar-settings input[type='checkbox']::after {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--dsw-alias-bg-base);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 16%);
-  content: '';
-  transition: transform 140ms ease;
-}
-
-.dsh-studio-sidebar-settings input[type='checkbox']:checked {
-  border-color: transparent;
-  background: var(--dsw-alias-brand-primary);
-}
-
-.dsh-studio-sidebar-settings input[type='checkbox']:checked::after {
-  transform: translateX(14px);
 }
 
 .dsh-studio-sidebar-feature-gear {
@@ -743,12 +729,6 @@
   flex: 1;
 }
 .dsh-studio-sidebar-settings-unit { color: var(--dsw-alias-label-tertiary); font-size: 12px; }
-
-@media (max-width: 760px) {
-  .dsh-studio-sidebar-settings-grid { grid-template-columns: minmax(0, 1fr); }
-  .dsh-studio-sidebar-settings-size { align-items: flex-start; flex-direction: column; }
-  .dsh-studio-sidebar-settings-size input[type='range'] { width: 100%; }
-}
 
 /* ---------- File browser (tree mode) ---------- */
 

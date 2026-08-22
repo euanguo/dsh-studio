@@ -24,7 +24,11 @@ export function SettingsRow({
   className,
   ...props
 }: SettingsRowProps): JSX.Element {
-  const labelId = useId()
+  const rowId = useId()
+  const labelId = `${rowId}-label`
+  const descriptionId = `${rowId}-description`
+  const hasDescription = description !== undefined && description !== null && description !== ''
+  const titleText = typeof title === 'string' ? title : undefined
   return (
     <Field
       data-slot="settings-row"
@@ -35,17 +39,18 @@ export function SettingsRow({
       <div className="dsh-studio-ui-settings-row-layout">
         <div className="dsh-studio-ui-settings-row-copy">
           {htmlFor === undefined ? (
-            <div id={labelId} data-slot="settings-row-label" className="dsh-studio-ui-field-label">{title}</div>
+            <div id={labelId} title={titleText} data-slot="settings-row-label" className="dsh-studio-ui-field-label">{title}</div>
           ) : (
-            <FieldLabel id={labelId} htmlFor={htmlFor}>{title}</FieldLabel>
+            <FieldLabel id={labelId} title={titleText} htmlFor={htmlFor}>{title}</FieldLabel>
           )}
-          {description !== undefined && description !== null && description !== '' && (
-            <FieldDescription>{description}</FieldDescription>
+          {hasDescription && (
+            <FieldDescription id={descriptionId}>{description}</FieldDescription>
           )}
         </div>
         <div
           role="group"
           aria-labelledby={labelId}
+          aria-describedby={hasDescription ? descriptionId : undefined}
           className="dsh-studio-ui-settings-row-control"
         >
           {control}

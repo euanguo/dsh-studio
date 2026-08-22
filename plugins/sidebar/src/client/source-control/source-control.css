@@ -59,7 +59,10 @@
    remain. */
 .dsh-studio-sc-file-row:hover .dsh-studio-sc-mark,
 .dsh-studio-sc-file-row:hover .dsh-studio-sc-stat,
-.dsh-studio-sc-directory-row:hover .dsh-studio-workspace-count {
+.dsh-studio-sc-file-row:focus-within .dsh-studio-sc-mark,
+.dsh-studio-sc-file-row:focus-within .dsh-studio-sc-stat,
+.dsh-studio-sc-directory-row:hover .dsh-studio-workspace-count,
+.dsh-studio-sc-directory-row:focus-within .dsh-studio-workspace-count {
   opacity: 0;
 }
 
@@ -175,4 +178,13 @@
   display: flex;
   align-items: center;
   gap: var(--dsh-studio-space-0);
+}
+
+/* The two view-mode actions are icon-only controls with fixed square hit areas. */
+.dsh-studio-sc-toolbar-mode {
+  width: var(--dsh-studio-control-sm);
+  height: var(--dsh-studio-control-sm);
+  min-width: var(--dsh-studio-control-sm);
+  padding: 0;
+  border-radius: var(--dsh-studio-radius-sm);
 }

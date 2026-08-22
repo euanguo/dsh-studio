@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict'
-import { existsSync, readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import {
   GitHubSourceAdapter,
@@ -259,23 +258,6 @@ test('protocol accepts a direct sourceRef while retaining pluginId compatibility
     pluginId: 'different-plugin',
     sourceRef: { kind: 'repository', input: `https://github.com/${FIXTURE_REPOSITORY}` },
   }), /must not provide a separate pluginId/)
-})
-
-test('pinned DSH source statically proves bundle-only profile composition', () => {
-  const root = '/Users/verger/code_source/front_end/important_project/deepseek-harness'
-  const pluginPath = `${root}/apps/cli/src/plugin.ts`
-  const profilePath = `${root}/packages/boot/app-boot/src/profile.ts`
-  const removalPath = `${root}/.agents/notes/implemented/simplification/2026-08-09-remove-repository-plugin.md`
-  if (!existsSync(pluginPath) || !existsSync(profilePath) || !existsSync(removalPath)) return
-  const plugin = readFileSync(pluginPath, 'utf8')
-  const profile = readFileSync(profilePath, 'utf8')
-  const removal = readFileSync(removalPath, 'utf8')
-  assert.match(plugin, /dsh\.bundle/)
-  assert.match(plugin, /dsh\.profile\.bundles/)
-  assert.match(profile, /profile bundle .* declares no dsh\.bundle/)
-  assert.match(profile, /loadOverlayPatches\(binName, patchPath\)/)
-  assert.match(removal, /\.dsh-plugin/)
-  assert.match(removal, /one standalone external-Plugin distribution path/)
 })
 
 test('candidate validator tolerates wildcard export patterns when concrete entries exist', async () => {

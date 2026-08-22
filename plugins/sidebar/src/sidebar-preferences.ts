@@ -1,6 +1,11 @@
-export const SIDEBAR_MIN_WIDTH = 280
-export const SIDEBAR_MAX_WIDTH = 480
-export const SIDEBAR_DEFAULT_WIDTH = 300
+import {
+  INSPECTOR_PANEL_BUDGET,
+} from '@dsh-studio/shared/panel-geometry'
+
+export const SIDEBAR_MIN_WIDTH = INSPECTOR_PANEL_BUDGET.minSizePx
+export const SIDEBAR_MAX_WIDTH = INSPECTOR_PANEL_BUDGET.maxSizePx
+export const SIDEBAR_DEFAULT_WIDTH = INSPECTOR_PANEL_BUDGET.defaultSizePx
+export const SIDEBAR_COLLAPSE_THRESHOLD_PX = INSPECTOR_PANEL_BUDGET.collapseThresholdPx
 const SIDEBAR_LEGACY_MAX_WIDTH = 720
 export const SIDEBAR_MAX_WORKSPACES = 50
 export const SIDEBAR_MAX_TABS = 30
@@ -175,12 +180,29 @@ function parseWorkspace(value: unknown): PersistedWorkspaceLayout | undefined {
   }
 }
 
+export interface SidebarLayoutGeometry {
+  viewportWidth: number
+  leftWidth: number
+  detailsWidth: number
+}
+
 export function clampSidebarWidth(value: number): number {
   if (!Number.isFinite(value)) return SIDEBAR_DEFAULT_WIDTH
   return Math.min(
     SIDEBAR_MAX_WIDTH,
     Math.max(SIDEBAR_MIN_WIDTH, Math.round(value)),
   )
+}
+
+/**
+ * Clamp the plugin rail to its own budget only.
+ *
+ * The window minWidth guarantees left max + right max always fit, so the
+ * rail never needs a viewport-derived cap: both side panels can open at
+ * any window size and the center absorbs whatever remains.
+ */
+export function clampSidebarWidthForLayout(value: number): number {
+  return clampSidebarWidth(value)
 }
 
 function parsePluginSettings(

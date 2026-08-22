@@ -47,6 +47,8 @@ export interface ChromeGeometry {
    *  (Apple HIG) = 52px. Deterministic — the buttons are system-drawn at
    *  fixed positions relative to our own anchor. */
   trafficLightWidth: number
+  /** System traffic-light button diameter in CSS px, supplied by main. */
+  trafficLightHeight: number
 }
 
 /** Runtime diagnostics shown by the bundled bottom-panel plugin. */

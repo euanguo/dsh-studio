@@ -126,6 +126,14 @@
   --dsh-studio-tone-protected-fg: #6741a5;
 }
 
+/* 表面桥的根默认值必须挂在 body 而不是 :root —— DSW 的 alias token
+   （--dsw-alias-bg-*）只声明在 body / body[data-ds-dark-theme] 上，
+   :root 作用域里引用它们会因「父作用域不可见」而级联失败，永远落到
+   fallback。挂在 body 上，亮/暗主题切换时 var() 都能正确替换。 */
+body {
+  --dsh-studio-terminal-backdrop: var(--dsw-alias-bg-layer-1, #ffffff);
+}
+
 body[data-ds-dark-theme] {
   --dsh-studio-tone-protected-bg: #2c2340;
   --dsh-studio-tone-protected-fg: #c4a6f5;

@@ -18,6 +18,7 @@ import type {
   SourceControlActionKind,
   SourceControlActionState,
 } from './source-control-actions.ts'
+import { Textarea } from '@dsh-studio/shared/ui'
 import type { SourceControlOperationState } from './source-control-action-controller.ts'
 
 export interface CommitAreaProps {
@@ -68,12 +69,11 @@ function actionDisabledReason(
   }
 }
 
-function menuEntry(action: SourceControlAction, t: Translate<WorkspaceMessage>): MenuEntry {
-  const reason = actionDisabledReason(action, t)
+function menuEntry(action: SourceControlAction, t: Translate<WorkspaceMessage>, busy: boolean): MenuEntry {
   return {
     id: action.kind,
     label: actionLabel(action.kind, t),
-    disabled: action.disabled,
+    disabled: busy || action.disabled,
     ...(action.danger === true ? { danger: true } : {}),
   }
 }
@@ -88,8 +88,8 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
   const branchButtonRef = useRef<HTMLButtonElement | null>(null)
   const actionButtonRef = useRef<HTMLSpanElement | null>(null)
   const primaryReason = actionDisabledReason(props.actions.primary, props.t)
-  const actionItems = props.actions.dropdown.map(action => menuEntry(action, props.t))
   const busy = props.operation.phase === 'running'
+  const actionItems = props.actions.dropdown.map(action => menuEntry(action, props.t, busy))
 
   return (
     <section className="dsh-studio-commit-area">
@@ -120,10 +120,11 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
         </Button>
       </div>
       <div className="dsh-studio-commit-message-wrap">
-        <textarea
+        <Textarea
           value={props.message}
           placeholder={props.t('workspace.commit-message')}
           aria-label={props.t('workspace.commit-message')}
+          aria-busy={props.generating || busy || undefined}
           disabled={busy}
           onChange={event => { props.onMessageChange(event.currentTarget.value) }}
         />
@@ -138,13 +139,14 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
           ><IconPlayerStop size={14} /></Button>
         )}
       </div>
-      {props.generationError !== null && <small className="dsh-studio-commit-error">{props.generationError}</small>}
-      {props.operation.phase === 'error' && <small className="dsh-studio-commit-error">{props.operation.message}</small>}
+      {props.generationError !== null && <small role="alert" className="dsh-studio-commit-error">{props.generationError}</small>}
+      {props.operation.phase === 'error' && <small role="alert" className="dsh-studio-commit-error">{props.operation.message}</small>}
       <div className="dsh-studio-commit-actions">
         <Button
           variant="outline"
           size="sm"
           disabled={props.actions.primary.disabled || busy}
+          aria-label={actionLabel(props.actions.primary.kind, props.t)}
           title={primaryReason}
           onClick={() => { props.onAction(props.actions.primary.kind) }}
         >
@@ -156,11 +158,12 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
             variant="outline"
             size="sm"
             aria-label={props.t('workspace.commit-actions')}
-            aria-expanded={actionMenuOpen}
+            aria-expanded={actionMenuOpen && !busy}
+            disabled={busy}
             onClick={() => { setActionMenuOpen(value => !value) }}
           ><IconChevronDown size={14} /></Button>
           <Menu
-            open={actionMenuOpen}
+            open={actionMenuOpen && !busy}
             anchor={null}
             portal
             getAnchorRect={() => actionButtonRef.current?.getBoundingClientRect() ?? null}

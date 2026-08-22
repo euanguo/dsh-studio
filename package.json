@@ -191,7 +191,12 @@
         "NSDesktopFolderUsageDescription": "DSH Studio needs access to workspaces you select on the Desktop.",
         "NSDocumentsFolderUsageDescription": "DSH Studio needs access to workspaces you select in Documents.",
         "NSDownloadsFolderUsageDescription": "DSH Studio needs access to workspaces you select in Downloads."
-      }
+      },
+      "electronLanguages": [
+        "en-US",
+        "zh-CN",
+        "zh-TW"
+      ]
     },
     "linux": {
       "category": "Development",
