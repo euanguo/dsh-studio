@@ -27,6 +27,7 @@ import {
 } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { DSH_SOURCE_SPEC, resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
+import { dietNodeRuntime, pruneRuntimeDependencies, summarize } from './prune-stage.mjs'
 import { applyDshRuntimePatches } from './dsh-runtime-patches.mjs'
 import { verifyStagedLayout } from './verify-staged-layout.mjs'
 import { bakeSkinPalette } from './bake-skin-palette.mjs'
@@ -39,7 +40,11 @@ const stage = join(root, '.stage')
 const runtime = join(stage, 'dsh-runtime')
 const nodeRuntime = join(stage, 'node-runtime')
 const cache = join(root, '.cache')
-const nodeVersion = process.env.DSH_STUDIO_NODE_VERSION ?? '26.0.0'
+// One Node version across every surface: Electron 42.3.0 embeds Node
+// 24.15.0, and the standalone runtime distribution pins the same release so
+// Desktop, Web, and TUI never run on divergent Node versions. ensureNodeRuntime
+// asserts this against the installed Electron dist when both can run.
+const nodeVersion = process.env.DSH_STUDIO_NODE_VERSION ?? '24.15.0'
 // Node.js distribution triples use `linux`/`darwin`/`win` and `x64`/`arm64`.
 // Stage a Node runtime for the current host unless an override asks for a
 // specific platform (used for cross-packaging).
@@ -150,7 +155,37 @@ function recordExposedDependencies() {
   writeFileSync(manifestPath, JSON.stringify(manifest, undefined, 2) + '\n')
 }
 
+function assertNodeMatchesElectron() {
+  // Single source of truth for the runtime's Node version: the Electron
+  // release this repo pins. When the build host can actually run the pinned
+  // Electron binary (same OS family), verify the standalone Node version
+  // matches Electron's embedded one and fail loudly on drift.
+  const hostRunnable = isWindowsNode
+    ? process.platform === 'win32'
+    : process.platform === 'darwin' || process.platform === 'linux'
+  const electronBinary = join(
+    root, 'node_modules', 'electron', 'dist',
+    isWindowsNode ? 'electron.exe' : join('Electron.app', 'Contents', 'MacOS', 'Electron'),
+  )
+  if (!hostRunnable || !existsSync(electronBinary)) return
+  const result = spawnSync(electronBinary, ['-p', 'process.versions.node'], {
+    encoding: 'utf8',
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+  })
+  if (result.error !== undefined) {
+    throw new Error(`cannot probe Electron Node version: ${result.error.message}`)
+  }
+  const embedded = (result.stdout ?? '').trim()
+  if (embedded !== '' && embedded !== nodeVersion) {
+    throw new Error(
+      `Node version drift: runtime pins ${nodeVersion} but Electron embeds ${embedded}. `
+      + 'Update nodeVersion in scripts/stage-dsh.mjs to match the pinned Electron.',
+    )
+  }
+}
+
 function ensureNodeRuntime() {
+  assertNodeMatchesElectron()
   mkdirSync(cache, { recursive: true })
   const base = `https://nodejs.org/dist/v${nodeVersion}`
   const sumsPath = join(cache, `SHASUMS256-v${nodeVersion}.txt`)
@@ -803,6 +838,33 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
     portableSymlink(relative(dirname(link), target), link)
   }
 
+  const runtimePnpmEntry = (name, version) => {
+    const store = join(runtime, 'node_modules', '.pnpm')
+    const prefix = name.replace('/', '+')
+    for (const entry of readdirSync(store, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !entry.name.startsWith(`${prefix}@`)) continue
+      const candidate = join(store, entry.name, 'node_modules', ...name.split('/'))
+      const manifestPath = join(candidate, 'package.json')
+      if (!existsSync(manifestPath)) continue
+      try {
+        const candidateManifest = JSON.parse(readFileSync(manifestPath, 'utf8'))
+        if (candidateManifest.name === name && candidateManifest.version === version) return candidate
+      } catch { /* malformed entry, keep looking */ }
+    }
+    return undefined
+  }
+
+  const pnpmEntryCache = new Map()
+  const sharedPnpmEntry = (name, version) => {
+    const key = `${name}@${version}`
+    let cached = pnpmEntryCache.get(key)
+    if (cached === undefined) {
+      cached = runtimePnpmEntry(name, version) ?? false
+      pnpmEntryCache.set(key, cached)
+    }
+    return cached === false ? undefined : cached
+  }
+
   const installManifest = manifestPath => {
     const canonicalManifest = realpathSync(manifestPath)
     const existing = installed.get(canonicalManifest)
@@ -811,6 +873,14 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
     const manifest = JSON.parse(readFileSync(canonicalManifest, 'utf8'))
     if (typeof manifest.name !== 'string' || typeof manifest.version !== 'string') {
       throw new Error(`invalid runtime dependency manifest: ${canonicalManifest}`)
+    }
+    // Link straight into the runtime's pnpm store when the exact release is
+    // already deployed there: one physical copy serves the runtime and the
+    // compiled package, and the store copy is skipped entirely.
+    const sharedEntry = sharedPnpmEntry(manifest.name, manifest.version)
+    if (sharedEntry !== undefined) {
+      installed.set(canonicalManifest, sharedEntry)
+      return sharedEntry
     }
     const target = join(
       storeRoot,
@@ -1235,10 +1305,30 @@ ensureNodeRuntime()
 assertSelfContained(nodeRuntime, 'Node runtime')
 ensureLinuxPtyBuild()
 
+// Prune runtime-unreachable payload before the packaged artifacts consume
+// the stage: declaration files, dev-only directories, unreferenced src
+// trees, unreachable build variants, orphaned dependency-store entries,
+// and the Node distribution's compile-time payload. Source maps are
+// intentionally kept.
+const pruneStats = {
+  ...pruneRuntimeDependencies(runtime),
+  nodeDietBytes: dietNodeRuntime(nodeRuntime).nodeDietBytes,
+}
+console.log(summarize(pruneStats))
+assertSelfContained(runtime, 'DSH runtime')
+assertSelfContained(nodeRuntime, 'Node runtime')
+
 const stagedNode = join(nodeRuntime, isWindowsNode ? 'node.exe' : join('bin', 'node'))
 const hostPlatform = { darwin: 'darwin', linux: 'linux', win: 'win32' }[nodePlatform]
 if (hostPlatform === process.platform) {
   run(stagedNode, [join(runtime, 'lib', 'bin.js'), '--version'], {
+    cwd: runtime,
+    env: { ...process.env, DSH_HOME: join(stage, 'smoke-home') },
+  })
+  // The pruner removes payload the resolver cannot reach; this probe imports
+  // the heavyweight closure from the pruned tree so a wrong reachability
+  // call fails staging instead of shipping a broken app.
+  run(stagedNode, [join(root, 'scripts', 'runtime-closure-probe.mjs'), runtime], {
     cwd: runtime,
     env: { ...process.env, DSH_HOME: join(stage, 'smoke-home') },
   })
