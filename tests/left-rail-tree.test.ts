@@ -17,6 +17,9 @@ import {
   UNGROUPED_LABEL, worktreeExpansionKey, worktreeVisibleSessions, workspaceExpansionKey, workspaceLabel,
 } from '../plugins/desktop-left-rail/src/client/tree.ts'
 import { indexSubagentDescendants } from '../plugins/desktop-left-rail/src/client/subagent-lineage.ts'
+import {
+  insertSessionInOrder, nextSessionOrderAccount, orderedWorkspaceViews,
+} from '../plugins/desktop-left-rail/src/client/session-order.ts'
 
 /* ------------------------------------------------------------------------- *
  * Fixtures
@@ -395,6 +398,70 @@ test('deriveProjectTree: containsCurrent is true when the current session lives 
     projectGroup: {}, groupIds: [], groupLabels: {}, projectAlias: {},
   })
   assert.equal(tree.projects[0]!.containsCurrent, true)
+})
+
+test('Project Tree applies the updated account order to WorkTree sessions', () => {
+  layouts.clear()
+  layouts.set('/repo', layout('/repo', [{ path: '/repo', branch: 'main', main: true }]))
+  const now = 1_000_000
+  const list = listState({
+    's18m': summary('s18m', { updatedAt: now - 18 * 60_000 }),
+    's7h': summary('s7h', { updatedAt: now - 7 * 60 * 60_000 }),
+    's22m': summary('s22m', { updatedAt: now - 22 * 60_000 }),
+    's6m': summary('s6m', { updatedAt: now - 6 * 60_000 }),
+  })
+  const sessionIds = ['s18m', 's7h', 's22m', 's6m'] as SessionId[]
+  const next = nextSessionOrderAccount({
+    sessionIds,
+    previousOrder: undefined,
+    previousUpdatedAt: {},
+    list,
+    orderBy: 'updated',
+    sortByRecency: true,
+  })
+  const ordered = orderedWorkspaceViews(
+    [workspace('ws-main', '/repo', sessionIds)],
+    { 'ws-main': next.order },
+  )
+  const tree = deriveProjectTree(list, ordered, layouts, [], {
+    expanded: [repoExpansionKey('/repo'), worktreeExpansionKey('/repo')],
+    activeTab: '__default__', projectGroup: {}, groupIds: [], groupLabels: {}, projectAlias: {},
+  })
+  assert.deepEqual(tree.projects[0]!.worktrees[0]!.sessions.map(session => session.id), [
+    's6m', 's18m', 's22m', 's7h',
+  ])
+})
+
+test('manual order can rebase on Host order after updated mode', () => {
+  const list = listState({
+    'old': summary('old', { updatedAt: 100 }),
+    'new': summary('new', { updatedAt: 300 }),
+  })
+  const sessionIds = ['old', 'new'] as SessionId[]
+  const updated = nextSessionOrderAccount({
+    sessionIds,
+    previousOrder: undefined,
+    previousUpdatedAt: {},
+    list,
+    orderBy: 'updated',
+    sortByRecency: true,
+  })
+  assert.deepEqual(updated.order, ['new', 'old'])
+  const manual = nextSessionOrderAccount({
+    sessionIds,
+    previousOrder: undefined,
+    previousUpdatedAt: {},
+    list,
+    orderBy: 'manual',
+    sortByRecency: false,
+  })
+  assert.deepEqual(manual.order, ['old', 'new'])
+})
+
+test('session order insertion mirrors official before and append semantics', () => {
+  const order = ['s1', 's2', 's3'] as SessionId[]
+  assert.deepEqual(insertSessionInOrder(order, 's3' as SessionId, 's1' as SessionId), ['s3', 's1', 's2'])
+  assert.deepEqual(insertSessionInOrder(order, 's1' as SessionId), ['s2', 's3', 's1'])
 })
 
 /* ------------------------------------------------------------------------- *

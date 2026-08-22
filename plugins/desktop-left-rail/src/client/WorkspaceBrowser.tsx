@@ -19,9 +19,7 @@ import {
   IconChevronDownOutline14, IconCloseFill14, IconFolderClose16,
   IconProjectAddOutline16, IconSearchOutline16,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type {
-  SessionId, SessionListState, SessionSearchResultItem, WorkspaceId, WorkspaceView,
-} from '@deepseek-ai/dsh-client-runtime/client'
+import type { WorkspaceId } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 import type { ProjectNode, ProjectTreeView, SessionNode, SessionOrderBy, ProjectIconNode } from './tree.ts'
 import type { ActionSelection } from './domain/commands.ts'
@@ -32,7 +30,7 @@ import {
 } from './tree.ts'
 import { ProjectSearchResults } from './ProjectSearchResults.tsx'
 import { FlatList, RemoteSearchState, SearchResults, ViewOptionsMenu } from './workspace-browser-views.tsx'
-import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.tsx'
+import { nextSessionOrderAccount, orderedWorkspaceViews } from './session-order.ts'
 import { FLAT_SESSION_ORDER_KEY } from './stores.ts'
 import { WorkspacePickFlow } from './WorkspacePicker.tsx'
 import { ProjectTreeBody } from './WorkspaceBrowserProjectTree.tsx'
@@ -119,6 +117,36 @@ export function WorkspaceBrowser({
   const projectIconOverrides = useStore(s => s.projectIconOverrides)
   // Three-level tree worktree layouts (fetched per cwd, cached by roster).
   const worktreeLayouts = useWorktreeLayouts(workspaces.map(workspace => workspace.path))
+  // Keep Workspace accounts current even while the Project Tree is mounted;
+  // the official grouped view used to own this synchronization effect.
+  const previousOrderBy = useRef(orderBy)
+  useEffect(() => {
+    if (workspacePhase !== 'ready' || sessionList.phase !== 'ready') return
+    const switchedToUpdated = previousOrderBy.current !== 'updated' && orderBy === 'updated'
+    const switchedToManual = previousOrderBy.current === 'updated' && orderBy === 'manual'
+    previousOrderBy.current = orderBy
+    for (const workspace of workspaces) {
+      const sessionIds = workspace.sessionIds.filter(id => sessionList.byId[id] !== undefined)
+      const key = workspace.workspaceId as string
+      const next = nextSessionOrderAccount({
+        sessionIds,
+        previousOrder: switchedToManual ? undefined : sessionOrderByAccount[key],
+        previousUpdatedAt: switchedToManual ? {} : sessionUpdatedAtByAccount[key] ?? {},
+        list: sessionList,
+        orderBy,
+        sortByRecency: orderBy === 'updated'
+          && (sessionOrderByAccount[key] === undefined || switchedToUpdated),
+      })
+      if (next.changed) {
+        actions.syncSessionOrderAccount(key, next.order.map(id => id as string), next.updatedAt)
+      }
+    }
+  }, [actions.syncSessionOrderAccount, orderBy, sessionList, sessionOrderByAccount,
+    sessionUpdatedAtByAccount, workspacePhase, workspaces])
+  const orderedWorkspaces = useMemo(
+    () => orderedWorkspaceViews(workspaces, sessionOrderByAccount),
+    [sessionOrderByAccount, workspaces],
+  )
   // The controller keeps topology mutations serialized by canonical Worktree identity.
   const railController = useMemo(() => createRailController({
     preview: previewWorktreeRemoval,
@@ -568,13 +596,13 @@ export function WorkspaceBrowser({
   const projectRailSnapshot = useMemo(
     () => deriveLeftRailSnapshot({
       list: sessionList,
-      workspaces,
+      workspaces: orderedWorkspaces,
       layouts: worktreeLayouts.layouts,
       archivedSessionIds,
       view: projectTreeView,
       projectIcons,
     }),
-    [archivedSessionIds, projectIconDetections, projectIcons, projectTreeView, sessionList, workspaces, worktreeLayouts.layouts],
+    [archivedSessionIds, orderedWorkspaces, projectIconDetections, projectIcons, projectTreeView, sessionList, worktreeLayouts.layouts],
   )
   /** Jump to a matched project: switch to its tab, expand it, clear the search. */
   const jumpToProject = (project: ProjectNode): void => {
@@ -1105,6 +1133,10 @@ export function WorkspaceBrowser({
 
 
                 workspaces={workspaces}
+                orderBy={orderBy}
+                sessionOrderByAccount={sessionOrderByAccount}
+                setSessionOrder={actions.setSessionOrder}
+                insertSessionBefore={insertSessionBefore}
                  onToggleProject={(key, expanded) => { actions.setGroupExpanded(repoExpansionKey(key), expanded) }}
                 onToggleWorktree={(key, expanded) => { actions.setGroupExpanded(worktreeExpansionKey(key), expanded) }}
                 onSetTab={actions.setActiveTab}
