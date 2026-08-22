@@ -22,10 +22,8 @@ import {
   type MarketplaceAgentGateway,
 } from '../plugins/plugin-marketplace/src/host/agent-gateway.ts'
 import {
-  findGitHubCli,
   previewSandboxPolicy,
   ProductionMarketplacePlatform,
-  withGitHubCredentials,
 } from '../plugins/plugin-marketplace/src/host/platform.ts'
 import { parseMarketplaceCommand } from '../plugins/plugin-marketplace/src/protocol.ts'
 import type {
@@ -60,9 +58,17 @@ import {
   bundledRuntimePaths,
   nodeInterpreterAvailable,
   resolveRuntimeResourcesRoot,
-  runtimeSearchPath,
   type BundledRuntimePaths,
 } from './runtime-paths.ts'
+import {
+  buildDesktopRuntimeEnvironment,
+  type RuntimeEnvironmentScope,
+} from './runtime-environment.ts'
+import {
+  resolveUserEnvironment,
+  userEnvironmentDiagnostics,
+  type UserEnvironmentResolution,
+} from './user-environment.ts'
 import { resolveProductVersion } from './version.ts'
 import { DesktopUpdateManager, detectPackageType } from './update-manager.ts'
 import { scheduleImmediateUpdateInstall, singleFlight } from './update-lifecycle.ts'
@@ -91,6 +97,7 @@ let marketplaceAgentGateway: MarketplaceAgentGateway | undefined
 let logStream: WriteStream | undefined
 let updateWindow: BrowserWindow | undefined
 let updateManager: DesktopUpdateManager | undefined
+let userEnvironment: UserEnvironmentResolution | undefined
 let quittingForUpdate = false
 let quitting = false
 let transitioning = false
@@ -174,32 +181,40 @@ function desktopNodeLauncher(paths: ReturnType<typeof runtimePaths>): RuntimeLau
   return { command: process.execPath, env: desktopNodeEnv(paths), interpreter: true }
 }
 
+function resolvedUserEnvironment(): UserEnvironmentResolution {
+  return userEnvironment ?? {
+    env: { ...process.env },
+    shell: process.env.SHELL ?? null,
+    source: 'process',
+  }
+}
+
 function runtimeEnvironment(
   paths: ReturnType<typeof runtimePaths>,
   overrides: { appDataPath?: string; dshHome?: string; preview?: { pluginId: string; transactionId: string } } = {},
+  scope: RuntimeEnvironmentScope = 'user',
 ): NodeJS.ProcessEnv {
   const info = desktopInfo(overrides.preview ?? null)
-  const environment: NodeJS.ProcessEnv = {
-    ...process.env,
-    ...desktopNodeEnv(paths),
-    DSH_STUDIO_DESKTOP: '1',
-    DSH_STUDIO_DESKTOP_APP_DATA: overrides.appDataPath ?? info.appDataPath,
-    DSH_STUDIO_DESKTOP_PROFILE: info.profile,
-    DSH_STUDIO_DESKTOP_VERSION: info.version,
-    DSH_HOME: overrides.dshHome ?? info.dshHome,
-    DSH_STUDIO_HOME: overrides.dshHome ?? info.dshHome,
-    NODE_USE_ENV_PROXY: '1',
-    PATH: runtimeSearchPath(paths),
-  }
-  if (overrides.preview !== undefined) {
-    environment.DSH_STUDIO_PREVIEW = '1'
-    environment.DSH_STUDIO_PREVIEW_PLUGIN = overrides.preview.pluginId
-    environment.DSH_STUDIO_PREVIEW_TRANSACTION = overrides.preview.transactionId
-  } else if (marketplaceAgentGateway !== undefined) {
-    environment[MARKETPLACE_AGENT_URL_ENV] = marketplaceAgentGateway.url
-    environment[MARKETPLACE_AGENT_TOKEN_ENV] = marketplaceAgentGateway.token
-  }
-  return withGitHubCredentials(environment, findGitHubCli(environment))
+  const environment = buildDesktopRuntimeEnvironment({
+    appDataPath: overrides.appDataPath ?? info.appDataPath,
+    dshHome: overrides.dshHome ?? info.dshHome,
+    ...(overrides.preview === undefined && marketplaceAgentGateway !== undefined
+      ? {
+        extraEnvironment: {
+          [MARKETPLACE_AGENT_URL_ENV]: marketplaceAgentGateway.url,
+          [MARKETPLACE_AGENT_TOKEN_ENV]: marketplaceAgentGateway.token,
+        },
+      }
+      : {}),
+    nodeEnvironment: desktopNodeEnv(paths),
+    paths,
+    ...(overrides.preview === undefined ? {} : { preview: overrides.preview }),
+    profile: info.profile,
+    scope,
+    userEnvironment: resolvedUserEnvironment(),
+    version: info.version,
+  })
+  return environment
 }
 
 function runtimeOptions(): DshRuntimeOptions {
@@ -266,7 +281,7 @@ function previewRuntimeOptions(input: {
         appDataPath: input.sandboxRoot,
         dshHome: input.dshHome,
         preview,
-      }),
+      }, 'marketplace'),
       TMPDIR: temporary,
     },
     launcher,
@@ -737,7 +752,7 @@ function createPluginMarketplace(): PluginMarketplaceManager {
   const paths = runtimePaths()
   const workingDirectory = join(info.appDataPath, 'plugin-marketplace')
   mkdirSync(workingDirectory, { recursive: true, mode: 0o700 })
-  const environment = runtimeEnvironment(paths)
+  const environment = runtimeEnvironment(paths, {}, 'marketplace')
   return new PluginMarketplaceManager({
     appDataPath: info.appDataPath,
     dshHome: info.dshHome,
@@ -901,6 +916,8 @@ function buildMenu(): void {
               `profile=${info.profile}`,
               `runtime=${runtimeUrl?.href ?? 'stopped'}`,
               '',
+              ...userEnvironmentDiagnostics(resolvedUserEnvironment()),
+              'git-config-mode=user-runtime / isolated-marketplace',
               ...logTail.slice(-80),
             ].join('\n'))
           },
@@ -1081,6 +1098,8 @@ async function bootstrap(): Promise<void> {
     'desktop',
     `${instanceProductName(info.channel)} ${info.version} starting (${process.arch}) channel=${info.channel} home=${info.dshHome}`,
   )
+  userEnvironment = await resolveUserEnvironment({ base: process.env })
+  for (const line of userEnvironmentDiagnostics(userEnvironment)) appendLog('desktop', line)
   await getUpdateManager()
   marketplace = createPluginMarketplace()
   marketplaceAgentGateway = await startMarketplaceAgentGateway(marketplace, {

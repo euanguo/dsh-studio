@@ -331,6 +331,8 @@ Dev 窗口标题带 `(Dev)`，Dev DMG 使用独立的 Dev app id 和 `DSH Studio
 迁移只复制共享目录中缺失的数据，并保留旧目录用于回滚；已存在的新状态
 不会被覆盖。
 
+桌面端环境：从 Finder、Launchpad 或 `open -a "DSH Studio"` 启动时，macOS 和 Linux 不会自动加载终端的 Shell 配置，Desktop 会在启动时读取一次用户的 POSIX 登录 Shell 环境；Windows 使用 GUI 进程已经继承的用户与系统环境，并识别 `Path`、`PATHEXT` 和 `ComSpec`。因此应用内终端、Agent terminal 和 DSH Runtime 会共享平台可用的 PATH 与开发工具链；例如通过 `~/.local/bin` 或 n 管理的 `codex`、`pi` 可以直接使用。POSIX Shell 配置无法启动或超时时，Desktop 会回退到基础环境并把脱敏状态写入诊断日志。Marketplace 的 GitHub credential helper 只对插件市场进程生效，普通终端和项目 Git 继续使用用户自己的 Git 配置与 macOS Keychain。
+
 排查顺序：
 
 1. 运行 `dsh-studio --help` 确认 CLI 来源。

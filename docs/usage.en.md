@@ -372,6 +372,8 @@ inside the selected data directory, plus root-level skin and sidebar
 preferences. Migration copies only missing data and leaves legacy directories
 in place for rollback; existing shared state is not replaced.
 
+Desktop environment: when launched from Finder, Launchpad, or `open -a "DSH Studio"`, macOS and Linux do not automatically load the terminal's Shell configuration, so Desktop reads the user's POSIX login-shell environment once at startup. Windows uses the user and system environment already inherited by the GUI process and recognizes `Path`, `PATHEXT`, and `ComSpec`. The embedded terminal, Agent terminals, and DSH Runtime therefore share the platform's available PATH and development toolchain; commands such as `codex` and `pi` installed under `~/.local/bin` or an n-managed Node prefix are available directly. If a POSIX Shell configuration cannot start or times out, Desktop falls back to its base environment and records only redacted status in diagnostics. The marketplace GitHub credential helper is scoped to marketplace processes; normal terminals and project Git continue to use the user's Git configuration and macOS Keychain.
+
 Troubleshooting order:
 
 1. Run `dsh-studio --help` to confirm the CLI source.
