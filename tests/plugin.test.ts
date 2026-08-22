@@ -1,105 +1,10 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { apply } from '../src/plugin.ts'
 import {
   mountMarketplaceAgentTools,
   requireHealthyMarketplaceSnapshot,
 } from '../src/marketplace-tools.ts'
-
-test('desktop client replaces the hero title and keeps the Preview badge', () => {
-  const client = readFileSync(new URL('../src/client.ts', import.meta.url), 'utf8')
-  assert.match(client, /element\.textContent = 'DSH Studio'/)
-  assert.match(client, /\['Into the Unknown', '探索未知之境', '探索未至之境'\]/)
-  assert.doesNotMatch(client, /data-dsh-studio-hero-preview/)
-})
-
-test('desktop modal stacking does not promote the right rail', () => {
-  const client = readFileSync(
-    new URL('../src/client.ts', import.meta.url),
-    'utf8',
-  )
-  assert.doesNotMatch(client, /#dsh-studio-sidebar-root\s*\{[\s\S]*z-index:/s)
-})
-
-test('desktop Settings stays below portaled menus and above desktop surfaces', () => {
-  const client = readFileSync(
-    new URL('../src/client.ts', import.meta.url),
-    'utf8',
-  )
-
-  assert.match(
-    client,
-    /#root:has\(\s*\[role='presentation'\] > \[role='dialog'\]\s*\)[^{]*\{[^}]*z-index: 1000 !important;[^}]*overflow: visible !important;/s,
-  )
-  assert.match(
-    client,
-    /\[role='presentation'\]:has\(\s*> \[role='dialog'\]\s*\)[^{]*\{[^}]*z-index: 1000 !important;[^}]*backdrop-filter: blur\(/s,
-  )
-  assert.match(client, /:has\(\s*\[role='presentation'\] > \[role='dialog'\]/s)
-  assert.match(client, /\[data-dsh-studio-pinned-summary\]/)
-  assert.match(client, /#dsh-studio-plugin-marketplace-root[^}]*\{[\s\S]*z-index: 999 !important;/s)
-})
-
-test('every bundled DSH Studio client follows the native locale service', () => {
-  const clients = [
-    '../plugins/desktop-skins/src/client/plugin.tsx',
-    '../src/client.ts',
-    '../plugins/panel-controls/src/terminal/plugin.tsx',
-    '../plugins/pinned-summary/src/client.ts',
-    '../plugins/plugin-marketplace/src/client/plugin.tsx',
-    '../plugins/sidebar/src/client/plugin.tsx',
-  ]
-  for (const path of clients) {
-    const source = readFileSync(new URL(path, import.meta.url), 'utf8')
-    assert.match(source, /export const inject = \[[^\]]*'locale'/)
-    assert.match(source, /locale\.register\('dsh-studio\./)
-  }
-
-  const dictionaries = [
-    '../plugins/desktop-skins/src/client/i18n.ts',
-    '../plugins/panel-controls/src/terminal/i18n.ts',
-    '../plugins/pinned-summary/src/i18n.ts',
-    '../plugins/plugin-marketplace/src/client/i18n.ts',
-    '../plugins/sidebar/src/client/i18n.ts',
-  ]
-  for (const path of dictionaries) {
-    const source = readFileSync(new URL(path, import.meta.url), 'utf8')
-    assert.match(source, /en: \{/)
-    assert.match(source, /zh: \{/)
-  }
-})
-
-test('desktop sidebar exposes one configurable tool registry in settings', () => {
-  const client = readFileSync(
-    new URL('../plugins/sidebar/src/client/plugin.tsx', import.meta.url),
-    'utf8',
-  )
-  const manifest = readFileSync(
-    new URL('../plugins/sidebar/package.json', import.meta.url),
-    'utf8',
-  )
-  const runtimeSettings = readFileSync(
-    new URL(
-      '../plugins/sidebar/src/client/runtime-settings.ts',
-      import.meta.url,
-    ),
-    'utf8',
-  )
-
-  // The store must follow the official 2-generic defineStore contract: no
-  // explicit type argument, init resolves the state (see runtime store.d.ts).
-  assert.match(client, /const settingsStore = defineStore\(\{/)
-  assert.doesNotMatch(client, /defineStore<SidebarSettingsState>/)
-  assert.match(client, /slots\.inject\('settings\.section'/)
-  assert.match(client, /new SidebarRuntimeSettingsService/)
-  assert.match(runtimeSettings, /sidebarApi/)
-  assert.match(runtimeSettings, /settingsUpdate\(patch, previous\.revision\)/)
-  assert.match(client, /desktopSidebar\.setTabEnabled/)
-  assert.match(client, /desktopSidebar\.setViewerEnabled/)
-  assert.match(manifest, /@deepseek-ai\/dsh-client-ui-settings/)
-  assert.doesNotMatch(manifest, /@deepseek-ai\/dsh-client-ui-slots/)
-})
 
 test('desktop Host plugin publishes capability, prompt, and bash environment', () => {
   const previous = {

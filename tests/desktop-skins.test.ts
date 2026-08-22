@@ -136,6 +136,12 @@ test('desktop skins are namespaced and keep every app surface on one opaque base
 test('settings navigation keeps compact geometry across nav-cell hash changes', () => {
   const day = DESKTOP_SKINS.find(skin => skin.id === 'dsh-studio-skin-chatgpt-day')
   assert.ok(day?.css)
+  // Skin-port tripwire: these anchors pin the geometry overrides that must
+  // survive every upstream DSH bump. The generated exact-hash selectors in
+  // skins.ts change per revision (generate:selectors), while the semantic
+  // `[class*="_navCell"]` fallback and the stable settings.trigger slot
+  // selector keep working across builds — both must stay present with their
+  // row-geometry overrides after a skin port.
   assert.match(day.css, /button\[class\*="_navCell"\]/)
   assert.match(day.css, /button\[class\*="_navCell"\][\s\S]*height: auto !important/)
   assert.match(day.css, /button\[class\*="_navCell"\][\s\S]*border-radius: var\(--gw-skin-radius-row\) !important/)
@@ -152,6 +158,13 @@ test('skins keep the HoverCard pinned dark surface (no light-mode fill override)
   // background to the light layer-1 fill to compensate for hover text that
   // still used dark skin tokens; with the text fixed, the surface override
   // must stay absent or the hover card turns light in light mode.
+  //
+  // Version tripwire: `_card_1b2ny_13` is the official HoverCard card hash
+  // pinned for the current DSH revision. The positive pin fails loudly once
+  // an upstream bump regenerates generated-selectors.ts, forcing this guard
+  // to be consciously re-pinned during the skin port instead of silently
+  // passing against a stale class.
+  assert.match(day.css, /\._card_1b2ny_13/)
   assert.doesNotMatch(day.css, /\._card_1b2ny_13\s*\{[^}]*background\s*:/s)
 })
 

@@ -58,6 +58,31 @@ See `docs/design.en.md` and `docs/design.md` for detailed boundaries.
 - Run `pnpm run typecheck`, `pnpm test`, and `pnpm run build` when code changes.
   Run the relevant surface smoke or package check for runtime changes.
 
+# Test rules
+
+- Tests execute the code under test and assert on its behavior and output.
+  Do not read repository sources only to grep them for strings, function
+  names, CSS properties, or copy text: such assertions break on refactors
+  while catching no regressions.
+- Never replicate source constants inside a test to compare them back, and
+  do not write existence-only checks (file exists, export is defined,
+  `typeof === 'function'`) without exercising behavior.
+- Config contracts are guarded structurally: parse the YAML/JSON, then
+  assert on fields, not on raw line wording.
+- Text-level guards are legitimate when they reconcile real artifacts:
+  wire DTO keys vs host route tables, bundled-plugin inventories across
+  patch/profile/inject lists, import-direction layering, and generated
+  artifacts. State the guarded contract in a comment next to them.
+- Desktop-skins selectors from `generated-selectors.ts` are version-pinned
+  per upstream DSH revision. Tests pinning those hashes or stable semantic
+  anchors (`[class*="_navCell"]`, slot selectors) are skin-port tripwires:
+  they must fail loudly after an upstream bump so skins are consciously
+  re-pinned via `pnpm run generate:selectors`. Do not delete them as
+  brittle; re-anchor them during the port instead.
+- Before removing a "brittle" test, classify it: behavioral, contract
+  guard, or version tripwire. Only implementation-wording greps against
+  files this repository owns are garbage.
+
 # Commits and contributions
 
 - Write commits, PR titles, PR bodies, and review replies in English.
