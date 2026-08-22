@@ -83,6 +83,29 @@ function makeRuntimeTree(root: string): void {
   writeFile(join(root, 'node_modules', 'pkg-otel', 'build', 'esnext', 'index.js'), 'module.exports = 1\n')
   writeFile(join(root, 'node_modules', 'pkg-otel', 'build', 'src', 'index.js'), 'module.exports = 1\n')
 
+  // Mistralai-shaped package: compiled esm default + ./package.json subpath;
+  // the metadata entry must not count as a root-level code entry, so the
+  // unreachable src/ and packages/ trees are stripped.
+  writeFile(join(root, 'node_modules', '@mistralai', 'mistralai', 'package.json'), JSON.stringify({
+    name: '@mistralai/mistralai', version: '2.2.6', main: './esm/index.js',
+    exports: {
+      '.': { source: './src/index.ts', types: './esm/index.d.ts', default: './esm/index.js' },
+      './package.json': './package.json',
+      './models/errors': {
+        source: './src/models/errors/index.ts', default: './esm/models/errors/index.js',
+      },
+    },
+  }))
+  writeFile(join(root, 'node_modules', '@mistralai', 'mistralai', 'esm', 'index.js'), 'module.exports = 8\n')
+  writeFile(join(root, 'node_modules', '@mistralai', 'mistralai', 'src', 'index.ts'), 'export const m = 8\n')
+  writeFile(join(root, 'node_modules', '@mistralai', 'mistralai', 'packages', 'build.mjs'), '// build\n')
+  writeFile(join(root, 'node_modules', '@mistralai', 'mistralai', 'README.md'), '# mistralai\n')
+  writeFile(join(root, 'node_modules', '@mistralai', 'mistralai', 'LICENSE'), 'legal text\n')
+
+  // Build metadata + debug artifacts anywhere under node_modules are dead.
+  writeFile(join(root, 'node_modules', 'pkg-plain', 'out', 'index.tsbuildinfo'), '{"version":3}\n')
+  writeFile(join(root, 'node_modules', 'pkg-plain', 'out', 'native.pdb'), 'debug\n')
+
   // Shared dependency store: one entry linked from a package, one orphaned.
   const store = join(root, 'node_modules', '.dsh-studio-store')
   writeFile(join(store, 'entry_keep', 'node_modules', 'pkg-keep', 'package.json'), JSON.stringify({
@@ -132,6 +155,19 @@ test('pruneRuntimeDependencies strips unreachable payload and keeps maps + reach
     // pkg-legacy: no exports map, main requires ./src internally -> keep src.
     assert.ok(existsSync(join(nm, 'pkg-legacy', 'src', 'index.js')), 'legacy src preserved')
 
+    // mistralai-shaped package: metadata package.json subpath is not code, so
+    // src/packages go; the compiled esm build and LICENSE survive.
+    const mistralai = join(nm, '@mistralai', 'mistralai')
+    assert.ok(!existsSync(join(mistralai, 'src')), 'mistralai src stripped')
+    assert.ok(!existsSync(join(mistralai, 'packages')), 'mistralai packages stripped')
+    assert.ok(!existsSync(join(mistralai, 'README.md')), 'package prose stripped')
+    assert.ok(existsSync(join(mistralai, 'esm', 'index.js')), 'compiled esm kept')
+    assert.ok(existsSync(join(mistralai, 'LICENSE')), 'license kept')
+
+    // Build metadata + debug payload removed anywhere under node_modules.
+    assert.ok(!existsSync(join(nm, 'pkg-plain', 'out', 'index.tsbuildinfo')), 'tsbuildinfo removed')
+    assert.ok(!existsSync(join(nm, 'pkg-plain', 'out', 'native.pdb')), 'pdb removed')
+
     const store = join(nm, '.dsh-studio-store')
     assert.ok(existsSync(join(store, 'entry_keep')))
     assert.ok(!existsSync(join(store, 'entry_orphan')), 'orphaned store entry swept')
@@ -157,6 +193,14 @@ test('dietNodeRuntime removes compile payload and keeps bin/node + pnpm', () => 
     symlinkSync('../lib/node_modules/pnpm/bin/pnpm.mjs', join(root, 'bin', 'pnpm'))
     writeFile(join(root, 'bin', 'node'), 'real node binary\n')
     chmodSync(join(root, 'bin', 'node'), 0o755)
+    // pnpm CLI foreign-platform launcher + reflink builds (Windows-only
+    // fastlist and non-host reflink packages are dead weight on darwin).
+    writeFile(join(root, 'lib', 'node_modules', 'pnpm', 'dist', 'vendor', 'fastlist-0.3.0-x64.exe'), 'MZ\n')
+    writeFileSync(join(root, 'lib', 'node_modules', 'pnpm', 'dist', 'vendor', 'fastlist-0.3.0-x86.exe'), 'MZ\n')
+    const reflinkRoot = join(root, 'lib', 'node_modules', 'pnpm', 'dist', 'vendor', 'node_modules', '@reflink')
+    writeFile(join(reflinkRoot, 'reflink-darwin-arm64', 'index.node'), 'native\n')
+    writeFile(join(reflinkRoot, 'reflink-darwin-x64', 'index.node'), 'native\n')
+    writeFile(join(reflinkRoot, 'reflink-win32-x64-msvc', 'index.node'), 'native\n')
 
     const stats = dietNodeRuntime(root)
     assert.ok(!existsSync(join(root, 'include')))
@@ -166,6 +210,12 @@ test('dietNodeRuntime removes compile payload and keeps bin/node + pnpm', () => 
     assert.ok(!existsSync(join(root, 'bin', 'npm')))
     assert.ok(existsSync(join(root, 'bin', 'node')), 'standalone node binary survives')
     assert.ok(existsSync(join(root, 'bin', 'pnpm')), 'pnpm launcher survives')
+    assert.ok(!existsSync(join(root, 'lib', 'node_modules', 'pnpm', 'dist', 'vendor', 'fastlist-0.3.0-x64.exe')), 'fastlist removed')
+    const hostSuffix = `darwin-${process.arch}` as const
+    assert.ok(existsSync(join(reflinkRoot, `reflink-${hostSuffix}`)), 'host reflink kept')
+    const foreignSuffix = hostSuffix === 'darwin-arm64' ? 'darwin-x64' : 'darwin-arm64'
+    assert.ok(!existsSync(join(reflinkRoot, `reflink-${foreignSuffix}`)), 'foreign-arch reflink removed')
+    assert.ok(!existsSync(join(reflinkRoot, 'reflink-win32-x64-msvc')), 'foreign-os reflink removed')
     assert.ok(stats.nodeDietBytes > 0)
   } finally {
     rmSync(root, { recursive: true, force: true })

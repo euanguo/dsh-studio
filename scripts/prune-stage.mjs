@@ -57,6 +57,11 @@ const NODE_CONDITIONS = new Set(['node', 'import', 'require', 'default'])
 /** Condition names only build-time consumers (bundlers/type-checkers) use. */
 const BUILD_ONLY_EXPORT_KEYS = new Set(['source', 'types', 'browser'])
 
+/** Packaging-target architecture, matching stage-dsh's resolution. */
+const nodeArch = process.env.DSH_STUDIO_NODE_ARCH
+  ?? { arm64: 'arm64', x64: 'x64' }[process.arch]
+  ?? process.arch
+
 const EMPTY_STATS = () => ({
   declarationBytes: 0,
   declarationFiles: 0,
@@ -65,7 +70,28 @@ const EMPTY_STATS = () => ({
   variantBytes: 0,
   storeEntriesRemoved: 0,
   nodeDietBytes: 0,
+  baggageBytes: 0,
+  documentBytes: 0,
+  debugBytes: 0,
+  buildCacheBytes: 0,
 })
+
+/** Package-root prose files that no runtime code reads. License files are
+ * legally required and always kept. */
+const DOCUMENTATION_BASENAMES = /^(?:README|CHANGELOG|CHANGES|HISTORY|UPGRADING|AUTHORS|CONTRIBUTING|MAINTAINERS|SECURITY)(?:\..*)?$/iu
+
+/** Metadata-only exports entries never carry executable code. */
+const METADATA_ENTRY = /(?:^|\/)package\.json$/u
+
+/** @mistralai/mistralai ships a compiled esm build plus ts sources,
+ *  multi-platform example bundles, and packaging scripts that no runtime
+ *  condition can reach. Only strip when the '.' export resolves into ./esm
+ *  (the compiled contract), mirroring Minke's Mistral prune. */
+const MISTRALAI_BAGGAGE_BASENAMES = new Set(['src', 'packages', 'examples', 'tests', 'test'])
+
+/** node-pty ships Windows-only build dependencies that non-Windows stages
+ *  never execute. */
+const NODE_PTY_WINDOWS_BAGGAGE = ['deps/winpty', 'third_party/conpty']
 
 /** Collect every Node-reachable entry string from a manifest. */
 function runtimeEntryStrings(manifest, out = []) {
@@ -196,25 +222,39 @@ export function pruneRuntimeDependencies(runtimeRoot) {
           // wrapper that internally requires ./src/... (koffi, protobufjs),
           // so src/ is only safe to strip when every reachable entry lives
           // in a subdirectory (stainless-style: esm/lib) and src is
-          // unreferenced.
-          const rootLevelEntry = entryStrings.some(value => dirname(value) === '.')
+          // unreferenced. Metadata entries (./package.json subpaths) are not
+          // code and do not count as root-level code entries.
+          const rootLevelEntry = entryStrings.some(value => dirname(value) === '.' && !METADATA_ENTRY.test(value))
           const sourceTree = join(path, 'src')
           if (declaredEntries && !rootLevelEntry
             && existsSync(sourceTree) && !referencesDirectory(entryStrings, 'src')) {
             stats.srcTreeBytes += removeTree(sourceTree)
           }
           if (declaredEntries) stripVariants(path, entryStrings, stats)
+          prunePackageBaggage(path, manifest, entryStrings, stats)
         }
         // A package can nest real node_modules (e.g. inside .pnpm copies).
         walk(path)
         continue
       }
-      if (entry.isFile() && /\.d\.(?:cts|mts|ts)$/.test(entry.name)) {
+      if (entry.isFile()) {
         let size = 0
         try { size = statSync(path).size } catch { continue }
-        rmSync(path, { force: true })
-        stats.declarationBytes += size
-        stats.declarationFiles += 1
+        if (/\.d\.(?:cts|mts|ts)$/.test(entry.name)) {
+          rmSync(path, { force: true })
+          stats.declarationBytes += size
+          stats.declarationFiles += 1
+          continue
+        }
+        if (/\.tsbuildinfo$/iu.test(entry.name)) {
+          rmSync(path, { force: true })
+          stats.buildCacheBytes += size
+          continue
+        }
+        if (/\.pdb$/iu.test(entry.name)) {
+          rmSync(path, { force: true })
+          stats.debugBytes += size
+        }
       }
     }
   }
@@ -288,6 +328,44 @@ function stripVariants(packageRoot, entryStrings, stats) {
 }
 
 /**
+ * Strip package-level payload no runtime condition can reach: vendored
+ * build/source baggage of specific published packages, Windows-only native
+ * build directories, and prose files. Every removal is contract-checked
+ * against the package manifest and the reachable entry strings.
+ */
+function prunePackageBaggage(packageRoot, manifest, entryStrings, stats) {
+  if (manifest.name === 'node-pty' && process.platform !== 'win32') {
+    for (const directory of NODE_PTY_WINDOWS_BAGGAGE) {
+      const candidate = join(packageRoot, ...directory.split('/'))
+      if (existsSync(candidate)) stats.baggageBytes += removeTree(candidate)
+    }
+  }
+  if (manifest.name === '@mistralai/mistralai') {
+    const exported = manifest.exports?.['.']
+    const compiledEsmDefault = typeof exported === 'object' && exported !== null
+      && typeof exported.default === 'string'
+      && exported.default.startsWith('./esm/')
+    if (compiledEsmDefault) {
+      for (const name of MISTRALAI_BAGGAGE_BASENAMES) {
+        const candidate = join(packageRoot, name)
+        if (existsSync(candidate) && !referencesDirectory(entryStrings, name)) {
+          stats.baggageBytes += removeTree(candidate)
+        }
+      }
+    }
+  }
+  for (const entry of readdirSync(packageRoot, { withFileTypes: true })) {
+    if (entry.isDirectory() || entry.isSymbolicLink()) continue
+    if (DOCUMENTATION_BASENAMES.test(entry.name)) {
+      let size = 0
+      try { size = statSync(join(packageRoot, entry.name)).size } catch { continue }
+      rmSync(join(packageRoot, entry.name), { force: true })
+      stats.documentBytes += size
+    }
+  }
+}
+
+/**
  * Remove compile-time and package-manager payload from the staged Node
  * distribution. `bin/node` always survives — every surface (Desktop, Web,
  * TUI) shares the same pinned standalone Node; there is no second runtime.
@@ -313,6 +391,38 @@ export function dietNodeRuntime(nodeRuntime, _options = {}) {
   removeFile(join(nodeRuntime, 'bin', 'npx'))
   remove(join(nodeRuntime, 'CHANGELOG.md'))
   remove(join(nodeRuntime, 'README.md'))
+
+  // Drop the pnpm CLI's foreign-platform launcher and native reflink builds:
+  // fastlist is a Windows-only process enumerator and `reflink-<os>-<arch>`
+  // matches only the packaging target. The staged pnpm never runs them.
+  for (const pnpmRoot of [
+    join(nodeRuntime, 'lib', 'node_modules', 'pnpm'),
+    join(nodeRuntime, 'node_modules', 'pnpm'),
+  ]) {
+    const vendor = join(pnpmRoot, 'dist', 'vendor')
+    if (!existsSync(vendor)) continue
+    for (const entry of readdirSync(vendor, { withFileTypes: true })) {
+      if (entry.isFile() && /^fastlist-[\w.-]+\.exe$/iu.test(entry.name)) {
+        removeFile(join(vendor, entry.name))
+      }
+    }
+    const reflinkRoot = join(vendor, 'node_modules', '@reflink')
+    if (!existsSync(reflinkRoot)) continue
+    const targetPrefix = 'reflink'
+    for (const entry of readdirSync(reflinkRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory() || !entry.name.startsWith(`${targetPrefix}-`)) continue
+      if (entry.name === 'reflink-darwin-universal') continue
+      const suffix = entry.name.slice(targetPrefix.length + 1)
+      const osName = suffix.split('-')[0]
+      const hostMatches = osName !== undefined && (
+        suffix === `${osName}-${nodeArch}`
+        || suffix.startsWith(`${osName}-${nodeArch}-`)
+      )
+      if (!hostMatches) {
+        stats.nodeDietBytes += removeTree(join(reflinkRoot, entry.name))
+      }
+    }
+  }
   return stats
 }
 
@@ -354,6 +464,18 @@ export function summarize(stats) {
   }
   if (stats.variantBytes > 0) {
     parts.push(`unreachable variants ${(stats.variantBytes / 1024 / 1024).toFixed(1)} MB`)
+  }
+  if (stats.baggageBytes > 0) {
+    parts.push(`package baggage ${(stats.baggageBytes / 1024 / 1024).toFixed(1)} MB`)
+  }
+  if (stats.documentBytes > 0) {
+    parts.push(`documentation ${(stats.documentBytes / 1024 / 1024).toFixed(1)} MB`)
+  }
+  if (stats.debugBytes > 0) {
+    parts.push(`debug symbols ${(stats.debugBytes / 1024 / 1024).toFixed(1)} MB`)
+  }
+  if (stats.buildCacheBytes > 0) {
+    parts.push(`build caches ${(stats.buildCacheBytes / 1024 / 1024).toFixed(1)} MB`)
   }
   if (stats.storeEntriesRemoved > 0) {
     parts.push(`${String(stats.storeEntriesRemoved)} orphaned store entries`)
