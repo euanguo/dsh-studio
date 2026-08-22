@@ -1,5 +1,58 @@
 const { spawnSync } = require('node:child_process')
+const { existsSync } = require('node:fs')
 const { join } = require('node:path')
+const {
+  flipFuses,
+  FuseV1Options,
+} = require('@electron/fuses')
+
+/**
+ * Fuses embed build-time security switches in the packaged Electron binary.
+ * The desktop runtime depends on Electron-as-Node (RunAsNode stays true);
+ * everything else is locked down: app code only loads from asar with
+ * integrity validation, cookies are encrypted, and ambient NODE_OPTIONS or
+ * --inspect arguments from the environment cannot reach the process.
+ */
+function electronBinaryFor(context) {
+  const { electronPlatformName, appOutDir } = context
+  const productFilename = context.packager.appInfo.productFilename
+  if (electronPlatformName === 'darwin') {
+    return join(
+      appOutDir,
+      `${productFilename}.app`,
+      'Contents',
+      'Frameworks',
+      'Electron Framework.framework',
+      'Versions',
+      'A',
+      'Electron Framework',
+    )
+  }
+  if (electronPlatformName === 'linux') {
+    return join(appOutDir, 'dsh-studio')
+  }
+  return join(appOutDir, `${productFilename}.exe`)
+}
+
+function applyFuses(context) {
+  const binary = electronBinaryFor(context)
+  if (!existsSync(binary)) {
+    throw new Error(`cannot apply fuses: Electron binary missing at ${binary}`)
+  }
+  const electronPackage = require(join(__dirname, '..', 'node_modules', 'electron', 'package.json'))
+  flipFuses(binary, {
+    version: electronPackage.version,
+    fuses: {
+      [FuseV1Options.RunAsNode]: true,
+      [FuseV1Options.EnableCookieEncryption]: true,
+      [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+      [FuseV1Options.EnableNodeCliInspectArguments]: false,
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+    },
+  })
+  console.log(`Applied Electron fuses (v${electronPackage.version}) to ${binary}`)
+}
 
 /**
  * Desktop packaging hook (every platform).
@@ -57,6 +110,8 @@ module.exports = async function afterPack(context) {
       + `(${(result.removedBytes / 1048576).toFixed(1)} MB dropped)`,
     )
   }
+
+  applyFuses(context)
 
   if (electronPlatformName !== 'darwin') return
   const appPath = join(appOutDir, `${productFilename}.app`)

@@ -20,6 +20,9 @@ importers:
       '@dsh-studio/sidebar':
         specifier: workspace:*
         version: link:plugins/sidebar
+      '@electron/fuses':
+        specifier: ^1.8.0
+        version: 1.8.0
       '@react-symbols/icons':
         specifier: ^1.4.1
         version: 1.4.1(react-dom@18.3.1(react@19.2.8))(react@19.2.8)

@@ -89,6 +89,7 @@
     "@dsh-studio/pinned-summary": "workspace:*",
     "@dsh-studio/shared": "workspace:*",
     "@dsh-studio/sidebar": "workspace:*",
+    "@electron/fuses": "^1.8.0",
     "@react-symbols/icons": "^1.4.1",
     "@tabler/icons-react": "^3.46.0",
     "@tanstack/react-virtual": "^3.13.12",
