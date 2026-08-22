@@ -48,7 +48,12 @@ export function buildDesktopRuntimeEnvironment(
     DSH_HOME: options.dshHome,
     DSH_STUDIO_HOME: options.dshHome,
     NODE_USE_ENV_PROXY: '1',
-    PATH: runtimeSearchPath(options.paths, options.userEnvironment.env),
+    PATH: runtimeSearchPath(
+      options.paths,
+      options.userEnvironment.env,
+      undefined,
+      options.scope === 'marketplace' ? 'bundled-first' : 'user-first',
+    ),
   }
   if (options.preview !== undefined) {
     environment.DSH_STUDIO_PREVIEW = '1'

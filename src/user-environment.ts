@@ -1,9 +1,15 @@
 import { accessSync, constants } from 'node:fs'
 import { posix, win32 } from 'node:path'
+import {
+  defaultEnvironmentCache,
+  environmentFingerprint,
+  ENVIRONMENT_CACHE_VERSION,
+  type EnvironmentCache,
+} from './user-environment-cache.ts'
 import { resolvePosixUserEnvironment } from './user-environment-posix.ts'
 import { resolveWindowsUserEnvironment } from './user-environment-windows.ts'
 
-export type UserEnvironmentSource = 'login-shell' | 'process'
+export type UserEnvironmentSource = 'cached' | 'login-shell' | 'process'
 export type UserEnvironmentIssue = 'spawn-error' | 'timeout' | 'output-too-large' | 'invalid-output' | 'exit'
 
 export interface UserEnvironmentResolution {
@@ -29,10 +35,20 @@ export type LoginShellRunner = (
 
 export interface ResolveUserEnvironmentOptions {
   base?: NodeJS.ProcessEnv
+  cache?: EnvironmentCache
+  cachePath?: string
   loginShell?: string
   platform?: NodeJS.Platform
   runLoginShell?: LoginShellRunner
 }
+
+export {
+  defaultEnvironmentCache,
+  environmentFingerprint,
+  ENVIRONMENT_CACHE_VERSION,
+  type EnvironmentCache,
+  type EnvironmentCacheRecord,
+} from './user-environment-cache.ts'
 
 export { parseLoginShellEnvironment } from './user-environment-posix.ts'
 
@@ -40,9 +56,36 @@ export { parseLoginShellEnvironment } from './user-environment-posix.ts'
 export async function resolveUserEnvironment(
   options: ResolveUserEnvironmentOptions = {},
 ): Promise<UserEnvironmentResolution> {
-  return (options.platform ?? process.platform) === 'win32'
-    ? resolveWindowsUserEnvironment(options)
-    : resolvePosixUserEnvironment(options, options.runLoginShell)
+  const platform = options.platform ?? process.platform
+  if (platform === 'win32') return resolveWindowsUserEnvironment(options)
+
+  const base = options.base ?? process.env
+  const cache = options.cache ?? defaultEnvironmentCache
+  const cacheDisabled = (base.DSH_STUDIO_DISABLE_ENV_CACHE ?? '') === '1'
+  const fingerprint = options.cachePath !== undefined && !cacheDisabled
+    ? environmentFingerprint(base, platform)
+    : ''
+  if (fingerprint !== '') {
+    const record = cache.read(options.cachePath as string)
+    if (record?.version === ENVIRONMENT_CACHE_VERSION && record.fingerprint === fingerprint) {
+      return {
+        env: { ...base, ...record.env },
+        shell: record.env.SHELL ?? null,
+        source: 'cached',
+      }
+    }
+  }
+
+  const resolution = await resolvePosixUserEnvironment(options, options.runLoginShell)
+  if (resolution.source === 'login-shell' && fingerprint !== '') {
+    cache.write(options.cachePath as string, {
+      createdAt: Date.now(),
+      env: resolution.env,
+      fingerprint,
+      version: ENVIRONMENT_CACHE_VERSION,
+    })
+  }
+  return resolution
 }
 
 function isExecutable(path: string): boolean {
@@ -86,5 +129,6 @@ export function userEnvironmentDiagnostics(resolution: UserEnvironmentResolution
     `environment-codex=${executable('codex')}`,
     `environment-pi=${executable('pi')}`,
     `environment-gh=${executable('gh')}`,
+    `environment-node=${executable('node')}`,
   ]
 }

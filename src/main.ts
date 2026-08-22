@@ -1098,7 +1098,10 @@ async function bootstrap(): Promise<void> {
     'desktop',
     `${instanceProductName(info.channel)} ${info.version} starting (${process.arch}) channel=${info.channel} home=${info.dshHome}`,
   )
-  userEnvironment = await resolveUserEnvironment({ base: process.env })
+  userEnvironment = await resolveUserEnvironment({
+    base: process.env,
+    cachePath: join(info.appDataPath, 'environment-cache.json'),
+  })
   for (const line of userEnvironmentDiagnostics(userEnvironment)) appendLog('desktop', line)
   await getUpdateManager()
   marketplace = createPluginMarketplace()

@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict'
+import { mkdtempSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
 import {
+  defaultEnvironmentCache,
+  environmentFingerprint,
   findUserExecutable,
   parseLoginShellEnvironment,
   resolveUserEnvironment,
   userEnvironmentDiagnostics,
+  type EnvironmentCache,
+  type EnvironmentCacheRecord,
 } from '../src/user-environment.ts'
 
 test('login-shell environment parsing ignores startup chatter and invalid entries', () => {
@@ -120,5 +127,143 @@ test('user executable lookup and diagnostics expose only safe command metadata',
     'environment-codex=missing',
     'environment-pi=missing',
     'environment-gh=missing',
+    'environment-node=missing',
   ])
+})
+
+test('environment fingerprint changes when rc mtime or shell changes', () => {
+  const base = { HOME: '/Users/me', SHELL: '/bin/zsh' }
+  const probe = (mtimeMs: number) => () => ({ mtimeMs, path: '/Users/me/.zshrc', size: 10 })
+  assert.equal(
+    environmentFingerprint(base, 'darwin', probe(100)),
+    environmentFingerprint(base, 'darwin', probe(100)),
+  )
+  assert.notEqual(
+    environmentFingerprint(base, 'darwin', probe(100)),
+    environmentFingerprint(base, 'darwin', probe(200)),
+  )
+  assert.notEqual(
+    environmentFingerprint(base, 'darwin', probe(100)),
+    environmentFingerprint({ ...base, SHELL: '/bin/fish' }, 'darwin', probe(100)),
+  )
+})
+
+test('cached environment is reused without running the login shell', async () => {
+  const base = { HOME: '/Users/me', PATH: '/usr/bin', SHELL: '/bin/zsh' }
+  const fingerprint = environmentFingerprint(base, 'darwin')
+  const cache: EnvironmentCache = {
+    read: () => ({
+      createdAt: 1,
+      env: { CODEX_HOME: '/cached/.codex', PATH: '/cached/bin', SHELL: '/bin/zsh' },
+      fingerprint,
+      version: 1,
+    }),
+    write: () => { throw new Error('cache must not be rewritten on a hit') },
+  }
+  const result = await resolveUserEnvironment({
+    base,
+    cache,
+    cachePath: '/cache/environment.json',
+    platform: 'darwin',
+    runLoginShell: async () => { throw new Error('login shell must not run on a cache hit') },
+  })
+  assert.equal(result.source, 'cached')
+  assert.equal(result.env.PATH, '/cached/bin')
+  assert.equal(result.env.CODEX_HOME, '/cached/.codex')
+})
+
+test('login environment cache is written and invalidated by fingerprint changes', async () => {
+  const base = { HOME: '/Users/me', PATH: '/usr/bin', SHELL: '/bin/zsh' }
+  const fingerprint = environmentFingerprint(base, 'darwin')
+  const output = Buffer.from(
+    '__DSH_ENV_BEGIN__\0PATH=/usershell/bin:/usr/bin\0HOME=/Users/me\0__DSH_ENV_END__\0',
+  )
+  const holder: { record: EnvironmentCacheRecord | null } = { record: null }
+  const cache: EnvironmentCache = {
+    read: () => holder.record,
+    write: (_path, record) => { holder.record = record },
+  }
+
+  const first = await resolveUserEnvironment({
+    base,
+    cache,
+    cachePath: '/cache/environment.json',
+    loginShell: '/bin/zsh',
+    platform: 'darwin',
+    runLoginShell: async () => ({ output, status: 0 }),
+  })
+  assert.equal(first.source, 'login-shell')
+  assert.equal(holder.record?.fingerprint, fingerprint)
+  assert.equal(holder.record?.env.PATH, '/usershell/bin:/usr/bin')
+
+  const second = await resolveUserEnvironment({
+    base,
+    cache,
+    cachePath: '/cache/environment.json',
+    loginShell: '/bin/zsh',
+    platform: 'darwin',
+    runLoginShell: async () => { throw new Error('cache hit must skip the login shell') },
+  })
+  assert.equal(second.source, 'cached')
+
+  const changed = await resolveUserEnvironment({
+    base: { ...base, SHELL: '/bin/fish' },
+    cache,
+    cachePath: '/cache/environment.json',
+    loginShell: '/bin/zsh',
+    platform: 'darwin',
+    runLoginShell: async () => ({ output, status: 0 }),
+  })
+  assert.equal(changed.source, 'login-shell')
+})
+
+test('cache escape hatch disables reads and writes', async () => {
+  const base = {
+    DSH_STUDIO_DISABLE_ENV_CACHE: '1',
+    HOME: '/Users/me',
+    PATH: '/usr/bin',
+    SHELL: '/bin/zsh',
+  }
+  let reads = 0
+  const cache: EnvironmentCache = {
+    read: () => { reads += 1; return null },
+    write: () => {},
+  }
+  const result = await resolveUserEnvironment({
+    base,
+    cache,
+    cachePath: '/cache/environment.json',
+    loginShell: '/bin/zsh',
+    platform: 'darwin',
+    runLoginShell: async () => ({
+      output: Buffer.from('__DSH_ENV_BEGIN__\0PATH=/p:/usr/bin\0HOME=/Users/me\0__DSH_ENV_END__\0'),
+      status: 0,
+    }),
+  })
+  assert.equal(result.source, 'login-shell')
+  assert.equal(reads, 0)
+})
+
+test('disk cache excludes session transport variables', () => {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-studio-env-cache-'))
+  try {
+    const path = join(root, 'environment-cache.json')
+    defaultEnvironmentCache.write(path, {
+      createdAt: 1,
+      env: {
+        PATH: '/usr/bin',
+        SHELL: '/bin/zsh',
+        SSH_AUTH_SOCK: '/tmp/ssh-agent.sock',
+        DISPLAY: ':0',
+      },
+      fingerprint: 'fp',
+      version: 1,
+    })
+    const record = defaultEnvironmentCache.read(path)
+    assert.equal(record?.env.PATH, '/usr/bin')
+    assert.equal(record?.env.SSH_AUTH_SOCK, undefined)
+    assert.equal(record?.env.DISPLAY, undefined)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
 })

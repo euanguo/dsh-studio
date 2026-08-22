@@ -73,20 +73,52 @@ export function nodeInterpreterAvailable(
   return existsSync(paths.nodeBinary) || existsSync(paths.nodeCommand)
 }
 
-/** Put bundled commands first without applying POSIX PATH rules on Windows. */
+/** Which side of PATH wins for one child environment. */
+export type RuntimePathOrder = 'bundled-first' | 'user-first'
+
+function dedupePathEntries(entries: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const entry of entries) {
+    if (entry === '' || seen.has(entry)) continue
+    seen.add(entry)
+    result.push(entry)
+  }
+  return result
+}
+
+/**
+ * Compose PATH for one child environment.
+ *
+ * - `bundled-first`: the app's own Node and runtime bin directories win, so
+ *   internal tooling (marketplace builds, previews) keeps using the shared
+ *   Electron Node no matter what the login shell exported. Default, and the
+ *   only order Web/TUI distributions need.
+ * - `user-first`: the user's login-shell PATH wins and the bundled directories
+ *   are only a fallback tail. User-scoped Desktop processes (Agent terminals,
+ *   Git, user commands) then see the user's real `node`, `pnpm`, and tools
+ *   instead of the packaged shared-Node adapters.
+ */
 export function runtimeSearchPath(
   paths: BundledRuntimePaths,
   environment: NodeJS.ProcessEnv = process.env,
   platform: NodeJS.Platform = process.platform,
+  order: RuntimePathOrder = 'bundled-first',
 ): string {
   const path = pathApi(platform)
   const inherited = environment.PATH
     ?? (platform === 'win32' ? environment.Path : undefined)
     ?? (platform === 'win32' ? '' : '/usr/bin:/bin:/usr/sbin:/sbin')
-  return [
+  const bundled = [
     paths.nodeBinDirectory,
     path.join(paths.runtimeRoot, 'node_modules', '.bin'),
-    ...(platform === 'darwin' ? ['/opt/homebrew/bin', '/usr/local/bin'] : []),
-    inherited,
-  ].filter(entry => entry !== '').join(path.delimiter)
+  ]
+  const extra = platform === 'darwin' ? ['/opt/homebrew/bin', '/usr/local/bin'] : []
+  if (order === 'user-first') {
+    const userEntries = inherited.split(path.delimiter)
+    return dedupePathEntries([...userEntries, ...extra, ...bundled]).join(path.delimiter)
+  }
+  return [...bundled, ...extra, ...(inherited === '' ? [] : [inherited])]
+    .filter(entry => entry !== '')
+    .join(path.delimiter)
 }

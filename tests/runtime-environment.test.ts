@@ -30,13 +30,13 @@ test('user runtime environment preserves the login PATH and removes marketplace 
   assert.equal(environment.ELECTRON_RUN_AS_NODE, '1')
   assert.equal(environment.DSH_STUDIO_HOME, appDataPath)
   assert.deepEqual(environment.PATH?.split(':'), [
-    paths.nodeBinDirectory,
-    join(paths.runtimeRoot, 'node_modules', '.bin'),
-    '/opt/homebrew/bin',
-    '/usr/local/bin',
     '/Users/me/.local/bin',
     '/Users/me/.n/bin',
     '/usr/bin',
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    paths.nodeBinDirectory,
+    join(paths.runtimeRoot, 'node_modules', '.bin'),
   ])
 })
 
@@ -77,6 +77,16 @@ test('marketplace runtime environment owns its isolated Git config without chang
     assert.equal(preview.GIT_CONFIG_GLOBAL, expected)
     assert.equal(preview.DSH_STUDIO_PREVIEW, '1')
     assert.match(readFileSync(expected, 'utf8'), /credential "https:\/\/github\.com"/)
+    // Marketplace keeps the bundled runtime first so its pnpm/node stay
+    // consistent; only the user scope is user-first.
+    assert.deepEqual(marketplace.PATH?.split(':'), [
+      paths.nodeBinDirectory,
+      join(paths.runtimeRoot, 'node_modules', '.bin'),
+      '/opt/homebrew/bin',
+      '/usr/local/bin',
+      '/Users/me/.local/bin',
+      '/usr/bin',
+    ])
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

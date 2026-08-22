@@ -48,6 +48,42 @@ test('bundled runtime paths use Windows executables and PATH separators', () => 
   ].join(';'))
 })
 
+test('user-first PATH keeps the login shell entries on top and bundled entries as fallback', () => {
+  const mac = bundledRuntimePaths('/Applications/Oh.app/Contents/Resources', 'darwin')
+  assert.deepEqual(
+    runtimeSearchPath(
+      mac,
+      { PATH: '/Users/me/.n/bin:/opt/homebrew/bin:/usr/bin' },
+      'darwin',
+      'user-first',
+    ).split(':'),
+    [
+      '/Users/me/.n/bin',
+      '/opt/homebrew/bin',
+      '/usr/bin',
+      '/usr/local/bin',
+      '/Applications/Oh.app/Contents/Resources/node-runtime/bin',
+      '/Applications/Oh.app/Contents/Resources/dsh-runtime/node_modules/.bin',
+    ],
+  )
+
+  const windows = bundledRuntimePaths('C:\\Program Files\\DSH Studio\\resources', 'win32')
+  assert.deepEqual(
+    runtimeSearchPath(
+      windows,
+      { Path: 'C:\\Users\\me\\bin;C:\\Windows\\System32' },
+      'win32',
+      'user-first',
+    ).split(';'),
+    [
+      'C:\\Users\\me\\bin',
+      'C:\\Windows\\System32',
+      'C:\\Program Files\\DSH Studio\\resources\\node-runtime',
+      'C:\\Program Files\\DSH Studio\\resources\\dsh-runtime\\node_modules\\.bin',
+    ],
+  )
+})
+
 test('runtime resources root honors explicit distribution overrides', () => {
   assert.equal(
     resolveRuntimeResourcesRoot(
