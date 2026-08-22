@@ -279,6 +279,21 @@ function shouldCopyWorkspaceEntry(sourceRoot, source) {
   ]).has(top)
 }
 
+/**
+ * Whether the staged tree is an isolated-layout .pnpm virtual store (one
+ * physical copy per package, top-level links). Hoisted deploys also keep a
+ * small node_modules/.pnpm/lock.yaml, but materialize every package flat at
+ * the node_modules root, so a store only counts when it contains package dirs.
+ */
+function hasVirtualStore() {
+  const store = join(runtime, 'node_modules', '.pnpm')
+  if (!existsSync(store)) return false
+  for (const entry of readdirSync(store, { withFileTypes: true })) {
+    if (entry.isDirectory() && entry.name !== 'node_modules') return true
+  }
+  return false
+}
+
 const copiedTargets = new Map()
 const deployedPackageTargets = new Map()
 let sourcePackages
@@ -370,6 +385,15 @@ function findDeployedPackage(sourceTarget) {
   const key = `${manifest.name}@${manifest.version}`
   if (deployedPackageTargets.has(key)) return deployedPackageTargets.get(key)
   const store = join(runtime, 'node_modules', '.pnpm')
+  if (!hasVirtualStore()) {
+    if (existsSync(join(runtime, 'node_modules', ...manifest.name.split('/'), 'package.json'))) {
+      const hoisted = join(runtime, 'node_modules', ...manifest.name.split('/'))
+      deployedPackageTargets.set(key, hoisted)
+      return hoisted
+    }
+    deployedPackageTargets.set(key, undefined)
+    return undefined
+  }
   for (const entry of readdirSync(store, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue
     const candidate = join(store, entry.name, 'node_modules', ...manifest.name.split('/'))
@@ -529,7 +553,7 @@ function replaceDeprecatedDomExceptionShim() {
   const store = join(runtime, 'node_modules', '.pnpm')
   const dependency = 'node-domexception'
   const importPattern = /^import DOMException from ['"]node-domexception['"]\r?\n/m
-  const packageDirs = isWindowsNode
+  const packageDirs = isWindowsNode || !hasVirtualStore()
     ? [runtimePackageDirectory('fetch-blob')]
     : readdirSync(store, { withFileTypes: true })
       .filter(entry => entry.isDirectory() && entry.name.startsWith('fetch-blob@'))
@@ -555,7 +579,7 @@ function replaceDeprecatedDomExceptionShim() {
     })
   }
 
-  const hoisted = isWindowsNode
+  const hoisted = isWindowsNode || !hasVirtualStore()
     ? runtimePackageDirectory(dependency)
     : join(store, 'node_modules', dependency)
   const consumers = []
@@ -566,9 +590,11 @@ function replaceDeprecatedDomExceptionShim() {
     throw new Error(`cannot remove ${dependency}; staged consumers remain:\n${consumers.join('\n')}`)
   }
   rmSync(hoisted, { recursive: true, force: true })
-  for (const entry of readdirSync(store, { withFileTypes: true })) {
-    if (entry.isDirectory() && entry.name.startsWith(`${dependency}@`)) {
-      rmSync(join(store, entry.name), { recursive: true, force: true })
+  if (existsSync(store)) {
+    for (const entry of readdirSync(store, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith(`${dependency}@`)) {
+        rmSync(join(store, entry.name), { recursive: true, force: true })
+      }
     }
   }
 }
@@ -582,7 +608,9 @@ function assertDeprecatedLockBranchesAreNotShipped() {
     ['tsconfck', '3.1.6'],
   ]
   const identities = new Set(forbidden.map(([name, version]) => `${name}@${version}`))
-  const shipped = new Set(readdirSync(store, { withFileTypes: true })
+  const shipped = new Set((existsSync(store)
+    ? readdirSync(store, { withFileTypes: true })
+    : [])
     .filter(entry => entry.isDirectory() && identities.has(entry.name))
     .map(entry => entry.name))
   for (const [name, version] of forbidden) {
@@ -842,6 +870,11 @@ function installCompiledPackageDependencies(sourceManifestPath, packageDir) {
 
   const runtimePnpmEntry = (name, version) => {
     const store = join(runtime, 'node_modules', '.pnpm')
+    if (!hasVirtualStore()) {
+      const hoisted = join(runtime, 'node_modules', ...name.split('/'))
+      if (packageMatches(hoisted, { name, version })) return hoisted
+      return undefined
+    }
     const prefix = name.replace('/', '+')
     for (const entry of readdirSync(store, { withFileTypes: true })) {
       if (!entry.isDirectory() || !entry.name.startsWith(`${prefix}@`)) continue
@@ -943,6 +976,9 @@ function runtimeDependencyTarget(dependency) {
   if (existsSync(join(hoisted, 'package.json'))) return hoisted
 
   const store = join(runtime, 'node_modules', '.pnpm')
+  if (!hasVirtualStore()) {
+    throw new Error(`DSH runtime is missing host dependency ${dependency}`)
+  }
   const prefix = dependency.replace('/', '+')
   let fallback
   for (const entry of readdirSync(store, { withFileTypes: true })) {
@@ -1111,18 +1147,29 @@ function restoreExecutableHelpers() {
 function ensureLinuxPtyBuild() {
   if (process.platform !== 'linux') return
   const storeRoot = join(runtime, 'node_modules', '.pnpm')
-  const ptyEntry = readdirSync(storeRoot, { withFileTypes: true })
-    .find(entry => entry.isDirectory() && entry.name.startsWith('node-pty@'))
-  if (ptyEntry === undefined) return
-  const packageDir = join(storeRoot, ptyEntry.name, 'node_modules', 'node-pty')
+  const hoistedDir = join(runtime, 'node_modules', 'node-pty')
+  const packageDir = existsSync(hoistedDir)
+    ? hoistedDir
+    : (() => {
+        const ptyEntry = readdirSync(storeRoot, { withFileTypes: true })
+          .find(entry => entry.isDirectory() && entry.name.startsWith('node-pty@'))
+        if (ptyEntry === undefined) return undefined
+        return join(storeRoot, ptyEntry.name, 'node_modules', 'node-pty')
+      })()
+  if (packageDir === undefined) return
   const prebuild = join(packageDir, 'prebuilds', `linux-${nodeArch}`)
   if (existsSync(join(packageDir, 'build', 'Release', 'pty.node')) || existsSync(join(prebuild, 'pty.node'))) return
-  const addonEntry = readdirSync(storeRoot, { withFileTypes: true })
-    .find(entry => entry.isDirectory() && entry.name.startsWith('node-addon-api@'))
-  if (addonEntry === undefined) {
-    throw new Error('staged runtime is missing node-addon-api; cannot compile node-pty')
-  }
-  const addonTarget = join(storeRoot, addonEntry.name, 'node_modules', 'node-addon-api')
+  const hoistedAddon = join(runtime, 'node_modules', 'node-addon-api')
+  const addonTarget = existsSync(hoistedAddon)
+    ? hoistedAddon
+    : (() => {
+        const addonEntry = readdirSync(storeRoot, { withFileTypes: true })
+          .find(entry => entry.isDirectory() && entry.name.startsWith('node-addon-api@'))
+        if (addonEntry === undefined) {
+          throw new Error('staged runtime is missing node-addon-api; cannot compile node-pty')
+        }
+        return join(storeRoot, addonEntry.name, 'node_modules', 'node-addon-api')
+      })()
   const dependencyDir = join(packageDir, 'node_modules')
   mkdirSync(dependencyDir, { recursive: true })
   const addonLink = join(dependencyDir, 'node-addon-api')
@@ -1242,18 +1289,21 @@ if (npmRelease) {
     env: { ...process.env, PATH: `${pnpm.binDir}${delimiter}${process.env.PATH ?? ''}` },
   })
 }
-console.log(`Deploying pinned DSH runtime (${npmRelease ? 'npm assembly' : isWindowsNode ? 'hoisted copy' : 'copy import'} mode)`)
+// Deploy a flat runtime: node-linker=hoisted materializes every package as a
+// real directory (inject-workspace-packages copies workspace packages in
+// place), so the staged tree has no .pnpm virtual store and no symlinks. The
+// pruner and the pack tooling then walk plain directories, and the packaged
+// app carries no junction/link surprises on any platform.
+console.log(`Deploying pinned DSH runtime (${npmRelease ? 'npm assembly' : 'source'} hoisted mode)`)
 run(process.execPath, [
   pnpm.cliEntry,
   '--reporter=silent',
   '--config.package-import-method=copy',
-  ...(!npmRelease && isWindowsNode ? [
-    '--config.node-linker=hoisted',
-    '--config.inject-workspace-packages=true',
-  ] : []),
+  '--config.node-linker=hoisted',
+  '--config.inject-workspace-packages=true',
   '--ignore-scripts',
   '--filter', '@deepseek-ai/dsh',
-  'deploy', '--prod', ...(npmRelease || !isWindowsNode ? ['--legacy'] : []), runtime,
+  'deploy', '--prod', runtime,
 ], {
   cwd: dshSource,
   env: { ...process.env, PATH: `${pnpm.binDir}${delimiter}${process.env.PATH ?? ''}` },
