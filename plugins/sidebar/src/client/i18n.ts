@@ -37,7 +37,6 @@ export type WorkspaceMessage =
   | 'browser.back'
   | 'browser.reload'
   | 'browser.url'
-  | 'browser.go'
   | 'files.select-workspace'
   | 'files.loading'
   | 'files.empty-directory'
@@ -306,7 +305,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'browser.back': 'Browser back',
     'browser.reload': 'Reload browser',
     'browser.url': 'Browser URL',
-    'browser.go': 'Go',
     'files.select-workspace': 'Select a workspace to browse files.',
     'files.loading': 'Loading…',
     'files.empty-directory': 'Empty directory',
@@ -576,7 +574,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'browser.back': '浏览器后退',
     'browser.reload': '重新加载浏览器',
     'browser.url': '浏览器 URL',
-    'browser.go': '前往',
     'files.select-workspace': '选择工作区以浏览文件。',
     'files.loading': '加载中…',
     'files.empty-directory': '空目录',

@@ -416,7 +416,34 @@
   flex-direction: column;
 }
 
-.dsh-studio-browser-bar,
+/* Browser address bar: the browser's OWN strip — not the shared
+   SurfaceToolbar (that chrome is for file/view-type surfaces; the
+   omnibox layout is browser-specific). Back/reload are ToolbarActions,
+   the URL field owns every remaining pixel. */
+.dsh-studio-browser-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-1-5);
+  flex: none;
+  min-height: 40px;
+  padding: 0 var(--dsh-studio-space-2);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+/* The official Input ships a fixed inner width; the omnibox stretches
+   wrapper AND inner input to the strip's free width. */
+.dsh-studio-browser-bar .dsh-studio-browser-address {
+  flex: 1;
+  min-width: 0;
+}
+
+.dsh-studio-browser-bar .dsh-studio-browser-address input {
+  width: 100%;
+}
+
+/* Panel path bar (files panel header) — a right-rail panel header, not a
+   center surface, so it keeps its own 40px strip. */
 .dsh-studio-files-path {
   display: flex;
   align-items: center;

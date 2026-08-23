@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import {
-  Button,
   IconChevronLeftOutline14,
   IconRefreshOutline16,
   Input,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
-import { ErrorState } from '@dsh-studio/shared/ui'
+import { ErrorState, ToolbarAction } from '@dsh-studio/shared/ui'
 import type { SidebarRenderProps } from '@dsh-studio/sidebar/client/contract'
 import type { BrowserCenterSurface } from '@dsh-studio/sidebar/client/surfaces-types'
 import type { WorkspaceMessage } from '@dsh-studio/sidebar/client/i18n'
@@ -14,6 +13,58 @@ import {
   getLiveBrowserUrl,
   rememberLiveBrowserUrl,
 } from './browser-runtime.ts'
+
+/**
+ * The address strip both browser surfaces share. The browser is its own
+ * chrome (NOT the shared SurfaceToolbar — that strip is for file/view
+ * surfaces): back/reload ToolbarActions, then the omnibox field owning
+ * every remaining pixel. Enter navigates — no separate Go capsule.
+ */
+function BrowserActionBar({
+  address,
+  canGoBack,
+  t,
+  onAddressChange,
+  onBack,
+  onReload,
+  onSubmit,
+}: {
+  address: string
+  canGoBack: boolean
+  t: Translate<WorkspaceMessage>
+  onAddressChange(next: string): void
+  onBack(): void
+  onReload(): void
+  onSubmit(): void
+}): JSX.Element {
+  return (
+    <form
+      className="dsh-studio-browser-bar"
+      onSubmit={event => { event.preventDefault(); onSubmit() }}
+    >
+      <ToolbarAction
+        type="button"
+        disabled={!canGoBack}
+        label={t('browser.back')}
+        icon={<IconChevronLeftOutline14 size={16} />}
+        onClick={onBack}
+      />
+      <ToolbarAction
+        type="button"
+        label={t('browser.reload')}
+        icon={<IconRefreshOutline16 size={16} />}
+        onClick={onReload}
+      />
+      <Input
+        className="dsh-studio-browser-address"
+        value={address}
+        placeholder={t('browser.enter-url')}
+        aria-label={t('browser.url')}
+        onChange={event => { onAddressChange(event.currentTarget.value) }}
+      />
+    </form>
+  )
+}
 
 /**
  * Electron `<webview>` browser surface. This is a DESKTOP-ONLY capability
@@ -121,35 +172,15 @@ export function BrowserView({
 
   return (
     <div className="dsh-studio-browser-view">
-      <form
-        className="dsh-studio-browser-bar"
-        onSubmit={event => { event.preventDefault(); void navigate() }}
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={!canGoBack}
-          aria-label={t('browser.back')}
-          icon={<IconChevronLeftOutline14 size={16} />}
-          onClick={() => { webview.current?.goBack() }}
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-label={t('browser.reload')}
-          icon={<IconRefreshOutline16 size={16} />}
-          onClick={() => { webview.current?.reload() }}
-        />
-        <Input
-          value={address}
-          placeholder={t('browser.enter-url')}
-          aria-label={t('browser.url')}
-          onChange={event => { setAddress(event.currentTarget.value) }}
-        />
-        <Button type="submit" variant="primary" size="sm">{t('browser.go')}</Button>
-      </form>
+      <BrowserActionBar
+        address={address}
+        canGoBack={canGoBack}
+        t={t}
+        onAddressChange={setAddress}
+        onBack={() => { webview.current?.goBack() }}
+        onReload={() => { webview.current?.reload() }}
+        onSubmit={() => { void navigate() }}
+      />
       {error !== '' && <ErrorState className="dsh-studio-browser-error" message={error} />}
       <div ref={container} className="dsh-studio-browser-host" />
     </div>
@@ -236,35 +267,15 @@ export function BrowserSurfaceView({
 
   return (
     <div className="dsh-studio-browser-view">
-      <form
-        className="dsh-studio-browser-bar"
-        onSubmit={event => { event.preventDefault(); void navigate() }}
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={!canGoBack}
-          aria-label={t('browser.back')}
-          icon={<IconChevronLeftOutline14 size={16} />}
-          onClick={() => { webview.current?.goBack() }}
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-label={t('browser.reload')}
-          icon={<IconRefreshOutline16 size={16} />}
-          onClick={() => { webview.current?.reload() }}
-        />
-        <Input
-          value={address}
-          placeholder={t('browser.enter-url')}
-          aria-label={t('browser.url')}
-          onChange={event => { setAddress(event.currentTarget.value) }}
-        />
-        <Button type="submit" variant="primary" size="sm">{t('browser.go')}</Button>
-      </form>
+      <BrowserActionBar
+        address={address}
+        canGoBack={canGoBack}
+        t={t}
+        onAddressChange={setAddress}
+        onBack={() => { webview.current?.goBack() }}
+        onReload={() => { webview.current?.reload() }}
+        onSubmit={() => { void navigate() }}
+      />
       {error !== '' && <ErrorState className="dsh-studio-browser-error" message={error} />}
       <div ref={container} className="dsh-studio-browser-host" />
     </div>
