@@ -354,7 +354,11 @@
   padding-bottom: 16px;
 }
 
-.flatList > * + *,
+/* The flat list is virtualized (rows are absolutely positioned in the
+   virtualizer's spacer), so its 2px inter-row rhythm is folded into the
+   virtual item height (SESSION_ROW_GAP in FlatList) instead of a sibling
+   selector — a sibling margin would shift absolute items and break the
+   translateY layout. */
 .searchTree > [role='treeitem'] + [role='treeitem'],
 .groupSection > * + * {
   margin-top: 2px;

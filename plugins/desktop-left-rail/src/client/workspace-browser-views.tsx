@@ -5,6 +5,7 @@
  * only composition, persistence and dialog wiring.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Menu, Tooltip, IconPersonalizationOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   SessionId, SessionSearchResultItem, WorkspaceId, WorkspaceView,
@@ -566,53 +567,86 @@ export function FlatList({
     setSessionOrder(FLAT_SESSION_ORDER_KEY, next)
   }
   const now = Date.now()
+  // The flat list is the unbounded session stream (the grouped view caps its
+  // per-group rows at COLLAPSED_SESSION_LIMIT), so its rows are virtualized
+  // with @tanstack/react-virtual: the ScrollArea ref is the scrolling
+  // viewport, and each row's 2px inter-row rhythm (previously a `.flatList
+  // > * + *` sibling margin) is folded into the fixed item size — absolute
+  // items ignore sibling margins, and the rows are uniform 30px.
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => SESSION_ROW_ITEM_SIZE,
+    overscan: 12,
+    getItemKey: index => rows[index]?.id ?? index,
+  })
+  const virtualRows = virtualizer.getVirtualItems()
   return (
     <div className={cn(css.treeBody, css.wide)}>
       <ScrollArea
+        ref={scrollRef}
         className={css.listScroll}
-        viewportClassName={cn(css.list, css.flatList)}
+        viewportClassName={css.list}
         viewportProps={{ role: 'tree', 'aria-label': t('section.sessions') }}
       >
         {rows.length === 0 && (
           <EmptyState className={css.empty} title={t('empty.none')} />
         )}
-        {rows.map((node) => {
-          const active = drag !== null
-          return (
-            <SessionNodeItem
-              key={node.id}
-              node={node}
-              currentId={list.current}
-              now={now}
-              onOpen={open}
-              onRename={onSessionRename}
-              onFork={forkSession}
-              onArchive={onSessionArchive}
-              onMove={verb => { moveFlatSession(node.id, verb) }}
-              flat
-              drag={{
-                start: () => {
-                  dropCommitted.current = false
-                  setDrag({ accountKey: FLAT_SESSION_ORDER_KEY, sessionId: node.id, over: null })
-                },
-                active,
-                marker: active && drag.over?.id === node.id ? drag.over.half : null,
-                hover: (half) => {
-                  setDrag(current => current === null ? current : { ...current, over: { id: node.id, half } })
-                },
-                drop: (half) => {
-                  if (drag !== null) commitDrag(drag, { id: node.id, half })
-                },
-                end: () => {
-                  if (drag?.over !== null && drag?.over !== undefined) commitDrag(drag, drag.over)
-                  else setDrag(null)
-                  dropCommitted.current = false
-                },
-              }}
-              t={t}
-            />
-          )
-        })}
+        <div
+          style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}
+        >
+          {virtualRows.map((virtualRow) => {
+            const node = rows[virtualRow.index]
+            if (node === undefined) return null
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: virtualRow.size,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <SessionNodeItem
+                  node={node}
+                  currentId={list.current}
+                  now={now}
+                  onOpen={open}
+                  onRename={onSessionRename}
+                  onFork={forkSession}
+                  onArchive={onSessionArchive}
+                  onMove={verb => { moveFlatSession(node.id, verb) }}
+                  flat
+                  drag={{
+                    start: () => {
+                      dropCommitted.current = false
+                      setDrag({ accountKey: FLAT_SESSION_ORDER_KEY, sessionId: node.id, over: null })
+                    },
+                    active: drag !== null,
+                    marker: drag !== null && drag.over?.id === node.id ? drag.over.half : null,
+                    hover: (half) => {
+                      setDrag(current => current === null ? current : { ...current, over: { id: node.id, half } })
+                    },
+                    drop: (half) => {
+                      if (drag !== null) commitDrag(drag, { id: node.id, half })
+                    },
+                    end: () => {
+                      if (drag?.over !== null && drag?.over !== undefined) commitDrag(drag, drag.over)
+                      else setDrag(null)
+                      dropCommitted.current = false
+                    },
+                  }}
+                  t={t}
+                />
+              </div>
+            )
+          })}
+        </div>
       </ScrollArea>
       <span className={css.fade} />
     </div>
@@ -690,3 +724,7 @@ export function SearchResults({
 
 /** Session rows visible per group/worktree before the local overflow control. */
 export const COLLAPSED_SESSION_LIMIT = 5
+
+/** Virtualized flat-list item size: 30px row + 2px inter-row rhythm
+ *  (the rhythm was a sibling margin before virtualization). */
+export const SESSION_ROW_ITEM_SIZE = 32
