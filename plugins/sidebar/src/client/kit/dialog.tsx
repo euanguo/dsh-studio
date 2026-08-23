@@ -1,6 +1,10 @@
 /**
  * Promise-based confirm / prompt / alert. Presentation is the official
  * Modal + Button + Input atoms. Labels arrive pre-translated from call sites.
+ *
+ * State convention (ADR, B7): single-request listener store — see
+ * plugins/shared/toast.tsx for the shared rationale; heavier stores use
+ * zustand or the official client-runtime defineStore.
  */
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives'

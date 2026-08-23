@@ -12,6 +12,12 @@
  *   ahead/behind and entries from ONE subprocess (the v1 path needed three).
  * - `core.quotePath=false` on every command (non-ASCII/special paths stay
  *   literal instead of C-escaped).
+ *
+ * Kept on the system `git` binary + hand-rolled porcelain parsing on purpose
+ * (ADR): the porcelain v2 / `-z` parsers are ~120 lines with contract tests,
+ * and swapping to a JS-git library (isomorphic-git, simple-git) would rewrite
+ * every operation (spawn semantics, `.git` layout access, credential flow)
+ * for no behavior gain — git CLI is the stable, locale-proof contract here.
  * - `maxOutputBytes` guard so a huge diff cannot blow up the process heap.
  *
  * Commits use the user's git global identity untouched (never sets

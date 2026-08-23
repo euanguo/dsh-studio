@@ -8,6 +8,11 @@
  * frames, the client ACKs parsed frames, and the PTY is paused/resumed using
  * both socket-buffer and ACK watermarks. A watchdog prevents a dead renderer
  * from leaving a shell paused forever.
+ *
+ * Kept hand-written on purpose (ADR): the ACK-watermark pause/resume policy
+ * and dead-renderer watchdog are protocol decisions of the /capabilities
+ * terminal wire; a generic batching lib (RxJS bufferTime, p-queue) has no
+ * notion of client ACKs or PTY pause semantics.
  */
 import { randomUUID } from 'node:crypto'
 import type {

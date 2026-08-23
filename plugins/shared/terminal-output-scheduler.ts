@@ -1,3 +1,13 @@
+/**
+ * Terminal output scheduler: queues per-terminal writes and drains them on a
+ * SHARED global budget (8ms per animation-frame-style pass, per-terminal
+ * caps) so one noisy PTY can't stall the renderer.
+ *
+ * Kept hand-written on purpose (ADR): no scheduling library (RxJS, p-queue)
+ * models "one budget shared across N live terminals with per-source caps and
+ * a backlog-drop chord" — RxJS buffers per stream but has no cross-stream
+ * budget primitive; the custom policy is ~100 lines and unit-testable.
+ */
 import { terminalOutputBacklogCapChars } from './terminal-scrollback-policy.ts'
 
 export interface TerminalOutputWriteTarget {

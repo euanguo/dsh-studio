@@ -5,6 +5,13 @@
  *
  * Presentation is the official `Toast` atom. There is no DSH Studio toast
  * surface and no success/error kind — pass the resolved copy.
+ *
+ * State convention (ADR, B7): this single-slot listener store (and its
+ * siblings — dialog.tsx, pinned-summary) deliberately stays hand-written:
+ * it is one value + a listener set, smaller than the zustand bundle that
+ * heavier stores (sidebar center-surface, diff-comments) already use. A new
+ * store with real shape/reducer logic should use zustand or the official
+ * client-runtime `defineStore`, NOT a new hand-rolled pub/sub.
  */
 import { useSyncExternalStore } from 'react'
 import { Toast } from '@deepseek-ai/dsh-client-ui-primitives'

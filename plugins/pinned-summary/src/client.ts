@@ -1,4 +1,11 @@
-/** Layout-reserving pinned summary derived from the active DSH session. */
+/**
+ * Layout-reserving pinned summary derived from the active DSH session.
+ *
+ * State convention (ADR, B7): open-state + listener set lives here as a
+ * small hand-written store (see plugins/shared/toast.tsx for the shared
+ * rationale); heavier stores use zustand or the official client-runtime
+ * defineStore — do not add a new hand-rolled pub/sub for real state.
+ */
 
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
 import { localeTag } from '@dsh-studio/shared/i18n'

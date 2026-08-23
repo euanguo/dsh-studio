@@ -1,4 +1,11 @@
-/** Pure ipynb JSON parsing (no React). */
+/**
+ * Pure ipynb JSON parsing (no React).
+ *
+ * Kept hand-written on purpose (ADR): the notebook preview only needs a
+ * structural `cells[].cell_type/source` validation; a full nbformat schema
+ * (ajv + nbformat JSON schema) would change error tolerance and add weight
+ * for zero preview benefit.
+ */
 export interface IpynbCell {
   cell_type: 'code' | 'markdown' | 'raw' | string
   source: string[] | string

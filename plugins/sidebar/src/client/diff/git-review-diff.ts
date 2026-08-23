@@ -3,6 +3,15 @@
  * the diff layer needs these to build DiffDocuments, and review/ consumed
  * them back — the cross-import cycle is broken by owning the git-diff
  * parsing in diff/).
+ *
+ * Kept hand-written on purpose (ADR, B5): the renderer path delegates to the
+ * @pierre/diffs library (parsePatchFiles → renderPierreDiff), but that
+ * parser returns a GROUPED hunk model (hunkContent change/context blocks
+ * with counts and indexes) and drops per-line text + line numbers, does not
+ * distinguish binary files, and uses a different status vocabulary. The
+ * review/commit model here needs per-line oldLine/newLine/content (review
+ * comments address `path:R<line>`), binary status and rename tracking, so a
+ * library swap would regress commit lists for binary and no-newline patches.
  */
 import type { CapabilitiesGitLogEntry } from '../sidebar-api.ts'
 import type { DiffDocument } from './file-diff.ts'

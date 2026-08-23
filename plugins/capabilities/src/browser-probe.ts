@@ -5,6 +5,10 @@
  * CSP frame-ancestors are exactly the signals the browser enforces when it
  * refuses an iframe load). Kept dependency-free so the parser is
  * unit-testable.
+ *
+ * Kept hand-written on purpose (ADR): the `frame-ancestors` extraction is a
+ * 30-line pure function; a full CSP parser (content-security-policy-parser)
+ * would add a dependency and a broader parser surface for a single directive.
  */
 
 /**

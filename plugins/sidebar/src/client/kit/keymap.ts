@@ -6,6 +6,12 @@
  * ACTIVE surface's actions win naturally and unmounting a surface releases
  * its shortcuts. Bindings can be overridden per-action through
  * localStorage (`dsh-studio.keymap.v1`) for the future rebinding UI.
+ *
+ * Kept hand-written on purpose (ADR): the matching core is ~30 lines and the
+ * valuable parts — stable action-id registry, per-action override read/write,
+ * hint formatting for the settings UI — are domain glue no hotkey library
+ * (hotkeys-js, mousetrap) provides; a library would own the listener while
+ * the registry/overrides still had to be hand-rolled around it.
  */
 
 export interface KeyBinding {
