@@ -5,9 +5,9 @@
  * - Viewing state renders through the file runtime cache (truncated
  *   previews allowed) with FileViewerChrome + ContentViewer (Pierre family).
  * - Editing state swaps the body in place for the Pierre editor (full-file
- *   content via useEditableFile) and the editor header; Save writes back,
- *   "View" flushes pending changes and returns to the viewer. The separate
- *   editor surface/tab no longer exists.
+ *   content via useEditableFile); the SAME FileViewerChrome stays mounted
+ *   (breadcrumb + meta), only its actions slot swaps to Save / View. The
+ *   separate editor surface/tab no longer exists.
  *
  * Data flow:
  *   runtime cache (view) ──enterEdit──▶ full fsRead (edit copy)
@@ -28,7 +28,7 @@ import { sidebarApi } from '../sidebar-api.ts'
 import { getFileRuntime } from '../runtimes/registry.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
-import { ScrollArea, SurfaceToolbar } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
@@ -261,28 +261,17 @@ export function FileSurfaceView({
     if (editable.content === null) return <LoadingState label={t('overlay.loading')} />
     return (
       <div className="dsh-studio-editor-surface" data-testid="editor-surface">
-        <SurfaceToolbar
-          leading={(
-            <span className="dsh-studio-editor-title" title={surface.filePath}>
-              {surface.title}
-            </span>
-          )}
-          meta={editable.dirty ? <small className="dsh-studio-editor-dirty">●</small> : undefined}
-          actions={(
-            <>
-              <Button
-                variant="primary"
-                size="sm"
-                disabled={editable.saving || !editable.dirty}
-                onClick={() => { void editable.save() }}
-              >
-                {editable.saving ? t('file.saving') : t('file.save')}
-              </Button>
-              <Button variant="outline" size="sm" onClick={editable.exitToView}>
-                {t('files.view')}
-              </Button>
-            </>
-          )}
+        <FileViewerChrome
+          cwd={surface.cwd}
+          filePath={surface.filePath}
+          isMarkdown={isMarkdown}
+          markdownMode={markdownMode}
+          onMarkdownModeChange={onMarkdownModeChange}
+          editing={{
+            dirty: editable.dirty,
+            onExit: editable.exitToView,
+          }}
+          t={t}
         />
         <EditProvider createEditor={createPierreEditor}>
           <Virtualizer className="dsh-studio-editor-host">

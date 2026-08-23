@@ -30,7 +30,6 @@
     "./ui/field": "./ui/field.tsx",
     "./ui/list-row": "./ui/list-row.tsx",
     "./ui/menu-anchor": "./ui/menu-anchor.ts",
-    "./ui/mode-switch": "./ui/mode-switch.tsx",
     "./ui/scroll-area": "./ui/scroll-area.tsx",
     "./ui/separator": "./ui/separator.tsx",
     "./ui/settings-row": "./ui/settings-row.tsx",

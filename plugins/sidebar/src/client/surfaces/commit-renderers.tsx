@@ -19,7 +19,7 @@ import {
 import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffPathTreeNav } from '../diff/path-tree-nav.tsx'
-import { ScrollArea } from '@dsh-studio/shared/ui'
+import { ScrollArea, SurfaceToolbar } from '@dsh-studio/shared/ui'
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
 import { usePierreDiffTheme, type PierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { useLazyDiffBlockMount } from '../diff/use-lazy-diff-block-mount.ts'
@@ -143,10 +143,10 @@ export function CommitDiffSurfaceView({
   }
   return (
     <div className="dsh-studio-commit-surface">
-      <div className="dsh-studio-commit-surface-header">
-        <span title={surface.hash}>{surface.title}</span>
-        <small>{surface.hash.slice(0, 7)}</small>
-      </div>
+      <SurfaceToolbar
+        leading={<span title={surface.hash}>{surface.title}</span>}
+        meta={<small>{surface.hash.slice(0, 7)}</small>}
+      />
       <div className="dsh-studio-commit-tree-body">
         <DiffPathTreeNav
           rows={rows}
@@ -217,10 +217,10 @@ export function CommitFileSurfaceView({
   }
   return (
     <div className="dsh-studio-diff-surface">
-      <div className="dsh-studio-diff-surface-header">
-        <span title={surface.filePath}>{surface.filePath}</span>
-        <small>{surface.hash.slice(0, 7)}</small>
-      </div>
+      <SurfaceToolbar
+        leading={<span title={surface.filePath}>{surface.filePath}</span>}
+        meta={<small>{surface.hash.slice(0, 7)}</small>}
+      />
       <ScrollArea className="dsh-studio-diff-surface-body">
         <DiffViewer
           document={document}
@@ -287,10 +287,10 @@ function CommittedAllDiffView({
   if (files === null) return <LoadingState label={t('overlay.loading')} />
   return (
     <div className="dsh-studio-commit-surface">
-      <div className="dsh-studio-commit-surface-header">
-        <span>{surface.title}</span>
-        <small>{surface.baseRef}</small>
-      </div>
+      <SurfaceToolbar
+        leading={<span>{surface.title}</span>}
+        meta={<small>{surface.baseRef}</small>}
+      />
       <div className="dsh-studio-commit-tree-body">
         <DiffPathTreeNav
           rows={rows}
@@ -360,10 +360,10 @@ function CommittedFileDiffView({
   }
   return (
     <div className="dsh-studio-diff-surface">
-      <div className="dsh-studio-diff-surface-header">
-        <span title={filePath}>{filePath}</span>
-        <small>{surface.baseRef}</small>
-      </div>
+      <SurfaceToolbar
+        leading={<span title={filePath}>{filePath}</span>}
+        meta={<small>{surface.baseRef}</small>}
+      />
       <ScrollArea className="dsh-studio-diff-surface-body">
         <DiffViewer
           document={document}

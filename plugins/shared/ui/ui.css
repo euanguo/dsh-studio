@@ -795,6 +795,29 @@
   flex: 1;
   align-items: center;
   gap: var(--dsh-studio-space-2, 8px);
+  /* Slot typography is owned HERE, never re-styled by consumers: every
+     surface's leading block reads with the same title treatment. */
+  font-size: var(--dsh-studio-font-xs, 10px);
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+/* Plain-text titles (a bare <span>) ellipsize inside the flexible slot;
+   richer leading content (breadcrumb) keeps its own structure and merely
+   inherits the typography above. */
+.dsh-studio-ui-surface-toolbar-leading > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Secondary inline facts inside a title (hash chips, counts). */
+.dsh-studio-ui-surface-toolbar-leading small {
+  flex: none;
+  font-size: var(--dsh-studio-font-xs, 10px);
+  font-weight: 400;
+  color: var(--dsw-alias-label-dimmed, #8c959f);
 }
 
 .dsh-studio-ui-surface-toolbar-meta {
@@ -802,6 +825,10 @@
   flex: none;
   align-items: center;
   gap: var(--dsh-studio-space-1, 4px);
+  font-size: var(--dsh-studio-font-xs, 10px);
+  font-weight: 400;
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+  tab-size: 4;
 }
 
 .dsh-studio-ui-surface-toolbar-modes,
@@ -810,41 +837,4 @@
   flex: none;
   align-items: center;
   gap: var(--dsh-studio-space-1, 4px);
-}
-
-/* ---------- ModeSwitch — segmented single-selection control ---------- */
-
-.dsh-studio-ui-mode-switch {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 2px;
-  height: 28px;
-  padding: 2px;
-  border-radius: var(--dsh-studio-radius-md, 8px);
-  background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 5%));
-}
-
-.dsh-studio-ui-mode-switch-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 24px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm, 6px);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--dsh-studio-font-sm, 11px);
-  cursor: pointer;
-}
-
-.dsh-studio-ui-mode-switch-option:hover {
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
-.dsh-studio-ui-mode-switch-option[data-pressed] {
-  background: var(--dsw-alias-bg-base, #fff);
-  color: var(--dsw-alias-label-primary, #1f2328);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
 }

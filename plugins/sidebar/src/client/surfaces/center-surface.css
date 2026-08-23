@@ -265,31 +265,9 @@ body > div[role='menu'] div:hover > [role='menuitem']:not([aria-disabled='true']
   min-height: 0;
 }
 
-.dsh-studio-diff-surface-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--dsh-studio-space-2);
-  flex: none;
-  min-height: 34px;
-  padding: 0 var(--dsh-studio-space-3);
-  box-sizing: border-box;
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  font: var(--dsh-studio-font-sm) var(--dsh-studio-font-mono);
-}
-
-.dsh-studio-diff-surface-header span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dsh-studio-diff-surface-header small {
-  flex: none;
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-  font-size: var(--dsh-studio-font-xs);
-}
+/* Commit/diff surface headers are the bare shared SurfaceToolbar (no
+   per-surface className hook): geometry AND typography come from the
+   component, so no header rules live here. */
 
 .dsh-studio-diff-surface-body {
   flex: 1;
@@ -303,32 +281,6 @@ body > div[role='menu'] div:hover > [role='menuitem']:not([aria-disabled='true']
   flex-direction: column;
   flex: 1;
   min-height: 0;
-}
-
-.dsh-studio-commit-surface-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--dsh-studio-space-2);
-  flex: none;
-  min-height: 34px;
-  padding: 0 var(--dsh-studio-space-3);
-  box-sizing: border-box;
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  font-size: var(--dsh-studio-font-sm);
-}
-
-.dsh-studio-commit-surface-header span {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dsh-studio-commit-surface-header small {
-  flex: none;
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-  font: var(--dsh-studio-font-xs) var(--dsh-studio-font-mono);
 }
 
 .dsh-studio-commit-surface-body {

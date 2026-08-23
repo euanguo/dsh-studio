@@ -29,6 +29,7 @@ preserves a retired DSH Studio name or prop list.
 | --- | --- |
 | Button (labeled actions) | `Button` (`primary` / `ghost` / `outline` / `toolbar`; `sm` / `md`) |
 | Button (icon-only strip actions) | `ToolbarAction` from `@dsh-studio/shared/ui` — the compact icon form: 28×28 square footprint, ghost, secondary label, skin-rounded corners (the skins layer owns `border-radius`, do not override it). The official `sm` capsule is for labeled actions only; do not use it for pure icon buttons. |
+| Center-surface header strip | `SurfaceToolbar` from `@dsh-studio/shared/ui` — one strip for every center surface (file view/edit, diff, commit). It owns the bar geometry AND the slot typography; consumers pass plain content through `leading` / `meta` / `modeSwitch` / `actions` and must not override its font, color, or layout with per-surface CSS. A state toggle (view↔edit, markdown source↔preview) is one `ToolbarAction` that swaps its icon, never a second control. |
 | Single-line field | `Input` |
 | Dropdown or context menu | `Menu` (`portal` when an ancestor clips) |
 | Dialog | `Modal` |

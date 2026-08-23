@@ -1,17 +1,19 @@
 /**
  * File surface header: project › …dirs › file breadcrumb + Markdown
- * Source/Preview mode switch + auxiliary actions. Ported from Synara
+ * Source/Preview icon toggle + auxiliary actions. Ported from Synara
  * `features/file-viewer/file-viewer-chrome.tsx` and adapted to the DSH
  * CSS-token environment (no Tailwind classes).
  *
- * The strip itself is the shared SurfaceToolbar — the same geometry the
- * editor and diff states render through, so switching modes never swaps
- * chrome.
+ * The strip is the shared SurfaceToolbar and stays mounted across the
+ * view ↔ edit swap: ONE icon toggle owns the state (pencil invites
+ * editing, the engaged eye returns to the view), the breadcrumb and meta
+ * never change, and the toolbar owns all typography — this module passes
+ * plain content only.
  */
 import { Fragment, useMemo } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { basename } from '@dsh-studio/shared/path'
-import { ModeSwitch, SurfaceToolbar, ToolbarAction } from '@dsh-studio/shared/ui'
+import { SurfaceToolbar, ToolbarAction } from '@dsh-studio/shared/ui'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
   IconChevronRight,
@@ -33,6 +35,7 @@ export function FileViewerChrome({
   meta,
   onOpenExternal,
   onEdit,
+  editing,
   t,
 }: {
   cwd: string
@@ -45,6 +48,12 @@ export function FileViewerChrome({
   meta?: string | null
   onOpenExternal?(): void
   onEdit?(): void
+  /** Editing state: the SAME chrome stays mounted; the edit toggle swaps
+   *  to its engaged "view" form and the dirty dot joins the meta slot. */
+  editing?: {
+    dirty: boolean
+    onExit(): void
+  }
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const { prefixSegments, fileSegment } = useMemo(() => {
@@ -81,53 +90,64 @@ export function FileViewerChrome({
       <span className="dsh-studio-file-viewer-breadcrumb-file">{fileSegment}</span>
     </nav>
   )
-  const metaContent = (meta !== undefined && meta !== null) || truncated
+  const metaContent = (meta !== undefined && meta !== null) || truncated || editing?.dirty === true
     ? (
       <>
-        {meta !== undefined && meta !== null && (
-          <span className="dsh-studio-file-viewer-chrome-meta">{meta}</span>
-        )}
+        {meta !== undefined && meta !== null && meta}
         {truncated && (
-          <span className="dsh-studio-file-viewer-chrome-meta dsh-studio-file-viewer-chrome-truncated">
+          <span className="dsh-studio-file-viewer-chrome-truncated">
             {t('files.partial')}
           </span>
         )}
+        {editing?.dirty === true && (
+          <small className="dsh-studio-editor-dirty">●</small>
+        )}
       </>
     )
     : undefined
-  const modeSwitch = isMarkdown
+  const modeSwitch = isMarkdown && editing === undefined
     ? (
-      <ModeSwitch
-        ariaLabel="Markdown view"
-        value={markdownMode}
-        onValueChange={onMarkdownModeChange}
-        options={[
-          { value: 'source', label: t('files.viewer.source'), icon: <IconFileText size={14} /> },
-          { value: 'preview', label: t('files.viewer.preview'), icon: <IconEye size={14} /> },
-        ]}
+      <ToolbarAction
+        icon={markdownMode === 'preview' ? <IconEye size={14} /> : <IconFileText size={14} />}
+        label={markdownMode === 'preview' ? t('files.viewer.source') : t('files.viewer.preview')}
+        pressed={markdownMode === 'preview'}
+        onClick={() => { onMarkdownModeChange(markdownMode === 'preview' ? 'source' : 'preview') }}
       />
     )
     : undefined
-  const actions = onEdit !== undefined || onOpenExternal !== undefined
+  // One icon toggle owns the view ↔ edit state: pencil invites editing,
+  // the engaged eye returns to the view (exitToView flushes pending
+  // changes — the same write path as autosave and Mod+S).
+  const editToggle = editing !== undefined
     ? (
-      <>
-        {onEdit !== undefined && (
-          <ToolbarAction
-            icon={<IconEdit size={14} />}
-            label={t('files.edit')}
-            onClick={onEdit}
-          />
-        )}
-        {onOpenExternal !== undefined && (
-          <ToolbarAction
-            icon={<IconExternalLink size={14} />}
-            label={t('files.open-externally')}
-            onClick={onOpenExternal}
-          />
-        )}
-      </>
+      <ToolbarAction
+        icon={<IconEye size={14} />}
+        label={t('files.view')}
+        pressed
+        onClick={editing.onExit}
+      />
+    )
+    : onEdit !== undefined
+    ? (
+      <ToolbarAction
+        icon={<IconEdit size={14} />}
+        label={t('files.edit')}
+        onClick={onEdit}
+      />
     )
     : undefined
+  const actions = (
+    <>
+      {editToggle}
+      {onOpenExternal !== undefined && (
+        <ToolbarAction
+          icon={<IconExternalLink size={14} />}
+          label={t('files.open-externally')}
+          onClick={onOpenExternal}
+        />
+      )}
+    </>
+  )
 
   return (
     <SurfaceToolbar

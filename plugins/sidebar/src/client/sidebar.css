@@ -443,8 +443,8 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   flex: 1;
 }
 
-/* Bar geometry is owned by the shared SurfaceToolbar (same strip as the
-   editor and diff states); only breadcrumb typography stays here. */
+/* Bar geometry AND slot typography are owned by the shared SurfaceToolbar;
+   only the breadcrumb's own hierarchy structure/colors stay here. */
 
 .dsh-studio-file-viewer-breadcrumb {
   display: flex;
@@ -452,8 +452,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   flex: 1;
   align-items: center;
   gap: 2px;
-  font-size: var(--dsh-studio-font-xs);
-  line-height: 20px;
   overflow: hidden;
 }
 
@@ -469,6 +467,9 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* Path hierarchy is content, not strip chrome: lighter than the toolbar's
+     leading title treatment. */
+  font-weight: 400;
   color: var(--dsw-alias-label-secondary, #57606a);
 }
 
@@ -484,17 +485,10 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: 600;
-  color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.dsh-studio-file-viewer-chrome-meta {
-  flex: none;
-  font-size: 10px;
-  color: var(--dsw-alias-label-dimmed, #8c959f);
-  tab-size: 4;
-}
-
+/* Semantic warning chip (truncated preview) — the only meta-slot color
+   exception, owned as a state color, not strip typography. */
 .dsh-studio-file-viewer-chrome-truncated {
   color: var(--dsw-alias-state-warning-primary, #9a6700);
 }
@@ -716,8 +710,8 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
 
 
 /* ---------- P2 diff toolbar / multi-file diff tree ---------- */
-/* Bar geometry (height/padding/surface/divider) is owned by the shared
-   SurfaceToolbar; only the diff title typography stays here. */
+/* Bar geometry and typography are owned by the shared SurfaceToolbar;
+   only the title cluster's flex structure stays here. */
 
 .dsh-studio-diff-toolbar-title {
   display: inline-flex;
@@ -725,20 +719,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   gap: var(--dsh-studio-space-2);
   min-width: 0;
   overflow: hidden;
-  font-size: var(--dsh-studio-font-xs);
-  font-weight: 600;
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
-.dsh-studio-diff-toolbar-title > span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dsh-studio-diff-toolbar-title small {
-  color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-weight: 400;
 }
 
 .dsh-studio-diff-context-bar {
@@ -943,16 +923,9 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   flex: 1;
 }
 
-/* Editor bar geometry is the shared SurfaceToolbar (same strip as view/diff);
-   only the title typography stays here. */
-.dsh-studio-editor-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-weight: 600;
-}
-
+/* Editor bar geometry is the shared SurfaceToolbar and stays mounted across
+   the view ↔ edit swap (FileViewerChrome owns both states); only the dirty
+   dot color stays here. */
 .dsh-studio-editor-dirty {
   color: var(--dsw-alias-state-warning-primary, #9a6700);
 }
