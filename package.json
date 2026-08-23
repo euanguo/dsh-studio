@@ -94,6 +94,7 @@
     "@tabler/icons-react": "^3.46.0",
     "@tanstack/react-virtual": "^3.13.12",
     "@types/node": "^24.10.0",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "~18.3.1",
     "@types/react-dom": "~18.3.1",
     "@types/semver": "7.8.0",
@@ -106,13 +107,17 @@
     "@xterm/addon-web-links": "0.13.0-beta.299",
     "@xterm/addon-webgl": "0.20.0-beta.298",
     "@xterm/xterm": "6.1.0-beta.302",
+    "clsx": "^2.1.1",
     "cordis": "4.0.0-rc.8",
     "electron": "42.3.0",
     "electron-builder": "^26.0.12",
     "electron-updater": "6.8.9",
     "esbuild": "^0.25.12",
     "katex": "^0.18.4",
+    "lightningcss": "^1.33.0",
     "mermaid": "^11.16.1",
+    "papaparse": "^5.6.0",
+    "pathe": "^2.0.3",
     "pnpm": "11.20.0",
     "react-markdown": "^10.1.0",
     "rehype-katex": "^7.0.1",
@@ -252,6 +257,9 @@
   "dshStudio": {
     "clientDependencies": [
       "@upsetjs/venn.js",
+      "clsx",
+      "papaparse",
+      "pathe",
       "semver"
     ]
   }
