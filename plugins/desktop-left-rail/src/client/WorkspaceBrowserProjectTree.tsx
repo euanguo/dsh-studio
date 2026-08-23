@@ -14,7 +14,7 @@ import { activityKindsOf, activityOf, subtractActivity, worktreeVisibleSessions 
 import { insertSessionInOrder, reconciledSessionOrder } from './session-order.ts'
 import { WorkspaceBrowserCss as css } from './styles.js'
 import { cn } from './shim/cn.ts'
-import { EmptyState, LoadingState } from '@dsh-studio/shared/ui'
+import { EmptyState, LoadingState, ScrollArea } from '@dsh-studio/shared/ui'
 import { SessionNodeItem, type RowDragProps } from './rows/Rows.tsx'
 import { ProjectRowItem, WorktreeRowItem, type WorktreeWorkspace } from './rows/ProjectRows.tsx'
 import { useNativeDragAcceptance } from './workspace-browser-views.tsx'
@@ -176,7 +176,11 @@ export function ProjectTreeBody({
         </span>
       </div>
 
-      <div className={css.list} role="tree" aria-label={t('section.workspaces')}>
+      <ScrollArea
+        className={css.listScroll}
+        viewportClassName={css.list}
+        viewportProps={{ role: 'tree', 'aria-label': t('section.workspaces') }}
+      >
         {loading && tree.projects.length === 0 && <LoadingState className={css.empty} label={t('picker.loading')} />}
         {tree.projects.length === 0 && !loading && <EmptyState className={css.empty} title={t('empty.none')} />}
         {tree.projects.map(project => {
@@ -298,7 +302,7 @@ export function ProjectTreeBody({
           </div>
           )
         })}
-      </div>
+      </ScrollArea>
       <span className={css.fade} />
     </div>
   )

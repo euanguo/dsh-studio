@@ -28,7 +28,7 @@ import { sidebarApi } from '../sidebar-api.ts'
 import { getFileRuntime } from '../runtimes/registry.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea, SurfaceToolbar } from '@dsh-studio/shared/ui'
 import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
@@ -261,23 +261,29 @@ export function FileSurfaceView({
     if (editable.content === null) return <LoadingState label={t('overlay.loading')} />
     return (
       <div className="dsh-studio-editor-surface" data-testid="editor-surface">
-        <div className="dsh-studio-editor-header">
-          <span title={surface.filePath}>{surface.title}</span>
-          {editable.dirty ? <small className="dsh-studio-editor-dirty">●</small> : null}
-          <span className="dsh-studio-editor-actions">
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={editable.saving || !editable.dirty}
-              onClick={() => { void editable.save() }}
-            >
-              {editable.saving ? t('file.saving') : t('file.save')}
-            </Button>
-            <Button variant="outline" size="sm" onClick={editable.exitToView}>
-              {t('files.view')}
-            </Button>
-          </span>
-        </div>
+        <SurfaceToolbar
+          leading={(
+            <span className="dsh-studio-editor-title" title={surface.filePath}>
+              {surface.title}
+            </span>
+          )}
+          meta={editable.dirty ? <small className="dsh-studio-editor-dirty">●</small> : undefined}
+          actions={(
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={editable.saving || !editable.dirty}
+                onClick={() => { void editable.save() }}
+              >
+                {editable.saving ? t('file.saving') : t('file.save')}
+              </Button>
+              <Button variant="outline" size="sm" onClick={editable.exitToView}>
+                {t('files.view')}
+              </Button>
+            </>
+          )}
+        />
         <EditProvider createEditor={createPierreEditor}>
           <Virtualizer className="dsh-studio-editor-host">
             {rails.overlay()}
@@ -354,7 +360,7 @@ export function FileSurfaceView({
       {writeError !== '' ? (
         <ErrorState message={writeError} />
       ) : null}
-      <Scrollable className="dsh-studio-file-surface-body" onMouseUp={onSourceMouseUp}>
+      <ScrollArea className="dsh-studio-file-surface-body" onMouseUp={onSourceMouseUp}>
         {rails.overlay()}
         <ContentViewer
           path={surface.filePath}
@@ -373,15 +379,19 @@ export function FileSurfaceView({
           hideMeta
           t={t}
         />
-      </Scrollable>
+      </ScrollArea>
       {selectionAction !== null ? (
         <div
           className="dsh-studio-file-selection-action"
           style={{ left: selectionAction.left, top: selectionAction.top }}
         >
-          <button type="button" onClick={() => { void onCopySelection(selectionAction.label) }}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { void onCopySelection(selectionAction.label) }}
+          >
             Copy {selectionAction.label}
-          </button>
+          </Button>
         </div>
       ) : null}
     </div>

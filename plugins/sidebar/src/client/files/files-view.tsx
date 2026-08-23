@@ -8,7 +8,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
   type CSSProperties,
@@ -37,7 +36,7 @@ import {
   relativePathOf,
   resolveCapabilitiesPath,
 } from '@dsh-studio/shared/path'
-import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
+import { EmptyState, ErrorState, LoadingState, ToolbarAction, useMenuAnchor } from '@dsh-studio/shared/ui'
 import {
   ListRow,
   ListRowActionButton,
@@ -48,7 +47,7 @@ import {
   ListRowTrailing,
 } from '@dsh-studio/shared/ui'
 import { FilenameLabel } from '@dsh-studio/shared/filename-label'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 import { FileGlyph } from '@dsh-studio/shared/tabler-icons'
 import type {
   WorkspaceFileEntry,
@@ -171,8 +170,12 @@ export function FilesView({
   const [searching, setSearching] = useState(false)
   // Header [+] dropdown (official Menu, portaled; the trigger button keeps
   // aria-expanded so the CSS can show the pressed state).
-  const [createMenuOpen, setCreateMenuOpen] = useState(false)
-  const createButtonRef = useRef<HTMLButtonElement | null>(null)
+  const {
+    open: createMenuOpen,
+    setOpen: setCreateMenuOpen,
+    anchorRef: createButtonRef,
+    getAnchorRect,
+  } = useMenuAnchor()
   // Inline create editor row state (parent directory + entry kind).
   const [inlineCreate, setInlineCreate] = useState<{
     parent: string
@@ -558,20 +561,21 @@ export function FilesView({
     <div className="dsh-studio-files-view">
       <div className="dsh-studio-files-path" title={cwd}>
         <span className="dsh-studio-files-path-name">{basename(cwd)}</span>
-        <button
+        <ToolbarAction
           ref={createButtonRef}
-          type="button"
-          aria-label={t('files.new')}
+          variant="ghost"
+          icon={<IconPlus size={14} />}
+          label={t('files.new')}
           aria-expanded={createMenuOpen}
-          title={t('files.new')}
+          pressed={createMenuOpen}
           onClick={() => { setCreateMenuOpen(value => !value) }}
-        ><IconPlus size={16} /></button>
-        <button
-          type="button"
-          aria-label={t('files.refresh')}
-          title={t('files.refresh')}
+        />
+        <ToolbarAction
+          variant="ghost"
+          icon={<IconRefresh size={14} />}
+          label={t('files.refresh')}
           onClick={refreshListings}
-        ><IconRefresh size={16} /></button>
+        />
       </div>
       {/* Portaled menu — kept OUTSIDE the flex row: the official Menu always
           renders an anchor wrapper span, and a bare `span` selector on the
@@ -583,7 +587,7 @@ export function FilesView({
         anchor={null}
         align="end"
         portal
-        getAnchorRect={() => createButtonRef.current?.getBoundingClientRect() ?? null}
+        getAnchorRect={getAnchorRect}
         items={createMenuItems}
         onSelect={handleCreateMenuSelect}
         onClose={() => { setCreateMenuOpen(false) }}
@@ -600,7 +604,7 @@ export function FilesView({
         />
       </div>
       {searchHits !== null ? (
-        <Scrollable className="dsh-studio-file-search-results">
+        <ScrollArea className="dsh-studio-file-search-results" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
           {searching ? <LoadingState label={t('files.loading')} /> : null}
           {!searching && searchHits.length === 0 ? (
             <EmptyState title={t('files.search-no-matches')} />
@@ -626,11 +630,11 @@ export function FilesView({
               <span className="dsh-studio-file-search-hit-text">{hit.text}</span>
             </button>
           ))}
-        </Scrollable>
+        </ScrollArea>
       ) : null}
       {loading && !entriesByDir.has(cwd) && <LoadingState label={t('files.loading')} />}
       {error !== '' && <ErrorState message={error} />}
-      <Scrollable className="dsh-studio-file-list" onContextMenu={openBackgroundMenu}>
+      <ScrollArea className="dsh-studio-file-list" viewportClassName="dsh-studio-ui-scroll-viewport-inset" onContextMenu={openBackgroundMenu}>
         {displayItems.map(item => (
           item.kind === 'inline' ? (
             <InlineCreateRow
@@ -701,7 +705,7 @@ export function FilesView({
         {!loading && !error && rows.length === 0 && inlineCreate === null && (
           <EmptyState title={t('files.empty-directory')} />
         )}
-      </Scrollable>
+      </ScrollArea>
       <Menu
         open={rowMenu !== null}
         anchor={null}
@@ -781,7 +785,7 @@ export function FileView({
     })}</>
   }
   return (
-    <Scrollable className="dsh-studio-file-preview">
+    <ScrollArea className="dsh-studio-file-preview" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
       <div>
         <strong>{tab.title}</strong>
         <button type="button" onClick={() => { void onOpenPath(path) }}>
@@ -789,6 +793,6 @@ export function FileView({
         </button>
       </div>
       <EmptyState title={t('files.no-viewer', { size: formatSize(snapshot.size) })} />
-    </Scrollable>
+    </ScrollArea>
   )
 }

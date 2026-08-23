@@ -9,6 +9,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { DiffViewer } from './diff-viewer.tsx'
 import { useCommentRails } from '../comments/comment-rails.tsx'
@@ -189,14 +190,22 @@ function MultiDiffFileBlock({
             </small>
             <span className="dsh-studio-multi-diff-actions">
               {onExpandContext !== undefined ? (
-                <button type="button" onClick={() => { onExpandContext(file) }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { onExpandContext(file) }}
+                >
                   {t('diff.expand-context-file')}
-                </button>
+                </Button>
               ) : null}
               {onCollapse !== undefined ? (
-                <button type="button" onClick={() => { onCollapse(file.path) }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { onCollapse(file.path) }}
+                >
                   {t('source-control.view-all')}
-                </button>
+                </Button>
               ) : null}
             </span>
           </div>

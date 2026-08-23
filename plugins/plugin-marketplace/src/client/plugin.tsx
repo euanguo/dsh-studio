@@ -14,7 +14,7 @@ import {
   AlertDescription,
   EmptyState,
   LoadingState,
-  Scrollable,
+  ScrollArea,
 } from '@dsh-studio/shared/ui'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
 import { localeTag } from '@dsh-studio/shared/i18n'
@@ -963,7 +963,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
             <span>{snapshot.candidate.execution}</span>
           </div>
         )}
-        <Scrollable className="oh-marketplace-main">
+        <ScrollArea className="oh-marketplace-main" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
           {snapshot === null || pending && snapshot.catalog.length === 0 ? (
             <LoadingState className="oh-marketplace-empty" label={t('loading-catalog')} />
           ) : snapshot.auth.status !== 'ready' && snapshot.catalog.length === 0 ? (
@@ -988,7 +988,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
               ))}
             </div>
           )}
-        </Scrollable>
+        </ScrollArea>
         </div>
       </Modal>
       {viewState.open && selected !== null && snapshot !== null && (

@@ -49,7 +49,7 @@ import { toast } from '@dsh-studio/shared/toast'
 // forked CSS Modules — see scripts/left-rail-styles.mjs). The scope
 // attribute is mounted on the region root below.
 import { WorkspaceBrowserCss as css } from './styles.js'
-import { FieldError, StatusLine } from '@dsh-studio/shared/ui'
+import { FieldError, StatusLine, ToolbarAction } from '@dsh-studio/shared/ui'
 
 /**
  * Column slide length (--ds-transition-duration-slow): rail-search focus waits it out —
@@ -307,7 +307,7 @@ export function WorkspaceBrowser({
   // Section-header ＋ opens the picker menu (same popover in wide and rail
   // states; the menu anchors on this button).
   const [wsPickerOpen, setWsPickerOpen] = useState(false)
-  const wsPlusRef = useRef<HTMLButtonElement>(null)
+  const wsPlusRef = useRef<HTMLElement>(null)
   const composingRef = useRef(false)
 
   // Rail search = expand + land in the search box: the flag arms before the
@@ -956,18 +956,18 @@ export function WorkspaceBrowser({
               }}
             >
               <Tooltip label={t('search')} side="bottom" delayMs={500} disabled={searchExpanded}>
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className={css.searchButton}
+                  icon={<IconSearchOutline16 size={searchExpanded ? 11 : 14} />}
                   aria-label={t('search.sessions.aria')}
                   aria-expanded={searchExpanded}
                   onClick={() => {
                     setWsPickerOpen(false)
                     setSearchExpanded(true)
-                 }}
-                 >
-                  <IconSearchOutline16 size={searchExpanded ? 11 : 14} />
-                </button>
+                  }}
+                />
               </Tooltip>
               <input
                 ref={searchInput}
@@ -985,18 +985,18 @@ export function WorkspaceBrowser({
                  }}
               />
               {searchExpanded && (
-                <button
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className={css.clearButton}
+                  icon={<IconCloseFill14 />}
                   aria-label={t('search.clear')}
                   onClick={(e) => {
                     e.stopPropagation()
                     setQuery('')
                     setSearchExpanded(false)
-                 }}
-                 >
-                  <IconCloseFill14 />
-                </button>
+                  }}
+                />
               )}
             </div>
           </div>
@@ -1016,19 +1016,16 @@ export function WorkspaceBrowser({
               picking affordance has nothing to offer here: the region hides the
               button rather than leaving a dead one in the header. */}
           {directoryFlowAvailable && (
-            <Tooltip label={t('workspace.add')} side="bottom" delayMs={500}>
-              <button
-                ref={wsPlusRef}
-                type="button"
-                className={css.iconButton}
-                aria-label={t('workspace.add')}
-                onClick={() => {
-                  setWsPickerOpen(v => !v)
-                 }}
-              >
-                <IconProjectAddOutline16 size={wide ? 16 : 18} />
-              </button>
-            </Tooltip>
+            <ToolbarAction
+              ref={wsPlusRef}
+              variant="ghost"
+              className={css.iconButton}
+              icon={<IconProjectAddOutline16 size={wide ? 16 : 18} />}
+              label={t('workspace.add')}
+              aria-expanded={wsPickerOpen}
+              pressed={wsPickerOpen}
+              onClick={() => { setWsPickerOpen(v => !v) }}
+            />
           )}
         </div>
         {/* Add flow + its error dialog (same package — direct composition). */}
@@ -1053,18 +1050,18 @@ export function WorkspaceBrowser({
       {/* The collapsed rail keeps search as its own 36px control. */}
       {!wide && <div className={css.search}>
         <Tooltip label={t('search')}>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="sm"
             className={css.searchButton}
+            icon={<IconSearchOutline16 size={18} />}
             aria-label={t('search.sessions.aria')}
             onClick={() => {
               setSearchExpanded(true)
               setSearchOnExpand(true)
               expandSidebar()
             }}
-          >
-            <IconSearchOutline16 size={18} />
-          </button>
+          />
         </Tooltip>
       </div>}
 

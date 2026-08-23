@@ -12,10 +12,11 @@ import { getDiffRuntime, sidebarScopeKey } from '../runtimes/registry.ts'
 import { useSidebarChromeStore } from '../runtimes/chrome-store.ts'
 import { worktreeDocKey, worktreeListKey } from '../runtimes/diff-runtime.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffToolbar } from '../diff/diff-toolbar.tsx'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 import { useDiffViewPreferences } from '../diff/diff-view-preferences.ts'
 import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx'
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
@@ -155,14 +156,14 @@ export function DiffSurfaceView({
       <div className="dsh-studio-diff-surface">
         <DiffToolbar t={t} />
         {imageDiff !== null ? (
-          <Scrollable className="dsh-studio-diff-surface-body">
+          <ScrollArea className="dsh-studio-diff-surface-body">
             <ImageDiffViewer
               oldData={imageDiff.oldData}
               newData={imageDiff.newData}
               oldLabel={`Original · ${surface.filePath}`}
               newLabel={`Modified · ${surface.filePath}`}
             />
-          </Scrollable>
+          </ScrollArea>
         ) : (
           <LoadingState label={t('workspace.loading-diff')} />
         )}
@@ -188,7 +189,7 @@ export function DiffSurfaceView({
         )}
         t={t}
       />
-      <Scrollable className="dsh-studio-diff-surface-body">
+      <ScrollArea className="dsh-studio-diff-surface-body">
         {rails.overlay()}
         <DiffViewer
           document={document}
@@ -205,10 +206,11 @@ export function DiffSurfaceView({
           onLineLeave={rails.onLineLeave}
           renderGutterUtility={rails.gutterUtility}
         />
-      </Scrollable>
+      </ScrollArea>
       <div className="dsh-studio-diff-context-bar">
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
           disabled={expanding || context >= DIFF_CONTEXT_LIMIT}
           onClick={() => {
             setExpanding(true)
@@ -218,7 +220,7 @@ export function DiffSurfaceView({
           }}
         >
           {expanding ? t('workspace.loading-diff') : t('diff.expand-context', { current: context, next: Math.min(DIFF_CONTEXT_LIMIT, context + DIFF_CONTEXT_STEP) })}
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -413,7 +415,7 @@ export function DiffAllSurfaceView({
             })
           }}
         />
-        <Scrollable className="dsh-studio-diff-all-stack" ref={listRef}>
+        <ScrollArea className="dsh-studio-diff-all-stack" ref={listRef}>
           <MultiDiffFileStack
             files={files}
             renderedKeys={renderedKeys}
@@ -427,7 +429,7 @@ export function DiffAllSurfaceView({
             cwd={surface.cwd}
           />
           {expanding.size > 0 ? <LoadingState label={t('workspace.loading-diff')} /> : null}
-        </Scrollable>
+        </ScrollArea>
       </div>
     </div>
   )

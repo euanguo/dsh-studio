@@ -17,7 +17,7 @@ import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.t
 import { FLAT_SESSION_ORDER_KEY } from './stores.ts'
 import { WorkspaceBrowserCss as css } from './styles.js'
 import { cn } from './shim/cn.ts'
-import { EmptyState, LoadingState, StatusLine } from '@dsh-studio/shared/ui'
+import { EmptyState, LoadingState, ScrollArea, StatusLine } from '@dsh-studio/shared/ui'
 
 /** Immutable membership toggle for the local expand-all array. */
 function toggled(list: readonly string[], key: string): string[] {
@@ -318,10 +318,10 @@ export function SessionTree({
   return (
     <div className={cn(css.treeBody, css.wide)}>
       {workspaceDropAtListStart && <span className={css.listTopDropIndicator} aria-hidden="true" />}
-      <div
-        className={cn(css.list, workspaceDropAtListStart && css.listTopDropActive)}
-        role="tree"
-        aria-label={t('section.sessions')}
+      <ScrollArea
+        className={css.listScroll}
+        viewportClassName={cn(css.list, workspaceDropAtListStart && css.listTopDropActive)}
+        viewportProps={{ role: 'tree', 'aria-label': t('section.sessions') }}
       >
         {groups.length === 0 && (
           <EmptyState className={css.empty} title={t('empty.none')} />
@@ -472,7 +472,7 @@ export function SessionTree({
             </div>
           )
         })}
-      </div>
+      </ScrollArea>
       <span className={css.fade} />
     </div>
   )
@@ -568,7 +568,11 @@ export function FlatList({
   const now = Date.now()
   return (
     <div className={cn(css.treeBody, css.wide)}>
-      <div className={cn(css.list, css.flatList)} role="tree" aria-label={t('section.sessions')}>
+      <ScrollArea
+        className={css.listScroll}
+        viewportClassName={cn(css.list, css.flatList)}
+        viewportProps={{ role: 'tree', 'aria-label': t('section.sessions') }}
+      >
         {rows.length === 0 && (
           <EmptyState className={css.empty} title={t('empty.none')} />
         )}
@@ -609,7 +613,7 @@ export function FlatList({
             />
           )
         })}
-      </div>
+      </ScrollArea>
       <span className={css.fade} />
     </div>
   )
@@ -655,7 +659,7 @@ export function SearchResults({
 
   return (
     <div className={cn(css.treeBody, css.wide)}>
-      <div className={css.list}>
+      <ScrollArea className={css.listScroll} viewportClassName={css.list}>
         {header}
         <div className={css.searchTree} role="tree" aria-label={t('search.results.aria')}>
           {results.items.map(result => (
@@ -678,7 +682,7 @@ export function SearchResults({
             {t('search.hasMore', { n: resultLimit })}
           </div>
         )}
-      </div>
+      </ScrollArea>
       <span className={css.fade} />
     </div>
   )

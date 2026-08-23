@@ -19,7 +19,7 @@ import {
 import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffPathTreeNav } from '../diff/path-tree-nav.tsx'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
 import { usePierreDiffTheme, type PierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { useLazyDiffBlockMount } from '../diff/use-lazy-diff-block-mount.ts'
@@ -57,7 +57,7 @@ function CommitFileBlock({
         <span title={file.path}>{file.path}</span>
         <small><b>+{file.additions}</b> −{file.deletions}</small>
       </summary>
-      <Scrollable className="dsh-studio-commit-surface-lines" ref={bodyRef}>
+      <ScrollArea className="dsh-studio-commit-surface-lines" viewportClassName="dsh-studio-ui-scroll-viewport-inset" ref={bodyRef}>
         {releasedHeight !== null ? (
           <div
             className="dsh-studio-commit-released"
@@ -74,7 +74,7 @@ function CommitFileBlock({
             cacheBust={cacheBust}
           />
         ) : null}
-      </Scrollable>
+      </ScrollArea>
     </details>
   )
 }
@@ -160,14 +160,14 @@ export function CommitDiffSurfaceView({
             })
           }}
         />
-        <Scrollable className="dsh-studio-commit-surface-body" ref={bodyRef}>
+        <ScrollArea className="dsh-studio-commit-surface-body" ref={bodyRef}>
           <CommitFileStack
             files={files}
             theme={theme}
             t={t}
             cacheBust={`commit:${surface.hash}`}
           />
-        </Scrollable>
+        </ScrollArea>
       </div>
     </div>
   )
@@ -221,7 +221,7 @@ export function CommitFileSurfaceView({
         <span title={surface.filePath}>{surface.filePath}</span>
         <small>{surface.hash.slice(0, 7)}</small>
       </div>
-      <Scrollable className="dsh-studio-diff-surface-body">
+      <ScrollArea className="dsh-studio-diff-surface-body">
         <DiffViewer
           document={document}
           theme={theme}
@@ -229,7 +229,7 @@ export function CommitFileSurfaceView({
           hideMeta
           cacheBust={`${surface.hash}:${surface.filePath}`}
         />
-      </Scrollable>
+      </ScrollArea>
     </div>
   )
 }
@@ -304,14 +304,14 @@ function CommittedAllDiffView({
             })
           }}
         />
-        <Scrollable className="dsh-studio-commit-surface-body" ref={bodyRef}>
+        <ScrollArea className="dsh-studio-commit-surface-body" ref={bodyRef}>
           <CommitFileStack
             files={files}
             theme={theme}
             t={t}
             cacheBust={`committed:${surface.baseRef}`}
           />
-        </Scrollable>
+        </ScrollArea>
       </div>
     </div>
   )
@@ -364,7 +364,7 @@ function CommittedFileDiffView({
         <span title={filePath}>{filePath}</span>
         <small>{surface.baseRef}</small>
       </div>
-      <Scrollable className="dsh-studio-diff-surface-body">
+      <ScrollArea className="dsh-studio-diff-surface-body">
         <DiffViewer
           document={document}
           theme={theme}
@@ -372,7 +372,7 @@ function CommittedFileDiffView({
           hideMeta
           cacheBust={`${surface.baseRef}:${filePath}`}
         />
-      </Scrollable>
+      </ScrollArea>
     </div>
   )
 }

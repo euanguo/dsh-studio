@@ -67,43 +67,31 @@
   text-overflow: ellipsis;
 }
 
-.dsh-studio-terminal-tab-close,
-.dsh-studio-terminal-add {
-  border: 0;
-  font: inherit;
-  cursor: pointer;
-}
-
+/* The "new shell" trigger is a shared ToolbarAction (ghost) now — hover and
+   engaged washes come from the kit; only its square seat stays. The per-tab
+   close control remains tab chrome (15px, embedded in the chip). */
 .dsh-studio-terminal-tab-close {
   display: grid;
   place-items: center;
   width: 15px;
   height: 15px;
   padding: 0;
+  border: 0;
   border-radius: 4px;
   background: transparent;
   color: var(--dsw-alias-label-dimmed, #8c959f);
+  font: inherit;
   line-height: 1;
+  cursor: pointer;
 }
 
-.dsh-studio-terminal-tab-close:hover,
-.dsh-studio-terminal-add:hover {
+.dsh-studio-terminal-tab-close:hover {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
   color: var(--dsw-alias-label-primary, #1f2328);
 }
 
-.dsh-studio-terminal-add {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: var(--dsh-studio-control-sm);
-  height: var(--dsh-studio-control-sm);
-  padding: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--dsh-studio-font-2xl);
-}
+/* "New shell" trigger: shared ToolbarAction (ghost) — the shared 28×28
+   square seat replaces the old local seat geometry. */
 
 .dsh-studio-terminal-hint {
   padding-left: var(--dsh-studio-space-0);

@@ -16,7 +16,7 @@ import 'katex/dist/katex.min.css'
 import { codeToHtml } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { findTaskMarkerSourceLines } from './markdown-task-list.ts'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 
 export interface MarkdownViewerProps {
   content: string
@@ -39,7 +39,7 @@ export function MarkdownViewer({
   let taskCursor = -1
 
   return (
-    <Scrollable ref={containerRef} className="dsh-studio-content-markdown" data-testid="markdown-viewer">
+    <ScrollArea ref={containerRef} className="dsh-studio-content-markdown" viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="markdown-viewer">
       {headings.length > 1 ? (
         <nav className="dsh-studio-markdown-toc" aria-label="Table of contents">
           {headings.map(heading => (
@@ -117,7 +117,7 @@ export function MarkdownViewer({
       >
         {content}
       </ReactMarkdown>
-    </Scrollable>  
+    </ScrollArea>  
   )
 }
 

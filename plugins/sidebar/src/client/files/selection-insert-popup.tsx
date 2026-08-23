@@ -11,6 +11,7 @@
  * (`ReviewCommentsService.appendToComposer`).
  */
 import { useEffect, useRef, useState, type RefObject } from 'react'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
@@ -165,15 +166,16 @@ export function SelectionInsertPopup({
           ? t('files.selection-over-limit')
           : `${popup.text.length} chars${lineLabel === '' ? '' : ` · ${lineLabel}`}`}
       </span>
-      <button
-        type="button"
+      <Button
+        variant="outline"
+        size="sm"
         onClick={() => {
           onAddSelection(payload)
           setPopup(null)
         }}
       >
         {t('files.selection-add')}
-      </button>
+      </Button>
     </div>
   )
 }

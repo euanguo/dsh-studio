@@ -24,11 +24,22 @@ import type { WorkbenchComment } from './diff-comments-store.ts'
 /** Light/dark theme names Pierre understands. */
 export type PierreDiffTheme = 'github-light' | 'github-dark'
 
-/** Resolve the current theme from the DSH theme attribute. */
+/**
+ * Resolve the current theme from the DSH theme attribute, falling back to
+ * the pane's actual background luminance when the attribute is absent (a
+ * dark-rendered panes can sit under a nominal light skin). The edited
+ * canvas must read like the pane it lives in.
+ */
 export function resolvePierreDiffTheme(): PierreDiffTheme {
-  const dark = typeof document !== 'undefined'
-    && document.body?.dataset.dsDarkTheme !== undefined
-  return dark ? 'github-dark' : 'github-light'
+  if (typeof document === 'undefined') return 'github-light'
+  if (document.body?.dataset.dsDarkTheme !== undefined) return 'github-dark'
+  const bg = getComputedStyle(document.body).backgroundColor
+  const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(bg)
+  if (m !== null) {
+    const luminance = (0.299 * Number(m[1]) + 0.587 * Number(m[2]) + 0.114 * Number(m[3])) / 255
+    if (luminance < 0.5) return 'github-dark'
+  }
+  return 'github-light'
 }
 
 /**

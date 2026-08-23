@@ -27,7 +27,8 @@ preserves a retired DSH Studio name or prop list.
 
 | Need | Official export |
 | --- | --- |
-| Button | `Button` (`primary` / `ghost` / `outline` / `toolbar`; `sm` / `md`) |
+| Button (labeled actions) | `Button` (`primary` / `ghost` / `outline` / `toolbar`; `sm` / `md`) |
+| Button (icon-only strip actions) | `ToolbarAction` from `@dsh-studio/shared/ui` — the compact icon form: 28×28 square footprint, ghost, secondary label, skin-rounded corners (the skins layer owns `border-radius`, do not override it). The official `sm` capsule is for labeled actions only; do not use it for pure icon buttons. |
 | Single-line field | `Input` |
 | Dropdown or context menu | `Menu` (`portal` when an ancestor clips) |
 | Dialog | `Modal` |

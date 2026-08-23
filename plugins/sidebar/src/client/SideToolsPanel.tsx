@@ -1,5 +1,4 @@
 import {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -52,7 +51,7 @@ import {
   resolveCapabilitiesPath,
 } from '@dsh-studio/shared/path'
 import type { WorkspaceFilesResponse, WorkspaceFileEntry, WorkspaceFileKind } from '../protocol.ts'
-import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
+import { EmptyState, ErrorState, LoadingState, ToolbarAction, useMenuAnchor } from '@dsh-studio/shared/ui'
 import {
   sidebarApi,
   mapSidebarFile,
@@ -71,7 +70,7 @@ import { FilenameLabel } from '@dsh-studio/shared/filename-label'
 import { SurfaceTab } from '@dsh-studio/shared/ui'
 import { bindTabStripWheel } from '@dsh-studio/shared/tab-strip-wheel'
 import { useTabStripDrag } from './use-tab-strip-drag.ts'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 import { useSidebarChromeStore } from './runtimes/chrome-store.ts'
 import { binding, formatKeymapHint } from './kit/keymap.ts'
 import { alertDialog, confirmDialog, promptDialog } from './kit/dialog.tsx'
@@ -199,7 +198,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
     descriptor.hidden !== true && props.sidebar.isTabEnabled(descriptor.id),
   )
   return (
-    <Scrollable className="dsh-studio-side-menu">
+    <ScrollArea className="dsh-studio-side-menu" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
       {descriptors.map(descriptor => {
         const availability = tabAvailability(descriptor, scope, snapshot, props.sidebar.isTabEnabled(descriptor.id))
         const unavailableArea = unavailableTitle(availability, props.t)
@@ -214,13 +213,14 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
         )
       })}
       {error !== '' && <ErrorState message={error} />}
-      <button
-        type="button"
+      <ToolbarAction
+        variant="ghost"
         className="dsh-studio-side-menu-close"
-        aria-label={props.t('side.close')}
+        icon={<IconClose size={16} />}
+        label={props.t('side.close')}
         onClick={props.onClose}
-      ><IconClose size={16} /></button>
-    </Scrollable>
+      />
+    </ScrollArea>
   )
 }
 function OrphanedTab({ tab, t }: {
@@ -339,12 +339,7 @@ function AddToolsMenu({ sidebar, t }: {
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
-  const [open, setOpen] = useState(false)
-  const anchorRef = useRef<HTMLButtonElement | null>(null)
-  const getAnchorRect = useCallback(
-    () => anchorRef.current?.getBoundingClientRect() ?? null,
-    [],
-  )
+  const { open, toggle, anchorRef, getAnchorRect } = useMenuAnchor()
   const descriptors = sidebar.getTabs().filter(descriptor =>
     descriptor.hidden !== true
     && sidebar.isTabEnabled(descriptor.id)
@@ -359,14 +354,15 @@ function AddToolsMenu({ sidebar, t }: {
     }))
   return (
     <div className="dsh-studio-add-tools">
-      <button
+      <ToolbarAction
         ref={anchorRef}
-        type="button"
-        aria-label={t('side.add-tool')}
+        variant="ghost"
+        className="dsh-studio-add-tools-trigger"
+        icon={<IconPlus size={14} />}
+        label={t('side.add-tool')}
         aria-expanded={open}
-        title={t('side.add-tool')}
-        onClick={() => { setOpen(value => !value) }}
-      ><IconPlus size={14} /></button>
+        onClick={toggle}
+      />
       <Menu
         open={open}
         anchor={null}
@@ -376,9 +372,9 @@ function AddToolsMenu({ sidebar, t }: {
         getAnchorRect={getAnchorRect}
         onSelect={(id) => {
           sidebar.openTab({ type: id })
-          setOpen(false)
+          close()
         }}
-        onClose={() => { setOpen(false) }}
+        onClose={close}
       />
     </div>
   )
@@ -488,24 +484,24 @@ function PanelActions({
   // mounts (see plugins/panel-controls).
   return (
     <div className="dsh-studio-side-tabs-actions" role="presentation">
-      <button
-        type="button"
-        aria-label={t('side.expand')}
-        aria-pressed={maximized}
-        title={maximized ? t('side.restore') : t('side.expand')}
+      <ToolbarAction
+        variant="ghost"
+        icon={maximized ? <IconRestore size={16} /> : <IconMaximize size={16} />}
+        label={maximized ? t('side.restore') : t('side.expand')}
+        pressed={maximized}
         onClick={onToggleMaximized}
-      >{maximized ? <IconRestore size={16} /> : <IconMaximize size={16} />}</button>
-      <button
-        type="button"
-        aria-label={t('side.toggle')}
-        aria-pressed={open}
-        title={`${t('side.title')} (${formatKeymapHint(binding({ mod: true, alt: true, key: 'b' }))})`}
+      />
+      <ToolbarAction
+        variant="ghost"
+        icon={(
+          <span className="dsh-studio-side-toggle-glyph" aria-hidden="true">
+            <IconSidebarRightFilled />
+          </span>
+        )}
+        label={`${t('side.title')} (${formatKeymapHint(binding({ mod: true, alt: true, key: 'b' }))})`}
+        pressed={open}
         onClick={onToggleSide}
-      >
-        <span className="dsh-studio-side-toggle-glyph" aria-hidden="true">
-          <IconSidebarRightFilled />
-        </span>
-      </button>
+      />
     </div>
   )
 }

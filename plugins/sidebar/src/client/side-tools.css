@@ -179,15 +179,6 @@
 .dsh-studio-subagent-head strong {
   font-size: var(--dsh-studio-font-md);
 }
-.dsh-studio-subagent-head button {
-  padding: 2px var(--dsh-studio-space-2);
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--dsh-studio-font-sm);
-  cursor: pointer;
-}
 .dsh-studio-subagent-tree,
 .dsh-studio-subagent-jobs {
   margin: 0;
@@ -316,19 +307,6 @@
   background: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 12%, transparent);
   color: var(--dsw-alias-state-error-primary, #cf222e);
 }
-.dsh-studio-subagent-job-actions button {
-  padding: 2px var(--dsh-studio-space-2);
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--dsh-studio-font-xs);
-  cursor: pointer;
-}
-.dsh-studio-subagent-job-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
 .dsh-studio-subagent-job-output {
   margin: 0;
   max-height: 160px;
@@ -355,24 +333,9 @@
   padding-left: var(--dsh-studio-space-2);
 }
 
-.dsh-studio-side-tabs-actions button {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-  cursor: pointer;
-}
-
-.dsh-studio-side-tabs-actions button:hover,
-.dsh-studio-side-tabs-actions button[aria-pressed='true'] {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
+/* Window controls are shared ToolbarActions (ghost): the 28×28 square seat,
+   resting color, and hover/pressed washes all come from the shared
+   toolbar-action rules. Only the glyph shaping stays here. */
 
 .dsh-studio-side-tabs-actions svg {
   width: 16px;
@@ -409,25 +372,15 @@
 
 /* Close button for the menu view: the menu has no tab row, so it keeps its
    own way to dismiss the panel (the top row's side-panel toggle is the
-   other way). */
+   other way). The button atom owns its visual states. */
 .dsh-studio-side-menu-close {
   position: absolute;
   top: var(--dsh-studio-space-2);
   right: var(--dsh-studio-space-2);
-  display: grid;
-  place-items: center;
   width: var(--dsh-studio-control-md);
   height: var(--dsh-studio-control-md);
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
+  padding: 0;
   color: var(--dsw-alias-label-secondary, #57606a);
-  cursor: pointer;
-}
-
-.dsh-studio-side-menu-close:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
 }
 
 .dsh-studio-side-tool-row {
@@ -475,36 +428,9 @@
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
-.dsh-studio-browser-bar > span,
-.dsh-studio-browser-bar button,
-.dsh-studio-files-path button,
-.dsh-studio-file-preview button {
-  display: grid;
-  place-items: center;
-  min-width: var(--dsh-studio-control-md);
-  height: var(--dsh-studio-control-md);
-  padding: 0 var(--dsh-studio-space-2);
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
-  color: inherit;
-  cursor: pointer;
-}
-
-.dsh-studio-browser-bar button:disabled,
-.dsh-studio-files-path button:disabled { opacity: 0.35; cursor: default; }
-
-/* Browser-bar trigger hover wash (the browser bar keeps its filled 28px
-   toolbar buttons). */
-.dsh-studio-browser-bar button:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 8%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
-.dsh-studio-browser-bar > span {
-  flex: 1;
-  min-width: 0;
-}
+/* Panel-header icon controls (files path bar, preview popup) are shared
+   ToolbarAction / official Button now; the old filled descendant-button rules
+   and the dead `.browser-bar` host styles are gone with them. */
 
 .dsh-studio-browser-host { flex: 1; min-height: 0; }
 .dsh-studio-browser-webview { display: flex; width: 100%; height: 100%; }
@@ -525,29 +451,13 @@
 }
 .dsh-studio-file-list { flex: 1; }
 .dsh-studio-file-preview { flex: 1; }
-.dsh-studio-file-preview > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: var(--dsh-studio-space-2); margin-bottom: var(--dsh-studio-space-2); }
 .dsh-studio-file-preview strong { overflow: hidden; font-size: var(--dsh-studio-font-md); text-overflow: ellipsis; white-space: nowrap; }
 .dsh-studio-file-preview pre { margin: 0; font: var(--dsh-studio-font-sm)/1.55 var(--dsh-studio-font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 .dsh-studio-html-preview { display: flex; flex-direction: column; }
 .dsh-studio-html-preview iframe { flex: 1; min-height: 280px; border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%)); border-radius: var(--dsh-studio-radius-md); background: #fff; }
 
-/* HTML preview unsandboxed escape hatch: the unlock/restore button in the
-   toolbar and the red warning row (tokens only; the diff family uses the
-   same state-error aliases). */
-.dsh-studio-html-toolbar button {
-  flex: none;
-  padding: 2px var(--dsh-studio-space-2);
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--dsh-studio-font-sm);
-  cursor: pointer;
-}
-.dsh-studio-html-toolbar button:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 8%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
+/* HTML preview unsandboxed escape hatch: the official Button owns the
+   unlock/restore action; only the red warning row is local chrome. */
 .dsh-studio-html-warning {
   margin: 0 0 var(--dsh-studio-space-2) 0;
   padding: var(--dsh-studio-space-1-5) var(--dsh-studio-space-2);
@@ -584,19 +494,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dsh-studio-selection-insert button {
-  flex: none;
-  padding: 3px var(--dsh-studio-space-2);
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-  font-size: var(--dsh-studio-font-sm);
-  cursor: pointer;
-}
-.dsh-studio-selection-insert button:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 9%));
-}
+/* The "add selection" trigger is an official outline Button now; its bespoke
+   button rules are gone. */
 .dsh-studio-side-empty,
 .dsh-studio-side-muted { padding: 18px; color: var(--dsw-alias-label-tertiary, #8c959f); font-size: var(--dsh-studio-font-sm); }
 
@@ -732,33 +631,6 @@
 
 /* ---------- File browser (tree mode) ---------- */
 
-/* Files header icon triggers (new-file menu, refresh) mirror the panel
-   action buttons in the top-right corner (26px, transparent, dimmed
-   glyph, radius-sm, hover wash only) — not the filled browser-bar wash.
-   Row-scoped actions (rename/copy/delete) live on the rows themselves:
-   hover reveals a ⋯ button (shared list-row actions) that opens the same
-   context menu at the row; the header never shows them. */
-.dsh-studio-files-path > button {
-  display: grid;
-  place-items: center;
-  min-width: 26px;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  flex: none;
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-  cursor: pointer;
-}
-
-.dsh-studio-files-path > button:hover,
-.dsh-studio-files-path > button[aria-expanded='true'] {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
 /* Inline create editor row: the official Input sits on a flex row aligned
    with the tree indent ladder (same --tree-depth math as file rows). */
 .dsh-studio-files-inline-main {
@@ -835,25 +707,8 @@
   align-items: center;
 }
 
-/* The [+] trigger: plain icon button, same geometry as the window controls. */
-.dsh-studio-add-tools > button {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-tertiary, #8c959f);
-  cursor: pointer;
-}
-
-.dsh-studio-add-tools > button:hover,
-.dsh-studio-add-tools > button[aria-expanded='true'] {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
+/* The [+] trigger is a shared ToolbarAction (ghost); the shared 28×28
+   square seat replaces the old local geometry. */
 
 /* Any official Menu opened in portal mode (list portaled to document.body)
    must float above the sidebar's own fixed root (z-index 2147483647, the

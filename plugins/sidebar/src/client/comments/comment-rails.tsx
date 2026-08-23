@@ -27,6 +27,8 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { ToolbarAction } from '@dsh-studio/shared/ui'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { WorkbenchComment } from '../diff/diff-comments-store.ts'
@@ -126,11 +128,11 @@ export function useCommentRails(options: CommentRailsOptions): CommentRails {
     if (composing !== null && composing.line === line) return null
     if (hasCommentAt(line)) return null
     return (
-      <button
-        type="button"
+      <ToolbarAction
+        variant="ghost"
         className="dsh-studio-comment-rail-add"
-        aria-label={t('comments.add-line')}
-        title={t('comments.add-line')}
+        icon={<span aria-hidden="true">+</span>}
+        label={t('comments.add-line')}
         onClick={() => {
           const rect = hoveredRef.current?.rect
           if (rect === undefined) return
@@ -142,7 +144,7 @@ export function useCommentRails(options: CommentRailsOptions): CommentRails {
           })
           setBody('')
         }}
-      >+</button>
+      />
     )
   }, [composing, hasCommentAt, t])
 
@@ -179,18 +181,13 @@ export function useCommentRails(options: CommentRailsOptions): CommentRails {
         />
         <div className="dsh-studio-comment-compose-actions">
           {onReference !== undefined ? (
-            <button
-              type="button"
-              className="dsh-studio-comment-compose-reference"
-              onClick={referenceInChat}
-            >{t('comments.reference')}</button>
+            <Button variant="outline" size="sm" onClick={referenceInChat}>
+              {t('comments.reference')}
+            </Button>
           ) : null}
-          <button
-            type="button"
-            className="dsh-studio-comment-compose-commit"
-            disabled={empty}
-            onClick={commit}
-          >{t('comments.add')}</button>
+          <Button variant="primary" size="sm" disabled={empty} onClick={commit}>
+            {t('comments.add')}
+          </Button>
         </div>
       </div>,
       layer,

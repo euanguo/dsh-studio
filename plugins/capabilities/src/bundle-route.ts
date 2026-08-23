@@ -80,7 +80,10 @@ export function createBundleRouteHandler(
       return
     }
     const pathname = new URL(req.url ?? '/', 'http://dsh.internal').pathname
-    const match = /^\/sidebar\/bundle\/([a-z0-9-]+)\.js$/.exec(pathname)
+    // Keep in sync with the prefix route path above: the chunk route moved
+    // from /sidebar/bundle to /capabilities/bundle (c8100c0) and this regex
+    // must match the mounted prefix exactly.
+    const match = /^\/capabilities\/bundle\/([a-z0-9-]+)\.js$/.exec(pathname)
     const name = match?.[1] as ChunkName | undefined
     if (name === undefined || !(CHUNK_NAMES as readonly string[]).includes(name)) {
       res.writeHead(404)

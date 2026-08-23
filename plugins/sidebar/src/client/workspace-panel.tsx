@@ -66,7 +66,7 @@ import {
   ListRowMain,
   ListRowTrailing,
 } from '@dsh-studio/shared/ui'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 import {
   buildSourceControlRows,
   type SourceControlListMode,
@@ -661,7 +661,7 @@ export function WorkspacePanel({
         ? <EmptyState title={t('workspace.select')} />
         : (
           <>
-            <Scrollable className="dsh-studio-workspace-content">
+            <ScrollArea className="dsh-studio-workspace-content">
             {error !== '' && <ErrorState message={error} />}
 
             {snapshot?.kind === 'repository' && (
@@ -803,7 +803,7 @@ export function WorkspacePanel({
                 removed from the surface (see .agent-workflows audit); the
                 branch select in the commit area above still covers
                 checkout. */}
-          </Scrollable>
+          </ScrollArea>
 
           {snapshot?.kind === 'repository' && (
             <section className="dsh-studio-review-history">
@@ -833,7 +833,7 @@ export function WorkspacePanel({
                 />
               </div>
               {!historyCollapsed && (
-                <Scrollable
+                <ScrollArea
                   className="dsh-studio-review-commit-list"
                   style={{ maxHeight: historyHeight }}
                 >
@@ -889,7 +889,7 @@ export function WorkspacePanel({
                   {history.length === 0 && (
                     <EmptyState title={t('workspace.no-commits')} />
                   )}
-                </Scrollable>
+                </ScrollArea>
               )}
             </section>
           )}

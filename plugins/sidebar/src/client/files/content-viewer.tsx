@@ -21,7 +21,7 @@ import {
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { basename } from '@dsh-studio/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { EmptyState, ErrorState, LoadingState, Scrollable, ToolbarAction } from '@dsh-studio/shared/ui'
+import { EmptyState, ErrorState, LoadingState, ScrollArea, SurfaceToolbar, ToolbarAction } from '@dsh-studio/shared/ui'
 import { isPlainLanguage, languageForPath, MAX_NUMBERED_LINES } from './language.ts'
 import { PierreFileView } from './pierre-file-view.tsx'
 import type { CommentRails } from '../comments/comment-rails.tsx'
@@ -135,7 +135,7 @@ export function ContentViewer({
 }: ContentViewerProps): JSX.Element {
   const kind = detectKind(path, binary)
   const name = basename(path)
-  // The selection-insert popup host: the markdown preview (its Scrollable)
+  // The selection-insert popup host: the markdown preview (its ScrollArea)
   // and the Pierre code/plain rows share ONE ref — only one branch renders
   // at a time. Rendered inline so its document listeners reset when the
   // opened file changes.
@@ -349,7 +349,7 @@ function CsvVirtualTable({ rows }: { rows: string[][] }): JSX.Element {
   const topSpacer = items[0]?.start ?? 0
   const bottomSpacer = Math.max(0, virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0))
   return (
-    <Scrollable axis="both" className="dsh-studio-content-table-wrap" ref={parentRef}>
+    <ScrollArea axis="both" className="dsh-studio-content-table-wrap" viewportClassName="dsh-studio-ui-scroll-viewport-inset" ref={parentRef}>
       <table className="dsh-studio-content-table dsh-studio-content-table-virtual">
         {header.length > 0 ? (
           <thead>
@@ -371,7 +371,7 @@ function CsvVirtualTable({ rows }: { rows: string[][] }): JSX.Element {
           {bottomSpacer > 0 ? <tr aria-hidden="true"><td style={{ height: bottomSpacer, padding: 0 }} /></tr> : null}
         </tbody>
       </table>
-    </Scrollable>
+    </ScrollArea>
   )
 }
 
@@ -410,28 +410,32 @@ function ImageViewer({
         />
       ) : (
         <>
-          <div className="dsh-studio-image-toolbar">
-            <ToolbarAction
-              icon={<IconMinus size={14} />}
-              label={t('files.zoom-out')}
-              onClick={() => setZoom(value => Math.max(0.25, value - 0.25))}
-            />
-            <span>{`${Math.round(zoom * 100)}%`}</span>
-            <ToolbarAction
-              icon={<IconPlus size={14} />}
-              label={t('files.zoom-in')}
-              onClick={() => setZoom(value => Math.min(8, value + 0.25))}
-            />
-            <Button variant="ghost" size="sm" onClick={() => setZoom(1)}>{t('files.zoom-reset')}</Button>
-            {onOpenExternal !== undefined ? (
-              <ToolbarAction
-                icon={<IconExternalLink size={14} />}
-                label={t('files.open-externally')}
-                onClick={onOpenExternal}
-              />
-            ) : null}
-          </div>
-          <Scrollable axis="both" className="dsh-studio-content-media-stage">
+          <SurfaceToolbar
+            meta={<span className="dsh-studio-image-zoom">{`${Math.round(zoom * 100)}%`}</span>}
+            actions={(
+              <>
+                <ToolbarAction
+                  icon={<IconMinus size={14} />}
+                  label={t('files.zoom-out')}
+                  onClick={() => setZoom(value => Math.max(0.25, value - 0.25))}
+                />
+                <ToolbarAction
+                  icon={<IconPlus size={14} />}
+                  label={t('files.zoom-in')}
+                  onClick={() => setZoom(value => Math.min(8, value + 0.25))}
+                />
+                <Button variant="ghost" size="sm" onClick={() => setZoom(1)}>{t('files.zoom-reset')}</Button>
+                {onOpenExternal !== undefined ? (
+                  <ToolbarAction
+                    icon={<IconExternalLink size={14} />}
+                    label={t('files.open-externally')}
+                    onClick={onOpenExternal}
+                  />
+                ) : null}
+              </>
+            )}
+          />
+          <ScrollArea axis="both" className="dsh-studio-content-media-stage" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
             {status === 'loading' ? <LoadingState className="dsh-studio-side-muted" label={t('files.image-loading')} /> : null}
             <img
               src={`data:${mime};base64,${data}`}
@@ -442,7 +446,7 @@ function ImageViewer({
               onLoad={() => setStatus('ready')}
               onError={() => setStatus('error')}
             />
-          </Scrollable>
+          </ScrollArea>
         </>
       )}
     </div>
@@ -461,16 +465,19 @@ function PdfViewer({
   const name = basename(path)
   return (
     <div className="dsh-studio-content-media">
-      <div className="dsh-studio-pdf-toolbar">
-        <span title={path}>{name}</span>
-        {onOpenExternal !== undefined ? (
-          <ToolbarAction
-            icon={<IconExternalLink size={14} />}
-            label="Open externally"
-            onClick={onOpenExternal}
-          />
-        ) : null}
-      </div>
+      <SurfaceToolbar
+        className="dsh-studio-pdf-toolbar"
+        leading={<span className="dsh-studio-pdf-title" title={path}>{name}</span>}
+        actions={onOpenExternal === undefined
+          ? undefined
+          : (
+            <ToolbarAction
+              icon={<IconExternalLink size={14} />}
+              label="Open externally"
+              onClick={onOpenExternal}
+            />
+          )}
+      />
       <iframe title={name} src={`data:application/pdf;base64,${data}`} />
     </div>
   )

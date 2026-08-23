@@ -107,11 +107,9 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   display: flex;
   flex-direction: column;
   flex: 1;
-  /* Multi-layer host: the scrollable owns only the scrollbar seat (right
-     edge); the sections below own their own padding (top/bottom/left) so
-     content keeps breathing room from each section's divider. The seat
-     stays at the default 8px. */
-  --dsh-studio-scrollable-inset: 0;
+  /* Multi-layer host: no universal scrollable inset (the sections below own
+     their own padding); only the shared scroll-gutter band stays on the
+     right so the floating thumb never covers content. */
 }
 
 .dsh-studio-workspace-content section {
@@ -442,16 +440,8 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   flex: 1;
 }
 
-.dsh-studio-file-viewer-chrome {
-  display: flex;
-  align-items: center;
-  gap: var(--dsh-studio-space-2);
-  height: 40px;
-  padding: 0 var(--dsh-studio-space-3);
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 94%, transparent);
-  flex: none;
-}
+/* Bar geometry is owned by the shared SurfaceToolbar (same strip as the
+   editor and diff states); only breadcrumb typography stays here. */
 
 .dsh-studio-file-viewer-breadcrumb {
   display: flex;
@@ -506,41 +496,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   color: var(--dsw-alias-state-warning-primary, #9a6700);
 }
 
-.dsh-studio-file-viewer-mode-switch {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  height: 28px;
-  padding: 2px;
-  border-radius: var(--dsh-studio-radius-md);
-  background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 5%));
-  flex: none;
-}
-
-.dsh-studio-file-viewer-mode-button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 24px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.dsh-studio-file-viewer-mode-button:hover {
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
-.dsh-studio-file-viewer-mode-button.is-selected {
-  background: var(--dsw-alias-bg-base, #fff);
-  color: var(--dsw-alias-label-primary, #1f2328);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 12%);
-}
-
 .dsh-studio-file-surface-body {
   flex: 1;
 }
@@ -551,7 +506,15 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   overflow: hidden;
 }
 
-.dsh-studio-file-surface-body:has(.dsh-studio-pierre-file-host) > .dsh-studio-content-root-fill {
+/* The ScrollArea viewport is a plain block scroller; immersive Pierre
+   content needs the old flex-fill contract ("the scroll container itself is
+   a flex column"), so re-establish it on the viewport instead of the body. */
+.dsh-studio-file-surface-body:has(.dsh-studio-pierre-file-host) .dsh-studio-scrollable-viewport {
+  display: flex;
+  flex-direction: column;
+}
+
+.dsh-studio-file-surface-body:has(.dsh-studio-pierre-file-host) .dsh-studio-scrollable-viewport > .dsh-studio-content-root-fill {
   flex: 1;
   min-height: 0;
   height: auto;
@@ -600,6 +563,18 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   flex: 1;
   overflow: auto;
   scrollbar-gutter: stable;
+}
+
+/* The Pierre canvas must read as the pane base: pin the shadow-internal
+   `--diffs-bg` AND the host background (whose rendered-theme layer would
+   otherwise hardcode the editor theme's own fill, e.g. github-dark's
+   #24292e) to the app token. A document rule targeting the custom element
+   outranks the shadow `:host` theme layer; derived fills
+   (--diffs-bg-context/-separator/…) mix from --diffs-bg and follow. */
+.dsh-studio-pierre-file-host diffs-container,
+.dsh-studio-editor-host diffs-container {
+  --diffs-bg: var(--dsw-alias-bg-base, #ffffff);
+  background: var(--dsw-alias-bg-base, #ffffff);
 }
 
 .dsh-studio-content-markdown {
@@ -656,17 +631,7 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
 .dsh-studio-file-selection-action {
   position: fixed;
   z-index: 60;
-}
-
-.dsh-studio-file-selection-action button {
-  padding: 6px 10px;
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: var(--dsw-alias-bg-base, #fff);
-  color: var(--dsw-alias-label-primary, #1f2328);
-  font-size: var(--dsh-studio-font-xs);
   box-shadow: 0 4px 12px rgb(0 0 0 / 16%);
-  cursor: pointer;
 }
 
 /* ---------- image / pdf preview chrome ---------- */
@@ -680,19 +645,7 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   flex: 1;
 }
 
-.dsh-studio-image-toolbar,
-.dsh-studio-pdf-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--dsh-studio-space-2);
-  height: 32px;
-  padding: 0 var(--dsh-studio-space-2);
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  background: var(--dsw-alias-bg-base, #fff);
-  flex: none;
-}
-
-.dsh-studio-image-toolbar span {
+.dsh-studio-image-zoom {
   min-width: 44px;
   text-align: center;
   font-size: var(--dsh-studio-font-xs);
@@ -715,9 +668,7 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   transform-origin: center center;
 }
 
-.dsh-studio-pdf-toolbar span {
-  min-width: 0;
-  flex: 1;
+.dsh-studio-pdf-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -762,28 +713,8 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
 
 
 /* ---------- P2 diff toolbar / multi-file diff tree ---------- */
-
-.dsh-studio-diff-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--dsh-studio-space-2);
-  height: 34px;
-  padding: 0 var(--dsh-studio-space-2);
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  background: var(--dsw-alias-bg-base, #fff);
-  flex: none;
-}
-
-.dsh-studio-diff-toolbar-leading {
-  /* Flex, not block: the inline-flex title inside would otherwise ride the
-     text baseline and sit low in the bar (baseline alignment leaves the
-     descender gap below). Center it as a flex item instead. */
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  flex: 1;
-  overflow: hidden;
-}
+/* Bar geometry (height/padding/surface/divider) is owned by the shared
+   SurfaceToolbar; only the diff title typography stays here. */
 
 .dsh-studio-diff-toolbar-title {
   display: inline-flex;
@@ -807,13 +738,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   font-weight: 400;
 }
 
-.dsh-studio-diff-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: none;
-}
-
 .dsh-studio-diff-context-bar {
   padding: 6px var(--dsh-studio-space-2);
   border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
@@ -821,23 +745,13 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   flex: none;
 }
 
-.dsh-studio-diff-context-bar button {
-  padding: 4px 10px;
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--dsh-studio-font-xs);
-  cursor: pointer;
-}
-
-.dsh-studio-diff-context-bar button:hover:not(:disabled) {
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
-.dsh-studio-diff-context-bar button:disabled {
-  opacity: 0.5;
-  cursor: default;
+.dsh-studio-diff-context-bar {
+  display: flex;
+  align-items: center;
+  padding: 6px var(--dsh-studio-space-2);
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: var(--dsw-alias-bg-base, #fff);
+  flex: none;
 }
 
 .dsh-studio-diff-all-surface {
@@ -941,21 +855,8 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
 
 .dsh-studio-multi-diff-actions {
   display: flex;
-  gap: 4px;
-}
-
-.dsh-studio-multi-diff-actions button {
-  padding: 2px 8px;
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--dsh-studio-font-xs);
-  cursor: pointer;
-}
-
-.dsh-studio-multi-diff-actions button:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  align-items: center;
+  gap: var(--dsh-studio-space-1);
 }
 
 .dsh-studio-multi-diff-placeholder {
@@ -1039,21 +940,10 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   flex: 1;
 }
 
-.dsh-studio-editor-header {
-  display: flex;
-  align-items: center;
-  gap: var(--dsh-studio-space-2);
-  height: 34px;
-  padding: 0 var(--dsh-studio-space-2);
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  background: var(--dsw-alias-bg-base, #fff);
-  font-size: var(--dsh-studio-font-xs);
-  flex: none;
-}
-
-.dsh-studio-editor-header > span:first-child {
+/* Editor bar geometry is the shared SurfaceToolbar (same strip as view/diff);
+   only the title typography stays here. */
+.dsh-studio-editor-title {
   min-width: 0;
-  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1062,30 +952,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
 
 .dsh-studio-editor-dirty {
   color: var(--dsw-alias-state-warning-primary, #9a6700);
-}
-
-.dsh-studio-editor-actions {
-  display: flex;
-  gap: 6px;
-}
-
-.dsh-studio-editor-actions button {
-  padding: 3px 10px;
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--dsh-studio-font-xs);
-  cursor: pointer;
-}
-
-.dsh-studio-editor-actions button:hover:not(:disabled) {
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
-.dsh-studio-editor-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .dsh-studio-editor-host {
@@ -1113,20 +979,7 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   flex: 1;
 }
 
-.dsh-studio-conflict-header {
-  display: flex;
-  align-items: center;
-  gap: var(--dsh-studio-space-2);
-  height: 34px;
-  padding: 0 var(--dsh-studio-space-2);
-  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  font-size: var(--dsh-studio-font-xs);
-  flex: none;
-}
-
-.dsh-studio-conflict-header > span:first-child {
-  min-width: 0;
-  flex: 1;
+.dsh-studio-conflict-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1143,25 +996,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   color: var(--dsw-alias-label-tertiary, #8c959f);
   font-size: var(--dsh-studio-font-xs);
   flex: none;
-}
-
-.dsh-studio-conflict-actions button {
-  padding: 3px 10px;
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  font-size: var(--dsh-studio-font-xs);
-  cursor: pointer;
-}
-
-.dsh-studio-conflict-actions button:hover:not(:disabled) {
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
-.dsh-studio-conflict-actions button:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .dsh-studio-conflict-host {
@@ -1283,40 +1117,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
 }
 
 
-/* Diff comments */
-.dsh-studio-diff-comment button {
-  border: 0;
-  background: transparent;
-  color: var(--dsw-alias-label-dimmed, #8c959f);
-  cursor: pointer;
-}
-
-.dsh-studio-diff-comment-form {
-  display: flex;
-  gap: 6px;
-}
-
-.dsh-studio-diff-comment-form input[type='number'] {
-  width: 60px;
-}
-
-.dsh-studio-diff-comment-form input[type='text'] {
-  min-width: 0;
-  flex: 1;
-}
-
-.dsh-studio-diff-comment-form input,
-.dsh-studio-diff-comment-form button {
-  height: 24px;
-  padding: 0 8px;
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: var(--dsw-alias-bg-base, #fff);
-  color: var(--dsw-alias-label-primary, #1f2328);
-  font-size: var(--dsh-studio-font-xs);
-}
-
-
 /* Mermaid viewer (scrolling via the shared Scrollable host, axis both). */
 .dsh-studio-mermaid-viewer {
   /* Insets come from the Scrollable host (default 8px). */
@@ -1343,21 +1143,14 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   font-size: 12px;
 }
 
-/* ── Comment rails (R2): gutter "+" affordance + floating composer ── */
+/* ── Comment rails (R2): shared ToolbarAction gutter affordance + floating
+   composer. Only the compact geometry remains on the action class. ── */
 .dsh-studio-comment-rail-add {
-  appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--dsw-alias-fg-muted, inherit);
-  cursor: pointer;
-  font-size: 13px;
-  line-height: 1;
-  padding: 1px 5px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
   border-radius: 4px;
-}
-.dsh-studio-comment-rail-add:hover {
-  background: var(--dsw-alias-fill-hover, rgba(128,128,128,.2));
-  color: var(--dsw-alias-fg-default, inherit);
+  color: var(--dsw-alias-label-secondary, #57606a);
 }
 .dsh-studio-comment-compose {
   position: fixed;
@@ -1389,25 +1182,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
 .dsh-studio-comment-compose-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 6px;
-  margin-top: 6px;
-}
-.dsh-studio-comment-compose-actions button {
-  font: inherit;
-  font-size: 12px;
-  padding: 2px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  border: 1px solid var(--dsw-alias-border-default, #444);
-  background: transparent;
-  color: inherit;
-}
-.dsh-studio-comment-compose-commit {
-  background: var(--dsw-alias-accent-default, #4f8cff) !important;
-  color: #fff !important;
-  border-color: transparent !important;
-}
-.dsh-studio-comment-compose-commit:disabled {
-  opacity: .5;
-  cursor: default;
+  gap: var(--dsh-studio-space-1);
+  margin-top: var(--dsh-studio-space-1-5);
 }

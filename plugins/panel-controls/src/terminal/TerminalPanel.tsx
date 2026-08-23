@@ -164,13 +164,13 @@ export function TerminalPanel({ locale, t: translate, store, scopeKey, cwd, acti
               ><IconCloseOutline16 size={10} /></button>
             </span>
           ))}
-          <button
-            type="button"
+          <ToolbarAction
+            variant="ghost"
             className="dsh-studio-terminal-add"
+            icon={<IconPlusOutline16 size={13} />}
+            label={t('terminal.new-shell')}
             onClick={addTab}
-            title={t('terminal.new-shell')}
-            aria-label={t('terminal.new-shell')}
-          ><IconPlusOutline16 size={13} /></button>
+          />
           {state.tabs.length === 0 && <span className="dsh-studio-terminal-hint">{t('terminal')}</span>}
         </div>
         <div className="dsh-studio-terminal-actions">

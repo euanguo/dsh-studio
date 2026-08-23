@@ -1,14 +1,18 @@
 /**
  * File surface header: project › …dirs › file breadcrumb + Markdown
- * Source/Preview toggle + auxiliary actions. Ported from Synara
+ * Source/Preview mode switch + auxiliary actions. Ported from Synara
  * `features/file-viewer/file-viewer-chrome.tsx` and adapted to the DSH
  * CSS-token environment (no Tailwind classes).
+ *
+ * The strip itself is the shared SurfaceToolbar — the same geometry the
+ * editor and diff states render through, so switching modes never swaps
+ * chrome.
  */
 import { Fragment, useMemo } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { basename } from '@dsh-studio/shared/path'
+import { ModeSwitch, SurfaceToolbar, ToolbarAction } from '@dsh-studio/shared/ui'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { ToolbarAction } from '@dsh-studio/shared/ui'
 import {
   IconChevronRight,
   IconEdit,
@@ -60,74 +64,79 @@ export function FileViewerChrome({
     }
   }, [cwd, filePath])
 
+  const breadcrumb = (
+    <nav
+      className="dsh-studio-file-viewer-breadcrumb"
+      aria-label="File path"
+      title={filePath}
+    >
+      <span className="dsh-studio-file-viewer-breadcrumb-prefix">
+        {prefixSegments.map(segment => (
+          <Fragment key={segment.key}>
+            <span className="dsh-studio-file-viewer-breadcrumb-segment">{segment.name}</span>
+            <IconChevronRight className="dsh-studio-file-viewer-breadcrumb-chevron" size={12} />
+          </Fragment>
+        ))}
+      </span>
+      <span className="dsh-studio-file-viewer-breadcrumb-file">{fileSegment}</span>
+    </nav>
+  )
+  const metaContent = (meta !== undefined && meta !== null) || truncated
+    ? (
+      <>
+        {meta !== undefined && meta !== null && (
+          <span className="dsh-studio-file-viewer-chrome-meta">{meta}</span>
+        )}
+        {truncated && (
+          <span className="dsh-studio-file-viewer-chrome-meta dsh-studio-file-viewer-chrome-truncated">
+            {t('files.partial')}
+          </span>
+        )}
+      </>
+    )
+    : undefined
+  const modeSwitch = isMarkdown
+    ? (
+      <ModeSwitch
+        ariaLabel="Markdown view"
+        value={markdownMode}
+        onValueChange={onMarkdownModeChange}
+        options={[
+          { value: 'source', label: t('files.viewer.source'), icon: <IconFileText size={14} /> },
+          { value: 'preview', label: t('files.viewer.preview'), icon: <IconEye size={14} /> },
+        ]}
+      />
+    )
+    : undefined
+  const actions = onEdit !== undefined || onOpenExternal !== undefined
+    ? (
+      <>
+        {onEdit !== undefined && (
+          <ToolbarAction
+            icon={<IconEdit size={14} />}
+            label={t('files.edit')}
+            onClick={onEdit}
+          />
+        )}
+        {onOpenExternal !== undefined && (
+          <ToolbarAction
+            icon={<IconExternalLink size={14} />}
+            label={t('files.open-externally')}
+            onClick={onOpenExternal}
+          />
+        )}
+      </>
+    )
+    : undefined
+
   return (
-    <div className="dsh-studio-file-viewer-chrome" data-testid="file-viewer-chrome">
-      <nav className="dsh-studio-file-viewer-breadcrumb" aria-label="File path" title={filePath}>
-        <span className="dsh-studio-file-viewer-breadcrumb-prefix">
-          {prefixSegments.map(segment => (
-            <Fragment key={segment.key}>
-              <span className="dsh-studio-file-viewer-breadcrumb-segment">{segment.name}</span>
-              <IconChevronRight className="dsh-studio-file-viewer-breadcrumb-chevron" size={12} />
-            </Fragment>
-          ))}
-        </span>
-        <span className="dsh-studio-file-viewer-breadcrumb-file">{fileSegment}</span>
-      </nav>
-
-      {meta !== undefined && meta !== null ? (
-        <span className="dsh-studio-file-viewer-chrome-meta">{meta}</span>
-      ) : null}
-      {truncated ? (
-        <span className="dsh-studio-file-viewer-chrome-meta dsh-studio-file-viewer-chrome-truncated">
-          {t('files.partial')}
-        </span>
-      ) : null}
-
-      {isMarkdown ? (
-        <div className="dsh-studio-file-viewer-mode-switch" role="radiogroup" aria-label="Markdown view">
-          {(
-            [
-              { mode: 'source', label: t('files.viewer.source'), title: t('files.viewer.source'), Icon: IconFileText },
-              { mode: 'preview', label: t('files.viewer.preview'), title: t('files.viewer.preview'), Icon: IconEye },
-            ] as const
-          ).map(segment => {
-            const selected = segment.mode === markdownMode
-            const Icon = segment.Icon
-            return (
-              <button
-                key={segment.mode}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                title={segment.title}
-                className={`dsh-studio-file-viewer-mode-button${selected ? ' is-selected' : ''}`}
-                onClick={() => { onMarkdownModeChange(segment.mode) }}
-              >
-                <Icon size={14} />
-                <span>{segment.label}</span>
-              </button>
-            )
-          })}
-        </div>
-      ) : null}
-
-      {onEdit !== undefined ? (
-        <ToolbarAction
-          className="dsh-studio-file-viewer-chrome-action"
-          icon={<IconEdit size={14} />}
-          label={t('files.edit')}
-          onClick={onEdit}
-        />
-      ) : null}
-
-      {onOpenExternal !== undefined ? (
-        <ToolbarAction
-          className="dsh-studio-file-viewer-chrome-action"
-          icon={<IconExternalLink size={14} />}
-          label={t('files.open-externally')}
-          onClick={onOpenExternal}
-        />
-      ) : null}
-    </div>
+    <SurfaceToolbar
+      className="dsh-studio-file-viewer-chrome"
+      data-testid="file-viewer-chrome"
+      leading={breadcrumb}
+      meta={metaContent}
+      modeSwitch={modeSwitch}
+      actions={actions}
+    />
   )
 }

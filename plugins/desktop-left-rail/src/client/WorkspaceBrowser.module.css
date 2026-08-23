@@ -5,8 +5,6 @@
 
 .root {
   --dsh-session-list-edge-inset: var(--dsh-sidebar-inline-padding);
-  --dsh-session-list-scrollbar-width: 8px;
-  --dsh-session-list-scrollbar-offset: 2px;
   flex: 1;
   min-height: 0;
   display: flex;
@@ -19,7 +17,11 @@
   padding-right: 0;
 }
 
-.iconButton {
+/* Rail glyphs keep the uniform skin-rounded look (the skins layer's
+   border-radius !important applies here too), with the shared 28×28 square
+   footprint. The doubled class keeps the width/height above the shared
+   ToolbarAction seat default (equal-specificity cascade order is fragile). */
+.iconButton.iconButton {
   flex: none;
   display: inline-flex;
   align-items: center;
@@ -27,7 +29,6 @@
   width: 28px;
   height: 28px;
   border: none;
-  border-radius: 50%;
   padding: 0;
   background: transparent;
   cursor: pointer;
@@ -255,7 +256,9 @@
   max-width: none;
 }
 
-.rail .iconButton {
+/* Rail (collapsed) icons are larger; the doubled class keeps this above the
+   shared ToolbarAction seat default (equal-specificity order is fragile). */
+.rail .iconButton.iconButton {
   width: 36px;
   height: 36px;
   color: var(--dsw-alias-label-primary);
@@ -331,26 +334,24 @@
   from { opacity: 0; }
 }
 
-/* List: the only scrolling region. Block children keep their design heights
-   under content overflow. The 2px edge offset, stable 8px themed scrollbar,
-   and remaining padding equal the shell's right inset, with or without
-   overflow, so moving the bar does not move the rows. */
-.list {
+/* List scroll host (shared ScrollArea root): owns only the flex seat — the
+   overlay thumb floats over the rows, so no native-bar lane is reserved. */
+.listScroll {
   flex: 1;
   min-height: 0;
-  overflow-y: auto;
+}
+
+/* List content (on the ScrollArea viewport): block children keep their design
+   heights under content overflow. The right padding reserves the shared
+   scroll-gutter band (the floating overlay thumb spans the last 8px), so row
+   hover backgrounds stop short of the bar and never run under it. */
+.list {
   margin-left: -4px;
-  margin-right: var(--dsh-session-list-scrollbar-offset);
   padding-left: 4px;
-  padding-right: calc(
-    var(--dsh-session-list-edge-inset)
-    - var(--dsh-session-list-scrollbar-width)
-    - var(--dsh-session-list-scrollbar-offset)
-  );
+  padding-right: var(--dsh-studio-space-2, 8px);
   /* Clears the compact bottom fade overlay: at scroll end the last row sits
      above the gradient instead of under it. */
   padding-bottom: 16px;
-  scrollbar-gutter: stable;
 }
 
 .flatList > * + *,

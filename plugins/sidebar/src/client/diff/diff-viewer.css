@@ -20,21 +20,29 @@
   font-variant-numeric: tabular-nums;
 }
 
-.dsh-studio-diff-surface-body:has(> .dsh-studio-diff-viewer[data-virtualize='on']) {
+.dsh-studio-diff-surface-body:has(.dsh-studio-diff-viewer[data-virtualize='on']) {
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.dsh-studio-diff-surface-body:has(> .dsh-studio-diff-viewer[data-virtualize='on']) > .dsh-studio-diff-viewer {
+/* Virtualized (Pierre) diff content fills the strip: the ScrollArea viewport
+   is a block scroller by default, so re-establish the flex-column contract on
+   the viewport to keep `.dsh-studio-diff-viewer { flex: 1 }` working. */
+.dsh-studio-diff-surface-body:has(.dsh-studio-diff-viewer[data-virtualize='on']) .dsh-studio-scrollable-viewport {
+  display: flex;
+  flex-direction: column;
+}
+
+.dsh-studio-diff-surface-body:has(.dsh-studio-diff-viewer[data-virtualize='on']) .dsh-studio-diff-viewer {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-height: 0;
 }
 
-.dsh-studio-diff-surface-body:has(> .dsh-studio-diff-viewer[data-virtualize='on']) .dsh-studio-diff-viewer-meta,
-.dsh-studio-diff-surface-body:has(> .dsh-studio-diff-viewer[data-virtualize='on']) .dsh-studio-diff-truncated {
+.dsh-studio-diff-surface-body:has(.dsh-studio-diff-viewer[data-virtualize='on']) .dsh-studio-diff-viewer-meta,
+.dsh-studio-diff-surface-body:has(.dsh-studio-diff-viewer[data-virtualize='on']) .dsh-studio-diff-truncated {
   flex: none;
 }
 
@@ -44,6 +52,15 @@
   flex: 1;
   overflow: auto;
   scrollbar-gutter: stable;
+}
+
+/* Diff canvas reads as the pane base (see the matching rule on the file
+   host in sidebar.css): pin --diffs-bg and the host background to the app
+   token on the container. */
+.dsh-studio-pierre-surface diffs-container,
+.dsh-studio-pierre-surface-natural diffs-container {
+  --diffs-bg: var(--dsw-alias-bg-base, #ffffff);
+  background: var(--dsw-alias-bg-base, #ffffff);
 }
 
 .dsh-studio-pierre-surface-natural {

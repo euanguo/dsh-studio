@@ -132,6 +132,17 @@
    fallback。挂在 body 上，亮/暗主题切换时 var() 都能正确替换。 */
 body {
   --dsh-studio-terminal-backdrop: var(--dsw-alias-bg-layer-1, #ffffff);
+
+  /* Pierre canvas bridge: the effective canvas fill is `--diffs-bg`, whose
+     rendered-theme layer (inside the diffs-container shadow root) would
+     otherwise hardcode the editor theme's own background and break the
+     "canvas continues" reading. The forced binding that actually wins lives
+     on the host elements (`.dsh-studio-pierre-file-host diffs-container`,
+     `.dsh-studio-pierre-surface diffs-container` in the sidebar plugin) — a
+     document rule outranks the shadow `:host` theme layer. These light/dark
+     slots keep a fallback for any consumer that does read them. */
+  --diffs-light-bg: var(--dsw-alias-bg-base, #ffffff);
+  --diffs-dark-bg: var(--dsw-alias-bg-base, #ffffff);
 }
 
 body[data-ds-dark-theme] {

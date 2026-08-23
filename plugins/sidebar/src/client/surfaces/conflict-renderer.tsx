@@ -15,7 +15,7 @@ import { UnresolvedFile, Virtualizer } from '@pierre/diffs/react'
 import { getFileRuntime, getSourceControlRuntime } from '../runtimes/registry.ts'
 import { basename, resolveCapabilitiesPath } from '@dsh-studio/shared/path'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
-import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
+import { ErrorState, LoadingState, SurfaceToolbar } from '@dsh-studio/shared/ui'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import type { ConflictCenterSurface } from './types.ts'
@@ -110,15 +110,16 @@ export function ConflictSurfaceView({
   if (content === null) return <LoadingState label={t('overlay.loading')} />
   return (
     <div className="dsh-studio-conflict-surface" data-testid="conflict-surface">
-      <div className="dsh-studio-conflict-header">
-        <span title={surface.filePath}>{name}</span>
-        <small>Merge conflict</small>
-        <span className="dsh-studio-conflict-actions">
+      <SurfaceToolbar
+        className="dsh-studio-conflict-header"
+        leading={<span className="dsh-studio-conflict-title" title={surface.filePath}>{name}</span>}
+        meta={<small>Merge conflict</small>}
+        actions={(
           <Button variant="primary" size="sm" disabled={busy}>
             {busy ? t('conflict.resolving') : t('conflict.resolve-and-stage')}
           </Button>
-        </span>
-      </div>
+        )}
+      />
       <div className="dsh-studio-conflict-hint">Choose a resolution below for each conflicted region.</div>
       <Virtualizer className="dsh-studio-conflict-host">
         <UnresolvedFile

@@ -154,7 +154,9 @@
   display: none;
 }
 
-/* In-strip rail controls (the unified top rail):
+/* In-strip rail controls (the unified top rail) are shared ToolbarActions
+   (ghost variant): hover/engaged washes come from the official Button and the
+   shared toolbar-action state rules. Only geometry and glyph shaping stay:
    - left rail toggle: always rendered — the single manager of the DSH
      left rail (the DSH's own header toggle is hidden); sits right of the
      macOS traffic lights (the strip's `is-left-collapsed` padding);
@@ -163,18 +165,9 @@
      live in the scroller). Both opt out of the window-drag strip. */
 .dsh-studio-left-rail-toggle,
 .dsh-studio-right-rail-reopen {
+  /* Seat geometry (28×28, radius-sm, ghost, secondary label) is the shared
+     ToolbarAction chrome now; only the window-drag opt-out stays here. */
   -webkit-app-region: no-drag;
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  cursor: pointer;
 }
 
 .dsh-studio-right-rail-reopen {
@@ -184,15 +177,8 @@
   background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
 }
 
-.dsh-studio-left-rail-toggle:hover,
-.dsh-studio-right-rail-reopen:hover,
-.dsh-studio-left-rail-toggle[aria-pressed='true'] {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
 /* The center strip's "+" menu button ("add browser / terminal /
-   conversation as a first-class surface"): the same geometry as the rail
+   conversation as a first-class surface"): the same square seat as the rail
    toggles, pinned right of the tab scroller. */
 .dsh-studio-center-add {
   -webkit-app-region: no-drag;
@@ -200,25 +186,6 @@
   display: flex;
   align-items: center;
   flex: none;
-}
-
-.dsh-studio-center-add > button {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary, #57606a);
-  cursor: pointer;
-}
-
-.dsh-studio-center-add > button:hover,
-.dsh-studio-center-add > button[aria-expanded='true'] {
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  color: var(--dsw-alias-label-primary, #1f2328);
 }
 
 /* Center add portal menu styling and interactive highlights. Danger rows

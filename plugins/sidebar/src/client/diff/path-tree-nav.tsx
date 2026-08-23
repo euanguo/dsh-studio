@@ -14,7 +14,7 @@ import {
   IconChevronDown,
   IconChevronRight,
 } from '@dsh-studio/shared/tabler-icons'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 import {
   ListRow,
   ListRowLabel,
@@ -86,7 +86,7 @@ export function DiffPathTreeNav({
   }
 
   return (
-    <Scrollable ref={containerRef} className="dsh-studio-diff-tree" data-testid="diff-path-tree">
+    <ScrollArea ref={containerRef} className="dsh-studio-diff-tree" viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="diff-path-tree">
       <div
         className="dsh-studio-diff-tree-inner"
         style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
@@ -147,6 +147,6 @@ export function DiffPathTreeNav({
           )
         })}
       </div>
-    </Scrollable>
+    </ScrollArea>
   )
 }

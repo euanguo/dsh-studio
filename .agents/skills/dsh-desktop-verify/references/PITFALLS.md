@@ -128,3 +128,50 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 - `@ref` 在导航、tab 切换后失效；同文档内跨 re-render 会自动按
   role+name+指纹重定位（找不到会大声报错而不是乱点）。
 - 中文/大段 JS 用 `eval --stdin` / `eval --file`，避免 shell 转义破坏。
+
+## 2026-08-23（补录，全部实测）
+
+### 12. Pierre 渲染空白：host 插件 chunk 路由正则与挂载路径脱节（404 worker）
+- **症状**：文件/diff/编辑器视图区域空白；`diffs-container` shadow 内 0 行、
+  `contentContainer.scrollHeight === 0`；`fetch('/capabilities/bundle/pierre-worker.js')`
+  返回 404 “not found”（9 字节）。
+- **根因**：`plugins/capabilities/src/bundle-route.ts` 的 prefix 路由随 c8100c0 从
+  `/sidebar/bundle` 改名 `/capabilities/bundle`（挂载路径与客户端 URL 都改了），
+  但 handler 内 `pathname` 正则仍写 `/^\/sidebar\/bundle\//` → 永远 404 →
+  `new Worker(url, {type:'module'})` 报错 → Pierre worker 池不工作 → 任何纯文本/
+  diff 内容都无法分词渲染。这属于**已提交分支代码**，与未提交 UI 重构无关，
+  排查时不要只盯本地 diff。另外 host 侧插件改动 dev.mjs 只做“重建+sync”，
+  **不会自动重启 Electron**；必须 `ensure-dev-desktop.mjs stop && ensure` 干净重启
+  才能加载新正则。
+- **修复**：把正则改为 `/^\/capabilities\/bundle\/([a-z0-9-]+)\.js$/`，并在旁边注释
+  “与挂载路径保持同步”；重启 DEV 后 `fetch(...)` 200 且 `new Worker` 无 error。
+- **来源**：实测。
+
+### 13. 重启后点文件 tab 激活不了（aria-selected 永远 false）
+- **症状**：`ensure` 干净重启后，文件 surface tab 出现在中心 strip，但点击后
+  `aria-selected` 仍为 false、`.dsh-studio-center-surface-body` 保持
+  `data-hidden='true'`/display:none；console 无任何报错。
+- **根因**：重启后 app 默认落在“新会话”空白占位符上；center-surface-host 的 sync
+  逻辑规定 blank 会话（`workspace.summary.blank === true`）**占据中心舞台**，
+  每次 sync 都 `state.deactivate(cwd)`——所有工作区 surface 都不能保持激活。
+  这不是 bug，是既有设计。此前会话选中真实会话时文件点击可正常打开。
+- **修复**：先在左侧会话树选中一个真实会话（非“新会话”占位符），再点文件 tab。
+- **来源**：实测。
+
+### 14. 模型不支持读图时，用 DOM 断言代替截图定位（本会话为 deepseek-v4-flash）
+- **症状**：`read_image` 报 “model does not declare image input”。
+- **根因**：当前模型无图像输入能力；截图只能作为给人类/多模态的证据，不能作为
+  agent 自身的定位/确认手段。
+- **修复**：全部用 `eval` 量 `getBoundingClientRect`/`scrollHeight`/shadowRoot 叶子
+  数来断言渲染；截图仅落盘留证（如 `00-initial.png`、`01-file-view-fixed.png`）。
+- **来源**：实测。
+
+### 15. 删除共享 CSS/模块后 dev 增量构建静默失败 → 热重载停滞
+- **症状**：改完 CSS 等很久页面没变化；`dev-desktop.log` 有 `build failed
+  (source change): Could not resolve "../scrollable.css"`，但 dev 进程没崩、
+  CDP 还在，之前的改动也都不再热更新。
+- **根因**：删了 `plugins/shared/scrollable.css` 但 `ui/styles.ts` 仍
+  `import '../scrollable.css'`；增量构建每次失败，SSE 热替换不上。
+- **修复**：删共享文件后 `grep -rn "文件名" plugins --include=*.ts*` 全量
+  清引用（含 styles.ts 的 CSS 聚合导入、package.json exports、index.ts）。
+- **来源**：实测。

@@ -34,7 +34,7 @@ import {
   getIconForFile,
 } from '@dsh-studio/shared/tabler-icons'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { EmptyState, ErrorState } from '@dsh-studio/shared/ui'
+import { EmptyState, ErrorState, ToolbarAction, useMenuAnchor } from '@dsh-studio/shared/ui'
 import { centerColumnElement, leftRailToggleButton, readLeftRailOpen } from './dsh-dom.ts'
 import type { SessionsService, WorkspacesService } from '../client-types.ts'
 import { sidebarApi } from '../sidebar-api.ts'
@@ -312,18 +312,18 @@ function LeftRailToggleButton(props: {
 }): JSX.Element {
   const label = props.leftRailOpen === true ? '收起左栏' : '展开左栏'
   return (
-    <button
-      type="button"
+    <ToolbarAction
+      variant="ghost"
       className="dsh-studio-left-rail-toggle"
-      aria-label={label}
-      title={label}
-      aria-pressed={props.leftRailOpen === true}
+      icon={(
+        <span className="dsh-studio-rail-toggle-glyph" aria-hidden="true">
+          <IconSidebarLeftFilled />
+        </span>
+      )}
+      label={label}
+      pressed={props.leftRailOpen === true}
       onClick={props.onToggleLeftRail}
-    >
-      <span className="dsh-studio-rail-toggle-glyph" aria-hidden="true">
-        <IconSidebarLeftFilled />
-      </span>
-    </button>
+    />
   )
 }
 
@@ -331,17 +331,17 @@ function RightRailReopenButton(props: {
   sidebar: DesktopSidebarServiceLike
 }): JSX.Element {
   return (
-    <button
-      type="button"
+    <ToolbarAction
+      variant="ghost"
       className="dsh-studio-right-rail-reopen"
-      aria-label="展开右栏"
-      title="展开右栏"
+      icon={(
+        <span className="dsh-studio-rail-toggle-glyph" aria-hidden="true">
+          <IconSidebarRightFilled />
+        </span>
+      )}
+      label="展开右栏"
       onClick={() => { props.sidebar.setOpen(true) }}
-    >
-      <span className="dsh-studio-rail-toggle-glyph" aria-hidden="true">
-        <IconSidebarRightFilled />
-      </span>
-    </button>
+    />
   )
 }
 
@@ -442,13 +442,8 @@ function CenterAddMenu({
   workspaces: WorkspacesService
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const [open, setOpen] = useState(false)
+  const { open, toggle, close, anchorRef, getAnchorRect } = useMenuAnchor()
   const [altDown, setAltDown] = useState(false)
-  const anchorRef = useRef<HTMLButtonElement | null>(null)
-  const getAnchorRect = useCallback(
-    () => anchorRef.current?.getBoundingClientRect() ?? null,
-    [],
-  )
   // While the menu is open, track the Alt modifier (Alt+click = right rail);
   // it resets on close / blur so a stale modifier never leaks.
   useEffect(() => {
@@ -489,7 +484,7 @@ function CenterAddMenu({
     { id: 'new-conversation', label: t('add.new-conversation'), icon: <IconPlus size={14} /> },
   ]
   const pick = (id: string): void => {
-    setOpen(false)
+    close()
     if (id === 'browser') {
       const targetCwd = (typeof cwd === 'string' && cwd.trim() !== '') ? cwd : '/'
       if (altDown) {
@@ -520,14 +515,15 @@ function CenterAddMenu({
   }
   return (
     <div className="dsh-studio-center-add">
-      <button
+      <ToolbarAction
         ref={anchorRef}
-        type="button"
-        aria-label={t('add.open')}
+        variant="ghost"
+        className="dsh-studio-center-add-trigger"
+        icon={<IconPlus size={14} />}
+        label={t('add.open')}
         aria-expanded={open}
-        title={t('add.open')}
-        onClick={() => { setOpen(value => !value) }}
-      ><IconPlus size={14} /></button>
+        onClick={toggle}
+      />
       <Menu
         open={open}
         anchor={null}
@@ -536,7 +532,7 @@ function CenterAddMenu({
         portal
         getAnchorRect={getAnchorRect}
         onSelect={pick}
-        onClose={() => { setOpen(false) }}
+        onClose={close}
       />
     </div>
   )
