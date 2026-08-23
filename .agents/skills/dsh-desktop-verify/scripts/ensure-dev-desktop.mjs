@@ -18,6 +18,8 @@
  *   node <this>/scripts/ensure-dev-desktop.mjs status
  *   node <this>/scripts/ensure-dev-desktop.mjs stop
  *   node <this>/scripts/ensure-dev-desktop.mjs logs [--tail 80]
+ *   node <this>/scripts/ensure-dev-desktop.mjs recover   # force-clear + fresh start
+ *   # recover is the deterministic fix for CDP hangs (restart races/zombies).
  *
  * Environment: DSH_VERIFY_CDP_PORT overrides the default CDP port (9222).
  * State and logs are written under <repo>/tmp/dsh-dev-desktop/ (gitignored).
@@ -115,15 +117,41 @@ function foreignDevElectron() {
   return (result.stdout ?? '').split('\n').filter(Boolean)
 }
 
+/**
+ * Wait for CDP, self-healing the Electron main-process restart race: a full
+ * `pnpm run build` rewrites dist/main.js → dev.mjs restarts Electron → the
+ * old instance can still hold :port for a moment → the respawn exits code 0
+ * (bind() failed) and CDP never comes up, leaving `ensure` stuck for the
+ * full timeout. Here, while waiting, we watch the launcher log for the
+ * bind-failure signature and kill the stale DEV electrons holding the port;
+ * dev.mjs then respawns cleanly into the freed port.
+ */
 function waitForCdp(port, timeoutMs) {
   return new Promise(resolve => {
     const started = Date.now()
+    let healed = false
     const timer = setInterval(async () => {
       const version = await cdpVersion(port)
       if (version !== null) {
         clearInterval(timer)
         resolve(version)
         return
+      }
+      // Self-heal once: detect the restart-race signature and clear the port.
+      if (!healed && Date.now() - started > 3_000) {
+        healed = true
+        try {
+          const logText = readFileSync(LOG_FILE, 'utf8').slice(-8_000)
+          if (/bind\(\) failed: Address already in use|Cannot start http server for devtools/.test(logText)) {
+            log('detected the Electron restart-race (bind() failed) — clearing stale DEV instance(s) holding :' + port)
+            for (const line of foreignDevElectron()) {
+              const pid = Number.parseInt(line.trim().split(/\s+/)[0], 10)
+              if (Number.isInteger(pid) && pid > 0) killTree(pid, 'SIGTERM')
+            }
+          }
+        } catch {
+          // log unreadable; keep waiting
+        }
       }
       if (Date.now() - started > timeoutMs) {
         clearInterval(timer)
@@ -318,8 +346,32 @@ function parseArgs(argv) {
   return { command, options }
 }
 
+async function recover() {
+  // Nuke EVERYTHING on the DEV channel: our launcher tree + any foreign DEV
+  // electron, clear the state file, then start fresh. This is the deterministic
+  // fix for repeated CDP hangs (restart races, zombie instances).
+  const state = readState()
+  if (state !== null && pidAlive(state.launcherPid)) {
+    log(`stopping launcher tree ${state.launcherPid}`)
+    killTree(state.launcherPid, 'SIGTERM')
+    await new Promise(resolve => setTimeout(resolve, 3_000))
+  }
+  for (const line of foreignDevElectron()) {
+    const pid = Number.parseInt(line.trim().split(/\s+/)[0], 10)
+    if (Number.isInteger(pid) && pid > 0) {
+      log(`stopping leftover DEV electron ${pid}`)
+      killTree(pid, 'SIGTERM')
+    }
+  }
+  rmSync(STATE_FILE, { force: true })
+  await new Promise(resolve => setTimeout(resolve, 2_000))
+  log('port cleared; starting fresh')
+  await ensure({ port: options.port, forceRestart: true })
+}
+
 const { command, options } = parseArgs(process.argv.slice(2))
-if (command === 'ensure') void ensure(options)
+if (command === 'recover') void recover()
+else if (command === 'ensure') void ensure(options)
 else if (command === 'status') void status()
 else if (command === 'stop') void stop()
 else if (command === 'logs') logs(options)

@@ -29,8 +29,8 @@ import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
 import { MarkdownViewer } from './markdown-viewer.tsx'
 import { IpynbViewer } from './ipynb-viewer.tsx'
 import { MermaidViewer } from './mermaid-viewer.tsx'
-import { SelectionInsertPopup } from './selection-insert-popup.tsx'
-import type { ReviewCommentsService } from '../review/review-comments.ts'
+import type { SessionsService } from '../client-types.ts'
+import { commentAnchorOf, useSelectionActionOverlay } from '../selection/use-selection-action.tsx'
 import type { WorkbenchComment } from '../diff/diff-comments-store.ts'
 
 type ContentKind = 'text' | 'csv' | 'markdown' | 'html' | 'image' | 'pdf' | 'ipynb' | 'mermaid' | 'binary'
@@ -101,9 +101,8 @@ export interface ContentViewerProps {
   comments?: readonly WorkbenchComment[]
   /** Session cwd (relative "add to conversation" payloads). */
   cwd?: string
-  /** When given, text/markdown selections offer an "add to conversation"
-   *  popup appended into the composer through this service. */
-  reviewComments?: ReviewCommentsService
+  /** Session roster for the "add to chat" target dropdown. */
+  sessions?: SessionsService | null
   onTaskToggle?(input: { sourceLine: number; checked: boolean }): void
   onOpenExternal?(): void
   onShowInFolder?(): void
@@ -125,7 +124,7 @@ export function ContentViewer({
   markdownPreview = true,
   comments,
   cwd,
-  reviewComments,
+  sessions,
   onTaskToggle,
   onOpenExternal,
   onShowInFolder,
@@ -135,21 +134,27 @@ export function ContentViewer({
 }: ContentViewerProps): JSX.Element {
   const kind = detectKind(path, binary)
   const name = basename(path)
-  // The selection-insert popup host: the markdown preview (its ScrollArea)
-  // and the Pierre code/plain rows share ONE ref — only one branch renders
-  // at a time. Rendered inline so its document listeners reset when the
-  // opened file changes.
+  // The unified selection action bar host: one container ref shared by the
+  // markdown preview (its ScrollArea) and the Pierre code/plain rows — only
+  // one branch renders at a time. Rendered inline so its document listeners
+  // reset when the opened file changes.
   const textRootRef = useRef<HTMLDivElement | null>(null)
-  const selectionInsert = reviewComments === undefined || content === null ? null : (
-    <SelectionInsertPopup
-      containerRef={textRootRef}
-      path={path}
-      cwd={cwd}
-      content={content}
-      onAddSelection={text => reviewComments.appendToComposer(text)}
-      t={t}
-    />
-  )
+  const selectionAction = useSelectionActionOverlay({
+    containerRef: textRootRef,
+    path,
+    cwd,
+    content: content ?? undefined,
+    layer: typeof document === 'undefined' ? null : document.body,
+    sessions: sessions ?? null,
+    ...(rails === undefined
+      ? {}
+      : {
+          onComment: (anchor) => {
+            rails.composeAt(commentAnchorOf(anchor))
+          },
+        }),
+    t,
+  })
 
   // Heavy per-content derivations, computed once per content change instead
   // of once per render (rail resizes / tab switches re-render this view).
@@ -262,7 +267,7 @@ export function ContentViewer({
             taskTogglesEnabled={!truncated}
             {...(onTaskToggle === undefined ? {} : { onTaskToggle })}
           />
-          {selectionInsert}
+          {selectionAction.overlay}
         </>
       )
     }
@@ -285,7 +290,7 @@ export function ContentViewer({
           {...(comments === undefined ? {} : { comments })}
           {...(rails === undefined ? {} : { rails })}
         />
-        {selectionInsert}
+        {selectionAction.overlay}
       </div>
     )
   }
@@ -330,7 +335,7 @@ export function ContentViewer({
         {...(comments === undefined ? {} : { comments })}
         {...(rails === undefined ? {} : { rails })}
       />
-      {selectionInsert}
+      {selectionAction.overlay}
     </div>
   )
 }

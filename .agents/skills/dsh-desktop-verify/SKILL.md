@@ -103,6 +103,19 @@ chrome-use --session dsh-dev-<task-slug> tab        # 确认目标
   `chrome-use tab --url "*<特征>*"` 切换。
 - 若 `tab` 后 URL 还是 splash：`wait --url "**127.0.0.1**"` 后再 `tab`。
 
+**探测 runtime 用 `curl` 直达 CDP，别用 chrome-use 命令去"问"**（PITFALLS #23）：
+`chrome-use tab / eval / snapshot` 都先经 chrome-use daemon 的 WebSocket；一旦
+daemon 与 CDP 的通道失效（主进程重启后常见），这些命令会卡到超时才放弃，
+哪怕应用早就就绪。判断"应用+CDP 是否活着"永远先走 HTTP 端点（毫秒级）：
+```bash
+curl -sf --max-time 4 http://127.0.0.1:9222/json/version   # CDP 活着?
+curl -sf --max-time 4 http://127.0.0.1:9222/json/list       # page 目标 & runtime URL
+# 看到 page 'http://127.0.0.1:<port>/' 即 runtime 就绪
+```
+**每次 `ensure`/`recover`/`--force-restart`/主进程重启后，必须重建 chrome-use
+会话**（旧的 daemon 指向旧 target，必然卡）：`session stop` → `connect <port>`
+→ `tab`。重建后若 `tab` 仍异常，先 `session stop` 再重连，绝不硬等。
+
 ### 2.2 快照与交互约定
 
 ```bash

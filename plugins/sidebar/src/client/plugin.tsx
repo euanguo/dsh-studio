@@ -30,6 +30,7 @@ import {
   ReviewCommentsService,
   type ReviewInputTriggersService,
 } from './review/review-comments.ts'
+import { createSelectionSlashSource } from './selection/slash-source.ts'
 import { SidebarRuntimeSettingsService } from './runtime-settings.ts'
 import type {
   BoundSidebarSettingsActions,
@@ -101,6 +102,13 @@ export function apply(ctx: ClientContext): void {
     sessions,
     inputTriggers,
     window.localStorage,
+  )
+  // Register the selection slash source so `slash/input-insert-reference`
+  // accepts `dsh-studio-selection` chips (without registration the composer
+  // fails the send with "slash no ...").
+  ctx.effect(
+    () => inputTriggers.registerSource(createSelectionSlashSource()),
+    'dsh-studio: selection slash source',
   )
   const desktopSidebar = new DesktopSidebarService(
     new LocalStorageSidebarPreferencesStorage(),

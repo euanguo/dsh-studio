@@ -75,7 +75,7 @@ interface ReviewConversationService {
   }
 }
 
-interface ReviewSlashSource {
+export interface ReviewSlashSource {
   trigger: '@'
   name: string
   order: number

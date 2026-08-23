@@ -108,6 +108,23 @@ export type WorkspaceMessage =
   | 'comments.placeholder'
   | 'comments.reference'
   | 'comments.comment-on-line'
+  | 'comments.comment-on-lines'
+  | 'comments.delete'
+  | 'selection.title'
+  | 'selection.add-to-chat'
+  | 'selection.pick-conversation'
+  | 'selection.target-current'
+  | 'selection.ask-in-side-chat'
+  | 'selection.comment'
+  | 'selection.edit'
+  | 'selection.edit-input'
+  | 'selection.edit-placeholder'
+  | 'selection.edit-submit'
+  | 'selection.copy-ref'
+  | 'selection.copied'
+  | 'selection.copy-failed'
+  | 'selection.send-unavailable'
+  | 'selection.edit-unavailable'
   | 'settings.width'
   | 'settings.width-value'
   | 'settings.tools'
@@ -377,6 +394,23 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'comments.placeholder': 'Leave a comment — Enter sends, Shift+Enter for a newline',
     'comments.reference': 'Reference in chat',
     'comments.comment-on-line': 'Comment on line {line}',
+    'comments.comment-on-lines': 'Comment on lines {startLine}–{endLine}',
+    'comments.delete': 'Delete',
+    'selection.title': 'Selection actions',
+    'selection.add-to-chat': 'Add to chat',
+    'selection.pick-conversation': 'Send to another conversation',
+    'selection.target-current': 'current',
+    'selection.ask-in-side-chat': 'Ask in side chat',
+    'selection.comment': 'Comment',
+    'selection.edit': 'Edit',
+    'selection.edit-input': 'Edit instruction',
+    'selection.edit-placeholder': 'Describe the edit…',
+    'selection.edit-submit': 'Submit edit instruction',
+    'selection.copy-ref': 'Copy reference',
+    'selection.copied': 'Copied',
+    'selection.copy-failed': 'Copy failed',
+    'selection.send-unavailable': 'No reachable conversation to send to',
+    'selection.edit-unavailable': 'No reachable conversation to apply the edit',
     'settings.layout-scope': 'Cross-project layout',
     'settings.layout-scope-description':
       'Share one side-panel tab layout across every project. Turn off to keep a separate layout per project.',
@@ -647,6 +681,23 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'comments.placeholder': '输入评论——Enter 发送，Shift+Enter 换行',
     'comments.reference': '引用到对话',
     'comments.comment-on-line': '评论第 {line} 行',
+    'comments.comment-on-lines': '评论第 {startLine} 至 {endLine} 行',
+    'comments.delete': '删除',
+    'selection.title': '选中操作',
+    'selection.add-to-chat': '添加到对话',
+    'selection.pick-conversation': '发送到其他对话',
+    'selection.target-current': '当前',
+    'selection.ask-in-side-chat': '在侧边聊天中提问',
+    'selection.comment': '评论',
+    'selection.edit': '编辑',
+    'selection.edit-input': '编辑说明',
+    'selection.edit-placeholder': '描述编辑内容…',
+    'selection.edit-submit': '提交编辑指令',
+    'selection.copy-ref': '复制引用',
+    'selection.copied': '已复制',
+    'selection.copy-failed': '复制失败',
+    'selection.send-unavailable': '没有可接收的会话，无法发送',
+    'selection.edit-unavailable': '没有可接收的会话，无法应用编辑',
     'settings.layout-scope': '跨项目共享布局',
     'settings.layout-scope-description': '所有项目共用同一份侧栏标签布局；关闭后每个项目保留各自的布局。',
     'settings.width': '默认宽度',

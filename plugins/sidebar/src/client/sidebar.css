@@ -625,12 +625,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   accent-color: var(--dsw-alias-state-info-primary, #0969da);
 }
 
-.dsh-studio-file-selection-action {
-  position: fixed;
-  z-index: 60;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 16%);
-}
-
 /* ---------- image / pdf preview chrome ---------- */
 
 .dsh-studio-content-media {
@@ -1129,35 +1123,289 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   color: var(--dsw-alias-label-secondary, #57606a);
 }
 .dsh-studio-comment-compose {
-  position: fixed;
+  /* Placement is owned by the base-ui Positioner (floating engine), which
+     needs this element to participate in layout measurement for flip/shift.
+     `position: fixed` here broke that (the engine measured ~0 height and
+     never flipped the card above the anchor → bottom truncation). */
+  position: static;
   z-index: 60;
   min-width: 260px;
   max-width: 420px;
-  background: var(--dsw-alias-surface-default, #1e1e1e);
-  border: 1px solid var(--dsw-alias-border-default, #444);
-  border-radius: 6px;
-  padding: 6px;
+  background: var(--dsw-alias-bg-overlay, #2d2d2d);
+  border: 1px solid var(--dsw-alias-border-l2, rgb(255 255 255 / 8%));
+  border-radius: var(--dsh-studio-radius-lg, 10px);
+  padding: 8px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+  color: var(--dsw-alias-label-primary, #fff);
 }
 .dsh-studio-comment-compose-head {
   font-size: 11px;
-  opacity: .7;
-  margin-bottom: 4px;
+  color: var(--dsw-alias-label-secondary, #b3b3b3);
+  margin-bottom: 6px;
 }
 .dsh-studio-comment-compose-input {
   width: 100%;
   min-height: 56px;
   resize: vertical;
   background: transparent;
-  color: inherit;
-  border: 1px solid var(--dsw-alias-border-default, #444);
-  border-radius: 4px;
-  padding: 4px 6px;
-  font: inherit;
+  color: var(--dsw-alias-label-primary, inherit);
+  border: 0;
+  outline: none;
+  border-radius: 0;
+  padding: 2px 0;
+  /* Explicit size — `font: inherit` was leaking the page body size into
+     the placeholder (user report: "占位文字字号太大"). */
+  font-size: 13px;
+  line-height: 1.5;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.dsh-studio-comment-compose-input::placeholder {
+  font-size: 13px;
+  color: var(--dsw-alias-label-tertiary, #808080);
+  opacity: 1;
+}
+.dsh-studio-comment-compose-input:focus {
+  border: 0;
+  outline: none;
 }
 .dsh-studio-comment-compose-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--dsh-studio-space-1);
   margin-top: var(--dsh-studio-space-1-5);
+}
+
+/* ---------- selection action bar (选词 → 操作条) ---------- */
+
+.dsh-studio-selection-action-host {
+  /* Owned by the base-ui Positioner; `fixed` would defeat flip measurement. */
+  z-index: 70;
+}
+
+/* Minimalist capsule: hairline border + radius, NO shadow, no button chrome.
+   Items are plain spans separated by thin vertical dividers; hover gets a
+   subtle wash. */
+.dsh-studio-selection-action {
+  display: inline-flex;
+  align-items: stretch;
+  width: max-content;
+  max-width: min(32rem, calc(100vw - 16px));
+  /* No padding: item hover washes must reach the container edges (the
+     rounded corners are clipped by overflow:hidden), so there is no
+     background-to-border gap on hover. */
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l2, rgb(255 255 255 / 8%));
+  border-radius: var(--dsh-studio-radius-lg, 10px);
+  background: var(--dsw-alias-bg-overlay, #2d2d2d);
+  color: var(--dsw-alias-label-primary, #fff);
+  overflow: hidden;
+}
+
+/* Items: NO own radius, hover wash fills the item's full box (including its
+   horizontal padding) edge-to-edge; the bar's overflow:hidden clips the
+   rounded corners. Horizontal padding gives the icon/text breathing room and
+   the gap keeps items apart — both directions get spacing. */
+.dsh-studio-selection-action-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  padding: 7px 10px;
+  font-size: var(--dsh-studio-font-xs, 12px);
+  line-height: 1;
+  color: var(--dsw-alias-label-primary, inherit);
+  cursor: default;
+  user-select: none;
+  transition: background-color 100ms ease;
+}
+.dsh-studio-selection-action-item + .dsh-studio-selection-action-item,
+.dsh-studio-selection-action-target .dsh-studio-selection-action-item:first-child {
+  margin-left: 0;
+}
+.dsh-studio-selection-action-target .dsh-studio-selection-action-item {
+  padding-left: 10px;
+}
+.dsh-studio-selection-action-item:hover,
+.dsh-studio-selection-action-item:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(255 255 255 / 8%));
+  outline: none;
+}
+.dsh-studio-selection-action-item svg {
+  flex: none;
+}
+
+.dsh-studio-selection-action-label {
+  font-size: inherit;
+  color: inherit;
+  line-height: 1;
+}
+
+/* Full-height divider: reaches the container top & bottom edges, coloured
+   exactly like the item hover wash (they sit on the same surface). */
+.dsh-studio-selection-action-divider {
+  width: 1px;
+  flex: none;
+  align-self: stretch;
+  background: var(--dsw-alias-interactive-bg-hover, rgb(255 255 255 / 8%));
+}
+
+/* The conversation target group (add-to-chat + chevron) sits rightmost. */
+.dsh-studio-selection-action-target {
+  display: inline-flex;
+  align-items: stretch;
+}
+.dsh-studio-selection-action-target .dsh-studio-selection-action-chevron {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+/* Edit mode: inline instruction input, borderless. */
+.dsh-studio-selection-action-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 12px;
+  border-radius: var(--dsh-studio-radius-lg, 10px);
+}
+
+.dsh-studio-selection-action-edit-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, inherit);
+  font: inherit;
+  font-size: var(--dsh-studio-font-sm, 13px);
+}
+
+.dsh-studio-selection-action-edit-input::placeholder {
+  color: var(--dsw-alias-label-secondary, #b3b3b3);
+}
+
+.dsh-studio-selection-action-submit {
+  padding: 4px 8px;
+}
+
+.dsh-studio-comment-compose-spacer {
+  flex: 1;
+}
+
+/*
+.dsh-studio-selection-conv-menu {
+  max-height: min(360px, calc(100vh - 48px)) !important;
+}
+.dsh-studio-selection-conv-menu 
+/* base-ui Positioner shell for selection-action floating layers: the
+   floating engine sets position/transform; we only add z-order. */
+.dsh-studio-selection-floating,
+.dsh-studio-comment-floating {
+  z-index: 70;
+}
+
+/* Viewport-safe comment card: never taller than most of the screen, and
+   scrolls internally — the base-ui Positioner can then always flip it into
+   view at the bottom edge. */
+.dsh-studio-comment-compose[data-viewport-safe='true'] {
+  max-height: min(320px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+}
+.dsh-studio-comment-compose[data-viewport-safe='true'] .dsh-studio-comment-compose-input {
+  max-height: 160px;
+}
+
+/* ---------- conversation picker (bounded, scrollable list) ---------- */
+
+.dsh-studio-selection-conv-menu {
+  z-index: 80;
+}
+.dsh-studio-selection-conv-shell {
+  min-width: 200px;
+  max-width: 280px;
+  max-height: min(300px, calc(100vh - 64px));
+  padding: 4px;
+  background: var(--dsw-alias-bg-overlay, #2d2d2d);
+  border: 1px solid var(--dsw-alias-border-l2, rgb(255 255 255 / 8%));
+  border-radius: var(--dsh-studio-radius-md, 8px);
+}
+/* The shared ScrollArea owns height + scrollbar inside the shell. */
+.dsh-studio-selection-conv-scroll {
+  max-height: min(288px, calc(100vh - 72px));
+}
+.dsh-studio-selection-conv-viewport {
+  max-height: inherit;
+}
+.dsh-studio-selection-conv-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #fff);
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: default;
+}
+.dsh-studio-selection-conv-item:hover,
+.dsh-studio-selection-conv-item[aria-current='true'] {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(255 255 255 / 8%));
+}
+.dsh-studio-selection-conv-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dsh-studio-selection-conv-current {
+  font-style: normal;
+  font-weight: 500;
+}
+.dsh-studio-selection-conv-time {
+  flex: none;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--dsw-alias-label-tertiary, #808080);
+  white-space: nowrap;
+}
+
+/* ---------- line-comment bubble actions (hover) ---------- */
+
+.dsh-studio-line-comment {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dsh-studio-line-comment-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+}
+.dsh-studio-line-comment:hover .dsh-studio-line-comment-actions {
+  display: inline-flex;
+}
+/* Compact fit inside the Pierre annotation row: ToolbarAction geometry is
+   26×26 by default — too tall for a line-height row — so the seat shrinks,
+   while hover wash / radius / tooltip semantics stay project-native. */
+.dsh-studio-line-comment-action {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border-radius: var(--dsh-studio-radius-sm, 6px);
+  color: var(--dsw-alias-label-secondary, #b3b3b3);
+}
+.dsh-studio-line-comment-action:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(255 255 255 / 8%));
+  color: var(--dsw-alias-label-primary, #fff);
+}
+.dsh-studio-line-comment-action-danger:hover {
+  color: var(--dsw-alias-state-error-primary, #ff5d5d);
 }

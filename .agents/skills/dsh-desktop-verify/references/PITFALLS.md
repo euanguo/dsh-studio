@@ -175,3 +175,107 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 - **修复**：删共享文件后 `grep -rn "文件名" plugins --include=*.ts*` 全量
   清引用（含 styles.ts 的 CSS 聚合导入、package.json exports、index.ts）。
 - **来源**：实测。
+
+### 16. CDP 合成拖选后 Selection.isCollapsed 为 true 但仍有文本 → 操作条不出现
+- **症状**：chrome-use mouse down/move/up 拖选后，`window.getSelection()` 有
+  135+ 字符文本，但 `selection.isCollapsed === true`；以 `isCollapsed` 作
+  "空选区"判断的代码会把真实选区当空清掉，浮层从不出现（真实物理鼠标看似
+  正常，CDP 复现稳定）。
+- **根因**：CDP Input.dispatchMouseEvent 的拖选在 rAF 提交后 isCollapsed 状态
+  与实际 range 不一致（浏览器在后续渲染才落实 committed selection）；把
+  `if (selection.isCollapsed || rangeCount === 0)` 提前 return 是错误判定。
+- **修复**：改用 `rangeCount === 0 || text.trim() === ''` 作为空选区信号
+  （selection-action 的 readCommittedSelection）。
+- **来源**：本次 selection-action 验证实测。
+
+### 17. 非受控 textarea（defaultValue + 渲染期读 ref.value）提交按钮永远 disabled
+- **症状**：React 组件用 `defaultValue` + `const body = inputRef.current?.value`
+  在渲染时读值，`disabled={body.trim()===''}`：输入内容不触发重渲染，按钮永远
+  disabled，Enter 提交也读到旧值。
+- **根因**：渲染期读 DOM ref 不是反应式状态；需要 onChange 驱动 state。
+- **修复**：改为受控（useState + value + onChange）。评论 compose 卡片已修。
+- **来源**：本次验证实测（CommentComposeCard）。
+
+### 18. 排查"改动没生效"先验证运行 bundle 内容，别信 rev hash
+- **症状**：改源码后 dev 日志显示 rebuilt+synced，页面 reload 后行为仍旧；
+  误以为有 HTTP 缓存，实际是**自己的改动没写进源码**（python replace 静默
+  失败/AssertionError 中途没写盘），bundle 与源码一致（都旧）。
+- **修复**：先 `grep -n "特征字符串" plugins/.../src/...` 确认源码有改动，
+  再 `grep -c "特征" dist/plugins/sidebar/client.js` 与运行时
+  `performance.getEntriesByType('resource')` 里 bundle 内容确认。
+- **来源**：本次验证。
+
+### 19. chrome-use test 套件在会话卡死后无输出超时被杀
+- **症状**：`chrome-use test suite.yaml --session <s>` 在页面/CDP 异常后
+  无任何输出直到超时（session daemon 连接坏）。先 `session stop` + `connect`
+  重建会话，再跑套件。
+- **修复**：跑套件前 `chrome-use --session <s> tab` 自检连接；拖选类交互
+  套件引擎不支持（无 mouse 动词），只放稳定断言。
+- **来源**：本次实测。
+
+### 20. 新会话占位符抢占中心舞台 → 无法点击其它 tab（会话卡死的常见前置）
+- **症状**：当前 tab 是"新建会话"占位页时，点击 Git/文件 tab 不切换，diff 无法
+  打开；反复操作后 chrome-use daemon 超时被杀。
+- **根因**：blank 会话占位符占据 center，sync 逻辑 deactivate 其它 surface
+  （center-surface-host 既定设计，见 #13）；再加上 dev 主进程重启竞态（#9），
+  CDP 端口被旧实例占着、新实例 bind 失败，两件事叠加表现为"卡死"。
+- **修复**：先点左侧真实会话（非"新会话"占位）再开 tab；CDP 不通时先
+  `pkill -f remote-debugging-port` + helper `ensure --force-restart` 自愈，
+  再 `session stop` + `connect` 重建 chrome-use 会话。
+- **来源**：本轮实测（多轮超时）。
+
+### 21. CDP 合成拖选产生"半折叠"Selection：isCollapsed=true 但有文本，range 锚在 light DOM
+- **症状**：chrome-use mouse down/move/up 拖选后，`selection.toString()` 有
+  100+ 字符，但 `selection.isCollapsed === true`，`range.getClientRects()` 返回
+  空数组，`range.startContainer/endContainer` 是 light-DOM 的 DIV（不在 Pierre
+  shadow root 内），`caretRangeFromPoint` 也返回 light-DOM 节点。
+- **根因**：CDP Input.dispatchMouseEvent 模拟的拖选没有产生浏览器真实
+  文本选择结构，只有文本快照 + anchor 坐标。任何依赖 range/isCollapsed/
+  clientRects 的行解析在此环境下都失效（真实物理鼠标则正常）。
+- **修复**：改用**拖拽端点坐标**（pointerdown + mouseup 的 clientX/Y）对行
+  元素 boundingRect 做几何反查（行 rect 始终可信）；列用 caret 探测，
+  失败时降级为 undefined。见 selection-reference.ts 的
+  `resolveSelectionSpanFromPoints` / `lineNumberAtPoint`。
+- **来源**：本轮实测（多次失败后定位）。
+
+### 22. Pierre 行元素两套：data-line（全宽代码行）vs data-column-number（49px 行号列）
+- **症状**：收集 `[data-column-number]` 做行解析，行 rect 只有 ~49px 宽
+  （x=300..349），拖选在 x≥350 时永远命中不到行 → 行号解析失败。
+- **根因**：`data-column-number` 是 gutter 行号列；真正的代码行是
+  `[data-line]`（全宽 923px）。unified diff 中 data-line 是新侧行号，
+  change-addition 行只有 data-line（无 alt-line），删除行有 alt-line。
+- **修复**：collectLineElements 优先收集 `[data-line]` 全宽行（按
+  data-line 取行号），跳过窄 gutter，避免重复计数。
+- **来源**：本轮实测。
+
+### 23. 用 chrome-use 命令"探测"应用状态 → daemon 通道失效时卡到超时
+- **症状**：应用+CDP 明明就绪（桌面端已显示），但 `chrome-use tab / eval /
+  snapshot` 一次卡 60s 才放弃；反复出现"卡了好久"。
+- **根因**：chrome-use 的每条命令都先经 daemon 的 WebSocket 连 CDP。主进程
+  重启/`recover` 后，daemon 指向旧 target，通道失效 → 每次命令重建重连 →
+  卡到超时。这不是 CDP 的问题，是"探测手段"的问题。
+- **修复**：判断应用是否就绪永远先走 HTTP 端点（毫秒级，不经过 daemon）：
+  `curl -sf --max-time 4 http://127.0.0.1:9222/json/list` 看 page target
+  的 URL 是否变成 `127.0.0.1:<port>/`。确认后再 `session stop` + `connect`
+  重建 daemon，然后才用 chrome-use 交互/快照。
+- **来源**：本轮实测（用户明确指出"明明就绪还卡了很久"）。
+
+### 24. 同一浮层组件，两个调用点行为不同 → 先对比参数差异而非组件本身
+- **症状**：对话列表弹层（side="bottom"）在视口底部能自动翻到上方；评论弹层
+  （试 side="top"）却"往下偏被截断"。用户质疑"不是同一个弹出层组件吗"。
+- **根因**：两者共用 base-ui Popover（FloatingLayer），但**side 语义不同**：
+  side="bottom" 时 flip 引擎能在底部空间不足时自动翻上；手写 side="top" 反而
+  依赖引擎反向 flip，行为不一致且难预测。统一成同一调用方式（side="bottom"
+  + collisionPadding 交 flip）后行为一致。
+- **修复**：评论弹层与对话列表弹层完全同一套参数（bottom + flip + 12px padding +
+  6px offset）；方向一律交给 floating 引擎，不做手写 side 特判。
+- **来源**：本轮实测（用户连续两轮指出方向不一致）。
+
+### 25. 可滚动浮层内容用共享 ScrollArea 承载，别手写 overflow-y
+- **症状**：对话列表手写 `.dsh-studio-selection-conv-list { overflow-y: auto }`，
+  滚动条样式与全应用不一致（无统一虚拟滚动条）。
+- **根因**：全局 ScrollArea（base-ui ScrollArea + 统一 Thumb 样式）已是项目标准，
+  新浮层列表绕过了它。
+- **修复**：浮层内列表内容一律包 `<ScrollArea className viewportClassName>`，
+  shell 只管尺寸/边框/背景，滚动条交给 ScrollArea。
+- **来源**：本轮实测（用户要求"用全局通用滚动容器承载"）。

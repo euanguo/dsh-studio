@@ -9,7 +9,7 @@ import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { DesktopSidebarService } from '../contract.ts'
 import type { CenterSurface } from '../surfaces/types.ts'
-import type { ReviewCommentsService } from '../review/review-comments.ts'
+import type { SessionsService } from '../client-types.ts'
 import { FileSurfaceView } from '../surfaces/file-surface.tsx'
 import {
   DiffAllSurfaceView,
@@ -26,7 +26,7 @@ import { ConflictSurfaceView } from '../surfaces/conflict-renderer.tsx'
 export function registerBuiltinSurfaces(
   sidebar: DesktopSidebarService,
   t: Translate<WorkspaceMessage>,
-  reviewComments?: ReviewCommentsService,
+  sessions?: SessionsService,
 ): () => void {
   const disposers = [
     sidebar.registerSurfaceRenderer('file', surface => {
@@ -35,33 +35,33 @@ export function registerBuiltinSurfaces(
         <FileSurfaceView
           surface={surface}
           t={t}
-          {...(reviewComments === undefined ? {} : { reviewComments })}
+          {...(sessions === undefined ? {} : { sessions })}
         />
       )
     }),
     sidebar.registerSurfaceRenderer('diff', surface => {
       if (surface.kind !== 'diff') return null
-      return <DiffSurfaceView surface={surface} t={t} />
+      return <DiffSurfaceView surface={surface} t={t} {...(sessions === undefined ? {} : { sessions })} />
     }),
     sidebar.registerSurfaceRenderer('diff-all', surface => {
       if (surface.kind !== 'diff-all') return null
-      return <DiffAllSurfaceView surface={surface} t={t} />
+      return <DiffAllSurfaceView surface={surface} t={t} {...(sessions === undefined ? {} : { sessions })} />
     }),
     sidebar.registerSurfaceRenderer('commit', surface => {
       if (surface.kind !== 'commit') return null
-      return <CommitDiffSurfaceView surface={surface} t={t} />
+      return <CommitDiffSurfaceView surface={surface} t={t} {...(sessions === undefined ? {} : { sessions })} />
     }),
     sidebar.registerSurfaceRenderer('commit-file', surface => {
       if (surface.kind !== 'commit-file') return null
-      return <CommitFileSurfaceView surface={surface} t={t} />
+      return <CommitFileSurfaceView surface={surface} t={t} {...(sessions === undefined ? {} : { sessions })} />
     }),
     sidebar.registerSurfaceRenderer('committed', surface => {
       if (surface.kind !== 'committed') return null
-      return <CommittedSurfaceView surface={surface} t={t} />
+      return <CommittedSurfaceView surface={surface} t={t} {...(sessions === undefined ? {} : { sessions })} />
     }),
     sidebar.registerSurfaceRenderer('conflict', surface => {
       if (surface.kind !== 'conflict') return null
-      return <ConflictSurfaceView surface={surface} t={t} />
+      return <ConflictSurfaceView surface={surface} t={t} {...(sessions === undefined ? {} : { sessions })} />
     }),
   ]
   return () => {

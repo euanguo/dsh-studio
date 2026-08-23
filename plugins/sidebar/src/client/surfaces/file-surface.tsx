@@ -20,9 +20,9 @@ import { Editor } from '@pierre/diffs/edit'
 import { EditProvider, File as PierreFile, Virtualizer } from '@pierre/diffs/react'
 import type { FileContents } from '@pierre/diffs'
 import type { Translate } from '@dsh-studio/shared/i18n'
-import { Button, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
-import { basename } from '@dsh-studio/shared/path'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { toast } from '@dsh-studio/shared/toast'
+import { basename } from '@dsh-studio/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import { getFileRuntime } from '../runtimes/registry.ts'
@@ -32,15 +32,17 @@ import { ScrollArea } from '@dsh-studio/shared/ui'
 import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
-import type { ReviewCommentsService } from '../review/review-comments.ts'
+import type { SessionsService } from '../client-types.ts'
 import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
-import { afterSelectionCommit, formatFileSelectionReference, getLineSelectionWithin } from '../files/file-selection-reference.ts'
 import { useEditableFile } from '../files/use-editable-file.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { useDiffCommentsStore, commentPathMatches, type WorkbenchComment } from '../diff/diff-comments-store.ts'
 import { commentsToFileLineAnnotations } from '../diff/comment-annotations.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { buildCommentReference } from '../comments/comment-rails-core.ts'
+import { insertReferenceIntoConversation } from '../selection/conversation-targets.ts'
+import { formatSelectionLabel } from '../selection/selection-reference.ts'
+import { commentAnchorOf, useSelectionActionOverlay } from '../selection/use-selection-action.tsx'
 import { useCommentRails } from '../comments/comment-rails.tsx'
 import type { FileCenterSurface } from './types.ts'
 
@@ -51,12 +53,12 @@ function createPierreEditor<LAnnotation>(options: EditorOptions<LAnnotation>): E
 export function FileSurfaceView({
   surface,
   t,
-  reviewComments,
+  sessions,
 }: {
   surface: FileCenterSurface
   t: Translate<WorkspaceMessage>
-  /** Selection → "add to conversation" channel (wired by builtins). */
-  reviewComments?: ReviewCommentsService
+  /** Session roster for the selection action bar's target dropdown. */
+  sessions?: SessionsService | null
 }): JSX.Element {
   const runtime = useMemo(
     () => getFileRuntime({ cwd: surface.cwd }),
@@ -65,12 +67,9 @@ export function FileSurfaceView({
   const [fingerprint, setFingerprint] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
   const [writeError, setWriteError] = useState('')
-  const [selectionAction, setSelectionAction] = useState<{
-    left: number
-    top: number
-    label: string
-  } | null>(null)
   const theme = usePierreDiffTheme()
+  // Editor-state selection host (the editor host element, bound below).
+  const editorHostRef = useRef<HTMLDivElement | null>(null)
 
   const onPersisted = useCallback(() => {
     runtime.invalidate(surface.filePath)
@@ -114,12 +113,23 @@ export function FileSurfaceView({
     },
     onResolve: id => { useDiffCommentsStore.getState().resolveComment(id) },
     onUnresolve: id => { useDiffCommentsStore.getState().unresolveComment(id) },
-    ...(reviewComments === undefined
+    ...(sessions === null || sessions === undefined
       ? {}
       : {
-          onReference: input => reviewComments.appendToComposer(
-            buildCommentReference(input.path, input.line, input.body),
-          ),
+          onReference: input => {
+            const snapshot = sessions.list.getSnapshot()
+            const target = snapshot.current ?? Object.keys(snapshot.byId)[0]
+            if (target === undefined) return 'unavailable'
+            // Insert as an inline reference chip (styled block), not raw
+            // text — same as the selection action bar's add-to-chat.
+            return insertReferenceIntoConversation(sessions, target, {
+              label: formatSelectionLabel({
+                path: input.path,
+                span: { startLine: input.line, endLine: input.line },
+              }),
+              clipboardText: buildCommentReference(input.path, input.line, input.body),
+            })
+          },
         }),
   })
 
@@ -193,34 +203,6 @@ export function FileSurfaceView({
     }
   }, [surface.filePath])
 
-  const onSourceMouseUp = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    if (isMarkdown && markdownMode === 'preview') {
-      setSelectionAction(null)
-      return
-    }
-    const { clientX, clientY, currentTarget } = event
-    // The selection is not committed while mouseup runs (shadow-tree rows
-    // commit in the following rendering step) — read it once committed.
-    afterSelectionCommit(() => {
-      const selection = getLineSelectionWithin(currentTarget)
-      if (selection === null) {
-        setSelectionAction(null)
-        return
-      }
-      setSelectionAction({
-        left: clientX,
-        top: clientY,
-        label: formatFileSelectionReference({ path: surface.filePath, selection }),
-      })
-    })
-  }, [isMarkdown, markdownMode, surface.filePath])
-
-  const onCopySelection = useCallback(async (label: string) => {
-    const ok = await writeClipboard(label)
-    toast(ok ? t('toast.copied') : t('toast.copy-failed'))
-    setSelectionAction(null)
-  }, [t])
-
   // All hooks run before the state branches below (React hook order).
   const lineCount = useMemo(
     () => {
@@ -254,6 +236,21 @@ export function FileSurfaceView({
     [comments],
   )
 
+  // Editor-state selection action bar (the Pierre editor is selectable
+  // text too). Lives in the drawer region so the listeners are shared.
+  const editSelectionAction = useSelectionActionOverlay({
+    containerRef: editorHostRef,
+    path: surface.filePath,
+    cwd: surface.cwd,
+    content: editable.content,
+    layer: typeof document === 'undefined' ? null : document.body,
+    sessions: sessions ?? null,
+    onComment: anchor => {
+      rails.composeAt(commentAnchorOf(anchor))
+    },
+    t,
+  })
+
   /* ---------- editing state ---------- */
 
   if (editable.editMode) {
@@ -274,9 +271,11 @@ export function FileSurfaceView({
           t={t}
         />
         <EditProvider createEditor={createPierreEditor}>
-          <Virtualizer className="dsh-studio-editor-host">
-            {rails.overlay()}
-            <PierreFile
+          <div ref={editorHostRef} className="dsh-studio-editor-host-wrap">
+            <Virtualizer className="dsh-studio-editor-host">
+              {rails.overlay()}
+              {editSelectionAction.overlay}
+              <PierreFile
               file={file}
               edit
               editorOptions={editorOptions}
@@ -295,8 +294,9 @@ export function FileSurfaceView({
                     ),
                   }
                 : {})}
-            />
-          </Virtualizer>
+              />
+            </Virtualizer>
+          </div>
         </EditProvider>
       </div>
     )
@@ -349,7 +349,7 @@ export function FileSurfaceView({
       {writeError !== '' ? (
         <ErrorState message={writeError} />
       ) : null}
-      <ScrollArea className="dsh-studio-file-surface-body" onMouseUp={onSourceMouseUp}>
+      <ScrollArea className="dsh-studio-file-surface-body">
         {rails.overlay()}
         <ContentViewer
           path={surface.filePath}
@@ -361,7 +361,7 @@ export function FileSurfaceView({
           comments={comments}
           cwd={surface.cwd}
           rails={rails}
-          {...(reviewComments === undefined ? {} : { reviewComments })}
+          sessions={sessions ?? null}
           onTaskToggle={onTaskToggle}
           onOpenExternal={onOpenExternal}
           {...(snapshot.data === undefined ? {} : { data: snapshot.data })}
@@ -369,20 +369,6 @@ export function FileSurfaceView({
           t={t}
         />
       </ScrollArea>
-      {selectionAction !== null ? (
-        <div
-          className="dsh-studio-file-selection-action"
-          style={{ left: selectionAction.left, top: selectionAction.top }}
-        >
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => { void onCopySelection(selectionAction.label) }}
-          >
-            Copy {selectionAction.label}
-          </Button>
-        </div>
-      ) : null}
     </div>
   )
 }

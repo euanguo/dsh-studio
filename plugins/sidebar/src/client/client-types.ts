@@ -34,6 +34,8 @@ export interface SessionSummary {
   origin?: 'subagent'
   /** Whether the session's agent is currently running. */
   running?: boolean
+  /** Last activity wall-clock (ms epoch); the left rail sorts by this. */
+  updatedAt?: number
 }
 
 /** One healthy subagent catalog child row (structural mirror of the host). */

@@ -28,6 +28,11 @@ import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { useCommentRails } from '../comments/comment-rails.tsx'
+import { useSelectionActionOverlay, commentAnchorOf } from '../selection/use-selection-action.tsx'
+import { insertReferenceIntoConversation } from '../selection/conversation-targets.ts'
+import { formatSelectionLabel } from '../selection/selection-reference.ts'
+import { buildCommentReference } from '../comments/comment-rails-core.ts'
+import type { SessionsService } from '../client-types.ts'
 import type { GitReviewFile } from '../diff/git-review-diff.ts'
 import type { DiffAllCenterSurface, DiffCenterSurface } from './types.ts'
 
@@ -44,13 +49,16 @@ const DIFF_ALL_PREMOUNT_COUNT = 6
 export function DiffSurfaceView({
   surface,
   t,
+  sessions,
 }: {
   surface: DiffCenterSurface
   t: Translate<WorkspaceMessage>
+  sessions?: SessionsService
 }): JSX.Element {
   const [context, setContext] = useState(DIFF_CONTEXT_INITIAL)
   const [expanding, setExpanding] = useState(false)
   const [imageDiff, setImageDiff] = useState<{ oldData: string; newData: string } | null>(null)
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   // Cooldown after "Expand context" (the button re-enables when it fires).
   const expandTimerRef = useRef<number | null>(null)
   useEffect(() => () => {
@@ -102,17 +110,54 @@ export function DiffSurfaceView({
     },
     onResolve: id => { useDiffCommentsStore.getState().resolveComment(id) },
     onUnresolve: id => { useDiffCommentsStore.getState().unresolveComment(id) },
+    ...(sessions === null || sessions === undefined
+      ? {}
+      : {
+          onReference: input => {
+            const snapshot = sessions!.list.getSnapshot()
+            const target = snapshot.current ?? Object.keys(snapshot.byId)[0]
+            if (target === undefined) return 'unavailable'
+            // Send the comment as an inline reference chip into the
+            // conversation draft (issues at submit via the registered
+            // `dsh-studio-selection` slash source).
+            return insertReferenceIntoConversation(sessions!, target, {
+              label: formatSelectionLabel({
+                path: input.path,
+                span: { startLine: input.line, endLine: input.line },
+              }),
+              clipboardText: buildCommentReference(input.path, input.line, input.body),
+            })
+          },
+        }),
   })
 
   const lineAnnotations = useMemo(
     () => commentsToDiffLineAnnotations(comments),
     [comments],
   )
-  const renderCommentAnnotation = useCallback((annotation: { metadata?: WorkbenchComment }) => (
-    annotation.metadata !== undefined
-      ? <CommentBubble comment={annotation.metadata} />
-      : null
-  ), [])
+  const renderCommentAnnotation = useCallback((annotation: { metadata?: WorkbenchComment }) => {
+    if (annotation.metadata === undefined) return null
+    return (
+      <CommentBubble
+        comment={annotation.metadata}
+        onResolve={id => { useDiffCommentsStore.getState().resolveComment(id) }}
+        onUnresolve={id => { useDiffCommentsStore.getState().unresolveComment(id) }}
+        onRemove={id => { useDiffCommentsStore.getState().removeComment(id) }}
+      />
+    )
+  }, [])
+
+  const selectionAction = useSelectionActionOverlay({
+    containerRef: scrollRef,
+    path: surface.filePath,
+    cwd: surface.cwd,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    sessions: sessions ?? null,
+    onComment: anchor => {
+      rails.composeAt(commentAnchorOf(anchor))
+    },
+    t,
+  })
 
   const document = useMemo(
     () => (diff === null ? null : buildDiffDocument({
@@ -189,8 +234,9 @@ export function DiffSurfaceView({
         )}
         t={t}
       />
-      <ScrollArea className="dsh-studio-diff-surface-body">
+      <ScrollArea className="dsh-studio-diff-surface-body" ref={scrollRef}>
         {rails.overlay()}
+        {selectionAction.overlay}
         <DiffViewer
           document={document}
           theme={theme}
@@ -231,9 +277,11 @@ export function DiffSurfaceView({
 export function DiffAllSurfaceView({
   surface,
   t,
+  sessions,
 }: {
   surface: DiffAllCenterSurface
   t: Translate<WorkspaceMessage>
+  sessions?: SessionsService
 }): JSX.Element {
   const [renderedKeys, setRenderedKeys] = useState<ReadonlySet<string>>(new Set())
   const [expanding, setExpanding] = useState<ReadonlySet<string>>(new Set())
@@ -427,6 +475,7 @@ export function DiffAllSurfaceView({
             wordWrap={wordWrap}
             onExpandContext={expandContext}
             cwd={surface.cwd}
+            {...(sessions === undefined ? {} : { sessions })}
           />
           {expanding.size > 0 ? <LoadingState label={t('workspace.loading-diff')} /> : null}
         </ScrollArea>

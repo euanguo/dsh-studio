@@ -23,6 +23,8 @@ import { ScrollArea, SurfaceToolbar } from '@dsh-studio/shared/ui'
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
 import { usePierreDiffTheme, type PierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { useLazyDiffBlockMount } from '../diff/use-lazy-diff-block-mount.ts'
+import { useSelectionActionOverlay } from '../selection/use-selection-action.tsx'
+import type { SessionsService } from '../client-types.ts'
 import { reviewFileToDiffDocument, type GitReviewFile } from '../diff/git-review-diff.ts'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import type {
@@ -178,11 +180,22 @@ export function CommitDiffSurfaceView({
 export function CommitFileSurfaceView({
   surface,
   t,
+  sessions,
 }: {
   surface: CommitFileCenterSurface
   t: Translate<WorkspaceMessage>
+  sessions?: SessionsService
 }): JSX.Element {
+  const bodyRef = useRef<HTMLDivElement | null>(null)
   const theme = usePierreDiffTheme()
+  const selectionAction = useSelectionActionOverlay({
+    containerRef: bodyRef,
+    path: surface.filePath,
+    cwd: surface.cwd,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    sessions: sessions ?? null,
+    t,
+  })
   const runtime = useMemo(
     () => getDiffRuntime({ cwd: surface.cwd }),
     [surface.cwd],
@@ -221,7 +234,8 @@ export function CommitFileSurfaceView({
         leading={<span title={surface.filePath}>{surface.filePath}</span>}
         meta={<small>{surface.hash.slice(0, 7)}</small>}
       />
-      <ScrollArea className="dsh-studio-diff-surface-body">
+      <ScrollArea className="dsh-studio-diff-surface-body" ref={bodyRef}>
+        {selectionAction.overlay}
         <DiffViewer
           document={document}
           theme={theme}
@@ -239,12 +253,14 @@ export function CommitFileSurfaceView({
 export function CommittedSurfaceView({
   surface,
   t,
+  sessions,
 }: {
   surface: CommittedCenterSurface
   t: Translate<WorkspaceMessage>
+  sessions?: SessionsService
 }): JSX.Element {
   if (surface.filePath !== undefined) {
-    return <CommittedFileDiffView surface={surface} t={t} />
+    return <CommittedFileDiffView surface={surface} t={t} {...(sessions === undefined ? {} : { sessions })} />
   }
   return <CommittedAllDiffView surface={surface} t={t} />
 }
@@ -255,6 +271,7 @@ function CommittedAllDiffView({
 }: {
   surface: CommittedCenterSurface
   t: Translate<WorkspaceMessage>
+  sessions?: SessionsService
 }): JSX.Element {
   const bodyRef = useRef<HTMLDivElement | null>(null)
   const theme = usePierreDiffTheme()
@@ -320,12 +337,23 @@ function CommittedAllDiffView({
 function CommittedFileDiffView({
   surface,
   t,
+  sessions,
 }: {
   surface: CommittedCenterSurface
   t: Translate<WorkspaceMessage>
+  sessions?: SessionsService
 }): JSX.Element {
   const filePath = surface.filePath ?? ''
+  const bodyRef = useRef<HTMLDivElement | null>(null)
   const theme = usePierreDiffTheme()
+  const selectionAction = useSelectionActionOverlay({
+    containerRef: bodyRef,
+    path: filePath,
+    cwd: surface.cwd,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    sessions: sessions ?? null,
+    t,
+  })
   const runtime = useMemo(
     () => getDiffRuntime({ cwd: surface.cwd }),
     [surface.cwd],
@@ -364,7 +392,8 @@ function CommittedFileDiffView({
         leading={<span title={filePath}>{filePath}</span>}
         meta={<small>{surface.baseRef}</small>}
       />
-      <ScrollArea className="dsh-studio-diff-surface-body">
+      <ScrollArea className="dsh-studio-diff-surface-body" ref={bodyRef}>
+        {selectionAction.overlay}
         <DiffViewer
           document={document}
           theme={theme}

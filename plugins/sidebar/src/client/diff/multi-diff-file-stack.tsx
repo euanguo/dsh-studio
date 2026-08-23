@@ -13,6 +13,8 @@ import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { DiffViewer } from './diff-viewer.tsx'
 import { useCommentRails } from '../comments/comment-rails.tsx'
+import { useSelectionActionOverlay, commentAnchorOf } from '../selection/use-selection-action.tsx'
+import type { SessionsService } from '../client-types.ts'
 import { useDiffCommentsStore, commentPathMatches, type WorkbenchComment } from './diff-comments-store.ts'
 import { commentsToDiffLineAnnotations } from './comment-annotations.ts'
 import { CommentBubble } from './comment-bubble.tsx'
@@ -33,6 +35,7 @@ export function MultiDiffFileStack({
   layout = 'unified',
   onExpandContext,
   cwd,
+  sessions,
 }: {
   files: readonly GitReviewFile[]
   renderedKeys: ReadonlySet<string>
@@ -45,6 +48,8 @@ export function MultiDiffFileStack({
   onExpandContext?(file: GitReviewFile): void
   /** Workspace cwd for comment anchoring (enables per-file rails). */
   cwd?: string
+  /** Session roster for the selection action bar (per block). */
+  sessions?: SessionsService
 }): JSX.Element {
   return (
     <div className="dsh-studio-multi-diff-list" data-testid="multi-diff-list">
@@ -60,6 +65,7 @@ export function MultiDiffFileStack({
               layout={layout}
               wordWrap={wordWrap}
               {...(cwd === undefined ? {} : { cwd })}
+              {...(sessions === undefined ? {} : { sessions })}
               {...(onExpandContext === undefined ? {} : { onExpandContext })}
               {...(onCollapse === undefined ? {} : { onCollapse })}
             />
@@ -99,6 +105,7 @@ function MultiDiffFileBlock({
   onExpandContext,
   onCollapse,
   cwd,
+  sessions,
 }: {
   file: GitReviewFile
   theme: PierreDiffTheme
@@ -108,6 +115,7 @@ function MultiDiffFileBlock({
   onExpandContext?(file: GitReviewFile): void
   onCollapse?(path: string): void
   cwd?: string
+  sessions?: SessionsService
 }): JSX.Element {
   const document = useMemo(() => reviewFileToDiffDocument(file), [file])
   // Reactive subscription to the store (surfaces subscribe, never copy).
@@ -135,6 +143,15 @@ function MultiDiffFileBlock({
     onUnresolve: id => { useDiffCommentsStore.getState().unresolveComment(id) },
   })
   const sectionRef = useRef<HTMLElement | null>(null)
+  const selectionAction = useSelectionActionOverlay({
+    containerRef: sectionRef,
+    path: file.path,
+    cwd,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    sessions: sessions ?? null,
+    ...(rails === null ? {} : { onComment: anchor => rails.composeAt(commentAnchorOf(anchor)) }),
+    t,
+  })
   const latestHeightRef = useRef<number | null>(null)
   const [releasedHeight, setReleasedHeight] = useState<number | null>(null)
 
@@ -217,6 +234,7 @@ function MultiDiffFileBlock({
               parsed 0 hunks and rendered nothing — fixed in file-diff.ts.
             */}
             {rails?.overlay()}
+            {selectionAction.overlay}
             <DiffViewer
               document={document}
               theme={theme}

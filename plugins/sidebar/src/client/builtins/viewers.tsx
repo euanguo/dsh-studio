@@ -71,7 +71,7 @@ export function builtinViewers(deps: SidebarBuiltinDeps): readonly SidebarViewer
           content={input.content ?? null}
           binary={false}
           {...(input.scope?.cwd === undefined ? {} : { cwd: input.scope.cwd })}
-          reviewComments={deps.reviewComments}
+          sessions={deps.sessions}
           t={t}
         />
       ),
@@ -88,7 +88,7 @@ export function builtinViewers(deps: SidebarBuiltinDeps): readonly SidebarViewer
           content={input.content ?? null}
           binary={false}
           {...(input.scope?.cwd === undefined ? {} : { cwd: input.scope.cwd })}
-          reviewComments={deps.reviewComments}
+          sessions={deps.sessions}
           t={t}
         />
       ),

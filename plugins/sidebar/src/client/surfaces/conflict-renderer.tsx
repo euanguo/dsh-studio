@@ -4,7 +4,7 @@
  * writes through the sidebar API, stages the file and swaps the tab to the
  * plain file view.
  */
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { toast } from '@dsh-studio/shared/toast'
@@ -19,6 +19,8 @@ import { ErrorState, LoadingState, SurfaceToolbar } from '@dsh-studio/shared/ui'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import type { ConflictCenterSurface } from './types.ts'
+import type { SessionsService } from '../client-types.ts'
+import { useSelectionActionOverlay } from '../selection/use-selection-action.tsx'
 
 /* ---------- merge conflict resolver ---------- */
 
@@ -39,10 +41,13 @@ import type { ConflictCenterSurface } from './types.ts'
 export function ConflictSurfaceView({
   surface,
   t,
+  sessions,
 }: {
   surface: ConflictCenterSurface
   t: Translate<WorkspaceMessage>
+  sessions?: SessionsService
 }): JSX.Element {
+  const hostRef = useRef<HTMLDivElement | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const theme = usePierreDiffTheme()
@@ -99,6 +104,15 @@ export function ConflictSurfaceView({
     contents: content ?? '',
     cacheKey: `conflict:${surface.filePath}`,
   }), [content, name, surface.filePath])
+  const selectionAction = useSelectionActionOverlay({
+    containerRef: hostRef,
+    path: surface.filePath,
+    cwd: surface.cwd,
+    content,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    sessions: sessions ?? null,
+    t,
+  })
 
   if (error !== '') return <ErrorState message={error} />
   if (entry !== undefined && entry.phase === 'error') {
@@ -121,6 +135,8 @@ export function ConflictSurfaceView({
         )}
       />
       <div className="dsh-studio-conflict-hint">Choose a resolution below for each conflicted region.</div>
+      <div ref={hostRef} className="dsh-studio-conflict-host-wrap">
+      {selectionAction.overlay}
       <Virtualizer className="dsh-studio-conflict-host">
         <UnresolvedFile
           file={file}
@@ -158,6 +174,7 @@ export function ConflictSurfaceView({
           }}
         />
       </Virtualizer>
+      </div>
     </div>
   )
 }

@@ -46,9 +46,12 @@ import {
   IconList as TbList,
   IconListTree as TbListTree,
   IconMaximize as TbMaximize,
+  IconMessageCircle as TbMessageCircle,
+  IconMessageCircleQuestion as TbMessageCircleQuestion,
   IconMessagePlus as TbMessagePlus,
   IconMinus as TbMinus,
   IconPlus as TbPlus,
+  IconSend as TbSend,
   IconRefresh as TbRefresh,
   IconRotateClockwise as TbRotateClockwise,
   IconSearch as TbSearch,
@@ -132,6 +135,9 @@ export const IconFileCode = tabler(TbFileCode)
 export const IconMaximize = tabler(TbMaximize)
 export const IconWorld = tabler(TbWorld)
 export const IconMessagePlus = tabler(TbMessagePlus)
+export const IconMessageCircle = tabler(TbMessageCircle)
+export const IconMessageCircleQuestion = tabler(TbMessageCircleQuestion)
+export const IconSend = tabler(TbSend)
 
 /**
  * Left-panel toggle glyph: a frame with a filled strip along its LEFT edge.
