@@ -5,11 +5,11 @@
  */
 import { useState } from 'react'
 import {
-  HoverCard, Menu,
+  HoverCard, Menu, StateDot,
   IconCopyOutline16, IconEditOutline16, IconEllipsisOutline16, IconFolderOpen16,
   IconFolderOpenOutline16, IconPlusOutline16, IconProjectAddOutline16,
   IconTrashOutline16, IconTriangleRightFill14,
-  type MenuEntry, type MenuItem,
+  type MenuEntry, type MenuItem, type StateDotState,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { IconGitBranch } from '@dsh-studio/shared/tabler-icons'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
@@ -17,7 +17,7 @@ import type { ActionSelection } from '../domain/commands.ts'
 import { projectActionDescriptors, worktreeActionDescriptors } from '../domain/action-descriptors.ts'
 import { projectIdOf, worktreeIdOf } from '../domain/identities.ts'
 import { ProjectIconGlyph } from '../ProjectIconGlyph.tsx'
-import type { GroupTab, ProjectNode, WorktreeNode } from '../tree.ts'
+import type { ActivityKind, GroupTab, ProjectNode, WorktreeNode } from '../tree.ts'
 import { RowsCss as css } from '../styles.js'
 import { cn } from '../shim/cn.ts'
 
@@ -33,12 +33,56 @@ function actionIconSelection(action: ActionSelection['action'], target: ActionSe
   return { action, target, ...extra }
 }
 
+/** One ActivityKind's dot color in the official StateDot semantics. */
+function dotStateOf(kind: ActivityKind): StateDotState {
+  if (kind === 'waiting') return 'warning'
+  if (kind === 'running') return 'ongoing'
+  return 'done'
+}
+
+/**
+ * The compact hidden-activity indicator for collection rows: a small core
+ * dot with a slow expanding halo (color is the whole message — no numbers,
+ * no text in the row). `label` is the screen-reader copy shown next to it.
+ */
+function ActivityDot({ kind, label }: { kind: ActivityKind | undefined; label: string }) {
+  if (kind === undefined) return null
+  const tone = kind === 'waiting'
+    ? css.activityDotWaiting
+    : kind === 'running' ? css.activityDotRunning : css.activityDotCompleted
+  return (
+    <>
+      <span aria-hidden="true" className={cn(css.activityDot, tone)} />
+      <span className={css.visuallyHidden}>{label}</span>
+    </>
+  )
+}
+
+/** Hover-card status lines for the hidden-activity buckets present under a row. */
+function ActivityLines({ kinds, t }: { kinds: readonly ActivityKind[]; t: RowTranslate }) {
+  if (kinds.length === 0) return null
+  return (
+    <>
+      {kinds.map(kind => (
+        <div className={css.hoverStatus} key={kind}>
+          <StateDot state={dotStateOf(kind)} />
+          <span>{t(`activity.${kind}`)}</span>
+        </div>
+      ))}
+    </>
+  )
+}
+
 /** Project-level row: repository identity, icon, main-branch badge, and actions. */
-export function ProjectRowItem({ project, onToggle, tabs, onAction, t }: {
+export function ProjectRowItem({ project, onToggle, tabs, onAction, dot, hiddenKinds, t }: {
   project: ProjectNode
   onToggle: () => void
   tabs: readonly GroupTab[]
   onAction: (selection: ActionSelection) => void
+  /** Highest-priority hidden activity while the row is folded (undefined = none). */
+  dot?: ActivityKind | undefined
+  /** Every hidden bucket present, in priority order (hover-card copy). */
+  hiddenKinds?: readonly ActivityKind[] | undefined
   t: RowTranslate
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -88,6 +132,7 @@ export function ProjectRowItem({ project, onToggle, tabs, onAction, t }: {
       <span className={css.projectText}>
         <span className={css.title}>{project.label}</span>
       </span>
+      <ActivityDot kind={dot} label={dot === undefined ? '' : t(`activity.${dot}`)} />
       <span className={css.rowActions}>
         <Menu
           open={menuOpen}
@@ -128,6 +173,7 @@ export function ProjectRowItem({ project, onToggle, tabs, onAction, t }: {
         <div className={css.hoverContent}>
           <span className={css.hoverTitle}>{project.label}</span>
           <span className={css.hoverPath}>{project.repoRoot}</span>
+          <ActivityLines kinds={hiddenKinds ?? []} t={t} />
         </div>
       )}
       disabled={menuOpen}
@@ -139,12 +185,16 @@ export function ProjectRowItem({ project, onToggle, tabs, onAction, t }: {
 }
 
 /** WorkTree-level row: Git branch identity, Workspace targets, and topology actions. */
-export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAction, t }: {
+export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAction, dot, hiddenKinds, t }: {
   project: ProjectNode
   worktree: WorktreeNode
   onToggle: () => void
   workspaces?: readonly WorktreeWorkspace[] | undefined
   onAction: (selection: ActionSelection) => void
+  /** Highest-priority activity hidden behind this row (undefined = none). */
+  dot?: ActivityKind | undefined
+  /** Every hidden bucket present, in priority order (hover-card copy). */
+  hiddenKinds?: readonly ActivityKind[] | undefined
   t: RowTranslate
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -233,6 +283,7 @@ export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAct
         <span className={css.title}>{worktree.label}</span>
         {targets.length > 1 && <span className={css.countBadge} aria-label={t('worktree.workspaceCount', { n: targets.length })}>×{targets.length}</span>}
       </span>
+      <ActivityDot kind={dot} label={dot === undefined ? '' : t(`activity.${dot}`)} />
       <span className={css.rowActions}>
         <Menu
           open={menuOpen}
@@ -275,6 +326,7 @@ export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAct
             </span>
           )}
           <span className={css.hoverPath}>{worktree.path}</span>
+          <ActivityLines kinds={hiddenKinds ?? []} t={t} />
         </div>
       )}
       disabled={menuOpen}

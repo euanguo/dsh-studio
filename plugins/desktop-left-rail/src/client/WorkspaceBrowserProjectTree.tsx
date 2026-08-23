@@ -10,7 +10,7 @@ import type { ActionSelection } from './domain/commands.ts'
 import type { LeftRailSnapshot } from './project-tree-model.ts'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 import type { SessionOrderBy, GroupTab } from './tree.ts'
-import { worktreeVisibleSessions } from './tree.ts'
+import { activityKindsOf, activityOf, subtractActivity, worktreeVisibleSessions } from './tree.ts'
 import { insertSessionInOrder, reconciledSessionOrder } from './session-order.ts'
 import { WorkspaceBrowserCss as css } from './styles.js'
 import { cn } from './shim/cn.ts'
@@ -179,7 +179,12 @@ export function ProjectTreeBody({
       <div className={css.list} role="tree" aria-label={t('section.workspaces')}>
         {loading && tree.projects.length === 0 && <LoadingState className={css.empty} label={t('picker.loading')} />}
         {tree.projects.length === 0 && !loading && <EmptyState className={css.empty} title={t('empty.none')} />}
-        {tree.projects.map(project => (
+        {tree.projects.map(project => {
+          // The project row folds its whole subtree: while collapsed, one
+          // dot carries every hidden bucket (expanded rows speak for
+          // themselves — no duplicate project-level dot).
+          const projectKinds = project.expanded ? [] : activityKindsOf(project.activity)
+          return (
           <div key={project.key} className={css.groupSection}>
             <ProjectRowItem
               project={project}
@@ -187,6 +192,8 @@ export function ProjectTreeBody({
               tabs={tree.tabs}
               onToggle={() => { onToggleProject(project.key, !project.expanded) }}
               onAction={onAction}
+              dot={projectKinds[0]}
+              hiddenKinds={projectKinds}
             />
             {project.expanded && project.worktrees.map(worktree => {
               const wtWorkspaces: WorktreeWorkspace[] = worktree.workspaceIds.map(id => ({
@@ -199,6 +206,12 @@ export function ProjectTreeBody({
                 worktree.expanded,
                 runExpanded,
                 COLLAPSED_SESSION_LIMIT,
+              )
+              // The worktree dot signals activity the session rows cannot
+              // show: a folded row hides everything; an expanded row hides
+              // only the sessions past the preview limit.
+              const hiddenKinds = activityKindsOf(
+                subtractActivity(worktree.activity, activityOf(visibleSessions)),
               )
               const overflow = worktree.sessions.length > COLLAPSED_SESSION_LIMIT
               const toggleRun = (): void => {
@@ -215,6 +228,8 @@ export function ProjectTreeBody({
                     onToggle={() => { onToggleWorktree(worktree.key, !worktree.expanded) }}
                     workspaces={wtWorkspaces}
                     onAction={onAction}
+                    dot={hiddenKinds[0]}
+                    hiddenKinds={hiddenKinds}
                   />
                   {visibleSessions.map(node => {
                     const accountKey = accountBySession.get(node.id)
@@ -281,7 +296,8 @@ export function ProjectTreeBody({
               )
             })}
           </div>
-        ))}
+          )
+        })}
       </div>
       <span className={css.fade} />
     </div>

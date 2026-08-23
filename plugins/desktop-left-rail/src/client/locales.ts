@@ -64,6 +64,11 @@ export const zh = {
   'status.planReview': '计划待审',
   'status.waitingAnswer': '等待回答',
   'status.completed': '已完成',
+  // Collection-row (WorkTree/项目) hidden-activity copy: qualitative only —
+  // counts intentionally stay out of the compact rows and their hover cards.
+  'activity.waiting': '有对话等待你处理',
+  'activity.running': '有对话运行中',
+  'activity.completed': '有对话已完成未查看',
   'hover.created': '创建于 {time}',
   'hover.copied': '已复制',
   'date.ymd': '{y}年{m}月{d}日',
@@ -216,6 +221,9 @@ export const en = {
   'status.planReview': 'Plan awaiting review',
   'status.waitingAnswer': 'Waiting for answer',
   'status.completed': 'Completed',
+  'activity.waiting': 'A conversation needs your input',
+  'activity.running': 'A conversation is running',
+  'activity.completed': 'A conversation finished',
   'hover.created': 'Created {time}',
   'hover.copied': 'Copied',
   'date.ymd': '{y}-{m}-{d}',

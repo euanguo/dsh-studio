@@ -102,6 +102,62 @@ export interface TreeView {
 }
 
 /* ------------------------------------------------------------------------- *
+ * Activity aggregation (the collection-row "hidden work" indicator).
+ * One session belongs to exactly one bucket: awaiting user interaction
+ * outranks running, which outranks the finished-unviewed reminder (the same
+ * precedence order the session rows render).
+ * ------------------------------------------------------------------------- */
+
+/** One session's activity bucket, highest-priority first. */
+export type ActivityKind = 'waiting' | 'running' | 'completed'
+
+/** Aggregated counts of the three activity buckets for one collection row. */
+export interface ActivityTotals {
+  /** Sessions awaiting a user interaction (approval / plan review / question). */
+  waiting: number
+  /** Sessions running themselves or through uninterrupted subagent lineage. */
+  running: number
+  /** Sessions finished while unviewed (the green "done" reminder). */
+  completed: number
+}
+
+/** Bucket one session row; idle rows contribute nothing. */
+export function sessionActivityKind(node: SessionNode): ActivityKind | undefined {
+  if (node.pendingInteraction !== undefined) return 'waiting'
+  if (node.running || node.runningSubagentCount > 0) return 'running'
+  if (node.completed) return 'completed'
+  return undefined
+}
+
+/** Totals over a set of session rows (any size, including the collapsed empty set). */
+export function activityOf(nodes: readonly SessionNode[]): ActivityTotals {
+  const totals: ActivityTotals = { waiting: 0, running: 0, completed: 0 }
+  for (const node of nodes) {
+    const kind = sessionActivityKind(node)
+    if (kind !== undefined) totals[kind] += 1
+  }
+  return totals
+}
+
+/** Present buckets in priority order (waiting > running > completed). */
+export function activityKindsOf(totals: ActivityTotals): readonly ActivityKind[] {
+  const kinds: ActivityKind[] = []
+  if (totals.waiting > 0) kinds.push('waiting')
+  if (totals.running > 0) kinds.push('running')
+  if (totals.completed > 0) kinds.push('completed')
+  return kinds
+}
+
+/** Total activity minus the slice already visible to the user (floors at zero). */
+export function subtractActivity(total: ActivityTotals, visible: ActivityTotals): ActivityTotals {
+  return {
+    waiting: Math.max(0, total.waiting - visible.waiting),
+    running: Math.max(0, total.running - visible.running),
+    completed: Math.max(0, total.completed - visible.completed),
+  }
+}
+
+/* ------------------------------------------------------------------------- *
  * Project → WorkTree → Session derivation (the desktop three-level tree).
  * ------------------------------------------------------------------------- */
 
@@ -149,6 +205,8 @@ export interface WorktreeNode {
   sessions: readonly SessionNode[]
   /** Total visible sessions before collapse. */
   sessionCount: number
+  /** Aggregate activity over every session (the renderer subtracts what is already visible). */
+  activity: ActivityTotals
   expanded: boolean
   containsCurrent: boolean
 }
@@ -166,6 +224,8 @@ export interface ProjectNode {
   mainBranch: string | null
   worktrees: readonly WorktreeNode[]
   worktreeCount: number
+  /** Roll-up of every worktree's activity (shown while the project row is folded). */
+  activity: ActivityTotals
   expanded: boolean
   containsCurrent: boolean
 }
@@ -529,15 +589,12 @@ export function deriveProjectTree(
       }
     }
     const containsCurrent = wts.some(wt => wt.members.some(m => m.id === current))
-    return {
-      key, repoRoot: proj.repoRoot, label: view.projectAlias[proj.repoRoot] ?? workspaceLabel(proj.repoRoot), isGit: proj.isGit,
-      icon: projectIcons?.get(key) ?? {
-        source: 'fallback',
-        value: proj.isGit ? 'project' : 'directory',
-        fallback: proj.isGit ? 'project' : 'directory',
-      },
-      mainBranch: wts[0]?.branch ?? null,
-      worktrees: wts.map(wt => ({
+    // Session nodes and their activity totals are derived once per worktree
+    // so the project roll-up and the renderer's visible-subset subtraction
+    // share the same facts.
+    const worktreeNodes = wts.map(wt => {
+      const sessions = wt.members.map(m => sessionNode(m, descendants))
+      return {
         key: wt.path,
         path: wt.path,
         // Worktree = workspace: a row carrying exactly one registration is
@@ -552,12 +609,30 @@ export function deriveProjectTree(
         workspaceIds: wt.workspaceIds,
         // Sessions always carry the full member list; the renderer decides
         // the collapsed preview (first five) vs the full expanded run.
-        sessions: wt.members.map(m => sessionNode(m, descendants)),
-        sessionCount: wt.members.length,
+        sessions,
+        sessionCount: sessions.length,
+        activity: activityOf(sessions),
         expanded: expanded.has(worktreeExpansionKey(wt.path)),
-        containsCurrent: wt.members.some(m => m.id === current),
-      })),
-      worktreeCount: wts.length,
+        containsCurrent: sessions.some(m => m.id === current),
+      }
+    })
+    const activity: ActivityTotals = { waiting: 0, running: 0, completed: 0 }
+    for (const worktree of worktreeNodes) {
+      activity.waiting += worktree.activity.waiting
+      activity.running += worktree.activity.running
+      activity.completed += worktree.activity.completed
+    }
+    return {
+      key, repoRoot: proj.repoRoot, label: view.projectAlias[proj.repoRoot] ?? workspaceLabel(proj.repoRoot), isGit: proj.isGit,
+      icon: projectIcons?.get(key) ?? {
+        source: 'fallback',
+        value: proj.isGit ? 'project' : 'directory',
+        fallback: proj.isGit ? 'project' : 'directory',
+      },
+      mainBranch: wts[0]?.branch ?? null,
+      worktrees: worktreeNodes,
+      worktreeCount: worktreeNodes.length,
+      activity,
       expanded: expanded.has(repoExpansionKey(key)),
       containsCurrent,
     }

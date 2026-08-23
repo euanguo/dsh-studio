@@ -12,8 +12,9 @@ import { test } from 'node:test'
 import type { SessionId, SessionListState, SessionSummary, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SessionNode } from '../plugins/desktop-left-rail/src/client/tree.ts'
 import {
-  deriveFlat, deriveGroups, deriveProjectTree, deriveSearchResults,
-  relativeTime, repoExpansionKey, UNGROUPED_EXPANSION_KEY, UNGROUPED_KEY,
+  activityKindsOf, activityOf, deriveFlat, deriveGroups, deriveProjectTree,
+  deriveSearchResults, relativeTime, repoExpansionKey, sessionActivityKind,
+  subtractActivity, UNGROUPED_EXPANSION_KEY, UNGROUPED_KEY,
   UNGROUPED_LABEL, worktreeExpansionKey, worktreeVisibleSessions, workspaceExpansionKey, workspaceLabel,
 } from '../plugins/desktop-left-rail/src/client/tree.ts'
 import { indexSubagentDescendants } from '../plugins/desktop-left-rail/src/client/subagent-lineage.ts'
@@ -567,4 +568,80 @@ test('worktreeVisibleSessions: an expanded worktree previews the limit until the
 test('worktreeVisibleSessions: a small run is fully visible when expanded', () => {
   const sessions = [node('s1'), node('s2')]
   assert.deepEqual(worktreeVisibleSessions(sessions, true, false, 5).map(s => s.id), ['s1', 's2'])
+})
+
+/* ------------------------------------------------------------------------- *
+ * Activity aggregation — the collection-row hidden-work indicator
+ * ------------------------------------------------------------------------- */
+
+test('sessionActivityKind: pending outranks running, running outranks the finished reminder', () => {
+  assert.equal(sessionActivityKind(node('idle')), undefined)
+  assert.equal(sessionActivityKind({ ...node('run'), running: true }), 'running')
+  // Descendant subagent activity counts as running for the parent row.
+  assert.equal(sessionActivityKind({ ...node('sub'), runningSubagentCount: 2 }), 'running')
+  assert.equal(sessionActivityKind({ ...node('done'), completed: true }), 'completed')
+  // Running beats the reminder when both are set.
+  assert.equal(sessionActivityKind({ ...node('both'), running: true, completed: true }), 'running')
+  assert.equal(sessionActivityKind({ ...node('wait'), pendingInteraction: 'approval' }), 'waiting')
+  // Any pending interaction beats a running session.
+  assert.equal(sessionActivityKind({ ...node('wait-run'), running: true, pendingInteraction: 'question' }), 'waiting')
+})
+
+test('activityOf and activityKindsOf: buckets aggregate and order by priority', () => {
+  const rows: SessionNode[] = [
+    { ...node('a'), running: true },
+    { ...node('b'), running: true },
+    { ...node('c'), pendingInteraction: 'plan-review' },
+    { ...node('d'), completed: true },
+    node('e'),
+  ]
+  assert.deepEqual(activityOf(rows), { waiting: 1, running: 2, completed: 1 })
+  assert.deepEqual(activityKindsOf({ waiting: 1, running: 2, completed: 1 }), ['waiting', 'running', 'completed'])
+  assert.deepEqual(activityKindsOf({ waiting: 0, running: 2, completed: 1 }), ['running', 'completed'])
+  assert.deepEqual(activityKindsOf({ waiting: 0, running: 0, completed: 0 }), [])
+  assert.deepEqual(activityOf([]), { waiting: 0, running: 0, completed: 0 })
+})
+
+test('subtractActivity: removes the visible slice and floors at zero', () => {
+  assert.deepEqual(
+    subtractActivity({ waiting: 1, running: 2, completed: 1 }, { waiting: 0, running: 1, completed: 1 }),
+    { waiting: 1, running: 1, completed: 0 },
+  )
+  assert.deepEqual(
+    subtractActivity({ waiting: 0, running: 2, completed: 0 }, { waiting: 0, running: 2, completed: 0 }),
+    { waiting: 0, running: 0, completed: 0 },
+  )
+})
+
+test('deriveProjectTree: worktree and project roll up activity across their sessions', () => {
+  layouts.clear()
+  layouts.set('/repo', layout('/repo', [
+    { path: '/repo', branch: 'main', main: true },
+    { path: '/repo-worktrees/feat', branch: 'feat/a', main: false },
+  ]))
+  layouts.set('/repo-worktrees/feat', layout('/repo', [
+    { path: '/repo', branch: 'main', main: true },
+    { path: '/repo-worktrees/feat', branch: 'feat/a', main: false },
+  ]))
+  const list = listState({
+    's1': summary('s1', { running: true }),
+    's2': summary('s2', { completed: true }),
+    's3': summary('s3', { pendingInteraction: 'approval' }),
+    's4': summary('s4'),
+    'sa': summary('sa', { origin: 'subagent', parentId: 's4' as SessionId, running: true }),
+  })
+  const ws = [
+    workspace('ws-main', '/repo', ['s1', 's2']),
+    workspace('ws-feat', '/repo-worktrees/feat', ['s3', 's4']),
+  ]
+  const tree = deriveProjectTree(list, ws, layouts, [], {
+    expanded: [repoExpansionKey('/repo'), worktreeExpansionKey('/repo'), worktreeExpansionKey('/repo-worktrees/feat')],
+    activeTab: '__default__', projectGroup: {}, groupIds: [], groupLabels: {}, projectAlias: {},
+  })
+  const main = tree.projects[0]!.worktrees.find(w => w.path === '/repo')!
+  assert.deepEqual(main.activity, { waiting: 0, running: 1, completed: 1 })
+  const feat = tree.projects[0]!.worktrees.find(w => w.path === '/repo-worktrees/feat')!
+  // s4 itself is idle, but its running subagent counts as running activity.
+  assert.deepEqual(feat.activity, { waiting: 1, running: 1, completed: 0 })
+  assert.deepEqual(tree.projects[0]!.activity, { waiting: 1, running: 2, completed: 1 })
 })
