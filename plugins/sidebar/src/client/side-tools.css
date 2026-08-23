@@ -361,13 +361,19 @@
 }
 
 .dsh-studio-side-menu {
+  flex: 1;
+  /* Insets come from the viewport inset class (8px). */
+}
+
+/* The menu list itself lives in the scroll viewport (the ScrollArea root
+   is only the bar host), so the launcher grid belongs THERE: rows are
+   grid items again — they stretch to the panel width (a <button> alone
+   would shrink to content) and the block centers vertically while it
+   fits (`safe` falls back to start once it overflows). */
+.dsh-studio-side-menu .dsh-studio-ui-scroll-area-viewport {
   display: grid;
-  /* Center the tool list as a block in the panel (launcher look); `safe`
-     falls back to start-aligned when the rows are taller than the panel. */
   align-content: safe center;
   gap: var(--dsh-studio-space-1);
-  flex: 1;
-  /* Insets come from the Scrollable host (default 8px). */
 }
 
 /* Close button for the menu view: the menu has no tab row, so it keeps its
