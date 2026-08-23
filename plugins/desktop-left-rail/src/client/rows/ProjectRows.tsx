@@ -41,18 +41,16 @@ function dotStateOf(kind: ActivityKind): StateDotState {
 }
 
 /**
- * The compact hidden-activity indicator for collection rows: a small core
- * dot with a slow expanding halo (color is the whole message — no numbers,
- * no text in the row). `label` is the screen-reader copy shown next to it.
+ * The hidden-activity indicator for collection rows: the official StateDot —
+ * the same component (and size) the session rows render — paired with
+ * screen-reader copy. No second status-dot kit; only the display rule
+ * ("this row hides activity") is ours.
  */
 function ActivityDot({ kind, label }: { kind: ActivityKind | undefined; label: string }) {
   if (kind === undefined) return null
-  const tone = kind === 'waiting'
-    ? css.activityDotWaiting
-    : kind === 'running' ? css.activityDotRunning : css.activityDotCompleted
   return (
     <>
-      <span aria-hidden="true" className={cn(css.activityDot, tone)} />
+      <StateDot state={dotStateOf(kind)} className={css.statusDot} />
       <span className={css.visuallyHidden}>{label}</span>
     </>
   )

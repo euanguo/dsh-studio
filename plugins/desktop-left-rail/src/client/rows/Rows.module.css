@@ -468,68 +468,17 @@
   white-space: nowrap;
 }
 
-/* Collection-row hidden-activity indicator (WorkTree / project): one small
-   core dot plus a slow expanding halo — color-only, no numbers or text in
-   the row. Colors reuse the session status palette (same tokens), so the
-   three buckets read identically to the per-session dots. */
-.activityDot {
+/* Collection-row hidden-activity dot: the official StateDot component
+   (same as the session rows), laid out and hidden on hover exactly like
+   the session rows' status slot. No second status-dot kit. */
+.statusDot {
   flex: none;
-  width: 16px;
-  height: 20px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.activityDot::before {
-  content: '';
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: currentColor;
-}
-
-.activityDot::after {
-  content: '';
-  position: absolute;
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  border: 1px solid currentColor;
-  opacity: 0.5;
-  animation: dsh-studio-activity-pulse 2.6s ease-in-out infinite;
-}
-
-@keyframes dsh-studio-activity-pulse {
-  0% { transform: scale(1); opacity: 0.55; }
-  55% { transform: scale(1.9); opacity: 0; }
-  100% { transform: scale(1.9); opacity: 0; }
-}
-
-.activityDotRunning {
-  color: var(--dsw-static-deepseek-450, var(--dsw-alias-state-business-primary));
-}
-
-.activityDotWaiting {
-  color: var(--dsw-alias-state-warn-primary);
-}
-
-.activityDotCompleted {
-  color: var(--dsw-alias-state-success-primary);
 }
 
 /* Hover makes room for the row actions; the HoverCard carries the copy. */
-.worktreeRow:hover .activityDot,
-.worktreeRow.menuOpen .activityDot,
-.projectRow:hover .activityDot,
-.projectRow.menuOpen .activityDot {
+.worktreeRow:hover .statusDot,
+.worktreeRow.menuOpen .statusDot,
+.projectRow:hover .statusDot,
+.projectRow.menuOpen .statusDot {
   display: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .activityDot::after {
-    animation: none;
-    opacity: 0.4;
-  }
 }
