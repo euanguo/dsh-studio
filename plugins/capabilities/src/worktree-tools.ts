@@ -1,4 +1,14 @@
-/** Model-facing WorkTree topology, lifecycle and delegation tools. */
+/**
+ * Model-facing WorkTree topology/lifecycle tools and delegation tools.
+ *
+ * The two families are registered under SEPARATE settings gates so a user can
+ * grant topology inspection without ceding cross-project conversation
+ * scheduling:
+ * - {@link registerWorktreeTools}: topology + lifecycle (list / branches /
+ *   status / create / remove) — gated by the `agentWorktreeTools` preference;
+ * - {@link registerWorktreeDelegationTools}: delegation (delegate and its
+ *   status / wait / stop / result) — gated by `agentWorktreeDelegationTools`.
+ */
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
@@ -23,6 +33,13 @@ function register(
   disposers.push(ctx.tools.register(tool))
 }
 
+/**
+ * Register the WorkTree topology and lifecycle tools (list / branches /
+ * status / create / remove). Physical removal keeps its human-approval gate;
+ * inspection and local git mutation need no confirmation.
+ * @param registry - the shared WorkTree orchestration registry.
+ * @returns the exact disposer that unregisters the whole family.
+ */
 export function registerWorktreeTools(
   ctx: Context,
   registry: WorktreeDelegationRegistry,
@@ -58,6 +75,22 @@ export function registerWorktreeTools(
     async execute(args: { repo_cwd?: string }, exec) {
       exec.signal.throwIfAborted()
       return registry.branches(parentSessionIdOf(exec), args.repo_cwd)
+    },
+  }), disposers)
+
+  register(ctx, defineTool({
+    name: 'worktree_status',
+    description: 'Read Git branch and status facts for one visible WorkTree.',
+    parameters: {
+      path: { type: 'string', required: true, description: 'Visible WorkTree path.' },
+    },
+    output: {
+      schema: { type: 'object' },
+      render: (_args, value) => textRender(JSON.stringify(value)),
+    },
+    async execute(args: { path: string }, exec) {
+      exec.signal.throwIfAborted()
+      return registry.status(parentSessionIdOf(exec), args.path)
     },
   }), disposers)
 
@@ -105,21 +138,33 @@ export function registerWorktreeTools(
     },
   }), disposers)
 
-  register(ctx, defineTool({
-    name: 'worktree_status',
-    description: 'Read Git branch and status facts for one visible WorkTree.',
-    parameters: {
-      path: { type: 'string', required: true, description: 'Visible WorkTree path.' },
-    },
-    output: {
-      schema: { type: 'object' },
-      render: (_args, value) => textRender(JSON.stringify(value)),
-    },
-    async execute(args: { path: string }, exec) {
-      exec.signal.throwIfAborted()
-      return registry.status(parentSessionIdOf(exec), args.path)
-    },
-  }), disposers)
+  const stopApproval = ctx.on('tools/pre-execute', async (exec, next) => {
+    if (exec.name !== 'worktree_remove') return next()
+    return {
+      kind: 'ask',
+      reason: 'Remove the selected Git WorkTree and its DSH Workspace registration?'
+    }
+  })
+  disposers.push(stopApproval)
+  return () => {
+    for (const dispose of disposers.splice(0)) dispose()
+  }
+}
+
+/**
+ * Register the WorkTree delegation tools (delegate and its status / wait /
+ * stop / result). These start an independent Agent conversation in a visible
+ * WorkTree and manage its lifecycle; they are gated separately from the
+ * topology tools so cross-project session scheduling can be granted (or
+ * withheld) on its own.
+ * @param registry - the shared WorkTree orchestration registry.
+ * @returns the exact disposer that unregisters the whole family.
+ */
+export function registerWorktreeDelegationTools(
+  ctx: Context,
+  registry: WorktreeDelegationRegistry,
+): () => void {
+  const disposers: Array<() => void> = []
 
   register(ctx, defineTool({
     name: 'worktree_delegate',
@@ -206,14 +251,6 @@ export function registerWorktreeTools(
     },
   }), disposers)
 
-  const stopApproval = ctx.on('tools/pre-execute', async (exec, next) => {
-    if (exec.name !== 'worktree_remove') return next()
-    return {
-      kind: 'ask',
-      reason: 'Remove the selected Git WorkTree and its DSH Workspace registration?'
-    }
-  })
-  disposers.push(stopApproval)
   return () => {
     for (const dispose of disposers.splice(0)) dispose()
   }

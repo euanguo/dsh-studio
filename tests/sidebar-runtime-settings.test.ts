@@ -22,6 +22,27 @@ test('sidebar runtime settings keep WorkTree Agent tools disabled by default', (
   assert.equal(parseSidebarRuntimePreferences({ agentWorktreeTools: true }).agentWorktreeTools, true)
 })
 
+test('sidebar runtime settings keep WorkTree delegation tools behind their own gate', () => {
+  assert.equal(DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.agentWorktreeDelegationTools, false)
+  // Old documents without the key resolve to the default (off), so existing
+  // users stay on the safer side of the new split.
+  assert.equal(parseSidebarRuntimePreferences({}).agentWorktreeDelegationTools, false)
+  // The delegation gate is independent of the topology gate.
+  assert.equal(
+    parseSidebarRuntimePreferences({ agentWorktreeTools: true }).agentWorktreeDelegationTools,
+    false,
+  )
+  assert.equal(
+    parseSidebarRuntimePreferences({ agentWorktreeDelegationTools: true }).agentWorktreeDelegationTools,
+    true,
+  )
+  // Non-boolean values fall back to the default rather than corrupting state.
+  assert.equal(
+    parseSidebarRuntimePreferences({ agentWorktreeDelegationTools: 'yes' }).agentWorktreeDelegationTools,
+    false,
+  )
+})
+
 test('sidebar runtime settings default the per-protocol intercept flags', () => {
   assert.equal(DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttp, true)
   assert.equal(DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttps, false)

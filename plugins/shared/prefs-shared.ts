@@ -33,8 +33,22 @@ export interface SidebarPrefs {
    * user explicitly enables it in the side card settings.
    */
   agentTerminalTools: boolean
-  /** Whether model-facing WorkTree topology and delegation tools are injected. */
+  /**
+   * Whether model-facing WorkTree topology and lifecycle tools
+   * (worktree_list / branches / status / create / remove) are injected.
+   * Off by default: the feature stays dormant until the user explicitly
+   * enables it in the side card settings.
+   */
   agentWorktreeTools: boolean
+  /**
+   * Whether model-facing WorkTree delegation tools (worktree_delegate /
+   * delegate_status / delegate_wait / delegate_stop / delegate_result) are
+   * injected — the tools that start an independent Agent conversation in a
+   * visible WorkTree and manage its lifecycle. Kept as a SEPARATE switch
+   * from {@link agentWorktreeTools}: topology inspection and cross-project
+   * conversation scheduling are distinct capabilities. Off by default.
+   */
+  agentWorktreeDelegationTools: boolean
   /**
    * Whether expanding the bottom panel for the FIRST time in a session tries
    * to open a fresh terminal tab there (the terminal quota/type still gates
@@ -141,6 +155,7 @@ export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
   autoOpenJobs: true,
   agentTerminalTools: false,
   agentWorktreeTools: false,
+  agentWorktreeDelegationTools: false,
   bottomPanelAutoTerminal: true,
   interceptOpenPath: true,
   htmlViewerNoSandbox: false,

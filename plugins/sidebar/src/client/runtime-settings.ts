@@ -13,7 +13,20 @@ import {
 
 export interface SidebarRuntimePreferences {
   agentTerminalTools: boolean
+  /**
+   * Whether model-facing WorkTree topology/lifecycle tools are injected.
+   * The delegation half rides its own switch
+   * ({@link agentWorktreeDelegationTools}).
+   */
   agentWorktreeTools: boolean
+  /**
+   * Whether model-facing WorkTree delegation tools (worktree_delegate and
+   * its status / wait / stop / result) are injected — the cross-project
+   * conversation scheduling half of the WorkTree family. Separate from
+   * {@link agentWorktreeTools}, so inspection and scheduling grant (or
+   * withhold) independently.
+   */
+  agentWorktreeDelegationTools: boolean
   /**
    * Whether the sidebar auto-activates (opens the panel) and expands the
    * subagent page when the current conversation spawns a new subagent.
@@ -94,6 +107,7 @@ export const DEFAULT_SIDEBAR_RUNTIME_PREFERENCES:
 Readonly<SidebarRuntimePreferences> = Object.freeze({
   agentTerminalTools: false,
   agentWorktreeTools: false,
+  agentWorktreeDelegationTools: false,
   autoOpenSubagent: true,
   autoOpenJobs: true,
   bottomPanelAutoTerminal: true,
@@ -155,6 +169,10 @@ export function parseSidebarRuntimePreferences(
     agentWorktreeTools: typeof record.agentWorktreeTools === 'boolean'
       ? record.agentWorktreeTools
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.agentWorktreeTools,
+    agentWorktreeDelegationTools:
+      typeof record.agentWorktreeDelegationTools === 'boolean'
+        ? record.agentWorktreeDelegationTools
+        : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.agentWorktreeDelegationTools,
     autoOpenSubagent: typeof record.autoOpenSubagent === 'boolean'
       ? record.autoOpenSubagent
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.autoOpenSubagent,

@@ -61,7 +61,10 @@ import { AgentPtyRegistry, clampDims, type AgentTerminalHandle } from './agent-p
 import { buildTerminalReplayPayload, type TerminalReplaySource } from './terminal-replay.ts'
 import { registerTools } from './tools.ts'
 import { WorktreeDelegationRegistry } from './worktree-orchestration.ts'
-import { registerWorktreeTools } from './worktree-tools.ts'
+import {
+  registerWorktreeDelegationTools,
+  registerWorktreeTools,
+} from './worktree-tools.ts'
 import {
   readJsonBody,
   requireString,
@@ -230,6 +233,7 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
   // Model-facing capabilities are independently gated and default off.
   let toolsDisposers: (() => void) | null = null
   let worktreeToolsDisposer: (() => void) | null = null
+  let worktreeDelegationToolsDisposer: (() => void) | null = null
   const syncToolsGate = (scope: { get(): SidebarPrefs }): void => {
     const prefs = scope.get()
     if (prefs.agentTerminalTools) {
@@ -248,6 +252,14 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     } else if (worktreeToolsDisposer !== null) {
       worktreeToolsDisposer()
       worktreeToolsDisposer = null
+    }
+    if (prefs.agentWorktreeDelegationTools) {
+      if (worktreeDelegationToolsDisposer === null) {
+        worktreeDelegationToolsDisposer = registerWorktreeDelegationTools(ctx, worktreeDelegations)
+      }
+    } else if (worktreeDelegationToolsDisposer !== null) {
+      worktreeDelegationToolsDisposer()
+      worktreeDelegationToolsDisposer = null
     }
   }
   ctx.inject(['settings', 'llm'], (sctx) => {
@@ -540,6 +552,7 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
   ctx.effect(() => () => {
     toolsDisposers?.()
     worktreeToolsDisposer?.()
+    worktreeDelegationToolsDisposer?.()
     worktreeDelegations.dispose()
     ptyManager.disposeAll()
     agentPtyRegistry.disposeAll()

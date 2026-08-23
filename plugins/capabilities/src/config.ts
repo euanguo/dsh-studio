@@ -94,6 +94,7 @@ export const PrefsSchema: z<SidebarPrefs> = z.object({
   autoOpenJobs: z.boolean().default(true),
   agentTerminalTools: z.boolean().default(false),
   agentWorktreeTools: z.boolean().default(false),
+  agentWorktreeDelegationTools: z.boolean().default(false),
   bottomPanelAutoTerminal: z.boolean().default(true),
   interceptOpenPath: z.boolean().default(true),
   htmlViewerNoSandbox: z.boolean().default(false),
