@@ -107,17 +107,18 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   display: flex;
   flex-direction: column;
   flex: 1;
-  /* Multi-layer host: no universal scrollable inset (the sections below own
-     their own padding); only the shared scroll-gutter band stays on the
-     right so the floating thumb never covers content. */
+  /* Multi-layer host: the scroll viewport itself is flush; every section
+     below owns its own 8px inset on all four sides (the section padding is
+     also the resting band that keeps the floating thumb off the divider
+     and off the textarea/row edges). */
 }
 
 .dsh-studio-workspace-content section {
-  /* Section = the inset owner for its own content: 8px on top/bottom/left
-     (right is left to the scrollable's seat, so the lane never stacks on
-     section padding). The bottom divider runs from the container's left
-     edge to the seat's left edge. */
-  padding: var(--dsh-studio-space-2) 0 var(--dsh-studio-space-2) var(--dsh-studio-space-2);
+  /* Section = the inset owner for its own content: the same 8px on every
+     side. The right padding doubles as the scrollbar seat — the 8px band
+     where the floating thumb lives — so content edges never sit under it
+     (same visual seat the pre-refactor scroll host reserved). */
+  padding: var(--dsh-studio-space-2);
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
@@ -241,7 +242,9 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
 
 /* Commit history rows ride the shared ListRow family (hover/selected
    geometry + row spacing lives in list-row.css); only the hash chip is
-   Git-specific. All insets come from the Scrollable host (default 8px). */
+   Git-specific. All four insets come from the viewport's
+   `dsh-studio-ui-scroll-viewport-inset` class (8px), so row edges line up
+   with the change list above. */
 .dsh-studio-review-commit-list {
   display: grid;
   /* Single auto column would size to the widest row's max-content, so a long

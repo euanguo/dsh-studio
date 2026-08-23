@@ -835,6 +835,7 @@ export function WorkspacePanel({
               {!historyCollapsed && (
                 <ScrollArea
                   className="dsh-studio-review-commit-list"
+                  viewportClassName="dsh-studio-ui-scroll-viewport-inset"
                   style={{ maxHeight: historyHeight }}
                 >
                   {history.map(entry => {
