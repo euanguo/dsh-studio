@@ -5,7 +5,19 @@
  * helpers are pure string operations so the renderer bundles can use them
  * (node:path does not exist in the browser). The host keeps node:path for
  * filesystem work; this module is only for wire-side normalization.
+ *
+ * Primitive path math (basename / dirname / join) delegates to `pathe`, the
+ * standard browser-safe path library. The remaining helpers stay hand-written
+ * ON PURPOSE: they implement DSH wire-protocol semantics that a generic path
+ * library deliberately does NOT provide — trailing-slash stripping, literal
+ * `..` preservation (never resolving dot segments), containment checks with
+ * a prefix boundary, and cwd-relative conversion that never emits `../`.
  */
+import {
+  basename as pathBasename,
+  dirname as pathDirname,
+  join as pathJoin,
+} from 'pathe'
 
 /** Normalize separators, collapse repeats and strip trailing slashes ('' stays ''). */
 export function normalizePath(path: string): string {
@@ -14,20 +26,31 @@ export function normalizePath(path: string): string {
 
 /** Last non-empty segment of a path (the input itself when there is none, e.g. '/'). */
 export function basename(path: string): string {
-  return normalizePath(path).split('/').filter(segment => segment !== '').pop() ?? path
+  const normalized = normalizePath(path)
+  if (normalized === '') return path
+  return pathBasename(normalized)
 }
 
 /** Parent directory of a path: '' for a bare name, '/' for a top-level name. */
 export function dirname(path: string): string {
   const normalized = normalizePath(path)
-  const index = normalized.lastIndexOf('/')
-  if (index < 0) return ''
-  return index === 0 ? '/' : normalized.slice(0, index)
+  if (normalized === '') return ''
+  const dir = pathDirname(normalized)
+  if (dir === '.') return ''
+  if (dir === '/') return '/'
+  // `pathe` keeps the drive-root slash ('C:/' for 'C:/x'); the wire form
+  // never carries a trailing slash outside root.
+  return dir.replace(/\/+$/, '')
 }
 
-/** Join segments with '/' and normalize the result. */
+/**
+ * Join segments with '/' and normalize the result. Note: `pathe.join`
+ * resolves '.' / '..' segments; callers only pass clean names (file names,
+ * slugified worktree names), so the wire's literal-`..` behavior never
+ * triggers here.
+ */
 export function joinPath(...segments: string[]): string {
-  return normalizePath(segments.join('/'))
+  return normalizePath(pathJoin(...segments))
 }
 
 /** True when `path` is `root` itself or a descendant of it. */
