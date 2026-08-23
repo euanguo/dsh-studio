@@ -62,6 +62,17 @@ export function SurfaceTab({
   onDragEnd,
 }: SurfaceTabProps): JSX.Element {
   const selectedOnPointerDownRef = useRef(false)
+  const elementRef = useRef<HTMLDivElement | null>(null)
+
+  // Activated tab auto-scroll: when a tab becomes the active one and sits
+  // outside the tab strip's visible area (a long conversation list pushed
+  // it out of view), scroll it back into the strip — `inline/block: nearest`
+  // only scrolls the minimum needed and never moves page focus. Mirrors the
+  // reference workbench's selection scroll (surface-tab reuse).
+  useEffect(() => {
+    if (!active || elementRef.current === null) return
+    elementRef.current.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [active])
   const canClose = onClose !== undefined && !disabled
   const interactive = onSelect !== undefined && !disabled
   const resolvedTitle = disabled && disabledTitle !== undefined ? disabledTitle : (title ?? label)
@@ -107,6 +118,7 @@ export function SurfaceTab({
 
   return (
     <div
+      ref={elementRef}
       role={interactive ? 'tab' : undefined}
       tabIndex={interactive ? 0 : undefined}
       title={resolvedTitle}

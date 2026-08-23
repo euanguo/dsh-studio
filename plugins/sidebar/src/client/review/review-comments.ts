@@ -12,6 +12,12 @@ export interface ReviewComment {
   side: ReviewCommentSide
   body: string
   createdAt: string
+  /**
+   * Resolution timestamp: a resolved comment stays listed and persisted
+   * but is pulled out of the composer reference and never delivered with new
+   * review requests. Absent ⇒ unresolved.
+   */
+  resolvedAt?: string
   request: string
 }
 
@@ -118,6 +124,7 @@ function isReviewComment(value: unknown): value is ReviewComment {
     && (comment.side === null || comment.side === 'new' || comment.side === 'old')
     && typeof comment.body === 'string'
     && typeof comment.createdAt === 'string'
+    && (comment.resolvedAt === undefined || typeof comment.resolvedAt === 'string')
     && typeof comment.request === 'string'
 }
 
@@ -450,12 +457,16 @@ export class ReviewCommentsService {
     return this.bridge.appendText(text)
   }
 
+  private activeBranch: string | null = null
+
   activate(workspacePath: string, branch: string): void {
+    this.activeBranch = branch
     this.bridge.setScope(branch)
     const scope = `${workspacePath}\0${branch}`
     if (this.seededScopes.has(scope)) return
     this.seededScopes.add(scope)
     for (const comment of this.comments) {
+      if (comment.resolvedAt !== undefined) continue
       if (comment.workspacePath === workspacePath && comment.branch === branch) {
         this.bridge.addComment(comment.request, comment.id, branch)
       }
@@ -475,6 +486,25 @@ export class ReviewCommentsService {
     this.removeMany([id], false)
   }
 
+  /** Mark a comment resolved: kept and listed, but never delivered again. */
+  resolve(id: string): void {
+    this.bridge.removeComment(id)
+    this.mutate(id, comment => ({ ...comment, resolvedAt: new Date().toISOString() }))
+  }
+
+  /** Re-open a resolved comment (re-injects it for the active branch). */
+  unresolve(id: string): void {
+    let restored: ReviewComment | undefined
+    this.mutate(id, comment => {
+      restored = { ...comment }
+      delete restored.resolvedAt
+      return restored
+    })
+    if (restored !== undefined && restored.branch === this.activeBranch) {
+      this.bridge.addComment(restored.request, restored.id, restored.branch)
+    }
+  }
+
   dispose(): void {
     this.bridge.dispose()
     this.listeners.clear()
@@ -487,6 +517,19 @@ export class ReviewCommentsService {
     if (next.length === this.comments.length) return
     this.comments = next
     this.publish()
+  }
+
+  private mutate(
+    id: string,
+    transform: (comment: ReviewComment) => ReviewComment,
+  ): void {
+    let changed = false
+    this.comments = this.comments.map(comment => {
+      if (comment.id !== id) return comment
+      changed = true
+      return transform(comment)
+    })
+    if (changed) this.publish()
   }
 
   private publish(): void {

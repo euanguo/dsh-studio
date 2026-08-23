@@ -127,3 +127,16 @@ Project → Worktree → Session 左栏的事实来源、深模块 seam、语义
 Web 与 TUI 的 `--data` 只覆盖当前进程。
 
 相关操作见[安装、操作与排错](./usage.md)。
+
+## Workbench 内核契约
+
+右栏工作台的打开语义与状态作用域收敛到共享内核契约
+`@dsh-studio/shared/workbench-contracts`：
+
+- `resolveOpenPlan` 是唯一的打开决策表：intent（`preview`/`pin`/`background`）×
+  `centerPreviewTabs` 偏好 ⇒ 区域、是否可替换预览、是否激活。焦点不变式（打开永不
+  移动键盘焦点）由所有调用方共同维护。
+- `resolveScopeBucket` 是唯一的状态分桶决策：`workspace`/`session`/`global` 三档，
+  `global` 折叠到单一桶。侧栏布局与宽度记忆经此实现 `layoutScope` 偏好；center
+  surface 队列因其对象绑定工作区，恒按 cwd 分桶。
+- 上游 DOM 探测必须收口在每个插件的单个模块（sidebar 为 `dsh-dom.ts`）。

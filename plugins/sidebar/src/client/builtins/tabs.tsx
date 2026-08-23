@@ -9,11 +9,8 @@ import {
   formatKeymapHint,
   binding,
 } from '../kit/keymap.ts'
-import {
-  ToolIcon,
-  FilesView,
-  FileView,
-} from '../SideToolsPanel.tsx'
+import { ToolIcon } from '../SideToolsPanel.tsx'
+import { FilesView, FileView } from '../files/files-view.tsx'
 import { WorkspacePanel } from '../workspace-panel.tsx'
 import { SubagentPanel } from '../subagent/subagent-panel.tsx'
 import { TerminalTabContent } from '../terminal-tab.tsx'

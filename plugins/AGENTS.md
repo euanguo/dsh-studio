@@ -4,6 +4,17 @@ These rules apply under `plugins/`. They narrow the repository
 [AGENTS.md](../AGENTS.md) for DSH Studio Cordis plugins that render into the
 DSH web client.
 
+## Upstream DOM probes
+
+Any selector, `data-slot`, aria-label, or class-name probe into the DSH web
+client's DOM lives in exactly ONE module per plugin (the sidebar's is
+`sidebar/src/client/surfaces/dsh-dom.ts`), with the coupling documented where
+the probe is declared. Never spell upstream selectors inline in feature code:
+an upstream bump must be re-pinnable by editing one file. Open semantics
+(intents, preview vs pinned, activation) go through
+`@dsh-studio/shared/workbench-contracts` (`resolveOpenPlan`) instead of being
+re-decided at each call site.
+
 ## Official chrome
 
 `@deepseek-ai/dsh-client-ui-primitives` is a platform seed. Every

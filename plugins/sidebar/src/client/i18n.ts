@@ -100,6 +100,10 @@ export type WorkspaceMessage =
   | 'settings.reset'
   | 'settings.open-by-default'
   | 'settings.open-by-default-description'
+  | 'settings.center-preview-tabs'
+  | 'settings.center-preview-tabs-description'
+  | 'settings.layout-scope'
+  | 'settings.layout-scope-description'
   | 'settings.width'
   | 'settings.width-value'
   | 'settings.tools'
@@ -361,6 +365,12 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.reset': 'Reset',
     'settings.open-by-default': 'Open at launch',
     'settings.open-by-default-description': 'Restore the side panel automatically when the desktop starts.',
+    'settings.center-preview-tabs': 'Single-click previews',
+    'settings.center-preview-tabs-description':
+      'Open files from clicks as replaceable preview tabs. Turn off to always open permanent tabs.',
+    'settings.layout-scope': 'Cross-project layout',
+    'settings.layout-scope-description':
+      'Share one side-panel tab layout across every project. Turn off to keep a separate layout per project.',
     'settings.width': 'Default width',
     'settings.width-value': '{width} px',
     'settings.tools': 'Tools',
@@ -621,6 +631,10 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.reset': '恢复默认',
     'settings.open-by-default': '启动时打开',
     'settings.open-by-default-description': '桌面端启动时自动恢复侧边栏。',
+    'settings.center-preview-tabs': '单击预览',
+    'settings.center-preview-tabs-description': '单击文件时打开可替换的预览标签；关闭后单击直接打开永久标签。',
+    'settings.layout-scope': '跨项目共享布局',
+    'settings.layout-scope-description': '所有项目共用同一份侧栏标签布局；关闭后每个项目保留各自的布局。',
     'settings.width': '默认宽度',
     'settings.width-value': '{width} 像素',
     'settings.tools': '工具',

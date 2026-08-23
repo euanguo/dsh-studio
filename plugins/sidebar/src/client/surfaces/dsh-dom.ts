@@ -39,3 +39,22 @@ export function readLeftRailOpen(): boolean | null {
   if (label === undefined || label === null || label === '') return null
   return label.includes('收起') || /collapse/i.test(label)
 }
+
+/**
+ * The DSH conversation Trajectory tab (role="tab"); identified by localized
+ * text among the caller-supplied candidate labels (the translated word plus
+ * known upstream spellings). Upstream DOM/wording changes surface here.
+ */
+export function trajectoryTabButton(
+  candidateLabels: readonly string[],
+): HTMLButtonElement | null {
+  const wanted = new Set(
+    candidateLabels.map(label => label.trim().toLowerCase()).filter(Boolean),
+  )
+  const tabs = document.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+  for (const element of tabs) {
+    const label = element.textContent?.trim().toLowerCase() ?? ''
+    if (wanted.has(label)) return element
+  }
+  return null
+}

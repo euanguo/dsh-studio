@@ -24,6 +24,9 @@
 import type { ReactNode } from 'react'
 import { basename } from '@dsh-studio/shared/path'
 import type { CenterSurface, CenterSurfaceKind } from './surfaces/types.ts'
+import type { PreviewTabsMode } from '@dsh-studio/shared/workbench-contracts'
+import type { LayoutScopeMode } from '../sidebar-preferences.ts'
+import { GLOBAL_SCOPE_BUCKET } from '@dsh-studio/shared/workbench-contracts'
 import {
   clampSidebarWidth,
   DEFAULT_SIDEBAR_PREFERENCES,
@@ -128,13 +131,7 @@ function clonePreferences(
     ...preferences,
     defaultWidth: clampSidebarWidth(preferences.defaultWidth),
     workspaces: Object.fromEntries(Object.entries(preferences.workspaces).map(
-      ([cwd, workspace]) => [cwd, {
-        ...workspace,
-        tabs: workspace.tabs.map(tab => ({ ...tab })),
-        ...(workspace.bottomTabs === undefined
-          ? {}
-          : { bottomTabs: workspace.bottomTabs.map(tab => ({ ...tab })) }),
-      }],
+      ([cwd, workspace]) => [cwd, cloneWorkspace(workspace)],
     )),
     tabsEnabled: { ...preferences.tabsEnabled },
     viewersEnabled: { ...preferences.viewersEnabled },
@@ -143,6 +140,17 @@ function clonePreferences(
         ([id, blob]) => [id, { ...blob }],
       ),
     ),
+  }
+}
+
+/** Shallow-per-tab clone of a single workspace layout. */
+function cloneWorkspace(workspace: PersistedWorkspaceLayout): PersistedWorkspaceLayout {
+  return {
+    ...workspace,
+    tabs: workspace.tabs.map(tab => ({ ...tab })),
+    ...(workspace.bottomTabs === undefined
+      ? {}
+      : { bottomTabs: workspace.bottomTabs.map(tab => ({ ...tab })) }),
   }
 }
 
@@ -173,6 +181,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     tabsEnabled: {},
     viewersEnabled: {},
     pluginSettings: {},
+    centerPreviewTabs: DEFAULT_SIDEBAR_PREFERENCES.centerPreviewTabs,
+    layoutScope: DEFAULT_SIDEBAR_PREFERENCES.layoutScope,
     width: DEFAULT_SIDEBAR_PREFERENCES.defaultWidth,
   }
 
@@ -209,7 +219,9 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
         tabsEnabled: { ...this.preferences.tabsEnabled },
         viewersEnabled: { ...this.preferences.viewersEnabled },
         pluginSettings: this.pluginSettingsSnapshot(),
-        width: this.preferences.defaultWidth,
+        centerPreviewTabs: this.preferences.centerPreviewTabs,
+        layoutScope: this.preferences.layoutScope,
+        width: this.layoutWidth(requestedCwd),
       })
     } catch (error) {
       this.publish({
@@ -755,9 +767,66 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   setWidth(width: number): void {
     const next = clampSidebarWidth(width)
     if (this.snapshot.width === next) return
-    this.preferences.defaultWidth = next
+    if (this.snapshot.cwd !== null) {
+      // Remember per workspace bucket; `defaultWidth` stays the fallback for
+      // projects (and buckets) without a remembered width. A project whose
+      // bucket does not exist yet gets one — a width-only touch must survive
+      // project switches.
+      const key = this.layoutKey(this.snapshot.cwd)
+      const workspace = this.preferences.workspaces[key]
+      this.preferences.workspaces[key] = {
+        ...(workspace ?? { activeId: null, tabs: [], bottomTabs: [], bottomActiveId: null }),
+        lastUsed: Date.now(),
+        width: next,
+        tabs: (workspace?.tabs ?? []).map(tab => ({ ...tab })),
+        bottomTabs: (workspace?.bottomTabs ?? []).map(tab => ({ ...tab })),
+      }
+      this.schedulePersist()
+    } else {
+      this.preferences.defaultWidth = next
+    }
     this.publish({ ...this.snapshot, width: next, revision: this.snapshot.revision + 1 })
+  }
+  setCenterPreviewTabs(mode: PreviewTabsMode): void {
+    if (this.preferences.centerPreviewTabs === mode) return
+    this.preferences.centerPreviewTabs = mode
+    this.publish({
+      ...this.snapshot,
+      centerPreviewTabs: mode,
+      revision: this.snapshot.revision + 1,
+    })
     this.schedulePersist()
+  }
+  setLayoutScope(mode: LayoutScopeMode): void {
+    if (this.preferences.layoutScope === mode) return
+    const previousKey = this.layoutKey(this.snapshot.cwd ?? '')
+    this.preferences.layoutScope = mode
+    const nextKey = this.layoutKey(this.snapshot.cwd ?? '')
+    // Adoption on switch: carry the CURRENT layout into the destination
+    // bucket when that bucket is empty, so a user switching scope keeps the
+    // layout they are looking at instead of losing it. An existing
+    // destination always wins — adoption never overwrites.
+    if (
+      this.snapshot.cwd !== null && previousKey !== nextKey
+      && !this.bucketHasLayout(nextKey) && this.bucketHasLayout(previousKey)
+    ) {
+      this.preferences.workspaces[nextKey] = cloneWorkspace(
+        this.preferences.workspaces[previousKey]!,
+      )
+    }
+    this.publish({
+      ...this.snapshot,
+      layoutScope: mode,
+      // Re-scope immediately: the newly selected layout takes over the rail.
+      ...this.workspaceSnapshot(this.snapshot.cwd),
+      revision: this.snapshot.revision + 1,
+    })
+    this.schedulePersist()
+  }
+
+  /** Whether a persisted bucket holds any tab state worth adopting. */
+  private bucketHasLayout(key: string): boolean {
+    return (this.preferences.workspaces[key]?.tabs.length ?? 0) > 0
   }
 
   setOpenByDefault(open: boolean): void {
@@ -819,8 +888,24 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     )
   }
 
+  /**
+   * The persisted-bucket key for a workspace's rail layout (A2/D5a):
+   * `workspace` scope buckets by cwd, `global` collapses onto one bucket so
+   * every project shares a single rail layout and remembered width.
+   */
+  private layoutKey(cwd: string): string {
+    return this.preferences.layoutScope === 'global' ? GLOBAL_SCOPE_BUCKET : cwd
+  }
+
+  /** The remembered rail width for a project (falls back to the default). */
+  private layoutWidth(cwd: string | null): number {
+    if (cwd === null) return this.preferences.defaultWidth
+    return this.preferences.workspaces[this.layoutKey(cwd)]?.width
+      ?? this.preferences.defaultWidth
+  }
+
   private workspaceOf(cwd: string): PersistedWorkspaceLayout {
-    return this.preferences.workspaces[cwd] ?? {
+    return this.preferences.workspaces[this.layoutKey(cwd)] ?? {
       activeId: null,
       lastUsed: 0,
       tabs: [],
@@ -843,7 +928,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     const bottomActiveId = bottom?.activeId !== undefined
       ? bottom.activeId
       : workspace.bottomActiveId ?? null
-    this.preferences.workspaces[target.cwd] = {
+    this.preferences.workspaces[this.layoutKey(target.cwd)] = {
       activeId,
       lastUsed: Date.now(),
       tabs: tabs.map(tab => ({ ...tab })),
@@ -883,16 +968,18 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
 
   private workspaceSnapshot(cwd: string | null): Pick<
     SidebarSnapshot,
-    'activeId' | 'bottomActiveId' | 'bottomTabs' | 'tabs'
+    'activeId' | 'bottomActiveId' | 'bottomTabs' | 'tabs' | 'width'
   > {
     const workspace = cwd === null
       ? undefined
-      : this.preferences.workspaces[cwd]
+      : this.preferences.workspaces[this.layoutKey(cwd)]
     return {
       activeId: workspace?.activeId ?? null,
       bottomActiveId: workspace?.bottomActiveId ?? null,
       bottomTabs: workspace?.bottomTabs?.map(tab => ({ ...tab })) ?? [],
       tabs: workspace?.tabs.map(tab => ({ ...tab })) ?? [],
+      // The rail width is remembered per workspace bucket.
+      width: workspace?.width ?? this.preferences.defaultWidth,
     }
   }
 

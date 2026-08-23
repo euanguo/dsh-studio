@@ -83,7 +83,8 @@
     "./use-i18n": "./use-i18n.ts",
     "./wire": "./wire.ts",
     "./panel-geometry": "./panel-geometry.ts",
-    "./worktree-preferences": "./worktree-preferences.ts"
+    "./worktree-preferences": "./worktree-preferences.ts",
+    "./workbench-contracts": "./workbench-contracts.ts"
   },
   "devDependencies": {
     "@types/react": "~18.3.1",

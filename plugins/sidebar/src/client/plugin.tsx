@@ -17,7 +17,8 @@ import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
 import type { PinnedSummary } from '@dsh-studio/pinned-summary/client'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
-import { isUnderRoot } from '@dsh-studio/shared/path'
+import { basename, isUnderRoot } from '@dsh-studio/shared/path'
+import { configureOpenPipeline, openFileSurface } from './open/pipeline.ts'
 import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
 import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'
 import { CenterSurfaceHost } from './surfaces/center-surface-host.tsx'
@@ -114,6 +115,11 @@ export function apply(ctx: ClientContext): void {
     sessions,
     workspaces,
   )
+  // The open pipeline reads the live preview preference from the service
+  // snapshot, so every center open honors the same decision table.
+  configureOpenPipeline({
+    getPreviewTabs: () => desktopSidebar.getSnapshot().centerPreviewTabs,
+  })
   const unregisterBuiltins = registerBuiltins(desktopSidebar, {
     openExternalPath,
     panels,
@@ -181,14 +187,18 @@ export function apply(ctx: ClientContext): void {
     const stopOpenPath = registerOpenPathHandler(async (path): Promise<boolean> => {
       const runtime = runtimeSettings.getSnapshot().preferences
       const snapshot = desktopSidebar.getSnapshot()
-      if (runtime.interceptOpenPath
+      if (!(runtime.interceptOpenPath
         && snapshot.ready
         && desktopSidebar.isTabEnabled('file')
-        && pathBelongsToActiveWorkspace(sessions, path)) {
-        service.openFile(path)
-        return true
-      }
-      return false
+        && pathBelongsToActiveWorkspace(sessions, path))) return false
+      // Short path (interaction-model D2): the link opens a CENTER preview —
+      // replaceable, never stealing focus — instead of a permanent rail tab;
+      // double click / the tab's pin control promotes it. The cwd is the
+      // active workspace the path was just validated against.
+      const cwd = activeWorkspace(sessions)
+      if (cwd === undefined) return false
+      openFileSurface({ cwd, filePath: path, title: basename(path), intent: 'preview' })
+      return true
     })
     // External-link interception through the registry (Ctrl/Cmd+click and
     // same-origin links always bypass). A plugin urlTarget claim wins; the

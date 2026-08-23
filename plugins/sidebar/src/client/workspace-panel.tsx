@@ -82,7 +82,7 @@ import {
   sidebarScopeKey,
 } from './runtimes/registry.ts'
 import { useSidebarChromeStore } from './runtimes/chrome-store.ts'
-import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
+import { openFileSurface, openDiffSurface, openConflictSurface, openDiffAllSurface, openCommitSurface, openCommitFileSurface, openCommittedSurface } from './open/pipeline.ts'
 
 /** Commit history panel resizer bounds (px). */
 const HISTORY_HEIGHT_DEFAULT = 256
@@ -508,42 +508,45 @@ export function WorkspacePanel({
   // The commit row's "view all" icon → whole-commit diff in the center.
   const openCommitDiffInCenter = (entry: SidebarGitLogEntry): void => {
     if (cwd === undefined) return
-    useCenterSurfaceStore.getState().openCommit({
+    openCommitSurface({
       cwd,
       hash: entry.hashFull,
       title: entry.subject || entry.hash,
-      preview: true,
+      intent: 'preview',
     })
   }
 
   // A file in a commit's inline list → that single file's diff in the center.
   const openCommitFileInCenter = (entry: SidebarGitLogEntry, filePath: string): void => {
     if (cwd === undefined) return
-    useCenterSurfaceStore.getState().openCommitFile({
+    openCommitFileSurface({
       cwd,
       hash: entry.hashFull,
       filePath,
-      preview: true,
+      title: filePath.split('/').pop() || filePath,
+      intent: 'preview',
     })
   }
 
   // Committed changes: "view all" → whole projection; a file → its diff.
   const openCommittedAllInCenter = (baseRef: string): void => {
     if (cwd === undefined) return
-    useCenterSurfaceStore.getState().openCommitted({
+    openCommittedSurface({
       cwd,
       baseRef,
-      preview: true,
+      title: baseRef,
+      intent: 'preview',
     })
   }
 
   const openCommittedFileInCenter = (baseRef: string, filePath: string): void => {
     if (cwd === undefined) return
-    useCenterSurfaceStore.getState().openCommitted({
+    openCommittedSurface({
       cwd,
       baseRef,
       filePath,
-      preview: true,
+      title: filePath.split('/').pop() || filePath,
+      intent: 'preview',
     })
   }
 
@@ -583,7 +586,7 @@ export function WorkspacePanel({
     setGeneratingCommitMessage(false)
   }
 
-  const openDiffInCenter = (path: string, preview: boolean): void => {
+  const openDiffInCenter = (path: string, intent: 'preview' | 'pin'): void => {
     if (cwd === undefined || scopeKey === null) return
     const name = basename(path)
     const change = snapshot?.changes.find(candidate => candidate.path === path)
@@ -592,25 +595,25 @@ export function WorkspacePanel({
     // Untracked files have no diff baseline — show the file content
     // instead of an empty "no diff" error.
     if (change === undefined || change.status === 'untracked') {
-      useCenterSurfaceStore.getState().openFile({ cwd, filePath: path, title: name, preview })
+      openFileSurface({ cwd, filePath: path, title: name, intent })
       return
     }
     // Conflicted entries (UU/AA/DD) open the merge-conflict resolver.
     if (change.status === 'conflicted') {
-      useCenterSurfaceStore.getState().openConflict({ cwd, filePath: path, title: name, preview })
+      openConflictSurface({ cwd, filePath: path, title: name, intent })
       return
     }
-    useCenterSurfaceStore.getState().openDiff({ cwd, filePath: path, staged: change.staged, title: name, preview })
+    openDiffSurface({ cwd, filePath: path, staged: change.staged, title: name, intent })
   }
 
   const viewAllInCenter = (id: SourceControlSectionId): void => {
     if (cwd === undefined) return
     const staged = id === 'staged'
-    useCenterSurfaceStore.getState().openDiffAll({
+    openDiffAllSurface({
       cwd,
       staged,
       title: staged ? t('source-control.section.staged') : t('source-control.section.unstaged'),
-      preview: true,
+      intent: 'preview',
     })
   }
 
@@ -728,8 +731,8 @@ export function WorkspacePanel({
                       useSidebarChromeStore.getState().toggleSourceControlDirectory(scopeKey, key)
                     }
                   }}
-                  onSelectFile={path => { openDiffInCenter(path, true) }}
-                  onOpenFile={path => { openDiffInCenter(path, false) }}
+                  onSelectFile={path => { openDiffInCenter(path, 'preview') }}
+                  onOpenFile={path => { openDiffInCenter(path, 'pin') }}
                   onStage={paths => { void runPaths('stage', paths) }}
                   onUnstage={paths => { void runPaths('unstage', paths) }}
                   onDiscard={requestDiscard}

@@ -334,6 +334,14 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
   const pluginSettings = settingsFor === null
     ? {}
     : state.pluginSettings[settingsFor.id] ?? {}
+  const centerPreviewTabs = useSyncExternalStore(
+    props.sidebar.subscribe,
+    () => props.sidebar.getSnapshot().centerPreviewTabs,
+  )
+  const layoutScope = useSyncExternalStore(
+    props.sidebar.subscribe,
+    () => props.sidebar.getSnapshot().layoutScope,
+  )
   const popup = settingsFor === null ? null : (
     <FeatureSettingsPopup
       feature={settingsFor}
@@ -365,6 +373,32 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
               checked={state.openByDefault}
               aria-label={props.t('settings.open-by-default')}
               onCheckedChange={props.setOpenByDefault}
+            />
+          )}
+        />
+        <SettingsRow
+          title={props.t('settings.center-preview-tabs')}
+          description={props.t('settings.center-preview-tabs-description')}
+          control={(
+            <Switch
+              checked={centerPreviewTabs === 'default'}
+              aria-label={props.t('settings.center-preview-tabs')}
+              onCheckedChange={checked => {
+                props.sidebar.setCenterPreviewTabs(checked ? 'default' : 'disabled')
+              }}
+            />
+          )}
+        />
+        <SettingsRow
+          title={props.t('settings.layout-scope')}
+          description={props.t('settings.layout-scope-description')}
+          control={(
+            <Switch
+              checked={layoutScope === 'global'}
+              aria-label={props.t('settings.layout-scope')}
+              onCheckedChange={checked => {
+                props.sidebar.setLayoutScope(checked ? 'global' : 'workspace')
+              }}
             />
           )}
         />

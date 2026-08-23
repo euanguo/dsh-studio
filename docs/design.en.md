@@ -78,6 +78,23 @@ to the upstream native `/theme` palettes. TUI retains upstream hot switching
 and its picker, then mirrors the choice into the shared `skins.json` on the
 next launch. There is no second theme loader.
 
+## Workbench kernel contracts
+
+The right-panel workbench converges open semantics and state scoping onto the
+shared kernel contract `@dsh-studio/shared/workbench-contracts`:
+
+- `resolveOpenPlan` is the single open-decision table: intent
+  (`preview`/`pin`/`background`) × the `centerPreviewTabs` preference ⇒ area,
+  replaceable-preview, and activation. The focus invariant (an open never
+  moves keyboard focus) is upheld by every caller.
+- `resolveScopeBucket` is the single state-bucket decision across
+  `workspace`/`session`/`global`; `global` collapses onto one bucket. The
+  sidebar layout and its remembered width implement the `layoutScope`
+  preference through it; center-surface queues always bucket by cwd because
+  their objects are workspace-bound.
+- Upstream DOM probes must live in exactly one module per plugin (`dsh-dom.ts`
+  for the sidebar).
+
 ## Plugin installation transaction
 
 ```mermaid

@@ -39,6 +39,7 @@ import type {
   WorkspacesService,
 } from './client-types.ts'
 import { applyChromeGeometry } from './chrome-geometry.ts'
+import { trajectoryTabButton } from './surfaces/dsh-dom.ts'
 import {
   clampSidebarWidthForLayout,
   SIDEBAR_COLLAPSE_THRESHOLD_PX,
@@ -94,10 +95,21 @@ export class WorkspaceToolsService implements WorkspaceTools {
     return () => { this.listeners.delete(listener) }
   }
 
+  /**
+   * A3: the ONE place encoding the right-panel ↔ pinned-summary mutual
+   * exclusion — opening or widening the side panel collapses the pinned
+   * summary card (and vice versa, enforced by the summary's own claim).
+   * Every panel-opening entry point funnels through here so the policy has
+   * exactly one home instead of being re-stated at each call site.
+   */
+  private claimPanelExclusivity(): void {
+    this.pinnedSummary.setOpen(false)
+  }
+
   isOpen(): boolean { return this.state.open }
 
   setOpen(open: boolean): void {
-    if (open) this.pinnedSummary.setOpen(false)
+    if (open) this.claimPanelExclusivity()
     this.sidebar.setOpen(open)
     if (!open) delete document.documentElement.dataset.dshStudioPanelMaximized
   }
@@ -118,14 +130,14 @@ export class WorkspaceToolsService implements WorkspaceTools {
     } catch {
       // Non-URL resource labels (plain names) keep the raw string as title.
     }
-    this.pinnedSummary.setOpen(false)
+    this.claimPanelExclusivity()
     this.sidebar.openTab({ resource: url, title, type: 'browser' })
     this.sidebar.setOpen(true)
   }
 
   openFile(path: string): void {
     const title = basename(path)
-    this.pinnedSummary.setOpen(false)
+    this.claimPanelExclusivity()
     this.sidebar.openTab({ resource: path, title, type: 'file' })
     this.sidebar.setOpen(true)
   }
@@ -159,7 +171,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   openMenu(): void {
-    this.pinnedSummary.setOpen(false)
+    this.claimPanelExclusivity()
     this.sidebar.activateTab(null)
     this.sidebar.setOpen(true)
   }
@@ -186,13 +198,10 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   openTrajectory(): void {
-    const translated = this.t('trajectory').toLowerCase()
-    const tab = [...document.querySelectorAll<HTMLButtonElement>('[role="tab"]')]
-      .find(element => {
-        const label = element.textContent?.trim().toLowerCase()
-        return label === translated || label === 'trajectory' || label === '轨迹'
-      })
-    if (tab === undefined) return
+    // The probe lives in dsh-dom.ts (the single upstream-DOM module); the
+    // candidates are the translated label plus upstream's known spellings.
+    const tab = trajectoryTabButton([this.t('trajectory'), 'trajectory', '轨迹'])
+    if (tab === null) return
     tab.click()
     this.setOpen(false)
   }
@@ -266,7 +275,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   mount(): void {
-    if (this.state.open) this.pinnedSummary.setOpen(false)
+    if (this.state.open) this.claimPanelExclusivity()
     this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
     this.stopSharedStyle = ensureSharedUiStyles('dsh-studio-sidebar-shared-ui')
     this.stopStyle = ensureStyle('dsh-studio-sidebar', [
@@ -382,7 +391,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   private openView(view: string, resource?: string): void {
-    this.pinnedSummary.setOpen(false)
+    this.claimPanelExclusivity()
     this.sidebar.openTab({
       type: view,
       ...(resource !== undefined ? { resource } : {}),
@@ -402,7 +411,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
 
   private syncSidebar(): void {
     const next = this.project(this.sidebar.getSnapshot())
-    if (next.open) this.pinnedSummary.setOpen(false)
+    if (next.open) this.claimPanelExclusivity()
     this.publish(next)
     if (next.maximized) {
       document.documentElement.dataset.dshStudioPanelMaximized = 'true'

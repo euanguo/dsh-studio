@@ -24,9 +24,9 @@
  */
 import type { ReactNode } from 'react'
 import type { CenterSurface, CenterSurfaceKind } from './surfaces/types.ts'
+import type { PreviewTabsMode } from '@dsh-studio/shared/workbench-contracts'
+import type { LayoutScopeMode } from '../sidebar-preferences.ts'
 
-/** One workspace scope: the project cwd. The sidebar data model is project
- *  dimension — one layout per project, never per conversation. */
 /** One workspace scope: the project cwd. The sidebar data model is project
  *  dimension — one layout per project, never per conversation. */
 export interface SidebarScope {
@@ -70,7 +70,7 @@ export function tabAvailability(
   return { ok: true }
 }
 
-/** One open sidebar tab instance (persisted per session). */
+/** One open sidebar tab instance (persisted per workspace cwd). */
 export interface SidebarTab {
   id: string
   /** The tab type — the id of the descriptor that rendered it. */
@@ -101,9 +101,11 @@ export interface SidebarTabSeed {
 export interface SidebarSnapshot {
   activeId: string | null
   /** The active tab of the BOTTOM workbench (the second pane above the
-   *  terminal dock); null when nothing is docked/active there. */
+   *  terminal dock); null when nothing is docked/active there.
+   *  @deprecated The bottom workbench is not mounted; always null. */
   bottomActiveId: string | null
-  /** Tabs docked into the bottom workbench, in dock order. */
+  /** Tabs docked into the bottom workbench, in dock order.
+   *  @deprecated The bottom workbench is not mounted; always empty. */
   bottomTabs: readonly SidebarTab[]
   error: string | null
   maximized: boolean
@@ -118,6 +120,10 @@ export interface SidebarSnapshot {
   tabs: readonly SidebarTab[]
   tabsEnabled: Readonly<Record<string, boolean>>
   viewersEnabled: Readonly<Record<string, boolean>>
+  /** Whether single-click center opens create replaceable preview tabs. */
+  centerPreviewTabs: PreviewTabsMode
+  /** Whether the rail layout follows each workspace or one shared bucket. */
+  layoutScope: LayoutScopeMode
   /** Plugin-owned settings blobs keyed by descriptor id. */
   pluginSettings: Readonly<Record<string, Record<string, unknown>>>
   width: number
@@ -389,7 +395,15 @@ export interface DesktopSidebarService {
   /** Open a file in the sidebar of `scope`'s project (title defaults to the file name). */
   openFile(scope: SidebarScope, path: string, title?: string): void
 
-  /* ── bottom workbench + tab drag layout (DSH Studio extension) ─── */
+  /* ── bottom workbench + tab drag layout (DSH Studio extension) ───
+   *
+   * @deprecated The bottom workbench is no longer mounted (CUT, user
+   * preference). The whole surface below is retained ONLY so older
+   * persisted layouts and external consumers keep working; do not call it
+   * from new code and do not extend it. Removal rides on the contract's
+   * feature-negotiation: consumers gate on `features` and these entries
+   * will be dropped in a major version together with the snapshot fields.
+   */
   /** Reorder one right-rail tab to `toIndex` (index in the full tab list). */
   moveTab(tabId: string, toIndex: number): void
   /** Reorder right-rail tabs by placing `sourceId` relative to `targetId`. */
@@ -434,6 +448,10 @@ export interface DesktopSidebarService {
   setMaximized(maximized: boolean): void
   setWidth(width: number): void
   setOpenByDefault(open: boolean): void
+  /** Toggle whether single-click center opens stay replaceable previews. */
+  setCenterPreviewTabs(mode: PreviewTabsMode): void
+  /** Switch the rail-layout scope; publishes the newly scoped layout. */
+  setLayoutScope(mode: LayoutScopeMode): void
   /** Bind the snapshot to a project (its cwd). */
   setWorkspace(cwd: string | null): void
 }
@@ -457,9 +475,13 @@ export const SIDEBAR_SERVICE_VERSION = '0.1.2'
  * - 'pluginSettings': SidebarSettingsDeclaration.pluginToggles/render
  * - 'urlTarget': SidebarTabDescriptor.urlTarget (external-link claims)
  * - 'surfaceRenderer': registerSurfaceRenderer (DSH Studio extension)
- * - 'bottomWorkbench': bottom workbench + tab drag layout (moveTab /
- *   moveTabToBottom / moveBottomTabToSide / moveBottomTab /
- *   activateBottomTab / closeBottomTab + snapshot bottomTabs/bottomActiveId)
+ * - 'bottomWorkbench': bottom workbench + tab drag layout — RETAINED BUT
+ *   DEPRECATED (the workbench is not mounted; kept for persisted-layout
+ *   compatibility, see the deprecated service section)
+ * - 'centerPreviewTabs': centerPreviewTabs snapshot + setCenterPreviewTabs
+ *   (single-click center opens honor the replaceable-preview preference)
+ * - 'layoutScope': layoutScope snapshot + setLayoutScope (rail layout follows
+ *   each workspace or one shared bucket)
  */
 export const SIDEBAR_FEATURES = [
   'badge',
@@ -473,6 +495,8 @@ export const SIDEBAR_FEATURES = [
   'urlTarget',
   'surfaceRenderer',
   'bottomWorkbench',
+  'centerPreviewTabs',
+  'layoutScope',
 ] as const
 
 export type SidebarFeature = typeof SIDEBAR_FEATURES[number]

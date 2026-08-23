@@ -1,6 +1,10 @@
 import {
   INSPECTOR_PANEL_BUDGET,
 } from '@dsh-studio/shared/panel-geometry'
+import type { PreviewTabsMode } from '@dsh-studio/shared/workbench-contracts'
+
+/** Whether the right-rail layout follows each project or one shared layout. */
+export type LayoutScopeMode = 'workspace' | 'global'
 
 export const SIDEBAR_MIN_WIDTH = INSPECTOR_PANEL_BUDGET.minSizePx
 export const SIDEBAR_MAX_WIDTH = INSPECTOR_PANEL_BUDGET.maxSizePx
@@ -26,6 +30,8 @@ export interface PersistedSidebarTab {
 export interface PersistedWorkspaceLayout {
   activeId: string | null
   lastUsed: number
+  /** This project's remembered rail width; falls back to `defaultWidth`. */
+  width?: number
   tabs: PersistedSidebarTab[]
   /**
    * Tabs docked into the BOTTOM workbench (the second pane above the
@@ -46,6 +52,18 @@ export interface DesktopSidebarPreferences {
   viewersEnabled: Record<string, boolean>
   /** Plugin-owned settings blobs keyed by descriptor id (open map). */
   pluginSettings: Record<string, Record<string, unknown>>
+  /**
+   * Whether single-click center-surface opens create replaceable preview
+   * tabs (`default`) or upgrade straight to permanent tabs (`disabled`).
+   * Missing on legacy documents ⇒ parse falls back to `'default'`.
+   */
+  centerPreviewTabs: PreviewTabsMode
+  /**
+   * Whether the right-rail tab layout (and its remembered width) follows
+   * each workspace cwd (`workspace`) or one shared bucket (`global`).
+   * Missing on legacy documents ⇒ `'workspace'`.
+   */
+  layoutScope: LayoutScopeMode
   version: 2
 }
 
@@ -57,6 +75,8 @@ export const DEFAULT_SIDEBAR_PREFERENCES: DesktopSidebarPreferences =
     tabsEnabled: Object.freeze({}),
     viewersEnabled: Object.freeze({}),
     pluginSettings: Object.freeze({}),
+    centerPreviewTabs: 'default',
+    layoutScope: 'workspace',
     version: 2,
   }) as DesktopSidebarPreferences
 
@@ -171,12 +191,18 @@ function parseWorkspace(value: unknown): PersistedWorkspaceLayout | undefined {
   const bottomActiveId = input.bottomActiveId as string | null | undefined
   if (bottomActiveId !== null && bottomActiveId !== undefined
     && !bottomIds.has(bottomActiveId)) return undefined
+  const width = input.width === undefined
+    ? undefined
+    : (typeof input.width === 'number' && Number.isFinite(input.width)
+      ? clampSidebarWidth(input.width)
+      : undefined)
   return {
     activeId,
     lastUsed: Number(input.lastUsed),
     tabs,
     bottomTabs,
     ...(bottomActiveId === undefined ? { bottomActiveId: null } : { bottomActiveId }),
+    ...(width === undefined ? {} : { width }),
   }
 }
 
@@ -270,6 +296,10 @@ export function parseSidebarPreferences(
     tabsEnabled,
     viewersEnabled,
     pluginSettings,
+    // Tolerant by design: legacy documents lack the fields and unknown
+    // values fall back rather than rejecting the whole document.
+    centerPreviewTabs: input.centerPreviewTabs === 'disabled' ? 'disabled' : 'default',
+    layoutScope: input.layoutScope === 'global' ? 'global' : 'workspace',
     version: 2,
   }
 }

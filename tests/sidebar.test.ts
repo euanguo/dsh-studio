@@ -211,7 +211,10 @@ test('desktop sidebar persists bounded per-project state outside Web storage', a
   sidebar.setViewerEnabled('text', false)
   await sidebar.settle()
 
-  assert.equal(storage.value.defaultWidth, 512)
+  // Width is remembered PER PROJECT bucket; `defaultWidth` stays the
+  // untouched fallback for projects without a remembered width.
+  assert.equal(storage.value.workspaces['/work/repo']?.width, 512)
+  assert.equal(storage.value.defaultWidth, DEFAULT_SIDEBAR_PREFERENCES.defaultWidth)
   assert.equal(storage.value.openByDefault, true)
   assert.equal(storage.value.tabsEnabled.browser, false)
   assert.equal(storage.value.viewersEnabled.text, false)
