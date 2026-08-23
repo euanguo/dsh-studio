@@ -333,6 +333,8 @@ Dev 窗口标题带 `(Dev)`，Dev DMG 使用独立的 Dev app id 和 `DSH Studio
 
 桌面端环境：从 Finder、Launchpad 或 `open -a "DSH Studio"` 启动时，macOS 和 Linux 不会自动加载终端的 Shell 配置，Desktop 会在启动时读取一次用户的 POSIX 登录 Shell 环境并按 `~/.zshrc` 等文件的变化自动失效缓存；Windows 使用 GUI 进程已经继承的用户与系统环境，并识别 `Path`、`PATHEXT` 和 `ComSpec`。用户可见的进程（应用内终端、Agent terminal、Git 与用户命令）以用户的 PATH 优先，应用自带的 Node 适配器只作为兜底；Marketplace 与插件预览仍使用应用自带的运行环境，以保证 pnpm 和插件构建一致。因此 `codex`、`pi`、`gh` 以及用户自己的 `node` 都可以直接使用。POSIX Shell 配置无法启动或超时时，Desktop 会回退到基础环境并把脱敏状态写入诊断日志；也可设置 `DSH_STUDIO_DISABLE_ENV_CACHE=1` 关闭环境缓存。Marketplace 的 GitHub credential helper 只对插件市场进程生效，普通终端和项目 Git 继续使用用户自己的 Git 配置与 macOS Keychain。
 
+解释器变量边界：应用以自带 Electron 二进制兼任 Node 解释器（免带独立 Node），`ELECTRON_RUN_AS_NODE=1` 只存在于"以解释器身份拉起自家二进制"的启动环境里。运行时进程启动时会通过预加载脚本立即删除该变量，因此 Agent 会话及其工具 Shell 继承的环境只包含用户环境与 `DSH_*` 命名空间变量——Agent 代跑的任何命令（包括会打开窗口的 Electron 程序，如本仓库的 `pnpm run dev`）看到的都是干净环境。Marketplace 构建是唯一保留该变量的执行边界（其 pnpm 必须走共享解释器）。
+
 排查顺序：
 
 1. 运行 `dsh-studio --help` 确认 CLI 来源。

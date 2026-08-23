@@ -147,10 +147,16 @@ function startElectron() {
   // for CDP-based inspection (chrome-use / DevTools).
   const extraArgs = (process.env.DSH_STUDIO_ELECTRON_ARGS ?? '').split(' ').filter(Boolean)
   log(`starting electron . (${electronBinary})${extraArgs.length > 0 ? ` args=${extraArgs.join(' ')}` : ''}`)
+  // This is a GUI launch of our own Electron binary. A stray
+  // ELECTRON_RUN_AS_NODE inherited from a desktop agent session would boot
+  // it as plain Node and die on `import { BrowserWindow }`; interpreter
+  // variables stay bound to their exec boundaries, never to GUI launches.
+  const childEnv = { ...process.env }
+  delete childEnv.ELECTRON_RUN_AS_NODE
   electron = spawn(electronBinary, ['.', ...extraArgs], {
     cwd: root,
     env: {
-      ...process.env,
+      ...childEnv,
       DSH_STUDIO_CHANNEL: process.env.DSH_STUDIO_CHANNEL || 'dev',
     },
     stdio: 'inherit',
