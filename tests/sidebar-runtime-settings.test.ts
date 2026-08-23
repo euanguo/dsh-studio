@@ -17,6 +17,11 @@ test('sidebar runtime settings default missing upstream fields safely', () => {
   })
 })
 
+test('sidebar runtime settings keep WorkTree Agent tools disabled by default', () => {
+  assert.equal(DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.agentWorktreeTools, false)
+  assert.equal(parseSidebarRuntimePreferences({ agentWorktreeTools: true }).agentWorktreeTools, true)
+})
+
 test('sidebar runtime settings default the per-protocol intercept flags', () => {
   assert.equal(DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttp, true)
   assert.equal(DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttps, false)

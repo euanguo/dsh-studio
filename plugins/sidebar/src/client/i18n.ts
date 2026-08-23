@@ -119,6 +119,8 @@ export type WorkspaceMessage =
   | 'settings.runtime-description'
   | 'settings.agent-terminal-tools'
   | 'settings.agent-terminal-tools-description'
+  | 'settings.agent-worktree-tools'
+  | 'settings.agent-worktree-tools-description'
   | 'settings.bottom-terminal'
   | 'settings.bottom-terminal-description'
   | 'settings.open-files'
@@ -388,6 +390,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.runtime-description': 'Control the Better Sidebar capabilities exposed by the desktop runtime.',
     'settings.agent-terminal-tools': 'Terminal tools for agents',
     'settings.agent-terminal-tools-description': 'Allow agents to create and control desktop terminals. This is disabled by default.',
+    'settings.agent-worktree-tools': 'WorkTree tools for agents',
+    'settings.agent-worktree-tools-description': 'Allow agents to inspect visible WorkTrees, create branches, and delegate conversations. This is disabled by default.',
     'settings.bottom-terminal': 'Start a shell when the bottom panel opens',
     'settings.bottom-terminal-description': 'Create a terminal automatically the first time an empty bottom panel is opened.',
     'settings.open-files': 'Open chat files in the side panel',
@@ -654,6 +658,8 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.runtime-description': '控制桌面运行时向 Agent 开放的 Better Sidebar 能力。',
     'settings.agent-terminal-tools': '允许 Agent 使用终端工具',
     'settings.agent-terminal-tools-description': '允许 Agent 创建并控制桌面终端；默认关闭。',
+    'settings.agent-worktree-tools': '允许 Agent 使用 WorkTree 工具',
+    'settings.agent-worktree-tools-description': '允许 Agent 查看可见 WorkTree、创建分支并发起委托对话；默认关闭。',
     'settings.bottom-terminal': '底部面板展开时自动新建终端',
     'settings.bottom-terminal-description': '空的底部面板首次展开时，自动创建一个终端。',
     'settings.open-files': '聊天文件在侧边栏打开',

@@ -45,7 +45,7 @@ copyFileSync(join(root, 'src', 'splash.html'), join(dist, 'splash.html'))
 copyFileSync(join(root, 'src', 'update.html'), join(dist, 'update.html'))
 
 const pluginPackages = [
-  { directory: 'sidebar-host', hostOnly: true },
+  { directory: 'capabilities', hostOnly: true },
   { directory: 'tui', hostOnly: true },
   { directory: 'desktop-skins', id: '@dsh-studio/desktop-skins' },
   { directory: 'sidebar', id: '@dsh-studio/sidebar' },
@@ -170,7 +170,7 @@ for (const plugin of pluginPackages) {
     outfile: join(output, 'index.js'),
     platform: 'node',
     format: 'esm',
-    external: plugin.external ?? (plugin.directory === 'sidebar-host'
+    external: plugin.external ?? (plugin.directory === 'capabilities'
       ? ['@deepseek-ai/*', 'cordis', 'node-pty', 'schemastery', 'ws']
       : []),
   }))
@@ -204,12 +204,12 @@ for (const plugin of pluginPackages) {
   }
 }
 
-// Lazy chunks served by the sidebar-host /sidebar/bundle route. The chunk
-// file must live in the host's lib directory (`dist/plugins/sidebar-host`).
+// Lazy chunks served by the capabilities /capabilities/bundle route. The chunk
+// file must live in the host's lib directory (`dist/plugins/capabilities`).
 builds.push(build({
   bundle: true,
   entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'files', 'mermaid-chunk.ts')],
-  outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js'),
+  outfile: join(root, 'dist', 'plugins', 'capabilities', 'client-mermaid.js'),
   platform: 'browser',
   format: 'iife',
   target: 'es2022',
@@ -229,7 +229,7 @@ builds.push(build({
 builds.push(build({
   bundle: true,
   entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'diff', 'pierre-worker-entry.ts')],
-  outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js'),
+  outfile: join(root, 'dist', 'plugins', 'capabilities', 'client-pierre-worker.js'),
   platform: 'browser',
   format: 'esm',
   target: 'es2022',
@@ -240,7 +240,7 @@ builds.push(build({
 
 // Chunk scripts build first (serially): esbuild instances can race when
 // many builds write into the same output directory concurrently, and the
-// sidebar-host chunks are required by the running app (diff worker,
+// capabilities chunks are required by the running app (diff worker,
 // mermaid viewer).
 for (const chunkBuild of builds.splice(-2)) {
   await chunkBuild

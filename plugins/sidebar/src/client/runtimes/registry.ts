@@ -27,21 +27,21 @@ import {
   type WorkspaceDiffTransport,
 } from './diff-runtime.ts'
 import { sidebarApi } from '../sidebar-api.ts'
-import { resolveSidebarPath } from '@dsh-studio/shared/path'
+import { resolveCapabilitiesPath } from '@dsh-studio/shared/path'
 import { parseGitReviewDiff, type GitReviewFile } from '../diff/git-review-diff.ts'
 import { terminalInstanceRegistry } from './terminal-runtime.ts'
 
 /**
- * The runtime scope: the project cwd. Unlike the wire `SidebarScope` in the
+ * The runtime scope: the project cwd. Unlike the wire `CapabilitiesScope` in the
  * component contract (a plain `{cwd}`), the retained runtimes key their
  * caches by the concrete cwd — project dimension, so two conversations of the
  * same project share one runtime and switching conversations never refetches.
  */
-export interface SidebarScope {
+export interface CapabilitiesScope {
   cwd: string
 }
 
-export function sidebarScopeKey(scope: SidebarScope): string {
+export function sidebarScopeKey(scope: CapabilitiesScope): string {
   return scope.cwd
 }
 
@@ -59,7 +59,7 @@ export const explorerRuntimeRegistry = new ScopedRuntimeRegistry<ExplorerRuntime
   },
 })
 
-export function getExplorerRuntime(scope: SidebarScope): WorkspaceExplorerRuntime {
+export function getExplorerRuntime(scope: CapabilitiesScope): WorkspaceExplorerRuntime {
   const scopeKey = sidebarScopeKey(scope)
   const existing = explorerRuntimeRegistry.get(scopeKey)
   if (existing !== undefined && existing.cwd === scope.cwd) {
@@ -71,7 +71,7 @@ export function getExplorerRuntime(scope: SidebarScope): WorkspaceExplorerRuntim
   }
   const transport: WorkspaceExplorerTransport = {
     listDirectory: (relativePath, signal) =>
-      sidebarApi.fsTree(scope, resolveSidebarPath(scope.cwd, relativePath), signal)
+      sidebarApi.fsTree(scope, resolveCapabilitiesPath(scope.cwd, relativePath), signal)
         .then(listing => listing.entries.map(entry => ({
           name: entry.name,
           path: entry.path,
@@ -98,7 +98,7 @@ export const sourceControlRuntimeRegistry = new ScopedRuntimeRegistry<SourceCont
   },
 })
 
-export function getSourceControlRuntime(scope: SidebarScope): SourceControlRuntime {
+export function getSourceControlRuntime(scope: CapabilitiesScope): SourceControlRuntime {
   const scopeKey = sidebarScopeKey(scope)
   const existing = sourceControlRuntimeRegistry.get(scopeKey)
   if (existing !== undefined && existing.cwd === scope.cwd) {
@@ -129,7 +129,7 @@ export const fileRuntimeRegistry = new ScopedRuntimeRegistry<FileRuntimeBundle>(
   },
 })
 
-export function getFileRuntime(scope: SidebarScope): WorkspaceFileRuntime {
+export function getFileRuntime(scope: CapabilitiesScope): WorkspaceFileRuntime {
   const scopeKey = sidebarScopeKey(scope)
   const existing = fileRuntimeRegistry.get(scopeKey)
   if (existing !== undefined && existing.cwd === scope.cwd) {
@@ -168,7 +168,7 @@ export const diffRuntimeRegistry = new ScopedRuntimeRegistry<DiffRuntimeBundle>(
   },
 })
 
-export function getDiffRuntime(scope: SidebarScope): WorkspaceDiffRuntime {
+export function getDiffRuntime(scope: CapabilitiesScope): WorkspaceDiffRuntime {
   const scopeKey = sidebarScopeKey(scope)
   const existing = diffRuntimeRegistry.get(scopeKey)
   if (existing !== undefined) {
@@ -191,7 +191,7 @@ export function getDiffRuntime(scope: SidebarScope): WorkspaceDiffRuntime {
           const synthesized: Array<GitReviewFile | null> = await Promise.all(status.entries
             .filter(entry => entry.xy === '??')
             .map(async entry => {
-              const absolute = resolveSidebarPath(scope.cwd, entry.path)
+              const absolute = resolveCapabilitiesPath(scope.cwd, entry.path)
               const loaded = await fileRuntime.ensureLoaded(absolute)
               const snapshot = loaded.phase === 'ready' ? loaded.snapshot : null
               if (snapshot === null || snapshot.kind !== 'text' || snapshot.content === null) return null

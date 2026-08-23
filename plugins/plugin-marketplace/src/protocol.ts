@@ -30,7 +30,7 @@ export type MarketplaceConfirmation =
   | 'accept-source-change'
 
 const PROTECTED_PLUGIN_IDS = new Set([
-  'sidebar-host',
+  'capabilities',
   'desktop',
   'sidebar',
   'dsh-better-sidebar',
@@ -43,7 +43,7 @@ const PROTECTED_PLUGIN_IDS = new Set([
 ])
 
 const PROTECTED_PLUGIN_PACKAGES = new Set([
-  '@dsh-studio/sidebar-host',
+  '@dsh-studio/capabilities',
   '@dsh-studio/desktop',
   '@dsh-studio/sidebar',
   '@dsh-studio/panel-controls',

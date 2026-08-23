@@ -30,11 +30,11 @@ export interface TerminalSocketScope {
   tabId: string
 }
 
-export const BETTER_SIDEBAR_TERMINAL_WS_PATH = '/sidebar/ws/terminal'
+export const CAPABILITIES_TERMINAL_WS_PATH = '/capabilities/ws/terminal'
 
 export function terminalWebSocketUrl(scope: TerminalSocketScope): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-  const url = new URL(`${protocol}//${window.location.host}${BETTER_SIDEBAR_TERMINAL_WS_PATH}`)
+  const url = new URL(`${protocol}//${window.location.host}${CAPABILITIES_TERMINAL_WS_PATH}`)
   url.searchParams.set('sessionId', scope.sessionId)
   url.searchParams.set('tab', scope.tabId)
   if (scope.cwd !== undefined) url.searchParams.set('cwd', scope.cwd)

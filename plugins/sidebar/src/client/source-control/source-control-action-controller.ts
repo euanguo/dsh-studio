@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
-import type { SidebarScope } from '../sidebar-api.ts'
+import type { CapabilitiesScope } from '../sidebar-api.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import type { SourceControlActionKind } from './source-control-actions.ts'
 
@@ -15,14 +15,14 @@ export interface SourceControlActionController {
 }
 
 export interface SourceControlActionControllerOptions {
-  scope: SidebarScope | undefined
+  scope: CapabilitiesScope | undefined
   refresh(): Promise<void>
   onCommitted(): void
 }
 
 async function dispatch(
   kind: SourceControlActionKind,
-  scope: SidebarScope,
+  scope: CapabilitiesScope,
   message: string,
 ): Promise<void> {
   switch (kind) {

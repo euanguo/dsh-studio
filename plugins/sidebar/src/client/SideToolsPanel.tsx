@@ -49,7 +49,7 @@ import {
   isUnderRoot,
   joinPath,
   relativePathOf,
-  resolveSidebarPath,
+  resolveCapabilitiesPath,
 } from '@dsh-studio/shared/path'
 import type { WorkspaceFilesResponse, WorkspaceFileEntry, WorkspaceFileKind } from '../protocol.ts'
 import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
@@ -78,7 +78,7 @@ import { alertDialog, confirmDialog, promptDialog } from './kit/dialog.tsx'
 import type {
   DesktopSidebarService,
   SidebarRenderProps,
-  SidebarScope,
+  CapabilitiesScope,
   SidebarTab,
   SidebarTabAvailability,
   SidebarTabDescriptor,
@@ -192,7 +192,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
     }
   }
   const snapshot = props.sidebar.getSnapshot()
-  const scope: SidebarScope | null = props.cwd === undefined
+  const scope: CapabilitiesScope | null = props.cwd === undefined
     ? null
     : { cwd: props.cwd }
   const descriptors = props.sidebar.getTabs().filter(descriptor =>
@@ -269,7 +269,7 @@ function PinnedTabs({ sidebar, t, cwd }: {
 }): JSX.Element {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
   const activeType = snapshot.tabs.find(tab => tab.id === snapshot.activeId)?.type ?? null
-  const pinnedScope: SidebarScope | null = cwd === undefined ? null : { cwd }
+  const pinnedScope: CapabilitiesScope | null = cwd === undefined ? null : { cwd }
   const filesAvailability = tabAvailability(
     sidebar.getTab('files')!,
     pinnedScope,

@@ -18,11 +18,11 @@
  *   fenced by the owning session via the live agent caller. Absent registry
  *   → 503, mirroring the settings routes' optional-service downgrade.
  */
-import type { Context, SidebarSessionEvent } from './context-types.ts'
-import { requireString, SidebarError } from '@dsh-studio/shared/wire'
+import type { Context, CapabilitiesSessionEvent } from './context-types.ts'
+import { requireString, CapabilityError } from '@dsh-studio/shared/wire'
 
 /** The two background-job routes of the sidebar API. */
-export interface SidebarJobsRoutes {
+export interface CapabilitiesJobsRoutes {
   /** The output the model has read so far for one job (event replay, capped). */
   output(payload: unknown): { text: string; truncated: boolean; read: boolean }
   /** Request cancellation of one job (live jobs flip to stopping). */
@@ -98,7 +98,7 @@ interface JobOutputTrace {
 }
 
 /** Extract the job_output trace of one raw session event (undefined = unrelated). */
-function traceOf(event: SidebarSessionEvent): JobOutputTrace | undefined {
+function traceOf(event: CapabilitiesSessionEvent): JobOutputTrace | undefined {
   if (event.type === 'tool/call') {
     const data = event.data as { name?: unknown; callId?: unknown; arguments?: unknown }
     if (data.name !== 'job_output' || typeof data.callId !== 'string') return undefined
@@ -166,7 +166,7 @@ function createJobOutputMirror(ctx: Context): { entries(sessionId: string): read
       push(sessionId, trace)
     }
   })
-  ctx.effect(() => dispose, 'dsh-better-sidebar: job-output event mirror')
+  ctx.effect(() => dispose, 'dsh-studio-capabilities: job-output event mirror')
 
   const push = (sessionId: string, trace: JobOutputTrace): void => {
     let list = perSession.get(sessionId)
@@ -196,15 +196,15 @@ function createJobOutputMirror(ctx: Context): { entries(sessionId: string): read
  * @param outputLimit - response cap for one output replay in bytes; longer
  *   texts are sliced and flagged `truncated` (mirrors the fs.read cap).
  */
-export function buildJobsApi(ctx: Context, outputLimit: number): SidebarJobsRoutes {
+export function buildJobsApi(ctx: Context, outputLimit: number): CapabilitiesJobsRoutes {
   const jobs = ctx.get('jobs')
   const agents = ctx.get('agents')
   const mirror = createJobOutputMirror(ctx)
   /** The live caller whose session id the registry fence compares against. */
   const callerOf = (sessionId: string) => agents?.get(sessionId)
   /** Registry refusals become a 404 job-error; unknown and foreign ids are indistinguishable. */
-  const registryError = (error: unknown): SidebarError =>
-    new SidebarError('job-error', error instanceof Error ? error.message : String(error), 404)
+  const registryError = (error: unknown): CapabilityError =>
+    new CapabilityError('job-error', error instanceof Error ? error.message : String(error), 404)
   return {
     output(payload) {
       const sessionId = requireString(payload, 'sessionId')
@@ -240,7 +240,7 @@ export function buildJobsApi(ctx: Context, outputLimit: number): SidebarJobsRout
     },
     kill(payload) {
       if (jobs === undefined) {
-        throw new SidebarError('job-error', 'the background-job registry is not mounted in this deployment', 503)
+        throw new CapabilityError('job-error', 'the background-job registry is not mounted in this deployment', 503)
       }
       const sessionId = requireString(payload, 'sessionId')
       const id = requireString(payload, 'id')

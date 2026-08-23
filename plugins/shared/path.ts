@@ -38,7 +38,7 @@ export function isUnderRoot(root: string, path: string): boolean {
 }
 
 /** cwd-relative wire path → absolute path ('' means the cwd itself). */
-export function resolveSidebarPath(cwd: string, relativePath: string): string {
+export function resolveCapabilitiesPath(cwd: string, relativePath: string): string {
   if (relativePath === '') return cwd
   const root = normalizePath(cwd)
   const relative = relativePath.replace(/^[/\\]+/, '').replace(/\\/g, '/')

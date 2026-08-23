@@ -17,9 +17,9 @@ import { RevisionedStore, GenerationGate } from '@dsh-studio/shared/runtime'
 import type { WorkspaceFacts, WorkspaceSnapshot } from '../../protocol.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import type {
-  SidebarGitLogEntry,
-  SidebarGitBranch,
-  SidebarGitStatus,
+  CapabilitiesGitLogEntry,
+  CapabilitiesGitBranch,
+  CapabilitiesGitStatus,
 } from '../sidebar-api.ts'
 import { workspaceChangesFromWire } from '../sidebar-api.ts'
 
@@ -33,9 +33,9 @@ export type SourceControlRuntimePhase =
 /** The Git panel snapshot plus the commit history (history is per-scope
  *  runtime data, not part of the wire WorkspaceSnapshot). */
 export interface SourceControlWorkspaceSnapshot extends WorkspaceSnapshot {
-  history: SidebarGitLogEntry[]
+  history: CapabilitiesGitLogEntry[]
   /** Authoritative remote and operation state fetched with Git status. */
-  upstream: SidebarGitStatus['upstream']
+  upstream: CapabilitiesGitStatus['upstream']
 }
 
 export interface SourceControlRuntimeSnapshot {
@@ -51,9 +51,9 @@ export interface SourceControlScope {
 }
 
 export interface SourceControlTransport {
-  gitStatus(scope: SourceControlScope, signal?: AbortSignal): Promise<SidebarGitStatus>
-  gitBranch(scope: SourceControlScope, signal?: AbortSignal): Promise<SidebarGitBranch>
-  gitLog(scope: SourceControlScope, signal?: AbortSignal): Promise<SidebarGitLogEntry[]>
+  gitStatus(scope: SourceControlScope, signal?: AbortSignal): Promise<CapabilitiesGitStatus>
+  gitBranch(scope: SourceControlScope, signal?: AbortSignal): Promise<CapabilitiesGitBranch>
+  gitLog(scope: SourceControlScope, signal?: AbortSignal): Promise<CapabilitiesGitLogEntry[]>
   workspaceFacts(cwd: string, signal?: AbortSignal): Promise<WorkspaceFacts>
 }
 
@@ -62,17 +62,17 @@ export interface SourceControlRuntimeOptions {
   /** Merge the workspace facts + git status into a WorkspaceSnapshot. */
   buildSnapshot?(input: {
     facts: WorkspaceFacts
-    status: SidebarGitStatus
-    branch: SidebarGitBranch
-    history: SidebarGitLogEntry[]
+    status: CapabilitiesGitStatus
+    branch: CapabilitiesGitBranch
+    history: CapabilitiesGitLogEntry[]
   }): SourceControlWorkspaceSnapshot
 }
 
 function defaultBuildSnapshot(input: {
   facts: WorkspaceFacts
-  status: SidebarGitStatus
-  branch: SidebarGitBranch
-  history: SidebarGitLogEntry[]
+  status: CapabilitiesGitStatus
+  branch: CapabilitiesGitBranch
+  history: CapabilitiesGitLogEntry[]
 }): SourceControlWorkspaceSnapshot {
   const { facts, status, branch, history } = input
   if (facts.kind !== 'repository' || !status.isRepo) {
@@ -241,8 +241,8 @@ export class SourceControlRuntime {
         this.transport.gitStatus(scope, controller.signal),
       ])
       if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
-      let history: SidebarGitLogEntry[] = []
-      let branch: SidebarGitBranch = { current: 'HEAD', names: [] }
+      let history: CapabilitiesGitLogEntry[] = []
+      let branch: CapabilitiesGitBranch = { current: 'HEAD', names: [] }
       if (status.isRepo && facts.kind === 'repository') {
         const [nextBranch, nextHistory] = await Promise.all([
           this.transport.gitBranch(scope, controller.signal).catch(() => branch),

@@ -1,5 +1,5 @@
 /**
- * Mermaid rendering chunk (lazy loaded via /sidebar/bundle/mermaid.js).
+ * Mermaid rendering chunk (lazy loaded via /capabilities/bundle/mermaid.js).
  * React-free like the editor chunk.
  */
 import mermaid from 'mermaid'

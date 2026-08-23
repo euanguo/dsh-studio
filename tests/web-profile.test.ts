@@ -88,7 +88,7 @@ test('web bundle patch mounts the web-capable DSH Studio plugins', () => {
   const patch = readFileSync(join(root, 'web', 'cordis.patch.yml'), 'utf8')
   for (const row of [
     'oh-web',
-    'oh-better-sidebar-runtime',
+    'oh-capabilities',
     'oh-desktop-skins',
     'oh-pinned-summary',
     'oh-sidebar',

@@ -1,11 +1,11 @@
 import {
   sidebarApi,
-  type SidebarSettingsView,
+  type CapabilitiesSettingsView,
 } from './sidebar-api.ts'
 
 /**
  * Host-synced FEATURE preferences (the Side card namespace). These ride the
- * host settings service through /sidebar/api settings.* so they follow the
+ * host settings service through /capabilities/api settings.* so they follow the
  * user across browsers and surfaces — the OTHER half of the sidebar's
  * deliberate two-store split; per-browser UI layouts stay in
  * sidebar-storage's localStorage (see the store-boundary note there).
@@ -13,6 +13,7 @@ import {
 
 export interface SidebarRuntimePreferences {
   agentTerminalTools: boolean
+  agentWorktreeTools: boolean
   /**
    * Whether the sidebar auto-activates (opens the panel) and expands the
    * subagent page when the current conversation spawns a new subagent.
@@ -92,6 +93,7 @@ export interface SidebarRuntimePreferences {
 export const DEFAULT_SIDEBAR_RUNTIME_PREFERENCES:
 Readonly<SidebarRuntimePreferences> = Object.freeze({
   agentTerminalTools: false,
+  agentWorktreeTools: false,
   autoOpenSubagent: true,
   autoOpenJobs: true,
   bottomPanelAutoTerminal: true,
@@ -121,11 +123,11 @@ export interface SidebarRuntimeSettingsSnapshot {
 }
 
 interface SidebarRuntimeSettingsApi {
-  settingsGet(signal?: AbortSignal): Promise<SidebarSettingsView>
+  settingsGet(signal?: AbortSignal): Promise<CapabilitiesSettingsView>
   settingsUpdate(
     patch: Record<string, unknown>,
     expectedRevision?: number,
-  ): Promise<SidebarSettingsView>
+  ): Promise<CapabilitiesSettingsView>
 }
 
 function boundedNumberPreference(
@@ -150,6 +152,9 @@ export function parseSidebarRuntimePreferences(
     agentTerminalTools: typeof record.agentTerminalTools === 'boolean'
       ? record.agentTerminalTools
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.agentTerminalTools,
+    agentWorktreeTools: typeof record.agentWorktreeTools === 'boolean'
+      ? record.agentWorktreeTools
+      : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.agentWorktreeTools,
     autoOpenSubagent: typeof record.autoOpenSubagent === 'boolean'
       ? record.autoOpenSubagent
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.autoOpenSubagent,
@@ -238,7 +243,7 @@ export function parseSidebarRuntimePreferences(
 }
 
 function snapshotFromView(
-  view: SidebarSettingsView,
+  view: CapabilitiesSettingsView,
 ): SidebarRuntimeSettingsSnapshot {
   return {
     busy: false,

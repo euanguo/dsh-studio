@@ -106,9 +106,18 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
      `node <this-skill>/scripts/ensure-dev-desktop.mjs stop && … ensure`。
 - **来源**：实测（2/2）。此竞态属于 dev.mjs 上游改进候选，不在本技能内修复。
 
----
+## 2026-08-23（本次 WorkTree capability 重构）
 
-## chrome-use 官方文档行为（附记，非本桌面实测）
+### 10. `ELECTRON_RUN_AS_NODE=1` 使 Web smoke 的 Electron 客户端拒绝 `--no-sandbox`
+- **症状**：`pnpm run smoke:web` 在 Web API 已全部通过后，Electron 客户端以
+  `bad option: --no-sandbox` 退出。
+- **根因**：当前 DSH shell 为 Electron 注入了 `ELECTRON_RUN_AS_NODE=1`；
+  smoke 脚本需要真正启动 Electron，而不是 Node 兼容模式。
+- **修复**：使用 `env -u ELECTRON_RUN_AS_NODE pnpm run smoke:web`；DEV 桌面
+  helper 本身不受影响。
+- **来源**：实测。
+
+
 
 - `eval` 在页面 MAIN world 执行且状态跨调用：顶层 `const x` 会 "already declared"，
   脚本要包 IIFE 或挂 `window.`。

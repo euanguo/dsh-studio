@@ -38,9 +38,9 @@ import { FilenameLabel } from '@dsh-studio/shared/filename-label'
 import type { WorkspaceMessage } from './i18n.ts'
 import {
   sidebarApi,
-  type SidebarGitCommitFile,
-  type SidebarGitLogEntry,
-  type SidebarScope,
+  type CapabilitiesGitCommitFile,
+  type CapabilitiesGitLogEntry,
+  type CapabilitiesScope,
 } from './sidebar-api.ts'
 import {
   type SessionsService,
@@ -106,7 +106,7 @@ function actionLabelForConfirmation(
 type CommitFilesState =
   | { status: 'loading' }
   | { status: 'error'; error: string }
-  | { status: 'ready'; entries: readonly SidebarGitCommitFile[] }
+  | { status: 'ready'; entries: readonly CapabilitiesGitCommitFile[] }
 
 /** The committed-changes projection (files in local commits ahead of the
  *  branch upstream). `none` = no upstream to compare against. */
@@ -114,7 +114,7 @@ type CommittedState =
   | { status: 'none' }
   | { status: 'loading' }
   | { status: 'error'; error: string }
-  | { status: 'ready'; baseRef: string; entries: readonly SidebarGitCommitFile[] }
+  | { status: 'ready'; baseRef: string; entries: readonly CapabilitiesGitCommitFile[] }
 
 function commitFileName(path: string): string {
   return basename(path)
@@ -136,7 +136,7 @@ type CommitFileRow =
  *  flat/tree mode (directory grouping is re-used from the source-control
  *  tree model so both lists indent identically). */
 function commitFileRows(
-  files: readonly SidebarGitCommitFile[],
+  files: readonly CapabilitiesGitCommitFile[],
   mode: SourceControlListMode,
   collapsedDirs: ReadonlySet<string>,
   keyPrefix: string,
@@ -407,7 +407,7 @@ export function WorkspacePanel({
     }),
     [collapsedDirectories, collapsedSections, listMode, selectedPath, visibleChanges],
   )
-  const scope = useMemo<SidebarScope | undefined>(
+  const scope = useMemo<CapabilitiesScope | undefined>(
     () => cwd === undefined
       ? undefined
       : { cwd },
@@ -491,7 +491,7 @@ export function WorkspacePanel({
 
   // Clicking a history row toggles its inline file list (lazy-loaded, orca
   // parity) instead of jumping straight to the whole-commit diff.
-  const toggleCommitFiles = (entry: SidebarGitLogEntry): void => {
+  const toggleCommitFiles = (entry: CapabilitiesGitLogEntry): void => {
     if (scope === undefined) return
     const hash = entry.hashFull
     const loaded = commitFiles.has(hash)
@@ -506,7 +506,7 @@ export function WorkspacePanel({
   }
 
   // The commit row's "view all" icon → whole-commit diff in the center.
-  const openCommitDiffInCenter = (entry: SidebarGitLogEntry): void => {
+  const openCommitDiffInCenter = (entry: CapabilitiesGitLogEntry): void => {
     if (cwd === undefined) return
     openCommitSurface({
       cwd,
@@ -517,7 +517,7 @@ export function WorkspacePanel({
   }
 
   // A file in a commit's inline list → that single file's diff in the center.
-  const openCommitFileInCenter = (entry: SidebarGitLogEntry, filePath: string): void => {
+  const openCommitFileInCenter = (entry: CapabilitiesGitLogEntry, filePath: string): void => {
     if (cwd === undefined) return
     openCommitFileSurface({
       cwd,

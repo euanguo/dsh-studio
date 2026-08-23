@@ -20,57 +20,106 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Duplex } from 'node:stream'
 import type { Context } from 'cordis'
-import type { BetterSidebarService } from './client/service.ts'
+export interface CapabilitiesUserMessage {
+  readonly id: string
+  readonly role: 'user'
+  readonly content: readonly unknown[]
+  readonly source: Record<string, unknown>
+}
 
 /** One named webserver route (mirror of the host-webserver WebRoute). */
-export interface SidebarWebRoute {
+export interface CapabilitiesWebRoute {
   kind: 'exact' | 'prefix'
   path: string
   handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void>
 }
 
 /** One exact-path HTTP upgrade registration (mirror of WebUpgradeRoute). */
-export interface SidebarWebUpgradeRoute {
+export interface CapabilitiesWebUpgradeRoute {
   path: string
   handler: (req: IncomingMessage, socket: Duplex, head: Buffer) => void | Promise<void>
 }
 
 /** The webServer service face this plugin uses. */
-export interface SidebarWebServer {
-  register(route: SidebarWebRoute): () => void
-  registerUpgrade(route: SidebarWebUpgradeRoute): () => void
+export interface CapabilitiesWebServer {
+  register(route: CapabilitiesWebRoute): () => void
+  registerUpgrade(route: CapabilitiesWebUpgradeRoute): () => void
 }
 
 /** A published session's header slice the sidebar reads (authoritative cwd). */
-export interface SidebarSessionHeader {
+export interface CapabilitiesSessionHeader {
   cwd?: string
 }
 
 /** The host session store face (`ctx.sessions.get(id)` returns the live session). */
-export interface SidebarSessionStore {
+export interface CapabilitiesSessionStore {
   get(id: string): {
-    header: SidebarSessionHeader
+    header: CapabilitiesSessionHeader
     /**
      * The live session's append-only event log (immutable snapshot; absent
      * on sessions the runtime has not hydrated). Read-only access — the
      * jobs.output route replays `job_output` tool/result rows from it.
      */
-    events?: readonly SidebarSessionEvent[]
+    events?: readonly CapabilitiesSessionEvent[]
   } | undefined
 }
 
+/** Live session face used by WorkTree delegation. */
+export interface CapabilitiesLiveSession {
+  readonly id: string
+  readonly header: {
+    readonly cwd?: string
+    readonly parentSession?: string
+    readonly origin?: 'subagent'
+    readonly delegationDepth?: number
+  }
+  readonly events: readonly CapabilitiesSessionEvent[]
+  readonly seq: number
+}
+
+/** Host session store extensions used by the delegation registry. */
+export interface CapabilitiesRuntimeSessions extends CapabilitiesSessionStore {
+  list(): readonly CapabilitiesLiveSession[]
+  create(id?: string, options?: {
+    meta?: {
+      cwd?: string
+      parentSession?: string
+      origin?: 'subagent'
+      delegationDepth?: number
+    }
+  }): CapabilitiesLiveSession
+  flush(session: CapabilitiesLiveSession): Promise<boolean>
+}
+
+/** One workspace record exposed by the durable workspace registry. */
+export interface CapabilitiesWorkspace {
+  readonly id: string
+  readonly path: string
+  readonly title: string
+  readonly sessionIds: readonly string[]
+  attachSession(sessionId: string): Promise<void>
+}
+
+/** Workspace registry operations needed by WorkTree tools and delegation. */
+export interface CapabilitiesWorkspaceRegistry {
+  list(): readonly CapabilitiesWorkspace[]
+  create(path: string, title?: string): Promise<CapabilitiesWorkspace>
+  resolveByPath(path: string): Promise<CapabilitiesWorkspace | undefined>
+  delete(id: string): Promise<boolean>
+}
+
 /** One loader entry's options slice (the connection row's resolved config). */
-export interface SidebarLoaderEntry {
+export interface CapabilitiesLoaderEntry {
   options: { name: string; config?: unknown }
 }
 
 /** The loader face used to read the connection row's trustedHosts config. */
-export interface SidebarLoader {
-  entries(): Iterable<SidebarLoaderEntry>
+export interface CapabilitiesLoader {
+  entries(): Iterable<CapabilitiesLoaderEntry>
 }
 
 /** Registration options the sidebar passes to `ctx.slots.register` (subset of the real options). */
-export interface SidebarSlotRegisterOptions {
+export interface CapabilitiesSlotRegisterOptions {
   name: string
   key?: string
   id?: string
@@ -87,8 +136,8 @@ export interface SidebarSlotRegisterOptions {
 }
 
 /** The client slots service face (register returns the disposer). */
-export interface SidebarSlotsService {
-  register(options: SidebarSlotRegisterOptions, component: unknown): () => void
+export interface CapabilitiesSlotsService {
+  register(options: CapabilitiesSlotRegisterOptions, component: unknown): () => void
   /**
    * Run a callback for each declaration lifetime of a slot (the runtime
    * SlotRegistry.inject): a no-op while the slot is undeclared, so the
@@ -98,7 +147,7 @@ export interface SidebarSlotsService {
 }
 
 /** The client session list row the sidebar reads (cwd for the explorer). */
-export interface SidebarSessionSummary {
+export interface CapabilitiesSessionSummary {
   id: string
   cwd?: string
   displayTitle: string
@@ -111,7 +160,7 @@ export interface SidebarSessionSummary {
 }
 
 /** One healthy subagent catalog child row (structural mirror of the runtime). */
-export interface SidebarSubagentChildEntry {
+export interface CapabilitiesSubagentChildEntry {
   kind: 'child'
   id: string
   /** Whether the child Agent driver is running at the Host sampling boundary. */
@@ -123,29 +172,29 @@ export interface SidebarSubagentChildEntry {
 }
 
 /** One unreadable catalog row (corrupt / unsupported / unavailable). */
-export interface SidebarSubagentDiagnosticEntry {
+export interface CapabilitiesSubagentDiagnosticEntry {
   kind: 'diagnostic'
   id: string
   reason: 'corrupt' | 'unsupported' | 'unavailable'
 }
 
 /** The per-parent lazy catalog delivered through the sessions list feed. */
-export interface SidebarSubagentCatalog {
-  entries: Array<SidebarSubagentChildEntry | SidebarSubagentDiagnosticEntry>
+export interface CapabilitiesSubagentCatalog {
+  entries: Array<CapabilitiesSubagentChildEntry | CapabilitiesSubagentDiagnosticEntry>
   parentAvailable: boolean
   state: 'loading' | 'ready' | 'error'
   error: { code?: string; message?: string } | null
 }
 
 /** Durable parent/child address that selects subagent transport in the client. */
-export interface SidebarSubagentAddress {
-  parentSessionId: string
-  childSessionId: string
+export interface CapabilitiesSubagentAddress {
+  parentstring: string
+  childstring: string
   mode: 'one-shot' | 'continuable'
 }
 
 /** Minimal structural mirror of one session event (the subagent history tail). */
-export interface SidebarSessionEvent {
+export interface CapabilitiesSessionEvent {
   type: string
   seq: number
   time: number
@@ -153,19 +202,19 @@ export interface SidebarSessionEvent {
 }
 
 /** One history row: the durable event plus an optional tool presentation view. */
-export interface SidebarHistoryEntry {
-  event: SidebarSessionEvent
+export interface CapabilitiesHistoryEntry {
+  event: CapabilitiesSessionEvent
   view?: unknown
 }
 
 /** Lifecycle status set of one background job (closed wire union). */
-export type SidebarJobStatus = 'running' | 'stopping' | 'completed' | 'killed' | 'failed'
+export type CapabilitiesJobStatus = 'running' | 'stopping' | 'completed' | 'killed' | 'failed'
 
 /**
  * One background job as the client mirror sees it (wire `JobView` shape:
  * id/kind/label/status/detail?/startedAt/finishedAt?).
  */
-export interface SidebarJobView {
+export interface CapabilitiesJobView {
   /** Registry-issued `<kind>-N` identity, stable for the job's whole life. */
   id: string
   /** Producer kind (`bash`, `pwsh`, `subagent`, …; open string by design). */
@@ -173,7 +222,7 @@ export interface SidebarJobView {
   /** Producer-supplied one-line label: the command, or the delegation description. */
   label: string
   /** Current lifecycle state. */
-  status: SidebarJobStatus
+  status: CapabilitiesJobStatus
   /** Kind-specific status detail ('exit code: 3'), present once supplied. */
   detail?: string
   /** Epoch ms when the job was registered. */
@@ -183,56 +232,92 @@ export interface SidebarJobView {
 }
 
 /** The host jobs registry face the sidebar routes touch (structural mirror of `JobRegistry`). */
-export interface SidebarJobsService {
+export interface CapabilitiesJobsService {
   /** Request cancellation; throws for an unknown or foreign job. */
-  kill(id: string, caller?: SidebarAgent, reason?: string): 'requested' | 'already-finished'
+  kill(id: string, caller?: CapabilitiesAgent, reason?: string): 'requested' | 'already-finished'
+}
+
+/** Runtime model route accepted by the AgentRegistry factory. */
+export interface CapabilitiesAgentOptions {
+  provider?: string
+  model?: string
+  maxTokens?: number
+}
+
+/** Runtime agent/session creation request used by the delegation registry. */
+export interface CapabilitiesCreateAgentOptions {
+  sessionId: string
+  meta?: {
+    cwd?: string
+    parentSession?: string
+    origin?: 'subagent'
+    delegationDepth?: number
+  }
+  agentOptions?: CapabilitiesAgentOptions
+  setup?: (ctx: { get(name: string): unknown }) => void | Promise<void>
+}
+
+/** Agent handle returned by the runtime creation factory. */
+export interface CapabilitiesAgentHandle {
+  readonly agent: CapabilitiesDelegationAgent
+  dispose(): Promise<void>
+}
+
+/** The live agent face required by WorkTree delegation. */
+export interface CapabilitiesDelegationAgent extends CapabilitiesAgent {
+  readonly session: CapabilitiesLiveSession
+  followup(message: CapabilitiesUserMessage): void
+  whenIdle(): Promise<void>
+  cancel(cause: { readonly kind: 'user' | 'parent' | 'disposed' }): void
 }
 
 /** The host agent registry face (structural mirror of the runtime `ctx.agents`). */
-export interface SidebarAgentsService {
+export interface CapabilitiesAgentsService {
   /** The live agent registered under a session id, or undefined when not live. */
-  get(id: string): SidebarAgent | undefined
+  get(id: string): CapabilitiesAgent | undefined
+  /** Create and publish a complete agent/session under the caller's fiber. */
+  create(options: CapabilitiesCreateAgentOptions): Promise<CapabilitiesAgentHandle>
 }
 
 /** RPC result slot mirror (`RpcResult<T>` on the wire). */
-export type SidebarRpcResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
+export type CapabilitiesRpcResult<T> = { ok: true; value: T } | { ok: false; error: { code: string; message: string } }
 
 /** Unary response mirror (`RpcResponse<T>` on the wire). */
-export interface SidebarRpcResponse<T> {
+export interface CapabilitiesRpcResponse<T> {
   rpcId: unknown
-  result: SidebarRpcResult<T>
+  result: CapabilitiesRpcResult<T>
 }
 
 /** The wire face the Subagent activity summary needs (subset of `ctx.connection`). */
-export interface SidebarConnectionHandle {
+export interface CapabilitiesConnectionHandle {
   api: {
     subagents: {
       history(
-        payload: SidebarSubagentAddress & { beforeSeq?: number; maxMessages?: number },
+        payload: CapabilitiesSubagentAddress & { beforeSeq?: number; maxMessages?: number },
         signal?: AbortSignal,
-      ): Promise<SidebarRpcResponse<{ events: SidebarHistoryEntry[]; hasMore: boolean }>>
+      ): Promise<CapabilitiesRpcResponse<{ events: CapabilitiesHistoryEntry[]; hasMore: boolean }>>
     }
   }
 }
 
 /** The client session list snapshot the sidebar subscribes to. */
-export interface SidebarSessionList {
+export interface CapabilitiesSessionList {
   current: string | undefined
-  byId: Record<string, SidebarSessionSummary>
+  byId: Record<string, CapabilitiesSessionSummary>
   /** Direct durable catalogs keyed by their selected parent address. */
-  subagentsByParent?: Readonly<Record<string, SidebarSubagentCatalog>>
+  subagentsByParent?: Readonly<Record<string, CapabilitiesSubagentCatalog>>
   /**
    * Background jobs per session, last-wins from the harness's `session/jobs`
    * push (a missing key is an empty set). Absent on runtime snapshots older
    * than the jobs mirror — the sidebar simply shows no job rows.
    */
-  jobsBySession?: Readonly<Record<string, readonly SidebarJobView[]>>
+  jobsBySession?: Readonly<Record<string, readonly CapabilitiesJobView[]>>
 }
 
 /** The client sessions service face (only the list feed is needed). */
-export interface SidebarSessionsService {
+export interface CapabilitiesSessionsService {
   list: {
-    getSnapshot(): SidebarSessionList
+    getSnapshot(): CapabilitiesSessionList
     subscribe(fn: () => void): () => void
   }
   /**
@@ -250,19 +335,19 @@ export interface SidebarSessionsService {
    * Open a healthy catalog child through its exact direct-parent address
    * (mirror of the runtime ISessions.openSubagent).
    */
-  openSubagent?(address: SidebarSubagentAddress): void
+  openSubagent?(address: CapabilitiesSubagentAddress): void
   /**
    * Resolve an already discovered direct-parent address without opening it.
    */
-  subagentAddress?(id: string): SidebarSubagentAddress | undefined
+  subagentAddress?(id: string): CapabilitiesSubagentAddress | undefined
   /**
    * Mark whether a catalog surface is consuming live membership updates.
    */
-  setSubagentCatalogOpen?(parentSessionId: string, open: boolean): void
+  setSubagentCatalogOpen?(parentstring: string, open: boolean): void
   /**
    * Refresh one direct-child catalog.
    */
-  refreshSubagents?(parentSessionId: string): Promise<void>
+  refreshSubagents?(parentstring: string): Promise<void>
 }
 
 /**
@@ -271,9 +356,9 @@ export interface SidebarSessionsService {
  * the DSH i18n system: the active locale is the Host-backed preference
  * (`locale.preference` in settings.yaml) rather than the raw browser
  * language, and the sidebar's zh/en dictionaries register into the service's
- * namespace registry under `betterSidebar`.
+ * namespace registry.
  */
-export interface SidebarLocaleService {
+export interface CapabilitiesLocaleService {
   /** Current immutable locale snapshot (uSES-safe; `active` is 'zh' | 'en' today). */
   getSnapshot(): { active: string }
   /** Subscribe to snapshot changes (locale switch or dictionary registration). */
@@ -283,7 +368,7 @@ export interface SidebarLocaleService {
 }
 
 /** The composer draft face the sidebar reaches through `ctx.conversation.input`. */
-export interface SidebarSessionInput {
+export interface CapabilitiesSessionInput {
   /** The live input store (draft read for append). */
   state: {
     getSnapshot(): { draft: string }
@@ -293,9 +378,9 @@ export interface SidebarSessionInput {
 }
 
 /** The composer draft face the sidebar reaches through `ctx.get('conversation')`. */
-export interface SidebarConversation {
+export interface CapabilitiesConversation {
   input: {
-    for(actx: Context): SidebarSessionInput
+    for(actx: Context): CapabilitiesSessionInput
   }
 }
 
@@ -305,7 +390,7 @@ export interface SidebarConversation {
  * to the Host OS's default application, and every chat-side file open
  * (tool rows, produced-files, prose mentions) funnels through it.
  */
-export interface SidebarWorkspacesService {
+export interface CapabilitiesWorkspacesService {
   /** Open a filesystem path with the Host operating system's default application. */
   openPath(path: string): Promise<void>
 }
@@ -316,7 +401,7 @@ export interface SidebarWorkspacesService {
  * (dual-cordis-instance resolution), so the register signature is restated
  * structurally, exactly like the other service faces above.
  */
-export interface SidebarInvariantsService {
+export interface CapabilitiesInvariantsService {
   /** Reserve one package's checks and install them in the service's child fiber. */
   register(
     packageName: string,
@@ -325,7 +410,7 @@ export interface SidebarInvariantsService {
 }
 
 /** The settings service face (mirror of @deepseek-ai/dsh-settings' SettingsProvider). */
-export interface SidebarSettingsService {
+export interface CapabilitiesSettingsService {
   /**
    * Register one namespace schema (the resolved value layers schema defaults,
    * then the composition base, then the user document).
@@ -362,13 +447,13 @@ export interface SidebarSettingsService {
  * The host half registers model-facing tools here; the registry attaches the
  * returned disposer to the contributing fiber so unloading unregisters them.
  */
-export interface SidebarToolsService {
+export interface CapabilitiesToolsService {
   /** Register one tool definition (raw JSON-Schema or defineTool-sugar form). */
   register(tool: unknown): () => void
 }
 
 /** Structural LLM runtime face required by Source Control AI. */
-export interface SidebarLlmService {
+export interface CapabilitiesLlmService {
   listProviders(): Array<{ id: string }>
   listModels(provider: string): Promise<Array<{ id: string; name: string }>>
   resolveModelInfo(provider: string, model: string): Promise<{
@@ -390,50 +475,50 @@ export interface SidebarLlmService {
  * Agent). Only the slices the terminal tools touch are restated: the live
  * session identity and its header cwd, both readonly.
  */
-export interface SidebarAgent {
+export interface CapabilitiesAgent {
   /** The live session identity shared with the session log. */
   readonly id: string
+  readonly options: CapabilitiesAgentOptions
+  readonly ctx?: { get(name: string): unknown }
   /** The live session this agent drives. */
+  readonly status: 'idle' | 'running'
   readonly session: {
     /** The session's header (validated cwd, lineage metadata). */
-    readonly header: { readonly cwd?: string }
+    readonly header: { readonly cwd?: string; readonly parentSession?: string }
+    /** Durable append-only events for result extraction. */
+    readonly events?: readonly CapabilitiesSessionEvent[]
   }
 }
 
 declare module 'cordis' {
   interface Context {
-    webServer: SidebarWebServer
-    sessions: SidebarSessionStore & SidebarSessionsService
-    connection: SidebarConnectionHandle
-    loader: SidebarLoader
-    slots: SidebarSlotsService
-    workspaces: SidebarWorkspacesService
-    settings: SidebarSettingsService
-    invariants: SidebarInvariantsService
-    tools: SidebarToolsService
-    llm: SidebarLlmService
+    webServer: CapabilitiesWebServer
+    sessions: CapabilitiesRuntimeSessions & CapabilitiesSessionsService
+    connection: CapabilitiesConnectionHandle
+    loader: CapabilitiesLoader
+    slots: CapabilitiesSlotsService
+    workspaces: CapabilitiesWorkspacesService
+    workspaceRegistry: CapabilitiesWorkspaceRegistry
+    settings: CapabilitiesSettingsService
+    invariants: CapabilitiesInvariantsService
+    tools: CapabilitiesToolsService
+    llm: CapabilitiesLlmService
     /**
      * The client locale service (`@deepseek-ai/dsh-client-locale`): the
      * sidebar's copy follows its active locale and registers its
-     * dictionaries under the `betterSidebar` namespace. Client side only.
+     * dictionaries. Client side only.
      */
-    locale: SidebarLocaleService
+    locale: CapabilitiesLocaleService
     /**
      * The host background-job registry (`ctx.get('jobs')`; optional — the
      * sidebar routes degrade to a 503 when the deployment lacks it).
      */
-    jobs: SidebarJobsService
+    jobs: CapabilitiesJobsService
     /**
      * The host live-agent registry (`ctx.get('agents')`; optional — used to
      * resolve the caller the jobs fence compares against).
      */
-    agents: SidebarAgentsService
-    /**
-     * The client-side sidebar registry: external plugins register tab types
-     * and file previewers here. Provided by the client half (see
-     * {@link ./client/index.tsx}); undefined on the host side.
-     */
-    betterSidebar: BetterSidebarService
+    agents: CapabilitiesAgentsService
     /**
      * Subscribe to the session append feed (mirror of the cordis event API):
      * the listener receives every appended session event with the LIVE
@@ -442,26 +527,14 @@ declare module 'cordis' {
      * session store's own log can lag behind (restart divergence). Returns
      * the disposer.
      */
-    on(event: string, listener: (session: unknown, event: SidebarSessionEvent) => void): () => void
+    on(event: 'session/event', listener: (session: unknown, event: CapabilitiesSessionEvent) => void): () => void
+    on(event: 'tools/pre-execute', listener: (exec: { name: string }, next: () => Promise<unknown>) => unknown): () => void
+    on(event: string, listener: (...args: any[]) => unknown): () => void
     /**
      * Register a lifecycle callback (DSH-vendored cordis): runs at plugin
      * activation; its returned cleanup runs at disposal.
      */
     effect(fn: () => void | (() => void), label?: string): void
-  }
-}
-
-/**
- * Dual cordis-scope augmentation: DSH's runtime (and the public packages)
- * resolve against the vendored `@deepseek-ai/cordis` scope, which DSH's own
- * packages already augment with `effect`/`on`/service members. This side only
- * adds the sidebar service member so consumers importing `Context` from
- * `@deepseek-ai/cordis` (instead of the public `cordis` above) still see
- * `ctx.betterSidebar`.
- */
-declare module '@deepseek-ai/cordis' {
-  interface Context {
-    betterSidebar: BetterSidebarService
   }
 }
 

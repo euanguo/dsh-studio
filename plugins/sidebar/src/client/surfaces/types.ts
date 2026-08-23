@@ -195,7 +195,7 @@ export function browserSurfaceId(resource: string | undefined): string {
 
 /** Prefix of terminal surface ids (`terminal:<n>` — one instance per tab).
  *  Every terminal tab owns an independent pty (the id doubles as the host's
- *  `tab` parameter on `/sidebar/ws/terminal`). */
+ *  `tab` parameter on `/capabilities/ws/terminal`). */
 export const TERMINAL_SURFACE_PREFIX = 'terminal:'
 
 export function terminalSurfaceId(instance: number): string {

@@ -1,10 +1,10 @@
 /**
  * Client half of the desktop worktree API. The left rail has no session
- * binding, so it calls the desktop host's `/sidebar/api` worktree endpoints
+ * binding, so it calls the desktop host's `/capabilities/api` worktree endpoints
  * with a bare cwd through the same-origin capability fence.
  */
 import { useEffect, useMemo, useState } from 'react'
-import { callSidebarGlobalApi } from '@dsh-studio/shared/sidebar-api'
+import { callCapabilitiesGlobalApi } from '@dsh-studio/shared/capabilities-api'
 import type { WorktreeDefaultsResult } from '@dsh-studio/shared/worktree-preferences'
 import type { GitWorktreeLayout, WorktreeFactState, WorktreeLayoutMap } from './tree.ts'
 
@@ -13,12 +13,12 @@ export type WorktreeLayoutResult = GitWorktreeLayout | null
 
 /** `git.worktree-list` for one cwd; null when it is confirmed non-git. */
 export async function fetchWorktreeLayout(cwd: string, signal?: AbortSignal): Promise<WorktreeLayoutResult> {
-  return callSidebarGlobalApi<WorktreeLayoutResult>('git.worktree-list', { cwd }, signal)
+  return callCapabilitiesGlobalApi<WorktreeLayoutResult>('git.worktree-list', { cwd }, signal)
 }
 
 /** Effective worktree store root + nesting for the creation dialog's defaults. */
 export async function fetchWorktreeDefaults(signal?: AbortSignal): Promise<WorktreeDefaultsResult> {
-  return callSidebarGlobalApi<WorktreeDefaultsResult>('git.worktree-defaults', {}, signal)
+  return callCapabilitiesGlobalApi<WorktreeDefaultsResult>('git.worktree-defaults', {}, signal)
 }
 
 /**
@@ -32,7 +32,7 @@ export async function createWorktree(
   createBranch: boolean,
   base?: string,
 ): Promise<void> {
-  await callSidebarGlobalApi('git.worktree-add', {
+  await callCapabilitiesGlobalApi('git.worktree-add', {
     cwd, path, branch, createBranch,
     ...(base === undefined ? {} : { base }),
   })
@@ -52,18 +52,18 @@ export interface WorktreeRemovalPreview {
 
 /** Inspect one linked worktree before asking for destructive confirmation. */
 export async function previewWorktreeRemoval(cwd: string, path: string, signal?: AbortSignal): Promise<WorktreeRemovalPreview> {
-  return callSidebarGlobalApi<WorktreeRemovalPreview>('git.worktree-remove-preview', { cwd, path }, signal)
+  return callCapabilitiesGlobalApi<WorktreeRemovalPreview>('git.worktree-remove-preview', { cwd, path }, signal)
 }
 
 /** Remove one non-primary linked worktree through the Host Git fence. */
 export async function removeWorktree(cwd: string, path: string, force = false): Promise<WorktreeLayoutResult> {
-  const result = await callSidebarGlobalApi<{ layout: WorktreeLayoutResult }>('git.worktree-remove', { cwd, path, force })
+  const result = await callCapabilitiesGlobalApi<{ layout: WorktreeLayoutResult }>('git.worktree-remove', { cwd, path, force })
   return result.layout
 }
 
 /** The repository's branches (`git.branch` → { current, names }). */
 export async function fetchBranches(cwd: string, signal?: AbortSignal): Promise<{ current: string; names: string[] }> {
-  return callSidebarGlobalApi<{ current: string; names: string[] }>('git.branch', { cwd }, signal)
+  return callCapabilitiesGlobalApi<{ current: string; names: string[] }>('git.branch', { cwd }, signal)
 }
 
 /**

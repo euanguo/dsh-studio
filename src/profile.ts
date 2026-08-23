@@ -26,7 +26,7 @@ export const BUNDLED_DESKTOP_CLIENT_PLUGINS = [
 
 /** Host-only capability providers shipped inside the desktop runtime. */
 export const BUNDLED_DESKTOP_HOST_PLUGINS = [
-  '@dsh-studio/sidebar-host',
+  '@dsh-studio/capabilities',
 ] as const
 
 /** Every protected plugin shipped inside the desktop distribution. */

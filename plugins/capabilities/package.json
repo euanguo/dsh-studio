@@ -1,7 +1,7 @@
 {
-  "name": "@dsh-studio/sidebar-host",
+  "name": "@dsh-studio/capabilities",
   "version": "0.1.2",
-  "description": "Host-only Better Sidebar capability provider for DSH Studio",
+  "description": "DSH Studio host capability gateway: filesystem, git, worktrees, workspace, PTY terminals, settings, jobs, browser probe and model-facing tools",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -28,7 +28,10 @@
     "hostDependencies": [
       "@deepseek-ai/dsh-settings",
       "@deepseek-ai/dsh-tools",
-      "@deepseek-ai/dsh-llm"
+      "@deepseek-ai/dsh-llm",
+      "@deepseek-ai/dsh-agent",
+      "@deepseek-ai/dsh-session",
+      "@deepseek-ai/dsh-workspace"
     ],
     "clientDependencies": [
       "@dsh-studio/shared"

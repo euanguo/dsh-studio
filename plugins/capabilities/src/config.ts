@@ -1,8 +1,8 @@
 /**
- * Serializable configuration and defaults for the sidebar host half. Loader
- * schema validation normally fills defaults; {@link resolveSidebarConfig}
+ * Serializable configuration and defaults for the capabilities host half. Loader
+ * schema validation normally fills defaults; {@link resolveCapabilitiesConfig}
  * applies the same defaults for direct callers that bypass the Loader.
- * @module dsh-better-sidebar/config
+ * @module dsh-studio-capabilities/config
  */
 
 import z from 'schemastery'
@@ -26,7 +26,7 @@ export {
 } from '@dsh-studio/shared/prefs-shared'
 
 /** Tunable sidebar host limits (every field optional; defaults fill in). */
-export interface SidebarConfig {
+export interface CapabilitiesConfig {
   /** Read cap of one text file (bytes); larger files return truncated. */
   readLimit?: number
   /** Media route cap (bytes); larger binaries are refused. */
@@ -44,7 +44,7 @@ export interface SidebarConfig {
 }
 
 /** Schemastery schema for the plugin configuration. */
-export const Config: z<SidebarConfig> = z.object({
+export const Config: z<CapabilitiesConfig> = z.object({
   readLimit: z.number().step(1).min(1).default(1024 * 1024),
   mediaLimit: z.number().step(1).min(1).default(20 * 1024 * 1024),
   listLimit: z.number().step(1).min(1).default(1000),
@@ -56,7 +56,7 @@ export const Config: z<SidebarConfig> = z.object({
 })
 
 /** Fully defaulted sidebar host settings. */
-export interface ResolvedSidebarConfig {
+export interface ResolvedCapabilitiesConfig {
   readLimit: number
   mediaLimit: number
   listLimit: number
@@ -72,7 +72,7 @@ export interface ResolvedSidebarConfig {
  * @param config - Deployment-provided sidebar host settings.
  * @returns Complete settings consumed by the host half.
  */
-export function resolveSidebarConfig(config: SidebarConfig | undefined): ResolvedSidebarConfig {
+export function resolveCapabilitiesConfig(config: CapabilitiesConfig | undefined): ResolvedCapabilitiesConfig {
   const trimmedShell = config?.shell?.trim() ?? ''
   return {
     readLimit: config?.readLimit ?? 1024 * 1024,
@@ -93,6 +93,7 @@ export const PrefsSchema: z<SidebarPrefs> = z.object({
   autoOpenSubagent: z.boolean().default(true),
   autoOpenJobs: z.boolean().default(true),
   agentTerminalTools: z.boolean().default(false),
+  agentWorktreeTools: z.boolean().default(false),
   bottomPanelAutoTerminal: z.boolean().default(true),
   interceptOpenPath: z.boolean().default(true),
   htmlViewerNoSandbox: z.boolean().default(false),

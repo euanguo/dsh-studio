@@ -10,7 +10,7 @@
  *   harness's `session/jobs` push;
  * - `jobs.output` REPLAYS the output the model has read so far (the host
  *   merges the session event log with its live mirror; see
- *   plugins/sidebar-host/src/jobs-routes.ts).
+ *   plugins/capabilities/src/jobs-routes.ts).
  *
  * Degradation: a runtime without the subagent/jobs mirrors simply shows an
  * empty topology note + an empty jobs list (the panel never throws).

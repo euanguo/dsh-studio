@@ -3,11 +3,11 @@
  * from the panel component. One place that knows which actions ride the
  * session-scoped git methods (checkout / stage / commit) and which go
  * through the workspace-scoped workspace.mutate method (branch / push) —
- * all through the single /sidebar/api channel behind one trust fence.
+ * all through the single /capabilities/api channel behind one trust fence.
  */
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { sidebarApi, type SidebarScope } from '../sidebar-api.ts'
+import { sidebarApi, type CapabilitiesScope } from '../sidebar-api.ts'
 import type { WorkspaceMutation } from '../../protocol.ts'
 
 export interface PanelMutationHooks {
@@ -23,7 +23,7 @@ export interface PanelMutationHooks {
 export async function runPanelMutation(
   mutation: WorkspaceMutation,
   hooks: {
-    scope: SidebarScope
+    scope: CapabilitiesScope
     cwd: string
     t: Translate<WorkspaceMessage>
   } & PanelMutationHooks,

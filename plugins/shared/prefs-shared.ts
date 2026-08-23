@@ -33,6 +33,8 @@ export interface SidebarPrefs {
    * user explicitly enables it in the side card settings.
    */
   agentTerminalTools: boolean
+  /** Whether model-facing WorkTree topology and delegation tools are injected. */
+  agentWorktreeTools: boolean
   /**
    * Whether expanding the bottom panel for the FIRST time in a session tries
    * to open a fresh terminal tab there (the terminal quota/type still gates
@@ -85,7 +87,7 @@ export interface SidebarPrefs {
    * model-facing terminal tools). Empty follows the resolution chain
    * (deployment `shell` config → this setting → `DSH_SIDEBAR_SHELL` →
    * platform probe/login-shell chain → fallback); see
-   * `plugins/sidebar-host/src/shell-resolver.ts`. Takes effect for NEW
+   * `plugins/capabilities/src/shell-resolver.ts`. Takes effect for NEW
    * terminals; already-running processes keep their shell.
    */
   terminalShell: string
@@ -138,6 +140,7 @@ export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
   autoOpenSubagent: true,
   autoOpenJobs: true,
   agentTerminalTools: false,
+  agentWorktreeTools: false,
   bottomPanelAutoTerminal: true,
   interceptOpenPath: true,
   htmlViewerNoSandbox: false,

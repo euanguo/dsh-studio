@@ -1,4 +1,4 @@
-# Vendored source: DSH-better-sidebar (Host)
+# Vendored source: DSH-better-sidebar capability host
 
 The `src/` tree is the framework-agnostic Host of
 [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar),
@@ -31,7 +31,7 @@ recorded here so upstream upgrades can be re-applied:
 - `index.ts` — optional `head` returned conditionally; settings view
   returns `{}` instead of explicit `undefined` values (same strict-mode
   compatibility). Plus (generic-host parity so the desktop client can call
-  `/sidebar/api` directly): `readText` also returns a full base64 `data`
+  `/capabilities/api` directly): `readText` also returns a full base64 `data`
   payload for binaries ≤ 2MB (inline image/PDF preview); `git.status`
   upgraded to `statusV2` + per-entry `numstat` stats; added `cwdScopeOf`
   and `git.worktree-list` / `git.worktree-add` (bare-cwd scope, no session).
@@ -51,7 +51,7 @@ recorded here so upstream upgrades can be re-applied:
   unit-testable on POSIX runners (`tests/shell-resolution.test.ts`).
 - `workspace-git.ts` — **new (fork)**: workspace-level Git operations
   (`readWorkspaceFacts` / `mutateWorkspace` + the shared
-  `isSidebarWorkspaceMutation` wire guard) serving the NEW
+  `isCapabilitiesWorkspaceMutation` wire guard) serving the NEW
   `workspace.facts` / `workspace.mutate` API methods. Folded in from the
   DSH Studio sidebar's former self-hosted `/dsh-studio/workspace` route so every
   panel data channel rides one API surface behind one trust fence;
@@ -77,7 +77,7 @@ recorded here so upstream upgrades can be re-applied:
 ## Upgrading
 
 1. Fetch the upstream repo, diff `src/` against this tree:
-   `git diff --no-index plugins/sidebar-host/src <upstream>/src`
+   `git diff --no-index plugins/capabilities/src <upstream>/src`
    (ignore the upstream `src/client/` UI files — not vendored).
 2. Apply upstream changes, keeping the fork delta above (including the
    vendored `src/client/` type-contract subset).

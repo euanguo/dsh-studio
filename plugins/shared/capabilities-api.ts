@@ -1,11 +1,11 @@
 /**
- * Shared sidebar JSON API wire contract (@dsh-studio/shared).
+ * Shared capabilities JSON API wire contract (@dsh-studio/shared).
  *
- * Single source of truth for the sidebar API that BOTH halves consume: the
- * generic host (plugins/sidebar-host/src/index.ts) implements the
- * methods, and the client (better-sidebar-api.ts) calls them. The envelope
- * shape mirrors the upstream DSH-better-sidebar wire ({ok:true,value} /
- * {ok:false,error}); the client talks to the generic host's `/sidebar/api`
+ * Single source of truth for the host capability API that BOTH halves
+ * consume: the host capability gateway (plugins/capabilities/src/index.ts)
+ * implements the methods, and the client calls them. The envelope shape
+ * mirrors the upstream DSH-better-sidebar wire ({ok:true,value} /
+ * {ok:false,error}); the client talks to the gateway's `/capabilities/api`
  * route directly.
  */
 
@@ -15,12 +15,12 @@
  * on the project, not a conversation; the client resolves the authoritative
  * cwd from the active session before sending it.
  */
-export interface SidebarScope {
+export interface CapabilitiesScope {
   cwd: string
 }
 
-/** One explorer row (upstream fs-tree.ts SidebarFsEntry shape). */
-export interface SidebarFsEntry {
+/** One explorer row (upstream fs-tree.ts CapabilitiesFsEntry shape). */
+export interface CapabilitiesFsEntry {
   name: string
   path: string
   isDir: boolean
@@ -28,14 +28,14 @@ export interface SidebarFsEntry {
 }
 
 /** One listed explorer level. */
-export interface SidebarFsTree {
+export interface CapabilitiesFsTree {
   path: string
-  entries: SidebarFsEntry[]
+  entries: CapabilitiesFsEntry[]
   truncated: boolean
 }
 
 /** A bounded text read with binary detection (upstream readText contract). */
-export type SidebarFsRead = {
+export type CapabilitiesFsRead = {
   kind: 'text'
   content: string
   truncated: boolean
@@ -49,52 +49,52 @@ export type SidebarFsRead = {
 }
 
 /** One `git status --porcelain=v1 -z` row. */
-export interface SidebarGitStatusEntry {
+export interface CapabilitiesGitStatusEntry {
   path: string
   /** Two-letter index/worktree status (X Y). */
   xy: string
 }
 
 /** Per-path `git diff --numstat` summary (aligned with `entries` order). */
-export interface SidebarGitStat {
+export interface CapabilitiesGitStat {
   path: string
   additions: number
   deletions: number
 }
 
-export type SidebarGitConflictOperation = 'merge' | 'rebase' | null
+export type CapabilitiesGitConflictOperation = 'merge' | 'rebase' | null
 
 /** Remote and in-progress-operation facts used by Source Control actions. */
-export interface SidebarGitUpstreamStatus {
+export interface CapabilitiesGitUpstreamStatus {
   branch: string | null
   upstream: string | null
   hasRemote: boolean
   hasUpstream: boolean
   ahead: number
   behind: number
-  conflictOperation: SidebarGitConflictOperation
+  conflictOperation: CapabilitiesGitConflictOperation
 }
 
 /** The source-control snapshot. */
-export interface SidebarGitStatus {
+export interface CapabilitiesGitStatus {
   isRepo: boolean
   branch?: string
-  entries: SidebarGitStatusEntry[]
+  entries: CapabilitiesGitStatusEntry[]
   /** Optional per-entry +N/−M counts (missing entries mean 0/0). */
-  stats?: SidebarGitStat[]
+  stats?: CapabilitiesGitStat[]
   /** Branch tracking and operation facts fetched with this status snapshot. */
-  upstream?: SidebarGitUpstreamStatus
+  upstream?: CapabilitiesGitUpstreamStatus
 }
 
-export interface SidebarSourceControlAiModel {
+export interface CapabilitiesSourceControlAiModel {
   provider: string
   id: string
   name: string
   reasoningEfforts: Array<{ id: string; name: string }>
 }
 
-export interface SidebarSourceControlAiModels {
-  models: SidebarSourceControlAiModel[]
+export interface CapabilitiesSourceControlAiModels {
+  models: CapabilitiesSourceControlAiModel[]
   defaultModel: {
     provider?: string
     model?: string
@@ -103,13 +103,13 @@ export interface SidebarSourceControlAiModels {
 }
 
 /** `git branch` snapshot. */
-export interface SidebarGitBranch {
+export interface CapabilitiesGitBranch {
   current: string
   names: string[]
 }
 
 /** One `git log` row. */
-export interface SidebarGitLogEntry {
+export interface CapabilitiesGitLogEntry {
   hash: string
   hashFull: string
   subject: string
@@ -119,7 +119,7 @@ export interface SidebarGitLogEntry {
 }
 
 /** One file touched by a commit (`git.commit-files`). */
-export interface SidebarGitCommitFile {
+export interface CapabilitiesGitCommitFile {
   path: string
   /** Status letter (A/M/D/R/C/T). */
   status: string
@@ -129,13 +129,13 @@ export interface SidebarGitCommitFile {
 
 /** The committed-changes projection: files in local commits ahead of the
  *  branch upstream (`baseRef` null when there is no upstream to compare). */
-export interface SidebarGitCommitted {
+export interface CapabilitiesGitCommitted {
   baseRef: string | null
-  entries: SidebarGitCommitFile[]
+  entries: CapabilitiesGitCommitFile[]
 }
 
 /** A raw unified diff string. */
-export interface SidebarGitDiff {
+export interface CapabilitiesGitDiff {
   diff: string
 }
 
@@ -145,7 +145,7 @@ export interface SidebarGitDiff {
  * a bare absolute cwd (the left rail / source-control panel operate on a
  * directory, not a conversation).
  */
-export interface SidebarWorkspaceFacts {
+export interface CapabilitiesWorkspaceFacts {
   kind: 'directory' | 'repository'
   cwd: string
   root: string
@@ -160,14 +160,14 @@ export interface SidebarWorkspaceFacts {
  * and push. The panel-local mutations (checkout / stage / commit) dispatch
  * through the session-scoped git.* methods instead.
  */
-export type SidebarWorkspaceMutation =
+export type CapabilitiesWorkspaceMutation =
   | { action: 'create-branch'; branch: string }
   | { action: 'push' }
 
 /** Wire validation for one workspace mutation payload. */
-export function isSidebarWorkspaceMutation(
+export function isCapabilitiesWorkspaceMutation(
   value: unknown,
-): value is SidebarWorkspaceMutation {
+): value is CapabilitiesWorkspaceMutation {
   if (typeof value !== 'object' || value === null) return false
   const input = value as Record<string, unknown>
   if (input.action === 'push') return true
@@ -175,19 +175,19 @@ export function isSidebarWorkspaceMutation(
 }
 
 /** The workspace mutation result (human-readable message + fresh facts). */
-export interface SidebarWorkspaceMutationResponse {
+export interface CapabilitiesWorkspaceMutationResponse {
   message: string
-  facts: SidebarWorkspaceFacts
+  facts: CapabilitiesWorkspaceFacts
 }
 
 /** The side card settings namespace view (value + revision). */
-export interface SidebarSettingsView {
+export interface CapabilitiesSettingsView {
   revision?: number
   value?: unknown
 }
 
 /** Success/failure envelope of one API method. */
-export interface SidebarEnvelope<T> {
+export interface CapabilitiesEnvelope<T> {
   error?: { code?: string; message?: string }
   ok?: boolean
   value?: T
@@ -199,7 +199,7 @@ export interface SidebarEnvelope<T> {
  * its calls with them, so the two halves cannot drift (the stage/unstage
  * `paths` vs `path` mismatch was exactly this class of bug).
  */
-export interface SidebarApiRequests {
+export interface CapabilitiesApiRequests {
   'workspace.cwd': Record<string, never>
   'fs.tree': { path?: string }
   'fs.read': { path: string }
@@ -253,7 +253,7 @@ export interface SidebarApiRequests {
   'git.worktree-remove': { path: string; force?: boolean }
   'project.icon-detect': { cwd: string }
   'workspace.facts': { cwd: string }
-  'workspace.mutate': { cwd: string; mutation: SidebarWorkspaceMutation }
+  'workspace.mutate': { cwd: string; mutation: CapabilitiesWorkspaceMutation }
   'pty.close': { tab: string }
   'pty.retained': Record<string, never>
   'pty.clear-retained': { tab: string }
@@ -274,14 +274,14 @@ export interface SidebarApiRequests {
   'jobs.kill': { id: string; reason?: string }
 }
 
-export type SidebarApiMethod = keyof SidebarApiRequests
+export type CapabilitiesApiMethod = keyof CapabilitiesApiRequests
 
-/** Route prefix served by the generic sidebar host (`/sidebar/api`). */
-export const SIDEBAR_API_BASE = '/sidebar/api'
+/** Route prefix served by the host capability gateway (`/capabilities/api`). */
+export const CAPABILITIES_API_BASE = '/capabilities/api'
 
 /** Build the POST body for one scoped method call (the project cwd). */
-export function sidebarScopePayload(
-  scope: SidebarScope,
+export function capabilitiesScopePayload(
+  scope: CapabilitiesScope,
   extra: Record<string, unknown>,
 ): Record<string, unknown> {
   return {
@@ -291,19 +291,19 @@ export function sidebarScopePayload(
 }
 
 /** POST one scoped API method and unwrap the envelope (client side). */
-export async function callSidebarApi<T>(
+export async function callCapabilitiesApi<T>(
   method: string,
-  scope: SidebarScope,
+  scope: CapabilitiesScope,
   extra: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${SIDEBAR_API_BASE}/${method}`, {
+  const response = await fetch(`${CAPABILITIES_API_BASE}/${method}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(sidebarScopePayload(scope, extra)),
+    body: JSON.stringify(capabilitiesScopePayload(scope, extra)),
     ...(signal === undefined ? {} : { signal }),
   })
-  const envelope = await response.json() as SidebarEnvelope<T>
+  const envelope = await response.json() as CapabilitiesEnvelope<T>
   // Void methods (git.stage / git.unstage / git.discard / git.checkout /
   // git.commit) legitimately return `{ok:true}` with no `value` — JSON drops
   // the undefined field — so success is judged by `ok === true` alone, never
@@ -319,18 +319,18 @@ export async function callSidebarApi<T>(
 }
 
 /** POST one global (scope-less) API method and unwrap the envelope. */
-export async function callSidebarGlobalApi<T>(
+export async function callCapabilitiesGlobalApi<T>(
   method: string,
   extra: Record<string, unknown>,
   signal?: AbortSignal,
 ): Promise<T> {
-  const response = await fetch(`${SIDEBAR_API_BASE}/${method}`, {
+  const response = await fetch(`${CAPABILITIES_API_BASE}/${method}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(extra),
     ...(signal === undefined ? {} : { signal }),
   })
-  const envelope = await response.json() as SidebarEnvelope<T>
+  const envelope = await response.json() as CapabilitiesEnvelope<T>
   if (!response.ok || envelope.ok !== true) {
     throw new Error(envelope.error?.message ?? `HTTP ${String(response.status)}`)
   }

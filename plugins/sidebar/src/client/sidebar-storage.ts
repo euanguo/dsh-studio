@@ -22,7 +22,7 @@ const STORAGE_KEY = 'dsh-studio.sidebar-preferences.v2'
  *   - HERE (localStorage): per-BROWSER UI session state. Tab layouts are
  *     window-local; two browsers on the same profile keep independent
  *     layouts, and a corrupted layout never touches the host.
- *   - runtime-settings (host settings namespace via /sidebar/api
+ *   - runtime-settings (host settings namespace via /capabilities/api
  *     settings.*): FEATURE preferences (interception switches, terminal
  *     font/shell, agent tools) that must follow the user across browsers
  *     and surfaces.

@@ -55,7 +55,7 @@ Web-only 与 TUI-only 都去掉 Electron；TUI-only 是容量最小的发行形�
 | Plugin | 来源关系 | DSH Studio 边界 |
 | --- | --- | --- |
 | `@dsh-studio/desktop` | 自研 | 统一入口、窗口、菜单、bridge 和内置插件注册 |
-| `@dsh-studio/better-sidebar-runtime` | 固定跟踪 [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) | 编译上游 Host；提供 PTY、Files、Git、历史和 commit diff |
+| `@dsh-studio/capabilities` | 固定跟踪 [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) 并扩展 | DSH Studio Host 能力网关：PTY、Files、Git、WorkTree、Workspace、作业和 Agent 工具 |
 | `@dsh-studio/sidebar` | Better Sidebar 的下游 UI 适配 | 复用 Host，保留 DSH Studio 布局、图标、主题、Review 与评论交互 |
 | `@dsh-studio/panel-controls` | 对 `dsh-web-panel` 交互模型的下游实现 | 提供统一 Terminal dock，不要求单独安装 Web Terminal |
 | `@dsh-studio/pinned-summary` | 自研 | 会话摘要、半高卡片和正文 gutter 管理 |

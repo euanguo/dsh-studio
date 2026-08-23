@@ -3,11 +3,11 @@ import { test } from 'node:test'
 import {
   createTerminalSpawnEnvironment,
   mergeTerminalSpawnEnvironment,
-} from '../plugins/sidebar-host/src/terminal-environment.ts'
+} from '../plugins/capabilities/src/terminal-environment.ts'
 import {
   isRetryableShellSpawnError,
   resolveShellCandidates,
-} from '../plugins/sidebar-host/src/shell-resolver.ts'
+} from '../plugins/capabilities/src/shell-resolver.ts'
 
 test('embedded terminal environment removes parent emulator capabilities', () => {
   const result = createTerminalSpawnEnvironment({

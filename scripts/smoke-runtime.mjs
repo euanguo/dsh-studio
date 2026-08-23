@@ -218,7 +218,7 @@ try {
   }
 
   const sidebarCall = async (method, payload) => {
-    const response = await fetch(new URL(`/sidebar/api/${method}`, base), {
+    const response = await fetch(new URL(`/capabilities/api/${method}`, base), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
@@ -254,7 +254,7 @@ try {
   assert.equal(workspaceFacts.kind, 'repository')
   assert.equal(realpathSync(workspaceFacts.root), realpathSync(smokeRoot))
 
-  const terminalUrl = new URL('/sidebar/ws/terminal', base)
+  const terminalUrl = new URL('/capabilities/ws/terminal', base)
   terminalUrl.protocol = 'ws:'
   terminalUrl.searchParams.set('sessionId', sidebarScope.sessionId)
   terminalUrl.searchParams.set('tab', 'smoke-terminal')
@@ -299,9 +299,9 @@ try {
       `Plugin compatible: ${plugin.id} (Host active, Client ${String(plugin.bytes)} bytes)`,
     )
   }
-  console.log('Better Sidebar Host API: ready, bounded workspace verified')
-  console.log('Better Sidebar Git API: ready, history and commit diff verified')
-  console.log('Better Sidebar terminal PTY: ready, command execution verified')
+  console.log('Capability gateway API: ready, bounded workspace verified')
+  console.log('Capability gateway Git API: ready, history and commit diff verified')
+  console.log('Capability gateway PTY: ready, command execution verified')
 } finally {
   if (child.exitCode === null) child.kill('SIGTERM')
   await new Promise(resolve => {

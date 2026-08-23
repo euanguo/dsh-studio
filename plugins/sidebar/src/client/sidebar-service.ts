@@ -43,7 +43,7 @@ import {
   tabAvailability,
   type DesktopSidebarService as DesktopSidebarServiceContract,
   type OpenTabResult,
-  type SidebarScope,
+  type CapabilitiesScope,
   type SidebarSnapshot,
   type SidebarTab,
   type SidebarTabDescriptor,
@@ -57,7 +57,7 @@ export type {
   SidebarFeature,
   SidebarFileFetchStrategy,
   SidebarRenderProps,
-  SidebarScope,
+  CapabilitiesScope,
   SidebarSettingToggle,
   SidebarSettingToggleType,
   SidebarSettingsDeclaration,
@@ -384,7 +384,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     })
   }
 
-  openTab(seed: SidebarTabSeed, scope?: SidebarScope): OpenTabResult {
+  openTab(seed: SidebarTabSeed, scope?: CapabilitiesScope): OpenTabResult {
     if (!this.snapshot.ready) return { kind: 'not-ready' }
     const target = this.targetOf(scope)
     if (target === null) return { kind: 'not-ready' }
@@ -464,12 +464,12 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     this.writeTarget(target, nextTabs, nextActive)
     // The callback scope carries the caller's explicit scope or the target
     // workspace (project cwd).
-    const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
+    const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
     safeCall(() => descriptor.onOpen?.(tab, callbackScope))
     return { kind: 'opened', tab }
   }
 
-  closeTab(tabId: string, scope?: SidebarScope): void {
+  closeTab(tabId: string, scope?: CapabilitiesScope): void {
     const target = this.targetOf(scope)
     if (target === null) return
     const tabs = [...this.workspaceOf(target.cwd).tabs]
@@ -482,11 +482,11 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       : this.workspaceOf(target.cwd).activeId
     this.writeTarget(target, next, activeId)
     const descriptor = this.tabDescriptors.get(closed.type)
-    const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
+    const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
     safeCall(() => descriptor?.onClose?.(closed, callbackScope))
   }
 
-  activateTab(tabId: string | null, scope?: SidebarScope): void {
+  activateTab(tabId: string | null, scope?: CapabilitiesScope): void {
     const target = this.targetOf(scope)
     if (target === null) return
     const workspace = this.workspaceOf(target.cwd)
@@ -498,7 +498,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       const descriptor = activated === undefined
         ? undefined
         : this.tabDescriptors.get(activated.type)
-      const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
+      const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
       safeCall(() => descriptor?.onActivate?.(activated!, callbackScope))
     }
   }
@@ -531,7 +531,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     }
   }
 
-  openFile(scope: SidebarScope, path: string, title?: string): void {
+  openFile(scope: CapabilitiesScope, path: string, title?: string): void {
     this.openTab({
       type: 'file',
       resource: path,
@@ -719,7 +719,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       const descriptor = activated === undefined
         ? undefined
         : this.tabDescriptors.get(activated.type)
-      const callbackScope: SidebarScope = { cwd: target.cwd }
+      const callbackScope: CapabilitiesScope = { cwd: target.cwd }
       safeCall(() => descriptor?.onActivate?.(activated!, callbackScope))
     }
   }
@@ -741,7 +741,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       activeId: nextActive ?? null,
     })
     const descriptor = this.tabDescriptors.get(closed.type)
-    const callbackScope: SidebarScope = { cwd: target.cwd }
+    const callbackScope: CapabilitiesScope = { cwd: target.cwd }
     safeCall(() => descriptor?.onClose?.(closed, callbackScope))
   }
 
@@ -870,7 +870,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
 
   /** The target workspace of an operation: the explicit scope or the active
    *  project. Null while no project is bound (or the service is not ready). */
-  private targetOf(scope?: SidebarScope): WorkspaceTarget | null {
+  private targetOf(scope?: CapabilitiesScope): WorkspaceTarget | null {
     if (!this.snapshot.ready) return null
     const cwd = scope?.cwd ?? this.snapshot.cwd ?? (process.env.PWD || process.cwd?.() || '/')
     return {
@@ -955,14 +955,14 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   private focusExisting(
     target: WorkspaceTarget,
     tab: SidebarTab,
-    scope?: SidebarScope,
+    scope?: CapabilitiesScope,
   ): void {
     const workspace = this.workspaceOf(target.cwd)
     if (workspace.activeId !== tab.id) {
       this.writeTarget(target, workspace.tabs, tab.id)
     }
     const descriptor = this.tabDescriptors.get(tab.type)
-    const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
+    const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
     safeCall(() => descriptor?.onActivate?.(tab, callbackScope))
   }
 

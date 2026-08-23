@@ -35,7 +35,7 @@ import {
   isUnderRoot,
   joinPath,
   relativePathOf,
-  resolveSidebarPath,
+  resolveCapabilitiesPath,
 } from '@dsh-studio/shared/path'
 import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import {
@@ -261,7 +261,7 @@ export function FilesView({
     const map = new Map<string, readonly WorkspaceFileEntry[]>()
     for (const [dir, listing] of runtime.getListingsSnapshot()) {
       if (listing.phase !== 'ready' && listing.phase !== 'empty') continue
-      map.set(resolveSidebarPath(cwd, dir), listing.entries.map(entry => ({
+      map.set(resolveCapabilitiesPath(cwd, dir), listing.entries.map(entry => ({
         kind: entry.isDirectory ? 'directory' : 'file',
         name: entry.name,
         path: entry.path,

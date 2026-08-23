@@ -4,7 +4,7 @@ import {
   capHistoryBytes,
   capHistoryLines,
   TerminalHistoryBuffer,
-} from '../plugins/sidebar-host/src/terminal-history.ts'
+} from '../plugins/capabilities/src/terminal-history.ts'
 
 test('capHistoryLines caps line count while preserving trailing newline', () => {
   assert.equal(capHistoryLines('a\nb\nc\n', 2), 'b\nc\n')

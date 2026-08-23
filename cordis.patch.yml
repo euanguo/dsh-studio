@@ -18,8 +18,8 @@
     - id: oh-desktop
       name: '@dsh-studio/desktop'
 
-    - id: oh-sidebar-host
-      name: '@dsh-studio/sidebar-host'
+    - id: oh-capabilities
+      name: '@dsh-studio/capabilities'
 
     - id: oh-desktop-skins
       name: '@dsh-studio/desktop-skins'

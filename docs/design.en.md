@@ -58,7 +58,7 @@ the smallest supported distribution.
 | Plugin | Relationship | DSH Studio boundary |
 | --- | --- | --- |
 | `@dsh-studio/desktop` | Native | Unified entry, window, menu, bridge, and bundled-plugin registration |
-| `@dsh-studio/better-sidebar-runtime` | Pins [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) | Builds the upstream Host for PTY, Files, Git, history, and commit diff |
+| `@dsh-studio/capabilities` | Pins and adapts [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) | DSH Studio Host capability gateway: PTY, Files, Git, WorkTrees, Workspaces, jobs, and Agent tools |
 | `@dsh-studio/sidebar` | Downstream Better Sidebar UI adapter | Reuses the Host while retaining DSH Studio layout, icons, themes, Review, and comments |
 | `@dsh-studio/panel-controls` | Downstream implementation of the `dsh-web-panel` interaction model | Unified Terminal dock without a separate Web Terminal install |
 | `@dsh-studio/pinned-summary` | Native | Session summary, half-height card, and content-gutter management |

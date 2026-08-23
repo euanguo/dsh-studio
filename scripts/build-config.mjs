@@ -14,7 +14,7 @@ const nodeEsmRequireBanner = [
 
 export function desktopBuilds(root) {
   const pluginPackages = [
-    { directory: 'sidebar-host', hostOnly: true },
+    { directory: 'capabilities', hostOnly: true },
     { directory: 'desktop-skins', id: '@dsh-studio/desktop-skins' },
     { directory: 'sidebar', id: '@dsh-studio/sidebar' },
     { directory: 'desktop-left-rail', id: '@dsh-studio/desktop-left-rail' },
@@ -82,7 +82,7 @@ export function desktopBuilds(root) {
       outfile: join(output, 'index.js'),
       platform: 'node',
       format: 'esm',
-      external: plugin.directory === 'sidebar-host'
+      external: plugin.directory === 'capabilities'
         ? ['@deepseek-ai/*', 'cordis', 'node-pty', 'schemastery', 'ws']
         : [],
     })
@@ -116,12 +116,12 @@ export function desktopBuilds(root) {
     }
   }
 
-  // Lazy chunks served by the sidebar-host /sidebar/bundle route. The chunk
-  // file must live in the host's lib directory (`dist/plugins/sidebar-host`).
+  // Lazy chunks served by the capabilities /capabilities/bundle route. The chunk
+  // file must live in the host's lib directory (`dist/plugins/capabilities`).
   builds.push({
     bundle: true,
     entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'files', 'mermaid-chunk.ts')],
-    outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js'),
+    outfile: join(root, 'dist', 'plugins', 'capabilities', 'client-mermaid.js'),
     platform: 'browser',
     format: 'iife',
     target: 'es2022',
@@ -141,7 +141,7 @@ export function desktopBuilds(root) {
   builds.push({
     bundle: true,
     entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'diff', 'pierre-worker-entry.ts')],
-    outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js'),
+    outfile: join(root, 'dist', 'plugins', 'capabilities', 'client-pierre-worker.js'),
     platform: 'browser',
     format: 'esm',
     target: 'es2022',

@@ -1,5 +1,5 @@
 /**
- * Workspace-level Git operations for the /sidebar/api workspace.* methods
+ * Workspace-level Git operations for the /capabilities/api workspace.* methods
  * (fork addition; the upstream host has no equivalent).
  *
  * These operate on a bare absolute cwd — the directory IS the scope, with
@@ -12,18 +12,18 @@ import { existsSync, statSync } from 'node:fs'
 import { basename, isAbsolute } from 'node:path'
 import { push as pushCurrentBranch, runGit } from '@dsh-studio/shared/git-core'
 import type {
-  SidebarWorkspaceFacts,
-  SidebarWorkspaceMutation,
-  SidebarWorkspaceMutationResponse,
-} from '@dsh-studio/shared/sidebar-api'
+  CapabilitiesWorkspaceFacts,
+  CapabilitiesWorkspaceMutation,
+  CapabilitiesWorkspaceMutationResponse,
+} from '@dsh-studio/shared/capabilities-api'
 
 export type {
-  SidebarWorkspaceFacts,
-  SidebarWorkspaceMutation,
-  SidebarWorkspaceMutationResponse,
-} from '@dsh-studio/shared/sidebar-api'
+  CapabilitiesWorkspaceFacts,
+  CapabilitiesWorkspaceMutation,
+  CapabilitiesWorkspaceMutationResponse,
+} from '@dsh-studio/shared/capabilities-api'
 
-export { isSidebarWorkspaceMutation } from '@dsh-studio/shared/sidebar-api'
+export { isCapabilitiesWorkspaceMutation } from '@dsh-studio/shared/capabilities-api'
 
 function normalizeWorkspacePath(raw: string | undefined): string {
   const cwd = raw?.trim()
@@ -67,7 +67,7 @@ async function repositoryRoot(cwd: string): Promise<string | null> {
 
 export async function readWorkspaceFacts(
   rawCwd: string | undefined,
-): Promise<SidebarWorkspaceFacts> {
+): Promise<CapabilitiesWorkspaceFacts> {
   const cwd = normalizeWorkspacePath(rawCwd)
   const root = await repositoryRoot(cwd)
   if (root === null) {
@@ -115,8 +115,8 @@ function requiredText(value: string, label: string, maxLength: number): string {
 
 export async function mutateWorkspace(
   rawCwd: string | undefined,
-  mutation: SidebarWorkspaceMutation,
-): Promise<SidebarWorkspaceMutationResponse> {
+  mutation: CapabilitiesWorkspaceMutation,
+): Promise<CapabilitiesWorkspaceMutationResponse> {
   const before = await readWorkspaceFacts(rawCwd)
   if (before.kind !== 'repository') {
     throw new Error('workspace is not a Git repository')

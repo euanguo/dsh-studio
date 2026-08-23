@@ -7,10 +7,10 @@ import { test } from 'node:test'
 import {
   mutateWorkspace,
   readWorkspaceFacts,
-} from '../plugins/sidebar-host/src/workspace-git.ts'
+} from '../plugins/capabilities/src/workspace-git.ts'
 import {
-  isSidebarWorkspaceMutation,
-} from '../plugins/shared/sidebar-api.ts'
+  isCapabilitiesWorkspaceMutation,
+} from '../plugins/shared/capabilities-api.ts'
 import {
   mapSidebarFile,
   mapSidebarTree,
@@ -24,12 +24,12 @@ function git(cwd: string, args: string[]): string {
 }
 
 test('workspace mutation wire guard accepts the host vocabulary only', () => {
-  assert.equal(isSidebarWorkspaceMutation({ action: 'push' }), true)
-  assert.equal(isSidebarWorkspaceMutation({ action: 'create-branch', branch: 'x' }), true)
-  assert.equal(isSidebarWorkspaceMutation({ action: 'checkout', branch: 'x' }), false)
-  assert.equal(isSidebarWorkspaceMutation({ action: 'create-branch' }), false)
-  assert.equal(isSidebarWorkspaceMutation(null), false)
-  assert.equal(isSidebarWorkspaceMutation('push'), false)
+  assert.equal(isCapabilitiesWorkspaceMutation({ action: 'push' }), true)
+  assert.equal(isCapabilitiesWorkspaceMutation({ action: 'create-branch', branch: 'x' }), true)
+  assert.equal(isCapabilitiesWorkspaceMutation({ action: 'checkout', branch: 'x' }), false)
+  assert.equal(isCapabilitiesWorkspaceMutation({ action: 'create-branch' }), false)
+  assert.equal(isCapabilitiesWorkspaceMutation(null), false)
+  assert.equal(isCapabilitiesWorkspaceMutation('push'), false)
 })
 
 test('workspace extension provides repository facts and branch creation', async () => {

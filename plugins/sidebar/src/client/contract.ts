@@ -29,7 +29,7 @@ import type { LayoutScopeMode } from '../sidebar-preferences.ts'
 
 /** One workspace scope: the project cwd. The sidebar data model is project
  *  dimension — one layout per project, never per conversation. */
-export interface SidebarScope {
+export interface CapabilitiesScope {
   cwd: string
 }
 
@@ -54,7 +54,7 @@ export type SidebarTabAvailability =
  */
 export function tabAvailability(
   descriptor: SidebarTabDescriptor,
-  scope: SidebarScope | null,
+  scope: CapabilitiesScope | null,
   state: SidebarSnapshot,
   enabled: boolean,
 ): SidebarTabAvailability {
@@ -116,7 +116,7 @@ export interface SidebarSnapshot {
   /** The project this snapshot belongs to (null before any workspace). */
   cwd: string | null
   /** The scope (project cwd) rendered inside the panel. */
-  scope: SidebarScope | null
+  scope: CapabilitiesScope | null
   tabs: readonly SidebarTab[]
   tabsEnabled: Readonly<Record<string, boolean>>
   viewersEnabled: Readonly<Record<string, boolean>>
@@ -155,7 +155,7 @@ export interface SidebarRenderProps {
   /** Patch the open tab's display fields (title / resource / meta). */
   patch(patch: { resource?: string; title?: string; meta?: unknown }): void
   /** The scope the tab renders against (null before a session is active). */
-  scope: SidebarScope | null
+  scope: CapabilitiesScope | null
   tab: SidebarTab
 }
 
@@ -232,7 +232,7 @@ export interface SidebarTabDescriptor {
    * + menu disabled predicate (e.g. no workspace). Receives the live scope
    * and snapshot. Only gates the menu row — it does not refuse `openTab`.
    */
-  available?: (scope: SidebarScope | null, state: SidebarSnapshot) => boolean
+  available?: (scope: CapabilitiesScope | null, state: SidebarSnapshot) => boolean
   /**
    * Single-instance sugar: `true` is shorthand for `dedupeKey: () => id`
    * (opening the tab focuses an existing one of the same type). An explicit
@@ -272,7 +272,7 @@ export interface SidebarTabDescriptor {
    * number renders as a count (99+ capped), a string renders as-is,
    * null/undefined hides the badge. A throw is swallowed (no badge shown).
    */
-  badge?: (scope: SidebarScope | null, state: SidebarSnapshot) => string | number | null | undefined
+  badge?: (scope: CapabilitiesScope | null, state: SidebarSnapshot) => string | number | null | undefined
   /**
    * Lifecycle callbacks. Fired by the SERVICE paths only: `onOpen` when an
    * open actually creates a tab (a dedupe/id-safety-net focus is NOT an
@@ -280,9 +280,9 @@ export interface SidebarTabDescriptor {
    * focused, `onClose` when a tab is closed. A throwing callback is logged
    * and never breaks the open/close/activate flow.
    */
-  onOpen?: (tab: SidebarTab, scope: SidebarScope) => void
-  onActivate?: (tab: SidebarTab, scope: SidebarScope) => void
-  onClose?: (tab: SidebarTab, scope: SidebarScope) => void
+  onOpen?: (tab: SidebarTab, scope: CapabilitiesScope) => void
+  onActivate?: (tab: SidebarTab, scope: CapabilitiesScope) => void
+  onClose?: (tab: SidebarTab, scope: CapabilitiesScope) => void
   /**
    * The tab body renderer. `action`-only descriptors (no render) are menu
    * shortcuts: opening them runs the action instead of opening a tab.
@@ -315,7 +315,7 @@ export interface SidebarViewerRenderInput {
   /** mediaUrl for the path (fetchStrategy='mediaUrl'). */
   resourceUrl?: string
   /** The scope of the owning session (custom viewers). */
-  scope?: SidebarScope
+  scope?: CapabilitiesScope
   title: string
   /** fsRead truncation flag. */
   truncated?: boolean
@@ -385,15 +385,15 @@ export interface DesktopSidebarService {
    * currently active project. A disabled tab type is a no-op. A dedupe hit
    * in the BOTTOM workbench focuses the docked tab there.
    */
-  openTab(seed: SidebarTabSeed, scope?: SidebarScope): OpenTabResult
+  openTab(seed: SidebarTabSeed, scope?: CapabilitiesScope): OpenTabResult
   /** Close a tab by id (fires descriptor.onClose). Unknown ids are a no-op. */
-  closeTab(tabId: string, scope?: SidebarScope): void
+  closeTab(tabId: string, scope?: CapabilitiesScope): void
   /** Activate an open tab (fires descriptor.onActivate). Unknown ids are a no-op. */
-  activateTab(tabId: string | null, scope?: SidebarScope): void
+  activateTab(tabId: string | null, scope?: CapabilitiesScope): void
   /** Patch an open tab's display fields; a missing tab id is a no-op. */
   updateTab(tabId: string, patch: { resource?: string; title?: string; meta?: unknown }): void
   /** Open a file in the sidebar of `scope`'s project (title defaults to the file name). */
-  openFile(scope: SidebarScope, path: string, title?: string): void
+  openFile(scope: CapabilitiesScope, path: string, title?: string): void
 
   /* ── bottom workbench + tab drag layout (DSH Studio extension) ───
    *

@@ -55,8 +55,8 @@ DSH Studio bundle layer（cordis.patch.yml，patch 进官方插件树）
 - insert:
     - id: oh-desktop
       name: '@dsh-studio/desktop'
-    - id: oh-better-sidebar-runtime
-      name: '@dsh-studio/better-sidebar-runtime'
+    - id: oh-capabilities
+      name: '@dsh-studio/capabilities'
     - id: oh-desktop-skins
       name: '@dsh-studio/desktop-skins'
     - id: oh-desktop-sidebar
@@ -142,7 +142,7 @@ export function apply(ctx: HostContext): void {
 | 插件 | 目录 | 来源 | 职责 |
 | --- | --- | --- | --- |
 | `@dsh-studio/desktop` | `src/` | 自研 | 统一桌面入口：window、菜单、Electron bridge、Agent 能力与插件注册顺序 |
-| `@dsh-studio/better-sidebar-runtime` | `plugins/better-sidebar-runtime/` | 仓库内 vendor 的 Better Sidebar Host（`src/`，基线 `3d88752` + 本地扩展，见 `VENDOR.md`） | PTY、Files、Git、history、commit diff 的本地能力层 |
+| `@dsh-studio/capabilities` | `plugins/capabilities/` | 仓库内 vendor 的 Host 能力网关（`src/`，基线 `3d88752` + 本地扩展，见 `VENDOR.md`） | PTY、Files、Git、WorkTree、Workspace 和 Agent 工具 |
 | `@dsh-studio/desktop-sidebar` | `plugins/desktop-sidebar/` | `DSH-better-sidebar` UI 下游 | Session tabs、viewer、Git Review、逐行评论、composer 引用 |
 | `@dsh-studio/panel-controls` | `plugins/panel-controls/` | `dsh-web-panel` 下游 | Terminal dock、可拖拽底部面板、Session 状态 |
 | `@dsh-studio/pinned-summary` | `plugins/pinned-summary/` | 自研 | 当前 Session 摘要卡片与正文 gutter 管理 |

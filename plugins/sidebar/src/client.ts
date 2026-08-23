@@ -8,7 +8,7 @@ export type {
   SidebarFeature,
   SidebarFileFetchStrategy,
   SidebarRenderProps,
-  SidebarScope,
+  CapabilitiesScope,
   SidebarSettingToggle,
   SidebarSettingToggleType,
   SidebarSettingsDeclaration,

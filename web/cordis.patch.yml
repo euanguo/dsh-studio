@@ -12,7 +12,7 @@
 # desktop-skins, reads its durable preferences through the shared
 # dshStudioSurface contract — web's data root on this shell), pinned summary,
 # the sidebar (workspace, Git, review, preferences — its host is pure
-# Node), the PTY terminal dock (sidebar-host is also pure Node), and the
+# Node), the PTY terminal dock (capabilities is also pure Node), and the
 # browser-side panel layout. Only the Electron-bound surfaces stay out:
 # the desktop shell chrome and the marketplace bridge.
 
@@ -20,8 +20,8 @@
     - id: oh-web
       name: '@dsh-studio/web'
 
-    - id: oh-better-sidebar-runtime
-      name: '@dsh-studio/sidebar-host'
+    - id: oh-capabilities
+      name: '@dsh-studio/capabilities'
 
     - id: oh-desktop-skins
       name: '@dsh-studio/desktop-skins'

@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import {
   sanitizeTerminalHistoryChunk,
   TerminalHistorySanitizer,
-} from '../plugins/sidebar-host/src/terminal-history-sanitizer.ts'
+} from '../plugins/capabilities/src/terminal-history-sanitizer.ts'
 
 test('sanitizer strips cursor/erase controls but preserves SGR styling', () => {
   const result = sanitizeTerminalHistoryChunk(

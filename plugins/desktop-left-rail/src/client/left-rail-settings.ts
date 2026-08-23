@@ -7,7 +7,7 @@
  * unassign — survive reloads. projects/worktrees themselves stay derived
  * from git. See docs/persistence-architecture.md (decision B).
  */
-import { callSidebarGlobalApi } from '@dsh-studio/shared/sidebar-api'
+import { callCapabilitiesGlobalApi } from '@dsh-studio/shared/capabilities-api'
 import {
   LEFT_RAIL_SETTINGS_NS,
   LEFT_RAIL_SETTINGS_VERSION,
@@ -25,7 +25,7 @@ export interface LeftRailSettingsView {
 
 /** Read the persisted slice (empty DTO + revision when absent), sanitized. */
 export async function loadLeftRailSettings(signal?: AbortSignal): Promise<LeftRailSettingsView> {
-  const result = await callSidebarGlobalApi<{ value?: unknown; revision?: number }>(
+  const result = await callCapabilitiesGlobalApi<{ value?: unknown; revision?: number }>(
     'settings.get',
     { ns: LEFT_RAIL_SETTINGS_NS },
     signal,
@@ -45,7 +45,7 @@ export async function saveLeftRailSettings(
   section: LeftRailSettings,
   expectedRevision?: number,
 ): Promise<LeftRailSettingsView> {
-  const result = await callSidebarGlobalApi<{ value?: unknown; revision?: number }>(
+  const result = await callCapabilitiesGlobalApi<{ value?: unknown; revision?: number }>(
     'settings.replace',
     {
       ns: LEFT_RAIL_SETTINGS_NS,

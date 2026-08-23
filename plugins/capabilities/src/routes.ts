@@ -1,5 +1,5 @@
 /**
- * The /sidebar JSON API route table (M3): every `buildSidebarRoutes`
+ * The /capabilities JSON API route table (M3): every `buildCapabilitiesRoutes`
  * method — workspace cwd, fs operations, git, worktrees, pty release,
  * background jobs, settings and the browser probe. Scoped requests carry
  * the PROJECT cwd (the sidebar data model is project-dimension); the pty
@@ -14,19 +14,14 @@ import { basename, dirname, isAbsolute, join } from 'node:path'
 import type { Context } from './context-types.ts'
 import { isLoopbackHostname } from './trust-fence.ts'
 import { extractFrameAncestors } from './browser-probe.ts'
-import type { ResolvedSidebarConfig } from './config.ts'
+import type { ResolvedCapabilitiesConfig } from './config.ts'
 import { isWithin, requireAbsolute, listDirectory, parentOf, rootLabel } from '@dsh-studio/shared/fs-tree'
 import * as git from '@dsh-studio/shared/git-core'
-import { LEFT_RAIL_SETTINGS_NS } from '@dsh-studio/shared/left-rail-preferences'
-import {
-  resolveDefaultWorktreeRoot,
-  sanitizeWorktreeDir,
-  type WorktreeDefaultsResult,
-} from '@dsh-studio/shared/worktree-preferences'
 import { SettingsConflictError } from '@deepseek-ai/dsh-settings'
 import type { PtyManager } from './pty-manager.ts'
 import type { AgentPtyRegistry } from './agent-pty.ts'
-import { buildJobsApi, type SidebarJobsRoutes } from './jobs-routes.ts'
+import { buildJobsApi, type CapabilitiesJobsRoutes } from './jobs-routes.ts'
+import { buildWorktreeRoutes } from './worktree-routes.ts'
 import { detectProjectIcon } from './project-icon.ts'
 import { terminalSessionKey } from './terminal-session-store.ts'
 import {
@@ -37,7 +32,7 @@ import {
   type SourceControlModelSelection,
 } from './source-control-ai.ts'
 import {
-  isSidebarWorkspaceMutation,
+  isCapabilitiesWorkspaceMutation,
   mutateWorkspace,
   readWorkspaceFacts,
 } from './workspace-git.ts'
@@ -47,7 +42,7 @@ import {
   optionalPathList,
   optionalString,
   requireString,
-  SidebarError,
+  CapabilityError,
 } from '@dsh-studio/shared/wire'
 
 import { SIDEBAR_PREFS_NS } from '@dsh-studio/shared/prefs-shared'
@@ -122,7 +117,7 @@ export function sessionCwdOf(ctx: Context, sessionId: string, clientCwd?: string
     try {
       return requireAbsolute(clientCwd)
     } catch {
-      throw new SidebarError('bad-request', `invalid working directory "${clientCwd}"`)
+      throw new CapabilityError('bad-request', `invalid working directory "${clientCwd}"`)
     }
   }
   return process.cwd()
@@ -144,7 +139,7 @@ async function resolveGitPath(cwd: string, raw: string): Promise<string> {
 /** Refuse mutating fs operations outside the session working directory. */
 function assertWithinSession(cwd: string, path: string, op: string): void {
   if (!isWithin(cwd, path)) {
-    throw new SidebarError('fs-error', `${op} path outside the session working directory`, 403)
+    throw new CapabilityError('fs-error', `${op} path outside the session working directory`, 403)
   }
 }
 
@@ -160,7 +155,7 @@ function gitBlobBase64(cwd: string, spec: string, relPath: string): Promise<stri
   return new Promise((resolvePromise, reject) => {
     execFile('git', args, { encoding: 'buffer', timeout: 15_000 }, (error, stdout) => {
       if (error !== null) {
-        reject(new SidebarError('git-error', error.message, 400))
+        reject(new CapabilityError('git-error', error.message, 400))
         return
       }
       resolvePromise(stdout.toString('base64'))
@@ -213,15 +208,15 @@ async function readText(path: string, readLimit: number): Promise<{
   data?: string
 }> {
   const info = await stat(path).catch((error: unknown) => {
-    throw new SidebarError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+    throw new CapabilityError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
   })
   if (info.isDirectory()) {
-    throw new SidebarError('fs-error', `"${path}" is a directory`, 400)
+    throw new CapabilityError('fs-error', `"${path}" is a directory`, 400)
   }
   const size = info.size
   const truncated = size > readLimit
   const handle = await open(path, 'r').catch((error: unknown) => {
-    throw new SidebarError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+    throw new CapabilityError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
   })
   try {
     const buffer = Buffer.alloc(Math.min(size, readLimit))
@@ -257,12 +252,12 @@ async function readText(path: string, readLimit: number): Promise<{
  * The live face of the plugin-owned settings namespaces, bound to the settings
  * service when it is mounted. The DSH settings RPC domain only serves
  * allowlisted namespaces (api-proxy exposedNamespaces), so clients read and
- * write THESE namespaces through the plugin's own fenced /sidebar routes,
+ * write THESE namespaces through the plugin's own fenced /capabilities routes,
  * which call the seam in-process — no configuration-client gate involved.
  * Every method takes the target namespace (`dsh-better-sidebar` for the side
  * card prefs, `dsh-studio-left-rail` for the left-rail view slice).
  */
-export interface SidebarSettingsFace {
+export interface CapabilitiesSettingsFace {
   /** The current resolved value + revision for one namespace (undefined while the settings service is absent). */
   get(ns: string): Promise<{ value?: unknown; revision?: number }> | { value?: unknown; revision?: number }
   /** Merge a patch into one namespace's user section (revision-guarded). */
@@ -274,18 +269,18 @@ export interface SidebarSettingsFace {
 }
 
 /** Build the API method table bound to the plugin context, pty manager, agent pty registry, and resolved config. */
-export function buildSidebarRoutes(
+export function buildCapabilitiesRoutes(
   ctx: Context,
   ptyManager: PtyManager,
   agentPtyRegistry: AgentPtyRegistry,
-  resolved: ResolvedSidebarConfig,
-  getSettings: () => SidebarSettingsFace | undefined,
+  resolved: ResolvedCapabilitiesConfig,
+  getSettings: () => CapabilitiesSettingsFace | undefined,
   getSourceControlAiGenerator: () => SourceControlAiGenerator | undefined,
 ): Record<string, ApiMethod> {
   const cwdOf = (payload: unknown): { cwd: string } => {
     const record = payload as { cwd?: unknown } | null
     const raw = typeof record?.cwd === 'string' && record.cwd !== '' ? record.cwd : undefined
-    if (raw === undefined) throw new SidebarError('bad-request', 'cwd is required')
+    if (raw === undefined) throw new CapabilityError('bad-request', 'cwd is required')
     return { cwd: requireAbsolute(raw) }
   }
   // Worktree-only scope: the workspace browser has no session binding, so the
@@ -293,7 +288,7 @@ export function buildSidebarRoutes(
   const cwdScopeOf = (payload: unknown): string => {
     const record = payload as { cwd?: unknown } | null
     const raw = typeof record?.cwd === 'string' && record.cwd !== '' ? record.cwd : undefined
-    if (raw === undefined) throw new SidebarError('bad-request', 'cwd is required')
+    if (raw === undefined) throw new CapabilityError('bad-request', 'cwd is required')
     return requireAbsolute(raw)
   }
   // Background jobs: the LIST rides the harness's `session/jobs` push
@@ -301,7 +296,7 @@ export function buildSidebarRoutes(
   // session's own event log — no DSH source is touched, the model's
   // job_output cursor is never consumed) and kill (the registry's stock
   // API). A deployment without the jobs registry downgrades kill to a 503.
-  const jobsApi: SidebarJobsRoutes = buildJobsApi(ctx, resolved.readLimit)
+  const jobsApi: CapabilitiesJobsRoutes = buildJobsApi(ctx, resolved.readLimit)
   return {
     'workspace.cwd': (payload) => {
       const { cwd } = cwdOf(payload)
@@ -342,7 +337,7 @@ export function buildSidebarRoutes(
         await rename(tmp, path)
       } catch (error) {
         await rm(tmp, { force: true }).catch(() => {})
-        throw new SidebarError('fs-error', `cannot write "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot write "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
       }
       return { ok: true }
     },
@@ -358,7 +353,7 @@ export function buildSidebarRoutes(
           await writeFile(path, '', { encoding: 'utf8', flag: 'wx' })
         }
       } catch (error) {
-        throw new SidebarError('fs-error', `cannot create "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot create "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
       }
       return { ok: true }
     },
@@ -371,7 +366,7 @@ export function buildSidebarRoutes(
       try {
         await rename(from, to)
       } catch (error) {
-        throw new SidebarError('fs-error', `cannot rename "${from}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot rename "${from}": ${error instanceof Error ? error.message : String(error)}`, 400)
       }
       return { ok: true }
     },
@@ -382,7 +377,7 @@ export function buildSidebarRoutes(
       try {
         await rm(path, { recursive: true, force: false })
       } catch (error) {
-        throw new SidebarError('fs-error', `cannot delete "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot delete "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
       }
       return { ok: true }
     },
@@ -395,7 +390,7 @@ export function buildSidebarRoutes(
       try {
         await copyFile(from, to)
       } catch (error) {
-        throw new SidebarError('fs-error', `cannot copy "${from}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot copy "${from}": ${error instanceof Error ? error.message : String(error)}`, 400)
       }
       return { ok: true }
     },
@@ -409,7 +404,7 @@ export function buildSidebarRoutes(
       const path = await resolveGitPath(cwd, requireString(payload, 'path'))
       const maxBytes = Math.min(optionalInteger(payload, 'maxBytes', 1, Number.MAX_SAFE_INTEGER) ?? 128 * 1024, 512 * 1024)
       const info = await stat(path).catch((error: unknown) => {
-        throw new SidebarError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
       })
       const handle = await open(path, 'r')
       try {
@@ -486,7 +481,7 @@ export function buildSidebarRoutes(
       const generator = getSourceControlAiGenerator()
       const settings = getSettings()
       if (generator === undefined || settings === undefined) {
-        throw new SidebarError('settings-rejected', 'Source Control AI is not available in this deployment', 503)
+        throw new CapabilityError('settings-rejected', 'Source Control AI is not available in this deployment', 503)
       }
       const [configured, fallback, upstream, root] = await Promise.all([
         settings.get(SOURCE_CONTROL_AI_SETTINGS_NS),
@@ -496,15 +491,15 @@ export function buildSidebarRoutes(
       ])
       const configuredSettings = sourceControlAiSettingsOf(configured.value)
       if (configuredSettings?.enabled === false) {
-        throw new SidebarError('settings-rejected', 'Source Control AI is disabled in Settings', 409)
+        throw new CapabilityError('settings-rejected', 'Source Control AI is disabled in Settings', 409)
       }
       const selection = modelSelectionOf(configuredSettings?.defaultModel)
         ?? modelSelectionOf(fallback.value)
       if (selection === undefined) {
-        throw new SidebarError('settings-rejected', 'Choose a default model in Settings before generating a commit message', 409)
+        throw new CapabilityError('settings-rejected', 'Choose a default model in Settings before generating a commit message', 409)
       }
       if (upstream.branch === null) {
-        throw new SidebarError('git-error', 'cannot generate a commit message from a detached HEAD', 409)
+        throw new CapabilityError('git-error', 'cannot generate a commit message from a detached HEAD', 409)
       }
       return generator.generate({
         cwd,
@@ -522,19 +517,19 @@ export function buildSidebarRoutes(
     'source-control-ai.settings': async () => {
       const settings = getSettings()
       if (settings === undefined) {
-        throw new SidebarError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
+        throw new CapabilityError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
       }
       return settings.get(SOURCE_CONTROL_AI_SETTINGS_NS)
     },
     'source-control-ai.update-settings': async (payload) => {
       const settings = getSettings()
       if (settings === undefined) {
-        throw new SidebarError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
+        throw new CapabilityError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
       }
       const record = payload as { patch?: unknown; expectedRevision?: unknown } | null
       const patch = record?.patch
       if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
-        throw new SidebarError('bad-request', 'patch must be a plain object')
+        throw new CapabilityError('bad-request', 'patch must be a plain object')
       }
       const expectedRevision = typeof record?.expectedRevision === 'number' ? record.expectedRevision : undefined
       const nextPatch = patch as Record<string, unknown>
@@ -656,7 +651,7 @@ export function buildSidebarRoutes(
       const { cwd } = cwdOf(payload)
       const paths = optionalPathList(payload)
       if (paths === undefined || paths.length === 0) {
-        throw new SidebarError('bad-request', 'discard requires at least one path')
+        throw new CapabilityError('bad-request', 'discard requires at least one path')
       }
       await git.discard(cwd, await Promise.all(paths.map(raw => resolveGitPath(cwd, raw))))
       return { ok: true }
@@ -677,77 +672,7 @@ export function buildSidebarRoutes(
       const rev = requireString(payload, 'rev')
       return { content: await git.show(cwd, rev, path) }
     },
-    'git.worktree-list': (payload) => {
-      const cwd = cwdScopeOf(payload)
-      return git.worktreeList(cwd)
-    },
-    // Effective new-worktree store location for the left rail's creation
-    // dialog: the user's absolute override from the left-rail settings
-    // namespace when valid, else the DSH Studio data-root default. No cwd —
-    // the preference is registry-global, so the bare global fence suffices.
-    'git.worktree-defaults': async () => {
-      const settings = getSettings()
-      let dir: string | undefined
-      let nest = true
-      if (settings !== undefined) {
-        // The face honors the left-rail migration gate on read.
-        const view = await settings.get(LEFT_RAIL_SETTINGS_NS)
-        const record = (typeof view.value === 'object' && view.value !== null
-          ? view.value
-          : {}) as Record<string, unknown>
-        dir = sanitizeWorktreeDir(record.worktreeDir)
-        if (typeof record.nestWorktrees === 'boolean') nest = record.nestWorktrees
-      }
-      return {
-        root: dir ?? resolveDefaultWorktreeRoot(process.env, homedir()),
-        nest,
-        custom: dir !== undefined,
-      } satisfies WorktreeDefaultsResult
-    },
-    'git.worktree-add': (payload) => {
-      const cwd = cwdScopeOf(payload)
-      const path = requireAbsolute(requireString(payload, 'path'))
-      const branch = requireString(payload, 'branch')
-      const createBranch = optionalBoolean(payload, 'createBranch') === true
-      // New-branch start point (commit-ish); ignored when attaching an
-      // existing branch. Empty/absent → HEAD.
-      const base = optionalString(payload, 'base')
-      return git.worktreeAdd(cwd, path, branch, createBranch, createBranch ? base : undefined)
-    },
-    'git.worktree-remove-preview': async (payload) => {
-      const cwd = cwdScopeOf(payload)
-      const path = requireAbsolute(requireString(payload, 'path'))
-      try {
-        const preview = await git.worktreeRemovalPreview(cwd, path)
-        return {
-          repoRoot: preview.repoRoot,
-          path: preview.worktree.path,
-          branch: preview.worktree.branch,
-          main: preview.worktree.main,
-          locked: preview.worktree.locked === true,
-          prunable: preview.worktree.prunable ?? null,
-          dirty: preview.dirty,
-          statusEntries: preview.statusEntries,
-        }
-      } catch (error) {
-        if (error instanceof git.GitCommandError) {
-          throw new SidebarError('git-error', error.message, 409)
-        }
-        throw error
-      }
-    },
-    'git.worktree-remove': async (payload) => {
-      const cwd = cwdScopeOf(payload)
-      const path = requireAbsolute(requireString(payload, 'path'))
-      try {
-        return { layout: await git.worktreeRemove(cwd, path, optionalBoolean(payload, 'force') === true) }
-      } catch (error) {
-        if (error instanceof git.GitCommandError) {
-          throw new SidebarError('git-error', error.message, 409)
-        }
-        throw error
-      }
-    },
+    ...buildWorktreeRoutes({ cwdScopeOf, getSettings }),
     'project.icon-detect': async (payload) => {
       const cwd = cwdScopeOf(payload)
       return detectProjectIcon(cwd)
@@ -763,8 +688,8 @@ export function buildSidebarRoutes(
     'workspace.mutate': (payload) => {
       const cwd = cwdScopeOf(payload)
       const record = payload as { mutation?: unknown }
-      if (!isSidebarWorkspaceMutation(record.mutation)) {
-        throw new SidebarError('bad-request', 'invalid workspace mutation')
+      if (!isCapabilitiesWorkspaceMutation(record.mutation)) {
+        throw new CapabilityError('bad-request', 'invalid workspace mutation')
       }
       return mutateWorkspace(cwd, record.mutation)
     },
@@ -829,12 +754,12 @@ export function buildSidebarRoutes(
     'settings.update': async (payload) => {
       const settings = getSettings()
       if (settings === undefined) {
-        throw new SidebarError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
+        throw new CapabilityError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
       }
       const record = payload as { ns?: unknown; patch?: unknown; expectedRevision?: unknown } | null
       const patch = record?.patch
       if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
-        throw new SidebarError('bad-request', 'patch must be a plain object')
+        throw new CapabilityError('bad-request', 'patch must be a plain object')
       }
       const ns = settingsNamespaceOf(payload)
       const expectedRevision = typeof record?.expectedRevision === 'number' ? record.expectedRevision : undefined
@@ -842,9 +767,9 @@ export function buildSidebarRoutes(
         return await settings.update(ns, patch as Record<string, unknown>, expectedRevision)
       } catch (error) {
         if (error instanceof SettingsConflictError) {
-          throw new SidebarError('settings-conflict', error.message, 409)
+          throw new CapabilityError('settings-conflict', error.message, 409)
         }
-        throw new SidebarError('settings-rejected', error instanceof Error ? error.message : String(error), 400)
+        throw new CapabilityError('settings-rejected', error instanceof Error ? error.message : String(error), 400)
       }
     },
     // Wholesale replace of one namespace's user section. Unlike a merge patch,
@@ -853,12 +778,12 @@ export function buildSidebarRoutes(
     'settings.replace': async (payload) => {
       const settings = getSettings()
       if (settings === undefined) {
-        throw new SidebarError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
+        throw new CapabilityError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
       }
       const record = payload as { ns?: unknown; section?: unknown; expectedRevision?: unknown } | null
       const section = record?.section
       if (section === null || typeof section !== 'object' || Array.isArray(section)) {
-        throw new SidebarError('bad-request', 'section must be a plain object')
+        throw new CapabilityError('bad-request', 'section must be a plain object')
       }
       const ns = settingsNamespaceOf(payload)
       const expectedRevision = typeof record?.expectedRevision === 'number' ? record.expectedRevision : undefined
@@ -866,21 +791,21 @@ export function buildSidebarRoutes(
         return await settings.replace(ns, section as Record<string, unknown>, expectedRevision)
       } catch (error) {
         if (error instanceof SettingsConflictError) {
-          throw new SidebarError('settings-conflict', error.message, 409)
+          throw new CapabilityError('settings-conflict', error.message, 409)
         }
-        throw new SidebarError('settings-rejected', error instanceof Error ? error.message : String(error), 400)
+        throw new CapabilityError('settings-rejected', error instanceof Error ? error.message : String(error), 400)
       }
     },
     // Path-addressed set/unset edits on one namespace (the native delete op).
     'settings.mutate': async (payload) => {
       const settings = getSettings()
       if (settings === undefined) {
-        throw new SidebarError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
+        throw new CapabilityError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
       }
       const record = payload as { ns?: unknown; ops?: unknown; expectedRevision?: unknown } | null
       const rawOps = record?.ops
       if (!Array.isArray(rawOps) || rawOps.length === 0 || !rawOps.every(isSettingsPathOp)) {
-        throw new SidebarError('bad-request', 'ops must be a non-empty array of {op,path} edits')
+        throw new CapabilityError('bad-request', 'ops must be a non-empty array of {op,path} edits')
       }
       const ns = settingsNamespaceOf(payload)
       const expectedRevision = typeof record?.expectedRevision === 'number' ? record.expectedRevision : undefined
@@ -888,9 +813,9 @@ export function buildSidebarRoutes(
         return await settings.mutate(ns, rawOps as SettingsPathEdit[], expectedRevision)
       } catch (error) {
         if (error instanceof SettingsConflictError) {
-          throw new SidebarError('settings-conflict', error.message, 409)
+          throw new CapabilityError('settings-conflict', error.message, 409)
         }
-        throw new SidebarError('settings-rejected', error instanceof Error ? error.message : String(error), 400)
+        throw new CapabilityError('settings-rejected', error instanceof Error ? error.message : String(error), 400)
       }
     },
     // Probe a URL's RESPONSE HEADERS so the sidebar browser can explain an
@@ -905,15 +830,15 @@ export function buildSidebarRoutes(
       try {
         parsed = new URL(raw)
       } catch {
-        throw new SidebarError('bad-request', 'invalid url', 400)
+        throw new CapabilityError('bad-request', 'invalid url', 400)
       }
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
-        throw new SidebarError('bad-request', 'only http/https urls can be probed', 400)
+        throw new CapabilityError('bad-request', 'only http/https urls can be probed', 400)
       }
       // Mirror the browser tab's address-bar policy: loopback stays unreachable
       // from the sidebar, so probing it would leak nothing the tab could use.
       if (isLoopbackHostname(parsed.hostname)) {
-        throw new SidebarError('bad-request', 'local addresses are not probed', 400)
+        throw new CapabilityError('bad-request', 'local addresses are not probed', 400)
       }
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), 8000)

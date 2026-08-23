@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { TerminalSubscriptionCoordinator } from '../plugins/sidebar-host/src/terminal-subscription-coordinator.ts'
+import { TerminalSubscriptionCoordinator } from '../plugins/capabilities/src/terminal-subscription-coordinator.ts'
 
 class FakePty {
   dataListeners = new Set<(data: string) => void>()

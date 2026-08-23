@@ -2,7 +2,7 @@
  * The first-class terminal surface — rendered both as a right-rail tab and
  * as a center-surface terminal (the middle "+" menu and the rail both open
  * it). Every terminal instance owns an independent pty: the instance id
- * (`tabId`) is the terminal's identity in the host's `/sidebar/ws/terminal`
+ * (`tabId`) is the terminal's identity in the host's `/capabilities/ws/terminal`
  * protocol, so opening N terminal tabs spins up N shells.
  *
  * The terminal is PROJECT-dimension: the instance belongs to the project

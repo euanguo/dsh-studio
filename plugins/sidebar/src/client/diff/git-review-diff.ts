@@ -4,7 +4,7 @@
  * them back — the cross-import cycle is broken by owning the git-diff
  * parsing in diff/).
  */
-import type { SidebarGitLogEntry } from '../sidebar-api.ts'
+import type { CapabilitiesGitLogEntry } from '../sidebar-api.ts'
 import type { DiffDocument } from './file-diff.ts'
 
 export type GitReviewLineType = 'context' | 'addition' | 'deletion'
@@ -172,7 +172,7 @@ export function parseGitReviewDiff(output: string): GitReviewFile[] {
 }
 
 export function reviewCommitFromWire(
-  entry: SidebarGitLogEntry,
+  entry: CapabilitiesGitLogEntry,
   diff: string,
 ): GitReviewCommit {
   return {

@@ -38,9 +38,9 @@ export function resolvePierreDiffTheme(): PierreDiffTheme {
  * `import.meta.url` is empty — so `new URL(..., import.meta.url)` cannot
  * resolve the worker. The worker is therefore built as its own ESM chunk
  * (`client-pierre-worker.js`, see build-config.mjs + pierre-worker-entry.ts)
- * and served by the sidebar-host /sidebar/bundle route (same origin).
+ * and served by the capabilities /capabilities/bundle route (same origin).
  */
-const PIERRE_WORKER_URL = '/sidebar/bundle/pierre-worker.js'
+const PIERRE_WORKER_URL = '/capabilities/bundle/pierre-worker.js'
 
 export function createPierreDiffWorker(): Worker {
   return new Worker(

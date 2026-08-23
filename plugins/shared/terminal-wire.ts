@@ -1,7 +1,7 @@
 /**
  * Versioned terminal output/control wire facts shared by the browser socket
  * and the host batcher. The payload remains JSON for compatibility with the
- * existing `/sidebar/ws/terminal` endpoint; the sequence/epoch fields make
+ * existing `/capabilities/ws/terminal` endpoint; the sequence/epoch fields make
  * flow control and stale-ACK rejection explicit.
  */
 

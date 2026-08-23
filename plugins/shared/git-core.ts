@@ -5,7 +5,7 @@
  * porcelain-parseable output formats (`-z` NUL framing, unit separators)
  * so parsing never depends on locale or color config.
  *
- * Upgraded from the vendored `sidebar-host/src/git.ts` (moved to
+ * Upgraded from the vendored `capabilities/src/git.ts` (moved to
  * plugins/shared so the sidebar and desktop-left-rail hosts share
  * exactly one implementation):
  * - `statusV2()`: `git status --porcelain=2 --branch` — branch, upstream,

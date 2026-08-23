@@ -1,7 +1,8 @@
 /**
- * dsh-better-sidebar host half: the /sidebar JSON API (explorer listing, file
- * read/write, git), the /sidebar/file media route (images), the /sidebar/html
- * preview route, the /sidebar/bundle lazy-chunk route (client code splits),
+ * DSH Studio host capability gateway: the /capabilities JSON API (explorer
+ * listing, file read/write, git, worktrees, workspace), the
+ * /capabilities/file media route (images), the /capabilities/html preview
+ * route, the /capabilities/bundle lazy-chunk route (client code splits),
  * and the terminal WebSocket upgrade. Every route passes the same
  * browser-trust fence as the /api gateway — Host-header loopback or the
  * connection row's `trustedHosts` (the `dsh web` launcher derives LAN IP
@@ -27,11 +28,11 @@ import {
   Config,
   LeftRailSettingsSchema,
   PrefsSchema,
-  resolveSidebarConfig,
+  resolveCapabilitiesConfig,
   SIDEBAR_PREFS_DEFAULTS,
   SIDEBAR_PREFS_NS,
-  type ResolvedSidebarConfig,
-  type SidebarConfig,
+  type CapabilitiesConfig,
+  type ResolvedCapabilitiesConfig,
   type SidebarPrefs,
 } from './config.ts'
 import { migrateLegacyLeftRailSlice } from './left-rail-settings-migration.ts'
@@ -41,7 +42,7 @@ import { decodeHtmlUrl } from './html-route.ts'
 import { extractFrameAncestors } from './browser-probe.ts'
 import { isTrustedApiRequest, isLoopbackHostname } from './trust-fence.ts'
 import { registerBundleRoute } from './bundle-route.ts'
-import { buildSidebarRoutes, sessionCwdOf, type SidebarSettingsFace } from './routes.ts'
+import { buildCapabilitiesRoutes, sessionCwdOf, type CapabilitiesSettingsFace } from './routes.ts'
 import {
   SOURCE_CONTROL_AI_SETTINGS_NS,
   SourceControlAiGenerator,
@@ -59,37 +60,37 @@ import { resolveShell } from './shell-resolver.ts'
 import { AgentPtyRegistry, clampDims, type AgentTerminalHandle } from './agent-pty.ts'
 import { buildTerminalReplayPayload, type TerminalReplaySource } from './terminal-replay.ts'
 import { registerTools } from './tools.ts'
+import { WorktreeDelegationRegistry } from './worktree-orchestration.ts'
+import { registerWorktreeTools } from './worktree-tools.ts'
 import {
   readJsonBody,
   requireString,
-  SidebarError,
+  CapabilityError,
   writeError,
   writeJson,
   writeOk,
 } from '@dsh-studio/shared/wire'
 
 export { Config }
-export type { SidebarConfig, ResolvedSidebarConfig }
-// Re-export the Context augmentation (declare module 'cordis') so consumers
-// `import type {} from 'dsh-better-sidebar'` and gain `ctx.betterSidebar`.
-// Also re-export the service descriptor types so consumers can type their
-// registerTab / registerFileViewer arguments without reaching into /client.
+export type { CapabilitiesConfig, ResolvedCapabilitiesConfig }
+// The capability gateway is the host-side runtime; the sidebar UI owns its
+// browser registry independently.
 export type { Context } from './context-types.ts'
 
-export type {
-  BetterSidebarService,
-  TabDescriptor,
-  TabComponentProps,
-  FileViewerDescriptor,
-  FileViewerProps,
-  FileFetchStrategy,
-} from './client/service.ts'
-
 /** Plugin identity for cordis.yml rows. */
-export const name = 'dsh-better-sidebar'
+export const name = 'dsh-studio-capabilities'
 
 /** Services required before mounting: the webserver routes, the session store, the loader's connection row, and the tool registry. */
-export const inject = ['webServer', 'sessions', 'loader', 'tools', 'settings', 'llm']
+export const inject = [
+  'webServer',
+  'sessions',
+  'loader',
+  'tools',
+  'settings',
+  'llm',
+  'agents',
+  'workspaceRegistry',
+]
 
 /** Content types for the media route, by extension. */
 const MEDIA_TYPES: Record<string, string> = {
@@ -141,7 +142,7 @@ function releasePtyOutputOwner(key: string, pty: PausablePty, owner: string): vo
   }
 }
 
-/** Content type served by /sidebar/file (binary-safe fallback for unknowns). */
+/** Content type served by /capabilities/file (binary-safe fallback for unknowns). */
 export function mediaTypeForPath(path: string): string {
   return MEDIA_TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream'
 }
@@ -163,13 +164,13 @@ function trustedHostsOf(ctx: Context): string[] {
  * @param ctx - host plugin context (webServer, sessions, loader).
  * @param config - deployment-provided limits; the Loader validates against
  * {@link Config} and fills defaults, direct callers get them from
- * {@link resolveSidebarConfig}.
+ * {@link resolveCapabilitiesConfig}.
  */
-export function apply(ctx: Context, config?: SidebarConfig): void {
+export function apply(ctx: Context, config?: CapabilitiesConfig): void {
   // pnpm strips the executable bit from node-pty's prebuilt spawn-helper;
   // restore it before any terminal can spawn (idempotent).
   ensureSpawnHelper()
-  const resolved = resolveSidebarConfig(config)
+  const resolved = resolveCapabilitiesConfig(config)
   const trustedHosts = trustedHostsOf(ctx)
   const fence = (req: IncomingMessage): boolean => isTrustedApiRequest(req, trustedHosts)
   // Terminal policy is read through the existing settings namespace. The
@@ -204,6 +205,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   const agentPtyRegistry = new AgentPtyRegistry(getShell, {
     getPolicy: getTerminalPolicy,
   })
+  const worktreeDelegations = new WorktreeDelegationRegistry(ctx)
 
   // ── User-facing "Side card" preferences ──────────────────────────────────
   // Register the namespace with the settings provider so the Settings page
@@ -213,7 +215,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   // plugin's own fenced routes below ('settings.get'/'settings.update'),
   // which call the seam in-process. Deployments without a settings service
   // simply never fill the face and the client falls back to the defaults.
-  let settingsFace: SidebarSettingsFace | undefined
+  let settingsFace: CapabilitiesSettingsFace | undefined
   let sourceControlAiGenerator: SourceControlAiGenerator | undefined
   // Migration of any legacy left-rail slice out of the sidebar namespace into
   // dsh-studio-left-rail. The routes gate the left-rail namespace on this promise
@@ -225,23 +227,27 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   const settingsNamespaceGate = async (rawNs: string, gate: () => Promise<void> | undefined): Promise<void> => {
     if (rawNs === LEFT_RAIL_SETTINGS_NS) await gate()
   }
-  // The model-facing terminal tools are gated on the side-card setting
-  // `agentTerminalTools` (default off): nothing is injected until the user
-  // turns the feature on, and turning it off mid-session unregisters the
-  // tools and releases the agent terminals they created.
+  // Model-facing capabilities are independently gated and default off.
   let toolsDisposers: (() => void) | null = null
+  let worktreeToolsDisposer: (() => void) | null = null
   const syncToolsGate = (scope: { get(): SidebarPrefs }): void => {
-    if (scope.get().agentTerminalTools) {
+    const prefs = scope.get()
+    if (prefs.agentTerminalTools) {
       if (toolsDisposers === null) {
         toolsDisposers = registerTools(ctx, agentPtyRegistry, (sessionId) => sessionCwdOf(ctx, sessionId))
       }
     } else if (toolsDisposers !== null) {
       toolsDisposers()
       toolsDisposers = null
-      // The feature is off: release every agent terminal the model created
-      // while it was on (they are only reachable through the tools). The
-      // registry change fires the push, so the sidebar reconciles them away.
       agentPtyRegistry.disposeAll()
+    }
+    if (prefs.agentWorktreeTools) {
+      if (worktreeToolsDisposer === null) {
+        worktreeToolsDisposer = registerWorktreeTools(ctx, worktreeDelegations)
+      }
+    } else if (worktreeToolsDisposer !== null) {
+      worktreeToolsDisposer()
+      worktreeToolsDisposer = null
     }
   }
   ctx.inject(['settings', 'llm'], (sctx) => {
@@ -329,7 +335,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   })
 
   // ── JSON API ────────────────────────────────────────────────────────────
-  const api = buildSidebarRoutes(
+  const api = buildCapabilitiesRoutes(
     ctx,
     ptyManager,
     agentPtyRegistry,
@@ -339,7 +345,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   )
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
-    path: '/sidebar/api',
+    path: '/capabilities/api',
     handler: async (req, res) => {
       if (!fence(req)) {
         writeJson(res, 403, { ok: false, error: { code: 'forbidden', message: 'forbidden' } })
@@ -350,34 +356,34 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
         return
       }
       const pathname = new URL(req.url ?? '/', 'http://dsh.internal').pathname
-      const method = pathname.startsWith('/sidebar/api/') ? pathname.slice('/sidebar/api/'.length) : undefined
+      const method = pathname.startsWith('/capabilities/api/') ? pathname.slice('/capabilities/api/'.length) : undefined
       if (method === undefined || method.includes('/')) {
-        writeError(res, new SidebarError('not-found', 'unknown sidebar API method', 404))
+        writeError(res, new CapabilityError('not-found', 'unknown capabilities API method', 404))
         return
       }
       try {
         const payload = await readJsonBody(req)
         const handler = api[method]
         if (handler === undefined) {
-          throw new SidebarError('not-found', `unknown sidebar API method "${method}"`, 404)
+          throw new CapabilityError('not-found', `unknown capabilities API method "${method}"`, 404)
         }
         writeOk(res, await handler(payload))
       } catch (error) {
         writeError(res, error)
       }
     },
-  }), 'dsh-better-sidebar: /sidebar/api routes')
+  }), 'capabilities: /capabilities/api routes')
 
   // ── Lazy chunk route (client bundle splits) ─────────────────────────────
   // Serves the client half's split bundles (lib/client-<name>.js) so the
   // heavy preview/terminal libraries load on first use, not at page start
   // (see bundle-route.ts / src/client/chunk-loader.ts).
-  ctx.effect(() => registerBundleRoute(ctx, fence), 'dsh-better-sidebar: /sidebar/bundle chunk route')
+  ctx.effect(() => registerBundleRoute(ctx, fence), 'capabilities: /capabilities/bundle chunk route')
 
   // ── Media route (images for the editor) ─────────────────────────────────
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
-    path: '/sidebar/file',
+    path: '/capabilities/file',
     handler: async (req, res) => {
       if (!fence(req)) {
         res.writeHead(403)
@@ -393,7 +399,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
         const url = new URL(req.url ?? '/', 'http://dsh.internal')
         const sessionId = url.searchParams.get('sessionId')
         const raw = url.searchParams.get('path')
-        if (sessionId === null || raw === null) throw new SidebarError('bad-request', 'sessionId and path are required')
+        if (sessionId === null || raw === null) throw new CapabilityError('bad-request', 'sessionId and path are required')
         const cwd = sessionCwdOf(ctx, sessionId, url.searchParams.get('cwd') ?? undefined)
         const path = requireAbsolute(raw)
         if (!isWithin(cwd, path)) {
@@ -401,11 +407,11 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
           // opens images from the explorer; produced files go through read).
           // isWithin (not a raw startsWith) so case-mismatched Windows paths
           // and mixed separators cannot be misclassified.
-          throw new SidebarError('fs-error', 'media path outside the session working directory', 403)
+          throw new CapabilityError('fs-error', 'media path outside the session working directory', 403)
         }
         const info = await stat(path)
         if (!info.isFile() || info.size > resolved.mediaLimit) {
-          throw new SidebarError('fs-error', 'not a file or too large', 400)
+          throw new CapabilityError('fs-error', 'not a file or too large', 400)
         }
         const type = mediaTypeForPath(path)
         const body = await readFile(path)
@@ -421,7 +427,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
         writeError(res, error)
       }
     },
-  }), 'dsh-better-sidebar: /sidebar/file media route')
+  }), 'capabilities: /capabilities/file media route')
 
   // ── HTML preview route (sandboxed HTML + its relative assets) ───────────
   // Serves files under the session cwd for the built-in HTML previewer. The
@@ -435,7 +441,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   // origin with no same-origin access to the GUI.
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
-    path: '/sidebar/html',
+    path: '/capabilities/html',
     handler: async (req, res) => {
       if (!fence(req)) {
         res.writeHead(403)
@@ -451,7 +457,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
         const url = new URL(req.url ?? '/', 'http://dsh.internal')
         const decoded = decodeHtmlUrl(url.pathname)
         if (!decoded.ok) {
-          writeError(res, new SidebarError('bad-request', decoded.message, decoded.status))
+          writeError(res, new CapabilityError('bad-request', decoded.message, decoded.status))
           return
         }
         const { sessionId, path } = decoded.ref
@@ -462,11 +468,11 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
         const cwd = sessionCwdOf(ctx, sessionId)
         const absolute = requireAbsolute(path)
         if (!isWithin(cwd, absolute)) {
-          throw new SidebarError('fs-error', 'html path outside the session working directory', 403)
+          throw new CapabilityError('fs-error', 'html path outside the session working directory', 403)
         }
         const info = await stat(absolute)
         if (!info.isFile() || info.size > resolved.mediaLimit) {
-          throw new SidebarError('fs-error', 'not a file or too large', 400)
+          throw new CapabilityError('fs-error', 'not a file or too large', 400)
         }
         const type = mediaTypeForPath(absolute)
         const body = await readFile(absolute)
@@ -485,7 +491,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
         writeError(res, error)
       }
     },
-  }), 'dsh-better-sidebar: /sidebar/html preview route')
+  }), 'capabilities: /capabilities/html preview route')
 
   // ── Terminal WebSocket ──────────────────────────────────────────────────
   // One upgrade endpoint serves both UI-tab terminals (?tab=...) and
@@ -497,7 +503,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   // contract the host has always had).
   const wss = new WebSocketServer({ noServer: true })
   ctx.effect(() => ctx.webServer.registerUpgrade({
-    path: '/sidebar/ws/terminal',
+    path: '/capabilities/ws/terminal',
     handler: (req, socket, head) => {
       if (!fence(req)) {
         socket.destroy()
@@ -507,7 +513,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
         void attachTerminal(ctx, ptyManager, agentPtyRegistry, terminalSubscriptions, ws, req, getTerminalPolicy)
       })
     },
-  }), 'dsh-better-sidebar: terminal WebSocket')
+  }), 'capabilities: terminal WebSocket')
 
   // ── Agent terminals push WebSocket ──────────────────────────────────────
   // Pushes the live list of agent terminals for one session to the sidebar
@@ -519,7 +525,7 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
   // fires a change here, which converges the view).
   const agentListWss = new WebSocketServer({ noServer: true })
   ctx.effect(() => ctx.webServer.registerUpgrade({
-    path: '/sidebar/ws/agent-terminals',
+    path: '/capabilities/ws/agent-terminals',
     handler: (req, socket, head) => {
       if (!fence(req)) {
         socket.destroy()
@@ -529,17 +535,19 @@ export function apply(ctx: Context, config?: SidebarConfig): void {
         void attachAgentList(agentPtyRegistry, ws, req)
       })
     },
-  }), 'dsh-better-sidebar: agent-terminals push WebSocket')
+  }), 'capabilities: agent-terminals push WebSocket')
 
   ctx.effect(() => () => {
     toolsDisposers?.()
+    worktreeToolsDisposer?.()
+    worktreeDelegations.dispose()
     ptyManager.disposeAll()
     agentPtyRegistry.disposeAll()
     terminalSubscriptions.dispose()
      ptyPauseOwners.clear()
     wss.close()
     agentListWss.close()
-  }, 'dsh-better-sidebar: teardown')
+  }, 'capabilities: teardown')
 }
 
 /** Push the live agent-terminal list for one session to a connected sidebar view. */

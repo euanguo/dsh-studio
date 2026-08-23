@@ -1,23 +1,23 @@
 /**
- * Pure URL vocabulary of the /sidebar/html route (HTML previewer).
+ * Pure URL vocabulary of the /capabilities/html route (HTML previewer).
  *
  * Why path-encoded parameters instead of a query string: the previewed
  * page resolves its relative assets (./style.css, img/x.png) against the
  * document URL, and the WHATWG URL algorithm DROPS the query of a
- * path-relative reference — `/sidebar/html?a=1&path=/a/b/` + `./style.css`
+ * path-relative reference — `/capabilities/html?a=1&path=/a/b/` + `./style.css`
  * would lose the session scope and the route would reject the asset.
  * Encoding everything into the URL path keeps relative resolution inside
  * the same route with every request self-contained:
  *
- *   /sidebar/html/<sessionId>/<absolute-path segments, encodeURIComponent'd>
- *   /sidebar/html/S/Users/me/proj/index.html
- *     + ./style.css → /sidebar/html/S/Users/me/proj/style.css
- *   Windows: C:\Users\me\a.html → /sidebar/html/S/C%3A/Users/me/a.html
+ *   /capabilities/html/<sessionId>/<absolute-path segments, encodeURIComponent'd>
+ *   /capabilities/html/S/Users/me/proj/index.html
+ *     + ./style.css → /capabilities/html/S/Users/me/proj/style.css
+ *   Windows: C:\Users\me\a.html → /capabilities/html/S/C%3A/Users/me/a.html
  *
  * This module is intentionally dependency-free (no node imports, no wire
  * helpers) so the client bundle can import `encodeHtmlUrl` without tripping
  * the build-time purity gate; the host converts decode failures into
- * SidebarError responses at the route boundary.
+ * CapabilityError responses at the route boundary.
  */
 
 /** One decoded route reference. */
@@ -33,7 +33,7 @@ export type HtmlDecodeResult =
   | { ok: false; status: 400 | 404; message: string }
 
 /** The route prefix both encoders/decoders agree on. */
-export const HTML_ROUTE_PREFIX = '/sidebar/html/'
+export const HTML_ROUTE_PREFIX = '/capabilities/html/'
 
 /** Build the route URL for one absolute file path (client + tests). */
 export function encodeHtmlUrl(sessionId: string, path: string): string {

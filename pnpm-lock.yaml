@@ -117,6 +117,34 @@ importers:
         specifier: 2.8.1
         version: 2.8.1
 
+  plugins/capabilities:
+    dependencies:
+      '@xterm/headless':
+        specifier: 6.1.0-beta.301
+        version: 6.1.0-beta.301
+      node-pty:
+        specifier: 1.2.0-beta.15
+        version: 1.2.0-beta.15
+      schemastery:
+        specifier: ^3.18.0
+        version: 3.18.0
+      ws:
+        specifier: 8.21.3
+        version: 8.21.3
+    devDependencies:
+      '@types/react':
+        specifier: ~18.3.1
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.1
+        version: 18.3.7(@types/react@18.3.31)
+      react:
+        specifier: ^18.2.0
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.2.0
+        version: 18.3.1(react@18.3.1)
+
   plugins/desktop-left-rail:
     devDependencies:
       '@types/react':
@@ -220,34 +248,6 @@ importers:
         version: 5.0.15(@types/react@18.3.31)(react@18.3.1)(use-sync-external-store@1.6.0(react@18.3.1))
 
   plugins/sidebar-desktop:
-    devDependencies:
-      '@types/react':
-        specifier: ~18.3.1
-        version: 18.3.31
-      '@types/react-dom':
-        specifier: ^18.3.1
-        version: 18.3.7(@types/react@18.3.31)
-      react:
-        specifier: ^18.2.0
-        version: 18.3.1
-      react-dom:
-        specifier: ^18.2.0
-        version: 18.3.1(react@18.3.1)
-
-  plugins/sidebar-host:
-    dependencies:
-      '@xterm/headless':
-        specifier: 6.1.0-beta.301
-        version: 6.1.0-beta.301
-      node-pty:
-        specifier: 1.2.0-beta.15
-        version: 1.2.0-beta.15
-      schemastery:
-        specifier: ^3.18.0
-        version: 3.18.0
-      ws:
-        specifier: 8.21.3
-        version: 8.21.3
     devDependencies:
       '@types/react':
         specifier: ~18.3.1

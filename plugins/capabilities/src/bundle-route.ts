@@ -1,6 +1,6 @@
 /**
  * Lazy chunk route: serves the client bundle's chunk scripts
- * (/sidebar/bundle/<name>.js). The official /plugins/<id>/client.js route
+ * (/capabilities/bundle/<name>.js). The official /plugins/<id>/client.js route
  * cannot serve arbitrary file names, so the plugin serves its own split
  * bundles (lib/client-<name>.js) here; the client injects the script on
  * first use of the feature that needs it (see src/client/chunk-loader.ts).
@@ -60,7 +60,7 @@ async function etagOf(name: ChunkName, chunkDir: string): Promise<string | undef
 }
 
 /**
- * Build the /sidebar/bundle route handler. `fence` is the shared browser-
+ * Build the /capabilities/bundle route handler. `fence` is the shared browser-
  * trust check every /sidebar route applies; `chunkDir` is the directory the
  * chunk scripts live in (overridable for tests).
  */
@@ -117,11 +117,11 @@ export function createBundleRouteHandler(
   }
 }
 
-/** Register the /sidebar/bundle route (disposed with the fiber). */
+/** Register the /capabilities/bundle route (disposed with the fiber). */
 export function registerBundleRoute(ctx: Context, fence: (req: IncomingMessage) => boolean): () => void {
   return ctx.webServer.register({
     kind: 'prefix',
-    path: '/sidebar/bundle',
+    path: '/capabilities/bundle',
     handler: createBundleRouteHandler(fence),
   })
 }

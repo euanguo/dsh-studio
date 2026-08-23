@@ -22,7 +22,7 @@ import {
   createTerminalModeReplayTracker,
   type TerminalModeReplayTracker,
 } from './terminal-mode-replay.ts'
-import { SidebarError } from '@dsh-studio/shared/wire'
+import { CapabilityError } from '@dsh-studio/shared/wire'
 import { terminalHistoryLimitsForRows } from '@dsh-studio/shared/terminal-scrollback-policy'
 import {
   DEFAULT_TERMINAL_RUNTIME_POLICY,
@@ -327,7 +327,7 @@ export class AgentPtyRegistry {
   private expect(uuid: string): AgentTerminalHandle {
     const handle = this.sessions.get(uuid)
     if (handle === undefined) {
-      throw new SidebarError('not-found', `agent terminal "${uuid}" not found`, 404)
+      throw new CapabilityError('not-found', `agent terminal "${uuid}" not found`, 404)
     }
     return handle
   }
@@ -341,7 +341,7 @@ export class AgentPtyRegistry {
   assertOwned(uuid: string, sessionId: string): AgentTerminalHandle {
     const handle = this.expect(uuid)
     if (handle.sessionId !== sessionId) {
-      throw new SidebarError('not-found', `agent terminal "${uuid}" not found`, 404)
+      throw new CapabilityError('not-found', `agent terminal "${uuid}" not found`, 404)
     }
     return handle
   }
@@ -356,7 +356,7 @@ export class AgentPtyRegistry {
   send(uuid: string, text: string): void {
     const handle = this.expect(uuid)
     if (handle.exited) {
-      throw new SidebarError('bad-request', `agent terminal "${uuid}" has exited`, 400)
+      throw new CapabilityError('bad-request', `agent terminal "${uuid}" has exited`, 400)
     }
     handle.pty.write(text)
   }
@@ -439,7 +439,7 @@ export class AgentPtyRegistry {
     signal?: AbortSignal,
   ): Promise<AgentTerminalWaitResult> {
     if (needle === '') {
-      throw new SidebarError('bad-request', 'needle must be a non-empty string', 400)
+      throw new CapabilityError('bad-request', 'needle must be a non-empty string', 400)
     }
     const handle = this.expect(uuid)
     const timeout = Math.max(100, Math.floor(timeoutMs))

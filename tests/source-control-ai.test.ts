@@ -4,7 +4,7 @@ import {
   boundedStagedPatch,
   renderSourceControlAiTemplate,
   SourceControlAiGenerator,
-} from '../plugins/sidebar-host/src/source-control-ai.ts'
+} from '../plugins/capabilities/src/source-control-ai.ts'
 
 test('source-control AI template renders only the explicit variable allowlist', () => {
   assert.equal(

@@ -1,5 +1,5 @@
 /**
- * Client-side chunk loader for /sidebar/bundle/<name>.js.
+ * Client-side chunk loader for /capabilities/bundle/<name>.js.
  * Scripts are loaded once and cached for the lifetime of the page.
  * `name` is the shared ChunkName union — the servable set (host) and the
  * requested set (client) come from the same list.
@@ -13,7 +13,7 @@ export function loadChunk(name: ChunkName): Promise<void> {
   if (existing !== undefined) return existing
   const promise = new Promise<void>((resolvePromise, reject) => {
     const script = document.createElement('script')
-    script.src = `/sidebar/bundle/${name}.js`
+    script.src = `/capabilities/bundle/${name}.js`
     script.async = true
     script.onload = () => { resolvePromise() }
     script.onerror = () => { reject(new Error(`Failed to load chunk "${name}".`)) }

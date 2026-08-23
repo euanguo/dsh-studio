@@ -3,7 +3,7 @@
  */
 export {
   TerminalSocket,
-  BETTER_SIDEBAR_TERMINAL_WS_PATH,
+  CAPABILITIES_TERMINAL_WS_PATH,
   terminalWebSocketUrl,
   type TerminalSocketHandlers,
   type TerminalSocketScope,

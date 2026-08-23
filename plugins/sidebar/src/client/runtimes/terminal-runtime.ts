@@ -15,7 +15,7 @@ import {
   type PaneKey,
   type TerminalLeafId,
 } from '@dsh-studio/shared/stable-pane-id'
-import type { SidebarScope } from '../contract.ts'
+import type { CapabilitiesScope } from '../contract.ts'
 
 export const MAX_TERMINAL_INSTANCES_PER_WORKSPACE = 64
 
@@ -38,7 +38,7 @@ export interface TerminalInstanceInfo {
   paneKey: PaneKey
 }
 
-export function terminalInstanceKey(scope: SidebarScope, tabId: string): string {
+export function terminalInstanceKey(scope: CapabilitiesScope, tabId: string): string {
   return `${scope.cwd}:${tabId}`
 }
 
@@ -46,22 +46,22 @@ export const terminalInstanceRegistry = new ScopedRuntimeRegistry<TerminalInstan
   maxEntries: MAX_TERMINAL_INSTANCES_PER_WORKSPACE * 2,
 })
 
-export function terminalInstanceCount(scope: SidebarScope): number {
+export function terminalInstanceCount(scope: CapabilitiesScope): number {
   return terminalInstanceRegistry.values().filter(instance =>
     instance.cwd === scope.cwd,
   ).length
 }
 
-export function canOpenTerminalInstance(scope: SidebarScope): boolean {
+export function canOpenTerminalInstance(scope: CapabilitiesScope): boolean {
   return terminalInstanceCount(scope) < MAX_TERMINAL_INSTANCES_PER_WORKSPACE
 }
 
-export function releaseTerminalInstance(scope: SidebarScope, tabId: string): void {
+export function releaseTerminalInstance(scope: CapabilitiesScope, tabId: string): void {
   disposeTerminalOwner(scope.cwd, tabId)
   terminalInstanceRegistry.delete(terminalInstanceKey(scope, tabId))
 }
 
-export function touchTerminalInstance(scope: SidebarScope, tabId: string): TerminalInstanceInfo {
+export function touchTerminalInstance(scope: CapabilitiesScope, tabId: string): TerminalInstanceInfo {
   if (scope.cwd === undefined || scope.cwd === '') {
     throw new Error('terminal instance scope requires a workspace cwd')
   }

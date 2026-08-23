@@ -8,7 +8,7 @@ import { IconChevronDown, IconRefresh } from '@dsh-studio/shared/tabler-icons'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
-import type { SidebarSourceControlAiModel } from '@dsh-studio/shared/sidebar-api'
+import type { CapabilitiesSourceControlAiModel } from '@dsh-studio/shared/capabilities-api'
 import {
   Field,
   FieldDescription,
@@ -47,7 +47,7 @@ type OpenMenu = 'model' | 'reasoning' | null
 /** Source Control AI form rendered inside the sidebar Settings modal. */
 export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
   const [settings, setSettings] = useState<SourceControlAiSettingsValue>({ enabled: true, promptTemplate: DEFAULT_TEMPLATE })
-  const [models, setModels] = useState<SidebarSourceControlAiModel[]>([])
+  const [models, setModels] = useState<CapabilitiesSourceControlAiModel[]>([])
   const [fallback, setFallback] = useState<{ provider?: string; model?: string; reasoningEffort?: string }>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)

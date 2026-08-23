@@ -7,7 +7,7 @@ import {
   joinPath,
   normalizePath,
   relativePathOf,
-  resolveSidebarPath,
+  resolveCapabilitiesPath,
 } from '../plugins/shared/path.ts'
 
 test('normalizePath: separators, repeats and trailing slashes', () => {
@@ -50,11 +50,11 @@ test('isUnderRoot: containment with prefix boundary', () => {
   assert.equal(isUnderRoot('/a', '/b'), false)
 })
 
-test('resolveSidebarPath: cwd-relative wire path to absolute', () => {
-  assert.equal(resolveSidebarPath('/repo', 'src/a.ts'), '/repo/src/a.ts')
-  assert.equal(resolveSidebarPath('/repo/', 'src/a.ts'), '/repo/src/a.ts')
-  assert.equal(resolveSidebarPath('/repo', ''), '/repo')
-  assert.equal(resolveSidebarPath('/repo', '\\src\\a.ts'), '/repo/src/a.ts')
+test('resolveCapabilitiesPath: cwd-relative wire path to absolute', () => {
+  assert.equal(resolveCapabilitiesPath('/repo', 'src/a.ts'), '/repo/src/a.ts')
+  assert.equal(resolveCapabilitiesPath('/repo/', 'src/a.ts'), '/repo/src/a.ts')
+  assert.equal(resolveCapabilitiesPath('/repo', ''), '/repo')
+  assert.equal(resolveCapabilitiesPath('/repo', '\\src\\a.ts'), '/repo/src/a.ts')
 })
 
 test('relativePathOf: absolute to cwd-relative, outside-cwd fallback', () => {

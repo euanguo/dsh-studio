@@ -50,7 +50,7 @@
     "./runtime": "./runtime.ts",
     "./scrollable": "./scrollable.tsx",
     "./scrollable.css": "./scrollable.css",
-    "./sidebar-api": "./sidebar-api.ts",
+    "./capabilities-api": "./capabilities-api.ts",
     "./stable-pane-id": "./stable-pane-id.ts",
     "./style-injector": "./style-injector.ts",
     "./surface": "./surface.ts",

@@ -1,6 +1,6 @@
 /**
  * WorkTree location vocabulary shared by BOTH halves:
- *   - the host (sidebar-host) resolves the effective store root from the
+ *   - the host (capabilities) resolves the effective store root from the
  *     left-rail settings namespace plus the DSH Studio data root, and
  *   - the client (desktop-left-rail) derives the per-creation default path
  *     from the host-resolved root.

@@ -12,7 +12,7 @@
  *      sidebar bundle carries the migrated built-in registrations
  *      (bottom-workbench / subagent / tab-strip-wheel) — the "mount +
  *      no crash" granularity this repo's smokes use;
- *   3. the packed HOST answers `/sidebar/api/settings.get` (the host
+ *   3. the packed HOST answers `/capabilities/api/settings.get` (the host
  *      mounted from the tarball);
  *   4. a real Electron render (scripts/smoke-pack-client.cjs) sees the
  *      sidebar root mount with no plugin-load error bar.
@@ -245,7 +245,7 @@ try {
 
     // 7. The packed HOST mounted: the settings seam answers with the
     //    migrated preference vocabulary.
-    const settingsResponse = await fetch(new URL('/sidebar/api/settings.get', base), {
+    const settingsResponse = await fetch(new URL('/capabilities/api/settings.get', base), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: '{}',

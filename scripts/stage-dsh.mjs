@@ -788,26 +788,26 @@ function installDesktopPackages() {
       ],
     },
     {
-      manifest: join(root, 'plugins', 'sidebar-host', 'package.json'),
+      manifest: join(root, 'plugins', 'capabilities', 'package.json'),
       files: [
         [
-          join(root, 'dist', 'plugins', 'sidebar-host', 'index.js'),
+          join(root, 'dist', 'plugins', 'capabilities', 'index.js'),
           'dist/index.js',
         ],
         [
-          join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js'),
+          join(root, 'dist', 'plugins', 'capabilities', 'client-mermaid.js'),
           'dist/client-mermaid.js',
         ],
         [
-          join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js.map'),
+          join(root, 'dist', 'plugins', 'capabilities', 'client-mermaid.js.map'),
           'dist/client-mermaid.js.map',
         ],
         [
-          join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js'),
+          join(root, 'dist', 'plugins', 'capabilities', 'client-pierre-worker.js'),
           'dist/client-pierre-worker.js',
         ],
         [
-          join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js.map'),
+          join(root, 'dist', 'plugins', 'capabilities', 'client-pierre-worker.js.map'),
           'dist/client-pierre-worker.js.map',
         ],
       ],
@@ -1004,7 +1004,7 @@ for (const required of [
   'web/client.js',
   'web/client.js.map',
   'web/cordis.patch.yml',
-  'plugins/sidebar-host/index.js',
+  'plugins/capabilities/index.js',
   'plugins/desktop-skins/index.js',
   'plugins/desktop-skins/client.js',
   'plugins/sidebar/index.js',

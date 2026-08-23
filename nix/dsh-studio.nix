@@ -135,7 +135,7 @@ let
       mkdir -p $out/lib/dsh-studio/extra-deps
       ${pkgs.python3}/bin/python3 ${./collect-deps.py} \
         node_modules/.pnpm \
-        plugins/better-sidebar-runtime/package.json \
+        plugins/capabilities/package.json \
         $out/lib/dsh-studio/extra-deps
       ${pkgs.python3}/bin/python3 ${./collect-deps.py} \
         node_modules/.pnpm \

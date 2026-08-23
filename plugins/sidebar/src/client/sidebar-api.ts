@@ -3,305 +3,305 @@ import type {
   WorkspaceFilesResponse,
 } from '../protocol.ts'
 import {
-  callSidebarApi as sharedCallSidebarApi,
-  callSidebarGlobalApi as sharedCallSidebarGlobalApi,
-  type SidebarApiMethod,
-  type SidebarApiRequests,
-  type SidebarFsEntry,
-  type SidebarFsRead,
-  type SidebarFsTree,
-  type SidebarGitBranch,
-  type SidebarGitCommitFile,
-  type SidebarGitCommitted,
-  type SidebarGitLogEntry,
-  type SidebarGitStat,
-  type SidebarGitStatus,
-  type SidebarGitStatusEntry,
-  type SidebarGitUpstreamStatus,
-  type SidebarSourceControlAiModels,
-  type SidebarScope,
-  type SidebarSettingsView,
-  type SidebarWorkspaceFacts,
-  type SidebarWorkspaceMutation,
-  type SidebarWorkspaceMutationResponse,
-} from '@dsh-studio/shared/sidebar-api'
+  callCapabilitiesApi as sharedCallCapabilitiesApi,
+  callCapabilitiesGlobalApi as sharedCallCapabilitiesGlobalApi,
+  type CapabilitiesApiMethod,
+  type CapabilitiesApiRequests,
+  type CapabilitiesFsEntry,
+  type CapabilitiesFsRead,
+  type CapabilitiesFsTree,
+  type CapabilitiesGitBranch,
+  type CapabilitiesGitCommitFile,
+  type CapabilitiesGitCommitted,
+  type CapabilitiesGitLogEntry,
+  type CapabilitiesGitStat,
+  type CapabilitiesGitStatus,
+  type CapabilitiesGitStatusEntry,
+  type CapabilitiesGitUpstreamStatus,
+  type CapabilitiesSourceControlAiModels,
+  type CapabilitiesScope,
+  type CapabilitiesSettingsView,
+  type CapabilitiesWorkspaceFacts,
+  type CapabilitiesWorkspaceMutation,
+  type CapabilitiesWorkspaceMutationResponse,
+} from '@dsh-studio/shared/capabilities-api'
 import { normalizePath } from '@dsh-studio/shared/path'
 
 /**
  * The client face of the sidebar API. All calls go to the generic host's
- * /sidebar/api route; the wire contract, DTOs, and call helpers are shared
+ * /capabilities/api route; the wire contract, DTOs, and call helpers are shared
  * through @dsh-studio/shared so the two halves cannot drift.
  */
 export type {
-  SidebarFsEntry,
-  SidebarFsRead,
-  SidebarFsTree,
-  SidebarGitBranch,
-  SidebarGitCommitFile,
-  SidebarGitCommitted,
-  SidebarGitLogEntry,
-  SidebarGitStatus,
-  SidebarGitStatusEntry,
-  SidebarGitUpstreamStatus,
-  SidebarSourceControlAiModels,
-  SidebarScope,
-  SidebarSettingsView,
-  SidebarWorkspaceFacts,
-  SidebarWorkspaceMutation,
-  SidebarWorkspaceMutationResponse,
-} from '@dsh-studio/shared/sidebar-api'
+  CapabilitiesFsEntry,
+  CapabilitiesFsRead,
+  CapabilitiesFsTree,
+  CapabilitiesGitBranch,
+  CapabilitiesGitCommitFile,
+  CapabilitiesGitCommitted,
+  CapabilitiesGitLogEntry,
+  CapabilitiesGitStatus,
+  CapabilitiesGitStatusEntry,
+  CapabilitiesGitUpstreamStatus,
+  CapabilitiesSourceControlAiModels,
+  CapabilitiesScope,
+  CapabilitiesSettingsView,
+  CapabilitiesWorkspaceFacts,
+  CapabilitiesWorkspaceMutation,
+  CapabilitiesWorkspaceMutationResponse,
+} from '@dsh-studio/shared/capabilities-api'
 
 /**
  * Wire call typed by the shared request DTOs: the method name and its
- * payload shape come from the same SidebarApiRequests map the host parses
+ * payload shape come from the same CapabilitiesApiRequests map the host parses
  * against, so a client/host drift is a compile error, not a runtime bug.
  */
-function callSidebarApi<M extends SidebarApiMethod, T>(
+function callCapabilitiesApi<M extends CapabilitiesApiMethod, T>(
   method: M,
-  scope: SidebarScope,
-  payload: SidebarApiRequests[M],
+  scope: CapabilitiesScope,
+  payload: CapabilitiesApiRequests[M],
   signal?: AbortSignal,
 ): Promise<T> {
-  return sharedCallSidebarApi(method, scope, payload as Record<string, unknown>, signal)
+  return sharedCallCapabilitiesApi(method, scope, payload as Record<string, unknown>, signal)
 }
 
 /** Global (scope-less) wire call, typed by the shared request DTOs. */
-function callSidebarGlobalApi<M extends SidebarApiMethod, T>(
+function callCapabilitiesGlobalApi<M extends CapabilitiesApiMethod, T>(
   method: M,
-  payload: SidebarApiRequests[M],
+  payload: CapabilitiesApiRequests[M],
   signal?: AbortSignal,
 ): Promise<T> {
-  return sharedCallSidebarGlobalApi(method, payload as Record<string, unknown>, signal)
+  return sharedCallCapabilitiesGlobalApi(method, payload as Record<string, unknown>, signal)
 }
 
 export const sidebarApi = {
   fsRead: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     path: string,
     signal?: AbortSignal,
-  ): Promise<SidebarFsRead> => callSidebarApi('fs.read', scope, { path }, signal),
+  ): Promise<CapabilitiesFsRead> => callCapabilitiesApi('fs.read', scope, { path }, signal),
   fsWrite: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     path: string,
     content: string,
-  ): Promise<{ ok: boolean }> => callSidebarApi('fs.write', scope, { path, content }),
+  ): Promise<{ ok: boolean }> => callCapabilitiesApi('fs.write', scope, { path, content }),
   fsCreate: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     path: string,
     directory: boolean,
-  ): Promise<{ ok: boolean }> => callSidebarApi('fs.create', scope, { path, directory }),
+  ): Promise<{ ok: boolean }> => callCapabilitiesApi('fs.create', scope, { path, directory }),
   fsRename: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     from: string,
     to: string,
-  ): Promise<{ ok: boolean }> => callSidebarApi('fs.rename', scope, { from, to }),
+  ): Promise<{ ok: boolean }> => callCapabilitiesApi('fs.rename', scope, { from, to }),
   fsDelete: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     path: string,
-  ): Promise<{ ok: boolean }> => callSidebarApi('fs.delete', scope, { path }),
+  ): Promise<{ ok: boolean }> => callCapabilitiesApi('fs.delete', scope, { path }),
   fsCopy: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     from: string,
     to: string,
-  ): Promise<{ ok: boolean }> => callSidebarApi('fs.copy', scope, { from, to }),
+  ): Promise<{ ok: boolean }> => callCapabilitiesApi('fs.copy', scope, { from, to }),
   fsSearch: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     pattern: string,
     caseSensitive: boolean,
     signal?: AbortSignal,
-  ): Promise<Array<{ path: string; line: number; text: string }>> => callSidebarApi(
+  ): Promise<Array<{ path: string; line: number; text: string }>> => callCapabilitiesApi(
     'fs.search',
     scope,
     { pattern, caseSensitive },
     signal,
   ),
   fsTail: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     path: string,
     maxBytes?: number,
     signal?: AbortSignal,
-  ): Promise<{ content: string; truncated: boolean }> => callSidebarApi(
+  ): Promise<{ content: string; truncated: boolean }> => callCapabilitiesApi(
     'fs.tail',
     scope,
     { path, ...(maxBytes === undefined ? {} : { maxBytes }) },
     signal,
   ),
   fsTree: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     path: string,
     signal?: AbortSignal,
-  ): Promise<SidebarFsTree> => callSidebarApi('fs.tree', scope, { path }, signal),
+  ): Promise<CapabilitiesFsTree> => callCapabilitiesApi('fs.tree', scope, { path }, signal),
   gitBranch: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     signal?: AbortSignal,
-  ): Promise<SidebarGitBranch> => callSidebarApi('git.branch', scope, {}, signal),
+  ): Promise<CapabilitiesGitBranch> => callCapabilitiesApi('git.branch', scope, {}, signal),
   gitUpstream: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     signal?: AbortSignal,
-  ): Promise<SidebarGitUpstreamStatus> => callSidebarApi('git.upstream', scope, {}, signal),
-  gitFetch: (scope: SidebarScope): Promise<void> => callSidebarApi('git.fetch', scope, {}),
-  gitPull: (scope: SidebarScope): Promise<void> => callSidebarApi('git.pull', scope, {}),
-  gitPush: (scope: SidebarScope): Promise<void> => callSidebarApi('git.push', scope, {}),
-  gitForcePush: (scope: SidebarScope): Promise<void> => callSidebarApi('git.force-push', scope, {}),
-  gitSync: (scope: SidebarScope): Promise<void> => callSidebarApi('git.sync', scope, {}),
-  gitAbortMerge: (scope: SidebarScope): Promise<void> => callSidebarApi('git.abort-merge', scope, {}),
-  gitAbortRebase: (scope: SidebarScope): Promise<void> => callSidebarApi('git.abort-rebase', scope, {}),
+  ): Promise<CapabilitiesGitUpstreamStatus> => callCapabilitiesApi('git.upstream', scope, {}, signal),
+  gitFetch: (scope: CapabilitiesScope): Promise<void> => callCapabilitiesApi('git.fetch', scope, {}),
+  gitPull: (scope: CapabilitiesScope): Promise<void> => callCapabilitiesApi('git.pull', scope, {}),
+  gitPush: (scope: CapabilitiesScope): Promise<void> => callCapabilitiesApi('git.push', scope, {}),
+  gitForcePush: (scope: CapabilitiesScope): Promise<void> => callCapabilitiesApi('git.force-push', scope, {}),
+  gitSync: (scope: CapabilitiesScope): Promise<void> => callCapabilitiesApi('git.sync', scope, {}),
+  gitAbortMerge: (scope: CapabilitiesScope): Promise<void> => callCapabilitiesApi('git.abort-merge', scope, {}),
+  gitAbortRebase: (scope: CapabilitiesScope): Promise<void> => callCapabilitiesApi('git.abort-rebase', scope, {}),
   gitGenerateCommitMessage: (
-    scope: SidebarScope,
-  ): Promise<{ message: string }> => callSidebarApi('git.generate-commit-message', scope, {}),
-  gitCancelGenerateCommitMessage: (scope: SidebarScope): Promise<void> => callSidebarApi(
+    scope: CapabilitiesScope,
+  ): Promise<{ message: string }> => callCapabilitiesApi('git.generate-commit-message', scope, {}),
+  gitCancelGenerateCommitMessage: (scope: CapabilitiesScope): Promise<void> => callCapabilitiesApi(
     'git.cancel-generate-commit-message',
     scope,
     {},
   ),
-  sourceControlAiSettings: (): Promise<{ value?: unknown; revision?: number }> => callSidebarGlobalApi(
+  sourceControlAiSettings: (): Promise<{ value?: unknown; revision?: number }> => callCapabilitiesGlobalApi(
     'source-control-ai.settings',
     {},
   ),
   updateSourceControlAiSettings: (
     patch: Record<string, unknown>,
     expectedRevision?: number,
-  ): Promise<{ value?: unknown; revision?: number }> => callSidebarGlobalApi(
+  ): Promise<{ value?: unknown; revision?: number }> => callCapabilitiesGlobalApi(
     'source-control-ai.update-settings',
     { patch, ...(expectedRevision === undefined ? {} : { expectedRevision }) },
   ),
-  sourceControlAiModels: (): Promise<SidebarSourceControlAiModels> => callSidebarGlobalApi(
+  sourceControlAiModels: (): Promise<CapabilitiesSourceControlAiModels> => callCapabilitiesGlobalApi(
     'source-control-ai.models',
     {},
   ),
   gitCheckout: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     branch: string,
-  ): Promise<void> => callSidebarApi('git.checkout', scope, { branch }),
+  ): Promise<void> => callCapabilitiesApi('git.checkout', scope, { branch }),
   gitCommit: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     message: string,
-  ): Promise<void> => callSidebarApi('git.commit', scope, { message }),
+  ): Promise<void> => callCapabilitiesApi('git.commit', scope, { message }),
   gitCommitDiff: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     hash: string,
     signal?: AbortSignal,
-  ): Promise<{ diff: string }> => callSidebarApi(
+  ): Promise<{ diff: string }> => callCapabilitiesApi(
     'git.commit-diff',
     scope,
     { hash },
     signal,
   ),
   gitCommitFiles: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     hash: string,
     signal?: AbortSignal,
-  ): Promise<SidebarGitCommitFile[]> => callSidebarApi(
+  ): Promise<CapabilitiesGitCommitFile[]> => callCapabilitiesApi(
     'git.commit-files',
     scope,
     { hash },
     signal,
   ),
   gitCommitFileDiff: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     hash: string,
     path: string,
     signal?: AbortSignal,
-  ): Promise<{ diff: string }> => callSidebarApi(
+  ): Promise<{ diff: string }> => callCapabilitiesApi(
     'git.commit-file-diff',
     scope,
     { hash, path },
     signal,
   ),
   gitCommittedFiles: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     signal?: AbortSignal,
-  ): Promise<SidebarGitCommitted> => callSidebarApi(
+  ): Promise<CapabilitiesGitCommitted> => callCapabilitiesApi(
     'git.committed-files',
     scope,
     {},
     signal,
   ),
   gitCommittedDiff: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     baseRef: string,
     path: string | undefined,
     signal?: AbortSignal,
-  ): Promise<{ diff: string }> => callSidebarApi(
+  ): Promise<{ diff: string }> => callCapabilitiesApi(
     'git.committed-diff',
     scope,
     { baseRef, ...(path === undefined ? {} : { path }) },
     signal,
   ),
   gitDiff: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     path: string | undefined,
     staged: boolean,
     signal?: AbortSignal,
     context?: number,
-  ): Promise<{ diff: string }> => callSidebarApi('git.diff', scope, {
+  ): Promise<{ diff: string }> => callCapabilitiesApi('git.diff', scope, {
     ...(path === undefined ? {} : { path }),
     staged,
     ...(context === undefined ? {} : { context }),
   }, signal),
   gitImageDiff: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     path: string,
     staged: boolean,
     signal?: AbortSignal,
-  ): Promise<{ oldData: string; newData: string }> => callSidebarApi('git.image-diff', scope, {
+  ): Promise<{ oldData: string; newData: string }> => callCapabilitiesApi('git.image-diff', scope, {
     path,
     staged,
   }, signal),
   gitLog: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     count = 30,
     skip = 0,
     signal?: AbortSignal,
-  ): Promise<SidebarGitLogEntry[]> => callSidebarApi('git.log', scope, {
+  ): Promise<CapabilitiesGitLogEntry[]> => callCapabilitiesApi('git.log', scope, {
     count,
     skip,
   }, signal),
   gitStage: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     paths?: string | readonly string[],
-  ): Promise<void> => callSidebarApi('git.stage', scope, {
+  ): Promise<void> => callCapabilitiesApi('git.stage', scope, {
     ...(paths === undefined ? {} : { paths: toPathList(paths) }),
   }),
   gitUnstage: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     paths?: string | readonly string[],
-  ): Promise<void> => callSidebarApi('git.unstage', scope, {
+  ): Promise<void> => callCapabilitiesApi('git.unstage', scope, {
     ...(paths === undefined ? {} : { paths: toPathList(paths) }),
   }),
   gitDiscard: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     paths: string | readonly string[],
-  ): Promise<void> => callSidebarApi('git.discard', scope, {
+  ): Promise<void> => callCapabilitiesApi('git.discard', scope, {
     paths: toPathList(paths),
   }),
   gitStatus: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     signal?: AbortSignal,
-  ): Promise<SidebarGitStatus> => callSidebarApi('git.status', scope, {}, signal),
+  ): Promise<CapabilitiesGitStatus> => callCapabilitiesApi('git.status', scope, {}, signal),
   workspaceFacts: (
     cwd: string,
     signal?: AbortSignal,
-  ): Promise<SidebarWorkspaceFacts> => callSidebarGlobalApi(
+  ): Promise<CapabilitiesWorkspaceFacts> => callCapabilitiesGlobalApi(
     'workspace.facts',
     { cwd },
     signal,
   ),
   workspaceMutate: (
     cwd: string,
-    mutation: SidebarWorkspaceMutation,
-  ): Promise<SidebarWorkspaceMutationResponse> => callSidebarGlobalApi(
+    mutation: CapabilitiesWorkspaceMutation,
+  ): Promise<CapabilitiesWorkspaceMutationResponse> => callCapabilitiesGlobalApi(
     'workspace.mutate',
     { cwd, mutation },
   ),
   ptyClose: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     tab: string,
-  ): Promise<{ ok: true }> => callSidebarApi('pty.close', scope, {
+  ): Promise<{ ok: true }> => callCapabilitiesApi('pty.close', scope, {
     tab,
   }),
   ptyRetained: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     signal?: AbortSignal,
   ): Promise<{ sessions: Array<{
     tabId: string
@@ -309,24 +309,24 @@ export const sidebarApi = {
     incarnationId: string
     updatedAt: number
     historyBytes: number
-  }> }> => callSidebarApi('pty.retained', scope, {}, signal),
+  }> }> => callCapabilitiesApi('pty.retained', scope, {}, signal),
   ptyClearRetained: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     tab: string,
-  ): Promise<{ ok: true }> => callSidebarApi('pty.clear-retained', scope, { tab }),
+  ): Promise<{ ok: true }> => callCapabilitiesApi('pty.clear-retained', scope, { tab }),
   ptyRestart: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     tab: string,
     cols?: number,
     rows?: number,
-  ): Promise<{ ok: true; incarnationId: string }> => callSidebarApi('pty.restart', scope, {
+  ): Promise<{ ok: true; incarnationId: string }> => callCapabilitiesApi('pty.restart', scope, {
     tab,
     ...(cols === undefined ? {} : { cols }),
     ...(rows === undefined ? {} : { rows }),
   }),
   settingsGet: (
     signal?: AbortSignal,
-  ): Promise<SidebarSettingsView> => callSidebarGlobalApi(
+  ): Promise<CapabilitiesSettingsView> => callCapabilitiesGlobalApi(
     'settings.get',
     {},
     signal,
@@ -334,28 +334,28 @@ export const sidebarApi = {
   settingsUpdate: (
     patch: Record<string, unknown>,
     expectedRevision?: number,
-  ): Promise<SidebarSettingsView> => callSidebarGlobalApi('settings.update', {
+  ): Promise<CapabilitiesSettingsView> => callCapabilitiesGlobalApi('settings.update', {
     patch,
     ...(expectedRevision === undefined ? {} : { expectedRevision }),
   }),
   jobOutput: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     id: string,
     signal?: AbortSignal,
-  ): Promise<{ text: string; truncated: boolean; read: boolean }> => callSidebarApi(
+  ): Promise<{ text: string; truncated: boolean; read: boolean }> => callCapabilitiesApi(
     'jobs.output',
     scope,
     { id },
     signal,
   ),
   jobKill: (
-    scope: SidebarScope,
+    scope: CapabilitiesScope,
     id: string,
     reason?: string,
   ): Promise<{ ok: true; outcome: 'requested' | 'already-finished' }> => {
-    const payload: SidebarApiRequests['jobs.kill'] = { id }
+    const payload: CapabilitiesApiRequests['jobs.kill'] = { id }
     if (reason !== undefined && reason !== '') payload.reason = reason
-    return callSidebarApi('jobs.kill', scope, payload)
+    return callCapabilitiesApi('jobs.kill', scope, payload)
   },
 }
 
@@ -372,8 +372,8 @@ function statusFromCode(code: string): WorkspaceChange['status'] {
 }
 
 export function workspaceChangesFromWire(
-  entries: readonly SidebarGitStatusEntry[],
-  stats?: readonly SidebarGitStat[],
+  entries: readonly CapabilitiesGitStatusEntry[],
+  stats?: readonly CapabilitiesGitStat[],
 ): WorkspaceChange[] {
   const statsByPath = new Map(
     (stats ?? []).map(stat => [stat.path, stat] as const),
@@ -415,7 +415,7 @@ function workspaceParent(cwd: string, path: string): string | null {
 
 export function mapSidebarTree(
   cwd: string,
-  listing: SidebarFsTree,
+  listing: CapabilitiesFsTree,
 ): WorkspaceFilesResponse {
   return {
     kind: 'directory',
@@ -435,7 +435,7 @@ export function mapSidebarTree(
 export function mapSidebarFile(
   cwd: string,
   path: string,
-  result: SidebarFsRead,
+  result: CapabilitiesFsRead,
 ): WorkspaceFilesResponse {
   if (result.kind === 'binary') {
     return {

@@ -49,7 +49,8 @@ chrome-use skills get network     # 需要拦截/录制请求时读
 ```bash
 # 在仓库根目录：staged DSH runtime（pnpm run dev 的前置）
 CI=true pnpm run build:dsh && CI=true pnpm run stage:dsh
-# chrome-use 已安装（缺则按 chrome-use skill 指引安装）
+# Electron-based smoke commands must run outside Node compatibility mode:
+# env -u ELECTRON_RUN_AS_NODE pnpm run smoke:web
 chrome-use --version
 ```
 

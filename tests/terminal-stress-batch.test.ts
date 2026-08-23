@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import {
   TerminalOutputBatcher,
   appendOutputChunk,
-} from '../plugins/sidebar-host/src/terminal-batcher.ts'
+} from '../plugins/capabilities/src/terminal-batcher.ts'
 import { TerminalOutputScheduler } from '../plugins/shared/terminal-output-scheduler.ts'
 
 class StressTarget {

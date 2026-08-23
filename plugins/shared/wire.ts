@@ -1,13 +1,13 @@
 /**
- * Wire helpers for the /sidebar JSON API: bounded body reading, response
+ * Wire helpers for the /capabilities JSON API: bounded body reading, response
  * writing, and the shared error envelope. Every API method returns
  * `{ok: true, value}` on success and `{ok: false, error: {code, message}}`
  * (HTTP 4xx/5xx matching the code) on failure.
  */
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
-/** Machine-readable error codes of the sidebar API. */
-export type SidebarErrorCode =
+/** Machine-readable error codes of the capabilities API. */
+export type CapabilityErrorCode =
   | 'bad-request'
   | 'not-found'
   | 'forbidden'
@@ -21,13 +21,14 @@ export type SidebarErrorCode =
   | 'internal'
 
 /** One API failure with its wire code and HTTP status. */
-export class SidebarError extends Error {
-  constructor(
-    readonly code: SidebarErrorCode,
-    message: string,
-    readonly status = 400,
-  ) {
+export class CapabilityError extends Error {
+  readonly code: CapabilityErrorCode
+  readonly status: number
+
+  constructor(code: CapabilityErrorCode, message: string, status = 400) {
     super(message)
+    this.code = code
+    this.status = status
   }
 }
 
@@ -35,10 +36,10 @@ export class SidebarError extends Error {
 const MAX_BODY_BYTES = 1 << 20
 
 /** Success envelope of one API method. */
-export interface SidebarOk<T> { ok: true; value: T }
+export interface CapabilityOk<T> { ok: true; value: T }
 
 /** Failure envelope of one API method. */
-export interface SidebarErr { ok: false; error: { code: SidebarErrorCode; message: string } }
+export interface CapabilityErr { ok: false; error: { code: CapabilityErrorCode; message: string } }
 
 /** Read and parse the JSON request body (bounded; malformed → bad-request). */
 export async function readJsonBody(req: IncomingMessage): Promise<unknown> {
@@ -48,7 +49,7 @@ export async function readJsonBody(req: IncomingMessage): Promise<unknown> {
     const buffer = typeof chunk === 'string' ? Buffer.from(chunk) : chunk
     total += buffer.length
     if (total > MAX_BODY_BYTES) {
-      throw new SidebarError('bad-request', 'request body too large')
+      throw new CapabilityError('bad-request', 'request body too large')
     }
     chunks.push(buffer)
   }
@@ -57,7 +58,7 @@ export async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   try {
     return JSON.parse(text) as unknown
   } catch {
-    throw new SidebarError('bad-request', 'request body is not valid JSON')
+    throw new CapabilityError('bad-request', 'request body is not valid JSON')
   }
 }
 
@@ -75,7 +76,7 @@ export function writeOk(res: ServerResponse, value: unknown): void {
 
 /** Write the failure envelope for any thrown value (unknown → internal 500). */
 export function writeError(res: ServerResponse, error: unknown): void {
-  if (error instanceof SidebarError) {
+  if (error instanceof CapabilityError) {
     writeJson(res, error.status, { ok: false, error: { code: error.code, message: error.message } })
     return
   }
@@ -88,7 +89,7 @@ export function requireString(payload: unknown, key: string): string {
   const record = payload as Record<string, unknown> | null
   const value = record?.[key]
   if (typeof value !== 'string' || value === '') {
-    throw new SidebarError('bad-request', `missing or invalid "${key}"`)
+    throw new CapabilityError('bad-request', `missing or invalid "${key}"`)
   }
   return value
 }
@@ -98,7 +99,7 @@ export function optionalString(payload: unknown, key: string): string | undefine
   const value = (payload as Record<string, unknown> | null)?.[key]
   if (value === undefined) return undefined
   if (typeof value !== 'string' || value === '') {
-    throw new SidebarError('bad-request', `invalid "${key}"`)
+    throw new CapabilityError('bad-request', `invalid "${key}"`)
   }
   return value
 }
@@ -108,7 +109,7 @@ export function optionalBoolean(payload: unknown, key: string): boolean | undefi
   const value = (payload as Record<string, unknown> | null)?.[key]
   if (value === undefined) return undefined
   if (typeof value !== 'boolean') {
-    throw new SidebarError('bad-request', `invalid "${key}"`)
+    throw new CapabilityError('bad-request', `invalid "${key}"`)
   }
   return value
 }
@@ -118,7 +119,7 @@ export function optionalInteger(payload: unknown, key: string, min: number, max:
   const value = (payload as Record<string, unknown> | null)?.[key]
   if (value === undefined) return undefined
   if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) {
-    throw new SidebarError('bad-request', `invalid "${key}"`)
+    throw new CapabilityError('bad-request', `invalid "${key}"`)
   }
   return value
 }
@@ -128,7 +129,7 @@ export function optionalPathList(payload: unknown): string[] | undefined {
   const value = (payload as Record<string, unknown> | null)?.['paths']
   if (value === undefined) return undefined
   if (!Array.isArray(value) || value.some(item => typeof item !== 'string' || item === '')) {
-    throw new SidebarError('bad-request', 'invalid "paths"')
+    throw new CapabilityError('bad-request', 'invalid "paths"')
   }
   return value as string[]
 }

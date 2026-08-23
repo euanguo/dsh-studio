@@ -174,9 +174,9 @@ test('build script compiles every browser plugin the patches can mount', () => {
 test('stage script ships every desktop browser plugin the profile bundles', () => {
   const staged = new Set(stageDirectories())
   const bundled = bundledConstant('BUNDLED_DESKTOP_CLIENT_PLUGINS')
-  // sidebar-host (host-only) and the shell package stage through their own
+  // capabilities (host-only) and the shell package stage through their own
   // dedicated file blocks in stage-dsh.mjs.
-  const shellOrHost = new Set(['@dsh-studio/desktop', '@dsh-studio/sidebar-host'])
+  const shellOrHost = new Set(['@dsh-studio/desktop', '@dsh-studio/capabilities'])
   const missing = bundled.filter(
     name => !shellOrHost.has(name) && !staged.has(name.replace('@dsh-studio/', '')),
   )

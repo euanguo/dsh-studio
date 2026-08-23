@@ -27,7 +27,7 @@ surface（file/diff/commit/…）**自己也是通过同一套 API 注册的**�
 `registerSurfaceRenderer(...)` 完成注册；返回的 disposer 由你的 `ctx.effect()` 在 fiber 卸载（HMR / 禁用）时自动调用。
 
 > ⚠️ **服务只在 client half**：`ctx.desktopSidebar` 只存在于浏览器侧。host 半需要读侧边栏状态时，
-> 走它自己的 HTTP 路由（`/sidebar/api/*`），不走服务。
+> 走它自己的 HTTP 路由（`/capabilities/api/*`），不走服务。
 
 ---
 

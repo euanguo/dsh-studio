@@ -13,7 +13,7 @@ import { sidebarApi } from '../sidebar-api.ts'
 import type { FileContents, MergeConflictResolution } from '@pierre/diffs'
 import { UnresolvedFile, Virtualizer } from '@pierre/diffs/react'
 import { getFileRuntime, getSourceControlRuntime } from '../runtimes/registry.ts'
-import { basename, resolveSidebarPath } from '@dsh-studio/shared/path'
+import { basename, resolveCapabilitiesPath } from '@dsh-studio/shared/path'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
@@ -48,7 +48,7 @@ export function ConflictSurfaceView({
   const theme = usePierreDiffTheme()
   const name = basename(surface.filePath)
   // The Git panel hands over git-relative paths; fs.* wire calls want absolute.
-  const absolutePath = resolveSidebarPath(surface.cwd, surface.filePath)
+  const absolutePath = resolveCapabilitiesPath(surface.cwd, surface.filePath)
 
   // Content rides the retained file runtime cache (M6 — one read path).
   const runtime = useMemo(

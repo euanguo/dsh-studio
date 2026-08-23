@@ -11,7 +11,7 @@ import { chmodSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
 import * as nodePty from 'node-pty'
-import { SidebarError } from '@dsh-studio/shared/wire'
+import { CapabilityError } from '@dsh-studio/shared/wire'
 import { resolveShell, type ShellResolutionOptions } from './shell-resolver.ts'
 import { spawnTerminalPty } from './terminal-spawn.ts'
 import { defaultProcessTreeKiller } from './process-tree-killer.ts'
@@ -56,7 +56,7 @@ export function ensureSpawnHelper(): void {
 }
 
 /** One live terminal. */
-export interface SidebarPty {
+export interface CapabilitiesPty {
   /** `${cwd}:${tabId}` registry key — the terminal is PROJECT-scoped. */
   key: string
   /** The project cwd owning this terminal (project-shared PTY). */
@@ -100,7 +100,7 @@ export interface PtyManagerOptions {
 }
 
 export class PtyManager {
-  private readonly sessions = new Map<string, SidebarPty>()
+  private readonly sessions = new Map<string, CapabilitiesPty>()
   private readonly pendingCloses = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly killEscalations = new Map<string, ReturnType<typeof setTimeout>>()
   private readonly getShell: () => string
@@ -157,9 +157,9 @@ export class PtyManager {
    * @param cols - initial terminal width.
    * @param rows - initial terminal height.
    * @returns the live handle.
-   * @throws {SidebarError} pty-error when the per-project cap is reached.
+   * @throws {CapabilityError} pty-error when the per-project cap is reached.
    */
-  open(cwd: string, tabId: string, spawnCwd: string, cols: number, rows: number): SidebarPty {
+  open(cwd: string, tabId: string, spawnCwd: string, cols: number, rows: number): CapabilitiesPty {
     const key = terminalSessionKey(cwd, tabId)
     this.cancelClose(key)
     const existing = this.sessions.get(key)
@@ -174,7 +174,7 @@ export class PtyManager {
       if (handle.cwd === cwd && handle.exited) this.close(candidate)
     }
     if (this.keysOf(cwd).length >= this.maxPerProject) {
-      throw new SidebarError('pty-error', `terminal limit reached (${this.maxPerProject}) for this project`, 400)
+      throw new CapabilityError('pty-error', `terminal limit reached (${this.maxPerProject}) for this project`, 400)
     }
     const policy = this.getPolicy()
     const limits = terminalHistoryLimitsForRows(policy.scrollbackRows)
@@ -193,7 +193,7 @@ export class PtyManager {
       // The renderer remains usable if an optional headless adapter is absent;
       // replay falls back to the sanitized scrollback projection.
     }
-    const handle: SidebarPty = {
+    const handle: CapabilitiesPty = {
       key,
       cwd,
       tabId,
@@ -297,13 +297,13 @@ export class PtyManager {
   clearRetained(cwd: string, tabId: string): void {
     const key = terminalSessionKey(cwd, tabId)
     if (this.sessions.has(key)) {
-      throw new SidebarError('bad-request', 'cannot clear a running terminal; close it first', 409)
+      throw new CapabilityError('bad-request', 'cannot clear a running terminal; close it first', 409)
     }
     this.store.clear(key)
   }
 
   /** Stop and respawn a shell while retaining the durable history projection. */
-  restart(cwd: string, tabId: string, spawnCwd: string, cols: number, rows: number): SidebarPty {
+  restart(cwd: string, tabId: string, spawnCwd: string, cols: number, rows: number): CapabilitiesPty {
     const key = terminalSessionKey(cwd, tabId)
     const existing = this.sessions.get(key)
     if (existing !== undefined) {
@@ -331,7 +331,7 @@ export class PtyManager {
     this.killEscalations.delete(key)
   }
 
-  private terminateProcessTree(handle: SidebarPty): void {
+  private terminateProcessTree(handle: CapabilitiesPty): void {
     const pid = handle.pty.pid
     if (!Number.isInteger(pid) || pid <= 0) {
       handle.pty.kill()
