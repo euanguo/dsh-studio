@@ -19,7 +19,7 @@ import {
 import { parsePatchFiles } from '@pierre/diffs'
 import type { AnnotationSide, DiffLineAnnotation } from '@pierre/diffs'
 import type { DiffLayoutStyle } from './file-diff.ts'
-import type { DiffComment } from './diff-comments-store.ts'
+import type { WorkbenchComment } from './diff-comments-store.ts'
 
 /** Light/dark theme names Pierre understands. */
 export type PierreDiffTheme = 'github-light' | 'github-dark'
@@ -93,10 +93,14 @@ export function renderPierreDiff(
      *  Multi-diff stacked panes: false so content grows and the outer list scrolls. */
     virtualize?: boolean
     /** Line comments rendered as annotation rows on the new-side lines. */
-    lineAnnotations?: DiffLineAnnotation<DiffComment>[]
-    renderAnnotation?: (annotation: DiffLineAnnotation<DiffComment>) => ReactNode
+    lineAnnotations?: DiffLineAnnotation<WorkbenchComment>[]
+    renderAnnotation?: (annotation: DiffLineAnnotation<WorkbenchComment>) => ReactNode
     /** Clicking a line-number gutter reports the line (prefills the comment form). */
     onLineNumberClick?: (input: { lineNumber: number; side: AnnotationSide }) => void
+    /** Hover-comment rails: gutter "+" + hover tracking (see comment-rails). */
+    onLineEnter?: (props: { lineNumber: number; lineElement: HTMLElement }) => void
+    onLineLeave?: () => void
+    renderGutterUtility?: (getHoveredLine?: () => { lineNumber: number } | undefined) => ReactNode
   }>,
 ): ReactNode {
   const parsed = parsePatchFiles(input.patch, input.cacheKey)
@@ -124,7 +128,10 @@ export function renderPierreDiff(
                 input.onLineNumberClick?.({ lineNumber: props.lineNumber, side: props.annotationSide })
               },
             }),
+        ...(input.onLineEnter === undefined ? {} : { onLineEnter: input.onLineEnter }),
+        ...(input.onLineLeave === undefined ? {} : { onLineLeave: input.onLineLeave }),
       }}
+      {...(input.renderGutterUtility === undefined ? {} : { renderGutterUtility: input.renderGutterUtility })}
       {...(hasAnnotations
         ? {
             lineAnnotations: input.lineAnnotations,

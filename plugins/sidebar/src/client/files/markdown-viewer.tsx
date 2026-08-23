@@ -10,6 +10,9 @@
 import { useEffect, useMemo, useState, type Ref } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 import { codeToHtml } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { findTaskMarkerSourceLines } from './markdown-task-list.ts'
@@ -47,7 +50,8 @@ export function MarkdownViewer({
         </nav>
       ) : null}
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={{
           h1({ children, ...props }) {
             return <h1 id={slugify(String(children))} {...props}>{children}</h1>

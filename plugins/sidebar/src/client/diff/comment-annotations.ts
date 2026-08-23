@@ -7,28 +7,28 @@
  * line number. `renderAnnotation` on each component then draws the bubble.
  */
 import type { DiffLineAnnotation, LineAnnotation } from '@pierre/diffs'
-import type { DiffComment } from './diff-comments-store.ts'
+import type { WorkbenchComment } from './diff-comments-store.ts'
 
 /** The diff side a comment annotation renders on (new side = file line). */
 export const COMMENT_ANNOTATION_SIDE = 'additions' as const
 
 /** Comments → FileDiff annotations (new-side lines). */
 export function commentsToDiffLineAnnotations(
-  comments: readonly DiffComment[],
-): Array<DiffLineAnnotation<DiffComment>> {
+  comments: readonly WorkbenchComment[],
+): Array<DiffLineAnnotation<WorkbenchComment>> {
   return comments.map(comment => ({
     side: COMMENT_ANNOTATION_SIDE,
-    lineNumber: comment.line,
+    lineNumber: comment.startLine,
     metadata: comment,
   }))
 }
 
 /** Comments → File annotations (viewer / editor). */
 export function commentsToFileLineAnnotations(
-  comments: readonly DiffComment[],
-): Array<LineAnnotation<DiffComment>> {
+  comments: readonly WorkbenchComment[],
+): Array<LineAnnotation<WorkbenchComment>> {
   return comments.map(comment => ({
-    lineNumber: comment.line,
+    lineNumber: comment.startLine,
     metadata: comment,
   }))
 }

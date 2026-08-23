@@ -19,7 +19,7 @@ import {
   type DiffLayoutStyle,
 } from './file-diff.ts'
 import { renderPierreDiff, type PierreDiffTheme } from './pierre-adapter.tsx'
-import type { DiffComment } from './diff-comments-store.ts'
+import type { WorkbenchComment } from './diff-comments-store.ts'
 import { EmptyState } from '@dsh-studio/shared/ui'
 
 export type DiffViewerProps = Readonly<{
@@ -36,10 +36,14 @@ export type DiffViewerProps = Readonly<{
    */
   virtualize?: boolean
   /** Line comments rendered as Pierre annotation rows (new-side lines). */
-  lineAnnotations?: DiffLineAnnotation<DiffComment>[]
-  renderAnnotation?: (annotation: DiffLineAnnotation<DiffComment>) => ReactNode
+  lineAnnotations?: DiffLineAnnotation<WorkbenchComment>[]
+  renderAnnotation?: (annotation: DiffLineAnnotation<WorkbenchComment>) => ReactNode
   /** Clicking a line-number gutter reports the line (prefills the comment form). */
   onLineNumberClick?: (input: { lineNumber: number; side: AnnotationSide }) => void
+  /** Hover-comment rails wiring (gutter "+" + composer overlay). */
+  onLineEnter?: (props: { lineNumber: number; lineElement: HTMLElement }) => void
+  onLineLeave?: () => void
+  renderGutterUtility?: (getHoveredLine?: () => { lineNumber: number } | undefined) => ReactNode
   /**
    * Extra cache-key input: distinguishes otherwise-identical documents
    * (same path) whose rendered content differs — e.g. the same file's
@@ -67,6 +71,9 @@ export const DiffViewer = memo(function DiffViewer({
   lineAnnotations,
   renderAnnotation,
   onLineNumberClick,
+  onLineEnter,
+  onLineLeave,
+  renderGutterUtility,
   cacheBust,
 }: DiffViewerProps): JSX.Element {
   const summary = useMemo(
@@ -95,8 +102,11 @@ export const DiffViewer = memo(function DiffViewer({
       ...(lineAnnotations === undefined ? {} : { lineAnnotations }),
       ...(renderAnnotation === undefined ? {} : { renderAnnotation }),
       ...(onLineNumberClick === undefined ? {} : { onLineNumberClick }),
+      ...(onLineEnter === undefined ? {} : { onLineEnter }),
+      ...(onLineLeave === undefined ? {} : { onLineLeave }),
+      ...(renderGutterUtility === undefined ? {} : { renderGutterUtility }),
     })
-  }, [hasContentLines, patch, cacheKey, theme, layout, wordWrap, virtualize, lineAnnotations, renderAnnotation, onLineNumberClick])
+  }, [hasContentLines, patch, cacheKey, theme, layout, wordWrap, virtualize, lineAnnotations, renderAnnotation, onLineNumberClick, onLineEnter, onLineLeave, renderGutterUtility])
 
   // Pure renames / empty documents carry no rows: rendering them through
   // Pierre throws in the hunks renderer ("deletionLine and additionLine

@@ -167,3 +167,16 @@ credentials, skins, and plugin caches. `DSH_STUDIO_HOME` is the common override.
 instance. The Web and TUI `--data` flags override only the current process.
 
 See [installation, operations, and troubleshooting](./usage.en.md).
+
+
+## Unified hover comments
+
+File viewing and diff views share ONE hover-comment interaction (R2): a
+hovering gutter `+` opens an inline composer (Enter commits / Shift+Enter
+newline / Esc dismisses) that writes to the unified batch store
+(`diff-comments-store` v2; anchor path+startLine/endLine+contentHash, resolve
+lifecycle) or "reference in chat" lightweight composer injection. Interaction
+uses the official `@pierre/diffs` hooks (renderGutterUtility / onLineEnter) —
+no DOM scraping; the legacy diff bottom form is removed. Markdown preview
+keeps selection-references (no stable line numbers); its source view is a
+code view and supports line comments.

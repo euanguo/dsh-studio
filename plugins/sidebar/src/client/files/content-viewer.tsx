@@ -24,13 +24,14 @@ import type { WorkspaceMessage } from '../i18n.ts'
 import { EmptyState, ErrorState, LoadingState, Scrollable, ToolbarAction } from '@dsh-studio/shared/ui'
 import { isPlainLanguage, languageForPath, MAX_NUMBERED_LINES } from './language.ts'
 import { PierreFileView } from './pierre-file-view.tsx'
+import type { CommentRails } from '../comments/comment-rails.tsx'
 import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
 import { MarkdownViewer } from './markdown-viewer.tsx'
 import { IpynbViewer } from './ipynb-viewer.tsx'
 import { MermaidViewer } from './mermaid-viewer.tsx'
 import { SelectionInsertPopup } from './selection-insert-popup.tsx'
 import type { ReviewCommentsService } from '../review/review-comments.ts'
-import type { DiffComment } from '../diff/diff-comments-store.ts'
+import type { WorkbenchComment } from '../diff/diff-comments-store.ts'
 
 type ContentKind = 'text' | 'csv' | 'markdown' | 'html' | 'image' | 'pdf' | 'ipynb' | 'mermaid' | 'binary'
 
@@ -97,7 +98,7 @@ export interface ContentViewerProps {
   /** For Markdown: rendered preview vs source. */
   markdownPreview?: boolean
   /** Line comments shown as annotation rows in Pierre code views. */
-  comments?: readonly DiffComment[]
+  comments?: readonly WorkbenchComment[]
   /** Session cwd (relative "add to conversation" payloads). */
   cwd?: string
   /** When given, text/markdown selections offer an "add to conversation"
@@ -109,6 +110,8 @@ export interface ContentViewerProps {
   /** When true, the internal filename + metadata bar is hidden (used when
    *  an outer chrome like FileViewerChrome already shows the same info). */
   hideMeta?: boolean
+  /** Hover-comment rails forwarded to the Pierre code surfaces. */
+  rails?: CommentRails
   t: Translate<WorkspaceMessage>
 }
 
@@ -127,6 +130,7 @@ export function ContentViewer({
   onOpenExternal,
   onShowInFolder,
   hideMeta = false,
+  rails,
   t,
 }: ContentViewerProps): JSX.Element {
   const kind = detectKind(path, binary)
@@ -279,6 +283,7 @@ export function ContentViewer({
           lineNumbers={showLineNumbers}
           cacheKey={path}
           {...(comments === undefined ? {} : { comments })}
+          {...(rails === undefined ? {} : { rails })}
         />
         {selectionInsert}
       </div>
@@ -323,6 +328,7 @@ export function ContentViewer({
         lineNumbers={showLineNumbers}
         cacheKey={path}
         {...(comments === undefined ? {} : { comments })}
+        {...(rails === undefined ? {} : { rails })}
       />
       {selectionInsert}
     </div>

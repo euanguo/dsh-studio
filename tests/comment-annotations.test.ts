@@ -13,20 +13,20 @@ import {
   commentPathMatches,
   pathRelativeToCwd,
 } from '../plugins/sidebar/src/client/diff/diff-comments-store.ts'
-import type { DiffComment } from '../plugins/sidebar/src/client/diff/diff-comments-store.ts'
+import type { WorkbenchComment } from '../plugins/sidebar/src/client/diff/diff-comments-store.ts'
 
-const SAMPLE: DiffComment[] = [
+const SAMPLE: WorkbenchComment[] = [
   {
     id: 'c1',
-    filePath: 'src/a.ts',
-    line: 12,
+    path: 'src/a.ts',
+    startLine: 12,
     body: 'watch the null check',
     createdAt: '2026-08-16T00:00:00.000Z',
   },
   {
     id: 'c2',
-    filePath: 'src/a.ts',
-    line: 40,
+    path: 'src/a.ts',
+    startLine: 40,
     body: 'rename this',
     createdAt: '2026-08-16T00:01:00.000Z',
   },

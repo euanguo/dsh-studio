@@ -11,6 +11,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { DiffViewer } from './diff-viewer.tsx'
+import { useCommentRails } from '../comments/comment-rails.tsx'
+import { useDiffCommentsStore, commentPathMatches, type WorkbenchComment } from './diff-comments-store.ts'
+import { commentsToDiffLineAnnotations } from './comment-annotations.ts'
+import { CommentBubble } from './comment-bubble.tsx'
 import { reviewFileToDiffDocument, type GitReviewFile } from './git-review-diff.ts'
 import type { PierreDiffTheme } from './pierre-adapter.tsx'
 
@@ -27,6 +31,7 @@ export function MultiDiffFileStack({
   wordWrap = false,
   layout = 'unified',
   onExpandContext,
+  cwd,
 }: {
   files: readonly GitReviewFile[]
   renderedKeys: ReadonlySet<string>
@@ -37,6 +42,8 @@ export function MultiDiffFileStack({
   wordWrap?: boolean
   layout?: 'unified' | 'split'
   onExpandContext?(file: GitReviewFile): void
+  /** Workspace cwd for comment anchoring (enables per-file rails). */
+  cwd?: string
 }): JSX.Element {
   return (
     <div className="dsh-studio-multi-diff-list" data-testid="multi-diff-list">
@@ -51,6 +58,7 @@ export function MultiDiffFileStack({
               t={t}
               layout={layout}
               wordWrap={wordWrap}
+              {...(cwd === undefined ? {} : { cwd })}
               {...(onExpandContext === undefined ? {} : { onExpandContext })}
               {...(onCollapse === undefined ? {} : { onCollapse })}
             />
@@ -89,6 +97,7 @@ function MultiDiffFileBlock({
   wordWrap,
   onExpandContext,
   onCollapse,
+  cwd,
 }: {
   file: GitReviewFile
   theme: PierreDiffTheme
@@ -97,8 +106,33 @@ function MultiDiffFileBlock({
   wordWrap: boolean
   onExpandContext?(file: GitReviewFile): void
   onCollapse?(path: string): void
+  cwd?: string
 }): JSX.Element {
   const document = useMemo(() => reviewFileToDiffDocument(file), [file])
+  // Reactive subscription to the store (surfaces subscribe, never copy).
+  const allComments = useDiffCommentsStore(state => state.comments)
+  const fileComments = useMemo(
+    () => (cwd === undefined
+      ? []
+      : allComments.filter(comment => commentPathMatches(comment.path, file.path, cwd))),
+    [allComments, cwd, file.path],
+  )
+  const lineAnnotations = useMemo(
+    () => commentsToDiffLineAnnotations(fileComments),
+    [fileComments],
+  )
+  const rails = cwd === undefined ? null : useCommentRails({
+    path: file.path,
+    cwd,
+    comments: fileComments,
+    t,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    onAdd: input => {
+      useDiffCommentsStore.getState().addComment({ ...input, id: crypto.randomUUID(), createdAt: new Date().toISOString() })
+    },
+    onResolve: id => { useDiffCommentsStore.getState().resolveComment(id) },
+    onUnresolve: id => { useDiffCommentsStore.getState().unresolveComment(id) },
+  })
   const sectionRef = useRef<HTMLElement | null>(null)
   const latestHeightRef = useRef<number | null>(null)
   const [releasedHeight, setReleasedHeight] = useState<number | null>(null)
@@ -173,6 +207,7 @@ function MultiDiffFileBlock({
               emitted no @@ headers for review-style documents, so Pierre
               parsed 0 hunks and rendered nothing — fixed in file-diff.ts.
             */}
+            {rails?.overlay()}
             <DiffViewer
               document={document}
               theme={theme}
@@ -182,6 +217,14 @@ function MultiDiffFileBlock({
               wordWrap={wordWrap}
               hideMeta
               cacheBust={`multi:${file.path}`}
+              {...(fileComments.length > 0
+                ? { lineAnnotations, renderAnnotation: annotation => <CommentBubble comment={annotation.metadata} /> }
+                : {})}
+              {...(rails === null ? {} : {
+                onLineEnter: rails.onLineEnter,
+                onLineLeave: rails.onLineLeave,
+                renderGutterUtility: rails.gutterUtility,
+              })}
             />
           </div>
         </div>

@@ -1,73 +1,163 @@
 /**
- * Persisted diff comments (worktree diff scope), stored per workspace
- * +cwd+file+staged in localStorage. The zustand store is the single live
- * mirror — surfaces subscribe instead of keeping local copies (M5), and
- * every mutation writes through to the localStorage persistence layer.
+ * Unified workbench comment store (R1): one persisted batch for file-view
+ * AND diff annotations (worktree scope), replacing the v1 line-only shape.
+ *
+ * v2 schema (`dsh-studio.sidebar.diff-comments.v2`) with an IDEMPOTENT v1
+ * migration (the legacy blob is left untouched as an audit trail; reruns
+ * rewrite v2 from the same source, so no duplicates). Anchors are
+ * path + line RANGE plus an optional content hash for drift/outdated
+ * detection. Comments carry the resolve lifecycle (like review comments)
+ * and an optional branch stamp for cross-branch filtering.
+ *
+ * The zustand store is the single live mirror — surfaces subscribe instead
+ * of keeping local copies, and every mutation writes through.
  */
 import { create } from 'zustand'
 
-export interface DiffComment {
+export interface WorkbenchComment {
   id: string
-  filePath: string
-  line: number
+  /** Absolute path (Electron surface) or git-relative (diff surface). */
+  path: string
+  /** 1-based anchor line — the range start. */
+  startLine: number
+  /** Range end when the comment spans multiple lines (defaults to start). */
+  endLine?: number
+  /** Anchor-line content hash ⇒ drift/outdated detection. */
+  contentHash?: string
+  /** Branch stamp on write; legacy null stays visible across branches. */
+  branch?: string | null
   body: string
   createdAt: string
+  /** Resolution timestamp; resolved comments stay listed but are excluded
+   *  from new "add to conversation" payloads. */
+  resolvedAt?: string
 }
 
-const KEY = 'dsh-studio.sidebar.diff-comments.v1'
+const KEY = 'dsh-studio.sidebar.diff-comments.v2'
+const LEGACY_KEY = 'dsh-studio.sidebar.diff-comments.v1'
+const MAX_COMMENTS = 200
 
-export function readDiffComments(): DiffComment[] {
+function isLegacyComment(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false
+  const entry = value as Record<string, unknown>
+  return typeof entry.id === 'string'
+    && typeof entry.filePath === 'string'
+    && Number.isInteger(entry.line)
+    && typeof entry.body === 'string'
+    && typeof entry.createdAt === 'string'
+}
+
+function isWorkbenchComment(value: unknown): value is WorkbenchComment {
+  if (typeof value !== 'object' || value === null) return false
+  const entry = value as Record<string, unknown>
+  return typeof entry.id === 'string'
+    && typeof entry.path === 'string'
+    && Number.isInteger(entry.startLine)
+    && typeof entry.body === 'string'
+    && typeof entry.createdAt === 'string'
+}
+
+/** Read v2; falls back to a one-time idempotent migration from v1. */
+export function readWorkbenchComments(): WorkbenchComment[] {
   try {
     const raw = window.localStorage.getItem(KEY)
+    if (raw !== null) {
+      const parsed = JSON.parse(raw) as unknown
+      if (!Array.isArray(parsed)) return []
+      return parsed.filter(isWorkbenchComment).slice(-MAX_COMMENTS)
+    }
+  } catch {
+    // Fall through to the migration path below.
+  }
+  return migrateLegacyComments()
+}
+
+function migrateLegacyComments(): WorkbenchComment[] {
+  try {
+    const raw = window.localStorage.getItem(LEGACY_KEY)
     if (raw === null) return []
     const parsed = JSON.parse(raw) as unknown
     if (!Array.isArray(parsed)) return []
-    return parsed.filter(
-      (value): value is DiffComment =>
-        typeof value === 'object' && value !== null
-        && typeof (value as DiffComment).id === 'string'
-        && typeof (value as DiffComment).filePath === 'string'
-        && Number.isInteger((value as DiffComment).line)
-        && typeof (value as DiffComment).body === 'string'
-        && typeof (value as DiffComment).createdAt === 'string',
-    )
+    const migrated: WorkbenchComment[] = parsed
+      .filter(isLegacyComment)
+      .map(entry => {
+        const item = entry as { id: string; filePath: string; line: number; body: string; createdAt: string }
+        return {
+          id: item.id,
+          path: item.filePath,
+          startLine: item.line,
+          body: item.body,
+          createdAt: item.createdAt,
+        }
+      })
+      .slice(-MAX_COMMENTS)
+    if (migrated.length > 0) writeWorkbenchComments(migrated)
+    return migrated
   } catch {
     return []
   }
 }
 
-export function writeDiffComments(comments: readonly DiffComment[]): void {
+export function writeWorkbenchComments(comments: readonly WorkbenchComment[]): void {
   try {
-    window.localStorage.setItem(KEY, JSON.stringify(comments.slice(-200)))
+    window.localStorage.setItem(KEY, JSON.stringify(comments.slice(-MAX_COMMENTS)))
   } catch {
     // Best effort.
   }
 }
 
-export function nextDiffCommentId(): string {
+export function nextWorkbenchCommentId(): string {
   return typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
-    : `diff-comment-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`
+    : `comment-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-interface DiffCommentsState {
-  comments: readonly DiffComment[]
-  addComment(comment: DiffComment): void
+interface WorkbenchCommentState {
+  comments: readonly WorkbenchComment[]
+  /** The single write path: surfaces never persist directly. */
+  addComment(comment: WorkbenchComment): void
   removeComment(id: string): void
+  /** Mark resolved (kept + listed, excluded from new payloads). */
+  resolveComment(id: string): void
+  /** Re-open a resolved comment. */
+  unresolveComment(id: string): void
 }
 
 /** Live mirror of the persisted comments; surfaces subscribe to this. */
-export const useDiffCommentsStore = create<DiffCommentsState>((set, get) => ({
-  comments: readDiffComments(),
+export const useDiffCommentsStore = create<WorkbenchCommentState>((set, get) => ({
+  comments: readWorkbenchComments(),
   addComment: comment => {
     const next = [...get().comments, comment]
     set({ comments: next })
-    writeDiffComments(next)
+    writeWorkbenchComments(next)
   },
   removeComment: id => {
     const next = get().comments.filter(comment => comment.id !== id)
     set({ comments: next })
-    writeDiffComments(next)
+    writeWorkbenchComments(next)
+  },
+  resolveComment: id => {
+    const next = get().comments.map(comment =>
+      comment.id === id && comment.resolvedAt === undefined
+        ? { ...comment, resolvedAt: new Date().toISOString() }
+        : comment,
+    )
+    if (next !== get().comments) {
+      set({ comments: next })
+      writeWorkbenchComments(next)
+    }
+  },
+  unresolveComment: id => {
+    const next = get().comments.map(comment => {
+      if (comment.id !== id || comment.resolvedAt === undefined) return comment
+      const reopened = { ...comment }
+      delete reopened.resolvedAt
+      return reopened
+    })
+    if (next !== get().comments) {
+      set({ comments: next })
+      writeWorkbenchComments(next)
+    }
   },
 }))
 

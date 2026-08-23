@@ -140,3 +140,13 @@ Web 与 TUI 的 `--data` 只覆盖当前进程。
   `global` 折叠到单一桶。侧栏布局与宽度记忆经此实现 `layoutScope` 偏好；center
   surface 队列因其对象绑定工作区，恒按 cwd 分桶。
 - 上游 DOM 探测必须收口在每个插件的单个模块（sidebar 为 `dsh-dom.ts`）。
+
+
+## 统一悬浮评论（Unified hover comments）
+
+文件查看与 diff 视图共用一套悬浮评论（R2）：悬停行号槽 `+` → 行内输入框
+（Enter 提交 / Shift+Enter 换行 / Esc 关闭）→ 评论写入统一批注库
+（`diff-comments-store` v2，锚定 path+startLine/endLine+contentHash，
+支持 resolve 生命周期）或"引用到对话"轻量注入 composer。交互经
+`@pierre/diffs` 官方钩子（renderGutterUtility/onLineEnter），无 DOM 刮削；
+diff 底部表单已废弃删除。Markdown 渲染预览态无稳定行号，保留划选引用。

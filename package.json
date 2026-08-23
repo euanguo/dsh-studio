@@ -111,10 +111,13 @@
     "electron-builder": "^26.0.12",
     "electron-updater": "6.8.9",
     "esbuild": "^0.25.12",
+    "katex": "^0.18.4",
     "mermaid": "^11.16.1",
     "pnpm": "11.20.0",
     "react-markdown": "^10.1.0",
+    "rehype-katex": "^7.0.1",
     "remark-gfm": "^4.0.1",
+    "remark-math": "^6.0.0",
     "semver": "^7.7.4",
     "typescript": "^6.0.3",
     "yaml": "2.8.1"

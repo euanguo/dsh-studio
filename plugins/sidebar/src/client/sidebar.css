@@ -1284,41 +1284,6 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
 
 
 /* Diff comments */
-.dsh-studio-diff-comments {
-  padding: 6px var(--dsh-studio-space-2);
-  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  background: var(--dsw-alias-bg-base, #fff);
-  flex: none;
-}
-
-.dsh-studio-diff-comments-list {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 6px;
-}
-
-.dsh-studio-diff-comment {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 8px;
-  border-radius: var(--dsh-studio-radius-sm);
-  background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
-  font-size: var(--dsh-studio-font-xs);
-}
-
-.dsh-studio-diff-comment-line {
-  flex: none;
-  color: var(--dsw-alias-label-dimmed, #8c959f);
-}
-
-.dsh-studio-diff-comment-body {
-  min-width: 0;
-  flex: 1;
-  color: var(--dsw-alias-label-primary, #1f2328);
-}
-
 .dsh-studio-diff-comment button {
   border: 0;
   background: transparent;
@@ -1378,3 +1343,71 @@ html[data-dsh-studio-panel-maximized='true'] #dsh-studio-sidebar-root {
   font-size: 12px;
 }
 
+/* ── Comment rails (R2): gutter "+" affordance + floating composer ── */
+.dsh-studio-comment-rail-add {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-fg-muted, inherit);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.dsh-studio-comment-rail-add:hover {
+  background: var(--dsw-alias-fill-hover, rgba(128,128,128,.2));
+  color: var(--dsw-alias-fg-default, inherit);
+}
+.dsh-studio-comment-compose {
+  position: fixed;
+  z-index: 60;
+  min-width: 260px;
+  max-width: 420px;
+  background: var(--dsw-alias-surface-default, #1e1e1e);
+  border: 1px solid var(--dsw-alias-border-default, #444);
+  border-radius: 6px;
+  padding: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.dsh-studio-comment-compose-head {
+  font-size: 11px;
+  opacity: .7;
+  margin-bottom: 4px;
+}
+.dsh-studio-comment-compose-input {
+  width: 100%;
+  min-height: 56px;
+  resize: vertical;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--dsw-alias-border-default, #444);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font: inherit;
+}
+.dsh-studio-comment-compose-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-top: 6px;
+}
+.dsh-studio-comment-compose-actions button {
+  font: inherit;
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 1px solid var(--dsw-alias-border-default, #444);
+  background: transparent;
+  color: inherit;
+}
+.dsh-studio-comment-compose-commit {
+  background: var(--dsw-alias-accent-default, #4f8cff) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+.dsh-studio-comment-compose-commit:disabled {
+  opacity: .5;
+  cursor: default;
+}

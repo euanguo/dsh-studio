@@ -104,6 +104,11 @@ export type WorkspaceMessage =
   | 'settings.center-preview-tabs-description'
   | 'settings.layout-scope'
   | 'settings.layout-scope-description'
+  | 'comments.add'
+  | 'comments.add-line'
+  | 'comments.placeholder'
+  | 'comments.reference'
+  | 'comments.comment-on-line'
   | 'settings.width'
   | 'settings.width-value'
   | 'settings.tools'
@@ -213,9 +218,6 @@ export type WorkspaceMessage =
   | 'workspace.review-history'
   | 'workspace.no-commits'
   | 'workspace.commit-no-files'
-  | 'workspace.comment-line'
-  | 'workspace.comment-placeholder'
-  | 'workspace.add-comment'
   | 'source-control.section.conflict'
   | 'source-control.section.staged'
   | 'source-control.section.unstaged'
@@ -368,6 +370,11 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.center-preview-tabs': 'Single-click previews',
     'settings.center-preview-tabs-description':
       'Open files from clicks as replaceable preview tabs. Turn off to always open permanent tabs.',
+    'comments.add': 'Comment',
+    'comments.add-line': 'Add comment',
+    'comments.placeholder': 'Leave a comment — Enter sends, Shift+Enter for a newline',
+    'comments.reference': 'Reference in chat',
+    'comments.comment-on-line': 'Comment on line {line}',
     'settings.layout-scope': 'Cross-project layout',
     'settings.layout-scope-description':
       'Share one side-panel tab layout across every project. Turn off to keep a separate layout per project.',
@@ -480,9 +487,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.review-history': 'Commit history',
     'workspace.no-commits': 'No commits on this branch',
     'workspace.commit-no-files': 'No file changes in this commit',
-    'workspace.comment-line': 'Comment on this line',
-    'workspace.comment-placeholder': 'Describe the change you want…',
-    'workspace.add-comment': 'Add comment',
     'source-control.section.conflict': 'Conflicts',
     'source-control.section.staged': 'Staged',
     'source-control.section.unstaged': 'Unstaged',
@@ -633,6 +637,11 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.open-by-default-description': '桌面端启动时自动恢复侧边栏。',
     'settings.center-preview-tabs': '单击预览',
     'settings.center-preview-tabs-description': '单击文件时打开可替换的预览标签；关闭后单击直接打开永久标签。',
+    'comments.add': '评论',
+    'comments.add-line': '添加评论',
+    'comments.placeholder': '输入评论——Enter 发送，Shift+Enter 换行',
+    'comments.reference': '引用到对话',
+    'comments.comment-on-line': '评论第 {line} 行',
     'settings.layout-scope': '跨项目共享布局',
     'settings.layout-scope-description': '所有项目共用同一份侧栏标签布局；关闭后每个项目保留各自的布局。',
     'settings.width': '默认宽度',
@@ -744,9 +753,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.review-history': '提交历史',
     'workspace.no-commits': '当前分支没有提交',
     'workspace.commit-no-files': '此提交没有文件变更',
-    'workspace.comment-line': '评论此行',
-    'workspace.comment-placeholder': '描述希望修改的内容…',
-    'workspace.add-comment': '添加评论',
     'source-control.section.conflict': '冲突',
     'source-control.section.staged': '已暂存',
     'source-control.section.unstaged': '未暂存',

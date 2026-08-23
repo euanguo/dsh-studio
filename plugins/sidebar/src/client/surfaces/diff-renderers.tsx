@@ -21,11 +21,12 @@ import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
 import { MultiDiffFileStack } from '../diff/multi-diff-file-stack.tsx'
 import { ImageDiffViewer } from '../diff/image-diff-viewer.tsx'
-import { nextDiffCommentId, useDiffCommentsStore, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
+import { useDiffCommentsStore, commentPathMatches, type WorkbenchComment } from '../diff/diff-comments-store.ts'
 import { commentsToDiffLineAnnotations } from '../diff/comment-annotations.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
+import { useCommentRails } from '../comments/comment-rails.tsx'
 import type { GitReviewFile } from '../diff/git-review-diff.ts'
 import type { DiffAllCenterSurface, DiffCenterSurface } from './types.ts'
 
@@ -49,8 +50,6 @@ export function DiffSurfaceView({
   const [context, setContext] = useState(DIFF_CONTEXT_INITIAL)
   const [expanding, setExpanding] = useState(false)
   const [imageDiff, setImageDiff] = useState<{ oldData: string; newData: string } | null>(null)
-  const [commentLine, setCommentLine] = useState('')
-  const [commentBody, setCommentBody] = useState('')
   // Cooldown after "Expand context" (the button re-enables when it fires).
   const expandTimerRef = useRef<number | null>(null)
   useEffect(() => () => {
@@ -82,25 +81,37 @@ export function DiffSurfaceView({
   const allComments = useDiffCommentsStore(state => state.comments)
   const comments = useMemo(
     () => allComments.filter(comment =>
-      commentPathMatches(comment.filePath, surface.filePath, surface.cwd)
+      commentPathMatches(comment.path, surface.filePath, surface.cwd)
       && comment.createdAt.length > 0,
     ),
     [allComments, surface.cwd, surface.filePath],
   )
+  const rails = useCommentRails({
+    path: surface.filePath,
+    cwd: surface.cwd,
+    comments,
+    t,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    onAdd: input => {
+      useDiffCommentsStore.getState().addComment({
+        ...input,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+      })
+    },
+    onResolve: id => { useDiffCommentsStore.getState().resolveComment(id) },
+    onUnresolve: id => { useDiffCommentsStore.getState().unresolveComment(id) },
+  })
+
   const lineAnnotations = useMemo(
     () => commentsToDiffLineAnnotations(comments),
     [comments],
   )
-  const renderCommentAnnotation = useCallback((annotation: { metadata?: DiffComment }) => (
+  const renderCommentAnnotation = useCallback((annotation: { metadata?: WorkbenchComment }) => (
     annotation.metadata !== undefined
       ? <CommentBubble comment={annotation.metadata} />
       : null
   ), [])
-  const onLineNumberClick = useCallback((input: { lineNumber: number; side: 'additions' | 'deletions' }) => {
-    // Comments attach to the new side only; ignore old-side gutter clicks.
-    if (input.side !== 'additions') return
-    setCommentLine(String(input.lineNumber))
-  }, [])
 
   const document = useMemo(
     () => (diff === null ? null : buildDiffDocument({
@@ -178,6 +189,7 @@ export function DiffSurfaceView({
         t={t}
       />
       <Scrollable className="dsh-studio-diff-surface-body">
+        {rails.overlay()}
         <DiffViewer
           document={document}
           theme={theme}
@@ -189,7 +201,9 @@ export function DiffSurfaceView({
           {...(lineAnnotations.length > 0
             ? { lineAnnotations, renderAnnotation: renderCommentAnnotation }
             : {})}
-          onLineNumberClick={onLineNumberClick}
+          onLineEnter={rails.onLineEnter}
+          onLineLeave={rails.onLineLeave}
+          renderGutterUtility={rails.gutterUtility}
         />
       </Scrollable>
       <div className="dsh-studio-diff-context-bar">
@@ -205,59 +219,6 @@ export function DiffSurfaceView({
         >
           {expanding ? t('workspace.loading-diff') : t('diff.expand-context', { current: context, next: Math.min(DIFF_CONTEXT_LIMIT, context + DIFF_CONTEXT_STEP) })}
         </button>
-      </div>
-      <div className="dsh-studio-diff-comments">
-        {comments.length > 0 ? (
-          <div className="dsh-studio-diff-comments-list">
-            {comments.map(comment => (
-              <div key={comment.id} className="dsh-studio-diff-comment">
-                <span className="dsh-studio-diff-comment-line">Line {comment.line}</span>
-                <span className="dsh-studio-diff-comment-body">{comment.body}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    useDiffCommentsStore.getState().removeComment(comment.id)
-                  }}
-                >✕</button>
-              </div>
-            ))}
-          </div>
-        ) : null}
-        <div className="dsh-studio-diff-comment-form">
-          <input
-            type="number"
-            min={1}
-            aria-label={t('workspace.comment-line')}
-            placeholder={t('workspace.comment-line')}
-            value={commentLine}
-            onChange={event => { setCommentLine(event.target.value) }}
-          />
-          <input
-            type="text"
-            aria-label={t('workspace.comment-placeholder')}
-            placeholder={t('workspace.comment-placeholder')}
-            value={commentBody}
-            onChange={event => { setCommentBody(event.target.value) }}
-          />
-          <button
-            type="button"
-            disabled={commentLine === '' || commentBody.trim() === ''}
-            onClick={() => {
-              const line = Number(commentLine)
-              if (!Number.isInteger(line) || line < 1) return
-              const comment: DiffComment = {
-                id: nextDiffCommentId(),
-                filePath: surface.filePath,
-                line,
-                body: commentBody.trim(),
-                createdAt: new Date().toISOString(),
-              }
-              useDiffCommentsStore.getState().addComment(comment)
-              setCommentLine('')
-              setCommentBody('')
-            }}
-          >{t('workspace.add-comment')}</button>
-        </div>
       </div>
     </div>
   )
@@ -463,6 +424,7 @@ export function DiffAllSurfaceView({
             layout={layout}
             wordWrap={wordWrap}
             onExpandContext={expandContext}
+            cwd={surface.cwd}
           />
           {expanding.size > 0 ? <LoadingState label={t('workspace.loading-diff')} /> : null}
         </Scrollable>

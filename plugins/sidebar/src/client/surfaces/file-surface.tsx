@@ -37,9 +37,11 @@ import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
 import { afterSelectionCommit, formatFileSelectionReference, getLineSelectionWithin } from '../files/file-selection-reference.ts'
 import { useEditableFile } from '../files/use-editable-file.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
-import { useDiffCommentsStore, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
+import { useDiffCommentsStore, commentPathMatches, type WorkbenchComment } from '../diff/diff-comments-store.ts'
 import { commentsToFileLineAnnotations } from '../diff/comment-annotations.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
+import { buildCommentReference } from '../comments/comment-rails-core.ts'
+import { useCommentRails } from '../comments/comment-rails.tsx'
 import type { FileCenterSurface } from './types.ts'
 
 function createPierreEditor<LAnnotation>(options: EditorOptions<LAnnotation>): Editor<LAnnotation> {
@@ -92,11 +94,34 @@ export function FileSurfaceView({
   const allComments = useDiffCommentsStore(state => state.comments)
   const comments = useMemo(
     () => allComments.filter(comment =>
-      commentPathMatches(comment.filePath, surface.filePath, surface.cwd)
+      commentPathMatches(comment.path, surface.filePath, surface.cwd)
       && comment.createdAt.length > 0,
     ),
     [allComments, surface.cwd, surface.filePath],
   )
+  const rails = useCommentRails({
+    path: surface.filePath,
+    cwd: surface.cwd,
+    comments,
+    t,
+    layer: typeof document === 'undefined' ? null : document.body,
+    onAdd: input => {
+      useDiffCommentsStore.getState().addComment({
+        ...input,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+      })
+    },
+    onResolve: id => { useDiffCommentsStore.getState().resolveComment(id) },
+    onUnresolve: id => { useDiffCommentsStore.getState().unresolveComment(id) },
+    ...(reviewComments === undefined
+      ? {}
+      : {
+          onReference: input => reviewComments.appendToComposer(
+            buildCommentReference(input.path, input.line, input.body),
+          ),
+        }),
+  })
 
   useEffect(() => {
     let alive = true
@@ -217,7 +242,7 @@ export function FileSurfaceView({
     cacheKey: `editor:${surface.filePath}`,
   }), [editable.content, surface.filePath])
 
-  const editorOptions = useMemo<EditorOptions<DiffComment>>(() => ({
+  const editorOptions = useMemo<EditorOptions<WorkbenchComment>>(() => ({
     persistState: false,
     onChange: nextFile => {
       editable.handleChange(nextFile.contents)
@@ -255,15 +280,22 @@ export function FileSurfaceView({
         </div>
         <EditProvider createEditor={createPierreEditor}>
           <Virtualizer className="dsh-studio-editor-host">
+            {rails.overlay()}
             <PierreFile
               file={file}
               edit
               editorOptions={editorOptions}
-              options={{ disableFileHeader: true, theme }}
+              options={{
+                disableFileHeader: true,
+                theme,
+                onLineEnter: rails.onLineEnter,
+                onLineLeave: rails.onLineLeave,
+              }}
+              renderGutterUtility={rails.gutterUtility}
               {...(lineAnnotations.length > 0
                 ? {
                     lineAnnotations,
-                    renderAnnotation: (annotation: { metadata: DiffComment }) => (
+                    renderAnnotation: (annotation: { metadata: WorkbenchComment }) => (
                       <CommentBubble comment={annotation.metadata} />
                     ),
                   }
@@ -323,6 +355,7 @@ export function FileSurfaceView({
         <ErrorState message={writeError} />
       ) : null}
       <Scrollable className="dsh-studio-file-surface-body" onMouseUp={onSourceMouseUp}>
+        {rails.overlay()}
         <ContentViewer
           path={surface.filePath}
           content={content}
@@ -332,6 +365,7 @@ export function FileSurfaceView({
           markdownPreview={markdownMode === 'preview'}
           comments={comments}
           cwd={surface.cwd}
+          rails={rails}
           {...(reviewComments === undefined ? {} : { reviewComments })}
           onTaskToggle={onTaskToggle}
           onOpenExternal={onOpenExternal}
