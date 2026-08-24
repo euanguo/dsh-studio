@@ -13,7 +13,7 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { FieldError } from '@dsh-studio/shared/ui'
 import { cn } from './shim/cn.ts'
-import { WorkspaceBrowserCss as css } from './styles.js'
+import { WorkspaceBrowserCss as css } from './styles.ts'
 import {
   computeWorktreeLocation,
   type WorktreeDefaultsResult,

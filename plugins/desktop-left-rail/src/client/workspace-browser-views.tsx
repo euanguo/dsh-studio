@@ -16,7 +16,7 @@ import { deriveFlat, deriveGroups, deriveSearchResults, groupExpansionKeyOf, UNG
 import { nextSessionOrderAccount, reconciledSessionOrder } from './session-order.ts'
 import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY } from './stores.ts'
-import { WorkspaceBrowserCss as css } from './styles.js'
+import { WorkspaceBrowserCss as css } from './styles.ts'
 import { cn } from './shim/cn.ts'
 import { EmptyState, LoadingState, ScrollArea, StatusLine } from '@dsh-studio/shared/ui'
 

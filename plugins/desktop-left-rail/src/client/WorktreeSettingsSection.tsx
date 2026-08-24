@@ -18,7 +18,7 @@ import {
 import { fetchWorktreeDefaults } from './worktree-api.ts'
 import { sanitizeWorktreeDir, type WorktreeDefaultsResult } from '@dsh-studio/shared/worktree-preferences'
 import { FieldError, SettingsRow, SettingsSection, Switch } from '@dsh-studio/shared/ui'
-import { SettingsSectionCss as css } from './styles.js'
+import { SettingsSectionCss as css } from './styles.ts'
 
 type SectionTranslate = WorkspaceBrowserProps['t']
 

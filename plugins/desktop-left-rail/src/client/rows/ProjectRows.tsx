@@ -18,7 +18,7 @@ import { projectActionDescriptors, worktreeActionDescriptors } from '../domain/a
 import { projectIdOf, worktreeIdOf } from '../domain/identities.ts'
 import { ProjectIconGlyph } from '../ProjectIconGlyph.tsx'
 import type { ActivityKind, GroupTab, ProjectNode, WorktreeNode } from '../tree.ts'
-import { RowsCss as css } from '../styles.js'
+import { RowsCss as css } from '../styles.ts'
 import { cn } from '../shim/cn.ts'
 
 type RowTranslate = WorkspaceBrowserProps['t']

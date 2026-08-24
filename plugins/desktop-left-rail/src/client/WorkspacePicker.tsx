@@ -23,7 +23,7 @@ import type { DirectoryFlowOwnerProps, WorkspacePickerProps } from './contract/s
 // Identity class map (scoped stylesheet is generated/injected — see
 // scripts/left-rail-styles.mjs). The picker's dialogs portal through the
 // shim, which mounts the scope attribute on the portal wrapper.
-import { WorkspacePickerCss as css } from './styles.js'
+import { WorkspacePickerCss as css } from './styles.ts'
 import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 
 const ADD_WORKSPACE = '::add-workspace'

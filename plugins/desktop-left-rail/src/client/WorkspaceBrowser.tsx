@@ -48,7 +48,7 @@ import { toast } from '@dsh-studio/shared/toast'
 // Identity class map + scoped stylesheet (build-time generated from the
 // forked CSS Modules — see scripts/left-rail-styles.mjs). The scope
 // attribute is mounted on the region root below.
-import { WorkspaceBrowserCss as css } from './styles.js'
+import { WorkspaceBrowserCss as css } from './styles.ts'
 import { NewWorktreeDialog, type NewWtTarget } from './NewWorktreeDialog.tsx'
 import { FieldError, StatusLine, ToolbarAction } from '@dsh-studio/shared/ui'
 
