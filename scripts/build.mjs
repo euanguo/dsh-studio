@@ -26,6 +26,8 @@ runNode(join('scripts', 'generate-skin-selectors.mjs'), ['--check', '--if-presen
 // Generated CSS-module class maps (desktop-left-rail styles.ts) must match
 // the module CSS sources; rebuilds fail loudly when a regeneration is due.
 runNode(join('scripts', 'plugin-styles.mjs'), ['desktop-left-rail', '--check'])
+// The hand-maintained @dsh-studio/shared exports map must not dangle.
+runNode(join('scripts', 'verify-shared-exports.mjs'))
 
 function runNode(script, args = []) {
   const result = spawnSync(process.execPath, [join(root, script), ...args], {
