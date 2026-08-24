@@ -78,6 +78,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
     props.sidebar.subscribe,
     () => props.sidebar.getSnapshot().layoutScope,
   )
+  const linksEnabled = runtimeState.preferences.browserInterceptLinks
   const popup = settingsFor === null ? null : (
     <FeatureSettingsPopup
       feature={settingsFor}
@@ -100,97 +101,122 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         </Button>
       )}
     >
-      <div className={surfaceCss["dsh-studio-sidebar-settings-rows"]}>
-        <SettingsRow
-          title={props.t('settings.open-by-default')}
-          description={props.t('settings.open-by-default-description')}
-          control={(
-            <Switch
-              checked={state.openByDefault}
-              aria-label={props.t('settings.open-by-default')}
-              onCheckedChange={props.setOpenByDefault}
-            />
-          )}
-        />
-        <SettingsRow
-          title={props.t('settings.center-preview-tabs')}
-          description={props.t('settings.center-preview-tabs-description')}
-          control={(
-            <Switch
-              checked={centerPreviewTabs === 'default'}
-              aria-label={props.t('settings.center-preview-tabs')}
-              onCheckedChange={checked => {
-                props.sidebar.setCenterPreviewTabs(checked ? 'default' : 'disabled')
-              }}
-            />
-          )}
-        />
-        <SettingsRow
-          title={props.t('settings.layout-scope')}
-          description={props.t('settings.layout-scope-description')}
-          control={(
-            <Switch
-              checked={layoutScope === 'global'}
-              aria-label={props.t('settings.layout-scope')}
-              onCheckedChange={checked => {
-                props.sidebar.setLayoutScope(checked ? 'global' : 'workspace')
-              }}
-            />
-          )}
-        />
-        <SettingsRow
-          className={surfaceCss["dsh-studio-sidebar-settings-size"]}
-          title={props.t('settings.width')}
-          description={props.t('settings.width-value', { width: state.width })}
-          control={(
-            <Slider
-              min={SIDEBAR_MIN_WIDTH}
-              max={SIDEBAR_MAX_WIDTH}
-              step={10}
-              value={state.width}
-              aria-label={props.t('settings.width')}
-              onValueChange={value => {
-                if (typeof value === 'number') props.setWidth(value)
-              }}
-            />
-          )}
-        />
-      </div>
       <SettingsSection
-        title={props.t('settings.runtime')}
-        description={props.t('settings.runtime-description')}
+        title={props.t('settings.layout')}
+        description={props.t('settings.layout-description')}
       >
         <div className={surfaceCss["dsh-studio-sidebar-settings-rows"]}>
-        <SwitchRow
-          title={props.t('settings.agent-terminal-tools')}
-          desc={props.t('settings.agent-terminal-tools-description')}
-          checked={runtimeState.preferences.agentTerminalTools}
-          onChange={checked => { updateRuntime('agentTerminalTools', checked) }}
-        />
-        <SwitchRow
-          title={props.t('settings.agent-worktree-tools')}
-          desc={props.t('settings.agent-worktree-tools-description')}
-          checked={runtimeState.preferences.agentWorktreeTools}
-          onChange={checked => { updateRuntime('agentWorktreeTools', checked) }}
-        />
-        <SwitchRow
-          title={props.t('settings.agent-worktree-delegation-tools')}
-          desc={props.t('settings.agent-worktree-delegation-tools-description')}
-          checked={runtimeState.preferences.agentWorktreeDelegationTools}
-          onChange={checked => { updateRuntime('agentWorktreeDelegationTools', checked) }}
-        />
-        <SwitchRow
-          title={props.t('settings.open-files')}
-          desc={props.t('settings.open-files-description')}
-          checked={runtimeState.preferences.interceptOpenPath}
-          onChange={checked => { updateRuntime('interceptOpenPath', checked) }}
-        />
-        <SwitchRow
-          title={props.t('settings.open-links')}
-          desc={props.t('settings.open-links-description')}
-          checked={runtimeState.preferences.browserInterceptLinks}
-          onChange={checked => { updateRuntime('browserInterceptLinks', checked) }}
-        />
+          <SettingsRow
+            title={props.t('settings.open-by-default')}
+            description={props.t('settings.open-by-default-description')}
+            control={(
+              <Switch
+                checked={state.openByDefault}
+                aria-label={props.t('settings.open-by-default')}
+                onCheckedChange={props.setOpenByDefault}
+              />
+            )}
+          />
+          <SettingsRow
+            title={props.t('settings.center-preview-tabs')}
+            description={props.t('settings.center-preview-tabs-description')}
+            control={(
+              <Switch
+                checked={centerPreviewTabs === 'default'}
+                aria-label={props.t('settings.center-preview-tabs')}
+                onCheckedChange={checked => {
+                  props.sidebar.setCenterPreviewTabs(checked ? 'default' : 'disabled')
+                }}
+              />
+            )}
+          />
+          <SettingsRow
+            title={props.t('settings.layout-scope')}
+            description={props.t('settings.layout-scope-description')}
+            control={(
+              <Switch
+                checked={layoutScope === 'global'}
+                aria-label={props.t('settings.layout-scope')}
+                onCheckedChange={checked => {
+                  props.sidebar.setLayoutScope(checked ? 'global' : 'workspace')
+                }}
+              />
+            )}
+          />
+          <SettingsRow
+            className={surfaceCss["dsh-studio-sidebar-settings-size"]}
+            title={props.t('settings.width')}
+            description={props.t('settings.width-value', { width: state.width })}
+            control={(
+              <Slider
+                min={SIDEBAR_MIN_WIDTH}
+                max={SIDEBAR_MAX_WIDTH}
+                step={10}
+                value={state.width}
+                aria-label={props.t('settings.width')}
+                onValueChange={value => {
+                  if (typeof value === 'number') props.setWidth(value)
+                }}
+              />
+            )}
+          />
+        </div>
+      </SettingsSection>
+      <SettingsSection
+        title={props.t('settings.behavior')}
+        description={props.t('settings.behavior-description')}
+      >
+        <div className={surfaceCss["dsh-studio-sidebar-settings-rows"]}>
+          <SwitchRow
+            title={props.t('settings.open-files')}
+            desc={props.t('settings.open-files-description')}
+            checked={runtimeState.preferences.interceptOpenPath}
+            onChange={checked => { updateRuntime('interceptOpenPath', checked) }}
+          />
+          <SwitchRow
+            title={props.t('settings.open-links')}
+            desc={props.t('settings.open-links-description')}
+            checked={linksEnabled}
+            onChange={checked => { updateRuntime('browserInterceptLinks', checked) }}
+          />
+          <SwitchRow
+            title={props.t('settings.open-links-http')}
+            desc={props.t('settings.open-links-http-description')}
+            checked={runtimeState.preferences.browserInterceptHttp}
+            disabled={!linksEnabled}
+            onChange={checked => { updateRuntime('browserInterceptHttp', checked) }}
+          />
+          <SwitchRow
+            title={props.t('settings.open-links-https')}
+            desc={props.t('settings.open-links-https-description')}
+            checked={runtimeState.preferences.browserInterceptHttps}
+            disabled={!linksEnabled}
+            onChange={checked => { updateRuntime('browserInterceptHttps', checked) }}
+          />
+          <SwitchRow
+            title={props.t('settings.html-no-sandbox')}
+            desc={props.t('settings.html-no-sandbox-description')}
+            checked={runtimeState.preferences.htmlViewerNoSandbox}
+            onChange={checked => { updateRuntime('htmlViewerNoSandbox', checked) }}
+          />
+          <SwitchRow
+            title={props.t('settings.html-default-unsafe')}
+            desc={props.t('settings.html-default-unsafe-description')}
+            checked={runtimeState.preferences.htmlViewerDefaultUnsafe}
+            onChange={checked => { updateRuntime('htmlViewerDefaultUnsafe', checked) }}
+          />
+          <SwitchRow
+            title={props.t('settings.auto-open-subagent')}
+            desc={props.t('settings.auto-open-subagent-description')}
+            checked={runtimeState.preferences.autoOpenSubagent}
+            onChange={checked => { updateRuntime('autoOpenSubagent', checked) }}
+          />
+          <SwitchRow
+            title={props.t('settings.auto-open-jobs')}
+            desc={props.t('settings.auto-open-jobs-description')}
+            checked={runtimeState.preferences.autoOpenJobs}
+            onChange={checked => { updateRuntime('autoOpenJobs', checked) }}
+          />
         </div>
         {runtimeState.error !== null && (
           <ErrorState
@@ -200,8 +226,29 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           />
         )}
       </SettingsSection>
-      <section>
+      <SettingsSection
+        title={props.t('settings.agent-capabilities')}
+        description={props.t('settings.agent-capabilities-description')}
+      >
         <div className={surfaceCss["dsh-studio-sidebar-settings-rows"]}>
+          <SwitchRow
+            title={props.t('settings.agent-terminal-tools')}
+            desc={props.t('settings.agent-terminal-tools-description')}
+            checked={runtimeState.preferences.agentTerminalTools}
+            onChange={checked => { updateRuntime('agentTerminalTools', checked) }}
+          />
+          <SwitchRow
+            title={props.t('settings.agent-worktree-tools')}
+            desc={props.t('settings.agent-worktree-tools-description')}
+            checked={runtimeState.preferences.agentWorktreeTools}
+            onChange={checked => { updateRuntime('agentWorktreeTools', checked) }}
+          />
+          <SwitchRow
+            title={props.t('settings.agent-worktree-delegation-tools')}
+            desc={props.t('settings.agent-worktree-delegation-tools-description')}
+            checked={runtimeState.preferences.agentWorktreeDelegationTools}
+            onChange={checked => { updateRuntime('agentWorktreeDelegationTools', checked) }}
+          />
           <SettingsRow
             title={props.t('source-control-ai.title')}
             description={props.t('source-control-ai.description')}
@@ -216,7 +263,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
             )}
           />
         </div>
-      </section>
+      </SettingsSection>
       <SettingsSection
         title={props.t('settings.tools')}
         description={props.t('settings.tools-description')}

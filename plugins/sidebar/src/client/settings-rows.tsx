@@ -26,6 +26,7 @@ export function SwitchRow(props: {
   title: string
   desc?: string
   checked: boolean
+  disabled?: boolean
   onChange(checked: boolean): void
 }): JSX.Element {
   return (
@@ -35,6 +36,7 @@ export function SwitchRow(props: {
       control={(
         <Switch
           checked={props.checked}
+          disabled={props.disabled ?? false}
           aria-label={props.desc ?? props.title}
           onCheckedChange={props.onChange}
         />

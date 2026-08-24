@@ -206,17 +206,8 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
           t={t}
         />
       ),
-      settings: {
-        toggles: [{
-          key: 'autoOpenSubagent',
-          title: () => t('settings.auto-open-subagent'),
-          desc: () => t('settings.auto-open-subagent-description'),
-        }, {
-          key: 'autoOpenJobs',
-          title: () => t('settings.auto-open-jobs'),
-          desc: () => t('settings.auto-open-jobs-description'),
-        }],
-      },
+      // The auto-open switches ride the top-level "Opening behavior"
+      // section; the subagent tab keeps no detail rows.
       title: () => t('subagent'),
     },
   ]

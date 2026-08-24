@@ -131,8 +131,12 @@ export type WorkspaceMessage =
   | 'settings.tools-description'
   | 'settings.viewers'
   | 'settings.viewers-description'
-  | 'settings.runtime'
-  | 'settings.runtime-description'
+  | 'settings.layout'
+  | 'settings.layout-description'
+  | 'settings.behavior'
+  | 'settings.behavior-description'
+  | 'settings.agent-capabilities'
+  | 'settings.agent-capabilities-description'
   | 'settings.agent-terminal-tools'
   | 'settings.agent-terminal-tools-description'
   | 'settings.agent-worktree-tools'
@@ -418,8 +422,12 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.tools-description': 'Disabled tools are removed from the side panel launcher.',
     'settings.viewers': 'File previews',
     'settings.viewers-description': 'Higher-priority enabled previews are selected automatically.',
-    'settings.runtime': 'Agent access',
-    'settings.runtime-description': 'Control the Better Sidebar capabilities exposed by the desktop runtime.',
+    'settings.layout': 'Layout',
+    'settings.layout-description': 'Side panel placement and sizing, shared across conversations.',
+    'settings.behavior': 'Opening behavior',
+    'settings.behavior-description': 'How chat-side files, links, previews, and panels open.',
+    'settings.agent-capabilities': 'Agent capabilities',
+    'settings.agent-capabilities-description': 'Capabilities the agent may use. Each is disabled by default.',
     'settings.agent-terminal-tools': 'Terminal tools for agents',
     'settings.agent-terminal-tools-description': 'Allow agents to create and control desktop terminals. This is disabled by default.',
     'settings.agent-worktree-tools': 'WorkTree tools for agents',
@@ -702,8 +710,12 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.tools-description': '禁用的工具会从侧边栏启动器中移除。',
     'settings.viewers': '文件预览',
     'settings.viewers-description': '系统会自动选择优先级更高且已启用的预览器。',
-    'settings.runtime': 'Agent 访问',
-    'settings.runtime-description': '控制桌面运行时向 Agent 开放的 Better Sidebar 能力。',
+    'settings.layout': '布局',
+    'settings.layout-description': '侧边栏位置与尺寸，跨对话共享。',
+    'settings.behavior': '打开行为',
+    'settings.behavior-description': '聊天中的文件、链接、预览与面板的打开方式。',
+    'settings.agent-capabilities': 'Agent 能力',
+    'settings.agent-capabilities-description': '允许 Agent 使用的能力；默认全部关闭。',
     'settings.agent-terminal-tools': '允许 Agent 使用终端工具',
     'settings.agent-terminal-tools-description': '允许 Agent 创建并控制桌面终端；默认关闭。',
     'settings.agent-worktree-tools': '允许 Agent 使用 WorkTree 工具',
