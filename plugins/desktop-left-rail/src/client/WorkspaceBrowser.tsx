@@ -49,6 +49,7 @@ import { toast } from '@dsh-studio/shared/toast'
 // forked CSS Modules — see scripts/left-rail-styles.mjs). The scope
 // attribute is mounted on the region root below.
 import { WorkspaceBrowserCss as css } from './styles.js'
+import { NewWorktreeDialog, type NewWtTarget } from './NewWorktreeDialog.tsx'
 import { FieldError, StatusLine, ToolbarAction } from '@dsh-studio/shared/ui'
 
 /**
@@ -541,19 +542,7 @@ export function WorkspaceBrowser({
   }
 
   // ---- Three-level tree: worktree creation + group management. ----
-  const [newWtTarget, setNewWtTarget] = useState<{ repoRoot: string; label: string; currentBranch: string | null; existing: { label: string; branch: string | null }[] } | null>(null)
-  /** Host-resolved worktree store root + nesting for the open dialog (null = resolving/unavailable). */
-  const [newWtDefaults, setNewWtDefaults] = useState<WorktreeDefaultsResult | null>(null)
-  const [newWtBranchMenuOpen, setNewWtBranchMenuOpen] = useState(false)
-  const [newWtBranches, setNewWtBranches] = useState<string[]>([])
-  const [newWtPickBranch, setNewWtPickBranch] = useState('__new__')
-  const [newWtNewBranch, setNewWtNewBranch] = useState('')
-  /** New-branch start point (base branch); only meaningful in new-branch mode. */
-  const [newWtBase, setNewWtBase] = useState('')
-  const [newWtBaseMenuOpen, setNewWtBaseMenuOpen] = useState(false)
-  const [newWtPath, setNewWtPath] = useState('')
-  const [newWtPending, setNewWtPending] = useState(false)
-  const [newWtError, setNewWtError] = useState<string | null>(null)
+    const [newWtTarget, setNewWtTarget] = useState<NewWtTarget | null>(null)
   const [iconModalProject, setIconModalProject] = useState<ProjectNode | null>(null)
   const [worktreeAliasTarget, setWorktreeAliasTarget] = useState<{ worktreePath: string } | null>(null)
   const [worktreeAliasDraft, setWorktreeAliasDraft] = useState('')
@@ -612,7 +601,7 @@ export function WorkspaceBrowser({
     setQuery('')
     setSearchExpanded(false)
   }
-  const openNewWorktree = (repoRoot: string): void => {
+    const openNewWorktree = (repoRoot: string): void => {
     const layout = worktreeLayouts.layouts.get(repoRoot)
     const worktrees = layout?.worktrees ?? [{ path: repoRoot, head: null, branch: null, main: true }]
     const base = repoRoot.replace(/[/\\]+$/, '')
@@ -624,89 +613,6 @@ export function WorkspaceBrowser({
         label: wt.path.split(/[/\\]/).pop() ?? wt.path,
         branch: wt.branch,
       })),
-    })
-    setNewWtBranches([])
-    setNewWtPickBranch('__new__')
-    setNewWtNewBranch('')
-    // New-branch start point: the repo's current main branch until the
-    // branch list lands (then it is pinned to that branch if still present).
-    setNewWtBase(worktrees.find(w => w.main)?.branch ?? worktrees[0]?.branch ?? '')
-    setNewWtPath('')
-    setNewWtError(null)
-    // Refresh the host-resolved store root/nesting: settings-page edits apply
-    // to the very next dialog without a reload (the host is the resolution
-    // authority; the renderer never recomputes the default root).
-    setNewWtDefaults(null)
-    fetchWorktreeDefaults().then(defaults => { setNewWtDefaults(defaults) }).catch(() => {
-      // Leave null: the legacy repo-sibling default still serves the dialog.
-    })
-    fetchBranches(repoRoot).then(({ names }) => {
-      setNewWtBranches(names)
-      setNewWtBase(current => (current !== '' && names.includes(current))
-        ? current
-        : (names.find(name => name === 'main' || name === 'master') ?? names[0] ?? ''))
-    }).catch(() => { setNewWtBranches([]) })
-  }
-  const branchIsNew = newWtPickBranch === '__new__'
-  const effectiveBranch = branchIsNew ? newWtNewBranch.trim() : newWtPickBranch
-  /**
-   * Default location for one new worktree. The preferred source is the
-   * host-resolved store root + nesting (`git.worktree-defaults`: user
-   * override or `{dshStudioHome}/worktrees`), composed through the shared
-   * Orca-style naming rule; until that resolves (or on an older host), the
-   * legacy repo-sibling `{name}-worktrees/{branch}` default still serves.
-   */
-  const defaultWtPath = (repoRoot: string, branch: string): string => {
-    if (newWtDefaults !== null) {
-      return computeWorktreeLocation({
-        root: newWtDefaults.root,
-        nest: newWtDefaults.nest,
-        repoRoot,
-        name: branch,
-      })
-    }
-    const base = repoRoot.replace(/[/\\]+$/, '')
-    const parent = base.slice(0, base.lastIndexOf('/'))
-    const name = base.slice(base.lastIndexOf('/') + 1)
-    return `${parent}/${name}-worktrees/${slug(branch) === '' ? 'new' : slug(branch)}`
-  }
-  const closeNewWorktree = (): void => {
-    if (newWtPending) return
-    setNewWtTarget(null)
-  }
-  const confirmNewWorktree = (): void => {
-    if (newWtPending || newWtTarget === null) return
-    if (effectiveBranch === '') { setNewWtError(t('wt.branch')); return }
-    const path = (newWtPath.trim() === '' ? defaultWtPath(newWtTarget.repoRoot, effectiveBranch) : newWtPath.trim())
-    setNewWtPending(true)
-    setNewWtError(null)
-    // Worktree = session home (Orca model): a created worktree is ALWAYS
-    // registered as a Host Workspace so the row's actions, the conversation
-    // picker, and session scoping work immediately. Registration failure
-    // keeps the physical worktree (never rolls the checkout back) and
-    // surfaces as a toast — the directory can still be added manually.
-    // New branches start at the picked base branch (the common flow: fork
-    // from an existing branch rather than the main worktree's HEAD).
-    createWorktree(
-      newWtTarget.repoRoot,
-      path,
-      effectiveBranch,
-      branchIsNew,
-      branchIsNew ? newWtBase : undefined,
-    ).then(async () => {
-      let registerError: string | null = null
-      try {
-        await createWorkspace({ path })
-      } catch (reason) {
-        registerError = reason instanceof Error ? reason.message : String(reason)
-      }
-      setNewWtPending(false)
-      setNewWtTarget(null)
-      worktreeLayouts.refresh()
-      if (registerError !== null) toast(t('worktree.register.failed', { reason: registerError }))
-    }).catch((reason: unknown) => {
-      setNewWtPending(false)
-      setNewWtError(reason instanceof Error ? reason.message : String(reason))
     })
   }
 
@@ -1283,140 +1189,17 @@ export function WorkspaceBrowser({
         {deleteError !== null && <FieldError className={css.renameError}>{deleteError}</FieldError>}
       </Modal>
 
-      {/* New WorkTree */}
-      <Modal
-        open={newWtTarget !== null}
-        onClose={closeNewWorktree}
-        closeLabel={t('close')}
-        title={t('wt.new.title')}
-        footer={(
-          <>
-            <Button variant="outline" disabled={newWtPending} onClick={closeNewWorktree}>{t('cancel')}</Button>
-            <Button variant="primary" disabled={newWtPending || effectiveBranch === ''} onClick={confirmNewWorktree}>
-              {newWtPending ? t('wt.pending') : t('wt.create')}
-            </Button>
-          </>
-        )}
-      >
-        {newWtTarget !== null && (
-          <div className={css.wtModalBody}>
-            {/* Context: which repo / current branch this worktree forks from. */}
-            <div className={css.wtModalContext}>
-              {t('wt.basedOn', { name: newWtTarget.label })}
-              {newWtTarget.currentBranch !== null && (
-                <span className={css.wtModalContextBranch}>
-                  {' · '}{newWtTarget.currentBranch}
-                </span>
-              )}
-            </div>
+      <NewWorktreeDialog
+        target={newWtTarget}
+        t={t}
+        fetchDefaults={fetchWorktreeDefaults}
+        fetchBranches={fetchBranches}
+        createWorktree={createWorktree}
+        registerWorkspace={path => createWorkspace({ path })}
+        onCreated={() => { worktreeLayouts.refresh() }}
+        onClose={() => { setNewWtTarget(null) }}
+      />
 
-            {/* Existing worktrees (read-only inventory). */}
-            {newWtTarget.existing.length > 0 && (
-              <div>
-                <div className={css.wtSectionLabel}>{t('wt.existing')}</div>
-                {newWtTarget.existing.map(wt => (
-                  <div key={wt.label} className={css.wtExistingRow}>
-                    <IconFolderClose16 size={14} />
-                    <span className={css.wtExistingRowText}>{wt.label}</span>
-                    {wt.branch !== null && <span className={css.wtExistingBranch}>{wt.branch}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Branch: check out an existing branch, or create a new one
-                (optionally starting from a picked base branch). */}
-            <div>
-              <div className={css.wtSectionLabel}>{t('wt.branch')}</div>
-              <Menu
-                open={newWtBranchMenuOpen}
-                onClose={() => { setNewWtBranchMenuOpen(false) }}
-                items={[
-                  ...newWtBranches.map(b => ({ id: b, label: b })),
-                  { type: 'separator' as const, id: 'wt-branch-sep' },
-                  { id: '__new__', label: t('wt.newBranch') },
-                ]}
-                selectedId={branchIsNew ? '__new__' : newWtPickBranch}
-                onSelect={(id) => {
-                  setNewWtBranchMenuOpen(false)
-                  setNewWtPickBranch(id)
-                  const branch = id === '__new__' ? newWtNewBranch : id
-                  if (newWtPath.trim() === '' && newWtTarget !== null) setNewWtPath(defaultWtPath(newWtTarget.repoRoot, branch))
-                }}
-                 portal
-                anchor={(
-                  <button
-                    type="button"
-                    className={cn(css.renameInput, css.wtPickerButton)}
-                    onClick={() => { setNewWtBranchMenuOpen(v => !v) }}
-                  >
-                    <span className={css.wtPickerButtonText}>
-                      {branchIsNew ? (newWtNewBranch === '' ? t('wt.newBranch') : newWtNewBranch) : newWtPickBranch}
-                    </span>
-                    <IconChevronDownOutline14 />
-                  </button>
-                )}
-              />
-              {branchIsNew && (
-                <>
-                  <input
-                    className={cn(css.renameInput, css.wtNewBranchInput)}
-                    value={newWtNewBranch}
-                    aria-label={t('wt.newBranch')}
-                    placeholder={t('wt.newBranch')}
-                    autoFocus
-                    disabled={newWtPending}
-                    onChange={(e) => {
-                      setNewWtNewBranch(e.target.value)
-                     }}
-
-                     onKeyDown={(e) => { if (e.key === 'Enter') confirmNewWorktree() }}
-                  />
-                  {/* Base branch: where the new branch starts. The most
-                      common flow — fork a worktree off an existing branch
-                      (default: the repo's main branch) instead of whatever
-                      the main worktree's HEAD happens to be. */}
-                  <div className={css.wtSectionLabel}>{t('wt.base')}</div>
-                  <Menu
-                    open={newWtBaseMenuOpen}
-                    onClose={() => { setNewWtBaseMenuOpen(false) }}
-                    items={newWtBranches.map(b => ({ id: b, label: b }))}
-                    selectedId={newWtBase === '' ? undefined : newWtBase}
-                    onSelect={(id) => { setNewWtBaseMenuOpen(false); setNewWtBase(id) }}
-                    portal
-                    anchor={(
-                      <button
-                        type="button"
-                        className={cn(css.renameInput, css.wtPickerButton)}
-                        onClick={() => { setNewWtBaseMenuOpen(v => !v) }}
-                      >
-                        <span className={css.wtPickerButtonText}>
-                          {newWtBase === '' ? t('wt.baseHead') : newWtBase}
-                        </span>
-                        <IconChevronDownOutline14 />
-                      </button>
-                    )}
-                  />
-                </>
-              )}
-            </div>
-
-            {/* Location (auto-generated, editable). */}
-            <div>
-              <div className={css.wtSectionLabel}>{t('wt.path')}</div>
-              <input
-                className={cn(css.renameInput, css.wtPathInput)}
-                value={newWtPath}
-                aria-label={t('wt.path')}
-                disabled={newWtPending}
-                onChange={(e) => { setNewWtPath(e.target.value) }}
-                onKeyDown={(e) => { if (e.key === 'Enter') confirmNewWorktree() }}
-              />
-            </div>
-          </div>
-        )}
-        {newWtError !== null && <FieldError className={css.renameError}>{newWtError}</FieldError>}
-      </Modal>
 
       {/* Rename project alias */}
       <Modal
