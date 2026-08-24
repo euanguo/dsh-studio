@@ -233,29 +233,34 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
       worktreeDelegationToolsDisposer = null
     }
   }
-  ctx.inject(['settings', 'llm'], (sctx) => {
-    const sidebarNs: SettingsNamespace = settingsNamespace(SIDEBAR_PREFS_NS)
+  // `settings` and `llm` are top-level injected dependencies. Do not create a
+  // nested `ctx.inject()` and retain that child context in HTTP routes: its
+  // scoped accessor becomes inactive after the callback settles. The gateway
+  // face below must close over the plugin's lifetime-stable `ctx` instead.
+  /** Brand-check a raw namespace once, then unwrap it to the plain string the
+   *  structural settings face consumes (this bundle stays dsh-settings-free). */
+  const namespaceKeyOf = (raw: string): string => settingsNamespace(raw) as unknown as string
+  {
     // The left-rail view slice gets its OWN namespace + schema (see
     // docs/persistence-architecture.md, decision B). Registering it here
     // gives the slice defaults/validation and a dedicated section in the
     // settings document; the client writes it through replace/mutate so
     // deletions (icon reset, alias clear, group unassign) actually persist.
-    const leftRailNs: SettingsNamespace = settingsNamespace(LEFT_RAIL_SETTINGS_NS)
     // The structural settings mirror types `schema` as unknown, so the
     // generic is not inferred here; the real service resolves it from the
     // schemastery schema (PrefsSchema / LeftRailSettingsSchema) — narrow the
     // owner scope explicitly.
-    const scope = sctx.settings.register(sidebarNs, PrefsSchema) as {
+    const scope = ctx.settings.register(namespaceKeyOf(SIDEBAR_PREFS_NS), PrefsSchema) as {
       get(): SidebarPrefs
       watch(callback: (next: SidebarPrefs, prev: SidebarPrefs) => void): () => void
     }
-    sctx.settings.register(leftRailNs, LeftRailSettingsSchema)
-    sctx.settings.register(
-      settingsNamespace(SOURCE_CONTROL_AI_SETTINGS_NS),
+    ctx.settings.register(namespaceKeyOf(LEFT_RAIL_SETTINGS_NS), LeftRailSettingsSchema)
+    ctx.settings.register(
+      namespaceKeyOf(SOURCE_CONTROL_AI_SETTINGS_NS),
       SourceControlAiSettingsSchema,
       { applies: 'live' },
     )
-    sourceControlAiGenerator = new SourceControlAiGenerator(sctx.llm)
+    sourceControlAiGenerator = new SourceControlAiGenerator(ctx.llm)
     // Move any slice that historically rode in the sidebar namespace into the
     // dedicated namespace, once, idempotently. Failure is contained: the
     // routes still work (reads fall back to the sidebar view), a retry next
@@ -263,14 +268,14 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     // move so the first load never sees an empty target.
     leftRailMigrationGate = migrateLegacyLeftRailSlice({
       describe: (ns) => {
-        const descriptor = sctx.settings.describe({ redactSecrets: true })
-          .find(candidate => candidate.ns === settingsNamespace(ns))
+        const descriptor = ctx.settings.describe({ redactSecrets: true })
+          .find(candidate => candidate.ns === namespaceKeyOf(ns))
         return descriptor === undefined
           ? {}
           : { user: descriptor.user, revision: descriptor.revision }
       },
-      replace: (ns, section) => sctx.settings.replace(settingsNamespace(ns), section),
-      mutate: (ns, ops) => sctx.settings.mutate(settingsNamespace(ns), ops),
+      replace: (ns, section) => ctx.settings.replace(namespaceKeyOf(ns), section),
+      mutate: (ns, ops) => ctx.settings.mutate(namespaceKeyOf(ns), ops),
     }).then(
       () => undefined,
       (error) => {
@@ -283,21 +288,21 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     // failure is contained and retried next boot.
     void cleanupLegacySidebarPrefs({
       describe: (ns) => {
-        const descriptor = sctx.settings.describe({ redactSecrets: true })
-          .find(candidate => candidate.ns === settingsNamespace(ns))
+        const descriptor = ctx.settings.describe({ redactSecrets: true })
+          .find(candidate => candidate.ns === namespaceKeyOf(ns))
         return descriptor === undefined
           ? {}
           : { user: descriptor.user, revision: descriptor.revision }
       },
-      mutate: (ns, ops) => sctx.settings.mutate(settingsNamespace(ns), ops),
+      mutate: (ns, ops) => ctx.settings.mutate(namespaceKeyOf(ns), ops),
     }).then(
       () => undefined,
       (error) => {
         ctx.logger?.warn?.(`[sidebar] legacy pref cleanup failed: ${error instanceof Error ? error.message : String(error)}`)
       },
     )
-    const viewOf = (target: SettingsNamespace): { value?: unknown; revision?: number } => {
-      const descriptor = sctx.settings.describe({ redactSecrets: true }).find(candidate => candidate.ns === target)
+    const viewOf = (target: string): { value?: unknown; revision?: number } => {
+      const descriptor = ctx.settings.describe({ redactSecrets: true }).find(candidate => candidate.ns === target)
       return descriptor === undefined
         ? {}
         : { value: descriptor.value, revision: descriptor.revision }
@@ -305,22 +310,22 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     settingsFace = {
       get: async (rawNs) => {
         await settingsNamespaceGate(rawNs, () => leftRailMigrationGate)
-        return viewOf(settingsNamespace(rawNs))
+        return viewOf(namespaceKeyOf(rawNs))
       },
       update: async (rawNs, patch, expectedRevision) => {
         await settingsNamespaceGate(rawNs, () => leftRailMigrationGate)
-        await sctx.settings.update(settingsNamespace(rawNs), patch, expectedRevision)
-        return viewOf(settingsNamespace(rawNs))
+        await ctx.settings.update(namespaceKeyOf(rawNs), patch, expectedRevision)
+        return viewOf(namespaceKeyOf(rawNs))
       },
       replace: async (rawNs, section, expectedRevision) => {
         await settingsNamespaceGate(rawNs, () => leftRailMigrationGate)
-        await sctx.settings.replace(settingsNamespace(rawNs), section, expectedRevision)
-        return viewOf(settingsNamespace(rawNs))
+        await ctx.settings.replace(namespaceKeyOf(rawNs), section, expectedRevision)
+        return viewOf(namespaceKeyOf(rawNs))
       },
       mutate: async (rawNs, ops, expectedRevision) => {
         await settingsNamespaceGate(rawNs, () => leftRailMigrationGate)
-        await sctx.settings.mutate(settingsNamespace(rawNs), ops, expectedRevision)
-        return viewOf(settingsNamespace(rawNs))
+        await ctx.settings.mutate(namespaceKeyOf(rawNs), ops, expectedRevision)
+        return viewOf(namespaceKeyOf(rawNs))
       },
     }
     // Register (or unregister) the terminal tools from the current setting,
@@ -334,7 +339,7 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
       settingsShell = next.terminalShell
       syncToolsGate(scope)
     })
-  })
+  }
 
   // ── JSON API ────────────────────────────────────────────────────────────
   const api = buildCapabilitiesRoutes(

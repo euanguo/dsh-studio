@@ -409,7 +409,13 @@ export interface CapabilitiesInvariantsService {
   ): () => void
 }
 
-/** The settings service face (mirror of @deepseek-ai/dsh-settings' SettingsProvider). */
+/**
+ * The settings service face (mirror of @deepseek-ai/dsh-settings'
+ * SettingsProvider). Namespace arguments are plain strings: the branded
+ * SettingsNamespace produced by `settingsNamespace()` is unwrapped at the
+ * call sites, keeping this bundle free of the @deepseek-ai/dsh-settings
+ * dependency.
+ */
 export interface CapabilitiesSettingsService {
   /**
    * Register one namespace schema (the resolved value layers schema defaults,

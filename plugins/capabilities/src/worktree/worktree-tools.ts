@@ -53,7 +53,7 @@ export function registerWorktreeTools(
       repo_cwd: { type: 'string', description: 'Optional visible repository or WorkTree path to filter.' },
     },
     output: {
-      schema: { type: 'array' },
+      schema: { type: 'array', items: { type: 'json' } },
       render: (_args, value) => textRender(JSON.stringify(value)),
     },
     async execute(args: { repo_cwd?: string }, exec) {
@@ -69,7 +69,7 @@ export function registerWorktreeTools(
       repo_cwd: { type: 'string', description: 'Optional visible repository or WorkTree path.' },
     },
     output: {
-      schema: { type: 'object' },
+      schema: { type: 'object', additionalProperties: true },
       render: (_args, value) => textRender(JSON.stringify(value)),
     },
     async execute(args: { repo_cwd?: string }, exec) {
@@ -85,7 +85,7 @@ export function registerWorktreeTools(
       path: { type: 'string', required: true, description: 'Visible WorkTree path.' },
     },
     output: {
-      schema: { type: 'object' },
+      schema: { type: 'object', additionalProperties: true },
       render: (_args, value) => textRender(JSON.stringify(value)),
     },
     async execute(args: { path: string }, exec) {
@@ -105,7 +105,7 @@ export function registerWorktreeTools(
       base: { type: 'string', description: 'Optional commit-ish start point for a new branch.' },
     },
     output: {
-      schema: { type: 'object' },
+      schema: { type: 'object', additionalProperties: true },
       render: (_args, value) => textRender(JSON.stringify(value)),
     },
     async execute(args: { repo_cwd?: string; path?: string; branch: string; create_branch?: boolean; base?: string }, exec) {
@@ -129,7 +129,7 @@ export function registerWorktreeTools(
       force: { type: 'boolean', description: 'Force removal of a dirty or locked WorkTree.' },
     },
     output: {
-      schema: { type: 'object' },
+      schema: { type: 'object', additionalProperties: true },
       render: (_args, value) => textRender(JSON.stringify(value)),
     },
     async execute(args: { repo_cwd: string; path: string; force?: boolean }, exec) {
@@ -174,7 +174,7 @@ export function registerWorktreeDelegationTools(
       prompt: { type: 'string', required: true, description: 'Task for the WorkTree Agent.' },
     },
     output: {
-      schema: { type: 'object' },
+      schema: { type: 'object', additionalProperties: true },
       render: (_args, value) => textRender(JSON.stringify(value)),
     },
     async execute(args: { worktree_path: string; prompt: string }, exec) {
@@ -191,7 +191,7 @@ export function registerWorktreeDelegationTools(
       delegation_id: { type: 'string', description: 'Optional delegation id returned by worktree_delegate.' },
     },
     output: {
-      schema: { type: 'object' },
+      schema: { type: 'object', additionalProperties: true },
       render: (_args, value) => textRender(JSON.stringify(value)),
     },
     execute(args: { delegation_id?: string }, exec) {
@@ -210,7 +210,7 @@ export function registerWorktreeDelegationTools(
       timeout_ms: { type: 'integer', description: 'Maximum wait in milliseconds, capped at five minutes.' },
     },
     output: {
-      schema: { type: 'object' },
+      schema: { type: 'object', additionalProperties: true },
       render: (_args, value) => textRender(JSON.stringify(value)),
     },
     execute(args: { delegation_id: string; timeout_ms?: number }, exec) {
@@ -226,7 +226,7 @@ export function registerWorktreeDelegationTools(
       delegation_id: { type: 'string', required: true, description: 'Delegation id returned by worktree_delegate.' },
     },
     output: {
-      schema: { type: 'object' },
+      schema: { type: 'object', additionalProperties: true },
       render: (_args, value) => textRender(JSON.stringify(value)),
     },
     execute(args: { delegation_id: string }, exec) {
@@ -242,7 +242,7 @@ export function registerWorktreeDelegationTools(
       delegation_id: { type: 'string', required: true, description: 'Delegation id returned by worktree_delegate.' },
     },
     output: {
-      schema: { type: 'object' },
+      schema: { type: 'object', additionalProperties: true },
       render: (_args, value) => textRender(JSON.stringify(value)),
     },
     execute(args: { delegation_id: string }, exec) {

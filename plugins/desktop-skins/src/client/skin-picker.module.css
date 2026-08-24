@@ -1,10 +1,10 @@
-.dsh-studio-skin-settings-row .dsh-studio-ui-settings-row-layout {
+.dsh-studio-skin-settings-row :global(.dsh-studio-ui-settings-row-layout) {
   align-items: stretch;
   flex-direction: column;
   gap: var(--dsh-studio-space-3, 12px);
 }
 
-.dsh-studio-skin-settings-row .dsh-studio-ui-settings-row-control {
+.dsh-studio-skin-settings-row :global(.dsh-studio-ui-settings-row-control) {
   align-self: stretch;
   display: block;
 }
