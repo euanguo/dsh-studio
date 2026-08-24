@@ -25,7 +25,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 function dtoKeys(): string[] {
   const source = readFileSync(
-    join(root, 'plugins', 'shared', 'capabilities-api.ts'),
+    join(root, 'plugins', 'shared', 'contracts', 'capabilities-api.ts'),
     'utf8',
   )
   const body = source.match(/export interface CapabilitiesApiRequests \{([\s\S]*?)\n\}/)?.[1]
