@@ -1,0 +1,119 @@
+/* Pinned summary surface (moved out of the client.ts inline template).
+   All rules use data-* attribute selectors — there are no class names to
+   scope — so this stays a plain stylesheet (text import) instead of a
+   CSS-module file; the engine and JS both address the same data markers. */
+html {
+  --dsh-studio-pinned-summary-width: 288px;
+}
+
+[data-dsh-studio-pinned-summary] {
+  position: fixed;
+  z-index: 9000;
+  top: calc(var(--dsh-studio-titlebar-height, 40px) + 12px);
+  right: 12px;
+  height: calc((100vh - var(--dsh-studio-titlebar-height, 40px) - 24px) / 2);
+  width: var(--dsh-studio-pinned-summary-width);
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 22px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  box-shadow: 0 14px 42px rgb(0 0 0 / 9%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(calc(100% + 24px));
+  visibility: hidden;
+  transition:
+    opacity 140ms var(--ds-ease-in-out, ease),
+    transform 180ms var(--ds-ease-in-out, ease),
+    visibility 0s linear 180ms;
+  -webkit-app-region: no-drag;
+}
+
+[data-dsh-studio-pinned-summary][data-open='true'] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+[data-dsh-studio-summary-header] {
+  display: flex;
+  align-items: center;
+  height: 48px;
+  padding: 0 10px 0 15px;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+  box-sizing: border-box;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+[data-dsh-studio-summary-close] {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  cursor: pointer;
+  font-size: 18px;
+}
+
+[data-dsh-studio-summary-close]:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+[data-dsh-studio-summary-body] {
+  height: calc(100% - 48px);
+  padding: 14px 15px 16px;
+  box-sizing: border-box;
+  overflow: auto;
+}
+
+[data-dsh-studio-summary-title] {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+[data-dsh-studio-summary-meta] {
+  margin: 6px 0 12px;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 11px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+[data-dsh-studio-summary-source] {
+  display: inline-flex;
+  margin-bottom: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-label-secondary);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+[data-dsh-studio-summary-text] {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  [data-dsh-studio-pinned-summary] { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-dsh-studio-pinned-summary] { transition: none; }
+}
