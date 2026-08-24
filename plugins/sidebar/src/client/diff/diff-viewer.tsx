@@ -9,6 +9,7 @@
  * fallback. Line comments render as Pierre annotation rows (lineAnnotations
  * + renderAnnotation) on the new-side lines.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { memo, useMemo, type ReactNode } from 'react'
 import type { AnnotationSide, DiffLineAnnotation } from '@pierre/diffs'
 import type { Translate } from '@dsh-studio/shared/i18n'
@@ -113,15 +114,15 @@ export const DiffViewer = memo(function DiffViewer({
   // are null"), so show a placeholder instead.
   if (!hasContentLines) {
     return (
-      <div className="dsh-studio-diff-viewer" data-testid="diff-viewer" data-layout={layout}>
+      <div className={surfaceCss["dsh-studio-diff-viewer"]} data-testid="diff-viewer" data-layout={layout}>
         {hideMeta ? null : (
-          <div className="dsh-studio-diff-viewer-meta">
+          <div className={surfaceCss["dsh-studio-diff-viewer-meta"]}>
             <span>{summary}</span>
           </div>
         )}
         <EmptyState
           layout="centered"
-          className="dsh-studio-diff-empty"
+          className={surfaceCss["dsh-studio-diff-empty"]}
           title={document.change === 'renamed' ? t('workspace.renamed-only') : t('workspace.no-content-changes')}
         />
       </div>
@@ -129,16 +130,16 @@ export const DiffViewer = memo(function DiffViewer({
   }
 
   const truncatedNotice = document.truncated === true ? (
-    <div className="dsh-studio-diff-truncated">
+    <div className={surfaceCss["dsh-studio-diff-truncated"]}>
       {t('diff.truncated', { lines: document.lines.length })}
     </div>
   ) : null
 
   if (renderedDiff === null) {
     return (
-      <div className="dsh-studio-diff-viewer" data-testid="diff-viewer" data-layout={layout}>
+      <div className={surfaceCss["dsh-studio-diff-viewer"]} data-testid="diff-viewer" data-layout={layout}>
         {hideMeta ? null : (
-          <div className="dsh-studio-diff-viewer-meta">
+          <div className={surfaceCss["dsh-studio-diff-viewer-meta"]}>
             <span>{summary}</span>
           </div>
         )}
@@ -150,13 +151,13 @@ export const DiffViewer = memo(function DiffViewer({
 
   return (
     <div
-      className="dsh-studio-diff-viewer"
+      className={surfaceCss["dsh-studio-diff-viewer"]}
       data-testid="diff-viewer"
       data-layout={layout}
       data-virtualize={virtualize ? 'on' : 'off'}
     >
       {hideMeta ? null : (
-        <div className="dsh-studio-diff-viewer-meta">
+        <div className={surfaceCss["dsh-studio-diff-viewer-meta"]}>
           <span>{summary}</span>
         </div>
       )}
@@ -178,7 +179,7 @@ export function RawDiff({
 }): JSX.Element {
   if (layout === 'split') {
     return (
-      <ol className="dsh-studio-diff-raw-lines dsh-studio-diff-raw-lines-split" data-wrap={wordWrap ? 'on' : 'off'}>
+      <ol className={`${surfaceCss["dsh-studio-diff-raw-lines"]} ${surfaceCss["dsh-studio-diff-raw-lines-split"]}`} data-wrap={wordWrap ? 'on' : 'off'}>
         {document.lines.map((line, index) => {
           const leftText = line.kind === 'added' ? '' : line.displayText
           const rightText = line.kind === 'removed' ? '' : line.displayText
@@ -186,11 +187,11 @@ export function RawDiff({
           const rightLabel = line.newLineLabel
           return (
             <li key={`${document.path}-${index + 1}`} data-line-kind={line.kind}>
-              <div className="dsh-studio-diff-raw-row">
-                <span className="dsh-studio-diff-raw-gutter">{leftLabel}</span>
-                <code className="dsh-studio-diff-raw-code">{leftText}</code>
-                <span className="dsh-studio-diff-raw-gutter">{rightLabel}</span>
-                <code className="dsh-studio-diff-raw-code">{rightText}</code>
+              <div className={surfaceCss["dsh-studio-diff-raw-row"]}>
+                <span className={surfaceCss["dsh-studio-diff-raw-gutter"]}>{leftLabel}</span>
+                <code className={surfaceCss["dsh-studio-diff-raw-code"]}>{leftText}</code>
+                <span className={surfaceCss["dsh-studio-diff-raw-gutter"]}>{rightLabel}</span>
+                <code className={surfaceCss["dsh-studio-diff-raw-code"]}>{rightText}</code>
               </div>
             </li>
           )
@@ -199,18 +200,18 @@ export function RawDiff({
     )
   }
   return (
-    <ol className="dsh-studio-diff-raw-lines" data-wrap={wordWrap ? 'on' : 'off'}>
+    <ol className={surfaceCss["dsh-studio-diff-raw-lines"]} data-wrap={wordWrap ? 'on' : 'off'}>
       {document.lines.map((line, index) => {
         const row = (
           <>
-            <span className="dsh-studio-diff-raw-gutter">{line.oldLineLabel}</span>
-            <span className="dsh-studio-diff-raw-gutter">{line.newLineLabel}</span>
+            <span className={surfaceCss["dsh-studio-diff-raw-gutter"]}>{line.oldLineLabel}</span>
+            <span className={surfaceCss["dsh-studio-diff-raw-gutter"]}>{line.newLineLabel}</span>
             <code>{line.displayText}</code>
           </>
         )
         return (
           <li key={`${document.path}-${index + 1}`}>
-            <div className="dsh-studio-diff-raw-row" data-line-kind={line.kind}>{row}</div>
+            <div className={surfaceCss["dsh-studio-diff-raw-row"]} data-line-kind={line.kind}>{row}</div>
           </li>
         )
       })}

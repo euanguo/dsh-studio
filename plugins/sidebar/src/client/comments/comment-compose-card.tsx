@@ -12,6 +12,7 @@
  *    existing comment), Cancel.
  * Keys: Enter commits, Shift+Enter inserts a newline, Esc dismisses.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useState } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
@@ -56,16 +57,16 @@ export function CommentComposeCard({
 
   return (
     <div
-      className="dsh-studio-comment-compose"
+      className={surfaceCss["dsh-studio-comment-compose"]}
       role="dialog"
       aria-label={lineLabel}
       data-viewport-safe="true"
       onMouseDown={event => event.stopPropagation()}
       onPointerDown={event => event.stopPropagation()}
     >
-      <div className="dsh-studio-comment-compose-head">{lineLabel}</div>
+      <div className={surfaceCss["dsh-studio-comment-compose-head"]}>{lineLabel}</div>
       <textarea
-        className="dsh-studio-comment-compose-input"
+        className={surfaceCss["dsh-studio-comment-compose-input"]}
         placeholder={placeholder}
         value={body}
         autoFocus
@@ -82,18 +83,18 @@ export function CommentComposeCard({
           }
         }}
       />
-      <div className="dsh-studio-comment-compose-actions">
+      <div className={surfaceCss["dsh-studio-comment-compose-actions"]}>
         {canDelete && onDelete !== undefined ? (
           <Button
             variant="ghost"
             size="sm"
-            className="dsh-studio-comment-compose-delete"
+            className={`dsh-studio-comment-compose-delete`}
             onClick={onDelete}
           >
             {t('comments.delete')}
           </Button>
         ) : null}
-        <div className="dsh-studio-comment-compose-spacer" />
+        <div className={surfaceCss["dsh-studio-comment-compose-spacer"]} />
         {onReference !== undefined ? (
           <Button variant="outline" size="sm" onClick={() => { onReference(body) }}>
             {t('comments.reference')}

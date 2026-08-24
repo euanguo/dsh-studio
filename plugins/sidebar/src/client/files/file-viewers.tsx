@@ -3,6 +3,7 @@
  * Text and markdown render through the unified ContentViewer (Pierre
  * family) — no separate plain-text renderer. Extracted from plugin.tsx.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
@@ -27,7 +28,7 @@ export function BinaryFileViewer({
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   return (
-    <ScrollArea className="dsh-studio-file-preview" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+    <ScrollArea className={surfaceCss["dsh-studio-file-preview"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
       <SurfaceToolbar
         leading={<strong title={path}>{title}</strong>}
         actions={(
@@ -71,7 +72,7 @@ export function HtmlFileViewer({
     override,
   )
   return (
-    <ScrollArea className="dsh-studio-file-preview dsh-studio-html-preview" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+    <ScrollArea className={`${surfaceCss["dsh-studio-file-preview"]} ${surfaceCss["dsh-studio-html-preview"]}`} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
       <SurfaceToolbar
         leading={<strong title={path}>{title}</strong>}
         actions={(
@@ -86,7 +87,7 @@ export function HtmlFileViewer({
         )}
       />
       {unsandboxed && (
-        <Alert variant="destructive" className="dsh-studio-html-warning">
+        <Alert variant="destructive" className={surfaceCss["dsh-studio-html-warning"]}>
           <AlertDescription>{t('files.viewer.html-unsandboxed-warning')}</AlertDescription>
         </Alert>
       )}

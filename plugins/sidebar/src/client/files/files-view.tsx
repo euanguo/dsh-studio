@@ -4,6 +4,7 @@
  * `FileView` is the single-file viewer host that matches a registered
  * viewer. Extracted verbatim from SideToolsPanel.tsx — behavior unchanged.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import {
   useCallback,
   useEffect,
@@ -100,17 +101,17 @@ function InlineCreateRow({ kind, depth, placeholder, onCommit, onCancel }: {
     void onCommit(value)
   }
   return (
-    <ListRow className="dsh-studio-files-inline-create" data-kind={kind}>
+    <ListRow className={`dsh-studio-files-inline-create`} data-kind={kind}>
       <ListRowLeading aria-hidden="true">
         {kind === 'directory' ? <IconFolderPlus size={14} /> : <IconFilePlus size={14} />}
       </ListRowLeading>
       <div
-        className="dsh-studio-files-inline-main"
+        className={surfaceCss["dsh-studio-files-inline-main"]}
         style={{ '--tree-depth': depth } as CSSProperties}
       >
         <Input
           autoFocus
-          className="dsh-studio-files-inline-input"
+          className={surfaceCss["dsh-studio-files-inline-input"]}
           placeholder={placeholder}
           aria-label={placeholder}
           value={value}
@@ -555,12 +556,12 @@ export function FilesView({
   })
 
   if (cwd === undefined) {
-    return <EmptyState className="dsh-studio-side-empty" title={t('files.select-workspace')} />
+    return <EmptyState className={surfaceCss["dsh-studio-side-empty"]} title={t('files.select-workspace')} />
   }
   return (
-    <div className="dsh-studio-files-view">
-      <div className="dsh-studio-files-path" title={cwd}>
-        <span className="dsh-studio-files-path-name">{basename(cwd)}</span>
+    <div className={surfaceCss["dsh-studio-files-view"]}>
+      <div className={surfaceCss["dsh-studio-files-path"]} title={cwd}>
+        <span className={surfaceCss["dsh-studio-files-path-name"]}>{basename(cwd)}</span>
         <ToolbarAction
           ref={createButtonRef}
           variant="ghost"
@@ -592,7 +593,7 @@ export function FilesView({
         onSelect={handleCreateMenuSelect}
         onClose={() => { setCreateMenuOpen(false) }}
       />
-      <div className="dsh-studio-files-search">
+      <div className={surfaceCss["dsh-studio-files-search"]}>
         <input
           type="search"
           placeholder={t('files.search-placeholder')}
@@ -604,7 +605,7 @@ export function FilesView({
         />
       </div>
       {searchHits !== null ? (
-        <ScrollArea className="dsh-studio-file-search-results" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+        <ScrollArea className={`dsh-studio-file-search-results`} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
           {searching ? <LoadingState label={t('files.loading')} /> : null}
           {!searching && searchHits.length === 0 ? (
             <EmptyState title={t('files.search-no-matches')} />
@@ -613,7 +614,7 @@ export function FilesView({
             <button
               key={`${hit.path}:${hit.line}`}
               type="button"
-              className="dsh-studio-file-search-hit"
+              className={surfaceCss["dsh-studio-file-search-hit"]}
               onClick={() => {
                 const cwd2 = cwd
                 if (cwd2 === undefined) return
@@ -626,15 +627,15 @@ export function FilesView({
                 })
               }}
             >
-              <span className="dsh-studio-file-search-hit-path">{hit.path}:{hit.line}</span>
-              <span className="dsh-studio-file-search-hit-text">{hit.text}</span>
+              <span className={surfaceCss["dsh-studio-file-search-hit-path"]}>{hit.path}:{hit.line}</span>
+              <span className={surfaceCss["dsh-studio-file-search-hit-text"]}>{hit.text}</span>
             </button>
           ))}
         </ScrollArea>
       ) : null}
       {loading && !entriesByDir.has(cwd) && <LoadingState label={t('files.loading')} />}
       {error !== '' && <ErrorState message={error} />}
-      <ScrollArea className="dsh-studio-file-list" viewportClassName="dsh-studio-ui-scroll-viewport-inset" onContextMenu={openBackgroundMenu}>
+      <ScrollArea className={surfaceCss["dsh-studio-file-list"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset" onContextMenu={openBackgroundMenu}>
         {displayItems.map(item => (
           item.kind === 'inline' ? (
             <InlineCreateRow
@@ -654,7 +655,7 @@ export function FilesView({
               onContextMenu={event => { openRowMenu(event, item.row) }}
             >
               <ListRowMain
-                className="dsh-studio-files-depth-main"
+                className={surfaceCss["dsh-studio-files-depth-main"]}
                 style={{ '--tree-depth': item.row.depth } as CSSProperties}
                 aria-expanded={item.row.kind === 'directory' ? item.row.expanded : undefined}
                 onClick={() => {
@@ -687,7 +688,7 @@ export function FilesView({
               </ListRowMain>
               {item.row.kind !== 'directory' && (
                 <ListRowTrailing>
-                  <span className="dsh-studio-files-size">{formatSize(item.row.size)}</span>
+                  <span className={surfaceCss["dsh-studio-files-size"]}>{formatSize(item.row.size)}</span>
                 </ListRowTrailing>
               )}
               <ListRowActions>
@@ -763,7 +764,7 @@ export function FileView({
   }, [cwd, path, scope])
 
   if (cwd === undefined || path === undefined) {
-    return <EmptyState className="dsh-studio-side-empty" title={t('files.select-workspace')} />
+    return <EmptyState className={surfaceCss["dsh-studio-side-empty"]} title={t('files.select-workspace')} />
   }
   if (error !== '') return <ErrorState message={error} />
   if (snapshot === null) return <LoadingState label={t('files.loading')} />
@@ -785,7 +786,7 @@ export function FileView({
     })}</>
   }
   return (
-    <ScrollArea className="dsh-studio-file-preview" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+    <ScrollArea className={surfaceCss["dsh-studio-file-preview"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
       <div>
         <strong>{tab.title}</strong>
         <button type="button" onClick={() => { void onOpenPath(path) }}>

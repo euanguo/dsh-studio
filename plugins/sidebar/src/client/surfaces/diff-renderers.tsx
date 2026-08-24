@@ -4,6 +4,7 @@
  * diff runtime; tree selection / collapsed directories are chrome (shared
  * with the source-control panel).
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -198,7 +199,7 @@ export function DiffSurfaceView({
   }
   if (diff.includes('Binary files ') && diff.includes(' differ')) {
     return (
-      <div className="dsh-studio-diff-surface">
+      <div className={surfaceCss["dsh-studio-diff-surface"]}>
         <DiffToolbar t={t} />
         {imageDiff !== null ? (
           <ScrollArea className="dsh-studio-diff-surface-body">
@@ -217,17 +218,17 @@ export function DiffSurfaceView({
   }
   if (document.lines.length > DIFF_MAX_RENDER_LINES || diff.length > DIFF_MAX_RENDER_CHARS) {
     return (
-      <div className="dsh-studio-diff-surface">
+      <div className={surfaceCss["dsh-studio-diff-surface"]}>
         <DiffToolbar t={t} />
         <EmptyState title={t('diff.too-large', { lines: document.lines.length })} />
       </div>
     )
   }
   return (
-    <div className="dsh-studio-diff-surface">
+    <div className={surfaceCss["dsh-studio-diff-surface"]}>
       <DiffToolbar
         leading={(
-          <span className="dsh-studio-diff-toolbar-title">
+          <span className={surfaceCss["dsh-studio-diff-toolbar-title"]}>
             <span title={surface.filePath}>{surface.filePath}</span>
             <small>{surface.staged ? t('source-control.section.staged') : t('source-control.section.unstaged')}</small>
           </span>
@@ -253,7 +254,7 @@ export function DiffSurfaceView({
           renderGutterUtility={rails.gutterUtility}
         />
       </ScrollArea>
-      <div className="dsh-studio-diff-context-bar">
+      <div className={surfaceCss["dsh-studio-diff-context-bar"]}>
         <Button
           variant="outline"
           size="sm"
@@ -436,10 +437,10 @@ export function DiffAllSurfaceView({
     return <ErrorState message={t('workspace.no-text-diff')} />
   }
   return (
-    <div className="dsh-studio-diff-all-surface">
+    <div className={surfaceCss["dsh-studio-diff-all-surface"]}>
       <DiffToolbar
         leading={(
-          <span className="dsh-studio-diff-toolbar-title">
+          <span className={surfaceCss["dsh-studio-diff-toolbar-title"]}>
             {surface.title}
             <small>{files.length} files</small>
           </span>
@@ -448,7 +449,7 @@ export function DiffAllSurfaceView({
         onPrevChange={() => { navigateChange(-1) }}
         onNextChange={() => { navigateChange(1) }}
       />
-      <div className="dsh-studio-diff-all-body">
+      <div className={surfaceCss["dsh-studio-diff-all-body"]}>
         <DiffPathTreeNav
           rows={rows}
           onToggleDirectory={key => {
@@ -463,7 +464,7 @@ export function DiffAllSurfaceView({
             })
           }}
         />
-        <ScrollArea className="dsh-studio-diff-all-stack" ref={listRef}>
+        <ScrollArea className={surfaceCss["dsh-studio-diff-all-stack"]} ref={listRef}>
           <MultiDiffFileStack
             files={files}
             renderedKeys={renderedKeys}

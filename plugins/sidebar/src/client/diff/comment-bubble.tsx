@@ -9,6 +9,7 @@
  * presentational. Actions use the official `ToolbarAction` (project chrome:
  * ghost icon-only seat, tooltip + accessible name, skin-rounded corners).
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import type { WorkbenchComment } from './diff-comments-store.ts'
 import { ToolbarAction } from '@dsh-studio/shared/ui'
 import { IconCheck, IconTrash } from '@dsh-studio/shared/tabler-icons'
@@ -34,16 +35,16 @@ export function CommentBubble({
       data-resolved={resolved || undefined}
       title={comment.body}
     >
-      <span className="dsh-studio-line-comment-body">{comment.body}</span>
+      <span className={surfaceCss["dsh-studio-line-comment-body"]}>{comment.body}</span>
       {(onResolve !== undefined || onRemove !== undefined) ? (
-        <span className="dsh-studio-line-comment-actions" role="group" aria-label="Comment actions">
+        <span className={surfaceCss["dsh-studio-line-comment-actions"]} role="group" aria-label="Comment actions">
           {onResolve !== undefined && !resolved ? (
             <ToolbarAction
               variant="ghost"
               icon={<IconCheck aria-hidden="true" />}
               label="Resolve"
               tooltipSide="top"
-              className="dsh-studio-line-comment-action"
+              className={surfaceCss["dsh-studio-line-comment-action"]}
               onClick={event => { event.stopPropagation(); onResolve(comment.id) }}
             />
           ) : null}
@@ -53,7 +54,7 @@ export function CommentBubble({
               icon={<IconCheck aria-hidden="true" />}
               label="Reopen"
               tooltipSide="top"
-              className="dsh-studio-line-comment-action"
+              className={surfaceCss["dsh-studio-line-comment-action"]}
               onClick={event => { event.stopPropagation(); onUnresolve(comment.id) }}
             />
           ) : null}
@@ -63,7 +64,7 @@ export function CommentBubble({
               icon={<IconTrash aria-hidden="true" />}
               label="Delete"
               tooltipSide="top"
-              className="dsh-studio-line-comment-action dsh-studio-line-comment-action-danger"
+              className={`${surfaceCss["dsh-studio-line-comment-action"]} ${surfaceCss["dsh-studio-line-comment-action-danger"]}`}
               onClick={event => { event.stopPropagation(); onRemove(comment.id) }}
             />
           ) : null}

@@ -7,6 +7,7 @@
  * band it swaps its rendered diff for a same-height placeholder (holding
  * the outer scroll position) and re-mounts when the user scrolls back.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -52,7 +53,7 @@ export function MultiDiffFileStack({
   sessions?: SessionsService
 }): JSX.Element {
   return (
-    <div className="dsh-studio-multi-diff-list" data-testid="multi-diff-list">
+    <div className={surfaceCss["dsh-studio-multi-diff-list"]} data-testid="multi-diff-list">
       {files.map(file => {
         const mounted = renderedKeys.has(file.path)
         if (mounted) {
@@ -199,13 +200,13 @@ function MultiDiffFileBlock({
       data-doc-key={`${file.additions}:${file.deletions}:${file.lines.length}`}
     >
       {releasedHeight === null ? (
-        <div className="dsh-studio-multi-diff-mounted">
-          <div className="dsh-studio-multi-diff-file-header">
+        <div className={`dsh-studio-multi-diff-mounted`}>
+          <div className={surfaceCss["dsh-studio-multi-diff-file-header"]}>
             <span title={file.path}>{file.path}</span>
             <small>
               <b>+{file.additions}</b> −{file.deletions}
             </small>
-            <span className="dsh-studio-multi-diff-actions">
+            <span className={surfaceCss["dsh-studio-multi-diff-actions"]}>
               {onExpandContext !== undefined ? (
                 <Button
                   variant="ghost"
@@ -226,7 +227,7 @@ function MultiDiffFileBlock({
               ) : null}
             </span>
           </div>
-          <div className="dsh-studio-multi-diff-lines">
+          <div className={`dsh-studio-multi-diff-lines`}>
             {/*
               Pierre rendering with natural per-file sizing: the outer list
               scrolls the whole stack. Previously deadlocked because buildPatch
@@ -257,7 +258,7 @@ function MultiDiffFileBlock({
         </div>
       ) : (
         <div
-          className="dsh-studio-multi-diff-released"
+          className={`dsh-studio-multi-diff-released`}
           style={{ height: releasedHeight }}
           aria-hidden="true"
         />
@@ -299,15 +300,15 @@ function MultiDiffPlaceholder({
     <button
       type="button"
       ref={rowRef}
-      className="dsh-studio-multi-diff-placeholder"
+      className={surfaceCss["dsh-studio-multi-diff-placeholder"]}
       data-testid="multi-diff-file-placeholder"
       data-path={path}
       onClick={() => { onRequestRender(path) }}
       onFocus={() => { onRequestRender(path) }}
       onMouseEnter={() => { onRequestRender(path) }}
     >
-      <span className="dsh-studio-multi-diff-placeholder-name">{path}</span>
-      <span className="dsh-studio-multi-diff-placeholder-stats">
+      <span className={surfaceCss["dsh-studio-multi-diff-placeholder-name"]}>{path}</span>
+      <span className={surfaceCss["dsh-studio-multi-diff-placeholder-stats"]}>
         {file.additions > 0 ? <b>+{file.additions}</b> : null}
         {file.deletions > 0 ? <b>−{file.deletions}</b> : null}
       </span>

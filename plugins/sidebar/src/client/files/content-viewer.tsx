@@ -9,6 +9,7 @@
  * caps), image loading/error/zoom states, PDF toolbar, sticky CSV header,
  * differentiated binary states, and truncated propagation for write-gating.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -195,7 +196,7 @@ export function ContentViewer({
 
   if (kind === 'html' && content !== null) {
     return (
-      <div className="dsh-studio-content-html">
+      <div className={`dsh-studio-content-html`}>
         <iframe title={name} sandbox="" srcDoc={content} />
       </div>
     )
@@ -206,7 +207,7 @@ export function ContentViewer({
     return (
       <EmptyState
         layout="centered"
-        className="dsh-studio-content-empty"
+        className={`dsh-studio-content-empty`}
         title={name}
         description={isEmpty ? t('files.empty-file') : t('files.viewer.binary')}
         indicator={<IconFileText size={20} />}
@@ -221,7 +222,7 @@ export function ContentViewer({
     return (
       <EmptyState
         layout="centered"
-        className="dsh-studio-content-empty"
+        className={`dsh-studio-content-empty`}
         title={name}
         description={t('overlay.no-content')}
         indicator={<IconFileText size={20} />}
@@ -233,7 +234,7 @@ export function ContentViewer({
     return (
       <EmptyState
         layout="centered"
-        className="dsh-studio-content-empty"
+        className={`dsh-studio-content-empty`}
         title={name}
         description={t('files.empty-file')}
         indicator={<IconFileText size={20} />}
@@ -243,7 +244,7 @@ export function ContentViewer({
 
   if (kind === 'ipynb') {
     return (
-      <div className="dsh-studio-content-root">
+      <div className={surfaceCss["dsh-studio-content-root"]}>
         <IpynbViewer content={content} />
       </div>
     )
@@ -251,7 +252,7 @@ export function ContentViewer({
 
   if (kind === 'mermaid') {
     return (
-      <div className="dsh-studio-content-root">
+      <div className={surfaceCss["dsh-studio-content-root"]}>
         <MermaidViewer content={content} t={t} />
       </div>
     )
@@ -273,9 +274,9 @@ export function ContentViewer({
     }
     const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
     return (
-      <div ref={textRootRef} className="dsh-studio-content-root dsh-studio-content-root-fill">
+      <div ref={textRootRef} className={`${surfaceCss["dsh-studio-content-root"]} ${surfaceCss["dsh-studio-content-root-fill"]}`}>
         {!hideMeta && (
-          <div className="dsh-studio-content-meta">
+          <div className={surfaceCss["dsh-studio-content-meta"]}>
             <span>{name}</span>
             <span>{`markdown · ${lineCount} lines`}</span>
             {truncated ? <span>{t('files.preview-truncated')}</span> : null}
@@ -297,9 +298,9 @@ export function ContentViewer({
 
   if (kind === 'csv') {
     return (
-      <div className="dsh-studio-content-root">
+      <div className={surfaceCss["dsh-studio-content-root"]}>
         {!hideMeta && (
-          <div className="dsh-studio-content-meta">
+          <div className={surfaceCss["dsh-studio-content-meta"]}>
             <span>{csvTable.delimiter === '\t' ? 'tsv' : 'csv'}</span>
             <span>{`${Math.max(csvTable.rows.length - 1, 0)} rows`}</span>
             {size === undefined ? '' : formatBytes(size)}
@@ -318,9 +319,9 @@ export function ContentViewer({
   const language = languageForPath(path)
   const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
   return (
-    <div ref={textRootRef} className="dsh-studio-content-root dsh-studio-content-root-fill">
+    <div ref={textRootRef} className={`${surfaceCss["dsh-studio-content-root"]} ${surfaceCss["dsh-studio-content-root-fill"]}`}>
       {!hideMeta && (
-        <div className="dsh-studio-content-meta">
+        <div className={surfaceCss["dsh-studio-content-meta"]}>
           <span>{name}</span>
           <span>{isPlainLanguage(language) ? `${lineCount} lines` : `${language} · ${lineCount} lines`}</span>
           {truncated ? <span>{t('files.preview-truncated')}</span> : null}
@@ -354,8 +355,8 @@ function CsvVirtualTable({ rows }: { rows: string[][] }): JSX.Element {
   const topSpacer = items[0]?.start ?? 0
   const bottomSpacer = Math.max(0, virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0))
   return (
-    <ScrollArea axis="both" className="dsh-studio-content-table-wrap" viewportClassName="dsh-studio-ui-scroll-viewport-inset" ref={parentRef}>
-      <table className="dsh-studio-content-table dsh-studio-content-table-virtual">
+    <ScrollArea axis="both" className={surfaceCss["dsh-studio-content-table-wrap"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset" ref={parentRef}>
+      <table className={`${surfaceCss["dsh-studio-content-table"]} dsh-studio-content-table-virtual`}>
         {header.length > 0 ? (
           <thead>
             <tr>
@@ -403,10 +404,10 @@ function ImageViewer({
   }, [path, data])
 
   return (
-    <div className="dsh-studio-content-media" data-status={status}>
+    <div className={surfaceCss["dsh-studio-content-media"]} data-status={status}>
       {status === 'error' ? (
         <ErrorState
-          className="dsh-studio-content-empty"
+          className={`dsh-studio-content-empty`}
           message={t('files.image-load-failed')}
           indicator={<IconFileText size={20} />}
           action={onOpenExternal === undefined ? undefined : (
@@ -416,7 +417,7 @@ function ImageViewer({
       ) : (
         <>
           <SurfaceToolbar
-            meta={<span className="dsh-studio-image-zoom">{`${Math.round(zoom * 100)}%`}</span>}
+            meta={<span className={surfaceCss["dsh-studio-image-zoom"]}>{`${Math.round(zoom * 100)}%`}</span>}
             actions={(
               <>
                 <ToolbarAction
@@ -440,8 +441,8 @@ function ImageViewer({
               </>
             )}
           />
-          <ScrollArea axis="both" className="dsh-studio-content-media-stage" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
-            {status === 'loading' ? <LoadingState className="dsh-studio-side-muted" label={t('files.image-loading')} /> : null}
+          <ScrollArea axis="both" className={surfaceCss["dsh-studio-content-media-stage"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+            {status === 'loading' ? <LoadingState className={surfaceCss["dsh-studio-side-muted"]} label={t('files.image-loading')} /> : null}
             <img
               src={`data:${mime};base64,${data}`}
               alt={name}
@@ -469,10 +470,10 @@ function PdfViewer({
 }): JSX.Element {
   const name = basename(path)
   return (
-    <div className="dsh-studio-content-media">
+    <div className={surfaceCss["dsh-studio-content-media"]}>
       <SurfaceToolbar
-        className="dsh-studio-pdf-toolbar"
-        leading={<span className="dsh-studio-pdf-title" title={path}>{name}</span>}
+        className={surfaceCss["dsh-studio-pdf-toolbar"]}
+        leading={<span className={surfaceCss["dsh-studio-pdf-title"]} title={path}>{name}</span>}
         actions={onOpenExternal === undefined
           ? undefined
           : (

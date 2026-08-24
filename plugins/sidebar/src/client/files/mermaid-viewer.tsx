@@ -3,6 +3,7 @@
  * renders the SVG into a container, and falls back to the raw source on
  * parse/load errors.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useEffect, useRef, useState } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -40,14 +41,14 @@ export function MermaidViewer({
   }, [content])
 
   return (
-    <ScrollArea axis="both" className="dsh-studio-mermaid-viewer" viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="mermaid-viewer">
+    <ScrollArea axis="both" className={`dsh-studio-mermaid-viewer`} viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="mermaid-viewer">
       {loading ? <LoadingState label={t('files.rendering-diagram')} /> : null}
       {error !== '' ? (
-        <pre className="dsh-studio-mermaid-source">
+        <pre className={surfaceCss["dsh-studio-mermaid-source"]}>
           <code>{content}</code>
         </pre>
       ) : (
-        <div ref={hostRef} className="dsh-studio-mermaid-svg" />
+        <div ref={hostRef} className={surfaceCss["dsh-studio-mermaid-svg"]} />
       )}
     </ScrollArea>
   )

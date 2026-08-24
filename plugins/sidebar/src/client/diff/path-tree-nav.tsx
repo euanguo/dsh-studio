@@ -6,6 +6,7 @@
  * block. The row list is virtualized (uniform 28px rows) so deep trees
  * never render every row.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
 import { useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -88,7 +89,7 @@ export function DiffPathTreeNav({
   return (
     <ScrollArea ref={containerRef} className="dsh-studio-diff-tree" viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="diff-path-tree">
       <div
-        className="dsh-studio-diff-tree-inner"
+        className={`dsh-studio-diff-tree-inner`}
         style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
       >
         {virtualizer.getVirtualItems().map(item => {
@@ -104,9 +105,9 @@ export function DiffPathTreeNav({
           } as CSSProperties
           if (row.kind === 'directory') {
             return (
-              <div key={row.key} className="dsh-studio-diff-tree-slot" style={style}>
+              <div key={row.key} className={surfaceCss["dsh-studio-diff-tree-slot"]} style={style}>
                 <ListRow
-                  className="dsh-studio-diff-tree-row is-directory"
+                  className={`${surfaceCss["dsh-studio-diff-tree-row"]} is-directory`}
                   data-path={row.path}
                   title={row.path}
                 >
@@ -128,9 +129,9 @@ export function DiffPathTreeNav({
             )
           }
           return (
-            <div key={row.key} className="dsh-studio-diff-tree-slot" style={style}>
+            <div key={row.key} className={surfaceCss["dsh-studio-diff-tree-slot"]} style={style}>
               <ListRow
-                className="dsh-studio-diff-tree-row is-file"
+                className={`${surfaceCss["dsh-studio-diff-tree-row"]} is-file`}
                 data-path={row.path}
                 title={row.path}
                 selected={row.selected === true}

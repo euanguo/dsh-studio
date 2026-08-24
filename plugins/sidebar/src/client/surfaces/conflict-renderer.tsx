@@ -4,6 +4,7 @@
  * writes through the sidebar API, stages the file and swaps the tab to the
  * plain file view.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
@@ -123,10 +124,10 @@ export function ConflictSurfaceView({
   }
   if (content === null) return <LoadingState label={t('overlay.loading')} />
   return (
-    <div className="dsh-studio-conflict-surface" data-testid="conflict-surface">
+    <div className={surfaceCss["dsh-studio-conflict-surface"]} data-testid="conflict-surface">
       <SurfaceToolbar
-        className="dsh-studio-conflict-header"
-        leading={<span className="dsh-studio-conflict-title" title={surface.filePath}>{name}</span>}
+        className={surfaceCss["dsh-studio-conflict-header"]}
+        leading={<span className={surfaceCss["dsh-studio-conflict-title"]} title={surface.filePath}>{name}</span>}
         meta={<small>Merge conflict</small>}
         actions={(
           <Button variant="primary" size="sm" disabled={busy}>
@@ -134,10 +135,10 @@ export function ConflictSurfaceView({
           </Button>
         )}
       />
-      <div className="dsh-studio-conflict-hint">Choose a resolution below for each conflicted region.</div>
-      <div ref={hostRef} className="dsh-studio-conflict-host-wrap">
+      <div className={surfaceCss["dsh-studio-conflict-hint"]}>Choose a resolution below for each conflicted region.</div>
+      <div ref={hostRef} className={`dsh-studio-conflict-host-wrap`}>
       {selectionAction.overlay}
-      <Virtualizer className="dsh-studio-conflict-host">
+      <Virtualizer className={surfaceCss["dsh-studio-conflict-host"]}>
         <UnresolvedFile
           file={file}
           options={{ disableFileHeader: true, theme }}
@@ -159,7 +160,7 @@ export function ConflictSurfaceView({
               void onResolved({ name, contents: resolvedContents, cacheKey: `conflict:${surface.filePath}` })
             }
             return (
-              <div className="dsh-studio-conflict-actions">
+              <div className={`dsh-studio-conflict-actions`}>
                 <Button variant="outline" size="sm" disabled={busy} onClick={() => { resolve('current') }}>
                   {t('conflict.accept-current')}
                 </Button>

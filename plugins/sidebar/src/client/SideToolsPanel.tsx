@@ -1,3 +1,4 @@
+import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 import {
   useEffect,
   useMemo,
@@ -148,7 +149,7 @@ function ToolRow(props: {
 }): JSX.Element {
   return (
     <button
-      className="dsh-studio-side-tool-row"
+      className={surfaceCss["dsh-studio-side-tool-row"]}
       type="button"
       disabled={props.disabled}
       title={props.disabledTitle}
@@ -198,7 +199,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
     descriptor.hidden !== true && props.sidebar.isTabEnabled(descriptor.id),
   )
   return (
-    <ScrollArea className="dsh-studio-side-menu" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+    <ScrollArea className={surfaceCss["dsh-studio-side-menu"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
       {descriptors.map(descriptor => {
         const availability = tabAvailability(descriptor, scope, snapshot, props.sidebar.isTabEnabled(descriptor.id))
         const unavailableArea = unavailableTitle(availability, props.t)
@@ -215,7 +216,7 @@ function SideMenu(props: SideToolsPanelProps): JSX.Element {
       {error !== '' && <ErrorState message={error} />}
       <ToolbarAction
         variant="ghost"
-        className="dsh-studio-side-menu-close"
+        className={surfaceCss["dsh-studio-side-menu-close"]}
         icon={<IconClose size={16} />}
         label={props.t('side.close')}
         onClick={props.onClose}
@@ -229,10 +230,10 @@ function OrphanedTab({ tab, t }: {
 }): JSX.Element {
   return (
     <EmptyState
-      className="dsh-studio-side-empty"
+      className={surfaceCss["dsh-studio-side-empty"]}
       title={tab.title}
       description={t('side.orphaned-tab')}
-      action={<code className="dsh-studio-orphaned-type">{tab.type}</code>}
+      action={<code className={`dsh-studio-orphaned-type`}>{tab.type}</code>}
     />
   )
 }
@@ -250,7 +251,7 @@ function tabBadge(
     const label = typeof value === 'number'
       ? (value > 99 ? '99+' : String(value))
       : String(value)
-    return <span className="dsh-studio-surface-tab-badge" aria-hidden="true">{label}</span>
+    return <span className={`dsh-studio-surface-tab-badge`} aria-hidden="true">{label}</span>
   } catch (error) {
     console.error('[sidebar] badge error:', error)
     return null
@@ -295,7 +296,7 @@ function PinnedTabs({ sidebar, t, cwd }: {
   const filesHint = unavailableTitle(filesAvailability, t)
   const reviewHint = unavailableTitle(reviewAvailability, t)
   return (
-    <div className="dsh-studio-side-pinned" role="tablist">
+    <div className={surfaceCss["dsh-studio-side-pinned"]} role="tablist">
       <SurfaceTab
         label={t('files')}
         icon={<ToolIcon kind="files" />}
@@ -353,11 +354,11 @@ function AddToolsMenu({ sidebar, t }: {
       icon: TOOL_MENU_ICONS[descriptor.id] ?? <IconDots />,
     }))
   return (
-    <div className="dsh-studio-add-tools">
+    <div className={surfaceCss["dsh-studio-add-tools"]}>
       <ToolbarAction
         ref={anchorRef}
         variant="ghost"
-        className="dsh-studio-add-tools-trigger"
+        className={`dsh-studio-add-tools-trigger`}
         icon={<IconPlus size={14} />}
         label={t('side.add-tool')}
         aria-expanded={open}
@@ -424,7 +425,7 @@ function TabStrip({ sidebar, t }: {
   return (
     <div
       ref={stripRef}
-      className="dsh-studio-side-tabs"
+      className={surfaceCss["dsh-studio-side-tabs"]}
       role="tablist"
       {...drag.strip.handlers}
     >
@@ -483,7 +484,7 @@ function PanelActions({
   // `panels.toggleBottomPanel()`) — the bottom terminal dock no longer
   // mounts (see plugins/panel-controls).
   return (
-    <div className="dsh-studio-side-tabs-actions" role="presentation">
+    <div className={surfaceCss["dsh-studio-side-tabs-actions"]} role="presentation">
       <ToolbarAction
         variant="ghost"
         icon={maximized ? <IconRestore size={16} /> : <IconMaximize size={16} />}
@@ -494,7 +495,7 @@ function PanelActions({
       <ToolbarAction
         variant="ghost"
         icon={(
-          <span className="dsh-studio-side-toggle-glyph" aria-hidden="true">
+          <span className={surfaceCss["dsh-studio-side-toggle-glyph"]} aria-hidden="true">
             <IconSidebarRightFilled />
           </span>
         )}
@@ -569,7 +570,7 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
       : descriptor.render(renderProps)
   return (
     <aside
-      className="dsh-studio-workspace-panel dsh-studio-side-panel"
+      className={`dsh-studio-workspace-panel ${surfaceCss["dsh-studio-side-panel"]}`}
       data-open={String(props.open)}
       data-maximized={String(props.maximized)}
       aria-hidden={!props.open}
@@ -578,12 +579,12 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
     >
       {!props.maximized && (
         <div
-          className="dsh-studio-workspace-resize"
+          className={surfaceCss["dsh-studio-workspace-resize"]}
           onPointerDown={beginResize}
           aria-hidden="true"
         />
       )}
-      <div className="dsh-studio-side-top">
+      <div className={surfaceCss["dsh-studio-side-top"]}>
         <PinnedTabs sidebar={props.sidebar} t={props.t} cwd={props.cwd} />
         <TabStrip sidebar={props.sidebar} t={props.t} />
         <AddToolsMenu sidebar={props.sidebar} t={props.t} />

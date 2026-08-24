@@ -8,6 +8,7 @@
  * `pluginSettings` blob, or a fully custom `settings.render` panel. This is
  * the settings seam external plugins declare through the contract.
  */
+import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 import { useMemo, useState, type ReactNode } from 'react'
 import { useSyncExternalStore } from 'react'
 import {
@@ -104,7 +105,7 @@ function InputRow(props: {
       title={props.title}
       {...(props.desc === undefined ? {} : { description: props.desc })}
       control={(
-        <span className="dsh-studio-sidebar-settings-input">
+        <span className={surfaceCss["dsh-studio-sidebar-settings-input"]}>
           <Input
             type={props.type}
             value={draft}
@@ -124,7 +125,7 @@ function InputRow(props: {
               }
             }}
           />
-          {props.unit !== undefined && <span className="dsh-studio-sidebar-settings-unit">{props.unit}</span>}
+          {props.unit !== undefined && <span className={surfaceCss["dsh-studio-sidebar-settings-unit"]}>{props.unit}</span>}
         </span>
       )}
     />
@@ -203,7 +204,7 @@ function FeatureSettingsPopup(props: {
       <>
         {hostToggles.length > 0 && (
           <>
-            <h4 className="dsh-studio-sidebar-settings-popup-heading">
+            <h4 className={surfaceCss["dsh-studio-sidebar-settings-popup-heading"]}>
               {t('settings.feature-settings')}
             </h4>
             {hostToggles.map(toggle => (
@@ -221,7 +222,7 @@ function FeatureSettingsPopup(props: {
         )}
         {pluginToggles.length > 0 && (
           <>
-            <h4 className="dsh-studio-sidebar-settings-popup-heading">
+            <h4 className={surfaceCss["dsh-studio-sidebar-settings-popup-heading"]}>
               {t('settings.plugin-settings')}
             </h4>
             {pluginToggles.map(toggle => (
@@ -238,7 +239,7 @@ function FeatureSettingsPopup(props: {
           </>
         )}
         {hostToggles.length === 0 && pluginToggles.length === 0 && (
-          <p className="dsh-studio-sidebar-settings-popup-empty">{t('settings.no-feature-settings')}</p>
+          <p className={surfaceCss["dsh-studio-sidebar-settings-popup-empty"]}>{t('settings.no-feature-settings')}</p>
         )}
       </>
     )
@@ -251,7 +252,7 @@ function FeatureSettingsPopup(props: {
       title={sidebarLabel(feature.title ?? feature.id)}
       description={feature.id}
       closeLabel={t('settings.done')}
-      className="dsh-studio-sidebar-settings-popup"
+      className={surfaceCss["dsh-studio-sidebar-settings-popup"]}
       contentClassName="dsh-studio-sidebar-settings-popup-content"
       footer={(
         <Button variant="primary" size="sm" onClick={onClose}>
@@ -259,7 +260,7 @@ function FeatureSettingsPopup(props: {
         </Button>
       )}
     >
-      <div className="dsh-studio-sidebar-settings-popup-body">{body}</div>
+      <div className={surfaceCss["dsh-studio-sidebar-settings-popup-body"]}>{body}</div>
     </Modal>
   )
 }
@@ -285,10 +286,10 @@ function FeatureCard(props: {
       title={label}
       {...(description === undefined ? {} : { description })}
       control={(
-        <span className="dsh-studio-sidebar-settings-controls">
+        <span className={surfaceCss["dsh-studio-sidebar-settings-controls"]}>
           {hasSettings && enabled && (
             <ToolbarAction
-              className="dsh-studio-sidebar-feature-gear"
+              className={surfaceCss["dsh-studio-sidebar-feature-gear"]}
               icon={<IconAdjustments size={16} />}
               label={t('settings.feature-settings')}
               onClick={() => { onOpenSettings() }}
@@ -355,7 +356,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
   )
   return (
     <SettingsSection
-      className="dsh-studio-sidebar-settings"
+      className={surfaceCss["dsh-studio-sidebar-settings"]}
       title={props.t('settings.title')}
       description={props.t('settings.description')}
       actions={(
@@ -364,7 +365,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         </Button>
       )}
     >
-      <div className="dsh-studio-sidebar-settings-rows">
+      <div className={surfaceCss["dsh-studio-sidebar-settings-rows"]}>
         <SettingsRow
           title={props.t('settings.open-by-default')}
           description={props.t('settings.open-by-default-description')}
@@ -403,7 +404,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           )}
         />
         <SettingsRow
-          className="dsh-studio-sidebar-settings-size"
+          className={surfaceCss["dsh-studio-sidebar-settings-size"]}
           title={props.t('settings.width')}
           description={props.t('settings.width-value', { width: state.width })}
           control={(
@@ -424,7 +425,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         title={props.t('settings.runtime')}
         description={props.t('settings.runtime-description')}
       >
-        <div className="dsh-studio-sidebar-settings-rows">
+        <div className={surfaceCss["dsh-studio-sidebar-settings-rows"]}>
         <SwitchRow
           title={props.t('settings.agent-terminal-tools')}
           desc={props.t('settings.agent-terminal-tools-description')}
@@ -475,7 +476,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         )}
       </SettingsSection>
       <section>
-        <div className="dsh-studio-sidebar-settings-rows">
+        <div className={surfaceCss["dsh-studio-sidebar-settings-rows"]}>
           <SettingsRow
             title={props.t('source-control-ai.title')}
             description={props.t('source-control-ai.description')}
@@ -495,7 +496,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         title={props.t('settings.tools')}
         description={props.t('settings.tools-description')}
       >
-        <div className="dsh-studio-sidebar-settings-grid">
+        <div className={surfaceCss["dsh-studio-sidebar-settings-grid"]}>
           {tabs.map(descriptor => (
             <FeatureCard
               key={descriptor.id}
@@ -514,7 +515,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         title={props.t('settings.viewers')}
         description={props.t('settings.viewers-description')}
       >
-        <div className="dsh-studio-sidebar-settings-grid">
+        <div className={surfaceCss["dsh-studio-sidebar-settings-grid"]}>
           {viewers.map(descriptor => (
             <FeatureCard
               key={descriptor.id}
@@ -536,7 +537,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         title={props.t('source-control-ai.title')}
         description={props.t('source-control-ai.description')}
         closeLabel={props.t('settings.done')}
-        className="dsh-studio-sidebar-settings-popup"
+        className={surfaceCss["dsh-studio-sidebar-settings-popup"]}
         contentClassName="dsh-studio-sidebar-settings-popup-content"
         footer={(
           <Button variant="primary" size="sm" onClick={() => { setSourceControlAiSettingsOpen(false) }}>
@@ -544,7 +545,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           </Button>
         )}
       >
-        <div className="dsh-studio-sidebar-settings-popup-body">
+        <div className={surfaceCss["dsh-studio-sidebar-settings-popup-body"]}>
           <SourceControlAiSettingsPanel t={props.t} />
         </div>
       </Modal>

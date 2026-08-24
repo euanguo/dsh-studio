@@ -124,7 +124,7 @@ export function ProjectRowItem({ project, onToggle, tabs, onAction, dot, hiddenK
         setMenuOpen(true)
       }}
     >
-      <span className={cn(css.slot, css.folder, project.containsCurrent && css.folderActive)}>
+      <span className={cn(css.slot, project.containsCurrent && css.folderActive)}>
         <ProjectIconGlyph icon={project.icon} size={16} />
       </span>
       <span className={css.projectText}>
@@ -271,7 +271,7 @@ export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAct
         setMenuOpen(true)
       }}
     >
-      <span className={cn(css.slot, css.folder, worktree.containsCurrent && css.folderActive)}>
+      <span className={cn(css.slot, worktree.containsCurrent && css.folderActive)}>
         {worktree.isGit === true ? <IconGitBranch /> : <ProjectIconGlyph icon={{ source: 'fallback', value: 'directory', fallback: 'directory' }} size={16} />}
       </span>
       <span className={cn(css.slot, css.chevron)}>

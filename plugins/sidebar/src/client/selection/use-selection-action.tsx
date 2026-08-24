@@ -18,6 +18,7 @@
  *    selection reference are appended to the DEFAULT conversation's draft
  *    for the model to apply.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { toast } from '@dsh-studio/shared/toast'
@@ -411,7 +412,7 @@ export function useSelectionActionOverlay(
       anchor={{ x: selection.x, y: selection.y + 12 }}
       side="bottom"
       align="start"
-      className="dsh-studio-selection-floating"
+      className={surfaceCss["dsh-studio-selection-floating"]}
     >
       <SelectedTextAction
         selectedText={selection.text}

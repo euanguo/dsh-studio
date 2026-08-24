@@ -2,6 +2,7 @@
  * Diff toolbar: Unified/Split layout + word wrap + change navigation.
  * Shared by single-file and multi-file diff surfaces.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
@@ -39,7 +40,7 @@ export function DiffToolbar({
       data-testid="diff-toolbar"
       leading={leading === undefined || leading === null
         ? undefined
-        : <span className="dsh-studio-diff-toolbar-title">{leading}</span>}
+        : <span className={surfaceCss["dsh-studio-diff-toolbar-title"]}>{leading}</span>}
       actions={(
         <>
           {onPrevChange !== undefined && (

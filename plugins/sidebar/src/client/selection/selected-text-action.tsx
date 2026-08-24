@@ -20,6 +20,7 @@
  * container stops mousedown propagation, and each action clears the
  * selection explicitly once it has captured the text.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import { toast } from '@dsh-studio/shared/toast'
 import { FloatingLayer, ScrollArea, useMenuAnchor } from '@dsh-studio/shared/ui'
@@ -88,7 +89,7 @@ function ActionItem({
     <span
       role="button"
       tabIndex={0}
-      className="dsh-studio-selection-action-item"
+      className={surfaceCss["dsh-studio-selection-action-item"]}
       aria-label={ariaLabel ?? label}
       autoFocus={autoFocus}
       onClick={event => { onClick(event) }}
@@ -101,7 +102,7 @@ function ActionItem({
       }}
     >
       {icon}
-      <span className="dsh-studio-selection-action-label">{label}</span>
+      <span className={surfaceCss["dsh-studio-selection-action-label"]}>{label}</span>
     </span>
   )
 }
@@ -130,7 +131,7 @@ function formatTargetLabel(target: ConversationTarget): string {
 }
 
 function Divider(): JSX.Element {
-  return <span className="dsh-studio-selection-action-divider" aria-hidden="true" />
+  return <span className={surfaceCss["dsh-studio-selection-action-divider"]} aria-hidden="true" />
 }
 
 export function SelectedTextAction({
@@ -233,7 +234,7 @@ export function SelectedTextAction({
   if (mode === 'edit' && onEdit !== undefined) {
     return (
       <form
-        className="dsh-studio-selection-action dsh-studio-selection-action-edit"
+        className={`${surfaceCss["dsh-studio-selection-action"]} ${surfaceCss["dsh-studio-selection-action-edit"]}`}
         onKeyDown={handleEditKeyDown}
         onSubmit={handleEditSubmit}
         onMouseDown={preventSelectionLoss}
@@ -242,7 +243,7 @@ export function SelectedTextAction({
           aria-label={t('selection.edit-input')}
           autoComplete="off"
           autoFocus
-          className="dsh-studio-selection-action-edit-input"
+          className={surfaceCss["dsh-studio-selection-action-edit-input"]}
           placeholder={t('selection.edit-placeholder')}
           required
           value={instruction}
@@ -251,7 +252,7 @@ export function SelectedTextAction({
         <span
           role="button"
           tabIndex={0}
-          className="dsh-studio-selection-action-item dsh-studio-selection-action-submit"
+          className={`${surfaceCss["dsh-studio-selection-action-item"]} ${surfaceCss["dsh-studio-selection-action-submit"]}`}
           aria-label={t('selection.edit-submit')}
           onClick={() => { handleEditSubmit({ preventDefault: () => {} } as FormEvent<HTMLFormElement>) }}
           onKeyDown={event => {
@@ -271,7 +272,7 @@ export function SelectedTextAction({
 
   return (
     <div
-      className="dsh-studio-selection-action"
+      className={surfaceCss["dsh-studio-selection-action"]}
       role="toolbar"
       aria-label={t('selection.title')}
       onMouseDown={preventSelectionLoss}
@@ -320,7 +321,7 @@ export function SelectedTextAction({
       {hasConversation ? (
         <>
           <Divider />
-          <span className="dsh-studio-selection-action-target">
+          <span className={surfaceCss["dsh-studio-selection-action-target"]}>
             <ActionItem
               icon={<IconMessagePlus aria-hidden="true" />}
               label={t('selection.add-to-chat')}
@@ -332,7 +333,7 @@ export function SelectedTextAction({
               role="button"
               tabIndex={0}
               ref={anchorRef as React.RefObject<HTMLSpanElement>}
-              className="dsh-studio-selection-action-item dsh-studio-selection-action-chevron"
+              className={`${surfaceCss["dsh-studio-selection-action-item"]} ${surfaceCss["dsh-studio-selection-action-chevron"]}`}
               aria-label={t('selection.pick-conversation')}
               aria-expanded={menuOpen}
               onClick={handleToggleMenu}
@@ -354,11 +355,11 @@ export function SelectedTextAction({
             align="end"
             sideOffset={6}
             collisionPadding={12}
-            className="dsh-studio-selection-conv-menu"
+            className={surfaceCss["dsh-studio-selection-conv-menu"]}
           >
-            <div className="dsh-studio-selection-conv-shell" role="menu">
+            <div className={surfaceCss["dsh-studio-selection-conv-shell"]} role="menu">
               <ScrollArea
-                className="dsh-studio-selection-conv-scroll"
+                className={surfaceCss["dsh-studio-selection-conv-scroll"]}
                 viewportClassName="dsh-studio-selection-conv-viewport"
               >
               {(conversations ?? []).map(target => {
@@ -369,19 +370,19 @@ export function SelectedTextAction({
                     key={target.id}
                     type="button"
                     role="menuitem"
-                    className="dsh-studio-selection-conv-item"
+                    className={surfaceCss["dsh-studio-selection-conv-item"]}
                     aria-current={active ? 'true' : undefined}
                     onClick={() => {
                       setSelectedTargetId(target.id)
                       closeMenu()
                     }}
                   >
-                    <span className="dsh-studio-selection-conv-name">
+                    <span className={surfaceCss["dsh-studio-selection-conv-name"]}>
                       {target.label}
-                      {target.current ? <em className="dsh-studio-selection-conv-current"> · {t('selection.target-current')}</em> : null}
-                      {active && !target.current ? <em className="dsh-studio-selection-conv-current"> · ✓</em> : null}
+                      {target.current ? <em className={surfaceCss["dsh-studio-selection-conv-current"]}> · {t('selection.target-current')}</em> : null}
+                      {active && !target.current ? <em className={surfaceCss["dsh-studio-selection-conv-current"]}> · ✓</em> : null}
                     </span>
-                    {time === '' ? null : <time className="dsh-studio-selection-conv-time">{time}</time>}
+                    {time === '' ? null : <time className={surfaceCss["dsh-studio-selection-conv-time"]}>{time}</time>}
                   </button>
                 )
               })}

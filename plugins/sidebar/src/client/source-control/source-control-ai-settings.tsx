@@ -1,3 +1,4 @@
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Button,
@@ -152,8 +153,8 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
 
   if (loading) return <LoadingState label={props.t('source-control-ai.loading')} />
   return (
-    <div className="dsh-studio-sidebar-settings-ai">
-      <div className="dsh-studio-sidebar-settings-ai-toolbar">
+    <div className={surfaceCss["dsh-studio-sidebar-settings-ai"]}>
+      <div className={surfaceCss["dsh-studio-sidebar-settings-ai-toolbar"]}>
         <ToolbarAction
           icon={<IconRefresh size={15} />}
           label={props.t('source-control-ai.refresh')}
@@ -161,7 +162,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
           onClick={() => { void load() }}
         />
       </div>
-      <div className="dsh-studio-sidebar-settings-rows">
+      <div className={surfaceCss["dsh-studio-sidebar-settings-rows"]}>
         <SettingsRow
           title={props.t('source-control-ai.enabled')}
           control={(
@@ -178,7 +179,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
         <SettingsRow
           title={props.t('source-control-ai.model')}
           control={(
-            <span ref={modelAnchorRef} className="dsh-studio-sidebar-settings-menu-anchor">
+            <span ref={modelAnchorRef} className={surfaceCss["dsh-studio-sidebar-settings-menu-anchor"]}>
               <Button
                 variant="outline"
                 size="sm"
@@ -187,7 +188,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
                 aria-expanded={openMenu === 'model'}
                 onClick={() => { setOpenMenu(current => current === 'model' ? null : 'model') }}
               >
-                <span className="dsh-studio-sidebar-settings-menu-label">{modelLabel}</span>
+                <span className={surfaceCss["dsh-studio-sidebar-settings-menu-label"]}>{modelLabel}</span>
                 <IconChevronDown size={14} />
               </Button>
               <Menu
@@ -217,7 +218,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
         <SettingsRow
           title={props.t('source-control-ai.reasoning')}
           control={(
-            <span ref={reasoningAnchorRef} className="dsh-studio-sidebar-settings-menu-anchor">
+            <span ref={reasoningAnchorRef} className={surfaceCss["dsh-studio-sidebar-settings-menu-anchor"]}>
               <Button
                 variant="outline"
                 size="sm"
@@ -226,7 +227,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
                 aria-expanded={openMenu === 'reasoning'}
                 onClick={() => { setOpenMenu(current => current === 'reasoning' ? null : 'reasoning') }}
               >
-                <span className="dsh-studio-sidebar-settings-menu-label">{reasoningLabel}</span>
+                <span className={surfaceCss["dsh-studio-sidebar-settings-menu-label"]}>{reasoningLabel}</span>
                 <IconChevronDown size={14} />
               </Button>
               <Menu
@@ -268,7 +269,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
           <FieldDescription>{props.t('source-control-ai.variables')}</FieldDescription>
         </Field>
       </div>
-      <div className="dsh-studio-sidebar-settings-ai-actions">
+      <div className={surfaceCss["dsh-studio-sidebar-settings-ai-actions"]}>
         <Button variant="primary" size="sm" disabled={saving} onClick={() => { void save() }}>
           {props.t('source-control-ai.save')}
         </Button>

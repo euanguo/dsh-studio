@@ -11,6 +11,7 @@
  * `application/x-dsh-studio-tab` dataTransfer slot; the drop-position math
  * lives in `tab-drag.ts` (pure, unit-tested).
  */
+import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 import {
   useSyncExternalStore,
   type ReactNode,
@@ -93,7 +94,7 @@ export function BottomWorkbench({ sidebar, t }: BottomWorkbenchProps): JSX.Eleme
   if (tabs.length === 0) {
     return (
       <section
-        className="dsh-studio-bottom-workbench is-empty"
+        className={`${surfaceCss["dsh-studio-bottom-workbench"]} is-empty`}
         data-dsh-studio-bottom-workbench=""
         aria-label={t('bottom-workbench.title')}
         {...drag.strip.handlers}
@@ -106,20 +107,20 @@ export function BottomWorkbench({ sidebar, t }: BottomWorkbenchProps): JSX.Eleme
   const activeTab = tabs.find(tab => tab.id === snapshot.bottomActiveId) ?? tabs[0]!
   const descriptor = sidebar.getTab(activeTab.type)
   const body = descriptor?.render === undefined ? null : (
-    <div className="dsh-studio-bottom-workbench-body" key={activeTab.id}>
+    <div className={surfaceCss["dsh-studio-bottom-workbench-body"]} key={activeTab.id}>
       {descriptor.render(renderPropsOf(sidebar, activeTab, snapshot.scope))}
     </div>
   )
 
   return (
     <section
-      className="dsh-studio-bottom-workbench"
+      className={surfaceCss["dsh-studio-bottom-workbench"]}
       data-dsh-studio-bottom-workbench=""
       data-dragging={drag.strip.dragging || undefined}
       aria-label={t('bottom-workbench.title')}
       {...drag.strip.handlers}
     >
-      <SurfaceTabStrip aria-label={t('bottom-workbench.tabs')} className="dsh-studio-bottom-workbench-strip">
+      <SurfaceTabStrip aria-label={t('bottom-workbench.tabs')} className={surfaceCss["dsh-studio-bottom-workbench-strip"]}>
         {tabs.map(chipFor)}
       </SurfaceTabStrip>
       {body}
@@ -139,7 +140,7 @@ function tabBadgeFor(
     const value = descriptor.badge(snapshot.scope, snapshot)
     if (value === undefined || value === null) return null
     const label = typeof value === 'number' ? (value > 99 ? '99+' : String(value)) : value
-    return <span className="dsh-studio-surface-tab-badge" aria-hidden="true">{label}</span>
+    return <span className={`dsh-studio-surface-tab-badge`} aria-hidden="true">{label}</span>
   } catch {
     return null
   }

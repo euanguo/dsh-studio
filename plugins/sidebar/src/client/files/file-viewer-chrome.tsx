@@ -10,6 +10,7 @@
  * never change, and the toolbar owns all typography — this module passes
  * plain content only.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { Fragment, useMemo } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { basename } from '@dsh-studio/shared/path'
@@ -75,19 +76,19 @@ export function FileViewerChrome({
 
   const breadcrumb = (
     <nav
-      className="dsh-studio-file-viewer-breadcrumb"
+      className={surfaceCss["dsh-studio-file-viewer-breadcrumb"]}
       aria-label="File path"
       title={filePath}
     >
-      <span className="dsh-studio-file-viewer-breadcrumb-prefix">
+      <span className={surfaceCss["dsh-studio-file-viewer-breadcrumb-prefix"]}>
         {prefixSegments.map(segment => (
           <Fragment key={segment.key}>
-            <span className="dsh-studio-file-viewer-breadcrumb-segment">{segment.name}</span>
-            <IconChevronRight className="dsh-studio-file-viewer-breadcrumb-chevron" size={12} />
+            <span className={surfaceCss["dsh-studio-file-viewer-breadcrumb-segment"]}>{segment.name}</span>
+            <IconChevronRight className={surfaceCss["dsh-studio-file-viewer-breadcrumb-chevron"]} size={12} />
           </Fragment>
         ))}
       </span>
-      <span className="dsh-studio-file-viewer-breadcrumb-file">{fileSegment}</span>
+      <span className={surfaceCss["dsh-studio-file-viewer-breadcrumb-file"]}>{fileSegment}</span>
     </nav>
   )
   const metaContent = (meta !== undefined && meta !== null) || truncated || editing?.dirty === true
@@ -95,12 +96,12 @@ export function FileViewerChrome({
       <>
         {meta !== undefined && meta !== null && meta}
         {truncated && (
-          <span className="dsh-studio-file-viewer-chrome-truncated">
+          <span className={surfaceCss["dsh-studio-file-viewer-chrome-truncated"]}>
             {t('files.partial')}
           </span>
         )}
         {editing?.dirty === true && (
-          <small className="dsh-studio-editor-dirty">●</small>
+          <small className={surfaceCss["dsh-studio-editor-dirty"]}>●</small>
         )}
       </>
     )
@@ -151,7 +152,7 @@ export function FileViewerChrome({
 
   return (
     <SurfaceToolbar
-      className="dsh-studio-file-viewer-chrome"
+      className={`dsh-studio-file-viewer-chrome`}
       data-testid="file-viewer-chrome"
       leading={breadcrumb}
       meta={metaContent}

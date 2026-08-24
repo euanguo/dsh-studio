@@ -7,6 +7,7 @@
  * checkboxes report their 0-based checkbox index; the caller maps that to a
  * source line through `findTaskMarkerSourceLines`.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useEffect, useMemo, useState, type Ref } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -39,9 +40,9 @@ export function MarkdownViewer({
   let taskCursor = -1
 
   return (
-    <ScrollArea ref={containerRef} className="dsh-studio-content-markdown" viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="markdown-viewer">
+    <ScrollArea ref={containerRef} className={surfaceCss["dsh-studio-content-markdown"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="markdown-viewer">
       {headings.length > 1 ? (
-        <nav className="dsh-studio-markdown-toc" aria-label="Table of contents">
+        <nav className={surfaceCss["dsh-studio-markdown-toc"]} aria-label="Table of contents">
           {headings.map(heading => (
             <a key={heading.id} href={`#${heading.id}`} style={{ paddingLeft: `${(heading.level - 1) * 10}px` }}>
               {heading.text}
@@ -99,7 +100,7 @@ export function MarkdownViewer({
             return (
               <input
                 type="checkbox"
-                className="dsh-studio-markdown-task-checkbox"
+                className={surfaceCss["dsh-studio-markdown-task-checkbox"]}
                 checked={checked}
                 disabled={!interactive}
                 {...(interactive && sourceLine !== undefined
@@ -145,7 +146,7 @@ function MarkdownCodeBlock({
 
   if (html === null) {
     return (
-      <pre className="dsh-studio-markdown-code-block">
+      <pre className={`dsh-studio-markdown-code-block`}>
         <code>{text}</code>
       </pre>
     )
@@ -154,7 +155,7 @@ function MarkdownCodeBlock({
   // styling consistent with the pre-highlight placeholder.
   return (
     <div
-      className="dsh-studio-markdown-code-block dsh-studio-markdown-code-shiki"
+      className={`dsh-studio-markdown-code-block ${surfaceCss["dsh-studio-markdown-code-shiki"]}`}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

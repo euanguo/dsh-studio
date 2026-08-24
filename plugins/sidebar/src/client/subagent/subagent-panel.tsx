@@ -15,6 +15,7 @@
  * Degradation: a runtime without the subagent/jobs mirrors simply shows an
  * empty topology note + an empty jobs list (the panel never throws).
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import {
   useEffect,
   useRef,
@@ -119,17 +120,17 @@ export function SubagentPanel({
   }
 
   return (
-    <div className="dsh-studio-subagent-panel">
-      <div className="dsh-studio-subagent-head">
+    <div className={surfaceCss["dsh-studio-subagent-panel"]}>
+      <div className={surfaceCss["dsh-studio-subagent-head"]}>
         <strong>{t('subagent.topology')}</strong>
         <Button variant="outline" size="sm" onClick={refresh} disabled={current === undefined}>
           {t('subagent.refresh')}
         </Button>
       </div>
       {!hasTopology ? (
-        <p className="dsh-studio-side-muted">{t('subagent.no-topology')}</p>
+        <p className={surfaceCss["dsh-studio-side-muted"]}>{t('subagent.no-topology')}</p>
       ) : (
-        <ul className="dsh-studio-subagent-tree" role="tree">
+        <ul className={surfaceCss["dsh-studio-subagent-tree"]} role="tree">
           {trees.map(node => (
             <TreeNodeRow
               key={node.session.id}
@@ -145,19 +146,19 @@ export function SubagentPanel({
               entry.kind === 'child' ? (
                 <li
                   key={entry.id}
-                  className="dsh-studio-subagent-node"
+                  className={surfaceCss["dsh-studio-subagent-node"]}
                   role="treeitem"
                   data-activity={entry.activity}
                 >
-                  <span className="dsh-studio-subagent-node-dot" aria-hidden="true" />
-                  <span className="dsh-studio-subagent-node-main">
+                  <span className={surfaceCss["dsh-studio-subagent-node-dot"]} aria-hidden="true" />
+                  <span className={surfaceCss["dsh-studio-subagent-node-main"]}>
                     <strong>{entry.label ?? entry.id}</strong>
                     <code>{entry.id}</code>
                   </span>
-                  <span className="dsh-studio-subagent-node-mode">{entry.mode}</span>
+                  <span className={surfaceCss["dsh-studio-subagent-node-mode"]}>{entry.mode}</span>
                 </li>
               ) : (
-                <li key={entry.id} className="dsh-studio-subagent-node is-diagnostic" role="treeitem">
+                <li key={entry.id} className={`${surfaceCss["dsh-studio-subagent-node"]} is-diagnostic`} role="treeitem">
                   <code>{entry.id}</code>
                   <span>{entry.reason}</span>
                 </li>
@@ -167,17 +168,17 @@ export function SubagentPanel({
         </ul>
       )}
 
-      <div className="dsh-studio-subagent-head">
+      <div className={surfaceCss["dsh-studio-subagent-head"]}>
         <strong>{t('subagent.jobs')}</strong>
       </div>
       {jobs.length === 0 ? (
-        <p className="dsh-studio-side-muted">{t('subagent.no-jobs')}</p>
+        <p className={surfaceCss["dsh-studio-side-muted"]}>{t('subagent.no-jobs')}</p>
       ) : (
-        <ul className="dsh-studio-subagent-jobs">
+        <ul className={surfaceCss["dsh-studio-subagent-jobs"]}>
           {jobs.map(job => (
-            <li key={job.id} className="dsh-studio-subagent-job" data-status={job.status}>
-              <div className="dsh-studio-subagent-job-main">
-                <span className="dsh-studio-subagent-job-label" title={job.label}>
+            <li key={job.id} className={surfaceCss["dsh-studio-subagent-job"]} data-status={job.status}>
+              <div className={surfaceCss["dsh-studio-subagent-job-main"]}>
+                <span className={surfaceCss["dsh-studio-subagent-job-label"]} title={job.label}>
                   {job.label}
                 </span>
                 <code>{job.id} · {job.kind}</code>
@@ -185,8 +186,8 @@ export function SubagentPanel({
                   ? <small>{job.detail}</small>
                   : null}
               </div>
-              <div className="dsh-studio-subagent-job-actions">
-                <span className="dsh-studio-subagent-job-status">{job.status}</span>
+              <div className={surfaceCss["dsh-studio-subagent-job-actions"]}>
+                <span className={surfaceCss["dsh-studio-subagent-job-status"]}>{job.status}</span>
                 <Button
                   variant="outline"
                   size="sm"
@@ -207,7 +208,7 @@ export function SubagentPanel({
                 </Button>
               </div>
               {outputs[job.id] !== undefined && (
-                <pre className="dsh-studio-subagent-job-output">
+                <pre className={surfaceCss["dsh-studio-subagent-job-output"]}>
                   {outputs[job.id] === 'loading' ? t('overlay.loading') : outputs[job.id]}
                 </pre>
               )}
@@ -238,25 +239,25 @@ function TreeNodeRow({
   const label = session.displayTitle
     ?? (session.origin === 'subagent' ? session.id : mainLabel)
   return (
-    <li className="dsh-studio-subagent-node" role="treeitem" data-current={isCurrent || undefined}>
+    <li className={surfaceCss["dsh-studio-subagent-node"]} role="treeitem" data-current={isCurrent || undefined}>
       <button
         type="button"
-        className="dsh-studio-subagent-node-row"
+        className={surfaceCss["dsh-studio-subagent-node-row"]}
         onClick={() => { onOpen(session.id) }}
       >
         <span
-          className="dsh-studio-subagent-node-dot"
+          className={surfaceCss["dsh-studio-subagent-node-dot"]}
           data-running={session.running === true || undefined}
           aria-hidden="true"
         />
-        <span className="dsh-studio-subagent-node-main">
+        <span className={surfaceCss["dsh-studio-subagent-node-main"]}>
           <strong>{label}</strong>
           <code>{session.id}</code>
         </span>
-        {isCurrent ? <span className="dsh-studio-subagent-node-current">{t('subagent.current')}</span> : null}
+        {isCurrent ? <span className={surfaceCss["dsh-studio-subagent-node-current"]}>{t('subagent.current')}</span> : null}
       </button>
       {node.children.length > 0 && (
-        <ul className="dsh-studio-subagent-tree" role="group">
+        <ul className={surfaceCss["dsh-studio-subagent-tree"]} role="group">
           {node.children.map(child => (
             <TreeNodeRow
               key={child.session.id}

@@ -9,6 +9,7 @@
  * cwd, so a terminal opened in one conversation of a project is the same
  * shell in every conversation of that project (B1: project-shared PTY).
  */
+import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 import { useEffect, useSyncExternalStore } from 'react'
 import { TerminalView } from '@dsh-studio/shared/terminal-view'
 import { touchTerminalInstance } from './runtimes/terminal-runtime.ts'
@@ -43,7 +44,7 @@ export function TerminalTabContent(props: TerminalTabContentProps): JSX.Element 
     touchTerminalInstance({ cwd: props.cwd }, props.tabId)
   }, [props.cwd, props.tabId])
   return (
-    <div className="dsh-studio-side-terminal">
+    <div className={surfaceCss["dsh-studio-side-terminal"]}>
       <TerminalView
         sessionId={props.cwd ?? ''}
         tabId={props.tabId}

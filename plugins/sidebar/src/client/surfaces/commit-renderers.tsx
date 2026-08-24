@@ -5,6 +5,7 @@
  * branch upstream. Data comes from the retained diff runtime; tree
  * selection / collapsed directories are shared chrome.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -59,10 +60,10 @@ function CommitFileBlock({
         <span title={file.path}>{file.path}</span>
         <small><b>+{file.additions}</b> −{file.deletions}</small>
       </summary>
-      <ScrollArea className="dsh-studio-commit-surface-lines" viewportClassName="dsh-studio-ui-scroll-viewport-inset" ref={bodyRef}>
+      <ScrollArea className={surfaceCss["dsh-studio-commit-surface-lines"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset" ref={bodyRef}>
         {releasedHeight !== null ? (
           <div
-            className="dsh-studio-commit-released"
+            className={`dsh-studio-commit-released`}
             style={{ height: releasedHeight }}
             aria-hidden="true"
           />
@@ -144,12 +145,12 @@ export function CommitDiffSurfaceView({
     return <LoadingState label={t('overlay.loading')} />
   }
   return (
-    <div className="dsh-studio-commit-surface">
+    <div className={surfaceCss["dsh-studio-commit-surface"]}>
       <SurfaceToolbar
         leading={<span title={surface.hash}>{surface.title}</span>}
         meta={<small>{surface.hash.slice(0, 7)}</small>}
       />
-      <div className="dsh-studio-commit-tree-body">
+      <div className={surfaceCss["dsh-studio-commit-tree-body"]}>
         <DiffPathTreeNav
           rows={rows}
           onToggleDirectory={key => {
@@ -162,7 +163,7 @@ export function CommitDiffSurfaceView({
             })
           }}
         />
-        <ScrollArea className="dsh-studio-commit-surface-body" ref={bodyRef}>
+        <ScrollArea className={surfaceCss["dsh-studio-commit-surface-body"]} ref={bodyRef}>
           <CommitFileStack
             files={files}
             theme={theme}
@@ -229,7 +230,7 @@ export function CommitFileSurfaceView({
     return <ErrorState message={t('workspace.no-text-diff')} />
   }
   return (
-    <div className="dsh-studio-diff-surface">
+    <div className={surfaceCss["dsh-studio-diff-surface"]}>
       <SurfaceToolbar
         leading={<span title={surface.filePath}>{surface.filePath}</span>}
         meta={<small>{surface.hash.slice(0, 7)}</small>}
@@ -303,12 +304,12 @@ function CommittedAllDiffView({
   }
   if (files === null) return <LoadingState label={t('overlay.loading')} />
   return (
-    <div className="dsh-studio-commit-surface">
+    <div className={surfaceCss["dsh-studio-commit-surface"]}>
       <SurfaceToolbar
         leading={<span>{surface.title}</span>}
         meta={<small>{surface.baseRef}</small>}
       />
-      <div className="dsh-studio-commit-tree-body">
+      <div className={surfaceCss["dsh-studio-commit-tree-body"]}>
         <DiffPathTreeNav
           rows={rows}
           onToggleDirectory={key => {
@@ -321,7 +322,7 @@ function CommittedAllDiffView({
             })
           }}
         />
-        <ScrollArea className="dsh-studio-commit-surface-body" ref={bodyRef}>
+        <ScrollArea className={surfaceCss["dsh-studio-commit-surface-body"]} ref={bodyRef}>
           <CommitFileStack
             files={files}
             theme={theme}
@@ -387,7 +388,7 @@ function CommittedFileDiffView({
     return <ErrorState message={t('workspace.no-text-diff')} />
   }
   return (
-    <div className="dsh-studio-diff-surface">
+    <div className={surfaceCss["dsh-studio-diff-surface"]}>
       <SurfaceToolbar
         leading={<span title={filePath}>{filePath}</span>}
         meta={<small>{surface.baseRef}</small>}

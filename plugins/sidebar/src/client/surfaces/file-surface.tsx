@@ -14,6 +14,7 @@
  *   edit copy ──autosave/Save──▶ fs.write ──▶ runtime.invalidate ──▶ viewer
  *   re-reads the fresh file (other file tabs see the change too).
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { EditorOptions } from '@pierre/diffs/edit'
 import { Editor } from '@pierre/diffs/edit'
@@ -257,7 +258,7 @@ export function FileSurfaceView({
     if (editable.error !== '') return <ErrorState message={editable.error} />
     if (editable.content === null) return <LoadingState label={t('overlay.loading')} />
     return (
-      <div className="dsh-studio-editor-surface" data-testid="editor-surface">
+      <div className={surfaceCss["dsh-studio-editor-surface"]} data-testid="editor-surface">
         <FileViewerChrome
           cwd={surface.cwd}
           filePath={surface.filePath}
@@ -271,8 +272,8 @@ export function FileSurfaceView({
           t={t}
         />
         <EditProvider createEditor={createPierreEditor}>
-          <div ref={editorHostRef} className="dsh-studio-editor-host-wrap">
-            <Virtualizer className="dsh-studio-editor-host">
+          <div ref={editorHostRef} className={`dsh-studio-editor-host-wrap`}>
+            <Virtualizer className={surfaceCss["dsh-studio-editor-host"]}>
               {rails.overlay()}
               {editSelectionAction.overlay}
               <PierreFile
@@ -333,7 +334,7 @@ export function FileSurfaceView({
   // snapshots keep the Edit affordance hidden.
   const canEdit = content !== null && !snapshot.truncated
   return (
-    <div className="dsh-studio-file-surface" data-testid="file-surface">
+    <div className={surfaceCss["dsh-studio-file-surface"]} data-testid="file-surface">
       <FileViewerChrome
         cwd={surface.cwd}
         filePath={surface.filePath}
@@ -349,7 +350,7 @@ export function FileSurfaceView({
       {writeError !== '' ? (
         <ErrorState message={writeError} />
       ) : null}
-      <ScrollArea className="dsh-studio-file-surface-body">
+      <ScrollArea className={surfaceCss["dsh-studio-file-surface-body"]}>
         {rails.overlay()}
         <ContentViewer
           path={surface.filePath}

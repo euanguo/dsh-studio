@@ -3,6 +3,7 @@
  * comments, branch/commit/push controls, and background-process mirror.
  * Extracted from plugin.tsx (single-file assembly) into its own module.
  */
+import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 import {
   Fragment,
   useCallback,
@@ -217,21 +218,21 @@ function CommitFilesBody({
 }): JSX.Element {
   if (state === undefined || state.status === 'loading') {
     return (
-      <div className="dsh-studio-review-commit-files">
+      <div className={surfaceCss["dsh-studio-review-commit-files"]}>
         <LoadingState label={t('overlay.loading')} />
       </div>
     )
   }
   if (state.status === 'error') {
     return (
-      <div className="dsh-studio-review-commit-files">
+      <div className={surfaceCss["dsh-studio-review-commit-files"]}>
         <ErrorState message={state.error} />
       </div>
     )
   }
   if (state.entries.length === 0) {
     return (
-      <div className="dsh-studio-review-commit-files">
+      <div className={surfaceCss["dsh-studio-review-commit-files"]}>
         <EmptyState title={t('workspace.commit-no-files')} />
       </div>
     )
@@ -239,24 +240,24 @@ function CommitFilesBody({
   const rows = commitFileRows(state.entries, mode, collapsedDirs, keyPrefix)
   const sectionModifier = nested ? '' : ' is-section'
   return (
-    <div className="dsh-studio-review-commit-files">
+    <div className={surfaceCss["dsh-studio-review-commit-files"]}>
       {rows.map(row => row.kind === 'directory' ? (
         <button
           key={row.key}
           type="button"
-          className={`dsh-studio-review-commit-dir${sectionModifier}`}
+          className={`${surfaceCss["dsh-studio-review-commit-dir"]}${sectionModifier}`}
           style={{ '--tree-depth': row.depth } as CSSProperties}
           onClick={() => { onToggleDir(row.key) }}
         >
           {row.expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-          <span className="dsh-studio-review-commit-dir-name">{row.name}</span>
+          <span className={surfaceCss["dsh-studio-review-commit-dir-name"]}>{row.name}</span>
           <span className="dsh-studio-workspace-count">{row.fileCount}</span>
         </button>
       ) : (
         <button
           key={row.key}
           type="button"
-          className={`dsh-studio-review-commit-file${sectionModifier}`}
+          className={`${surfaceCss["dsh-studio-review-commit-file"]}${sectionModifier}`}
           title={row.path}
           style={{ '--tree-depth': row.depth } as CSSProperties}
           onClick={() => { onOpenFile(row.path) }}
@@ -264,9 +265,9 @@ function CommitFilesBody({
           <FileGlyph path={row.path} kind="file" />
           <FilenameLabel name={commitFileName(row.path)} title={row.path} />
           {(row.additions > 0 || row.deletions > 0) && (
-            <span className="dsh-studio-sc-stat" aria-hidden="true">
-              {row.additions > 0 && <em className="dsh-studio-sc-stat-add">+{row.additions}</em>}
-              {row.deletions > 0 && <em className="dsh-studio-sc-stat-del">−{row.deletions}</em>}
+            <span className={surfaceCss["dsh-studio-sc-stat"]} aria-hidden="true">
+              {row.additions > 0 && <em className={surfaceCss["dsh-studio-sc-stat-add"]}>+{row.additions}</em>}
+              {row.deletions > 0 && <em className={surfaceCss["dsh-studio-sc-stat-del"]}>−{row.deletions}</em>}
             </span>
           )}
           <span className={`dsh-studio-sc-mark is-${commitFileStatusWord(row.status)}`}>
@@ -656,12 +657,12 @@ export function WorkspacePanel({
   }
 
   return (
-    <div className="dsh-studio-review-view" aria-label={t('workspace.changes')}>
+    <div className={surfaceCss["dsh-studio-review-view"]} aria-label={t('workspace.changes')}>
       {cwd === undefined
         ? <EmptyState title={t('workspace.select')} />
         : (
           <>
-            <ScrollArea className="dsh-studio-workspace-content">
+            <ScrollArea className={surfaceCss["dsh-studio-workspace-content"]}>
             {error !== '' && <ErrorState message={error} />}
 
             {snapshot?.kind === 'repository' && (
@@ -709,7 +710,7 @@ export function WorkspacePanel({
             )}
 
             <section>
-              <div className="dsh-studio-change-list">
+              <div className={surfaceCss["dsh-studio-change-list"]}>
                 <SourceControlPanel
                   rows={rows}
                   pendingByPath={pendingByPath}
@@ -756,20 +757,20 @@ export function WorkspacePanel({
             </section>
 
             {snapshot?.kind === 'repository' && committed.status === 'ready' && committed.entries.length > 0 && (
-              <section className="dsh-studio-committed-section">
+              <section className={`dsh-studio-committed-section`}>
                 <div
-                  className="dsh-studio-sc-toolbar dsh-studio-committed-header"
+                  className={`${surfaceCss["dsh-studio-sc-toolbar"]} ${surfaceCss["dsh-studio-committed-header"]}`}
                   role="button"
                   tabIndex={0}
                   aria-expanded={!committedCollapsed}
                   onClick={() => { setCommittedCollapsed(collapsed => !collapsed) }}
                 >
-                  <span className="dsh-studio-sc-toolbar-title">
+                  <span className={surfaceCss["dsh-studio-sc-toolbar-title"]}>
                     <IconGitCommit size={14} />
                     {t('workspace.committed')}
                     <em>{committed.entries.length}</em>
                   </span>
-                  <span className="dsh-studio-committed-actions">
+                  <span className={surfaceCss["dsh-studio-committed-actions"]}>
                     <ListRowActionButton
                       aria-label={t('source-control.view-all')}
                       title={t('source-control.view-all')}
@@ -806,23 +807,23 @@ export function WorkspacePanel({
           </ScrollArea>
 
           {snapshot?.kind === 'repository' && (
-            <section className="dsh-studio-review-history">
+            <section className={surfaceCss["dsh-studio-review-history"]}>
               {!historyCollapsed && (
                 <div
-                  className="dsh-studio-history-resize"
+                  className={surfaceCss["dsh-studio-history-resize"]}
                   role="separator"
                   aria-label={t('workspace.review-history')}
                   onPointerDown={startHistoryResize}
                 />
               )}
               <div
-                className="dsh-studio-sc-toolbar dsh-studio-history-toggle"
+                className={`${surfaceCss["dsh-studio-sc-toolbar"]} ${surfaceCss["dsh-studio-history-toggle"]}`}
                 role="button"
                 tabIndex={0}
                 aria-expanded={!historyCollapsed}
                 onClick={() => { setHistoryCollapsed(collapsed => !collapsed) }}
               >
-                <span className="dsh-studio-sc-toolbar-title">
+                <span className={surfaceCss["dsh-studio-sc-toolbar-title"]}>
                   <IconHistory size={14} />
                   {t('workspace.review-history')}
                   <em>{history.length}</em>
@@ -834,7 +835,7 @@ export function WorkspacePanel({
               </div>
               {!historyCollapsed && (
                 <ScrollArea
-                  className="dsh-studio-review-commit-list"
+                  className={surfaceCss["dsh-studio-review-commit-list"]}
                   viewportClassName="dsh-studio-ui-scroll-viewport-inset"
                   style={{ maxHeight: historyHeight }}
                 >
@@ -843,12 +844,12 @@ export function WorkspacePanel({
                     return (
                       <Fragment key={entry.hashFull}>
                         <ListRow
-                          className="dsh-studio-review-commit-row"
+                          className={`dsh-studio-review-commit-row`}
                           selected={isExpanded}
                           title={entry.subject}
                         >
                           <ListRowMain
-                            className="dsh-studio-sc-depth-main"
+                            className={surfaceCss["dsh-studio-sc-depth-main"]}
                             aria-expanded={isExpanded}
                             onClick={() => { toggleCommitFiles(entry) }}
                           >
@@ -861,8 +862,8 @@ export function WorkspacePanel({
                               </ListRowLabel>
                             </ListRowBody>
                             <ListRowTrailing>
-                              <span className="dsh-studio-review-commit-author">{entry.author}</span>
-                              <code className="dsh-studio-review-commit-hash">{entry.hash}</code>
+                              <span className={surfaceCss["dsh-studio-review-commit-author"]}>{entry.author}</span>
+                              <code className={surfaceCss["dsh-studio-review-commit-hash"]}>{entry.hash}</code>
                             </ListRowTrailing>
                           </ListRowMain>
                           <ListRowTrailing>

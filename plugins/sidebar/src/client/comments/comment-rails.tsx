@@ -19,6 +19,7 @@
  * split: Comment (persisted WorkbenchComment, resolvable) and Reference in
  * chat (lightweight composer injection).
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import {
   useCallback,
   useEffect,
@@ -151,7 +152,7 @@ export function useCommentRails(options: CommentRailsOptions): CommentRails {
     return (
       <ToolbarAction
         variant="ghost"
-        className="dsh-studio-comment-rail-add"
+        className={surfaceCss["dsh-studio-comment-rail-add"]}
         icon={<span aria-hidden="true">+</span>}
         label={t('comments.add-line')}
         onClick={() => {
@@ -189,7 +190,7 @@ export function useCommentRails(options: CommentRailsOptions): CommentRails {
         align="start"
         sideOffset={6}
         collisionPadding={12}
-        className="dsh-studio-comment-floating"
+        className={surfaceCss["dsh-studio-comment-floating"]}
       >
         <CommentComposeCard
           lineLabel={lineLabel}

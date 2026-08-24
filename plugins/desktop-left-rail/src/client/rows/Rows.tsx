@@ -142,7 +142,7 @@ export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, t }: 
         }}
       onDragEnd={drag?.end}
     >
-      <span className={cn(css.slot, css.folder, active && css.folderActive)}>
+      <span className={cn(css.slot, active && css.folderActive)}>
         {row.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
       </span>
       <span className={cn(css.slot, css.chevron)}>

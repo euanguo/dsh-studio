@@ -11,6 +11,7 @@
  * conversation is visible; any other surface kind renders its body over
  * the center column.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { Component, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
@@ -314,9 +315,9 @@ function LeftRailToggleButton(props: {
   return (
     <ToolbarAction
       variant="ghost"
-      className="dsh-studio-left-rail-toggle"
+      className={surfaceCss["dsh-studio-left-rail-toggle"]}
       icon={(
-        <span className="dsh-studio-rail-toggle-glyph" aria-hidden="true">
+        <span className={surfaceCss["dsh-studio-rail-toggle-glyph"]} aria-hidden="true">
           <IconSidebarLeftFilled />
         </span>
       )}
@@ -333,9 +334,9 @@ function RightRailReopenButton(props: {
   return (
     <ToolbarAction
       variant="ghost"
-      className="dsh-studio-right-rail-reopen"
+      className={surfaceCss["dsh-studio-right-rail-reopen"]}
       icon={(
-        <span className="dsh-studio-rail-toggle-glyph" aria-hidden="true">
+        <span className={surfaceCss["dsh-studio-rail-toggle-glyph"]} aria-hidden="true">
           <IconSidebarRightFilled />
         </span>
       )}
@@ -396,9 +397,9 @@ export function CenterSurfaceBody({
     content = sidebar.renderSurface(active)
   }
   return (
-    <div className="dsh-studio-center-surface-body" data-hidden={hidden || undefined}>
+    <div className={surfaceCss["dsh-studio-center-surface-body"]} data-hidden={hidden || undefined}>
       {content ?? (
-        <EmptyState layout="centered" className="dsh-studio-center-surface-empty" title="—" />
+        <EmptyState layout="centered" className={surfaceCss["dsh-studio-center-surface-empty"]} title="—" />
       )}
     </div>
   )
@@ -514,11 +515,11 @@ function CenterAddMenu({
     workspaces.startSession()
   }
   return (
-    <div className="dsh-studio-center-add">
+    <div className={surfaceCss["dsh-studio-center-add"]}>
       <ToolbarAction
         ref={anchorRef}
         variant="ghost"
-        className="dsh-studio-center-add-trigger"
+        className={`dsh-studio-center-add-trigger`}
         icon={<IconPlus size={14} />}
         label={t('add.open')}
         aria-expanded={open}
@@ -659,7 +660,7 @@ class CenterSurfaceHostErrorBoundary extends Component<
   render(): ReactNode {
     if (this.state.error === null) return this.props.children
     return (
-      <div className="dsh-studio-center-host-crash">
+      <div className={surfaceCss["dsh-studio-center-host-crash"]}>
         <ErrorState
           message={this.props.t('center.crash')}
           action={(
@@ -695,7 +696,7 @@ function CenterSurfaceHostView({
   // A real placeholder keeps the host root non-empty while mounting: the
   // self-healing attach logic treats an EMPTIED root as "DSH rebuilt its
   // tree and discarded our children" and force-remounts.
-  if (!mounted) return <span className="dsh-studio-center-host-mounting" aria-hidden="true" />
+  if (!mounted) return <span className={surfaceCss["dsh-studio-center-host-mounting"]} aria-hidden="true" />
   return (
     <CenterSurfaceHostErrorBoundary t={t}>
       <DiffWorkerPoolProvider>
@@ -704,10 +705,10 @@ function CenterSurfaceHostView({
             all in-flow members of the strip (see the TopRailControls
             section comment above). */}
         <div
-          className={`dsh-studio-center-tabs-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}${rightOpen ? '' : ' is-right-free'}`}
+          className={`${surfaceCss["dsh-studio-center-tabs-strip"]}${leftRailOpen === false ? ' is-left-collapsed' : ''}${rightOpen ? '' : ' is-right-free'}`}
         >
           <LeftRailToggleButton onToggleLeftRail={toggleLeftRail} leftRailOpen={leftRailOpen} />
-          <div className="dsh-studio-center-tabs-scroller">
+          <div className={surfaceCss["dsh-studio-center-tabs-scroller"]}>
             <CenterSurfaceTabs sessions={sessions} t={t} />
           </div>
           <CenterAddMenu sessions={sessions} sidebar={sidebar} workspaces={workspaces} t={t} />
