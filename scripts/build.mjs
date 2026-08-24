@@ -23,9 +23,11 @@ const nodeEsmRequireBanner = [
 //      （.cache 未生成）跳过对拍，token 校验的官方键快照依然生效。
 runNode(join('scripts', 'verify-skin-tokens.mjs'))
 runNode(join('scripts', 'generate-skin-selectors.mjs'), ['--check', '--if-present'])
-// Generated CSS-module class maps (desktop-left-rail styles.ts) must match
-// the module CSS sources; rebuilds fail loudly when a regeneration is due.
+// Generated CSS-module class maps (desktop-left-rail + sidebar styles.ts)
+// must match the module CSS sources; rebuilds fail loudly when a
+// regeneration is due.
 runNode(join('scripts', 'plugin-styles.mjs'), ['desktop-left-rail', '--check'])
+runNode(join('scripts', 'plugin-styles.mjs'), ['sidebar', '--check'])
 // The hand-maintained @dsh-studio/shared exports map must not dangle.
 runNode(join('scripts', 'verify-shared-exports.mjs'))
 

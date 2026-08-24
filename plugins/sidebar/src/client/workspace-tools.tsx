@@ -50,6 +50,7 @@ import sourceControlCss from './source-control/source-control.css'
 import centerSurfaceCss from './surfaces/center-surface.css'
 import diffViewerCss from './diff/diff-viewer.css'
 import { ensureSharedUiStyles } from '@dsh-studio/shared/ui'
+import { pluginCss as sidebarSurfaceCss } from './styles.js'
 import terminalViewCss from '@dsh-studio/shared/terminal-view.css'
 import xtermCss from '@xterm/xterm/css/xterm.css'
 
@@ -281,6 +282,11 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.stopStyle = ensureStyle('dsh-studio-sidebar', [
       xtermCss,
       terminalViewCss,
+      // Strangler transition: the scoped module stylesheet feeds the future
+      // class-map references; the legacy global texts below still serve the
+      // not-yet-migrated literal class names and stay LAST so their global
+      // selectors keep winning during the migration (identical to today).
+      sidebarSurfaceCss,
       workspaceCss,
       sideToolsCss,
       sourceControlCss,
