@@ -96,6 +96,10 @@ export function buildCapabilitiesRoutes(
   // API). A deployment without the jobs registry downgrades kill to a 503.
   const jobsApi: CapabilitiesJobsRoutes = buildJobsApi(ctx, resolved.readLimit)
   return {
+    'workspace.cwd': (payload) => {
+      const { cwd } = cwdOf(payload)
+      return { cwd, root: rootLabel(cwd), parent: parentOf(cwd) ?? null }
+    },
     ...buildFsHandlers({ cwdOf, resolved }),
     'git.status': async (payload) => {
       const { cwd } = cwdOf(payload)
