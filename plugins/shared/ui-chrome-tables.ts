@@ -26,23 +26,23 @@ export function isUiChromeTableName(value: unknown): value is UiChromeTableName 
 }
 
 export interface ExplorerChromeSlice {
-  expandedPaths: string[]
-  selectedPath: string | null
+  readonly expandedPaths: readonly string[]
+  readonly selectedPath: string | null
 }
 
 export interface SourceControlChromeSlice {
-  collapsedSections: string[]
-  collapsedDirectories: string[]
-  selectedPath: string | null
-  commitMessage: string
+  readonly collapsedSections: readonly string[]
+  readonly collapsedDirectories: readonly string[]
+  readonly selectedPath: string | null
+  readonly commitMessage: string
 }
 
 export type GitListMode = 'tree' | 'flat'
 
 export interface SidebarChromeSlice {
-  explorer: ExplorerChromeSlice
-  sourceControl: SourceControlChromeSlice
-  gitListMode: GitListMode
+  readonly explorer: ExplorerChromeSlice
+  readonly sourceControl: SourceControlChromeSlice
+  readonly gitListMode: GitListMode
 }
 
 export interface SidebarChromeState {

@@ -33,8 +33,17 @@ interface SidebarChromeActions {
 
 type SidebarChromeStore = SidebarChromeState & SidebarChromeActions
 
+/**
+ * One stable default slice. Selectors hand this to useSyncExternalStore for
+ * unknown scopes, so the reference must stay identical across evaluations —
+ * a fresh object per call makes React loop to "maximum update depth" and
+ * unmount the rail. Readonly DTO fields guard the shared object from
+ * accidental mutation.
+ */
+const DEFAULT_SLICE: SidebarChromeSlice = defaultSidebarChromeSlice()
+
 function readSlice(state: Pick<SidebarChromeState, 'byScope'>, scopeKey: string): SidebarChromeSlice {
-  return state.byScope[scopeKey] ?? defaultSidebarChromeSlice()
+  return state.byScope[scopeKey] ?? DEFAULT_SLICE
 }
 
 function writeSlice(
