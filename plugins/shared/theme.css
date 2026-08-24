@@ -48,7 +48,7 @@
   /* Semantic surface families. Keep these separate from the generic ladder so
      a list-row alignment does not silently resize tabs, controls, or cards. */
   --dsh-studio-list-row-height: var(--dsh-studio-size-row);
-  --dsh-studio-list-row-gap: var(--dsh-studio-space-1);
+  --dsh-studio-list-row-gap: var(--dsh-studio-space-0);
   --dsh-studio-list-row-radius: var(--dsh-studio-radius-sm);
   --dsh-studio-list-row-corner-shape: round;
   --dsh-studio-list-row-padding-inline: var(--dsh-studio-space-1-5);
