@@ -12,9 +12,9 @@ import { dirname, join } from 'node:path'
 import { createRequire } from 'node:module'
 import * as nodePty from 'node-pty'
 import { CapabilityError } from '@dsh-studio/shared/wire'
-import { resolveShell, type ShellResolutionOptions } from './shell-resolver.ts'
+import { resolveShell, type ShellResolutionOptions } from '../shell-resolver.ts'
 import { spawnTerminalPty } from './terminal-spawn.ts'
-import { defaultProcessTreeKiller } from './process-tree-killer.ts'
+import { defaultProcessTreeKiller } from '../process-tree-killer.ts'
 import {
   terminalHistoryLimitsForRows,
 } from '@dsh-studio/shared/terminal-scrollback-policy'

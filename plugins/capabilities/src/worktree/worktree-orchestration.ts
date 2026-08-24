@@ -20,7 +20,7 @@ import type {
   CapabilitiesLiveSession,
   CapabilitiesWorkspace,
   Context,
-} from './context-types.ts'
+} from '../context-types.ts'
 import * as git from '@dsh-studio/shared/git-core'
 import { isWithin } from '@dsh-studio/shared/fs-tree'
 import { LEFT_RAIL_SETTINGS_NS } from '@dsh-studio/shared/left-rail-preferences'

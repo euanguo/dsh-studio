@@ -18,7 +18,7 @@
  *   fenced by the owning session via the live agent caller. Absent registry
  *   → 503, mirroring the settings routes' optional-service downgrade.
  */
-import type { Context, CapabilitiesSessionEvent } from './context-types.ts'
+import type { Context, CapabilitiesSessionEvent } from '../context-types.ts'
 import { requireString, CapabilityError } from '@dsh-studio/shared/wire'
 
 /** The two background-job routes of the sidebar API. */

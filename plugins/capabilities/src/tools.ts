@@ -22,7 +22,7 @@ import {
   ALLOWED_SIGNALS,
   type AgentTerminalSignal,
   type AgentTerminalSnapshot,
-} from './agent-pty.ts'
+} from './terminal/agent-pty.ts'
 
 /** Maximum UTF-8 bytes of one `terminal_read` result text. */
 const READ_BYTE_LIMIT = 256 * 1024

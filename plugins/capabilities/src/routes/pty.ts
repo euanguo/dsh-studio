@@ -4,9 +4,9 @@ import {
   optionalInteger,
   requireString,
 } from '@dsh-studio/shared/wire'
-import type { PtyManager } from '../pty-manager.ts'
-import type { AgentPtyRegistry } from '../agent-pty.ts'
-import { terminalSessionKey } from '../terminal-session-store.ts'
+import type { PtyManager } from '../terminal/pty-manager.ts'
+import type { AgentPtyRegistry } from '../terminal/agent-pty.ts'
+import { terminalSessionKey } from '../terminal/terminal-session-store.ts'
 import type { ApiMethod } from './types.ts'
 
 /** Dependency face for the pty route groups. */

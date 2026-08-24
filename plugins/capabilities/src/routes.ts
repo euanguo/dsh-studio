@@ -17,12 +17,12 @@ import { extractFrameAncestors } from './browser-probe.ts'
 import type { ResolvedCapabilitiesConfig } from './config.ts'
 import { isWithin, requireAbsolute, listDirectory, parentOf, rootLabel } from '@dsh-studio/shared/fs-tree'
 import * as git from '@dsh-studio/shared/git-core'
-import type { PtyManager } from './pty-manager.ts'
-import type { AgentPtyRegistry } from './agent-pty.ts'
-import { buildJobsApi, type CapabilitiesJobsRoutes } from './jobs-routes.ts'
-import { buildWorktreeRoutes } from './worktree-routes.ts'
+import type { PtyManager } from './terminal/pty-manager.ts'
+import type { AgentPtyRegistry } from './terminal/agent-pty.ts'
+import { buildJobsApi, type CapabilitiesJobsRoutes } from './routes/jobs-routes.ts'
+import { buildWorktreeRoutes } from './worktree/worktree-routes.ts'
 import { detectProjectIcon } from './project-icon.ts'
-import { terminalSessionKey } from './terminal-session-store.ts'
+import { terminalSessionKey } from './terminal/terminal-session-store.ts'
 import {
   DEFAULT_COMMIT_MESSAGE_PROMPT,
   SOURCE_CONTROL_AI_SETTINGS_NS,

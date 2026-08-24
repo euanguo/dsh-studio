@@ -7,7 +7,7 @@
 import { randomUUID } from 'node:crypto'
 import type { IncomingMessage } from 'node:http'
 import { WebSocket } from 'ws'
-import type { Context } from './context-types.ts'
+import type { Context } from '../context-types.ts'
 import type { AgentPtyRegistry, AgentTerminalHandle } from './agent-pty.ts'
 import { clampDims } from './agent-pty.ts'
 import type { PtyManager } from './pty-manager.ts'
@@ -15,7 +15,7 @@ import { TerminalOutputBatcher } from './terminal-batcher.ts'
 import type { TerminalSubscriptionCoordinator } from './terminal-subscription-coordinator.ts'
 import { buildTerminalReplayPayload, type TerminalReplaySource } from './terminal-replay.ts'
 import type { TerminalRuntimePolicy } from './terminal-policy.ts'
-import { sessionCwdOf } from './routes/shared.ts'
+import { sessionCwdOf } from '../routes/shared.ts'
 import type { TerminalOutputAck, TerminalOutputFrame } from '@dsh-studio/shared/terminal-wire'
 
 /** A pty that honors output pause/resume while a newer socket is still

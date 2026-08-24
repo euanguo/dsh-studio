@@ -12,7 +12,7 @@
 import { defineTool } from '@deepseek-ai/dsh-tools'
 import type { ContentBlock } from '@deepseek-ai/dsh-llm'
 import type { ToolRunContext } from '@deepseek-ai/dsh-tools'
-import type { Context } from './context-types.ts'
+import type { Context } from '../context-types.ts'
 import { WorktreeDelegationRegistry } from './worktree-orchestration.ts'
 
 function textRender(text: string): ContentBlock[] {

@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto'
 import * as nodePty from 'node-pty'
 import { ensureSpawnHelper } from './pty-manager.ts'
 import { spawnTerminalPty } from './terminal-spawn.ts'
-import { defaultProcessTreeKiller } from './process-tree-killer.ts'
+import { defaultProcessTreeKiller } from '../process-tree-killer.ts'
 import { TerminalHistoryBuffer } from './terminal-history.ts'
 import { TerminalHistorySanitizer } from './terminal-history-sanitizer.ts'
 import {

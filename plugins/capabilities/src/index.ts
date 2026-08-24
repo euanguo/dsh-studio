@@ -21,7 +21,7 @@ import { WebSocket, WebSocketServer } from 'ws'
 import {
   TerminalOutputBatcher,
   type TerminalOutputAck,
-} from './terminal-batcher.ts'
+} from './terminal/terminal-batcher.ts'
 import type { TerminalOutputFrame } from '@dsh-studio/shared/terminal-wire'
 import type { Context } from './context-types.ts'
 import {
@@ -42,7 +42,7 @@ import { decodeHtmlUrl } from './html-route.ts'
 import { extractFrameAncestors } from './browser-probe.ts'
 import { isTrustedApiRequest, isLoopbackHostname } from './trust-fence.ts'
 import { registerBundleRoute } from './bundle-route.ts'
-import { attachAgentList, attachTerminal, clearPtyPauseOwners } from './terminal-route.ts'
+import { attachAgentList, attachTerminal, clearPtyPauseOwners } from './terminal/terminal-route.ts'
 import { buildCapabilitiesRoutes, sessionCwdOf, type CapabilitiesSettingsFace } from './routes.ts'
 import {
   SOURCE_CONTROL_AI_SETTINGS_NS,
@@ -50,22 +50,22 @@ import {
   SourceControlAiSettingsSchema,
 } from './source-control-ai.ts'
 import { settingsNamespace, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
-import { ensureSpawnHelper, PtyManager } from './pty-manager.ts'
-import { TerminalSessionStore } from './terminal-session-store.ts'
-import { TerminalSubscriptionCoordinator } from './terminal-subscription-coordinator.ts'
+import { ensureSpawnHelper, PtyManager } from './terminal/pty-manager.ts'
+import { TerminalSessionStore } from './terminal/terminal-session-store.ts'
+import { TerminalSubscriptionCoordinator } from './terminal/terminal-subscription-coordinator.ts'
 import {
   normalizeTerminalRuntimePolicy,
   type TerminalRuntimePolicy,
-} from './terminal-policy.ts'
+} from './terminal/terminal-policy.ts'
 import { resolveShell } from './shell-resolver.ts'
-import { AgentPtyRegistry, clampDims, type AgentTerminalHandle } from './agent-pty.ts'
-import { buildTerminalReplayPayload, type TerminalReplaySource } from './terminal-replay.ts'
+import { AgentPtyRegistry, clampDims, type AgentTerminalHandle } from './terminal/agent-pty.ts'
+import { buildTerminalReplayPayload, type TerminalReplaySource } from './terminal/terminal-replay.ts'
 import { registerTools } from './tools.ts'
-import { WorktreeDelegationRegistry } from './worktree-orchestration.ts'
+import { WorktreeDelegationRegistry } from './worktree/worktree-orchestration.ts'
 import {
   registerWorktreeDelegationTools,
   registerWorktreeTools,
-} from './worktree-tools.ts'
+} from './worktree/worktree-tools.ts'
 import {
   readJsonBody,
   requireString,

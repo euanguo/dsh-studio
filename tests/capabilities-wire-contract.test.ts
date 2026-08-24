@@ -41,7 +41,7 @@ function routeKeys(): string[] {
     .filter(file => existsSync(join(routeDir, file)))
   const sources = [
     'routes.ts',
-    'worktree-routes.ts',
+    'worktree/worktree-routes.ts',
     ...extra.map(file => join('routes', file)),
   ].map(file => readFileSync(join(root, 'plugins', 'capabilities', 'src', file), 'utf8'))
   // Method-table entries are quoted keys in the capability route modules.

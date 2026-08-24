@@ -4,7 +4,7 @@ import {
   isRetryableShellSpawnError,
   resolveShellCandidates,
   shellSpawnArgs,
-} from './shell-resolver.ts'
+} from '../shell-resolver.ts'
 
 export interface SpawnTerminalPtyOptions {
   shell: string
