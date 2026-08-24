@@ -10,7 +10,7 @@ import {
 } from '../plugins/capabilities/src/workspace-git.ts'
 import {
   isCapabilitiesWorkspaceMutation,
-} from '../plugins/shared/capabilities-api.ts'
+} from '../plugins/shared/contracts/capabilities-api.ts'
 import {
   mapSidebarFile,
   mapSidebarTree,

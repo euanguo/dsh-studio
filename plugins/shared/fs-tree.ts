@@ -7,7 +7,7 @@
  */
 import { opendir } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
-import { CapabilityError } from './wire.ts'
+import { CapabilityError } from './runtime/wire.ts'
 
 /** One explorer row. */
 export interface CapabilitiesFsEntry {

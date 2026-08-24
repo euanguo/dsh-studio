@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { parseCommitFilesZ, parsePorcelainV2 } from '../plugins/shared/git-core.ts'
+import { parseCommitFilesZ, parsePorcelainV2 } from '../plugins/shared/git/git-core.ts'
 
 test('parsePorcelainV2: branch/upstream/ahead-behind plus ordinary entries', () => {
   const result = parsePorcelainV2([

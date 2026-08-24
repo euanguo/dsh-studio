@@ -8,7 +8,7 @@
  */
 import {
   GenerationGate,
-} from '../client-runtime.ts'
+} from '../runtime/client-runtime.ts'
 import {
   TerminalRecoveryCoordinator,
 } from './terminal-recovery.ts'

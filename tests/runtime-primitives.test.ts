@@ -10,7 +10,7 @@ import {
   RevisionedStore,
   ScopedRuntimeRegistry,
   SubscriptionScope,
-} from '../plugins/shared/runtime.ts'
+} from '../plugins/shared/runtime/runtime.ts'
 import { splitFilenameDisplayParts } from '../plugins/shared/filename-display.ts'
 import {
   middleTruncateFilename,

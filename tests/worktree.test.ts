@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseWorktreeList } from '../plugins/shared/git-core.ts'
+import { parseWorktreeList } from '../plugins/shared/git/git-core.ts'
 
 test('parseWorktreeList: main + linked worktrees', () => {
   const out = [
