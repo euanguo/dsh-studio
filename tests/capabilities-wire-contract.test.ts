@@ -37,7 +37,7 @@ function dtoKeys(): string[] {
 
 function routeKeys(): string[] {
   const routeDir = join(root, 'plugins', 'capabilities', 'src', 'routes')
-  const extra = ['fs.ts', 'git.ts', 'pty.ts', 'settings.ts', 'misc.ts']
+  const extra = ['fs.ts', 'git.ts', 'pty.ts', 'settings.ts', 'ui-chrome.ts', 'misc.ts']
     .filter(file => existsSync(join(routeDir, file)))
   const sources = [
     'routes.ts',

@@ -24,7 +24,7 @@ import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'
 import { CenterSurfaceHost } from './surfaces/center-surface-host.tsx'
 import { WorkspaceToolsService } from './workspace-tools.tsx'
 import { DesktopSidebarService } from './sidebar-service.ts'
-import { LocalStorageSidebarPreferencesStorage } from './sidebar-storage.ts'
+import { DomainSidebarPreferencesStorage } from './sidebar-storage.ts'
 import { DEFAULT_SIDEBAR_PREFERENCES } from '../sidebar-preferences.ts'
 import {
   ReviewCommentsService,
@@ -49,6 +49,7 @@ import { disposeSidebarRuntimes } from './runtimes/registry.ts'
 import { acquireOpenPathPatch, isLinkProtocolIntercepted, registerLinkHandler, registerLinkInterception, registerOpenPathHandler, releaseOpenPathPatch } from './intercept.ts'
 import { registerImeGuard } from './ime-guard.ts'
 import { registerPierreVisibilityRecovery } from './pierre-visibility.ts'
+import { startSidebarChromePersistence } from './runtimes/chrome-store.ts'
 
 export const inject = [
   'desktopPanels',
@@ -111,10 +112,11 @@ export function apply(ctx: ClientContext): void {
     () => inputTriggers.registerSource(createSelectionSlashSource()),
     'dsh-studio: selection slash source',
   )
-  const desktopSidebar = new DesktopSidebarService(
-    new LocalStorageSidebarPreferencesStorage(),
-  )
   const runtimeSettings = new SidebarRuntimeSettingsService()
+  const desktopSidebar = new DesktopSidebarService(
+    new DomainSidebarPreferencesStorage(),
+    featureEnablement => { void runtimeSettings.update(featureEnablement) },
+  )
   const service = new WorkspaceToolsService(
     desktopSidebar,
     panels,
@@ -171,6 +173,7 @@ export function apply(ctx: ClientContext): void {
   })
   let settingsActions: BoundSidebarSettingsActions | undefined
   ctx.effect(() => {
+    const stopChrome = startSidebarChromePersistence()
     const syncWorkspace = (): void => {
       // The current project = the active session's cwd, falling back to any
       // valid workspace cwd in the session roster.
@@ -184,6 +187,7 @@ export function apply(ctx: ClientContext): void {
     })
     const syncRuntime = (): void => {
       const prefs = runtimeSettings.getSnapshot().preferences
+      desktopSidebar.setFeatureEnablement(prefs.tabsEnabled, prefs.viewersEnabled)
       // The bottom-mounted terminal dock no longer mounts
       // (plugins/panel-controls), so there is nothing to sync; the terminal
       // prefs are consumed by the terminal tab renderers directly.
@@ -301,8 +305,9 @@ export function apply(ctx: ClientContext): void {
       reviewComments.dispose()
       desktopSidebar.dispose()
       runtimeSettings.dispose()
+      stopChrome()
       disposeAllTerminalRuntimeOwners()
-       disposeSidebarRuntimes()
+      disposeSidebarRuntimes()
       void removeSidebar?.()
       void removeService?.()
     }
@@ -314,21 +319,17 @@ export function apply(ctx: ClientContext): void {
       settingsActions = actions
       syncSidebarSettings(settingsActions, desktopSidebar.getSnapshot())
       return {
-        // Page-scoped reset: the Side panel page owns layout (localStorage)
-        // and opening behavior; agent capabilities reset on their own page
+        // Page-scoped reset: the Side panel page owns layout and opening
+        // behavior; agent capabilities reset on their own page
         // (dsh-studio-agent) and feature detail rows keep their values.
         reset: () => {
           desktopSidebar.setOpenByDefault(
             DEFAULT_SIDEBAR_PREFERENCES.openByDefault,
           )
           desktopSidebar.setWidth(DEFAULT_SIDEBAR_PREFERENCES.defaultWidth)
-          for (const descriptor of desktopSidebar.getTabs()) {
-            desktopSidebar.setTabEnabled(descriptor.id, true)
-          }
-          for (const descriptor of desktopSidebar.getViewers()) {
-            desktopSidebar.setViewerEnabled(descriptor.id, true)
-          }
           void runtimeSettings.update({
+            tabsEnabled: {},
+            viewersEnabled: {},
             interceptOpenPath: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.interceptOpenPath,
             browserInterceptLinks: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptLinks,
             browserInterceptHttp: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttp,

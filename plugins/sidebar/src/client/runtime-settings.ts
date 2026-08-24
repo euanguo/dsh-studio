@@ -7,8 +7,8 @@ import {
  * Host-synced FEATURE preferences (the Side card namespace). These ride the
  * host settings service through /capabilities/api settings.* so they follow the
  * user across browsers and surfaces — the OTHER half of the sidebar's
- * deliberate two-store split; per-browser UI layouts stay in
- * sidebar-storage's localStorage (see the store-boundary note there).
+ * deliberate two-store split; UI chrome layouts stay in the domain-backed
+ * sidebar storage (see the store-boundary note there).
  */
 
 export interface SidebarRuntimePreferences {
@@ -38,6 +38,9 @@ export interface SidebarRuntimePreferences {
    * conversation (any new job id, not just the first one).
    */
   autoOpenJobs: boolean
+  /** Open maps: absent tab/viewer ids are enabled by default. */
+  tabsEnabled: Record<string, boolean>
+  viewersEnabled: Record<string, boolean>
   browserInterceptLinks: boolean
   /**
    * Whether plain http EXTERNAL link clicks open in the sidebar browser
@@ -109,6 +112,8 @@ Readonly<SidebarRuntimePreferences> = Object.freeze({
   agentWorktreeDelegationTools: false,
   autoOpenSubagent: true,
   autoOpenJobs: true,
+  tabsEnabled: {},
+  viewersEnabled: {},
   browserInterceptLinks: true,
   browserInterceptHttp: true,
   browserInterceptHttps: false,
@@ -140,6 +145,14 @@ interface SidebarRuntimeSettingsApi {
     patch: Record<string, unknown>,
     expectedRevision?: number,
   ): Promise<CapabilitiesSettingsView>
+}
+
+function booleanMapPreference(record: Record<string, unknown>, key: string): Record<string, boolean> {
+  const value = record[key]
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(Object.entries(value).filter(
+    (entry): entry is [string, boolean] => typeof entry[1] === 'boolean',
+  ))
 }
 
 function boundedNumberPreference(
@@ -177,6 +190,8 @@ export function parseSidebarRuntimePreferences(
     autoOpenJobs: typeof record.autoOpenJobs === 'boolean'
       ? record.autoOpenJobs
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.autoOpenJobs,
+    tabsEnabled: booleanMapPreference(record, 'tabsEnabled'),
+    viewersEnabled: booleanMapPreference(record, 'viewersEnabled'),
     browserInterceptLinks: typeof record.browserInterceptLinks === 'boolean'
       ? record.browserInterceptLinks
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptLinks,

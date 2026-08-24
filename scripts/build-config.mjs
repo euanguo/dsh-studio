@@ -83,7 +83,7 @@ export function desktopBuilds(root) {
       platform: 'node',
       format: 'esm',
       external: plugin.directory === 'capabilities'
-        ? ['@deepseek-ai/*', 'cordis', 'node-pty', 'schemastery', 'ws']
+        ? ['@deepseek-ai/*', 'cordis', 'node-pty', 'schemastery', 'ws', 'zod']
         : [],
     })
     if (plugin.hostOnly !== true) {

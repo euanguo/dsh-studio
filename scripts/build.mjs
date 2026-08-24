@@ -180,7 +180,7 @@ for (const plugin of pluginPackages) {
     platform: 'node',
     format: 'esm',
     external: plugin.external ?? (plugin.directory === 'capabilities'
-      ? ['@deepseek-ai/*', 'cordis', 'node-pty', 'schemastery', 'ws']
+      ? ['@deepseek-ai/*', 'cordis', 'node-pty', 'schemastery', 'ws', 'zod']
       : []),
   }))
   if (plugin.hostOnly !== true) {

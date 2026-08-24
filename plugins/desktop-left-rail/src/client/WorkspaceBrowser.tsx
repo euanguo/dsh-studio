@@ -43,6 +43,7 @@ import { deriveLeftRailSnapshot } from './project-tree-model.ts'
 import { createRailController } from './rail-controller.ts'
 import { isPathWithin } from './domain/identities.ts'
 import { loadLeftRailSettings, saveLeftRailSettings, type LeftRailSettings } from './left-rail-settings.ts'
+import { flushLeftRailChrome, loadLeftRailChrome, saveLeftRailChrome } from './left-rail-chrome.ts'
 import { writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
 import { toast } from '@dsh-studio/shared/toast'
 // Identity class map + scoped stylesheet (build-time generated from the
@@ -191,7 +192,7 @@ export function WorkspaceBrowser({
     }
     return icons
   }, [projectIconDetections, projectIconOverrides, projectRoots, workspaces, worktreeLayouts.layouts])
-  // Grouping persisted through the host settings service (not localStorage).
+  // Grouping and ordering are persisted through the UI storage domain.
   const settingsRevision = useRef<number>(0)
   // Last-known server slice: the browser owns ONLY the view fields below, so
   // every whole-section save merges them over the server truth — keys owned
@@ -199,6 +200,7 @@ export function WorkspaceBrowser({
   // slices) ride along untouched instead of being deleted or reverted.
   const settingsSlice = useRef<LeftRailSettings>({})
   const settingsHydrated = useRef(false)
+  const chromeHydrated = useRef(false)
   useEffect(() => {
     let cancelled = false
     loadLeftRailSettings().then((view) => {
@@ -212,6 +214,27 @@ export function WorkspaceBrowser({
     })
     return () => { cancelled = true }
   }, [actions.hydrateGrouping])
+  useEffect(() => {
+    let cancelled = false
+    loadLeftRailChrome().then((chrome) => {
+      if (cancelled) return
+      chromeHydrated.current = true
+      actions.hydrateChrome(chrome)
+    }).catch(() => {
+      if (!cancelled) chromeHydrated.current = true
+    })
+    return () => { cancelled = true }
+  }, [actions.hydrateChrome])
+  useEffect(() => () => { void flushLeftRailChrome() }, [])
+  useEffect(() => {
+    if (!chromeHydrated.current) return
+    saveLeftRailChrome({
+      groupBy,
+      orderBy,
+      groupExpansion,
+      sessionOrder: sessionOrderByAccount,
+    })
+  }, [groupBy, groupExpansion, orderBy, sessionOrderByAccount])
   useEffect(() => {
     if (!settingsHydrated.current) return
     const timer = window.setTimeout(() => {

@@ -1,44 +1,25 @@
 /**
- * Sidebar UI chrome store (ported from the reference project's
- * `scope/workspace-chrome-store.ts` pattern).
- *
- * Holds UI-only state — expanded directories, collapsed sections,
- * selections, list modes — per sidebar scope (`sessionId:cwd`), persisted
- * to localStorage. Data NEVER lives here: it belongs to the runtimes.
- * Views read chrome + runtime snapshots separately.
+ * Sidebar UI chrome store. State is memory-only in zustand; the plugin
+ * lifecycle hydrates and persists the complete `sidebar_chrome` DTO through
+ * the shared host storage client.
  */
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import {
+  UI_CHROME_TABLES,
+  defaultSidebarChromeSlice,
+  defaultSidebarChromeState,
+  sanitizeSidebarChrome,
+  type GitListMode,
+  type SidebarChromeSlice,
+  type SidebarChromeState,
+} from '@dsh-studio/shared/ui-chrome-tables'
+import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
 
-export interface ExplorerChromeSlice {
-  expandedPaths: readonly string[]
-  selectedPath: string | null
-}
+export type { GitListMode, SidebarChromeSlice } from '@dsh-studio/shared/ui-chrome-tables'
+export type ExplorerChromeSlice = SidebarChromeSlice['explorer']
+export type SourceControlChromeSlice = SidebarChromeSlice['sourceControl']
 
-export interface SourceControlChromeSlice {
-  collapsedSections: readonly string[]
-  collapsedDirectories: readonly string[]
-  selectedPath: string | null
-  /** Draft commit message, persisted per scope (session:cwd). */
-  commitMessage: string
-}
-
-export type GitListMode = 'tree' | 'flat'
-
-export interface SidebarChromeSlice {
-  explorer: ExplorerChromeSlice
-  sourceControl: SourceControlChromeSlice
-  gitListMode: GitListMode
-}
-
-const DEFAULT_SLICE: SidebarChromeSlice = {
-  explorer: { expandedPaths: [], selectedPath: null },
-  sourceControl: { collapsedSections: [], collapsedDirectories: [], selectedPath: null, commitMessage: '' },
-  gitListMode: 'tree',
-}
-
-interface SidebarChromeState {
-  byScope: Readonly<Record<string, SidebarChromeSlice | undefined>>
+interface SidebarChromeActions {
   getSlice: (scopeKey: string) => SidebarChromeSlice
   setExplorerSelectedPath: (scopeKey: string, path: string | null) => void
   toggleExplorerDirectory: (scopeKey: string, path: string) => void
@@ -50,11 +31,10 @@ interface SidebarChromeState {
   clearScope: (scopeKey: string) => void
 }
 
-function readSlice(
-  state: Pick<SidebarChromeState, 'byScope'>,
-  scopeKey: string,
-): SidebarChromeSlice {
-  return state.byScope[scopeKey] ?? DEFAULT_SLICE
+type SidebarChromeStore = SidebarChromeState & SidebarChromeActions
+
+function readSlice(state: Pick<SidebarChromeState, 'byScope'>, scopeKey: string): SidebarChromeSlice {
+  return state.byScope[scopeKey] ?? defaultSidebarChromeSlice()
 }
 
 function writeSlice(
@@ -62,129 +42,158 @@ function writeSlice(
   scopeKey: string,
   slice: SidebarChromeSlice,
 ): SidebarChromeState['byScope'] {
-  return {
-    ...state.byScope,
-    [scopeKey]: slice,
-  }
+  return { ...state.byScope, [scopeKey]: slice }
 }
 
-function toggleInList(list: readonly string[], value: string): readonly string[] {
+function toggleInList(list: readonly string[], value: string): string[] {
   return list.includes(value) ? list.filter(item => item !== value) : [...list, value]
 }
 
-export const useSidebarChromeStore = create<SidebarChromeState>()(
-  persist(
-    (set, get) => ({
-      byScope: {},
+export const useSidebarChromeStore = create<SidebarChromeStore>()((set, get) => ({
+  ...defaultSidebarChromeState(),
 
-      getSlice: scopeKey => readSlice(get(), scopeKey),
+  getSlice: scopeKey => readSlice(get(), scopeKey),
 
-      setExplorerSelectedPath: (scopeKey, path) => {
-        set(state => {
-          const slice = readSlice(state, scopeKey)
-          if (slice.explorer.selectedPath === path) return state
-          return {
-            byScope: writeSlice(state, scopeKey, {
-              ...slice,
-              explorer: { ...slice.explorer, selectedPath: path },
-            }),
-          }
-        })
-      },
+  setExplorerSelectedPath: (scopeKey, path) => {
+    set(state => {
+      const slice = readSlice(state, scopeKey)
+      if (slice.explorer.selectedPath === path) return state
+      return {
+        byScope: writeSlice(state, scopeKey, {
+          ...slice,
+          explorer: { ...slice.explorer, selectedPath: path },
+        }),
+      }
+    })
+  },
 
-      toggleExplorerDirectory: (scopeKey, path) => {
-        set(state => {
-          const slice = readSlice(state, scopeKey)
-          return {
-            byScope: writeSlice(state, scopeKey, {
-              ...slice,
-              explorer: {
-                ...slice.explorer,
-                expandedPaths: toggleInList(slice.explorer.expandedPaths, path),
-              },
-            }),
-          }
-        })
-      },
+  toggleExplorerDirectory: (scopeKey, path) => {
+    set(state => {
+      const slice = readSlice(state, scopeKey)
+      return {
+        byScope: writeSlice(state, scopeKey, {
+          ...slice,
+          explorer: {
+            ...slice.explorer,
+            expandedPaths: toggleInList(slice.explorer.expandedPaths, path),
+          },
+        }),
+      }
+    })
+  },
 
-      setSourceControlSelectedPath: (scopeKey, path) => {
-        set(state => {
-          const slice = readSlice(state, scopeKey)
-          if (slice.sourceControl.selectedPath === path) return state
-          return {
-            byScope: writeSlice(state, scopeKey, {
-              ...slice,
-              sourceControl: { ...slice.sourceControl, selectedPath: path },
-            }),
-          }
-        })
-      },
+  setSourceControlSelectedPath: (scopeKey, path) => {
+    set(state => {
+      const slice = readSlice(state, scopeKey)
+      if (slice.sourceControl.selectedPath === path) return state
+      return {
+        byScope: writeSlice(state, scopeKey, {
+          ...slice,
+          sourceControl: { ...slice.sourceControl, selectedPath: path },
+        }),
+      }
+    })
+  },
 
-      setSourceControlCommitMessage: (scopeKey, message) => {
-        set(state => {
-          const slice = readSlice(state, scopeKey)
-          if (slice.sourceControl.commitMessage === message) return state
-          return {
-            byScope: writeSlice(state, scopeKey, {
-              ...slice,
-              sourceControl: { ...slice.sourceControl, commitMessage: message },
-            }),
-          }
-        })
-      },
+  setSourceControlCommitMessage: (scopeKey, message) => {
+    set(state => {
+      const slice = readSlice(state, scopeKey)
+      if (slice.sourceControl.commitMessage === message) return state
+      return {
+        byScope: writeSlice(state, scopeKey, {
+          ...slice,
+          sourceControl: { ...slice.sourceControl, commitMessage: message },
+        }),
+      }
+    })
+  },
 
-      toggleSourceControlSection: (scopeKey, id) => {
-        set(state => {
-          const slice = readSlice(state, scopeKey)
-          return {
-            byScope: writeSlice(state, scopeKey, {
-              ...slice,
-              sourceControl: {
-                ...slice.sourceControl,
-                collapsedSections: toggleInList(slice.sourceControl.collapsedSections, id),
-              },
-            }),
-          }
-        })
-      },
+  toggleSourceControlSection: (scopeKey, id) => {
+    set(state => {
+      const slice = readSlice(state, scopeKey)
+      return {
+        byScope: writeSlice(state, scopeKey, {
+          ...slice,
+          sourceControl: {
+            ...slice.sourceControl,
+            collapsedSections: toggleInList(slice.sourceControl.collapsedSections, id),
+          },
+        }),
+      }
+    })
+  },
 
-      toggleSourceControlDirectory: (scopeKey, key) => {
-        set(state => {
-          const slice = readSlice(state, scopeKey)
-          return {
-            byScope: writeSlice(state, scopeKey, {
-              ...slice,
-              sourceControl: {
-                ...slice.sourceControl,
-                collapsedDirectories: toggleInList(slice.sourceControl.collapsedDirectories, key),
-              },
-            }),
-          }
-        })
-      },
+  toggleSourceControlDirectory: (scopeKey, key) => {
+    set(state => {
+      const slice = readSlice(state, scopeKey)
+      return {
+        byScope: writeSlice(state, scopeKey, {
+          ...slice,
+          sourceControl: {
+            ...slice.sourceControl,
+            collapsedDirectories: toggleInList(slice.sourceControl.collapsedDirectories, key),
+          },
+        }),
+      }
+    })
+  },
 
-      setGitListMode: (scopeKey, mode) => {
-        set(state => {
-          const slice = readSlice(state, scopeKey)
-          if (slice.gitListMode === mode) return state
-          return {
-            byScope: writeSlice(state, scopeKey, { ...slice, gitListMode: mode }),
-          }
-        })
-      },
+  setGitListMode: (scopeKey, mode) => {
+    set(state => {
+      const slice = readSlice(state, scopeKey)
+      if (slice.gitListMode === mode) return state
+      return {
+        byScope: writeSlice(state, scopeKey, { ...slice, gitListMode: mode }),
+      }
+    })
+  },
 
-      clearScope: scopeKey => {
-        set(state => {
-          if (state.byScope[scopeKey] === undefined) return state
-          const next = { ...state.byScope }
-          delete next[scopeKey]
-          return { byScope: next }
-        })
-      },
-    }),
-    {
-      name: 'dsh-studio.sidebar-chrome',
-      version: 1,
-    },
-  ),
-)
+  clearScope: scopeKey => {
+    set(state => {
+      if (state.byScope[scopeKey] === undefined) return state
+      const next = { ...state.byScope }
+      delete next[scopeKey]
+      return { byScope: next }
+    })
+  },
+}))
+
+const storage = createUiChromeStorage<SidebarChromeState>({
+  table: UI_CHROME_TABLES.sidebarChrome,
+  defaults: defaultSidebarChromeState,
+  sanitize: sanitizeSidebarChrome,
+  debounceMs: 250,
+})
+
+function snapshot(): SidebarChromeState {
+  return { byScope: structuredClone(useSidebarChromeStore.getState().byScope) }
+}
+
+/** Start one storage subscriber and hydrate without overwriting early UI work. */
+export function startSidebarChromePersistence(): () => void {
+  let active = true
+  let hydrated = false
+  let changedBeforeHydrate = false
+  let applyingHydration = false
+  const stop = useSidebarChromeStore.subscribe(() => {
+    if (applyingHydration) return
+    if (hydrated) storage.save(snapshot())
+    else changedBeforeHydrate = true
+  })
+  void storage.load().then(value => {
+    if (!active) return
+    applyingHydration = true
+    const current = useSidebarChromeStore.getState().byScope
+    useSidebarChromeStore.setState({
+      byScope: changedBeforeHydrate ? { ...value.byScope, ...current } : value.byScope,
+    })
+    applyingHydration = false
+    hydrated = true
+    if (changedBeforeHydrate) storage.save(snapshot())
+  })
+  return () => {
+    active = false
+    stop()
+    void storage.flush()
+  }
+}

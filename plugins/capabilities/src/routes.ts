@@ -49,6 +49,8 @@ import {
 } from '@dsh-studio/shared/wire'
 import { buildFsHandlers } from './routes/fs.ts'
 import { buildSettingsHandlers } from './routes/settings.ts'
+import { buildUiChromeHandlers } from './routes/ui-chrome.ts'
+import type { UiChromeFace } from './routes/ui-chrome.ts'
 import { buildPtyHandlers } from './routes/pty.ts'
 import { buildGitHandlers } from './routes/git.ts'
 import {
@@ -76,6 +78,7 @@ export function buildCapabilitiesRoutes(
   resolved: ResolvedCapabilitiesConfig,
   getSettings: () => CapabilitiesSettingsFace | undefined,
   getSourceControlAiGenerator: () => SourceControlAiGenerator | undefined,
+  getUiChrome: () => Promise<UiChromeFace | undefined>,
 ): Record<string, ApiMethod> {
   const cwdOf = (payload: unknown): { cwd: string } => {
     const record = payload as { cwd?: unknown } | null
@@ -138,6 +141,7 @@ export function buildCapabilitiesRoutes(
     // is refused with settings-conflict so a concurrent change is never
     // silently overwritten (mirror of the settings seam's own guard).
     ...buildSettingsHandlers({ getSettings }),
+    ...buildUiChromeHandlers({ getUiChrome }),
     'browser.probe': async (payload) => {
       const raw = requireString(payload, 'url')
       let parsed: URL

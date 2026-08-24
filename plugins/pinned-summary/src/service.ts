@@ -20,6 +20,7 @@ import {
   type PinnedSummaryMessage,
 } from './i18n.ts'
 import summaryCss from './summary.css'
+import { loadUiChromeFlags, setUiChromeFlag } from '@dsh-studio/shared/ui-chrome-flags'
 
 interface ObservableSnapshot<T> {
   getSnapshot(): T
@@ -57,24 +58,6 @@ export interface PinnedSummary {
   setOpen(open: boolean): void
   subscribe(listener: () => void): () => void
   toggle(): void
-}
-
-const OPEN_KEY = 'dsh-studio.pinned-summary.open'
-
-function readOpen(): boolean {
-  try {
-    return localStorage.getItem(OPEN_KEY) === 'true'
-  } catch {
-    return false
-  }
-}
-
-function writeOpen(open: boolean): void {
-  try {
-    localStorage.setItem(OPEN_KEY, String(open))
-  } catch {
-    // Preferences are best-effort in restricted browser storage modes.
-  }
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -117,7 +100,7 @@ class PinnedSummaryService implements PinnedSummary {
   readonly #t: Translate<PinnedSummaryMessage>
   readonly #panels: DesktopPanels
   readonly #listeners = new Set<() => void>()
-  #open = readOpen()
+  #open = false
   #panel: HTMLElement | undefined
   #style: HTMLStyleElement | undefined
   #title: HTMLElement | undefined
@@ -143,6 +126,14 @@ class PinnedSummaryService implements PinnedSummary {
     this.#locale = locale
     this.#t = t
     this.#panels = panels
+  }
+
+  async hydrate(): Promise<void> {
+    const flags = await loadUiChromeFlags()
+    if (this.#open === flags.pinnedSummaryOpen) return
+    this.#open = flags.pinnedSummaryOpen
+    this.applyState()
+    for (const listener of this.#listeners) listener()
   }
 
   mount(): void {
@@ -213,7 +204,7 @@ class PinnedSummaryService implements PinnedSummary {
   setOpen(open: boolean): void {
     if (this.#open === open) return
     this.#open = open
-    writeOpen(open)
+    setUiChromeFlag('pinnedSummaryOpen', open)
     this.applyState()
     for (const listener of this.#listeners) listener()
   }

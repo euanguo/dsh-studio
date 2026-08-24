@@ -71,11 +71,11 @@
 ### 2.4 层 4:localStorage(浏览器插件 UI 会话态)
 
 - 落点:`{dataRoot}/desktop/Local Storage/leveldb`(Electron userData)。
-- 现用 key:`dsh-studio.sidebar-preferences.v2`、`dsh-studio.center-surfaces.v2`、
-  `dsh-studio.sidebar-chrome`、`dsh-studio.sidebar.diff-comments.v2`、`dsh-studio.keymap.v1`、
-  `dsh-studio.pinned-summary.open`、`dsh-studio.plugin-marketplace.open`。
+- 本计划范围内的 chrome key 已全部退役;仍保留的明确后续范围是
+  `dsh-studio.sidebar.diff-comments.v2` 与 `dsh-studio.keymap.v1`。
 - **适合**:无宿主进程的浏览器插件 UI 瞬态;**定位是"每浏览器会话态"**,不跨浏览器/不跨表面。
-- **方向**:随着 decision C 落地逐步退役,只保留"无宿主兜底"场景。
+- **边界**:只保留尚未纳入官方领域/设置归属的功能;新的持久 UI chrome 必须先进入
+  `dsh_studio_ui` 领域设计。
 
 ### 2.5 不该用的口子
 
@@ -102,7 +102,7 @@
 |---|---|---|
 | 功能开关、偏好、模型、权限、语言、主题 | 1 | 用户可感知,需跨浏览器/表面同步 |
 | 左栏分组映射、别名、图标覆盖、目录偏好 | 1 | 用户**有意**的配置切片(`dsh-studio-left-rail`);走 whole-section replace 表达删除 |
-| **展开/折叠状态、拖拽顺序、面板宽度、打开集、commit 草稿** | **2(目标)/ 4(现状)** | UI chrome,非用户配置;**禁止进层 1**——写着写着又是整段 YAML 重写,还污染设置文档 |
+| **展开/折叠状态、拖拽顺序、面板宽度、打开集、commit 草稿** | **2** | UI chrome,非用户配置;**禁止进层 1**——统一写入 `dsh_studio_ui` 领域 |
 | 市场目录缓存、皮肤、终端历史、环境缓存 | 3 | 宿主自有格式整文件 |
 | 会话内存态、实时 PTY | 内存 | 瞬态;历史分别进 `sessions/`、`terminal-sessions/` |
 | 密钥 | credentials | 不进 settings(redact 场景) |
@@ -120,38 +120,26 @@
 目标命名空间用 versioned DTO + whole-section `replace`,**删除能持久化**。文档引用:左栏客户端
 `left-rail-settings.ts`、宿主 `index.ts`。
 
-### decision C(本次)
+### decision C(已实施)
 
 **目标**:浏览器插件(左栏/右栏/中栏)的持久 UI chrome 状态统一进官方领域存储,不再散落
 localStorage 与设置文档。
 
-- **领域**:`dsh-studio-ui`,version 1,backend `json`(运行时已挂)。
-  - 表 `left-rail`:key 固定 `view`,value(zod):
-    ```ts
-    z.object({
-      groupExpansion: z.record(z.string(), z.boolean()).default({}),
-      sessionOrder: z.record(z.string(), z.array(z.string())).default({}),
-    })
-    ```
-  - 未来 `sidebar-chrome` / `pinned-summary` 各加一张表,共用同一领域(一个 json 文件)。
-  - 为什么整 DTO 单 key:json 后端每次 put 整文件重写,细粒度 key 无写放大收益;整 DTO
-    一次 hydrate、一次防抖 put,与 `center-surfaces.v2` 模式一致;加字段靠 zod 默认值 + 领域版本。
+- **领域**:`dsh_studio_ui`,version 1,backend `json`,文件为 `storages/dsh_studio_ui.json`。
+  - 五张表固定使用 `state` 记录:`left_rail_view`、`center_surfaces`、`sidebar_chrome`、`sidebar_layouts`、`flags`。
+
+
+  - 整 DTO 单 key 与 json 后端的整文件原子写一致,客户端按表 hydrate、防抖和串行写入;
+    字段演进依靠 zod 默认值与领域版本。
 - **宿主接线**(`plugins/capabilities`):
-  - `package.json` `hostDependencies` += `@deepseek-ai/dsh-storage-domain`、`zod`(与现有
-    `@deepseek-ai/dsh-workspace` 同机制,运行时冻结模块);
-  - `index.ts` `inject` += `'storageDomain'`(facility 由 `storage-domain` 插件 provide);
-    `ctx.effect` 内 `open(spec)`,disposer `close()` 排水;
-  - **缺失回退**:`storageDomain` 不可用 → 路由 503 → 客户端保持内存态,不双写
-    (照抄 `settingsFace` 的 undefined 模式);
-  - 新路由组 `routes/ui-chrome.ts`:`get {ns}` / `put {ns, value}` / `delete {ns}`,
-    走 `/capabilities/api` 既有 trust-fence 与 session 作用域;`ns` 匹配合法表名
-    (`^[a-z][a-z0-9_]*$`)防注入。
-- **客户端**(`plugins/desktop-left-rail`):
-  - 新 `client/chrome-storage.ts`(仿 `left-rail-settings.ts`,走 `ui-chrome.*`);
-  - `WorkspaceBrowser.tsx`:`groupExpansion`、`sessionOrderByAccount` 从纯内存改为
-    加载 hydrate + 300ms 防抖 put(与 settings 切片并存,各管各的 key);
-  - 右栏 `chrome-store.ts`(zustand persist → localStorage)本期不动,验证后再统一迁。
-- **原则**:不做 localStorage 双写(会产生两套真相);`settings.yaml` 不再增加 chrome 键。
+  - `storageDomain` 注入并打开 `UI_CHROME_DOMAIN`,插件生命周期关闭 domain;
+  - `ui-chrome.get/put/delete` 复用 capabilities API 封装,只接受固定表白名单;
+  - **缺失回退**:`storageDomain` 不可用 → 路由 503 → 客户端保持内存态,不双写。
+- **客户端**:左栏视图、中间 surfaces、右栏 chrome/layouts 和 flags 均通过
+  `@dsh-studio/shared/ui-chrome-storage`; `tabsEnabled`/`viewersEnabled` 只经
+  `dsh-better-sidebar` settings 的 `runtime-settings` 读写。
+- **旧数据策略**:本计划范围内旧 localStorage 数据直接作废,不读取、不搬运、不兼容、不双写。
+  仅 `keymap.v1` 与 diff comments 保留在各自后续架构范围内。
 
 ## 5. 附录:磁盘速查
 
@@ -159,7 +147,7 @@ localStorage 与设置文档。
 |---|---|---|
 | `settings.yaml` | 层 1 全部命名空间 | dsh-settings-file(官方) |
 | `storages/workspace.json`、`session_projcache.json` | 官方领域 | dsh-workspace / dsh-session-projection-cache(官方) |
-| `storages/dsh-studio-ui.json` | 本仓库 UI chrome 领域(目标) | capabilities + `@dsh-studio/*` |
+| `storages/dsh_studio_ui.json` | 本仓库 UI chrome 领域 | capabilities + `@dsh-studio/*` |
 | `desktop-skins.json` | 皮肤偏好 | desktop-skins |
 | `plugin-marketplace/` | 目录缓存/回滚/预览 | plugin-marketplace |
 | `terminal-sessions/sessions.json` | 终端会话历史 | capabilities |

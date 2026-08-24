@@ -18,8 +18,6 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
     this.value = value ?? {
       ...DEFAULT_SIDEBAR_PREFERENCES,
       workspaces: {},
-      tabsEnabled: {},
-      viewersEnabled: {},
       pluginSettings: {},
     }
   }
@@ -52,12 +50,9 @@ async function startedService(
 
 test('legacy documents without the new fields parse to the defaults', () => {
   const parsed = parseSidebarPreferences({
-    version: 2,
     openByDefault: false,
     defaultWidth: 480,
     workspaces: {},
-    tabsEnabled: {},
-    viewersEnabled: {},
     pluginSettings: {},
   })
   assert.equal(parsed?.centerPreviewTabs, 'default')
@@ -66,12 +61,9 @@ test('legacy documents without the new fields parse to the defaults', () => {
 
 test('unknown preview/layout values fall back instead of rejecting the document', () => {
   const parsed = parseSidebarPreferences({
-    version: 2,
     openByDefault: false,
     defaultWidth: 480,
     workspaces: {},
-    tabsEnabled: {},
-    viewersEnabled: {},
     pluginSettings: {},
     centerPreviewTabs: 'sometimes',
     layoutScope: 'per-branch',
@@ -82,15 +74,12 @@ test('unknown preview/layout values fall back instead of rejecting the document'
 
 test('per-workspace width is optional and clamped when present', () => {
   const parsed = parseSidebarPreferences({
-    version: 2,
     openByDefault: false,
     defaultWidth: 480,
     workspaces: {
       '/repo/a': { activeId: null, lastUsed: 1, tabs: [], width: 9999 },
       '/repo/b': { activeId: null, lastUsed: 2, tabs: [], width: 'wide' },
     },
-    tabsEnabled: {},
-    viewersEnabled: {},
     pluginSettings: {},
   })
   assert.equal(parsed?.workspaces['/repo/a']?.width, 640)

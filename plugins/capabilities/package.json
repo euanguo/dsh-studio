@@ -16,6 +16,7 @@
     "@xterm/headless": "6.1.0-beta.301",
     "node-pty": "1.2.0-beta.15",
     "schemastery": "^3.18.0",
+    "zod": "^4.4.3",
     "ws": "8.21.3"
   },
   "devDependencies": {
@@ -31,7 +32,9 @@
       "@deepseek-ai/dsh-llm",
       "@deepseek-ai/dsh-agent",
       "@deepseek-ai/dsh-session",
-      "@deepseek-ai/dsh-workspace"
+      "@deepseek-ai/dsh-workspace",
+      "@deepseek-ai/dsh-storage-domain",
+      "zod"
     ],
     "clientDependencies": [
       "@dsh-studio/shared"

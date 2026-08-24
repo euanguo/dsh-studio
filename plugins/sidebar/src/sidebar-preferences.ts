@@ -48,8 +48,6 @@ export interface DesktopSidebarPreferences {
   openByDefault: boolean
   /** Per-project open-tab layouts keyed by the workspace cwd. */
   workspaces: Record<string, PersistedWorkspaceLayout>
-  tabsEnabled: Record<string, boolean>
-  viewersEnabled: Record<string, boolean>
   /** Plugin-owned settings blobs keyed by descriptor id (open map). */
   pluginSettings: Record<string, Record<string, unknown>>
   /**
@@ -64,7 +62,6 @@ export interface DesktopSidebarPreferences {
    * Missing on legacy documents ⇒ `'workspace'`.
    */
   layoutScope: LayoutScopeMode
-  version: 2
 }
 
 export const DEFAULT_SIDEBAR_PREFERENCES: DesktopSidebarPreferences =
@@ -72,12 +69,9 @@ export const DEFAULT_SIDEBAR_PREFERENCES: DesktopSidebarPreferences =
     defaultWidth: SIDEBAR_DEFAULT_WIDTH,
     openByDefault: false,
     workspaces: Object.freeze({}),
-    tabsEnabled: Object.freeze({}),
-    viewersEnabled: Object.freeze({}),
     pluginSettings: Object.freeze({}),
     centerPreviewTabs: 'default',
     layoutScope: 'workspace',
-    version: 2,
   }) as DesktopSidebarPreferences
 
 function validKey(value: unknown, max = 160): value is string {
@@ -85,20 +79,6 @@ function validKey(value: unknown, max = 160): value is string {
     && value.length > 0
     && value.length <= max
     && !value.includes('\0')
-}
-
-function parseEnabledMap(value: unknown): Record<string, boolean> | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return undefined
-  }
-  const entries = Object.entries(value as Record<string, unknown>)
-  if (entries.length > 120) return undefined
-  const output: Record<string, boolean> = {}
-  for (const [key, enabled] of entries) {
-    if (!validKey(key, 120) || typeof enabled !== 'boolean') return undefined
-    output[key] = enabled
-  }
-  return output
 }
 
 /** JSON-serializable values only: primitives, finite numbers, arrays and
@@ -175,9 +155,8 @@ function parseWorkspace(value: unknown): PersistedWorkspaceLayout | undefined {
   }
   const activeId = input.activeId as string | null
   if (activeId !== null && !ids.has(activeId)) return undefined
-  // The bottom workbench is additive and optional: legacy sessions (or
-  // malformed extras) resolve to an empty workbench — never a parse error,
-  // so old documents migrate non-destructively.
+  // The bottom workbench is optional: older layout records or malformed
+  // extras resolve to an empty workbench instead of blocking the layout.
   const bottomTabs: PersistedSidebarTab[] = []
   const bottomIds = new Set<string>()
   if (Array.isArray(input.bottomTabs) && input.bottomTabs.length <= SIDEBAR_MAX_TABS) {
@@ -266,18 +245,15 @@ export function parseSidebarPreferences(
     return undefined
   }
   const input = value as Record<string, unknown>
-  if (input.version !== 2 || typeof input.openByDefault !== 'boolean') {
+  if (typeof input.openByDefault !== 'boolean') {
     return undefined
   }
   if (typeof input.defaultWidth !== 'number'
     || !Number.isFinite(input.defaultWidth)
     || input.defaultWidth < SIDEBAR_MIN_WIDTH
     || input.defaultWidth > SIDEBAR_LEGACY_MAX_WIDTH) return undefined
-  const tabsEnabled = parseEnabledMap(input.tabsEnabled)
-  const viewersEnabled = parseEnabledMap(input.viewersEnabled)
   const pluginSettings = parsePluginSettings(input.pluginSettings)
-  if (tabsEnabled === undefined || viewersEnabled === undefined
-    || pluginSettings === undefined) return undefined
+  if (pluginSettings === undefined) return undefined
   if (typeof input.workspaces !== 'object' || input.workspaces === null
     || Array.isArray(input.workspaces)) return undefined
   const entries = Object.entries(input.workspaces as Record<string, unknown>)
@@ -293,13 +269,10 @@ export function parseSidebarPreferences(
     defaultWidth: clampSidebarWidth(input.defaultWidth),
     openByDefault: input.openByDefault,
     workspaces,
-    tabsEnabled,
-    viewersEnabled,
     pluginSettings,
     // Tolerant by design: legacy documents lack the fields and unknown
     // values fall back rather than rejecting the whole document.
     centerPreviewTabs: input.centerPreviewTabs === 'disabled' ? 'disabled' : 'default',
     layoutScope: input.layoutScope === 'global' ? 'global' : 'workspace',
-    version: 2,
   }
 }

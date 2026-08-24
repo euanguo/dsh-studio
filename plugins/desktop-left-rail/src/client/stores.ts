@@ -8,6 +8,7 @@
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ProjectIconPreference } from './domain/project-icon.ts'
 import { sanitizeProjectIconPreference } from './domain/project-icon.ts'
+import type { LeftRailViewChrome } from '@dsh-studio/shared/ui-chrome-tables'
 
 /** Browser-local order account for the hierarchy-free flat Session list. */
 export const FLAT_SESSION_ORDER_KEY = '__flat_session_order__'
@@ -68,6 +69,7 @@ type WorkspaceViewActions = {
   setWorktreeAlias: (draft: WorkspaceViewState, worktreePath: string, alias: string | undefined) => void
   setProjectIconOverride: (draft: WorkspaceViewState, repoRoot: string, preference: ProjectIconPreference | undefined) => void
   hydrateGrouping: (draft: WorkspaceViewState, settings: { activeTab?: string; projectGroup?: Record<string, string>; groupIds?: string[]; groupLabels?: Record<string, string>; projectAlias?: Record<string, string>; worktreeAlias?: Record<string, string>; projectIconOverrides?: Record<string, ProjectIconPreference> }) => void
+  hydrateChrome: (draft: WorkspaceViewState, chrome: LeftRailViewChrome) => void
 }
 
 /**
@@ -157,6 +159,15 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
               .filter((entry): entry is readonly [string, ProjectIconPreference] => entry[1] !== undefined),
           )
         }
+      },
+      hydrateChrome: (d, chrome) => {
+        d.groupBy = chrome.groupBy
+        d.orderBy = chrome.orderBy
+        d.groupExpansion = { ...chrome.groupExpansion }
+        d.sessionOrderByAccount = Object.fromEntries(
+          Object.entries(chrome.sessionOrder).map(([key, order]) => [key, [...order]]),
+        )
+        d.sessionUpdatedAtByAccount = {}
       },
     },
   })

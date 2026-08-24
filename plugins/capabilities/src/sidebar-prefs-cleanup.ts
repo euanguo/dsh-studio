@@ -4,7 +4,7 @@
  * Older profiles can still carry `openByDefault`, `defaultWidthPercent`,
  * `bottomPanelAutoTerminal` and `browserNoSandbox` under the
  * `dsh-better-sidebar` namespace. Nothing reads them anymore — the sidebar
- * layout half lives in the client localStorage store and the terminal dock
+ * layout half lives in the client domain-backed UI store and the terminal dock
  * was removed — but unsetting them keeps the settings document honest.
  *
  * Idempotent: only keys actually present in the stored section are unset,

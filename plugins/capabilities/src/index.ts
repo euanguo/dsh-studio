@@ -36,6 +36,12 @@ import {
   type SidebarPrefs,
 } from './config.ts'
 import { migrateLegacyLeftRailSlice } from './left-rail-settings-migration.ts'
+import {
+  UI_CHROME_DOMAIN,
+  createUiChromeFace,
+  type UiChromeDomain,
+} from './ui-chrome-domain.ts'
+import type { UiChromeFace } from './routes/ui-chrome.ts'
 import { cleanupLegacySidebarPrefs } from './sidebar-prefs-cleanup.ts'
 import { LEFT_RAIL_SETTINGS_NS } from '@dsh-studio/shared/left-rail-preferences'
 import { isWithin, requireAbsolute } from '@dsh-studio/shared/fs-tree'
@@ -195,6 +201,37 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
   // dsh-studio-left-rail. The routes gate the left-rail namespace on this promise
   // so a cold-start first read never observes the empty pre-migration window.
   let leftRailMigrationGate: Promise<void> | undefined
+  // UI chrome uses one official domain store. This nested injection keeps the
+  // optional service out of the route lifetime; the routes close only over the
+  // stable face and gate below, never the child context.
+  let uiChromeFace: UiChromeFace | undefined
+  let uiChromeGate: Promise<void> | undefined
+  ctx.inject(['storageDomain'], (storageCtx) => {
+    let disposed = false
+    let domain: UiChromeDomain | undefined
+    uiChromeGate = storageCtx.storageDomain.open(UI_CHROME_DOMAIN).then(
+      (opened) => {
+        const candidate = opened as UiChromeDomain
+        if (disposed) {
+          void candidate.close()
+          return
+        }
+        domain = candidate
+        uiChromeFace = createUiChromeFace(candidate)
+      },
+      (error) => {
+        storageCtx.logger?.warn?.(`[ui-chrome] domain open failed: ${error instanceof Error ? error.message : String(error)}`)
+      },
+    )
+    storageCtx.effect(() => () => {
+      disposed = true
+      if (domain === undefined) return
+      const closing = domain
+      domain = undefined
+      uiChromeFace = undefined
+      void closing.close()
+    })
+  })
   // Await the left-rail migration gate for the left-rail namespace only; the
   // sidebar prefs namespace never waits (it is the migration's source, and
   // reads there must work before the move settles).
@@ -349,6 +386,10 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     resolved,
     () => settingsFace,
     () => sourceControlAiGenerator,
+    async () => {
+      await uiChromeGate
+      return uiChromeFace
+    },
   )
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',

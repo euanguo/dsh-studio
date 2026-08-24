@@ -118,8 +118,6 @@ function freshPreferences(): DesktopSidebarPreferences {
   return {
     ...DEFAULT_SIDEBAR_PREFERENCES,
     workspaces: {},
-    tabsEnabled: {},
-    viewersEnabled: {},
     pluginSettings: {},
   }
 }
@@ -133,8 +131,6 @@ function clonePreferences(
     workspaces: Object.fromEntries(Object.entries(preferences.workspaces).map(
       ([cwd, workspace]) => [cwd, cloneWorkspace(workspace)],
     )),
-    tabsEnabled: { ...preferences.tabsEnabled },
-    viewersEnabled: { ...preferences.viewersEnabled },
     pluginSettings: Object.fromEntries(
       Object.entries(preferences.pluginSettings).map(
         ([id, blob]) => [id, { ...blob }],
@@ -165,6 +161,12 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   private flushing: Promise<void> | undefined
   private instance = 0
   private readonly storage: SidebarPreferencesStorage
+  private readonly onFeatureEnablementChange: ((next: {
+    tabsEnabled: Record<string, boolean>
+    viewersEnabled: Record<string, boolean>
+  }) => void) | undefined
+  private tabsEnabled: Record<string, boolean> = {}
+  private viewersEnabled: Record<string, boolean> = {}
   private snapshot: SidebarSnapshot = {
     activeId: null,
     bottomActiveId: null,
@@ -189,8 +191,15 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   readonly version = SIDEBAR_SERVICE_VERSION
   readonly features = SIDEBAR_FEATURES
 
-  constructor(storage: SidebarPreferencesStorage) {
+  constructor(
+    storage: SidebarPreferencesStorage,
+    onFeatureEnablementChange?: (next: {
+      tabsEnabled: Record<string, boolean>
+      viewersEnabled: Record<string, boolean>
+    }) => void,
+  ) {
     this.storage = storage
+    this.onFeatureEnablementChange = onFeatureEnablementChange
   }
 
   getSnapshot = (): SidebarSnapshot => this.snapshot
@@ -216,8 +225,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
         scope: requestedCwd === null
           ? null
           : { cwd: requestedCwd },
-        tabsEnabled: { ...this.preferences.tabsEnabled },
-        viewersEnabled: { ...this.preferences.viewersEnabled },
+        tabsEnabled: { ...this.tabsEnabled },
+        viewersEnabled: { ...this.viewersEnabled },
         pluginSettings: this.pluginSettingsSnapshot(),
         centerPreviewTabs: this.preferences.centerPreviewTabs,
         layoutScope: this.preferences.layoutScope,
@@ -305,11 +314,25 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   }
 
   isTabEnabled(id: string): boolean {
-    return this.preferences.tabsEnabled[id] !== false
+    return this.tabsEnabled[id] !== false
   }
 
   isViewerEnabled(id: string): boolean {
-    return this.preferences.viewersEnabled[id] !== false
+    return this.viewersEnabled[id] !== false
+  }
+
+  setFeatureEnablement(
+    tabsEnabled: Readonly<Record<string, boolean>>,
+    viewersEnabled: Readonly<Record<string, boolean>>,
+  ): void {
+    this.tabsEnabled = { ...tabsEnabled }
+    this.viewersEnabled = { ...viewersEnabled }
+    this.publish({
+      ...this.snapshot,
+      revision: this.snapshot.revision + 1,
+      tabsEnabled: { ...this.tabsEnabled },
+      viewersEnabled: { ...this.viewersEnabled },
+    })
   }
 
   matchViewer(
@@ -841,27 +864,32 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   }
 
   setTabEnabled(id: string, enabled: boolean): void {
-    if (this.isTabEnabled(id) === enabled
-      && Object.hasOwn(this.preferences.tabsEnabled, id)) return
-    this.preferences.tabsEnabled[id] = enabled
+    if (this.isTabEnabled(id) === enabled && Object.hasOwn(this.tabsEnabled, id)) return
+    this.tabsEnabled = { ...this.tabsEnabled, [id]: enabled }
     this.publish({
       ...this.snapshot,
       revision: this.snapshot.revision + 1,
-      tabsEnabled: { ...this.preferences.tabsEnabled },
+      tabsEnabled: { ...this.tabsEnabled },
     })
-    this.schedulePersist()
+    this.publishFeatureEnablement()
   }
 
   setViewerEnabled(id: string, enabled: boolean): void {
-    if (this.isViewerEnabled(id) === enabled
-      && Object.hasOwn(this.preferences.viewersEnabled, id)) return
-    this.preferences.viewersEnabled[id] = enabled
+    if (this.isViewerEnabled(id) === enabled && Object.hasOwn(this.viewersEnabled, id)) return
+    this.viewersEnabled = { ...this.viewersEnabled, [id]: enabled }
     this.publish({
       ...this.snapshot,
       revision: this.snapshot.revision + 1,
-      viewersEnabled: { ...this.preferences.viewersEnabled },
+      viewersEnabled: { ...this.viewersEnabled },
     })
-    this.schedulePersist()
+    this.publishFeatureEnablement()
+  }
+
+  private publishFeatureEnablement(): void {
+    this.onFeatureEnablementChange?.({
+      tabsEnabled: { ...this.tabsEnabled },
+      viewersEnabled: { ...this.viewersEnabled },
+    })
   }
 
   async settle(): Promise<void> {

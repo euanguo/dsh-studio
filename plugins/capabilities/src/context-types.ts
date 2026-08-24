@@ -448,6 +448,11 @@ export interface CapabilitiesSettingsService {
   mutate(ns: string, ops: ReadonlyArray<{ op: 'set' | 'unset'; path: string[]; value?: unknown }>, expectedRevision?: number): Promise<void>
 }
 
+/** The official domain-storage facility exposed by dsh-storage-domain. */
+export interface CapabilitiesStorageDomainService {
+  open(spec: unknown): Promise<unknown>
+}
+
 /**
  * The tools service face (mirror of @deepseek-ai/dsh-tools' ToolRuntime).
  * The host half registers model-facing tools here; the registry attaches the
@@ -506,6 +511,7 @@ declare module 'cordis' {
     workspaces: CapabilitiesWorkspacesService
     workspaceRegistry: CapabilitiesWorkspaceRegistry
     settings: CapabilitiesSettingsService
+    storageDomain: CapabilitiesStorageDomainService
     invariants: CapabilitiesInvariantsService
     tools: CapabilitiesToolsService
     llm: CapabilitiesLlmService

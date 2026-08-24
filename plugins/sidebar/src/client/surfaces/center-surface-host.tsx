@@ -242,7 +242,7 @@ export class CenterSurfaceHost {
     this.root = createRoot(this.element)
     this.render()
     this.stopPersist = persistCenterSurfaces()
-    restoreCenterSurfaces()
+    void restoreCenterSurfaces()
     this.attachToCenterColumn()
   }
 

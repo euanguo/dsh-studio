@@ -1,3 +1,8 @@
+/** Domain-backed persistence seam for right-sidebar layout chrome. */
+import {
+  UI_CHROME_TABLES,
+} from '@dsh-studio/shared/ui-chrome-tables'
+import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
   parseSidebarPreferences,
@@ -9,52 +14,32 @@ export interface SidebarPreferencesStorage {
   save(preferences: DesktopSidebarPreferences): Promise<void>
 }
 
-const STORAGE_KEY = 'dsh-studio.sidebar-preferences.v2'
+function defaults(): DesktopSidebarPreferences {
+  return {
+    ...DEFAULT_SIDEBAR_PREFERENCES,
+    workspaces: {},
+    pluginSettings: {},
+  }
+}
+
+const storage = createUiChromeStorage<DesktopSidebarPreferences>({
+  table: UI_CHROME_TABLES.sidebarLayouts,
+  defaults,
+  sanitize: value => parseSidebarPreferences(value) ?? defaults(),
+  debounceMs: 250,
+})
 
 /**
- * Client-side persistence for the sidebar's UI preferences (width, default
- * open, per-tab/viewer enable switches, per-session tab layouts). Stored in
- * localStorage so the sidebar needs no host file system / appDataPath — this
- * is what lets the sidebar run as a generic DSH plugin outside the desktop.
- *
- * STORE BOUNDARY (deliberate, do not merge with runtime-settings): the
- * sidebar intentionally persists to TWO stores with different ownership —
- *   - HERE (localStorage): per-BROWSER UI session state. Tab layouts are
- *     window-local; two browsers on the same profile keep independent
- *     layouts, and a corrupted layout never touches the host.
- *   - runtime-settings (host settings namespace via /capabilities/api
- *     settings.*): FEATURE preferences (interception switches, terminal
- *     font/shell, agent tools) that must follow the user across browsers
- *     and surfaces.
- * Folding either into the other is a regression: layouts on the host lose
- * browser isolation; feature prefs in localStorage stop syncing.
+ * The right sidebar owns layout state only. Feature enablement belongs to the
+ * settings namespace and is supplied to DesktopSidebarService separately.
  */
-export class LocalStorageSidebarPreferencesStorage
-implements SidebarPreferencesStorage {
-  async load(): Promise<DesktopSidebarPreferences> {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw === null) {
-      return {
-        ...DEFAULT_SIDEBAR_PREFERENCES,
-        workspaces: {},
-        tabsEnabled: {},
-        viewersEnabled: {},
-      }
-    }
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(raw) as unknown
-    } catch {
-      throw new Error('sidebar preferences are invalid JSON')
-    }
-    const preferences = parseSidebarPreferences(parsed)
-    if (preferences === undefined) {
-      throw new Error('sidebar preferences are invalid')
-    }
-    return preferences
+export class DomainSidebarPreferencesStorage implements SidebarPreferencesStorage {
+  load(): Promise<DesktopSidebarPreferences> {
+    return storage.load()
   }
 
   async save(preferences: DesktopSidebarPreferences): Promise<void> {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
+    storage.save(preferences)
+    await storage.flush()
   }
 }

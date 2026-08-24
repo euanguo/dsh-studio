@@ -46,6 +46,15 @@ declare module '@deepseek-ai/dsh-settings' {
   export function settingsNamespace(ns: string): SettingsNamespace
 }
 
+declare module '@deepseek-ai/dsh-storage-domain' {
+  export function defineDomain(spec: any): any
+  export function domainTable(schema: any): any
+}
+
+declare module 'zod' {
+  export const z: any
+}
+
 declare module 'ws' {
   export class WebSocket {
     constructor(url: string, protocols?: string | string[])

@@ -43,6 +43,9 @@ export function apply(ctx: ClientContext): void {
   )
   ctx.effect(() => {
     service.mount()
+    void service.hydrate().catch(error => {
+      console.warn('[pinned-summary] flags unavailable', error)
+    })
     const disposeService = ctx.reflect.provide('pinnedSummary', service, undefined)
     return () => {
       service.dispose()

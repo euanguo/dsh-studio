@@ -18,8 +18,6 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
     this.value = value ?? {
       ...DEFAULT_SIDEBAR_PREFERENCES,
       workspaces: {},
-      tabsEnabled: {},
-      viewersEnabled: {},
       pluginSettings: {},
     }
   }
@@ -71,8 +69,6 @@ test('legacy workspaces without a bottom workbench parse to an empty one', () =>
         tabs: [],
       },
     },
-    tabsEnabled: {},
-    viewersEnabled: {},
     pluginSettings: {},
   }
   const parsed = parseSidebarPreferences(legacy)

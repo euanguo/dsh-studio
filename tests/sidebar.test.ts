@@ -22,8 +22,6 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
     this.value = value ?? {
       ...DEFAULT_SIDEBAR_PREFERENCES,
       workspaces: {},
-      tabsEnabled: {},
-      viewersEnabled: {},
       pluginSettings: {},
     }
   }
@@ -70,8 +68,6 @@ test('desktop sidebar validates the durable preference envelope', () => {
         bottomActiveId: null,
       },
     },
-    tabsEnabled: { browser: false },
-    viewersEnabled: { image: true },
     pluginSettings: { 'my-plugin:db': { pageSize: 20 } },
   }
   assert.deepEqual(parseSidebarPreferences(valid), valid)
@@ -122,8 +118,6 @@ test('desktop sidebar restores workspaces and deduplicates registered tabs', asy
         }],
       },
     },
-    tabsEnabled: {},
-    viewersEnabled: {},
     pluginSettings: {},
   })
   const sidebar = new DesktopSidebarService(storage)
@@ -188,9 +182,10 @@ test('desktop sidebar matches viewers by priority, sniffing, and enablement', as
   assert.equal(sidebar.matchViewer('photo.png')?.id, 'text')
 })
 
-test('desktop sidebar persists bounded per-project state outside Web storage', async () => {
+test('desktop sidebar persists bounded layouts and forwards enablement to settings', async () => {
   const storage = new MemorySidebarStorage()
-  const sidebar = new DesktopSidebarService(storage)
+  const featureUpdates: Array<{ tabsEnabled: Record<string, boolean>; viewersEnabled: Record<string, boolean> }> = []
+  const sidebar = new DesktopSidebarService(storage, update => { featureUpdates.push(update) })
   await sidebar.start()
   sidebar.registerTab(tab('browser'))
   sidebar.registerViewer({
@@ -216,8 +211,12 @@ test('desktop sidebar persists bounded per-project state outside Web storage', a
   assert.equal(storage.value.workspaces['/work/repo']?.width, 512)
   assert.equal(storage.value.defaultWidth, DEFAULT_SIDEBAR_PREFERENCES.defaultWidth)
   assert.equal(storage.value.openByDefault, true)
-  assert.equal(storage.value.tabsEnabled.browser, false)
-  assert.equal(storage.value.viewersEnabled.text, false)
+  assert.equal('tabsEnabled' in storage.value, false)
+  assert.equal('viewersEnabled' in storage.value, false)
+  assert.deepEqual(featureUpdates.at(-1), {
+    tabsEnabled: { browser: false },
+    viewersEnabled: { text: false },
+  })
   assert.equal(storage.value.workspaces['/work/repo']?.tabs.length, 1)
   assert.equal(storage.writes.length, 1)
 })

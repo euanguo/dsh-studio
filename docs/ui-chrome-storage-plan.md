@@ -1,16 +1,16 @@
 # DSH Studio UI 状态统一存储 Plan(decision C 实施计划)
 
-> 状态:计划(plan)· 2026-08-24
+> 状态:已实施(implemented)· 2026-08-24
 > 配套架构文档:`docs/persistence-architecture.md`(四层存储模型、归属决策表、decision B/C)。
 > 本文件是 decision C 的**详细实施计划**:怎么把多个插件(左栏/右栏/中间 tab/钉子件)的持久
 > UI 状态抽离进运行时官方领域存储(`storageDomain`),以及每个阶段做什么、怎么验收。
 
 ## 0. 决策摘要(已拍板)
 
-1. **走 C**:统一 UI 状态存进 `storageDomain` 领域存储(`storages/dsh-studio-ui.json`),不再
+1. **走 C**:统一 UI 状态存进 `storageDomain` 领域存储(`storages/dsh_studio_ui.json`),不再
    依赖浏览器 localStorage,也不往 `settings.yaml` 塞 chrome 状态。
 2. **每表一个 key,存全量 DTO**:json 后端每次写都是整文件原子重写,细粒度 key 无写放大
-   收益;每表一个记录、一次 hydrate、一次防抖写,与现有 `center-surfaces.v2` 文档同构。
+   收益;每表一个记录、一次 hydrate、一次防抖写,与现有 `center_surfaces.v2` 文档同构。
 3. **旧 localStorage 数据直接作废**:不读、不搬、不兼容、不双写。代码中删除旧 key 常量与
    读写路径,首次运行即按新存储默认值。
 4. **面向最终架构,不留中间逻辑**:不引入过渡层、不做"既读旧又写新"的混合期;能力一次
@@ -33,7 +33,7 @@
 [capabilities 宿主插件]      ctx.storageDomain.open(spec) → domain.table(ns)
         │  zod 强校验 · 持久化优先写 · domain/changed
         ▼
-[dsh-storage-json 后端]      storages/dsh-studio-ui.json(原子整文件重写)
+[dsh-storage-json 后端]      storages/dsh_studio_ui.json(原子整文件重写)
 ```
 
 - **localStorage 层退役**:迁移完成后仓库内不再有 `dsh-studio.sidebar-preferences.v2` /
@@ -42,20 +42,20 @@
 - **settings.yaml 保持纯配置**:chrome 状态一律不进设置文档;`dsh-studio-left-rail` 只保留
   用户有意的配置切片(见 §3)。
 
-## 2. 领域模型:`dsh-studio-ui` v1
+## 2. 领域模型:`dsh_studio_ui` v1
 
 一个 `defineDomain` spec、五张表、一个 json 文件;表名 = `/capabilities` 路由的 `ns`。
 
 ```ts
 // capabilities 宿主侧(domain spec,记录 schema 用 zod)
 defineDomain({
-  name: 'dsh-studio-ui',
+  name: 'dsh_studio_ui',
   version: 1,
   tables: {
-    'left-rail-view':   domainTable(leftRailViewSchema),   // §2.1
-    'center-surfaces':  domainTable(centerSurfacesSchema), // §2.2
-    'sidebar-chrome':   domainTable(sidebarChromeSchema),  // §2.3
-    'sidebar-layouts':  domainTable(sidebarLayoutsSchema), // §2.4
+    'left_rail_view':   domainTable(leftRailViewSchema),   // §2.1
+    'center_surfaces':  domainTable(centerSurfacesSchema), // §2.2
+    'sidebar_chrome':   domainTable(sidebarChromeSchema),  // §2.3
+    'sidebar_layouts':  domainTable(sidebarLayoutsSchema), // §2.4
     flags:              domainTable(flagsSchema),          // §2.5
   },
 })
@@ -65,7 +65,7 @@ defineDomain({
 删即删除该表记录(`undefined` = 从未写入 → 客户端用默认值)。加字段靠 zod `.default()`
 与客户端 sanitizer 的缺省回退,不产生兼容分支。
 
-### 2.1 `left-rail-view` —— 左栏视图状态(从内存迁入)
+### 2.1 `left_rail_view` —— 左栏视图状态(从内存迁入)
 
 ```ts
 // 只持久化"用户可再现的视图状态";sessionUpdatedAtByAccount(一次 promotion 的
@@ -82,7 +82,7 @@ defineDomain({
 `groupBy`/`orderBy` 均为内存态。`activeTab`(当前选中分组)与 `projectGroup`/
 `groupIds`/`groupLabels`/别名/图标/目录偏好**继续留在 settings** 不动(见 §3)。
 
-### 2.2 `center-surfaces` —— 中间 tab 每项目打开集(从 localStorage v2 迁入)
+### 2.2 `center_surfaces` —— 中间 tab 每项目打开集
 
 ```ts
 {
@@ -100,10 +100,10 @@ defineDomain({
 }
 ```
 
-现状:`center-surface-persistence.ts` 已把同一结构写 localStorage(`version:4, byCwd`),
-**数据模型不变**,只换介质(浏览器存储 → 领域存储),并删除 localStorage 代码。
+实现:`center-surface-persistence.ts` 以 `byCwd` DTO 经领域存储 hydrate/save;
+store 数据模型保持按 workspace 分桶,不再依赖浏览器 localStorage。
 
-### 2.3 `sidebar-chrome` —— 右栏 chrome 态(从 localStorage 迁入)
+### 2.3 `sidebar_chrome` —— 右栏 chrome 态
 
 ```ts
 {
@@ -116,10 +116,10 @@ defineDomain({
 }
 ```
 
-现状:`chrome-store.ts` 用 zustand `persist` 落 localStorage;**去掉 persist 中间件**,
-zustand 只做内存 store,持久化改由存储订阅层(ChromeStorage)承担。
+实现:`chrome-store.ts` 去掉 zustand `persist` 中间件;zustand 只做内存 store,
+持久化由领域存储订阅层承担。
 
-### 2.4 `sidebar-layouts` —— 右栏每项目布局(从 localStorage v2 拆分迁入)
+### 2.4 `sidebar_layouts` —— 右栏每项目布局
 
 ```ts
 {
@@ -138,35 +138,33 @@ zustand 只做内存 store,持久化改由存储订阅层(ChromeStorage)承担�
 
 - 布局类字段(defaultWidth/openByDefault/layoutScope/centerPreviewTabs/workspaces)
   → 本表(domain)。
-- **`tabsEnabled` / `viewersEnabled` 归位 settings**:这是"每 tab/viewer 类型开关"的用户
-  偏好,settings 的 `dsh-better-sidebar` schema(`PrefsSchema`)**已预留**这两个字段,但
-  sidebar 从未读写(唯一活跃源是 localStorage,已核实)。实现时:sidebar 改为经
-  `runtime-settings`(settings 命名空间)读写,删除 localStorage 副本。**无迁移**——旧开关
-  值作废,默认全开(缺席即启用,语义不变)。
+- **`tabsEnabled` / `viewersEnabled` 归位 settings**:"每 tab/viewer 类型开关"是用户
+  偏好,由 `dsh-better-sidebar` settings 命名空间拥有,sidebar 经 `runtime-settings`
+  读写;布局 DTO 不再携带这两个字段。旧开关值作废,默认全开(缺席即启用,语义不变)。
 
-### 2.5 `flags` —— 面板开关布尔(从 localStorage 迁入)
+### 2.5 `flags` —— 面板开关布尔
 
 ```ts
 {
   pinnedSummaryOpen: boolean,
-  marketplaceOpen: boolean,
+  pluginMarketplaceOpen: boolean,
 }
 ```
 
-现状:`pinned-summary/src/service.ts`(`OPEN_KEY`)、`plugin-marketplace/src/client/plugin.tsx`
-各自 localStorage 布尔。合并进一张小表。
+实现:`pinned-summary` 与 `plugin-marketplace` 共享 `flags` 表的全量 DTO;
+两者通过共享 flags facade 更新各自字段。
 
 ## 3. 状态最终归属表(不许写错层)
 
 | 状态 | 归属 | 说明 |
 |---|---|---|
 | `dsh-studio-left-rail` 配置切片:`projectGroup`/`groupIds`/`groupLabels`/`projectAlias`/`worktreeAlias`/`projectIconOverrides`/`activeTab`/`worktreeDir`/`nestWorktrees` | **settings(不动)** | 用户有意的配置;whole-section replace 表达删除 |
-| 左栏 `groupBy`/`orderBy`/`groupExpansion`/`sessionOrder` | **domain `left-rail-view`** | 本次从内存迁入 |
-| 中间 tab 每项目打开集 | **domain `center-surfaces`** | 从 localStorage v2 迁入 |
-| 右栏 chrome(展开/折叠/草稿/gitListMode) | **domain `sidebar-chrome`** | 从 localStorage 迁入 |
-| 右栏布局(宽度/tab 队列/layoutScope/……) | **domain `sidebar-layouts`** | 从 localStorage v2 迁入 |
+| 左栏 `groupBy`/`orderBy`/`groupExpansion`/`sessionOrder` | **domain `left_rail_view`** | 本次从内存迁入 |
+| 中间 tab 每项目打开集 | **domain `center_surfaces`** | 按 workspace 持久化 |
+| 右栏 chrome(展开/折叠/草稿/gitListMode) | **domain `sidebar_chrome`** | 按 scope 持久化 |
+| 右栏布局(宽度/tab 队列/layoutScope/……) | **domain `sidebar_layouts`** | 按布局 DTO 持久化 |
 | 右栏 `tabsEnabled`/`viewersEnabled` | **settings `dsh-better-sidebar`** | 用户开关,归位 settings(字段已存在) |
-| pinned-summary / marketplace 开关 | **domain `flags`** | 从 localStorage 迁入 |
+| pinned-summary / marketplace 开关 | **domain `flags`** | 共享 flags DTO 持久化 |
 | `keymap.v1`(键位覆盖) | **后续归 settings** | 本期不改写路径(见 §9 开放问题) |
 | diff 评论 | **后续归评论架构** | 与 `comment-architecture.md` 联动,本期不动 |
 | 会话/工作区/终端历史 | **官方领域/官方文件,只读** | 不碰 |
@@ -195,12 +193,17 @@ zustand 只做内存 store,持久化改由存储订阅层(ChromeStorage)承担�
 ### 5.1 共享客户端(新增 `@dsh-studio/shared/ui-chrome-storage.ts`)
 
 ```ts
-export interface UiChromeStorage {
-  load<T>(ns: string, fallback: T, sanitize: (v: unknown) => T | undefined): Promise<T>
-  put(ns: string, value: unknown): Promise<void>   // 防抖 + 单表串行
-  delete(ns: string): Promise<void>
-  readonly available: boolean                       // storageDomain 是否可用
-}
+const storage = createUiChromeStorage<T>({
+  table: UiChromeTableName,       // 固定表名
+  defaults: () => T,              // 缺失记录的默认值
+  sanitize: (v: unknown) => T,    // 读取时收窄为合法 DTO
+  debounceMs: 250,                // 防抖写
+})
+
+await storage.load()             // hydrate(不可用 → defaults)
+storage.save(value)              // 防抖 + 串行写,失败保留待重试
+await storage.flush()            // 立即冲刷并等待写链排空
+storage.availability()           // 'available' | 'unavailable'
 ```
 
 - hydrate 走 `ui-chrome.get`,缺失/损坏 → sanitizer 兜底默认值;
@@ -218,18 +221,18 @@ host 的 zod schema 与 shared sanitizer 以契约测试保证同步(见 §8)。
 | 插件 | 改动 |
 |---|---|
 | `desktop-left-rail` | `WorkspaceBrowser.tsx`:`groupExpansion`/`sessionOrder` 由 ChromeStorage hydrate + 300ms 防抖 put;`retainAccountKeys` 保留(内存回收),数据源改为领域;其余 settings 切片逻辑不动 |
-| `sidebar` | `center-surface-persistence.ts` 改为订阅 ChromeStorage(`center-surfaces`);`chrome-store.ts` 去掉 zustand persist,换 ChromeStorage 订阅(`sidebar-chrome`);`sidebar-storage.ts`(LocalStorageSidebarPreferencesStorage)删除,布局改 ChromeStorage(`sidebar-layouts`),`tabsEnabled`/`viewersEnabled` 改走 `runtime-settings` |
+| `sidebar` | `center-surface-persistence.ts` 订阅领域存储(`center_surfaces`);`chrome-store.ts` 去掉 zustand persist,换领域订阅(`sidebar_chrome`);`sidebar-storage.ts` 保留为 `DomainSidebarPreferencesStorage`,布局写入 `sidebar_layouts`;`tabsEnabled`/`viewersEnabled` 改走 `runtime-settings` |
 | `pinned-summary` | `service.ts` 开关读写改 ChromeStorage(`flags`) |
 | `plugin-marketplace` | `client/plugin.tsx` 开关改 ChromeStorage(`flags`) |
 
-### 5.4 localStorage 清理(作废 = 删除代码)
+### 5.4 已完成的 localStorage 清理
 
 - 删除:`CENTER_SURFACES_STORAGE_KEY`、`chrome-store` persist `name`、`STORAGE_KEY`
   (sidebar-preferences v2)、`OPEN_KEY`(pinned-summary)、`OPEN_KEY`(marketplace);
 - 不保留任何"读旧 key"逻辑;验证 `grep localStorage` 在待迁移插件中归零
   (`keymap.v1`、diff-comments 除外,见 §9)。
 
-## 6. 迁移策略(拍板:作废,不搬运)
+## 6. 数据策略(拍板:旧数据作废,不搬运)
 
 - 旧 localStorage 数据**不读取、不复制、不转换**;首启即按新存储默认值。
 - 领域演进只靠两条路径,不产生兼容分支:
@@ -241,11 +244,11 @@ host 的 zod schema 与 shared sanitizer 以契约测试保证同步(见 §8)。
 
 | 里程碑 | 内容 | 验收标准 |
 |---|---|---|
-| **M1 底座** | shared `ui-chrome-storage` + `ui-chrome-tables`;host deps/inject/domain/routes/DTO;左栏 `left-rail-view` 落地 | 左栏展开/顺序重启后恢复;settings 未新增键;`ui-chrome.*` 契约测试过;typecheck/test 绿 |
-| **M2 中间 tab** | `center-surfaces` 迁入,删 localStorage 持久化代码 | 重启恢复每项目打开集;localStorage 无 `center-surfaces` 写入 |
-| **M3 右栏** | `sidebar-chrome` 迁入;`sidebar-layouts` 迁入;`tabsEnabled`/`viewersEnabled` 归位 settings;删 `sidebar-storage.ts` | 布局/折叠/草稿重启恢复;开关经 settings 生效(跨浏览器同步) |
-| **M4 钉子件** | `flags` 迁入(pinned-summary/marketplace);遗留 localStorage 读写代码全清 | grep 迁移插件 localStorage 归零;开关重启恢复 |
-| **M5 收尾** | 更新 `docs/persistence-architecture.md`(decision C 定稿、localStorage 层退役说明);planeed smoke(`pnpm run typecheck && pnpm test && pnpm run build` + 桌面 smoke) | 文档与实现一致;CI 全绿 |
+| **M1 底座** | shared `ui-chrome-storage` + `ui-chrome-tables`;host deps/inject/domain/routes/DTO;左栏 `left_rail_view` 落地 | 已验证:左栏状态可写入 domain;settings 未新增 chrome 键;契约测试通过 |
+| **M2 中间 tab** | `center_surfaces` 使用领域存储 | 已验证:按 workspace 恢复打开集;无旧 center localStorage 读写 |
+| **M3 右栏** | `sidebar_chrome`、`sidebar_layouts` 使用领域存储;`tabsEnabled`/`viewersEnabled` 归位 settings | 已验证:布局/chrome 可恢复;开关经 settings 生效 |
+| **M4 钉子件** | `flags` 由 pinned-summary/marketplace 共享 facade 使用 | 已验证: marketplace flag 写入 domain;无旧 flags localStorage 读写 |
+| **M5 收尾** | 文档同步、全量验证、DEV 桌面 smoke | 已完成: typecheck、617 项通过/2 项跳过、build、DEV smoke |
 
 每期独立可合并、可回滚;M1 先验证 `storageDomain` 在 web 面的可用性(见 §9)。
 
@@ -256,7 +259,7 @@ host 的 zod schema 与 shared sanitizer 以契约测试保证同步(见 §8)。
 - **领域 spec**:表名/version/命名合法性、zod 解析、缺失记录默认值;
 - **sanitizer 同步**:host zod schema 与 shared sanitizer 对同一批样本给出等价结果
   (契约测试,思路同既有 settings sanitizer 测试);
-- **行为测试**:左栏展开顺序 hydrate/save 往返、center-surfaces 打开集往返、
+- **行为测试**:左栏展开顺序 hydrate/save 往返、center_surfaces 打开集往返、
   flags 开关往返(纯函数 seam 处断言,不 grep 源码字符串);
 - **废弃守卫**:迁移后 `grep -rn "localStorage"` 指定插件目录(除 keymap/comments)为空。
 
@@ -264,9 +267,9 @@ host 的 zod schema 与 shared sanitizer 以契约测试保证同步(见 §8)。
 
 1. **storageDomain 在 web 面可用性**:数据根共享、workspace 注册表在 web 面也运行,预期
    可用;M1 用探针测试确认,不可用则 web 面保持内存降级(桌面不受影响)。
-2. **`tabsEnabled`/`viewersEnabled` 双源已确认**:活跃源只有 localStorage(settings 字段
-   是预埋的),归位 settings 无迁移负担;实现时验证 settings 读写路径(runtime-settings)
-   与现有 Settings 页渲染(`settings.tsx`)一致。
+2. **`tabsEnabled`/`viewersEnabled` 归属已完成**:settings schema 与 `runtime-settings`
+   共同拥有开关;布局 DTO 不再携带这两个字段,旧开关值作废。Settings 页渲染
+   (`settings.tsx`)直接消费 settings 快照。
 3. **`domain/changed` 推送本期不做**:跨表面实时同步(多窗口)靠 hydrate;如需要,后续在
    宿主加推送通道,不在本期引入。
 4. **`keymap.v1` 与 diff 评论本期不动**:各自有明确的后续归属(keymap→settings 用户配置;
@@ -276,6 +279,6 @@ host 的 zod schema 与 shared sanitizer 以契约测试保证同步(见 §8)。
 
 ## 10. 配套文档
 
-- 实现推进时同步更新:`docs/persistence-architecture.md`(§2.2/§2.4/§4 decision C 定稿;
-  localStorage 层退役说明);
-- 本 Plan 文件在 M5 收尾后归档为已实施记录(状态字段改为"已实施")或根据演进修订。
+- `docs/persistence-architecture.md` 已同步 decision C 的实际领域名、表名和退役范围。
+
+- 本文件在 M5 完成后保留为已实施记录;后续 schema 演进只更新领域版本与契约。

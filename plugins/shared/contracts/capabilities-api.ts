@@ -9,6 +9,8 @@
  * route directly.
  */
 
+import type { UiChromeTableName } from '../ui-chrome-tables.ts'
+
 /**
  * One project-scoped request: the sidebar data model keys by the workspace
  * cwd (project dimension). `sessionId` has been dropped — fs/git/pty operate
@@ -275,6 +277,9 @@ export interface CapabilitiesApiRequests {
     ops: ReadonlyArray<{ op: 'set' | 'unset'; path: string[]; value?: unknown }>
     expectedRevision?: number
   }
+  'ui-chrome.get': { table: UiChromeTableName }
+  'ui-chrome.put': { table: UiChromeTableName; value: unknown }
+  'ui-chrome.delete': { table: UiChromeTableName }
   'browser.probe': { url: string }
   'jobs.output': { id: string }
   'jobs.kill': { id: string; reason?: string }

@@ -43,6 +43,7 @@ import type {
 } from '../protocol.ts'
 import { MARKETPLACE_MESSAGES, type MarketplaceMessage } from './i18n.ts'
 import { pluginCss as marketplaceSurfaceCss, MarketplaceCss } from './styles.js'
+import { loadUiChromeFlags, setUiChromeFlag } from '@dsh-studio/shared/ui-chrome-flags'
 import { CategoryMenu, PluginCard } from './marketplace-browse.tsx'
 import { PluginDetail } from './plugin-detail.tsx'
 import {
@@ -107,16 +108,7 @@ declare global {
 
 export const inject = ['locale', 'sessions', 'slots']
 
-const OPEN_KEY = 'dsh-studio.plugin-marketplace.open'
 const FOOTER_STACK_ATTRIBUTE = 'data-dsh-studio-marketplace-footer-stack'
-
-function readOpen(): boolean {
-  try { return localStorage.getItem(OPEN_KEY) === 'true' } catch { return false }
-}
-
-function persistOpen(open: boolean): void {
-  try { localStorage.setItem(OPEN_KEY, String(open)) } catch { /* best effort */ }
-}
 
 function settingsButton(): HTMLButtonElement | null {
   const visible = (button: HTMLButtonElement): boolean => {
@@ -205,7 +197,7 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
   readonly #t: Translate<MarketplaceMessage>
   readonly #sessions: SessionsService
   readonly #listeners = new Set<() => void>()
-  #state: MarketplaceViewState = { available: false, open: readOpen() }
+  #state: MarketplaceViewState = { available: false, open: false }
   #element: HTMLDivElement | null = null
   #stopStyle: (() => void) | null = null
   #root: Root | null = null
@@ -239,10 +231,17 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
     return () => { this.#listeners.delete(listener) }
   }
 
+  async hydrate(): Promise<void> {
+    const flags = await loadUiChromeFlags()
+    if (this.#state.open === flags.pluginMarketplaceOpen) return
+    this.#state = { ...this.#state, open: flags.pluginMarketplaceOpen }
+    for (const listener of this.#listeners) listener()
+  }
+
   setOpen(open: boolean): void {
     if (this.#state.open === open) return
     this.#state = { ...this.#state, open }
-    persistOpen(open)
+    setUiChromeFlag('pluginMarketplaceOpen', open)
     for (const listener of this.#listeners) listener()
   }
 
@@ -741,7 +740,10 @@ export function apply(ctx: ClientContext): void {
     void bridge.getInfo().then(info => {
       if (disposed || info.preview !== null) return
       view.mount()
-      disposeProvider = ctx.reflect.provide('pluginMarketplace', view, undefined)
+      void view.hydrate().catch(error => {
+         console.warn('[plugin-marketplace] flags unavailable', error)
+       })
+       disposeProvider = ctx.reflect.provide('pluginMarketplace', view, undefined)
     }).catch((error: unknown) => {
       console.error('plugin-marketplace: failed to inspect the desktop window', error)
     })

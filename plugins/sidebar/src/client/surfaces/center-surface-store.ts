@@ -15,8 +15,8 @@
  * - conversations and terminals are always pinned (`isPreview: false`).
  *
  * Persistence: the store itself is pure memory. A thin subscriber layer
- * (see `persistCenterSurfaces`) mirrors every workspace's queue to
- * localStorage and rebuilds them on startup — deliberately NOT zustand
+ * (see `persistCenterSurfaces`) mirrors every workspace's queue to the
+ * UI storage domain and rebuilds them on startup — deliberately NOT zustand
  * `persist` middleware so the identity store stays pure.
  */
 import { create } from 'zustand'
@@ -586,7 +586,7 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
 }))
 
 
-/* ---------- localStorage persistence (extracted module) ---------- */
+/* ---------- domain persistence (extracted module) ---------- */
 
 export {
   persistCenterSurfaces,
