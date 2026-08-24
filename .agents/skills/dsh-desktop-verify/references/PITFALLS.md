@@ -279,3 +279,15 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 - **修复**：浮层内列表内容一律包 `<ScrollArea className viewportClassName>`，
   shell 只管尺寸/边框/背景，滚动条交给 ScrollArea。
 - **来源**：本轮实测（用户要求"用全局通用滚动容器承载"）。
+
+### 26. 运行时页面与 CDP HTTP 目标健康，但 chrome-use `connect` 持续超时
+- **日期**：2026-08-24。
+- **症状**：`curl http://127.0.0.1:9222/json/list` 正常返回 DSH Studio page target，
+  但在客户端热更新后，`chrome-use session stop <name>` 再
+  `chrome-use --session <name> connect 9222` 连续 30 秒超时，并显示
+  `Chrome relay dropped — reconnecting…`。
+- **根因**：chrome-use relay/daemon 重连链路卡住；CDP 端点和 Electron runtime
+  仍然健康，不能归因为应用崩溃。
+- **修复**：先记录 CDP HTTP 端点作为应用存活证据，停止重复连接；在 relay 恢复后
+  建立新的命名会话再继续 UI 验证。构建与静态验证不受影响。
+- **来源**：本轮实测。
