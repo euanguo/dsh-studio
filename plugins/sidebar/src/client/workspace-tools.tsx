@@ -424,54 +424,10 @@ export class WorkspaceToolsService implements WorkspaceTools {
   /**
    * CUT (user preference): the bottom workbench is no longer mounted under
    * the conversation column (its empty strip was persistent "hanging below
-   * the middle chain"). The method is kept as a documented stub; restore by
-   * uncommenting the body and the `this.mountBottomWorkbench()` call in
-   * `mount()` (plus the workbench fields and dispose cleanup above).
+   * the middle chain"). Restore by re-adding the workbench fields, this
+   * mount body and the `mountBottomWorkbench()` call in `mount()`.
    */
-  private mountBottomWorkbench(): void {
-    // CUT:
-    // const ownedRoot = '#dsh-studio-bottom-workbench-root'
-    // let element = this.workbenchElement
-    // if (element === undefined) {
-    //   element = document.createElement('div')
-    //   element.id = 'dsh-studio-bottom-workbench-root'
-    //   element.style.display = 'contents'
-    //   this.workbenchElement = element
-    // }
-    // let root = this.workbenchRoot
-    // if (root === undefined) {
-    //   root = createRoot(element)
-    //   this.workbenchRoot = root
-    // }
-    // const mount = (): void => {
-    //   const column = findConversationColumn()
-    //   if (column === null) return
-    //   if (element.isConnected && element.parentElement === column) return
-    //   column.insertBefore(element, column.querySelector('#dsh-studio-terminal-root'))
-    //   root.render(
-    //     <BottomWorkbench sidebar={this.sidebar} t={this.t} />,
-    //   )
-    // }
-    // mount()
-    // const scheduler = createMountScheduler(mount)
-    // const observer = new MutationObserver(records => {
-    //   // Ignore our own DOM writes (the element itself) so the observer does
-    //   // not wake itself in an endless loop.
-    //   if (records.some(record => mutationNeedsMount(record, ownedRoot))) {
-    //     scheduler.schedule()
-    //   }
-    // })
-    // observer.observe(document.body, {
-    //   attributes: true,
-    //   attributeFilter: ['data-details-collapsed', 'data-sidebar-collapsed', 'data-phase'],
-    //   childList: true,
-    //   subtree: true,
-    // })
-    // this.stopWorkbenchObserver = () => {
-    //   observer.disconnect()
-    //   scheduler.cancel()
-    // }
-  }
+  private mountBottomWorkbench(): void {}
 
   private applyLayout(): void {
     const html = document.documentElement
