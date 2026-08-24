@@ -1,0 +1,207 @@
+/* diff/diff-viewer.css → module; shared classes/ids are :global escapes. */
+/* ============================================================
+   Unified diff viewer (DiffViewer): meta strip + Pierre surface
+   (or the structured RawDiff fallback / comment surface).
+   ============================================================ */
+
+.dsh-studio-diff-viewer {
+  min-width: 0;
+}
+
+.dsh-studio-diff-viewer-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-2);
+  min-height: 30px;
+  padding: 0 var(--dsh-studio-space-3);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 7%));
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--dsh-studio-font-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+:global(.dsh-studio-diff-surface-body):has(.dsh-studio-diff-viewer[data-virtualize='on']) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Virtualized (Pierre) diff content fills the strip: the ScrollArea viewport
+   is a block scroller by default, so re-establish the flex-column contract on
+   the viewport to keep `.dsh-studio-diff-viewer { flex: 1 }` working. */
+:global(.dsh-studio-diff-surface-body):has(.dsh-studio-diff-viewer[data-virtualize='on']) :global(.dsh-studio-scrollable-viewport) {
+  display: flex;
+  flex-direction: column;
+}
+
+:global(.dsh-studio-diff-surface-body):has(.dsh-studio-diff-viewer[data-virtualize='on']) .dsh-studio-diff-viewer {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+:global(.dsh-studio-diff-surface-body):has(.dsh-studio-diff-viewer[data-virtualize='on']) .dsh-studio-diff-viewer-meta,
+:global(.dsh-studio-diff-surface-body):has(.dsh-studio-diff-viewer[data-virtualize='on']) .dsh-studio-diff-truncated {
+  flex: none;
+}
+
+:global(.dsh-studio-pierre-surface) {
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Diff canvas reads as the pane base (see the matching rule on the file
+   host in sidebar.css): pin --diffs-bg and the host background to the app
+   token on the container. */
+:global(.dsh-studio-pierre-surface) diffs-container,
+:global(.dsh-studio-pierre-surface-natural) diffs-container {
+  --diffs-bg: var(--dsw-alias-bg-base, #ffffff);
+  background: var(--dsw-alias-bg-base, #ffffff);
+}
+
+:global(.dsh-studio-pierre-surface-natural) {
+  min-width: 0;
+}
+
+/* Empty documents (pure renames): placeholder instead of Pierre, whose
+   hunks renderer throws on zero-row diffs. */
+.dsh-studio-diff-empty {
+  min-height: 64px;
+  padding: var(--dsh-studio-space-3);
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--dsh-studio-font-sm);
+}
+
+.dsh-studio-diff-empty :global(.dsh-studio-ui-empty-title) {
+  color: inherit;
+  font-size: inherit;
+  font-weight: 400;
+}
+
+/* ---------- line comment annotations (Pierre annotation rows) ---------- */
+
+:global(.dsh-studio-line-comment) {
+  display: flex;
+  align-items: center;
+  max-width: 420px;
+  padding: 4px 10px;
+  box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 10%));
+  border-radius: var(--dsh-studio-radius-sm);
+  background: var(--dsw-alias-bg-base, #fff);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+}
+
+.dsh-studio-line-comment-body {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-primary, #1f2328);
+  font-family: var(--dsh-studio-font-sans, system-ui, sans-serif);
+  font-size: var(--dsh-studio-font-xs);
+  line-height: 18px;
+}
+
+/* ---------- RawDiff (fallback / comment surface) ---------- */
+
+.dsh-studio-diff-raw-lines {
+  margin: 0;
+  padding: var(--dsh-studio-space-1) 0 var(--dsh-studio-space-3);
+  list-style: none;
+  font: var(--dsh-studio-font-sm) var(--dsh-studio-font-mono);
+}
+
+.dsh-studio-diff-raw-lines > li {
+  display: flex;
+  min-width: max-content;
+  line-height: 18px;
+}
+
+.dsh-studio-diff-raw-row {
+  display: flex;
+  flex: 1;
+  min-width: max-content;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: default;
+}
+
+button.dsh-studio-diff-raw-row {
+  cursor: pointer;
+}
+
+.dsh-studio-diff-raw-row[data-line-kind='added'] {
+  background: var(--dsh-studio-diff-add-bg);
+}
+
+.dsh-studio-diff-raw-row[data-line-kind='added'] code {
+  color: var(--dsh-studio-diff-add-fg);
+}
+
+.dsh-studio-diff-raw-row[data-line-kind='removed'] {
+  background: var(--dsh-studio-diff-del-bg);
+}
+
+.dsh-studio-diff-raw-row[data-line-kind='removed'] code {
+  color: var(--dsh-studio-diff-del-fg);
+}
+
+.dsh-studio-diff-raw-row[data-line-kind='hunk'] {
+  background: var(--dsh-studio-diff-hunk-bg);
+  color: var(--dsw-alias-label-secondary, #57606a);
+}
+
+button.dsh-studio-diff-raw-row:hover {
+  box-shadow: inset 2px 0 var(--dsh-studio-accent, #0969da);
+}
+
+.dsh-studio-diff-raw-gutter {
+  flex: none;
+  width: 3ch;
+  padding: 0 var(--dsh-studio-space-1) 0 var(--dsh-studio-space-2);
+  text-align: right;
+  color: var(--dsh-studio-diff-muted);
+  font-size: var(--dsh-studio-font-xs);
+  user-select: none;
+}
+
+.dsh-studio-diff-raw-row code {
+  flex: 1;
+  padding: 0 var(--dsh-studio-space-2) 0 var(--dsh-studio-space-1);
+  white-space: pre;
+}
+
+.dsh-studio-diff-raw-lines[data-wrap='on'] .dsh-studio-diff-raw-row code {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* Split raw diff: two 50% panes sharing one row grid. */
+.dsh-studio-diff-raw-lines-split .dsh-studio-diff-raw-row {
+  display: grid;
+  grid-template-columns: 3ch 1fr 3ch 1fr;
+}
+
+.dsh-studio-diff-raw-lines-split .dsh-studio-diff-raw-row .dsh-studio-diff-raw-code {
+  min-width: 0;
+  border-left: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  overflow-wrap: anywhere;
+}
+
+
+/* Truncation note for capped commit diffs (DiffDocument.truncated). */
+.dsh-studio-diff-truncated {
+  padding: var(--dsh-studio-space-1) var(--dsh-studio-space-3);
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--dsh-studio-font-xs);
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 4%));
+}
