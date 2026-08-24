@@ -49,6 +49,7 @@ import {
 } from '@dsh-studio/shared/wire'
 import { buildFsHandlers } from './routes/fs.ts'
 import { buildSettingsHandlers } from './routes/settings.ts'
+import { buildPtyHandlers } from './routes/pty.ts'
 import {
   gitBlobBase64,
   readText,
@@ -382,48 +383,7 @@ export function buildCapabilitiesRoutes(
     // this while the socket is open; this route covers the tab-close that
     // happens while the socket is down (reconnect loop), so a closed tab can
     // never hold the per-session quota until the reconnect grace expires.
-    'pty.close': (payload) => {
-      const { cwd } = cwdOf(payload)
-      const tab = requireString(payload, 'tab')
-      ptyManager.close(terminalSessionKey(cwd, tab))
-      return { ok: true }
-    },
-    /** List durable inactive terminal projections for one project. */
-    'pty.retained': (payload) => {
-      const { cwd } = cwdOf(payload)
-      return { sessions: ptyManager.retained(cwd) }
-    },
-    /** Remove one durable inactive terminal projection. */
-    'pty.clear-retained': (payload) => {
-      const { cwd } = cwdOf(payload)
-      const tab = requireString(payload, 'tab')
-      ptyManager.clearRetained(cwd, tab)
-      return { ok: true }
-    },
-    /** Restart one shell while preserving its durable history projection. */
-    'pty.restart': (payload) => {
-      const { cwd } = cwdOf(payload)
-      const tab = requireString(payload, 'tab')
-      const cols = optionalInteger(payload, 'cols', 2, 1024) ?? 80
-      const rows = optionalInteger(payload, 'rows', 2, 1024) ?? 24
-      const handle = ptyManager.restart(cwd, tab, cwd, cols, rows)
-      return { ok: true, incarnationId: handle.incarnationId }
-    },
-    // Release an agent terminal by uuid. The WS close frame already does
-    // this while the socket is open; this route covers the tab-close that
-    // happens while the socket is down (reconnect loop) so a closed agent
-    // tab never leaves a zombie pty behind. Idempotent.
-    'agent-pty.close': (payload) => {
-      const uuid = requireString(payload, 'uuid')
-      agentPtyRegistry.close(uuid)
-      return { ok: true }
-    },
-    // Background jobs: read one job's output (a REPLAY of what the model
-    // has read so far, from the owner session's event log — the model's
-    // job_output cursor is never touched, so the human pane can never steal
-    // the agent's bytes), and kill one job. The job LIST itself arrives
-    // through the harness's session/jobs push mirror, so no list route
-    // exists. Kill is fenced to the owning session by the jobs registry.
+    ...buildPtyHandlers({ cwdOf, ptyManager, agentPtyRegistry }),
     'jobs.output': (payload) => jobsApi.output(payload),
     'jobs.kill': (payload) => jobsApi.kill(payload),
     // The side card preferences. The settings service is optional in the
