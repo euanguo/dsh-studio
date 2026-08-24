@@ -9,9 +9,6 @@ import z from 'schemastery'
 import {
   SIDEBAR_PREFS_DEFAULTS,
   SIDEBAR_PREFS_NS,
-  WIDTH_PERCENT_DEFAULT,
-  WIDTH_PERCENT_MAX,
-  WIDTH_PERCENT_MIN,
   type SidebarPrefs,
 } from '@dsh-studio/shared/prefs-shared'
 import { DESKTOP_TERMINALS_PER_SESSION_DEFAULT } from '@dsh-studio/shared/terminal-scrollback-policy'
@@ -19,9 +16,6 @@ import { DESKTOP_TERMINALS_PER_SESSION_DEFAULT } from '@dsh-studio/shared/termin
 export {
   SIDEBAR_PREFS_DEFAULTS,
   SIDEBAR_PREFS_NS,
-  WIDTH_PERCENT_DEFAULT,
-  WIDTH_PERCENT_MAX,
-  WIDTH_PERCENT_MIN,
   type SidebarPrefs,
 } from '@dsh-studio/shared/prefs-shared'
 
@@ -88,18 +82,14 @@ export function resolveCapabilitiesConfig(config: CapabilitiesConfig | undefined
 
 /** Schemastery schema for the user-facing preferences (validated by the settings service). */
 export const PrefsSchema: z<SidebarPrefs> = z.object({
-  openByDefault: z.boolean().default(true),
-  defaultWidthPercent: z.number().step(1).min(WIDTH_PERCENT_MIN).max(WIDTH_PERCENT_MAX).default(WIDTH_PERCENT_DEFAULT),
   autoOpenSubagent: z.boolean().default(true),
   autoOpenJobs: z.boolean().default(true),
   agentTerminalTools: z.boolean().default(false),
   agentWorktreeTools: z.boolean().default(false),
   agentWorktreeDelegationTools: z.boolean().default(false),
-  bottomPanelAutoTerminal: z.boolean().default(true),
   interceptOpenPath: z.boolean().default(true),
   htmlViewerNoSandbox: z.boolean().default(false),
   htmlViewerDefaultUnsafe: z.boolean().default(false),
-  browserNoSandbox: z.boolean().default(false),
   browserInterceptLinks: z.boolean().default(true),
   terminalShell: z.string().default(''),
   terminalFontFamily: z.string().default(''),

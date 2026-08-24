@@ -179,16 +179,6 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
           checked={runtimeState.preferences.agentWorktreeDelegationTools}
           onChange={checked => { updateRuntime('agentWorktreeDelegationTools', checked) }}
         />
-        {/* CUT (user preference): the bottom-mounted terminal dock no longer
-            exists, so its auto-open switch has no target. Restore with the
-            dock (plugins/panel-controls).
-        <SwitchRow
-          title={props.t('settings.bottom-terminal')}
-          desc={props.t('settings.bottom-terminal-description')}
-          checked={runtimeState.preferences.bottomPanelAutoTerminal}
-          onChange={checked => { updateRuntime('bottomPanelAutoTerminal', checked) }}
-        />
-        */}
         <SwitchRow
           title={props.t('settings.open-files')}
           desc={props.t('settings.open-files-description')}

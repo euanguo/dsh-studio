@@ -38,7 +38,6 @@ export interface SidebarRuntimePreferences {
    * conversation (any new job id, not just the first one).
    */
   autoOpenJobs: boolean
-  bottomPanelAutoTerminal: boolean
   browserInterceptLinks: boolean
   /**
    * Whether plain http EXTERNAL link clicks open in the sidebar browser
@@ -110,7 +109,6 @@ Readonly<SidebarRuntimePreferences> = Object.freeze({
   agentWorktreeDelegationTools: false,
   autoOpenSubagent: true,
   autoOpenJobs: true,
-  bottomPanelAutoTerminal: true,
   browserInterceptLinks: true,
   browserInterceptHttp: true,
   browserInterceptHttps: false,
@@ -179,10 +177,6 @@ export function parseSidebarRuntimePreferences(
     autoOpenJobs: typeof record.autoOpenJobs === 'boolean'
       ? record.autoOpenJobs
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.autoOpenJobs,
-    bottomPanelAutoTerminal:
-      typeof record.bottomPanelAutoTerminal === 'boolean'
-        ? record.bottomPanelAutoTerminal
-        : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.bottomPanelAutoTerminal,
     browserInterceptLinks: typeof record.browserInterceptLinks === 'boolean'
       ? record.browserInterceptLinks
       : DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptLinks,

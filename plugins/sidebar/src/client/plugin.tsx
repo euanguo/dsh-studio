@@ -183,11 +183,9 @@ export function apply(ctx: ClientContext): void {
     })
     const syncRuntime = (): void => {
       const prefs = runtimeSettings.getSnapshot().preferences
-      // CUT (user preference): the bottom-mounted terminal dock no longer
-      // mounts (plugins/panel-controls), so the dock-wide prefs below have
-      // nothing to sync. Restore with the dock.
-      // panels.setAutoOpenTerminal(prefs.bottomPanelAutoTerminal)
-      // panels.setTerminalFontPreferences(prefs.terminalFontFamily, prefs.terminalFontSize)
+      // The bottom-mounted terminal dock no longer mounts
+      // (plugins/panel-controls), so there is nothing to sync; the terminal
+      // prefs are consumed by the terminal tab renderers directly.
     }
     const stopRuntime = runtimeSettings.subscribe(syncRuntime)
     // openPath interception through the registry: the patch is installed

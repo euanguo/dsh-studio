@@ -36,6 +36,7 @@ import {
   type SidebarPrefs,
 } from './config.ts'
 import { migrateLegacyLeftRailSlice } from './left-rail-settings-migration.ts'
+import { cleanupLegacySidebarPrefs } from './sidebar-prefs-cleanup.ts'
 import { LEFT_RAIL_SETTINGS_NS } from '@dsh-studio/shared/left-rail-preferences'
 import { isWithin, requireAbsolute } from '@dsh-studio/shared/fs-tree'
 import { decodeHtmlUrl } from './html-route.ts'
@@ -274,6 +275,25 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
       () => undefined,
       (error) => {
         ctx.logger?.warn?.(`[left-rail] settings migration failed: ${error instanceof Error ? error.message : String(error)}`)
+      },
+    )
+    // Best-effort cleanup of sidebar prefs removed from the schema
+    // (openByDefault / defaultWidthPercent / bottomPanelAutoTerminal /
+    // browserNoSandbox). No code reads them, so this is housekeeping only;
+    // failure is contained and retried next boot.
+    void cleanupLegacySidebarPrefs({
+      describe: (ns) => {
+        const descriptor = sctx.settings.describe({ redactSecrets: true })
+          .find(candidate => candidate.ns === settingsNamespace(ns))
+        return descriptor === undefined
+          ? {}
+          : { user: descriptor.user, revision: descriptor.revision }
+      },
+      mutate: (ns, ops) => sctx.settings.mutate(settingsNamespace(ns), ops),
+    }).then(
+      () => undefined,
+      (error) => {
+        ctx.logger?.warn?.(`[sidebar] legacy pref cleanup failed: ${error instanceof Error ? error.message : String(error)}`)
       },
     )
     const viewOf = (target: SettingsNamespace): { value?: unknown; revision?: number } => {

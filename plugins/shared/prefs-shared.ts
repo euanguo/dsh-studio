@@ -11,10 +11,6 @@ export const SIDEBAR_PREFS_NS = 'dsh-better-sidebar'
 
 /** User-facing side card preferences (new-conversation defaults). */
 export interface SidebarPrefs {
-  /** Whether a brand-new conversation opens the side card by default. */
-  openByDefault: boolean
-  /** Default panel width as a percent of the window width (20–60). */
-  defaultWidthPercent: number
   /**
    * Whether the sidebar auto-activates (opens the panel) and expands the
    * Subagent page when the current conversation spawns a new subagent.
@@ -50,13 +46,6 @@ export interface SidebarPrefs {
    */
   agentWorktreeDelegationTools: boolean
   /**
-   * Whether expanding the bottom panel for the FIRST time in a session tries
-   * to open a fresh terminal tab there (the terminal quota/type still gates
-   * the attempt). On by default; the switch lives under the terminal tab's
-   * row in the Side card settings.
-   */
-  bottomPanelAutoTerminal: boolean
-  /**
    * Whether chat-side file opens (tool-row path links, the produced-files
    * row, prose file mentions — every path that funnels through the client
    * runtime's `ctx.workspaces.openPath`) open in the sidebar editor instead
@@ -80,14 +69,6 @@ export interface SidebarPrefs {
    * restore for the current file.
    */
   htmlViewerDefaultUnsafe: boolean
-  /**
-   * Whether the browser tab drops its sandboxed iframe. Sandbox ON (the
-   * default) keeps browsed sites in an opaque origin with no GUI access;
-   * turning it OFF runs any visited site with the GUI's own origin — it
-   * can read session data and act as the logged-in GUI. Only for trusted
-   * sites; the setting copy warns.
-   */
-  browserNoSandbox: boolean
   /**
    * Whether clicking an http(s) EXTERNAL link in the GUI (chat messages,
    * tool rows, prose mentions) opens the sidebar browser instead of a new
@@ -142,25 +123,16 @@ export interface SidebarPrefs {
   viewersEnabled: Record<string, boolean>
 }
 
-/** Range contract of {@link SidebarPrefs.defaultWidthPercent}. */
-export const WIDTH_PERCENT_MIN = 20
-export const WIDTH_PERCENT_MAX = 60
-export const WIDTH_PERCENT_DEFAULT = 30
-
 /** Fallback prefs used whenever the settings document is unreachable or malformed. */
 export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
-  openByDefault: true,
-  defaultWidthPercent: WIDTH_PERCENT_DEFAULT,
   autoOpenSubagent: true,
   autoOpenJobs: true,
   agentTerminalTools: false,
   agentWorktreeTools: false,
   agentWorktreeDelegationTools: false,
-  bottomPanelAutoTerminal: true,
   interceptOpenPath: true,
   htmlViewerNoSandbox: false,
   htmlViewerDefaultUnsafe: false,
-  browserNoSandbox: false,
   browserInterceptLinks: true,
   terminalShell: '',
   terminalFontFamily: '',
@@ -174,9 +146,4 @@ export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
   terminalGpuAcceleration: 'auto',
   tabsEnabled: {},
   viewersEnabled: {},
-}
-
-/** Clamp one width percent into the contract range (shared by schema and client reads). */
-export function clampWidthPercent(value: number): number {
-  return Math.min(WIDTH_PERCENT_MAX, Math.max(WIDTH_PERCENT_MIN, Math.round(value)))
 }

@@ -139,8 +139,6 @@ export type WorkspaceMessage =
   | 'settings.agent-worktree-tools-description'
   | 'settings.agent-worktree-delegation-tools'
   | 'settings.agent-worktree-delegation-tools-description'
-  | 'settings.bottom-terminal'
-  | 'settings.bottom-terminal-description'
   | 'settings.open-files'
   | 'settings.open-files-description'
   | 'settings.open-links'
@@ -428,8 +426,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.agent-worktree-tools-description': 'Allow agents to inspect visible WorkTrees, create branches, and manage linked WorkTrees (list, branches, status, create, remove). This is disabled by default.',
     'settings.agent-worktree-delegation-tools': 'WorkTree delegation tools for agents',
     'settings.agent-worktree-delegation-tools-description': 'Allow agents to start independent conversations in visible WorkTrees and manage them (delegate, status, wait, stop, result). This is disabled by default.',
-    'settings.bottom-terminal': 'Start a shell when the bottom panel opens',
-    'settings.bottom-terminal-description': 'Create a terminal automatically the first time an empty bottom panel is opened.',
     'settings.open-files': 'Open chat files in the side panel',
     'settings.open-files-description': 'Open workspace file links from messages and tool results in the desktop file viewer.',
     'settings.open-links': 'Open external links in the side browser',
@@ -714,8 +710,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.agent-worktree-tools-description': '允许 Agent 查看可见 WorkTree、创建分支并管理工作树本身（列表、分支、状态、新建、删除）；默认关闭。',
     'settings.agent-worktree-delegation-tools': '允许 Agent 发起 WorkTree 委托对话',
     'settings.agent-worktree-delegation-tools-description': '允许 Agent 在可见 WorkTree 中启动独立对话并管理其生命周期（发起、状态、等待、停止、取结果）；默认关闭。',
-    'settings.bottom-terminal': '底部面板展开时自动新建终端',
-    'settings.bottom-terminal-description': '空的底部面板首次展开时，自动创建一个终端。',
     'settings.open-files': '聊天文件在侧边栏打开',
     'settings.open-files-description': '消息和工具结果中的工作区文件链接，会在桌面文件预览器中打开。',
     'settings.open-links': '外部链接在侧边浏览器打开',
