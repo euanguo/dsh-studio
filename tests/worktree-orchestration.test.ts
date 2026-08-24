@@ -4,7 +4,7 @@ import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { promisify } from 'node:util'
 import { test } from 'node:test'
-import { WorktreeDelegationRegistry } from '../plugins/capabilities/src/worktree-orchestration.ts'
+import { WorktreeDelegationRegistry } from '../plugins/capabilities/src/worktree/worktree-orchestration.ts'
 
 const execFile = promisify(execFileCallback)
 

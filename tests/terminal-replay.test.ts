@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { buildTerminalReplayPayload } from '../plugins/capabilities/src/terminal-replay.ts'
+import { buildTerminalReplayPayload } from '../plugins/capabilities/src/terminal/terminal-replay.ts'
 
 test('terminal replay composes history, modes, then live screen', () => {
   const payload = buildTerminalReplayPayload({

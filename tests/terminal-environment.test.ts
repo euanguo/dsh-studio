@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import {
   createTerminalSpawnEnvironment,
   mergeTerminalSpawnEnvironment,
-} from '../plugins/capabilities/src/terminal-environment.ts'
+} from '../plugins/capabilities/src/terminal/terminal-environment.ts'
 import {
   isRetryableShellSpawnError,
   resolveShellCandidates,
