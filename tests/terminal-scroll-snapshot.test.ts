@@ -7,7 +7,7 @@ import {
   readTerminalScrollBufferSnapshot,
   restoreTerminalScrollState,
   type TerminalScrollTarget,
-} from '../plugins/shared/terminal-scroll-snapshot.ts'
+} from '../plugins/shared/terminal/terminal-scroll-snapshot.ts'
 
 test('reads valid terminal scroll buffer snapshot', () => {
   const terminal: TerminalScrollTarget = {

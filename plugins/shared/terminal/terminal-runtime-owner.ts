@@ -11,7 +11,7 @@ import { TerminalOutputScheduler } from './terminal-output-scheduler.ts'
 import { TerminalResizeHold } from './terminal-resize-hold.ts'
 import { buildTerminalFontFamily } from './terminal-font.ts'
 import { registerWebglAtlasTarget } from './terminal-webgl-atlas.ts'
-import { RecentPtyOutputBuffer } from './recent-pty-output-buffer.ts'
+import { RecentPtyOutputBuffer } from '../recent-pty-output-buffer.ts'
 import {
   armTerminalFitContinuationRetry,
   clearTerminalFitContinuationRetry,

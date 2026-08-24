@@ -4,7 +4,7 @@ import {
   TerminalOutputBatcher,
   appendOutputChunk,
 } from '../plugins/capabilities/src/terminal-batcher.ts'
-import { TerminalOutputScheduler } from '../plugins/shared/terminal-output-scheduler.ts'
+import { TerminalOutputScheduler } from '../plugins/shared/terminal/terminal-output-scheduler.ts'
 
 class StressTarget {
   writes: string[] = []

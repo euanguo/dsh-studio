@@ -8,11 +8,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
 test('terminal theme follows appearance flips by watching the body attribute', () => {
   const owner = readFileSync(
-    join(root, 'plugins/shared/terminal-runtime-owner.ts'),
+    join(root, 'plugins/shared/terminal/terminal-runtime-owner.ts'),
     'utf8',
   )
   const theme = readFileSync(
-    join(root, 'plugins/shared/terminal-theme.ts'),
+    join(root, 'plugins/shared/terminal/terminal-theme.ts'),
     'utf8',
   )
   // The runtime toggles data-ds-dark-theme on <body>; observing <html> never

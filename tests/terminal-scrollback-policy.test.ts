@@ -10,7 +10,7 @@ import {
   normalizeDesktopTerminalSnapshotRows,
   TERMINAL_OUTPUT_BACKLOG_MIN_CAP_CHARS,
   terminalOutputBacklogCapChars,
-} from '../plugins/shared/terminal-scrollback-policy.ts'
+} from '../plugins/shared/terminal/terminal-scrollback-policy.ts'
 
 test('terminal scrollback policy exports desktop row defaults and presets', () => {
   assert.equal(DESKTOP_TERMINAL_SCROLLBACK_ROWS_DEFAULT, 5_000)
