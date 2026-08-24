@@ -9,6 +9,10 @@ import { IconChevronDown, IconRefresh } from '@dsh-studio/shared/tabler-icons'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
+import {
+  callCapabilitiesGlobalApi,
+  SOURCE_CONTROL_AI_SETTINGS_NS,
+} from '@dsh-studio/shared/capabilities-api'
 import type { CapabilitiesSourceControlAiModel } from '@dsh-studio/shared/capabilities-api'
 import {
   Field,
@@ -63,7 +67,12 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
     setStatus(null)
     try {
       const [saved, catalog] = await Promise.all([
-        sidebarApi.sourceControlAiSettings(),
+        // The prefs ride the same generic settings.* seam as the sidebar
+        // prefs; only the read-only model catalog keeps its dedicated RPC.
+        callCapabilitiesGlobalApi<{ value?: unknown; revision?: number }>(
+          'settings.get',
+          { ns: SOURCE_CONTROL_AI_SETTINGS_NS },
+        ),
         sidebarApi.sourceControlAiModels(),
       ])
       const value = saved.value as Partial<SourceControlAiSettingsValue> | undefined
@@ -136,11 +145,24 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
     setSaving(true)
     setStatus(null)
     try {
-      const result = await sidebarApi.updateSourceControlAiSettings({
+      // Write through the generic settings.seam: a merge patch for the
+      // scalar fields plus the model override, then a path unset when the
+      // override was cleared (merge cannot delete a key).
+      const patch: Record<string, unknown> = {
         enabled: settings.enabled,
         promptTemplate: settings.promptTemplate,
-        defaultModel: settings.defaultModel ?? null,
-      })
+        ...(settings.defaultModel === undefined ? {} : { defaultModel: settings.defaultModel }),
+      }
+      let result = await callCapabilitiesGlobalApi<{ value?: unknown; revision?: number }>(
+        'settings.update',
+        { ns: SOURCE_CONTROL_AI_SETTINGS_NS, patch },
+      )
+      if (settings.defaultModel === undefined) {
+        result = await callCapabilitiesGlobalApi<{ value?: unknown; revision?: number }>(
+          'settings.mutate',
+          { ns: SOURCE_CONTROL_AI_SETTINGS_NS, ops: [{ op: 'unset', path: ['defaultModel'] }] },
+        )
+      }
       const value = result.value as SourceControlAiSettingsValue | undefined
       if (value !== undefined) setSettings(value)
       setStatus({ tone: 'success', message: props.t('source-control-ai.saved') })

@@ -1,8 +1,9 @@
 import z from 'schemastery'
 import { diff } from '@dsh-studio/shared/git-core'
+import { SOURCE_CONTROL_AI_SETTINGS_NS } from '@dsh-studio/shared/capabilities-api'
 
-/** Dedicated user-settings namespace; provider catalogs remain owned by llm-pi-ai. */
-export const SOURCE_CONTROL_AI_SETTINGS_NS = 'source-control-ai'
+// The settings namespace is shared wire vocabulary — see
+// @dsh-studio/shared/capabilities-api (SOURCE_CONTROL_AI_SETTINGS_NS).
 
 export type SourceControlReasoningEffort = 'off' | 'low' | 'medium' | 'high' | 'max'
 

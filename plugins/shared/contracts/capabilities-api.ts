@@ -27,6 +27,14 @@ export interface CapabilitiesFsEntry {
   hidden: boolean
 }
 
+/**
+ * The settings namespace owning the Source-Control-AI preferences
+ * (SourceControlAiSettingsSchema). The client reads/writes it through the
+ * same /capabilities settings.* seam as the sidebar prefs, so the namespace
+ * name is wire vocabulary shared by both halves.
+ */
+export const SOURCE_CONTROL_AI_SETTINGS_NS = 'source-control-ai'
+
 /** One listed explorer level. */
 export interface CapabilitiesFsTree {
   path: string
@@ -231,8 +239,6 @@ export interface CapabilitiesApiRequests {
   'git.abort-rebase': Record<string, never>
   'git.generate-commit-message': Record<string, never>
   'git.cancel-generate-commit-message': Record<string, never>
-  'source-control-ai.settings': Record<string, never>
-  'source-control-ai.update-settings': { patch: Record<string, unknown>; expectedRevision?: number }
   'source-control-ai.models': Record<string, never>
   'git.checkout': { branch: string }
   'git.log': { count?: number; skip?: number }

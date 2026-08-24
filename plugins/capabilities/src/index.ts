@@ -46,10 +46,10 @@ import { registerBundleRoute } from './bundle-route.ts'
 import { attachAgentList, attachTerminal, clearPtyPauseOwners } from './terminal/terminal-route.ts'
 import { buildCapabilitiesRoutes, sessionCwdOf, type CapabilitiesSettingsFace } from './routes.ts'
 import {
-  SOURCE_CONTROL_AI_SETTINGS_NS,
   SourceControlAiGenerator,
   SourceControlAiSettingsSchema,
 } from './source-control-ai.ts'
+import { SOURCE_CONTROL_AI_SETTINGS_NS } from '@dsh-studio/shared/capabilities-api'
 import { settingsNamespace, type SettingsNamespace } from '@deepseek-ai/dsh-settings'
 import { ensureSpawnHelper, PtyManager } from './terminal/pty-manager.ts'
 import { TerminalSessionStore } from './terminal/terminal-session-store.ts'

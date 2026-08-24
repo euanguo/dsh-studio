@@ -17,9 +17,9 @@ import {
 } from '@dsh-studio/shared/wire'
 import {
   DEFAULT_COMMIT_MESSAGE_PROMPT,
-  SOURCE_CONTROL_AI_SETTINGS_NS,
   type SourceControlAiGenerator,
 } from '../source-control-ai.ts'
+import { SOURCE_CONTROL_AI_SETTINGS_NS } from '@dsh-studio/shared/capabilities-api'
 import {
   gitBlobBase64,
   modelSelectionOf,
@@ -138,32 +138,6 @@ export function buildGitHandlers(deps: GitHandlerDeps): Record<string, ApiMethod
       const { cwd } = cwdOf(payload)
       getSourceControlAiGenerator()?.cancel(cwd)
       return { ok: true }
-    },
-    'source-control-ai.settings': async () => {
-      const settings = getSettings()
-      if (settings === undefined) {
-        throw new CapabilityError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
-      }
-      return settings.get(SOURCE_CONTROL_AI_SETTINGS_NS)
-    },
-    'source-control-ai.update-settings': async (payload) => {
-      const settings = getSettings()
-      if (settings === undefined) {
-        throw new CapabilityError('settings-rejected', 'the settings service is not mounted in this deployment', 503)
-      }
-      const record = payload as { patch?: unknown; expectedRevision?: unknown } | null
-      const patch = record?.patch
-      if (patch === null || typeof patch !== 'object' || Array.isArray(patch)) {
-        throw new CapabilityError('bad-request', 'patch must be a plain object')
-      }
-      const expectedRevision = typeof record?.expectedRevision === 'number' ? record.expectedRevision : undefined
-      const nextPatch = patch as Record<string, unknown>
-      if (nextPatch.defaultModel === null) {
-        const { defaultModel: _clear, ...rest } = nextPatch
-        await settings.update(SOURCE_CONTROL_AI_SETTINGS_NS, rest, expectedRevision)
-        return settings.mutate(SOURCE_CONTROL_AI_SETTINGS_NS, [{ op: 'unset', path: ['defaultModel'] }])
-      }
-      return settings.update(SOURCE_CONTROL_AI_SETTINGS_NS, nextPatch, expectedRevision)
     },
     'source-control-ai.models': async () => {
       const settings = getSettings()

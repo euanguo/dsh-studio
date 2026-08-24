@@ -25,11 +25,11 @@ import { detectProjectIcon } from './project-icon.ts'
 import { terminalSessionKey } from './terminal/terminal-session-store.ts'
 import {
   DEFAULT_COMMIT_MESSAGE_PROMPT,
-  SOURCE_CONTROL_AI_SETTINGS_NS,
   type SourceControlAiGenerator,
   type SourceControlAiSettings,
   type SourceControlModelSelection,
 } from './source-control-ai.ts'
+import { SOURCE_CONTROL_AI_SETTINGS_NS } from '@dsh-studio/shared/capabilities-api'
 import {
   isCapabilitiesWorkspaceMutation,
   mutateWorkspace,

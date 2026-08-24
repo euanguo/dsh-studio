@@ -154,17 +154,9 @@ export const sidebarApi = {
     scope,
     {},
   ),
-  sourceControlAiSettings: (): Promise<{ value?: unknown; revision?: number }> => callCapabilitiesGlobalApi(
-    'source-control-ai.settings',
-    {},
-  ),
-  updateSourceControlAiSettings: (
-    patch: Record<string, unknown>,
-    expectedRevision?: number,
-  ): Promise<{ value?: unknown; revision?: number }> => callCapabilitiesGlobalApi(
-    'source-control-ai.update-settings',
-    { patch, ...(expectedRevision === undefined ? {} : { expectedRevision }) },
-  ),
+  // Source-Control-AI preferences intentionally have NO dedicated RPC: the
+  // panel reads/writes the `source-control-ai` namespace through the same
+  // generic settings.* seam as the sidebar prefs.
   sourceControlAiModels: (): Promise<CapabilitiesSourceControlAiModels> => callCapabilitiesGlobalApi(
     'source-control-ai.models',
     {},
