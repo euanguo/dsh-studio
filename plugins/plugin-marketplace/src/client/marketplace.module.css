@@ -1,4 +1,4 @@
-.oh-marketplace-nav {
+:global(:global(.oh-marketplace-nav)) {
   /* Foot-area entry: full-width icon + label row at the same height as the
      tree rows (--gw-skin-row-h, 28.59px under a skin), row radius +
      superellipse; the collapsed rail renders the bare 36px icon seat. */
@@ -22,12 +22,12 @@
   -webkit-app-region: no-drag;
 }
 
-.oh-marketplace-nav:hover,
-.oh-marketplace-nav[data-active='true'] {
+:global(.oh-marketplace-nav):hover,
+:global(.oh-marketplace-nav)[data-active='true'] {
   background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
 }
 
-.oh-marketplace-nav svg {
+:global(:global(.oh-marketplace-nav)) svg {
   flex: 0 0 auto;
   width: 16px;
   height: 16px;
@@ -38,7 +38,7 @@
   stroke-width: 1.6;
 }
 
-.oh-marketplace-nav[data-collapsed='true'] {
+:global(.oh-marketplace-nav)[data-collapsed='true'] {
   justify-content: center;
   gap: 0;
   width: 36px;
@@ -50,7 +50,7 @@
 }
 
 [data-dsh-studio-marketplace-footer-stack='true']:has(
-  .oh-marketplace-nav[data-collapsed='true']
+  :global(.oh-marketplace-nav)[data-collapsed='true']
 ) {
   display: flex !important;
   align-items: center !important;

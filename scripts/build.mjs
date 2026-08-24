@@ -28,6 +28,8 @@ runNode(join('scripts', 'generate-skin-selectors.mjs'), ['--check', '--if-presen
 // regeneration is due.
 runNode(join('scripts', 'plugin-styles.mjs'), ['desktop-left-rail', '--check'])
 runNode(join('scripts', 'plugin-styles.mjs'), ['sidebar', '--check'])
+runNode(join('scripts', 'plugin-styles.mjs'), ['plugin-marketplace', '--check'])
+runNode(join('scripts', 'plugin-styles.mjs'), ['desktop-skins', '--check'])
 // The hand-maintained @dsh-studio/shared exports map must not dangle.
 runNode(join('scripts', 'verify-shared-exports.mjs'))
 

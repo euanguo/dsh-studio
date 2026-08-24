@@ -42,7 +42,7 @@ import type {
   MarketplaceSnapshot,
 } from '../protocol.ts'
 import { MARKETPLACE_MESSAGES, type MarketplaceMessage } from './i18n.ts'
-import marketplaceCss from './marketplace.css'
+import { pluginCss as marketplaceSurfaceCss, MarketplaceCss } from './styles.js'
 import {
   initialSessionNavigationState,
   transitionSessionNavigation,
@@ -253,7 +253,7 @@ class PluginMarketplaceViewService implements PluginMarketplaceView {
        it here duplicated every rule and let the later style tag clobber
        consumer borders (the diff-tree divider). Only marketplace's own
        styles are injected here. */
-    this.#stopStyle = ensureStyle('dsh-studio-plugin-marketplace', marketplaceCss)
+    this.#stopStyle = ensureStyle('dsh-studio-plugin-marketplace', marketplaceSurfaceCss)
 
     this.#element = document.createElement('div')
     this.#element.id = 'dsh-studio-plugin-marketplace-root'
@@ -402,7 +402,7 @@ function CategoryMenu({
       anchor={(
         <button
           type="button"
-          className="oh-marketplace-selector"
+          className={MarketplaceCss["oh-marketplace-selector"]}
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={t('plugin-category')}
@@ -429,14 +429,14 @@ function PluginCard({
 }): JSX.Element {
   return (
     <button
-      className="oh-marketplace-card"
+      className={MarketplaceCss["oh-marketplace-card"]}
       data-selected={String(selected)}
       onClick={select}
       type="button"
     >
       <h2>{plugin.title}</h2>
-      <div className="oh-marketplace-card-meta">{pluginMeta(plugin, t)}</div>
-      <p className="oh-marketplace-card-description">{plugin.description}</p>
+      <div className={MarketplaceCss["oh-marketplace-card-meta"]}>{pluginMeta(plugin, t)}</div>
+      <p className={MarketplaceCss["oh-marketplace-card-description"]}>{plugin.description}</p>
     </button>
   )
 }
@@ -477,7 +477,7 @@ function PluginDetail({
       : current.filter(entry => entry !== confirmation))
   }
   const actions = (
-    <div className="oh-marketplace-detail-actions">
+    <div className={MarketplaceCss["oh-marketplace-detail-actions"]}>
       {plugin.mechanism === 'unsupported' || plugin.protected ? (
         <Button variant="outline" size="sm" onClick={() => { void bridge.openExternal(plugin.url) }}>
           {t('open-repository')}
@@ -563,13 +563,13 @@ function PluginDetail({
       title={plugin.title}
       description={pluginMeta(plugin, t)}
       closeLabel={t('close')}
-      className="oh-marketplace-dialog"
+      className={MarketplaceCss["oh-marketplace-dialog"]}
       contentClassName="oh-marketplace-dialog-content"
       footer={actions}
     >
-      <div className="oh-marketplace-detail" aria-label={t('details', { plugin: plugin.title })}>
-        <p className="oh-marketplace-detail-copy">{plugin.description}</p>
-        <dl className="oh-marketplace-facts">
+      <div className={MarketplaceCss["oh-marketplace-detail"]} aria-label={t('details', { plugin: plugin.title })}>
+        <p className={MarketplaceCss["oh-marketplace-detail-copy"]}>{plugin.description}</p>
+        <dl className={MarketplaceCss["oh-marketplace-facts"]}>
           <dt>{t('updated')}</dt>
           <dd>
             {plugin.pushedAt === null
@@ -596,14 +596,14 @@ function PluginDetail({
           )}
         </dl>
         {plan !== null && (
-          <section className="oh-marketplace-plan">
+          <section className={MarketplaceCss["oh-marketplace-plan"]}>
             <h3>{t('prepared-plan', { action: t(`action.${plan.action}`) })}</h3>
-            <div className="oh-marketplace-flow" aria-label={t('prepared-plan', { action: t(`action.${plan.action}`) })}>
+            <div className={MarketplaceCss["oh-marketplace-flow"]} aria-label={t('prepared-plan', { action: t(`action.${plan.action}`) })}>
               <span data-active="true">1 · {t('flow.review')}</span>
               <span data-active={String(snapshot.preview !== null)}>2 · {t('flow.preview')}</span>
               <span>3 · {t('flow.apply')}</span>
             </div>
-            <dl className="oh-marketplace-facts">
+            <dl className={MarketplaceCss["oh-marketplace-facts"]}>
               <dt>{t('risk-level')}</dt>
               <dd data-risk={approval?.riskLevel ?? plan.riskLevel}>{t(`risk-level.${approval?.riskLevel ?? plan.riskLevel}`)}</dd>
               <dt>{t('source-review')}</dt>
@@ -614,22 +614,22 @@ function PluginDetail({
               <dd>{shortCommit(plan.resolvedCommit)}</dd>
             </dl>
             {plan.packageName !== null && (
-              <p className="oh-marketplace-plan-line">{t('package', { package: plan.packageName })}</p>
+              <p className={MarketplaceCss["oh-marketplace-plan-line"]}>{t('package', { package: plan.packageName })}</p>
             )}
             {plan.riskReasons.length > 0 && (
-              <ul className="oh-marketplace-risk-reasons">
+              <ul className={MarketplaceCss["oh-marketplace-risk-reasons"]}>
                 {plan.riskReasons.map(reason => (
                   <li key={reason}>{riskReasonLabel(reason, t)}</li>
                 ))}
               </ul>
             )}
             {hasScripts && (
-              <pre className="oh-marketplace-scripts">
+              <pre className={MarketplaceCss["oh-marketplace-scripts"]}>
                 {Object.entries(plan.buildScripts).map(([name, script]) => `${name}: ${script}`).join('\n')}
               </pre>
             )}
             {requiredConfirmations.map(requirement => (
-              <label className="oh-marketplace-confirm" key={requirement}>
+              <label className={MarketplaceCss["oh-marketplace-confirm"]} key={requirement}>
                 <input
                   checked={confirmations.includes(requirement)}
                   onChange={event => { setConfirmed(requirement, event.target.checked) }}
@@ -638,7 +638,7 @@ function PluginDetail({
                 <span>{confirmationLabel(requirement, t)}</span>
               </label>
             ))}
-            <p className="oh-marketplace-recovery-note">{t('recovery-note')}</p>
+            <p className={MarketplaceCss["oh-marketplace-recovery-note"]}>{t('recovery-note')}</p>
           </section>
         )}
       </div>
@@ -829,11 +829,11 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
         title={t('plugins')}
         description={loadedNotice === null ? t('subtitle') : `${t('subtitle')} ${loadedNotice}`}
         closeLabel={t('close')}
-        className="oh-marketplace-shell"
+        className={MarketplaceCss["oh-marketplace-shell"]}
         contentClassName="oh-marketplace-shell-content"
         footer={(
-          <div className="oh-marketplace-shell-footer">
-            <span className="oh-marketplace-count">
+          <div className={MarketplaceCss["oh-marketplace-shell-footer"]}>
+            <span className={MarketplaceCss["oh-marketplace-count"]}>
               {t('plugin-count', { count: plugins.length })}
             </span>
             {snapshot?.undoAvailable === true && (
@@ -847,9 +847,9 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
           </div>
         )}
       >
-        <div className="oh-marketplace-app">
+        <div className={MarketplaceCss["oh-marketplace-app"]}>
         {snapshot?.preview !== null && snapshot?.preview !== undefined && (
-          <div className="oh-marketplace-preview-banner">
+          <div className={MarketplaceCss["oh-marketplace-preview-banner"]}>
             <strong>{t('preview.running', { plugin: snapshot.preview.pluginId })}</strong>
             <Button variant="outline" size="sm" disabled={pending} onClick={() => { void run({ type: 'discard' }) }}>
               {t('discard')}
@@ -868,7 +868,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
           </div>
         )}
         {error !== null && (
-          <Alert variant="destructive" className="oh-marketplace-error">
+          <Alert variant="destructive" className={MarketplaceCss["oh-marketplace-error"]}>
             <AlertDescription>{error}</AlertDescription>
             <AlertAction>
               <Button
@@ -883,12 +883,12 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
           </Alert>
         )}
         {showActionNotice && (
-          <div className="oh-marketplace-notice">
+          <div className={MarketplaceCss["oh-marketplace-notice"]}>
             {lastActionNotice}
           </div>
         )}
-        <div className="oh-marketplace-toolbar">
-          <div className="oh-marketplace-search">
+        <div className={MarketplaceCss["oh-marketplace-toolbar"]}>
+          <div className={MarketplaceCss["oh-marketplace-search"]}>
             <Input
               icon={<IconSearch size={16} />}
               aria-label={t('search.label')}
@@ -906,7 +906,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
               />
             )}
           </div>
-          <div className="oh-marketplace-direct-source">
+          <div className={MarketplaceCss["oh-marketplace-direct-source"]}>
             <Input
               aria-label={t('direct-source.label')}
               onChange={event => { setRepositoryInput(event.target.value) }}
@@ -922,7 +922,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
               {t('direct-source.submit')}
             </Button>
           </div>
-          <div className="oh-marketplace-status-tabs" role="group" aria-label={t('installation-status')}>
+          <div className={MarketplaceCss["oh-marketplace-status-tabs"]} role="group" aria-label={t('installation-status')}>
             {([
               ['all', t('all')],
               ['installed', t('installed')],
@@ -948,7 +948,7 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
         </div>
         {snapshot?.candidate !== null && snapshot?.candidate !== undefined && (
           <div
-            className="oh-marketplace-direct-candidate"
+            className={MarketplaceCss["oh-marketplace-direct-candidate"]}
             data-execution={snapshot.candidate.execution}
             onClick={() => {
               if (snapshot?.candidate?.identity.pluginId !== undefined) {
@@ -963,20 +963,20 @@ function MarketplaceSurface({ bridge, locale, translate, view }: {
             <span>{snapshot.candidate.execution}</span>
           </div>
         )}
-        <ScrollArea className="oh-marketplace-main" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+        <ScrollArea className={MarketplaceCss["oh-marketplace-main"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
           {snapshot === null || pending && snapshot.catalog.length === 0 ? (
-            <LoadingState className="oh-marketplace-empty" label={t('loading-catalog')} />
+            <LoadingState className={MarketplaceCss["oh-marketplace-empty"]} label={t('loading-catalog')} />
           ) : snapshot.auth.status !== 'ready' && snapshot.catalog.length === 0 ? (
             <EmptyState
               layout="centered"
-              className="oh-marketplace-empty"
+              className={MarketplaceCss["oh-marketplace-empty"]}
               title={t('github-auth-required')}
               description={localizedAuthDetail(snapshot.auth.detail, t)}
             />
           ) : plugins.length === 0 ? (
-            <EmptyState layout="centered" className="oh-marketplace-empty" title={t('no-match')} />
+            <EmptyState layout="centered" className={MarketplaceCss["oh-marketplace-empty"]} title={t('no-match')} />
           ) : (
-            <div className="oh-marketplace-grid">
+            <div className={MarketplaceCss["oh-marketplace-grid"]}>
               {plugins.map(plugin => (
                 <PluginCard
                   key={plugin.id}
