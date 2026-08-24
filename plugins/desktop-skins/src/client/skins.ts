@@ -364,9 +364,10 @@ body[data-dsh-studio-skin] {
   --gw-skin-gap-item: 4px;
 
   /* Shared semantic bridges consumed by sidebar/list surfaces. The skin owns
-     the values; shared CSS only supplies non-skin fallbacks. */
+     the values; shared CSS only supplies non-skin fallbacks. Keep the
+     sidebar-list rhythm at 2px without changing the 4px menu/listbox gap. */
   --dsh-studio-list-row-height: var(--gw-skin-row-h);
-  --dsh-studio-list-row-gap: var(--gw-skin-gap-item);
+  --dsh-studio-list-row-gap: var(--dsh-studio-space-0);
   --dsh-studio-list-row-radius: var(--gw-skin-radius-row);
   --dsh-studio-list-row-corner-shape: superellipse(1.5);
   --dsh-studio-list-row-padding-inline: var(--gw-skin-row-px);

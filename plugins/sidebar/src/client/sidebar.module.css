@@ -763,11 +763,11 @@ html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
 }
 
 /* Virtualized slot wrapper: each row is the only child of its absolutely
-   positioned wrapper, so the shared ListRow :last-child rule zeroes the
-   margin on every row. Own the 4px rhythm on the slot instead
-   (path-tree-nav.tsx ROW_HEIGHT_PX mirrors 28 + 4). */
+   positioned wrapper, so the shared ListRow :last-child rule zeroes the row
+   margin. Own the full measured footprint here, using the same semantic
+   height and gap tokens as every other ListRow consumer. */
 .dsh-studio-diff-tree-slot {
-  margin-bottom: var(--dsh-studio-space-1);
+  height: calc(var(--dsh-studio-list-row-height) + var(--dsh-studio-list-row-gap));
 }
 
 .dsh-studio-diff-tree-row :global(.dsh-studio-list-row-main) {

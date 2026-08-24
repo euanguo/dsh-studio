@@ -36,12 +36,9 @@ export interface DiffPathTreeRow {
   selected?: boolean
 }
 
-/** Row slot height: shared ListRow row (28px) + its 4px rhythm margin.
-    The margin lives on the slot wrapper (see .dsh-studio-diff-tree-slot), not
-    on the ListRow itself — every virtualized row is the only child of its
-    absolutely-positioned wrapper, so ListRow's own :last-child rule would
-    zero it. The virtualizer must allocate the full footprint or rows cram. */
-const ROW_HEIGHT_PX = 32
+/** Initial virtual-row estimate. The slot itself is measured after mount so
+    its CSS token-driven row height and inter-row gap remain the source of truth. */
+const ROW_HEIGHT_PX = 30
 
 export function DiffPathTreeNav({
   rows,
@@ -105,7 +102,13 @@ export function DiffPathTreeNav({
           } as CSSProperties
           if (row.kind === 'directory') {
             return (
-              <div key={row.key} className={surfaceCss["dsh-studio-diff-tree-slot"]} style={style}>
+              <div
+                key={row.key}
+                ref={virtualizer.measureElement}
+                className={surfaceCss["dsh-studio-diff-tree-slot"]}
+                data-index={item.index}
+                style={style}
+              >
                 <ListRow
                   className={`${surfaceCss["dsh-studio-diff-tree-row"]} is-directory`}
                   data-path={row.path}
@@ -129,7 +132,13 @@ export function DiffPathTreeNav({
             )
           }
           return (
-            <div key={row.key} className={surfaceCss["dsh-studio-diff-tree-slot"]} style={style}>
+            <div
+              key={row.key}
+              ref={virtualizer.measureElement}
+              className={surfaceCss["dsh-studio-diff-tree-slot"]}
+              data-index={item.index}
+              style={style}
+            >
               <ListRow
                 className={`${surfaceCss["dsh-studio-diff-tree-row"]} is-file`}
                 data-path={row.path}
