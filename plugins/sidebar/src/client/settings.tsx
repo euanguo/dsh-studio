@@ -13,8 +13,6 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useSyncExternalStore } from 'react'
 import {
   Button,
-  Input,
-  Modal,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { IconAdjustments } from '@dsh-studio/shared/tabler-icons'
 import type { Translate } from '@dsh-studio/shared/i18n'
@@ -36,9 +34,8 @@ import {
   SIDEBAR_MIN_WIDTH,
 } from '../sidebar-preferences.ts'
 import { ErrorState, SettingsRow, SettingsSection, Slider, Switch, ToolbarAction } from '@dsh-studio/shared/ui'
-import { SourceControlAiSettingsPanel } from './source-control/source-control-ai-settings.tsx'
 import { FeatureCard, FeatureSettingsPopup } from './settings-feature-card.tsx'
-import { InputRow, renderToggleRow, sidebarLabel, SwitchRow } from './settings-rows.tsx'
+import { SwitchRow } from './settings-rows.tsx'
 
 
 /* ── the settings section ──────────────────────────────────────── */
@@ -52,7 +49,6 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
   const [settingsFor, setSettingsFor] = useState<
     SidebarTabDescriptor | SidebarViewerDescriptor | null
   >(null)
-  const [sourceControlAiSettingsOpen, setSourceControlAiSettingsOpen] = useState(false)
   const tabs = props.sidebar.getTabs().filter(descriptor => descriptor.hidden !== true)
   const viewers = props.sidebar.getViewers()
   const updateRuntime = (
@@ -227,44 +223,6 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         )}
       </SettingsSection>
       <SettingsSection
-        title={props.t('settings.agent-capabilities')}
-        description={props.t('settings.agent-capabilities-description')}
-      >
-        <div className={surfaceCss["dsh-studio-sidebar-settings-rows"]}>
-          <SwitchRow
-            title={props.t('settings.agent-terminal-tools')}
-            desc={props.t('settings.agent-terminal-tools-description')}
-            checked={runtimeState.preferences.agentTerminalTools}
-            onChange={checked => { updateRuntime('agentTerminalTools', checked) }}
-          />
-          <SwitchRow
-            title={props.t('settings.agent-worktree-tools')}
-            desc={props.t('settings.agent-worktree-tools-description')}
-            checked={runtimeState.preferences.agentWorktreeTools}
-            onChange={checked => { updateRuntime('agentWorktreeTools', checked) }}
-          />
-          <SwitchRow
-            title={props.t('settings.agent-worktree-delegation-tools')}
-            desc={props.t('settings.agent-worktree-delegation-tools-description')}
-            checked={runtimeState.preferences.agentWorktreeDelegationTools}
-            onChange={checked => { updateRuntime('agentWorktreeDelegationTools', checked) }}
-          />
-          <SettingsRow
-            title={props.t('source-control-ai.title')}
-            description={props.t('source-control-ai.description')}
-            control={(
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => { setSourceControlAiSettingsOpen(true) }}
-              >
-                {props.t('settings.feature-settings')}
-              </Button>
-            )}
-          />
-        </div>
-      </SettingsSection>
-      <SettingsSection
         title={props.t('settings.tools')}
         description={props.t('settings.tools-description')}
       >
@@ -303,24 +261,6 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         </div>
       </SettingsSection>
       {popup}
-      <Modal
-        open={sourceControlAiSettingsOpen}
-        onClose={() => { setSourceControlAiSettingsOpen(false) }}
-        title={props.t('source-control-ai.title')}
-        description={props.t('source-control-ai.description')}
-        closeLabel={props.t('settings.done')}
-        className={surfaceCss["dsh-studio-sidebar-settings-popup"]}
-        contentClassName="dsh-studio-sidebar-settings-popup-content"
-        footer={(
-          <Button variant="primary" size="sm" onClick={() => { setSourceControlAiSettingsOpen(false) }}>
-            {props.t('settings.done')}
-          </Button>
-        )}
-      >
-        <div className={surfaceCss["dsh-studio-sidebar-settings-popup-body"]}>
-          <SourceControlAiSettingsPanel t={props.t} />
-        </div>
-      </Modal>
     </SettingsSection>
   )
 }

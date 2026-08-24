@@ -31,7 +31,7 @@ import {
   type ReviewInputTriggersService,
 } from './review/review-comments.ts'
 import { createSelectionSlashSource } from './selection/slash-source.ts'
-import { SidebarRuntimeSettingsService } from './runtime-settings.ts'
+import { SidebarRuntimeSettingsService, DEFAULT_SIDEBAR_RUNTIME_PREFERENCES } from './runtime-settings.ts'
 import type {
   BoundSidebarSettingsActions,
   ClientContext,
@@ -44,6 +44,7 @@ import { registerBuiltins } from './builtins/index.ts'
 import { TerminalTabContent } from './terminal-tab.tsx'
 import { disposeAllTerminalRuntimeOwners } from '@dsh-studio/shared/terminal-runtime-owner'
 import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
+import { AgentCapabilitiesSettingsSection } from './settings-agent.tsx'
 import { disposeSidebarRuntimes } from './runtimes/registry.ts'
 import { acquireOpenPathPatch, isLinkProtocolIntercepted, registerLinkHandler, registerLinkInterception, registerOpenPathHandler, releaseOpenPathPatch } from './intercept.ts'
 import { registerImeGuard } from './ime-guard.ts'
@@ -313,6 +314,9 @@ export function apply(ctx: ClientContext): void {
       settingsActions = actions
       syncSidebarSettings(settingsActions, desktopSidebar.getSnapshot())
       return {
+        // Page-scoped reset: the Side panel page owns layout (localStorage)
+        // and opening behavior; agent capabilities reset on their own page
+        // (dsh-studio-agent) and feature detail rows keep their values.
         reset: () => {
           desktopSidebar.setOpenByDefault(
             DEFAULT_SIDEBAR_PREFERENCES.openByDefault,
@@ -324,7 +328,16 @@ export function apply(ctx: ClientContext): void {
           for (const descriptor of desktopSidebar.getViewers()) {
             desktopSidebar.setViewerEnabled(descriptor.id, true)
           }
-          void runtimeSettings.reset()
+          void runtimeSettings.update({
+            interceptOpenPath: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.interceptOpenPath,
+            browserInterceptLinks: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptLinks,
+            browserInterceptHttp: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttp,
+            browserInterceptHttps: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttps,
+            htmlViewerNoSandbox: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.htmlViewerNoSandbox,
+            htmlViewerDefaultUnsafe: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.htmlViewerDefaultUnsafe,
+            autoOpenSubagent: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.autoOpenSubagent,
+            autoOpenJobs: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.autoOpenJobs,
+          })
         },
         setOpenByDefault: open => { desktopSidebar.setOpenByDefault(open) },
         setTabEnabled: (id, enabled) => {
@@ -347,4 +360,27 @@ export function apply(ctx: ClientContext): void {
     order: 40,
     store: settingsStore,
   }, SidebarSettingsRow))
+
+  // The Agent capabilities page: model-facing capability switches and the
+  // Source Control AI entry, slotted between the official sections (20) and
+  // the Side panel page (40). Its store is trivial (no localStorage-backed
+  // per-section state), so no `store` registration is needed.
+  slots.inject('settings.section', () => slots.register({
+    id: 'dsh-studio-agent',
+    inject: () => ({
+      runtime: runtimeSettings,
+      t,
+      reset: () => {
+        void runtimeSettings.update({
+          agentTerminalTools: false,
+          agentWorktreeTools: false,
+          agentWorktreeDelegationTools: false,
+        })
+      },
+    }),
+    label: () => t('settings.agent-capabilities'),
+    locale: 'dsh-studio.sidebar',
+    name: 'settings.section',
+    order: 30,
+  }, AgentCapabilitiesSettingsSection))
 }
