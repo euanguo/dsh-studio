@@ -1,10 +1,3 @@
-/**
- * Re-export of the shared terminal socket (moved to @dsh-studio/shared).
- */
-export {
-  TerminalSocket,
-  CAPABILITIES_TERMINAL_WS_PATH,
-  terminalWebSocketUrl,
-  type TerminalSocketHandlers,
-  type TerminalSocketScope,
-} from '@dsh-studio/shared/terminal-socket'
+/** Terminal WebSocket endpoint on the /capabilities gateway (contract guard:
+ * the host route table serves this exact path — see capabilities routes). */
+export const CAPABILITIES_TERMINAL_WS_PATH = '/capabilities/ws/terminal'
