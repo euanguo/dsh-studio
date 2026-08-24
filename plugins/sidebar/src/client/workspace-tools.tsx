@@ -44,11 +44,6 @@ import {
   clampSidebarWidthForLayout,
   SIDEBAR_COLLAPSE_THRESHOLD_PX,
 } from '../sidebar-preferences.ts'
-import sideToolsCss from './side-tools.css'
-import workspaceCss from './sidebar.css'
-import sourceControlCss from './source-control/source-control.css'
-import centerSurfaceCss from './surfaces/center-surface.css'
-import diffViewerCss from './diff/diff-viewer.css'
 import { ensureSharedUiStyles } from '@dsh-studio/shared/ui'
 import { pluginCss as sidebarSurfaceCss } from './styles.js'
 import terminalViewCss from '@dsh-studio/shared/terminal-view.css'
@@ -282,16 +277,9 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.stopStyle = ensureStyle('dsh-studio-sidebar', [
       xtermCss,
       terminalViewCss,
-      // Strangler transition: the scoped module stylesheet feeds the future
-      // class-map references; the legacy global texts below still serve the
-      // not-yet-migrated literal class names and stay LAST so their global
-      // selectors keep winning during the migration (identical to today).
+      // The scoped surface stylesheet (styles.ts) carries every sidebar
+      // rule; shared/global classes are :global escapes inside it.
       sidebarSurfaceCss,
-      workspaceCss,
-      sideToolsCss,
-      sourceControlCss,
-      centerSurfaceCss,
-      diffViewerCss,
     ].join('\n'))
     this.element = document.createElement('div')
     this.element.id = 'dsh-studio-sidebar-root'
