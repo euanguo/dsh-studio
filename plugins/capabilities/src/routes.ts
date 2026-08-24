@@ -41,232 +41,30 @@ import {
   optionalInteger,
   optionalPathList,
   optionalString,
-  requireString,
-  CapabilityError,
 } from '@dsh-studio/shared/wire'
 
 import { SIDEBAR_PREFS_NS } from '@dsh-studio/shared/prefs-shared'
+import {
+  CapabilityError,
+  requireString,
+} from '@dsh-studio/shared/wire'
+import { buildFsHandlers } from './routes/fs.ts'
+import {
+  gitBlobBase64,
+  readText,
+  resolveGitPath,
+  searchWorkspace,
+  sessionCwdOf,
+  isSettingsPathOp,
+  modelSelectionOf,
+  settingsNamespaceOf,
+  sourceControlAiSettingsOf,
+  type SettingsPathEdit,
+  type CapabilitiesSettingsFace,
+} from './routes/shared.ts'
 
 export type ApiMethod = (payload: unknown) => Promise<unknown> | unknown
 
-/** An approved path edit shape for the settings.mutate route. */
-export interface SettingsPathEdit {
-  op: 'set' | 'unset'
-  path: string[]
-  value?: unknown
-}
-
-/** Whether an unknown value is a well-formed path edit. */
-function isSettingsPathOp(value: unknown): value is SettingsPathEdit {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false
-  const record = value as Record<string, unknown>
-  if (record.op !== 'set' && record.op !== 'unset') return false
-  if (!Array.isArray(record.path) || record.path.some(part => typeof part !== 'string')) return false
-  return true
-}
-
-/**
- * Resolve which registered settings namespace a client payload addresses.
- * Absent/blank falls back to the sidebar prefs namespace so the side card's
- * historical callers (which never sent `ns`) keep working unchanged; the
- * left-rail sends `dsh-studio-left-rail` explicitly.
- */
-function settingsNamespaceOf(payload: unknown): string {
-  const record = payload as { ns?: unknown } | null
-  const raw = typeof record?.ns === 'string' && record.ns !== '' ? record.ns : undefined
-  // Namespaces are branded kebab-case (no dots) — see dsh-settings'
-  // NAMESPACE_PATTERN. A foreign dot-name never matches a registration and is
-  // refused by the seam, which is exactly the fence we want.
-  return raw ?? SIDEBAR_PREFS_NS
-}
-
-function modelSelectionOf(value: unknown): SourceControlModelSelection | undefined {
-  if (typeof value !== 'object' || value === null) return undefined
-  const record = value as { provider?: unknown; model?: unknown; reasoningEffort?: unknown }
-  if (typeof record.provider !== 'string' || record.provider === '' || typeof record.model !== 'string' || record.model === '') {
-    return undefined
-  }
-  const reasoningEffort = typeof record.reasoningEffort === 'string'
-    ? record.reasoningEffort as SourceControlModelSelection['reasoningEffort']
-    : undefined
-  return reasoningEffort === undefined
-    ? { provider: record.provider, model: record.model }
-    : { provider: record.provider, model: record.model, reasoningEffort }
-}
-
-function sourceControlAiSettingsOf(value: unknown): SourceControlAiSettings | undefined {
-  if (typeof value !== 'object' || value === null) return undefined
-  return value as SourceControlAiSettings
-}
-
-/**
- * Resolve a session's authoritative working directory. The attached session
- * header wins; while the session is still hydrating from persistence (the
- * web client attaches the current conversation a moment after page load, so
- * the very first sidebar requests can arrive detached) the caller's own
- * list-summary cwd is used; the process cwd is the last resort (blank
- * sessions have no cwd anywhere yet). Never throws for a missing cwd, so
- * explorer/git/terminal work from first paint instead of surfacing
- * "session ... has no working directory".
- */
-export function sessionCwdOf(ctx: Context, sessionId: string, clientCwd?: string): string {
-  const session = ctx.sessions.get(sessionId)
-  const headerCwd = session?.header.cwd
-  if (headerCwd !== undefined && headerCwd !== '') return headerCwd
-  if (clientCwd !== undefined && clientCwd !== '') {
-    try {
-      return requireAbsolute(clientCwd)
-    } catch {
-      throw new CapabilityError('bad-request', `invalid working directory "${clientCwd}"`)
-    }
-  }
-  return process.cwd()
-}
-
-/**
- * Resolve a path that a git command reported — `git status`/`git diff`
- * print paths RELATIVE TO THE REPO TOP LEVEL, which may sit above the
- * session cwd (a session inside a subdirectory of a repository). Absolute
- * paths pass through; relative ones join the repo root (falling back to the
- * cwd when the root cannot be resolved, e.g. a bare directory).
- */
-async function resolveGitPath(cwd: string, raw: string): Promise<string> {
-  if (isAbsolute(raw)) return requireAbsolute(raw)
-  const root = await git.repoRoot(cwd).catch(() => cwd)
-  return requireAbsolute(join(root, raw))
-}
-
-/** Refuse mutating fs operations outside the session working directory. */
-function assertWithinSession(cwd: string, path: string, op: string): void {
-  if (!isWithin(cwd, path)) {
-    throw new CapabilityError('fs-error', `${op} path outside the session working directory`, 403)
-  }
-}
-
-/** How many leading bytes a binary read returns for client-side detect sniffing. */
-const READ_HEAD_LIMIT = 4096
-
-/** Binary payloads up to this size ship inline (base64) for image/PDF previews. */
-const PREVIEW_LIMIT = 2 * 1024 * 1024
-
-/** Read a git blob (HEAD / index) as base64 for binary previews. */
-function gitBlobBase64(cwd: string, spec: string, relPath: string): Promise<string> {
-  const args = ['-C', cwd, 'show', `${spec}:${relPath}`]
-  return new Promise((resolvePromise, reject) => {
-    execFile('git', args, { encoding: 'buffer', timeout: 15_000 }, (error, stdout) => {
-      if (error !== null) {
-        reject(new CapabilityError('git-error', error.message, 400))
-        return
-      }
-      resolvePromise(stdout.toString('base64'))
-    })
-  })
-}
-
-export interface FsSearchHit {
-  path: string
-  line: number
-  text: string
-}
-
-/** Search the workspace with `git grep` (falls back to an empty result set
- *  when the workspace is not a repository — the UI shows a no-results state
- *  instead of a hard error). */
-function searchWorkspace(cwd: string, pattern: string, caseSensitive: boolean): Promise<FsSearchHit[]> {
-  const args = ['-C', cwd, 'grep', '--no-color', '-n', '-I', '-E']
-  if (!caseSensitive) args.push('-i')
-  args.push('-e', pattern)
-  return new Promise(resolvePromise => {
-    execFile('git', args, { encoding: 'utf8', timeout: 20_000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
-      if (error !== null && error.code !== 1) {
-        resolvePromise([])
-        return
-      }
-      const hits: FsSearchHit[] = []
-      for (const line of stdout.split(/\r?\n/)) {
-        if (line === '') continue
-        const match = /^([^:]+):(\d+):(.*)$/.exec(line)
-        if (match === null) continue
-        hits.push({ path: match[1]!, line: Number(match[2]), text: match[3] ?? '' })
-      }
-      resolvePromise(hits.slice(0, 500))
-    })
-  })
-}
-
-/** Text read of a file with the size cap; binary detection via NUL probe.
- *  Binary reads also return the first {@link READ_HEAD_LIMIT} bytes (base64)
- *  so the client can re-match viewers by content (`detect`), and — when the
- *  file is small enough — the full base64 payload (`data`) for inline
- *  image/PDF previews. */
-async function readText(path: string, readLimit: number): Promise<{
-  content: string
-  truncated: boolean
-  binary: boolean
-  size: number
-  head?: string
-  data?: string
-}> {
-  const info = await stat(path).catch((error: unknown) => {
-    throw new CapabilityError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
-  })
-  if (info.isDirectory()) {
-    throw new CapabilityError('fs-error', `"${path}" is a directory`, 400)
-  }
-  const size = info.size
-  const truncated = size > readLimit
-  const handle = await open(path, 'r').catch((error: unknown) => {
-    throw new CapabilityError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
-  })
-  try {
-    const buffer = Buffer.alloc(Math.min(size, readLimit))
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0)
-    const slice = buffer.subarray(0, bytesRead)
-    const binary = slice.includes(0)
-    if (binary) {
-      const head = slice.subarray(0, Math.min(slice.length, READ_HEAD_LIMIT)).toString('base64')
-      if (size <= PREVIEW_LIMIT) {
-        // Re-read the full payload for inline image/PDF previews.
-        const full = Buffer.alloc(size)
-        const { bytesRead: fullRead } = await handle.read(full, 0, full.length, 0)
-        return {
-          content: '',
-          truncated: false,
-          binary,
-          size,
-          head,
-          data: full.subarray(0, fullRead).toString('base64'),
-        }
-      }
-      return { content: '', truncated, binary, size, head }
-    }
-    return { content: slice.toString('utf8'), truncated, binary: false, size }
-  } finally {
-    await handle.close()
-  }
-}
-
-/** One API method dispatch table entry. */
-
-/**
- * The live face of the plugin-owned settings namespaces, bound to the settings
- * service when it is mounted. The DSH settings RPC domain only serves
- * allowlisted namespaces (api-proxy exposedNamespaces), so clients read and
- * write THESE namespaces through the plugin's own fenced /capabilities routes,
- * which call the seam in-process — no configuration-client gate involved.
- * Every method takes the target namespace (`dsh-better-sidebar` for the side
- * card prefs, `dsh-studio-left-rail` for the left-rail view slice).
- */
-export interface CapabilitiesSettingsFace {
-  /** The current resolved value + revision for one namespace (undefined while the settings service is absent). */
-  get(ns: string): Promise<{ value?: unknown; revision?: number }> | { value?: unknown; revision?: number }
-  /** Merge a patch into one namespace's user section (revision-guarded). */
-  update(ns: string, patch: Record<string, unknown>, expectedRevision?: number): Promise<{ value?: unknown; revision?: number }>
-  /** Wholesale replace of one namespace's user section (deletion-capable). */
-  replace(ns: string, section: Record<string, unknown>, expectedRevision?: number): Promise<{ value?: unknown; revision?: number }>
-  /** Path-addressed set/unset edits on one namespace (deletion-capable). */
-  mutate(ns: string, ops: ReadonlyArray<{ op: 'set' | 'unset'; path: string[]; value?: unknown }>, expectedRevision?: number): Promise<{ value?: unknown; revision?: number }>
-}
 
 /** Build the API method table bound to the plugin context, pty manager, agent pty registry, and resolved config. */
 export function buildCapabilitiesRoutes(
@@ -298,124 +96,7 @@ export function buildCapabilitiesRoutes(
   // API). A deployment without the jobs registry downgrades kill to a 503.
   const jobsApi: CapabilitiesJobsRoutes = buildJobsApi(ctx, resolved.readLimit)
   return {
-    'workspace.cwd': (payload) => {
-      const { cwd } = cwdOf(payload)
-      return { cwd, root: rootLabel(cwd), parent: parentOf(cwd) ?? null }
-    },
-    'fs.tree': async (payload) => {
-      const { cwd } = cwdOf(payload)
-      const record = payload as { path?: unknown }
-      const target = record.path === undefined ? cwd : requireAbsolute(requireString(payload, 'path'))
-      return listDirectory(target, resolved.listLimit)
-    },
-    'fs.read': async (payload) => {
-      const { cwd } = cwdOf(payload)
-      // Relative paths are git-derived (status/diff report repo-root-relative
-      // names; the untracked diff view reads the file through this route).
-      const path = await resolveGitPath(cwd, requireString(payload, 'path'))
-      const { content, truncated, binary, size, head, data } = await readText(path, resolved.readLimit)
-      if (binary) {
-        return {
-          kind: 'binary',
-          size,
-          truncated,
-          ...(head === undefined ? {} : { head }),
-          ...(data === undefined ? {} : { data }),
-        }
-      }
-      return { kind: 'text', content, truncated }
-    },
-    'fs.write': async (payload) => {
-      const { cwd } = cwdOf(payload)
-      const path = requireAbsolute(requireString(payload, 'path'))
-      assertWithinSession(cwd, path, 'write')
-      const content = requireString(payload, 'content')
-      const tmp = `${path}.dsh-sidebar-tmp-${process.pid}`
-      try {
-        await mkdir(dirname(path), { recursive: true })
-        await writeFile(tmp, content, 'utf8')
-        await rename(tmp, path)
-      } catch (error) {
-        await rm(tmp, { force: true }).catch(() => {})
-        throw new CapabilityError('fs-error', `cannot write "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
-      }
-      return { ok: true }
-    },
-    'fs.create': async (payload) => {
-      const { cwd } = cwdOf(payload)
-      const path = requireAbsolute(requireString(payload, 'path'))
-      assertWithinSession(cwd, path, 'create')
-      const record = payload as { directory?: unknown }
-      try {
-        if (record.directory === true) {
-          await mkdir(path, { recursive: false })
-        } else {
-          await writeFile(path, '', { encoding: 'utf8', flag: 'wx' })
-        }
-      } catch (error) {
-        throw new CapabilityError('fs-error', `cannot create "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
-      }
-      return { ok: true }
-    },
-    'fs.rename': async (payload) => {
-      const { cwd } = cwdOf(payload)
-      const from = requireAbsolute(requireString(payload, 'from'))
-      const to = requireAbsolute(requireString(payload, 'to'))
-      assertWithinSession(cwd, from, 'rename')
-      assertWithinSession(cwd, to, 'rename')
-      try {
-        await rename(from, to)
-      } catch (error) {
-        throw new CapabilityError('fs-error', `cannot rename "${from}": ${error instanceof Error ? error.message : String(error)}`, 400)
-      }
-      return { ok: true }
-    },
-    'fs.delete': async (payload) => {
-      const { cwd } = cwdOf(payload)
-      const path = requireAbsolute(requireString(payload, 'path'))
-      assertWithinSession(cwd, path, 'delete')
-      try {
-        await rm(path, { recursive: true, force: false })
-      } catch (error) {
-        throw new CapabilityError('fs-error', `cannot delete "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
-      }
-      return { ok: true }
-    },
-    'fs.copy': async (payload) => {
-      const { cwd } = cwdOf(payload)
-      const from = requireAbsolute(requireString(payload, 'from'))
-      const to = requireAbsolute(requireString(payload, 'to'))
-      assertWithinSession(cwd, from, 'copy')
-      assertWithinSession(cwd, to, 'copy')
-      try {
-        await copyFile(from, to)
-      } catch (error) {
-        throw new CapabilityError('fs-error', `cannot copy "${from}": ${error instanceof Error ? error.message : String(error)}`, 400)
-      }
-      return { ok: true }
-    },
-    'fs.search': async (payload) => {
-      const { cwd } = cwdOf(payload)
-      const pattern = requireString(payload, 'pattern')
-      return searchWorkspace(cwd, pattern, optionalBoolean(payload, 'caseSensitive') === true)
-    },
-    'fs.tail': async (payload) => {
-      const { cwd } = cwdOf(payload)
-      const path = await resolveGitPath(cwd, requireString(payload, 'path'))
-      const maxBytes = Math.min(optionalInteger(payload, 'maxBytes', 1, Number.MAX_SAFE_INTEGER) ?? 128 * 1024, 512 * 1024)
-      const info = await stat(path).catch((error: unknown) => {
-        throw new CapabilityError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
-      })
-      const handle = await open(path, 'r')
-      try {
-        const readSize = Math.min(info.size, maxBytes)
-        const buffer = Buffer.alloc(readSize)
-        const { bytesRead } = await handle.read(buffer, 0, readSize, Math.max(0, info.size - readSize))
-        return { content: buffer.subarray(0, bytesRead).toString('utf8'), truncated: info.size > maxBytes }
-      } finally {
-        await handle.close()
-      }
-    },
+    ...buildFsHandlers({ cwdOf, resolved }),
     'git.status': async (payload) => {
       const { cwd } = cwdOf(payload)
       // One porcelain v2 subprocess yields isRepo + branch + entries (and
@@ -869,3 +550,6 @@ export function buildCapabilitiesRoutes(
     },
   }
 }
+
+
+export { sessionCwdOf, type CapabilitiesSettingsFace } from './routes/shared.ts'
