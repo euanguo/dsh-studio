@@ -80,25 +80,29 @@
   line-height: 1;
 }
 
-.dsh-studio-sc-mark:global(.is-added) {
+/* The full class (base + status modifier) is written in the row markup as a
+   global literal (`dsh-studio-sc-mark is-${status}`), so every part of the
+   compound needs the :global escape — a scoped base class would compile to a
+   hashed selector the markup never emits and the badge would lose its color. */
+:global(.dsh-studio-sc-mark.is-added) {
   background: var(--dsh-studio-diff-add-bg);
   color: var(--dsh-studio-diff-add-fg);
 }
 
-.dsh-studio-sc-mark:global(.is-modified),
-.dsh-studio-sc-mark:global(.is-renamed),
-.dsh-studio-sc-mark:global(.is-copied) {
+:global(.dsh-studio-sc-mark.is-modified),
+:global(.dsh-studio-sc-mark.is-renamed),
+:global(.dsh-studio-sc-mark.is-copied) {
   background: color-mix(in srgb, var(--dsh-studio-accent, #0969da) 12%, transparent);
   color: var(--dsh-studio-accent, #0969da);
 }
 
-.dsh-studio-sc-mark:global(.is-deleted),
-.dsh-studio-sc-mark:global(.is-conflicted) {
+:global(.dsh-studio-sc-mark.is-deleted),
+:global(.dsh-studio-sc-mark.is-conflicted) {
   background: var(--dsh-studio-diff-del-bg);
   color: var(--dsh-studio-diff-del-fg);
 }
 
-.dsh-studio-sc-mark:global(.is-untracked) {
+:global(.dsh-studio-sc-mark.is-untracked) {
   background: color-mix(in srgb, var(--dsw-alias-state-warn-primary, #bf8700) 14%, transparent);
   color: var(--dsw-alias-state-warn-primary, #bf8700);
 }
