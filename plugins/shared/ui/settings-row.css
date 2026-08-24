@@ -1,0 +1,135 @@
+/* Split from ui.css — contiguous slice (order-preserving). */
+
+
+.dsh-studio-ui-settings-row-control 
+{
+display: inline-flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--dsh-studio-space-2, 8px);
+}
+
+
+
+.dsh-studio-ui-toolbar-action-anchor 
+{
+display: inline-flex;
+  flex: none;
+}
+
+
+
+/* ToolbarAction = the compact square icon button (the pre-refactor
+   rail-toggle seat): 28×28 square footprint, ghost, secondary label — the
+   28px-tall official `sm` capsule was the "too big / rectangular" culprit
+   (its `padding: 0 10px` stretched icons into wide pills). The footprint
+   lives here once and every strip consumes it; the doubled class keeps the
+   overrides above the official Button module's single-class rules. Corners
+   are NOT overridden: the skins layer's
+   `body[data-dsh-studio-skin] button { border-radius: …
+   var(--gw-skin-radius-row) !important; corner-shape: superellipse(1.5) }`
+   keeps the soft rounded look every other button has. */
+.dsh-studio-ui-toolbar-action.dsh-studio-ui-toolbar-action 
+{
+display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #57606a);
+}
+
+
+
+.dsh-studio-ui-toolbar-action.dsh-studio-ui-toolbar-action:hover:not(:disabled) 
+{
+background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+
+
+/* Engaged state for toggle-style toolbar actions (`pressed` prop →
+   aria-pressed) and menu triggers (`aria-expanded`). Distinct from the
+   official hover wash so flat/tree, split/unified, word-wrap,
+   terminal-settings and strip menu buttons visibly latch. */
+.dsh-studio-ui-toolbar-action[aria-pressed='true'],
+.dsh-studio-ui-toolbar-action[aria-expanded='true'] 
+{
+background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+
+
+.dsh-studio-ui-toolbar-action[aria-pressed='true']:hover:not(:disabled),
+.dsh-studio-ui-toolbar-action[aria-expanded='true']:hover:not(:disabled) 
+{
+background: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
+}
+
+
+
+.dsh-studio-ui-status-line 
+{
+display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--dsh-studio-space-2, 8px);
+  padding: var(--dsh-studio-space-2, 8px) var(--dsh-studio-space-3, 12px);
+  color: var(--dsh-studio-ui-muted-foreground);
+  font-size: var(--dsh-studio-font-md, 12px);
+  line-height: 1.4;
+}
+
+
+
+.dsh-studio-ui-status-line[data-tone='error'] 
+{
+border: 1px solid color-mix(in srgb, var(--dsh-studio-ui-destructive) 28%, transparent);
+  border-radius: var(--dsh-studio-radius-md, 8px);
+  background: color-mix(in srgb, var(--dsh-studio-ui-destructive) 8%, transparent);
+  color: var(--dsh-studio-ui-destructive);
+}
+
+
+
+.dsh-studio-ui-status-line[data-tone='warning'] 
+{
+border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warning-primary, var(--dsh-studio-ui-border)) 28%, transparent);
+  border-radius: var(--dsh-studio-radius-md, 8px);
+  background: color-mix(in srgb, var(--dsw-alias-state-warning-primary, var(--dsh-studio-ui-muted)) 8%, transparent);
+  color: var(--dsw-alias-state-warning-primary, var(--dsh-studio-ui-foreground));
+}
+
+
+
+.dsh-studio-ui-status-line[data-tone='success'] 
+{
+color: var(--dsw-alias-state-success-primary, var(--dsh-studio-ui-foreground));
+}
+
+
+
+.dsh-studio-ui-status-line-indicator,
+.dsh-studio-ui-status-line-action 
+{
+display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+
+
+.dsh-studio-ui-status-line-message 
+{
+min-width: 0;
+  flex: 1 1 auto;
+  overflow-wrap: anywhere;
+}

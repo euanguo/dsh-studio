@@ -1,0 +1,92 @@
+/* Split from ui.css — contiguous slice (order-preserving). */
+
+
+.dsh-studio-ui-empty 
+{
+display: flex;
+  min-width: 0;
+  min-height: 160px;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--dsh-studio-space-4, 16px);
+  padding: var(--dsh-studio-space-6, 24px);
+  color: var(--dsh-studio-ui-foreground);
+  text-align: center;
+}
+
+
+
+.dsh-studio-ui-empty-header 
+{
+display: flex;
+  max-width: 360px;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--dsh-studio-space-2, 8px);
+}
+
+
+
+.dsh-studio-ui-empty-media 
+{
+display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--dsh-studio-space-1, 4px);
+}
+
+
+
+.dsh-studio-ui-empty-media[data-variant='icon'] 
+{
+width: 40px;
+  height: 40px;
+  border-radius: var(--dsh-studio-radius-md, 8px);
+  background: var(--dsh-studio-ui-muted);
+  color: var(--dsh-studio-ui-muted-foreground);
+}
+
+
+
+.dsh-studio-ui-empty-title 
+{
+font-size: var(--dsh-studio-font-2xl, 15px);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+
+
+.dsh-studio-ui-empty-description 
+{
+max-width: 360px;
+  margin: 0;
+  color: var(--dsh-studio-ui-muted-foreground);
+  font-size: var(--dsh-studio-font-md, 12px);
+  line-height: 1.45;
+}
+
+
+
+.dsh-studio-ui-empty-content 
+{
+display: flex;
+  width: 100%;
+  max-width: 360px;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--dsh-studio-space-2, 8px);
+}
+
+
+
+.dsh-studio-ui-skeleton 
+{
+min-width: 0;
+  border-radius: var(--dsh-studio-radius-sm, 6px);
+  background: var(--dsh-studio-ui-muted);
+  animation: dsh-studio-ui-skeleton-pulse 1.6s ease-in-out infinite;
+}

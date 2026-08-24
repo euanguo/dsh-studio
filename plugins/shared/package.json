@@ -42,7 +42,6 @@
     "./ui/surface-tab": "./ui/surface-tab.tsx",
     "./ui/surface-toolbar": "./ui/surface-toolbar.tsx",
     "./ui/toolbar-action": "./ui/toolbar-action.tsx",
-    "./ui.css": "./ui/ui.css",
     "./ui-styles": "./ui/styles.ts",
     "./middle-truncate-text": "./middle-truncate-text.ts",
     "./path": "./path.ts",

@@ -1,0 +1,114 @@
+/* Split from ui.css — contiguous slice (order-preserving). */
+
+
+.dsh-studio-ui-scroll-area-thumb 
+{
+background: var(--dsw-alias-scrollbar-bg-l1, rgb(0 0 0 / 22%));
+  border-radius: 3px;
+}
+
+
+
+.dsh-studio-ui-scroll-area:hover .dsh-studio-ui-scroll-area-scrollbar,
+.dsh-studio-ui-scroll-area:focus-within .dsh-studio-ui-scroll-area-scrollbar,
+.dsh-studio-ui-scroll-area-scrollbar[data-hovering],
+.dsh-studio-ui-scroll-area-scrollbar[data-scrolling] 
+{
+opacity: 1;
+  transition: opacity 120ms linear;
+  transition-delay: 0s;
+}
+
+
+
+.dsh-studio-ui-scroll-area-scrollbar:hover .dsh-studio-ui-scroll-area-thumb 
+{
+background: var(--dsw-alias-scrollbar-hover-l1, rgb(0 0 0 / 38%));
+}
+
+
+
+/* ============================================================
+   SurfaceToolbar — the one chrome strip for every center-surface
+   view state. Geometry lives only here so mode switches never
+   swap bar height, padding, surface, or divider.
+   ============================================================ */
+
+.dsh-studio-ui-surface-toolbar 
+{
+display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--dsh-studio-space-2, 8px);
+  min-width: 0;
+  height: var(--dsh-studio-control-lg, 36px);
+  padding: 0 var(--dsh-studio-space-2, 8px);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: var(--dsw-alias-bg-base, #fff);
+}
+
+
+
+.dsh-studio-ui-surface-toolbar-leading 
+{
+display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: var(--dsh-studio-space-2, 8px);
+  /* Slot typography is owned HERE, never re-styled by consumers: every
+     surface's leading block reads with the same title treatment. */
+  font-size: var(--dsh-studio-font-xs, 10px);
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary, #1f2328);
+}
+
+
+
+/* Plain-text titles (a bare <span>) ellipsize inside the flexible slot;
+   richer leading content (breadcrumb) keeps its own structure and merely
+   inherits the typography above. */
+.dsh-studio-ui-surface-toolbar-leading > span 
+{
+min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+
+/* Secondary inline facts inside a title (hash chips, counts). */
+.dsh-studio-ui-surface-toolbar-leading small 
+{
+flex: none;
+  font-size: var(--dsh-studio-font-xs, 10px);
+  font-weight: 400;
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+}
+
+
+
+.dsh-studio-ui-surface-toolbar-meta 
+{
+display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--dsh-studio-space-1, 4px);
+  font-size: var(--dsh-studio-font-xs, 10px);
+  font-weight: 400;
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+  tab-size: 4;
+}
+
+
+
+.dsh-studio-ui-surface-toolbar-modes,
+.dsh-studio-ui-surface-toolbar-actions 
+{
+display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--dsh-studio-space-1, 4px);
+}

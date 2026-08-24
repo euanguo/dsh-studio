@@ -1,0 +1,145 @@
+/* Split from ui.css — contiguous slice (order-preserving). */
+/* Shared UI source layer styles. All color values resolve to DSW aliases. */
+
+.dsh-studio-ui-card 
+{
+--dsh-studio-ui-card-padding: var(--dsh-studio-space-4, 16px);
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--dsh-studio-space-4, 16px);
+  overflow: hidden;
+  border: 1px solid var(--dsh-studio-ui-border);
+  border-radius: var(--dsh-studio-radius-lg, 10px);
+  background: var(--dsh-studio-ui-card);
+  color: var(--dsh-studio-ui-foreground);
+}
+
+
+
+.dsh-studio-ui-card[data-size='sm'] 
+{
+--dsh-studio-ui-card-padding: var(--dsh-studio-space-3, 12px);
+  gap: var(--dsh-studio-space-3, 12px);
+}
+
+
+
+.dsh-studio-ui-card-header,
+.dsh-studio-ui-card-content,
+.dsh-studio-ui-card-footer 
+{
+min-width: 0;
+  padding-inline: var(--dsh-studio-ui-card-padding);
+}
+
+
+
+.dsh-studio-ui-card-header 
+{
+display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--dsh-studio-space-1, 4px);
+  padding-top: var(--dsh-studio-ui-card-padding);
+}
+
+
+
+.dsh-studio-ui-card-header:has([data-slot='card-action']) 
+{
+grid-template-columns: minmax(0, 1fr) auto;
+}
+
+
+
+.dsh-studio-ui-card-header:has([data-slot='card-description']) 
+{
+grid-template-rows: auto auto;
+}
+
+
+
+.dsh-studio-ui-card-title 
+{
+min-width: 0;
+  font-size: var(--dsh-studio-font-xl, 14px);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+
+
+.dsh-studio-ui-card-description 
+{
+min-width: 0;
+  color: var(--dsh-studio-ui-muted-foreground);
+  font-size: var(--dsh-studio-font-md, 12px);
+  line-height: 1.4;
+}
+
+
+
+.dsh-studio-ui-card-action 
+{
+grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+  justify-self: end;
+}
+
+
+
+.dsh-studio-ui-card-content 
+{
+overflow-wrap: anywhere;
+}
+
+
+
+.dsh-studio-ui-card-footer 
+{
+display: flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-2, 8px);
+  border-top: 1px solid var(--dsh-studio-ui-border);
+  padding-bottom: var(--dsh-studio-ui-card-padding);
+  padding-top: var(--dsh-studio-ui-card-padding);
+}
+
+
+
+.dsh-studio-ui-field-group 
+{
+display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--dsh-studio-space-4, 16px);
+}
+
+
+
+.dsh-studio-ui-field 
+{
+display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--dsh-studio-space-1, 4px);
+}
+
+
+
+.dsh-studio-ui-field[data-disabled] 
+{
+opacity: 0.55;
+}
+
+
+
+.dsh-studio-ui-field-label,
+.dsh-studio-ui-field-legend 
+{
+color: var(--dsh-studio-ui-foreground);
+  font-size: var(--dsh-studio-font-xl, 14px);
+  font-weight: 500;
+  line-height: 1.3;
+}

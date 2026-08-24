@@ -1,0 +1,114 @@
+/* Split from ui.css — contiguous slice (order-preserving). */
+
+
+.dsh-studio-ui-settings-section 
+{
+display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--dsh-studio-space-1, 4px);
+}
+
+
+
+.dsh-studio-ui-settings-section-header 
+{
+display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--dsh-studio-space-3, 12px);
+  padding: var(--dsh-studio-space-3, 12px) 0 var(--dsh-studio-space-1, 4px);
+}
+
+
+
+.dsh-studio-ui-settings-section-copy 
+{
+display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--dsh-studio-space-1, 4px);
+}
+
+
+
+.dsh-studio-ui-settings-section-actions 
+{
+display: inline-flex;
+  flex: none;
+  align-items: center;
+}
+
+
+
+.dsh-studio-ui-settings-section-title 
+{
+margin: 0;
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--dsh-studio-font-xl, 14px);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+
+
+.dsh-studio-ui-settings-section-description 
+{
+margin: 0;
+  color: var(--dsw-alias-label-tertiary);
+  font-size: var(--dsh-studio-font-md, 12px);
+  line-height: 1.4;
+}
+
+
+
+.dsh-studio-ui-settings-row 
+{
+min-width: 0;
+  padding: var(--dsh-studio-space-4) 0;
+  border-bottom: 1px solid var(--dsw-alias-border-l2);
+}
+
+
+
+.dsh-studio-ui-settings-row-layout 
+{
+display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dsh-studio-space-3, 12px);
+}
+
+
+
+.dsh-studio-ui-settings-row-copy 
+{
+display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--dsh-studio-space-1, 4px);
+}
+
+
+
+.dsh-studio-ui-settings-row-copy .dsh-studio-ui-field-label 
+{
+min-width: 0;
+  overflow: hidden;
+  color: var(--dsw-alias-label-primary);
+  font-size: var(--dsh-studio-font-xl, 14px);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+
+.dsh-studio-ui-settings-row-copy .dsh-studio-ui-field-description 
+{
+color: var(--dsw-alias-label-tertiary);
+  overflow-wrap: anywhere;
+}
