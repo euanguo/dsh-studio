@@ -17,10 +17,6 @@ export function Alert({ className, variant = 'default', ...props }: AlertProps):
   )
 }
 
-export function AlertTitle({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
-  return <div data-slot="alert-title" className={cn('dsh-studio-ui-alert-title', className)} {...props} />
-}
-
 export function AlertDescription({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
   return <div data-slot="alert-description" className={cn('dsh-studio-ui-alert-description', className)} {...props} />
 }

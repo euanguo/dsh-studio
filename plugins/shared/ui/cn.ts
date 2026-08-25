@@ -9,4 +9,3 @@ import { clsx, type ClassValue } from 'clsx'
 
 export const cn = clsx
 export type { ClassValue }
-export default cn

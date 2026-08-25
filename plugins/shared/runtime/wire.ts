@@ -4,6 +4,7 @@
  * `{ok: true, value}` on success and `{ok: false, error: {code, message}}`
  * (HTTP 4xx/5xx matching the code) on failure.
  */
+import { errorMessage } from '@dsh-studio/shared/errors'
 import type { IncomingMessage, ServerResponse } from 'node:http'
 
 /** Machine-readable error codes of the capabilities API. */
@@ -34,12 +35,6 @@ export class CapabilityError extends Error {
 
 /** Body size bound of one JSON request (defense against unbounded reads). */
 const MAX_BODY_BYTES = 1 << 20
-
-/** Success envelope of one API method. */
-export interface CapabilityOk<T> { ok: true; value: T }
-
-/** Failure envelope of one API method. */
-export interface CapabilityErr { ok: false; error: { code: CapabilityErrorCode; message: string } }
 
 /** Read and parse the JSON request body (bounded; malformed → bad-request). */
 export async function readJsonBody(req: IncomingMessage): Promise<unknown> {
@@ -80,7 +75,7 @@ export function writeError(res: ServerResponse, error: unknown): void {
     writeJson(res, error.status, { ok: false, error: { code: error.code, message: error.message } })
     return
   }
-  const message = error instanceof Error ? error.message : String(error)
+  const message = errorMessage(error)
   writeJson(res, 500, { ok: false, error: { code: 'internal', message } })
 }
 

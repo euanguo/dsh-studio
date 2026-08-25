@@ -97,8 +97,10 @@
   /* 等宽字体栈：跟随 DSH 的 --ds-font-family-code */
   --dsh-studio-font-mono: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace);
 
-  /* 强调色桥：DSW 主蓝别名。旧代码误用的 --dsw-alias-accent /
-     --dsw-alias-interactive-primary 在 DSH token 目录中不存在，
+  /* 强调色桥：DSW 主蓝别名。这是上游 design-platform.css 的真实品牌 token
+     （light rgb(65,118,230) / dark var(--dsw-static-deepseek-450)），名字虽
+     冗长但非损坏——Q10 已在 dsh-source token 目录核对存在。旧代码误用的
+     --dsw-alias-accent / --dsw-alias-interactive-primary 在上游不存在，
      统一收口到这里。 */
   --dsh-studio-accent: var(--dsw-alias-brand-primary-new-colorprimary-new-color, #0969da);
 
@@ -120,11 +122,7 @@
   --dsh-studio-ui-destructive: var(--dsw-alias-state-error-primary, #cf222e);
   --dsh-studio-ui-radius: var(--dsh-studio-radius-md);
 
-  /* 音调桥：DSW 调色板没有紫色语义别名（marketplace 的 protected 徽标），
-     在共享层定义亮色默认值并跟随 DSH 暗色主题，皮肤层亦可覆盖。 */
-  --dsh-studio-tone-protected-bg: #f1eaff;
-  --dsh-studio-tone-protected-fg: #6741a5;
-}
+  }
 
 /* 表面桥的根默认值必须挂在 body 而不是 :root —— DSW 的 alias token
    （--dsw-alias-bg-*）只声明在 body / body[data-ds-dark-theme] 上，
@@ -143,11 +141,6 @@ body {
      slots keep a fallback for any consumer that does read them. */
   --diffs-light-bg: var(--dsw-alias-bg-base, #ffffff);
   --diffs-dark-bg: var(--dsw-alias-bg-base, #ffffff);
-}
-
-body[data-ds-dark-theme] {
-  --dsh-studio-tone-protected-bg: #2c2340;
-  --dsh-studio-tone-protected-fg: #c4a6f5;
 }
 
 /* ── 官方原语行为桥（非 token，但 DSW 同样没有对应开关） ─────────────

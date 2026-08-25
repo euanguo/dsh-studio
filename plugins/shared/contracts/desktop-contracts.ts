@@ -15,7 +15,6 @@ export type DesktopCommand =
   | { type: 'new-session' }
   | { type: 'open-paths'; paths: string[] }
   | { type: 'show-settings' }
-  | { type: 'toggle-bottom-panel' }
   | { type: 'toggle-panel-maximized' }
   | { type: 'toggle-pinned-summary' }
   | { type: 'toggle-side-panel' }
@@ -83,5 +82,7 @@ export interface DesktopBridge {
   pluginMarketplace: {
     dispatch(command: unknown): Promise<unknown>
     getSnapshot(): Promise<unknown>
+    /** Subscribe to host-driven marketplace state transitions. */
+    onSnapshotChanged(listener: () => void): () => void
   }
 }

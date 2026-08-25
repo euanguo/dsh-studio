@@ -34,8 +34,9 @@ export interface GitStatusEntry {
   xy: string
 }
 
-/** The source-control panel snapshot (v1-compatible shape). */
-export interface GitStatusResult {
+/** The source-control panel snapshot (v1-compatible shape). Internal: only
+ *  the v1 `status()` chain (and worktreeRemovalPreview) consume it. */
+interface GitStatusResult {
   isRepo: boolean
   branch?: string
   entries: GitStatusEntry[]
@@ -194,8 +195,9 @@ export function runGitResult(
 
 /* ---------- porcelain v1 (-z) ---------- */
 
-/** Parse porcelain v1 -z output into entries (rename/copy pairs collapse to one row). */
-export function parsePorcelainZ(output: string): GitStatusEntry[] {
+/** Parse porcelain v1 -z output into entries (rename/copy pairs collapse to one row).
+ *  Internal: only the v1 `status()` chain consumes it. */
+function parsePorcelainZ(output: string): GitStatusEntry[] {
   const tokens = output.split('\0')
   const entries: GitStatusEntry[] = []
   let index = 0
@@ -626,6 +628,9 @@ export async function log(cwd: string, count = 30, skip = 0): Promise<GitLogEntr
   return parseLogLines(raw)
 }
 
+// // unwired-capability (leaf-R1 ④): `git show <rev>:<path>` — restored from
+// // HEAD. No current UI calls it (a blamer/at-revision file viewer is not
+// // wired); kept as a real capability, not a dead wrapper.
 /**
  * Content of a file at a revision (`git show <rev>:<path>`), or null when the
  * revision has no such path (a new/untracked file has no HEAD side).
@@ -892,6 +897,9 @@ export async function discard(cwd: string, paths: string | readonly string[]): P
   await runGit(cwd, ['checkout', ...pathsArgs(paths)])
 }
 
+// // unwired-capability (leaf-R1 ④): revert/cherryPick restored from HEAD.
+// // No current UI wires them (single-commit undo/port of the source-control
+// // panel is not connected); kept as real git capabilities.
 /** Revert one commit onto the current branch with an auto-generated message. */
 export async function revert(cwd: string, hash: string): Promise<void> {
   await runGit(cwd, ['revert', '--no-edit', hash])

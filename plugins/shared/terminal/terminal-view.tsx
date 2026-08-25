@@ -1,14 +1,8 @@
 import { useEffect, useRef } from 'react'
 import {
-  disposeTerminalRuntimeOwner,
   getTerminalRuntimeOwner,
   type TerminalRuntimeOwnerOptions,
-  type TerminalRuntimeOwnerStatus,
-  type TerminalRuntimeOwnerT,
 } from './terminal-runtime-owner.ts'
-
-export type TerminalViewStatus = TerminalRuntimeOwnerStatus
-export type TerminalViewT = TerminalRuntimeOwnerT
 
 export interface TerminalViewProps extends TerminalRuntimeOwnerOptions {}
 
@@ -50,5 +44,3 @@ export function TerminalView(props: TerminalViewProps): JSX.Element {
 
   return <div ref={containerRef} className="dsh-studio-terminal-view" data-terminal-view={props.tabId} />
 }
-
-export { disposeTerminalRuntimeOwner }

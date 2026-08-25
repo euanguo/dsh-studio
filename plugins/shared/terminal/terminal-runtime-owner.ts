@@ -100,8 +100,6 @@ export class TerminalRuntimeOwner {
   private exited = false
   private disposed = false
   private rafId = 0
-  private stableFrame = 0
-  private lastProposed: { cols: number; rows: number } | null = null
   private resizeObserver: ResizeObserver | null = null
   private inputSubscription: { dispose(): void } | null = null
   private resizeSubscription: { dispose(): void } | null = null
@@ -125,15 +123,12 @@ export class TerminalRuntimeOwner {
       onStatus: options.onStatus,
       t: options.t,
     }
-    const resolvedFontFamily = buildTerminalFontFamily(options.fontFamily)
-    const resolvedFontSize = Number.isFinite(options.fontSize) && options.fontSize >= 9 && options.fontSize <= 32
-      ? options.fontSize
-      : 13
+    const resolvedFont = resolveFont(options)
     this.terminal = new Terminal({
       allowProposedApi: true,
       cursorBlink: true,
-      fontFamily: resolvedFontFamily,
-      fontSize: resolvedFontSize,
+      fontFamily: resolvedFont.fontFamily,
+      fontSize: resolvedFont.fontSize,
       scrollback: normalizeDesktopTerminalScrollbackRows(
         options.scrollbackRows ?? DESKTOP_TERMINAL_SCROLLBACK_ROWS_DEFAULT,
       ),
@@ -179,12 +174,9 @@ export class TerminalRuntimeOwner {
       onStatus: options.onStatus,
       t: options.t,
     }
-    const resolvedFontFamily = buildTerminalFontFamily(options.fontFamily)
-    const resolvedFontSize = Number.isFinite(options.fontSize) && options.fontSize >= 9 && options.fontSize <= 32
-      ? options.fontSize
-      : 13
-    this.terminal.options.fontFamily = resolvedFontFamily
-    this.terminal.options.fontSize = resolvedFontSize
+    const resolvedFont = resolveFont(options)
+    this.terminal.options.fontFamily = resolvedFont.fontFamily
+    this.terminal.options.fontSize = resolvedFont.fontSize
     this.terminal.options.scrollback = normalizeDesktopTerminalScrollbackRows(
       options.scrollbackRows ?? DESKTOP_TERMINAL_SCROLLBACK_ROWS_DEFAULT,
     )
@@ -385,8 +377,8 @@ export class TerminalRuntimeOwner {
     }
     this.terminal.element?.addEventListener('compositionstart', this.compositionHandler)
     this.terminal.element?.addEventListener('compositionupdate', this.compositionHandler)
-    let stableFrame = 0
-    let lastProposed: { cols: number; rows: number } | null = null
+    let stableDimsCount = 0
+    let lastProposedDims: { cols: number; rows: number } | null = null
     const scheduleStableFit = (): void => {
       if (this.rafId !== 0 || !this.attached) return
       this.rafId = requestAnimationFrame(() => {
@@ -395,25 +387,25 @@ export class TerminalRuntimeOwner {
         let proposed: { cols: number; rows: number } | null = null
         try { proposed = this.fitAddon.proposeDimensions() ?? null } catch { proposed = null }
         if (proposed === null) {
-          stableFrame = 0
-          lastProposed = null
+          stableDimsCount = 0
+          lastProposedDims = null
           return
         }
         if (proposed.cols === this.terminal.cols && proposed.rows === this.terminal.rows) {
-          stableFrame = 0
-          lastProposed = null
+          stableDimsCount = 0
+          lastProposedDims = null
           return
         }
         // Two consecutive identical proposals: the layout settled — fit now.
-        if (lastProposed !== null && lastProposed.cols === proposed.cols
-          && lastProposed.rows === proposed.rows && stableFrame >= FIT_MIN_STABLE_FRAMES - 1) {
-          stableFrame = 0
-          lastProposed = null
+        if (lastProposedDims !== null && lastProposedDims.cols === proposed.cols
+          && lastProposedDims.rows === proposed.rows && stableDimsCount >= FIT_MIN_STABLE_FRAMES - 1) {
+          stableDimsCount = 0
+          lastProposedDims = null
           this.fitNow()
           return
         }
-        lastProposed = proposed
-        stableFrame += 1
+        lastProposedDims = proposed
+        stableDimsCount += 1
         // Continuous resize (sidebar/split drag): the proposal changes every
         // frame, and each fit re-rasterizes the canvas and SIGWINCHes the
         // shell — which reads as screen flicker. While the size keeps
@@ -591,4 +583,14 @@ export function disposeAllTerminalRuntimeOwners(): void {
 
 function normalizeWheel(value: number | undefined): number {
   return Math.min(4, Math.max(0.25, value ?? 1))
+}
+
+/** Resolve the terminal font family and clamp the size to a safe range. */
+function resolveFont(options: TerminalRuntimeOwnerOptions): { fontFamily: string; fontSize: number } {
+  return {
+    fontFamily: buildTerminalFontFamily(options.fontFamily),
+    fontSize: Number.isFinite(options.fontSize) && options.fontSize >= 9 && options.fontSize <= 32
+      ? options.fontSize
+      : 13,
+  }
 }

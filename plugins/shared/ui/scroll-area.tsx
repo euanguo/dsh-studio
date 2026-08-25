@@ -74,7 +74,3 @@ export const ScrollArea = forwardRef<HTMLDivElement, ScrollAreaProps>(
     )
   },
 )
-
-/** Parts escape hatch for compositions that need custom wiring, mirroring
- *  how shadcn ships its scroll-area building blocks. */
-export const ScrollAreaParts = ScrollAreaPrimitive

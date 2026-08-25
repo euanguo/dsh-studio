@@ -36,8 +36,3 @@ export interface DshStudioSurfaceView {
 
 /** Service name shell clients reflect the surface under (client plane). */
 export const DSH_STUDIO_SURFACE_VIEW_SERVICE = 'dshStudioSurface' as const
-
-/** Whether a browser-visible surface exists for a host plugin to mount on. */
-export function hasBrowserSurface(kind: DshStudioSurfaceKind | undefined): boolean {
-  return kind === 'desktop' || kind === 'web'
-}

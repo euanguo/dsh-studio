@@ -162,6 +162,32 @@ export const IconSidebarLeftFilled = ({
   </svg>
 )
 
+/** Restore from full window (overlapping squares) — a custom glyph Tabler
+ *  does not ship, drawn at the product stroke (16px viewBox, stroke 1.5). */
+export const IconRestore = ({
+  size = DEFAULT_SIZE,
+  className,
+}: {
+  size?: number
+  className?: string
+}): JSX.Element => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+  >
+    <rect x="3.5" y="5.5" width="7" height="7" rx="1" />
+    <path d="M6.5 3.5h6a1 1 0 0 1 1 1v6" />
+  </svg>
+)
+
 export type { IconProps }
 
 export { getIconForFile, getIconForFolder } from '@react-symbols/icons/utils'

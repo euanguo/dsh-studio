@@ -210,6 +210,10 @@ export interface CapabilitiesEnvelope<T> {
  * `paths` vs `path` mismatch was exactly this class of bug).
  */
 export interface CapabilitiesApiRequests {
+  // // unwired-capability (leaf-R2 ④): DTO entries restored as dormant
+  // // contract — the host routes and client wrappers are restored in R2 but
+  // // nothing calls them yet. Keep the wire names stable so re-wiring the UI
+  // // only mounts handlers, never reshapes the contract.
   'workspace.cwd': Record<string, never>
   'fs.tree': { path?: string }
   'fs.read': { path: string }
@@ -291,7 +295,7 @@ export type CapabilitiesApiMethod = keyof CapabilitiesApiRequests
 export const CAPABILITIES_API_BASE = '/capabilities/api'
 
 /** Build the POST body for one scoped method call (the project cwd). */
-export function capabilitiesScopePayload(
+function capabilitiesScopePayload(
   scope: CapabilitiesScope,
   extra: Record<string, unknown>,
 ): Record<string, unknown> {

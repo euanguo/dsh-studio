@@ -6,9 +6,10 @@
  * callback, so host flow control tracks renderer consumption rather than mere
  * receipt. Legacy raw-text frames remain accepted during staged upgrades.
  */
+import { errorMessage } from '@dsh-studio/shared/errors'
 import {
   GenerationGate,
-} from '../runtime/client-runtime.ts'
+} from '../runtime/runtime.ts'
 import {
   TerminalRecoveryCoordinator,
 } from './terminal-recovery.ts'
@@ -70,7 +71,7 @@ export class TerminalSocket {
     recover: async () => { await this.openSocket() },
     classifyError: () => 'retryable',
     onPermanentFailure: (_input, error) => {
-      this.handlers?.onError(error instanceof Error ? error.message : String(error))
+      this.handlers?.onError(errorMessage(error))
     },
   })
 
@@ -96,7 +97,7 @@ export class TerminalSocket {
     this.awaitingResync = false
     const generation = this.generation.current()
     void this.recovery.ensure('terminal-socket', undefined, generation).catch(error => {
-      if (!this.manualClose) handlers.onError(error instanceof Error ? error.message : String(error))
+      if (!this.manualClose) handlers.onError(errorMessage(error))
     })
   }
 
@@ -130,7 +131,7 @@ export class TerminalSocket {
       socket.close()
     }
     void this.recovery.ensure('terminal-socket', undefined, this.generation.current()).catch(error => {
-      if (!this.manualClose) this.handlers?.onError(error instanceof Error ? error.message : String(error))
+      if (!this.manualClose) this.handlers?.onError(errorMessage(error))
     })
   }
 
@@ -143,14 +144,23 @@ export class TerminalSocket {
     this.sendControl({ type: 'resync' })
   }
 
-  /** Backwards-compatible explicit close; component cleanup uses disconnect(). */
-  close(): void {
-    this.terminate()
-  }
-
   /** Explicitly terminate the PTY for a user-closed tab. */
   terminate(): void {
     this.cleanup(true)
+  }
+
+  /**
+   * Mirror the host's `[process exited with code ...]` footer into the renderer
+   * as an `onExit`. Called for every inbound frame; the regex + state check was
+   * previously inlined at each of the four output paths (RD-38).
+   */
+  private probeExit(output: string, onExit: (code: number | null) => void): void {
+    this.exitProbe = (this.exitProbe + output).slice(-1024)
+    const match = /\[process exited with code (null|-?\d+)\]/.exec(this.exitProbe)
+    if (match !== null && this.status !== 'closed') {
+      this.status = 'closed'
+      onExit(match[1] === 'null' ? null : Number(match[1]))
+    }
   }
 
   private cleanup(terminatePty: boolean): void {
@@ -222,12 +232,7 @@ export class TerminalSocket {
             this.lastSequence = parsed.sequence
             this.awaitingResync = false
             handlers.onOutput(parsed.data, undefined)
-            this.exitProbe = (this.exitProbe + parsed.data).slice(-1024)
-            const frameExit = /\[process exited with code (null|-?\d+)\]/.exec(this.exitProbe)
-            if (frameExit !== null && this.status !== 'closed') {
-              this.status = 'closed'
-              handlers.onExit(frameExit[1] === 'null' ? null : Number(frameExit[1]))
-            }
+            this.probeExit(parsed.data, handlers.onExit)
             return
           }
           if (this.awaitingResync) {
@@ -238,12 +243,7 @@ export class TerminalSocket {
             this.outputEpoch = parsed.epoch
             this.lastSequence = parsed.sequence
             handlers.onOutput(parsed.data, acknowledge)
-            this.exitProbe = (this.exitProbe + parsed.data).slice(-1024)
-            const frameExit = /\[process exited with code (null|-?\d+)\]/.exec(this.exitProbe)
-            if (frameExit !== null && this.status !== 'closed') {
-              this.status = 'closed'
-              handlers.onExit(frameExit[1] === 'null' ? null : Number(frameExit[1]))
-            }
+            this.probeExit(parsed.data, handlers.onExit)
             return
           }
           if (parsed.epoch !== this.outputEpoch) {
@@ -262,21 +262,11 @@ export class TerminalSocket {
           }
           this.lastSequence = parsed.sequence
           handlers.onOutput(parsed.data, acknowledge)
-          this.exitProbe = (this.exitProbe + parsed.data).slice(-1024)
-          const frameExit = /\[process exited with code (null|-?\d+)\]/.exec(this.exitProbe)
-          if (frameExit !== null && this.status !== 'closed') {
-            this.status = 'closed'
-            handlers.onExit(frameExit[1] === 'null' ? null : Number(frameExit[1]))
-          }
+          this.probeExit(parsed.data, handlers.onExit)
           return
         }
         handlers.onOutput(event.data)
-        this.exitProbe = (this.exitProbe + event.data).slice(-1024)
-        const exit = /\[process exited with code (null|-?\d+)\]/.exec(this.exitProbe)
-        if (exit !== null && this.status !== 'closed') {
-          this.status = 'closed'
-          handlers.onExit(exit[1] === 'null' ? null : Number(exit[1]))
-        }
+        this.probeExit(event.data, handlers.onExit)
       }
       socket.onerror = () => {
         if (!this.generation.isCurrent(generation)) return
@@ -300,7 +290,7 @@ export class TerminalSocket {
         // retries the same scoped socket with exponential backoff and the host
         // reconnect grace keeps the PTY alive for warm reattach.
         void this.recovery.ensure('terminal-socket', undefined, this.generation.current()).catch(error => {
-          if (!this.manualClose) handlers.onError(error instanceof Error ? error.message : String(error))
+          if (!this.manualClose) handlers.onError(errorMessage(error))
         })
       }
     })

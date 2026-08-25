@@ -3,7 +3,6 @@ import themeCss from '../theme.css'
 import listRowCss from '../list-row.css'
 import filenameLabelCss from '../filename-label.css'
 import surfaceTabCss from '../surface-tab.css'
-import cardCss from './card.css'
 import fieldCss from './field.css'
 import emptyCss from './empty.css'
 import settingsSectionCss from './settings-section.css'
@@ -23,7 +22,6 @@ import scrollAreaCss from './scroll-area.css'
  * rule order, so the joined payload is cascade-identical.
  */
 export const sharedUiStyles = [
-  cardCss,
   fieldCss,
   emptyCss,
   settingsSectionCss,

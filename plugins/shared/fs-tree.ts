@@ -5,6 +5,7 @@
  * reported as files without probing their target — the explorer shows what
  * dirent says, keeping the read cheap for arbitrarily large levels.
  */
+import { errorMessage } from '@dsh-studio/shared/errors'
 import { opendir } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
 import { CapabilityError } from './runtime/wire.ts'
@@ -109,7 +110,11 @@ export function isWithin(base: string, target: string, platform: NodeJS.Platform
   return t === b || t.startsWith(`${b}/`)
 }
 
-/** Message text of an unknown thrown value. */
-export function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+/**
+ * Message text of an unknown thrown value. Kept private to this module;
+ * `sidebar/src/client/sidebar-service.ts:98` carries a parallel private copy
+ * of the same helper (RD-23). Keep the two in sync or unify.
+ */
+function messageOf(error: unknown): string {
+  return errorMessage(error)
 }
