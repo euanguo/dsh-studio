@@ -34,6 +34,10 @@ import type {
   DesktopUpdateState,
 } from './contracts.ts'
 import {
+  channelNames,
+  DESKTOP_UPDATE_COMMAND_TYPES,
+} from './contracts.ts'
+import {
   desktopElectronDataRoot,
   DSH_STUDIO_CHANNEL_ENV,
   DSH_STUDIO_DEV_CHANNEL,
@@ -76,12 +80,19 @@ import {
   type UserEnvironmentResolution,
 } from './user-environment.ts'
 import { resolveProductVersion } from './version.ts'
-import { DesktopUpdateManager, detectPackageType } from './update-manager.ts'
+import { DesktopUpdateManager, detectPackageType, officialRepository } from './update-manager.ts'
 import { scheduleImmediateUpdateInstall, singleFlight } from './update-lifecycle.ts'
 
 const PRODUCT_NAME = 'DSH Studio'
 const DESKTOP_APP_USER_MODEL_ID = 'ai.deepseek.dsh-studio'
 const DEFAULT_UI_ZOOM_FACTOR = 1.12
+// macOS traffic-light geometry, single-sourced for both the BrowserWindow
+// chrome (createWindow) and the chrome-geometry IPC the renderer reads: the
+// anchor offsets the unified top rail and the cluster width is three 12px
+// buttons with 8px gaps (Apple HIG) = 52px.
+const TRAFFIC_LIGHT_POSITION = { x: 16, y: 14 } as const
+const TRAFFIC_LIGHT_WIDTH = 52
+const TRAFFIC_LIGHT_HEIGHT = 12
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const PRODUCT_VERSION = resolveProductVersion(join(currentDir, '..'))
 const splashPath = join(currentDir, 'splash.html')
@@ -201,16 +212,50 @@ function runtimeEnvironment(
   return environment
 }
 
+/**
+ * Shared DSH runtime option scaffolding used by both the live runtime and the
+ * marketplace preview runtime. Each caller supplies the environment, working
+ * directory, scrub module, and launcher that differ between the two.
+ */
+function baseRuntimeOptions(input: {
+  cwd: string
+  env: NodeJS.ProcessEnv
+  launcher?: RuntimeLauncher | undefined
+  onLog?: (stream: 'desktop' | 'stderr' | 'stdout', line: string) => void
+  paths: BundledRuntimePaths
+  readyTimeoutMs: number
+  scrubModule: string | null
+}): DshRuntimeOptions {
+  if (!nodeInterpreterAvailable(input.paths)) {
+    throw new Error(`packaged Node interpreter is missing: ${input.paths.nodeCommand}`)
+  }
+  if (!existsSync(input.paths.cliEntry)) {
+    throw new Error(`packaged DSH CLI is missing: ${input.paths.cliEntry}`)
+  }
+  // The loader/HMR service accesses Node internals; both the standalone
+  // binary and the shared Electron interpreter honor this flag. The require
+  // preload binds the interpreter variables to this launch (a missing scrub
+  // module degrades to legacy inheritance, never a crash).
+  return {
+    args: ['--profile', DESKTOP_PROFILE],
+    cliEntry: input.paths.cliEntry,
+    nodeFlags: [
+      '--expose-internals',
+      ...(input.scrubModule === null ? [] : ['--require', input.scrubModule]),
+    ],
+    cwd: input.cwd,
+    env: input.env,
+    ...(input.launcher === undefined ? {} : { launcher: input.launcher }),
+    nodeBinary: input.paths.nodeCommand,
+    ...(input.onLog === undefined ? {} : { onLog: input.onLog }),
+    readyTimeoutMs: input.readyTimeoutMs,
+  }
+}
+
 function runtimeOptions(): DshRuntimeOptions {
   const paths = runtimePaths()
   const workspaceRoot = join(homedir(), 'DSH Workspaces')
   mkdirSync(workspaceRoot, { recursive: true })
-  if (!nodeInterpreterAvailable(paths)) {
-    throw new Error(`packaged Node interpreter is missing: ${paths.nodeCommand}`)
-  }
-  if (!existsSync(paths.cliEntry)) {
-    throw new Error(`packaged DSH CLI is missing: ${paths.cliEntry}`)
-  }
   // The interpreter exec boundary puts ELECTRON_RUN_AS_NODE into the
   // supervisor's own environment (the launcher below); the preload then
   // deletes it from process.env at boot, so bundled runtime descendants —
@@ -219,24 +264,14 @@ function runtimeOptions(): DshRuntimeOptions {
   // variable leaks into every command the agent runs and silently flips any
   // Electron binary those commands launch into plain-Node mode.
   const envScrubModule = ensureEnvScrubModule(desktopInfo().appDataPath)
-  return {
-    args: ['--profile', DESKTOP_PROFILE],
-    cliEntry: paths.cliEntry,
-    // The loader/HMR service accesses Node internals; both the standalone
-    // binary and the shared Electron interpreter honor this flag. The
-    // require preload binds the interpreter variables to this launch (a
-    // missing scrub module degrades to legacy inheritance, never a crash).
-    nodeFlags: [
-      '--expose-internals',
-      ...(envScrubModule === null ? [] : ['--require', envScrubModule]),
-    ],
+  return baseRuntimeOptions({
     cwd: workspaceRoot,
     env: runtimeEnvironment(paths),
-    launcher: desktopNodeLauncher(paths),
-    nodeBinary: paths.nodeCommand,
     onLog: (stream, line) => { appendLog(stream, line) },
+    paths,
     readyTimeoutMs: 60_000,
-  }
+    scrubModule: envScrubModule,
+  })
 }
 
 function previewRuntimeOptions(input: {
@@ -250,8 +285,6 @@ function previewRuntimeOptions(input: {
   const temporary = join(input.sandboxRoot, '.tmp')
   mkdirSync(workspaceRoot, { recursive: true, mode: 0o700 })
   mkdirSync(temporary, { recursive: true, mode: 0o700 })
-  if (!nodeInterpreterAvailable(paths)) throw new Error(`packaged Node interpreter is missing: ${paths.nodeCommand}`)
-  if (!existsSync(paths.cliEntry)) throw new Error(`packaged DSH CLI is missing: ${paths.cliEntry}`)
   const preview = { pluginId: input.pluginId, transactionId: input.transactionId }
   const sandbox = '/usr/bin/sandbox-exec'
   const previewEnvScrubModule = ensureEnvScrubModule(input.sandboxRoot)
@@ -267,18 +300,7 @@ function previewRuntimeOptions(input: {
           interpreterCommand: process.execPath,
         }
       : desktopNodeLauncher(paths)
-  return {
-    args: ['--profile', DESKTOP_PROFILE],
-    cliEntry: paths.cliEntry,
-    // The loader/HMR service accesses Node internals; both the standalone
-    // binary and the shared Electron interpreter honor this flag. The
-    // require preload binds the interpreter variables to this launch; the
-    // generated module lives inside the sandbox root, whose reads are
-    // allowed by the preview policy.
-    nodeFlags: [
-      '--expose-internals',
-      ...(previewEnvScrubModule === null ? [] : ['--require', previewEnvScrubModule]),
-    ],
+  return baseRuntimeOptions({
     cwd: workspaceRoot,
     env: {
       ...runtimeEnvironment(paths, {
@@ -288,11 +310,15 @@ function previewRuntimeOptions(input: {
       }, 'marketplace'),
       TMPDIR: temporary,
     },
+    // The require preload binds the interpreter variables to this launch; the
+    // generated module lives inside the sandbox root, whose reads are allowed
+    // by the preview policy.
     launcher,
-    nodeBinary: paths.nodeCommand,
     onLog: (stream, line) => { appendLog(stream, `[preview:${input.pluginId}] ${line}`) },
+    paths,
     readyTimeoutMs: 90_000,
-  }
+    scrubModule: previewEnvScrubModule,
+  })
 }
 
 function isAllowedRuntimeNavigation(target: string, allowedOrigin: string | undefined): boolean {
@@ -314,6 +340,11 @@ function isAllowedBrowserNavigation(target: string): boolean {
   } catch {
     return false
   }
+}
+
+/** Best-effort hand-off of an http(s) URL to the system browser. */
+function openExternalHttp(url: string): void {
+  if (url.startsWith('https:') || url.startsWith('http:')) void shell.openExternal(url)
 }
 
 function windowIconPath(): string | undefined {
@@ -361,7 +392,7 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
       ? {
         // Vertically center the traffic lights on the 42px unified top
         // rail: the cluster is 14px tall, so y = (42 - 14) / 2 = 14.
-        trafficLightPosition: { x: 16, y: 14 },
+        trafficLightPosition: { ...TRAFFIC_LIGHT_POSITION },
         vibrancy: 'sidebar' as const,
         visualEffectState: 'followWindow' as const,
       }
@@ -410,7 +441,7 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
     }
   })
   window.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('https:') || url.startsWith('http:')) void shell.openExternal(url)
+    openExternalHttp(url)
     return { action: 'deny' }
   })
   window.webContents.on('will-attach-webview', (event, webPreferences, params) => {
@@ -428,7 +459,7 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
   })
   window.webContents.on('did-attach-webview', (_event, contents) => {
     contents.setWindowOpenHandler(({ url }) => {
-      if (url.startsWith('https:') || url.startsWith('http:')) void shell.openExternal(url)
+      openExternalHttp(url)
       return { action: 'deny' }
     })
     contents.on('will-navigate', (event, url) => {
@@ -441,7 +472,7 @@ function createWindow(options: { preview?: boolean; title?: string } = {}): Brow
     const allowedOrigin = options.preview === true ? previewOrigin : runtimeOrigin
     if (isAllowedRuntimeNavigation(url, allowedOrigin)) return
     event.preventDefault()
-    if (url.startsWith('https:') || url.startsWith('http:')) void shell.openExternal(url)
+    openExternalHttp(url)
   })
   attachEditingContextMenu(window.webContents)
   return window
@@ -458,12 +489,12 @@ async function showSplash(options: { detail?: string; error?: boolean; message?:
 
 function sendCommand(command: DesktopCommand): void {
   if (mainWindow === undefined || mainWindow.isDestroyed()) return
-  mainWindow.webContents.send('desktop:command', command)
+  mainWindow.webContents.send(channelNames.command, command)
 }
 
 function sendUpdateState(state: DesktopUpdateState): void {
   if (updateWindow === undefined || updateWindow.isDestroyed()) return
-  updateWindow.webContents.send('desktop:update:state', state)
+  updateWindow.webContents.send(channelNames.updateState, state)
 }
 
 async function syncUpdaterProxy(): Promise<void> {
@@ -506,7 +537,7 @@ function parseUpdateCommand(raw: unknown): DesktopUpdateCommand {
     throw new Error('invalid update command')
   }
   const type = raw.type
-  if (!['check', 'download', 'cancel', 'retry', 'install-now', 'install-on-quit', 'open-release'].includes(type)) {
+  if (!(DESKTOP_UPDATE_COMMAND_TYPES as readonly string[]).includes(type)) {
     throw new Error(`unsupported update command: ${type}`)
   }
   return { type } as DesktopUpdateCommand
@@ -548,9 +579,17 @@ async function openUpdateWindow(): Promise<void> {
   void manager.check()
 }
 
+/** Stop the live runtime and reset its three module-level refs. */
+async function resetLiveRuntime(): Promise<void> {
+  await runtime?.stop()
+  runtime = undefined
+  runtimeUrl = undefined
+  runtimeOrigin = undefined
+}
+
 const stopForApplicationQuit = singleFlight(async (): Promise<void> => {
   await Promise.allSettled([
-    runtime?.stop() ?? Promise.resolve(),
+    resetLiveRuntime(),
     stopPreviewSurface(),
     marketplaceAgentGateway?.close() ?? Promise.resolve(),
   ]).then(results => {
@@ -560,9 +599,6 @@ const stopForApplicationQuit = singleFlight(async (): Promise<void> => {
       }
     }
   })
-  runtime = undefined
-  runtimeUrl = undefined
-  runtimeOrigin = undefined
   marketplaceAgentGateway = undefined
   if (updateWindow !== undefined && !updateWindow.isDestroyed()) updateWindow.close()
 })
@@ -664,10 +700,7 @@ async function startPreviewSurface(input: {
 async function stopLiveForMarketplace(): Promise<void> {
   transitioning = true
   await showSplash({ message: '正在应用插件 Profile…' })
-  await runtime?.stop()
-  runtime = undefined
-  runtimeUrl = undefined
-  runtimeOrigin = undefined
+  await resetLiveRuntime()
 }
 
 async function startLiveForMarketplace(): Promise<void> {
@@ -683,10 +716,7 @@ async function restartRuntime(message = '正在重新启动 DeepSeek Harness…'
   transitioning = true
   try {
     await showSplash({ message })
-    await runtime?.stop()
-    runtime = undefined
-    runtimeUrl = undefined
-    runtimeOrigin = undefined
+    await resetLiveRuntime()
     await startRuntime()
   } catch (error) {
     appendLog('desktop', error instanceof Error ? error.stack ?? error.message : String(error))
@@ -800,7 +830,6 @@ function labels() {
     openWorkspace: '打开工作区…',
     restart: '重新启动 DSH Runtime',
     settings: '设置…',
-    toggleBottomPanel: '切换底部面板',
     togglePanelMaximized: '展开或还原工具侧栏',
     togglePinnedSummary: '切换置顶摘要',
     toggleSidePanel: '切换工具侧栏',
@@ -823,7 +852,6 @@ function labels() {
     openWorkspace: 'Open Workspace…',
     restart: 'Restart DSH Runtime',
     settings: 'Settings…',
-    toggleBottomPanel: 'Toggle Bottom Panel',
     togglePanelMaximized: 'Expand or Restore Side Panel',
     togglePinnedSummary: 'Toggle Pinned Summary',
     toggleSidePanel: 'Toggle Side Panel',
@@ -879,7 +907,6 @@ function buildMenu(): void {
       submenu: [
         { label: text.toggleSidebar, accelerator: 'CmdOrCtrl+B', click: () => { sendCommand({ type: 'toggle-sidebar' }) } },
         { label: text.togglePanelMaximized, click: () => { sendCommand({ type: 'toggle-panel-maximized' }) } },
-        { label: text.toggleBottomPanel, accelerator: 'CmdOrCtrl+J', click: () => { sendCommand({ type: 'toggle-bottom-panel' }) } },
         { label: text.togglePinnedSummary, click: () => { sendCommand({ type: 'toggle-pinned-summary' }) } },
         { label: text.toggleSidePanel, accelerator: 'Alt+CmdOrCtrl+B', click: () => { sendCommand({ type: 'toggle-side-panel' }) } },
         { type: 'separator' },
@@ -973,26 +1000,38 @@ function attachEditingContextMenu(contents: Electron.WebContents): void {
   })
 }
 
+/**
+ * Push a "marketplace changed" signal to every open marketplace surface
+ * (main + preview windows) so a retained store re-pulls the snapshot (D4).
+ * The generic desktop-bridge convention is a bare notify with no payload;
+ * the store re-fetches on receipt.
+ */
+function broadcastMarketplaceChanged(): void {
+  const channel = channelNames.pluginMarketplaceChanged
+  mainWindow?.webContents.send(channel)
+  previewWindow?.webContents.send(channel)
+}
+
 function installIpc(): void {
-  ipcMain.handle('desktop:choose-workspace', async () => await selectWorkspacePaths())
-  ipcMain.handle('desktop:chrome-geometry', () => {
+  ipcMain.handle(channelNames.chooseWorkspace, async () => await selectWorkspacePaths())
+  ipcMain.handle(channelNames.chromeGeometry, () => {
     // The unified top rail's left reservation: the traffic-light anchor
-    // (trafficLightPosition) plus the exact macOS cluster width — three
-    // 12px buttons with 8px gaps (Apple HIG) = 52px. The renderer adds
-    // its breathing gap and turns this into `--dsh-studio-traffic-left`.
+    // (trafficLightPosition) plus the exact macOS cluster width (an Apple HIG
+    // constant, single-sourced below). The renderer adds its breathing gap
+    // and turns this into `--dsh-studio-traffic-left`.
     const platform = process.platform
     return {
       platform,
-      trafficLight: platform === 'darwin' ? { x: 16, y: 14 } : null,
-      trafficLightWidth: 52,
-      trafficLightHeight: 12,
+      trafficLight: platform === 'darwin' ? { ...TRAFFIC_LIGHT_POSITION } : null,
+      trafficLightWidth: TRAFFIC_LIGHT_WIDTH,
+      trafficLightHeight: TRAFFIC_LIGHT_HEIGHT,
     }
   })
-  ipcMain.handle('desktop:update:get-state', async event => {
+  ipcMain.handle(channelNames.updateGetState, async event => {
     assertUpdateWindowSender(event)
     return (await getUpdateManager()).getState()
   })
-  ipcMain.handle('desktop:update:command', async (event, raw: unknown) => {
+  ipcMain.handle(channelNames.updateCommand, async (event, raw: unknown) => {
     assertUpdateWindowSender(event)
     const command = parseUpdateCommand(raw)
     const manager = await getUpdateManager()
@@ -1008,20 +1047,22 @@ function installIpc(): void {
     }
     return await manager.command(command)
   })
-  ipcMain.handle('desktop:get-info', event => {
+  ipcMain.handle(channelNames.getInfo, event => {
     const preview = previewWindow?.webContents.id === event.sender.id ? previewIdentity ?? null : null
     return desktopInfo(preview)
   })
-  ipcMain.handle('desktop:get-runtime-snapshot', () => desktopRuntimeSnapshot())
-  ipcMain.handle('desktop:plugin-marketplace-snapshot', () => {
+  ipcMain.handle(channelNames.getRuntimeSnapshot, () => desktopRuntimeSnapshot())
+  ipcMain.handle(channelNames.pluginMarketplaceSnapshot, () => {
     if (marketplace === undefined) throw new Error('plugin marketplace is not initialized')
     return marketplace.getSnapshot()
   })
-  ipcMain.handle('desktop:plugin-marketplace-dispatch', async (_event, raw: unknown) => {
+  ipcMain.handle(channelNames.pluginMarketplaceDispatch, async (_event, raw: unknown) => {
     if (marketplace === undefined) throw new Error('plugin marketplace is not initialized')
-    return await marketplace.dispatch(parseMarketplaceCommand(raw))
+    const snapshot = await marketplace.dispatch(parseMarketplaceCommand(raw))
+    broadcastMarketplaceChanged()
+    return snapshot
   })
-  ipcMain.handle('desktop:open-external', async (_event, raw: unknown) => {
+  ipcMain.handle(channelNames.openExternal, async (_event, raw: unknown) => {
     if (typeof raw !== 'string') throw new Error('external URL must be a string')
     const url = new URL(raw)
     if (url.protocol !== 'https:' && url.protocol !== 'http:') {
@@ -1047,7 +1088,48 @@ function packagedDefaultChannel(): DshStudioChannel | undefined {
   return resolvePackagedDshStudioChannel(manifest)
 }
 
+/**
+ * Fail loudly at startup if the hard-coded release identity drifts from the
+ * package's `build` section. Otherwise a renamed GitHub repo would silently
+ * produce 404 `releaseUrl`s and a renamed app would brand the wrong install.
+ */
+function assertReleaseIdentity(): void {
+  let build: Record<string, unknown> | undefined
+  try {
+    const manifestPath = join(currentDir, '..', 'package.json')
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
+    if (typeof manifest.build === 'object' && manifest.build !== null) {
+      build = manifest.build as Record<string, unknown>
+    }
+  } catch {
+    // A missing/unreadable manifest cannot be validated; leave build undefined.
+  }
+  if (build === undefined) {
+    // Source launches may lack a build section entirely; only validate when
+    // one is present so dev runs are not blocked.
+    return
+  }
+  const appId = build.appId
+  const productName = build.productName
+  const publishOwner = (build.publish as Record<string, unknown> | undefined)?.owner
+  const publishRepo = (build.publish as Record<string, unknown> | undefined)?.repo
+  const problem: string | undefined =
+    (typeof appId === 'string' && appId !== DESKTOP_APP_USER_MODEL_ID)
+      ? `build.appId "${appId}" != DESKTOP_APP_USER_MODEL_ID "${DESKTOP_APP_USER_MODEL_ID}"`
+      : (typeof productName === 'string' && productName !== PRODUCT_NAME)
+        ? `build.productName "${productName}" != PRODUCT_NAME "${PRODUCT_NAME}"`
+        : (typeof publishOwner === 'string' && typeof publishRepo === 'string' && `${publishOwner}/${publishRepo}` !== officialRepository())
+          ? `build.publish owner/repo "${publishOwner}/${publishRepo}" != officialRepository() "${officialRepository()}"`
+          : undefined
+  if (problem !== undefined) {
+    const message = `release identity mismatch: ${problem}. Update the source constant and the package.json build section together so automatic updates keep resolving.`
+    appendLog('desktop', message)
+    throw new Error(message)
+  }
+}
+
 async function bootstrap(): Promise<void> {
+  assertReleaseIdentity()
   const launchArguments = applyDesktopChannelFromArgv()
   const packagedDefault = packagedDefaultChannel()
   const channel = resolveDshStudioChannel(process.env, {
@@ -1116,6 +1198,7 @@ async function bootstrap(): Promise<void> {
   marketplace = createPluginMarketplace()
   marketplaceAgentGateway = await startMarketplaceAgentGateway(marketplace, {
     onError: error => { appendLog('desktop', `[marketplace-agent] ${String(error)}`) },
+    onStateChange: broadcastMarketplaceChanged,
   })
   installIpc()
   session.defaultSession.setPermissionRequestHandler((webContents, permission, callback, details) => {

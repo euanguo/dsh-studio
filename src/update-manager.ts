@@ -6,9 +6,18 @@ import type {
   DesktopUpdatePlatform,
   DesktopUpdateState,
 } from './contracts.ts'
+import { singleFlight } from './update-lifecycle.ts'
 
-const OFFICIAL_REPOSITORY = 'euanguo/dsh-studio-app'
-const OFFICIAL_RELEASE_BASE = `https://github.com/${OFFICIAL_REPOSITORY}/releases/tag/`
+const OFFICIAL_RELEASE_BASE = `https://github.com/${officialRepository()}/releases/tag/`
+
+/**
+ * The single source for the GitHub release repository. The desktop package's
+ * `build.publish` owner/repo must match this or the app produces 404
+ * `releaseUrl`s; `main.ts` asserts that at startup (RD-52).
+ */
+export function officialRepository(): string {
+  return 'euanguo/dsh-studio-app'
+}
 
 export interface UpdateEventSource {
   autoDownload: boolean
@@ -158,7 +167,8 @@ export class DesktopUpdateManager {
   private metadata: UpdateMetadata | undefined
   private token: CancellationToken | undefined
   private operation: Operation = 'check'
-  private lastCheck: Promise<DesktopUpdateState> | undefined
+  /** Single-flight wrapper so concurrent check() callers share one run. */
+  private readonly checkFlight = singleFlight(async (): Promise<DesktopUpdateState> => this.performCheck())
   private installOnQuitRequested = false
   private readonly listeners = new Set<(state: DesktopUpdateState) => void>()
   private readonly eventListeners: Array<[string, (...args: any[]) => void]> = []
@@ -207,9 +217,7 @@ export class DesktopUpdateManager {
   }
 
   async check(): Promise<DesktopUpdateState> {
-    if (this.lastCheck !== undefined) return await this.lastCheck
-    this.lastCheck = this.performCheck().finally(() => { this.lastCheck = undefined })
-    return await this.lastCheck
+    return await this.checkFlight()
   }
 
   private async performCheck(): Promise<DesktopUpdateState> {
@@ -263,16 +271,7 @@ export class DesktopUpdateManager {
         releaseUrl: officialReleaseUrl(normalized),
         installerPath: null,
       }
-      return this.publish({
-        status: 'available',
-        currentVersion: this.currentVersion,
-        latestVersion: normalized,
-        releaseName: info.releaseName ?? null,
-        releaseNotes: releaseNotesText(info.releaseNotes),
-        size: file.size ?? null,
-        platform: this.platform,
-        releaseUrl: officialReleaseUrl(normalized),
-      })
+      return this.publishFromMetadata('available')
     } catch (error) {
       const code = errorCode(error)
       if (code === 'UPDATE_ASSET_MISSING' || code === 'UPDATE_ASSET_AMBIGUOUS') {
@@ -352,27 +351,18 @@ export class DesktopUpdateManager {
   }
 
   private publishDownloaded(): void {
-    if (this.metadata === undefined) return
-    const { installerPath: _installerPath, ...publicMetadata } = this.metadata
+    const metadata = this.publicMetadata()
+    if (metadata === undefined) return
     this.publish({
       status: 'downloaded',
-      ...publicMetadata,
+      ...metadata,
       installOnQuit: false,
     })
   }
 
   private publishScheduled(): DesktopUpdateState {
     if (this.metadata === undefined) return this.state
-    return this.publish({
-      status: 'scheduled',
-      currentVersion: this.metadata.currentVersion,
-      latestVersion: this.metadata.latestVersion,
-      releaseName: this.metadata.releaseName,
-      releaseNotes: this.metadata.releaseNotes,
-      size: this.metadata.size,
-      platform: this.metadata.platform,
-      releaseUrl: this.metadata.releaseUrl,
-    })
+    return this.publishFromMetadata('scheduled')
   }
 
   private bindUpdaterEvents(): void {
@@ -388,19 +378,12 @@ export class DesktopUpdateManager {
       this.publish({ status: 'not-available', currentVersion: this.currentVersion, checkedVersion: info.version })
     })
     bind('download-progress', (progress: ProgressInfo) => {
-      if (this.metadata === undefined) return
-      const total = progress.total || this.metadata.size || 0
+      const metadata = this.publicMetadata()
+      if (metadata === undefined) return
+      const total = progress.total || metadata.size || 0
       const transferred = progress.transferred || 0
       const bytesPerSecond = progress.bytesPerSecond || 0
-      this.publish({
-        status: 'downloading',
-        currentVersion: this.metadata.currentVersion,
-        latestVersion: this.metadata.latestVersion,
-        releaseName: this.metadata.releaseName,
-        releaseNotes: this.metadata.releaseNotes,
-        size: this.metadata.size,
-        platform: this.metadata.platform,
-        releaseUrl: this.metadata.releaseUrl,
+      this.publishFromMetadata('downloading', {
         percent: progress.percent || 0,
         transferred,
         total,
@@ -445,6 +428,26 @@ export class DesktopUpdateManager {
     this.state = state
     for (const listener of this.listeners) listener(state)
     return state
+  }
+
+  /** The public metadata fields, dropping the private installer path. */
+  private publicMetadata(): Omit<UpdateMetadata, 'installerPath'> | undefined {
+    if (this.metadata === undefined) return undefined
+    const { installerPath: _installerPath, ...publicMetadata } = this.metadata
+    return publicMetadata
+  }
+
+  /**
+   * Publish a full-field update state from the current metadata, avoiding the
+   * eight-field expansion that used to be repeated at every publish site.
+   */
+  private publishFromMetadata(
+    status: 'available' | 'downloading' | 'downloaded' | 'scheduled',
+    extra: Record<string, unknown> = {},
+  ): DesktopUpdateState {
+    const metadata = this.publicMetadata()
+    if (metadata === undefined) return this.state
+    return this.publish({ status, ...metadata, ...extra } as DesktopUpdateState)
   }
 
   dispose(): void {

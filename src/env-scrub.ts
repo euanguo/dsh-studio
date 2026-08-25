@@ -15,6 +15,14 @@ export const DESKTOP_INTERPRETER_ENV_KEYS: readonly string[] = [
 const SCRUB_MODULE_NAME = 'dsh-studio-env-scrub.cjs'
 
 /**
+ * The scrub module is a regenerable artifact, so it lives under a `cache/`
+ * sibling of the data root rather than the root itself (M10). Cleanup policy:
+ * it is safe to delete at any time — `ensureEnvScrubModule` regenerates it
+ * on the next desktop start whenever the source or the target differs.
+ */
+const SCRUB_CACHE_DIR = 'cache'
+
+/**
  * Generated CommonJS source for the supervisor preload. Deleting a key from
  * `process.env` performs a real `unsetenv`, so descendants of this process
  * stop inheriting the variable while the interpreter itself already booted
@@ -43,9 +51,9 @@ export function envScrubModuleSource(): string {
  * degrades to the legacy inherited-variable behavior instead of failing.
  */
 export function ensureEnvScrubModule(appDataPath: string): string | null {
-  const modulePath = join(appDataPath, SCRUB_MODULE_NAME)
+  const modulePath = join(appDataPath, SCRUB_CACHE_DIR, SCRUB_MODULE_NAME)
   try {
-    mkdirSync(appDataPath, { recursive: true })
+    mkdirSync(join(appDataPath, SCRUB_CACHE_DIR), { recursive: true })
     const expected = envScrubModuleSource()
     let current: string | null = null
     try {

@@ -1,6 +1,27 @@
 import { existsSync } from 'node:fs'
 import { posix, win32 } from 'node:path'
 
+/**
+ * Resolve the runtime resources root for a standalone Web/TUI distribution.
+ * If an explicit installed root was set, use the given `root` directly;
+ * otherwise prefer the staged development runtimes under `<root>/.stage/`
+ * when a staged Node interpreter exists, else fall back to `root` itself.
+ *
+ * This is the single implementation of the layout decision that used to be
+ * duplicated verbatim across `web.ts` and `tui.ts`.
+ */
+export function resolveStandaloneResourcesRoot(
+  root: string,
+  explicitRoot: string | undefined,
+  pathExists: (path: string) => boolean = existsSync,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  if (explicitRoot !== undefined && explicitRoot !== '') return root
+  const paths = pathApi(platform)
+  const stagedNode = paths.join(root, '.stage', 'node-runtime', platform === 'win32' ? 'node.exe' : 'bin', 'node')
+  return pathExists(stagedNode) ? paths.join(root, '.stage') : root
+}
+
 /** Files bundled beside the packaged Electron application. */
 export interface BundledRuntimePaths {
   cliEntry: string

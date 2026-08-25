@@ -5,12 +5,14 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
-import { defaultDshStudioHome, hasDshStudioHomeOverride, parseDshStudioChannel, resolveDshStudioHome } from './data-root.ts'
+import { defaultDshStudioHome, parseDshStudioChannel, resolveDshStudioHome } from './data-root.ts'
 import { UsageError } from './errors.ts'
+import { channelDataRootFallback, matchFlagValue, parseEnvBoolean } from './launcher-args.ts'
 import { ensureTuiProfile, TUI_PROFILE } from './profile.ts'
 import {
   bundledRuntimePaths,
   nodeInterpreterAvailable,
+  resolveStandaloneResourcesRoot,
   runtimeSearchPath,
   type BundledRuntimePaths,
 } from './runtime-paths.ts'
@@ -59,12 +61,6 @@ Environment:
   DSH_STUDIO_TUI_LANG, DSH_STUDIO_TUI_PRESET, DSH_STUDIO_TUI_SESSION_ID
 `
 
-function parseBoolean(value: string, name: string): boolean {
-  if (value === '1' || value.toLowerCase() === 'true') return true
-  if (value === '0' || value.toLowerCase() === 'false') return false
-  throw new UsageError(`invalid ${name} value: ${value}`)
-}
-
 function optionalEnv(env: NodeJS.ProcessEnv, name: string): string | undefined {
   const value = env[name]
   return value === undefined || value === '' ? undefined : value
@@ -95,7 +91,7 @@ export function parseTuiArgs(
         : resolveDshStudioHome(env)),
     fullscreen: envFullscreen === undefined
       ? true
-      : parseBoolean(envFullscreen, 'DSH_STUDIO_TUI_FULLSCREEN'),
+      : parseEnvBoolean(envFullscreen, 'DSH_STUDIO_TUI_FULLSCREEN'),
     help: false,
     ...(envLang === undefined ? {} : { lang: language(envLang) }),
     ...(envPreset === undefined ? {} : { preset: envPreset }),
@@ -120,16 +116,10 @@ export function parseTuiArgs(
       continue
     }
     const flag = (name: string): string | undefined => {
-      if (argument === name) {
-        const value = args[index + 1]
-        if (value === undefined || value === '') throw new UsageError(`${name} needs a value`)
-        index += 1
-        return value
-      }
-      if (argument.startsWith(`${name}=`)) {
-        const value = argument.slice(name.length + 1)
-        if (value === '') throw new UsageError(`${name} needs a value`)
-        return value
+      const matched = matchFlagValue(argument, name, args, index, false)
+      if (matched !== undefined) {
+        index = matched.next
+        return matched.value
       }
       return undefined
     }
@@ -170,9 +160,7 @@ export function parseTuiArgs(
     }
     throw new UsageError(`unknown option: ${argument}`)
   }
-  if (channel !== undefined && !explicitData && !hasDshStudioHomeOverride(env)) {
-    options.dataRoot = defaultDshStudioHome(undefined, channel)
-  }
+  options.dataRoot = channelDataRootFallback(channel, explicitData, env, options.dataRoot)
   return options
 }
 
@@ -183,11 +171,6 @@ export function resolveTuiRoot(env: NodeJS.ProcessEnv = process.env): string {
     if (value !== undefined && value !== '') return resolve(value)
   }
   return dirname(dirname(fileURLToPath(import.meta.url)))
-}
-
-/** Read release metadata from a standalone package or Electron resources. */
-export function resolveTuiVersion(root: string): string {
-  return resolveProductVersion(root)
 }
 
 /** Build one attached process launch after the profile has been initialized. */
@@ -258,14 +241,7 @@ export async function main(
   }
 
   const root = resolveTuiRoot(env)
-  const stagedNode = process.platform === 'win32'
-    ? join(root, '.stage', 'node-runtime', 'node.exe')
-    : join(root, '.stage', 'node-runtime', 'bin', 'node')
-  const resourcesRoot = env.DSH_STUDIO_TUI_ROOT !== undefined
-    ? root
-    : existsSync(stagedNode)
-      ? join(root, '.stage')
-      : root
+  const resourcesRoot = resolveStandaloneResourcesRoot(root, env.DSH_STUDIO_TUI_ROOT)
   const paths = bundledRuntimePaths(resourcesRoot)
   if (!nodeInterpreterAvailable(paths)) {
     throw new Error(`packaged Node interpreter is missing: ${paths.nodeCommand}`)
@@ -284,7 +260,7 @@ export async function main(
     { ...options, cwd, dataRoot },
     env,
     paths,
-    resolveTuiVersion(root),
+    resolveProductVersion(root),
   )
   return await new Promise<number>((resolveExit, rejectExit) => {
     const child = spawnTui(spec.command, spec.args, spec.spawnOptions)

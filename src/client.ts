@@ -269,9 +269,6 @@ function dispatch(
     case 'toggle-sidebar':
       panels.toggleSidebar()
       return
-    case 'toggle-bottom-panel':
-      panels.toggleBottomPanel()
-      return
     case 'toggle-panel-maximized':
       workspaceTools.togglePanelMaximized()
       return

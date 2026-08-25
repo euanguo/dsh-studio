@@ -4,6 +4,9 @@ import { spawnSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+/** Version fallback when no injected tag, reachable tag, or manifest is found. */
+export const UNKNOWN_VERSION = '0.0.0'
+
 declare const __DSH_STUDIO_BUILD_VERSION__: string | undefined
 
 function injectedVersion(): string | undefined {
@@ -65,5 +68,5 @@ export function resolveProductVersion(root: string): string {
   return injectedVersion()
     ?? nearestVersionTag(root)
     ?? manifestVersion(root)
-    ?? '0.0.0'
+    ?? UNKNOWN_VERSION
 }

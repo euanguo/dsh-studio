@@ -34,6 +34,42 @@ export type DesktopUpdateCommand =
   | { type: 'install-on-quit' }
   | { type: 'open-release' }
 
+/**
+ * Single source of truth for the update command whitelist. Consumed by the
+ * update preload (`update-preload.ts`), the main process (`main.ts`), and the
+ * update manager so a newly added command type cannot be silently dropped at a
+ * consumer.
+ */
+export const DESKTOP_UPDATE_COMMAND_TYPES = [
+  'check',
+  'download',
+  'cancel',
+  'retry',
+  'install-now',
+  'install-on-quit',
+  'open-release',
+] as const satisfies readonly DesktopUpdateCommand['type'][]
+
+/**
+ * IPC channel names, single-sourced so the preloads (`preload.ts` /
+ * `update-preload.ts`) and the main process (`main.ts`) reference the same
+ * literals instead of hand-writing matching strings on both ends.
+ */
+export const channelNames = {
+  command: 'desktop:command',
+  chooseWorkspace: 'desktop:choose-workspace',
+  chromeGeometry: 'desktop:chrome-geometry',
+  getInfo: 'desktop:get-info',
+  getRuntimeSnapshot: 'desktop:get-runtime-snapshot',
+  pluginMarketplaceSnapshot: 'desktop:plugin-marketplace-snapshot',
+  pluginMarketplaceDispatch: 'desktop:plugin-marketplace-dispatch',
+  pluginMarketplaceChanged: 'desktop:plugin-marketplace-changed',
+  openExternal: 'desktop:open-external',
+  updateGetState: 'desktop:update:get-state',
+  updateCommand: 'desktop:update:command',
+  updateState: 'desktop:update:state',
+} as const
+
 export interface DesktopUpdateBridge {
   getState(): Promise<DesktopUpdateState>
   command(command: DesktopUpdateCommand): Promise<DesktopUpdateState>

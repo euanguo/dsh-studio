@@ -2,23 +2,27 @@
 
 import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
-import { dirname, join, resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   DEFAULT_DSH_STUDIO_HOME_DIRECTORY,
-  defaultDshStudioHome,
-  hasDshStudioHomeOverride,
   parseDshStudioChannel,
   resolveDshStudioHome,
 } from './data-root.ts'
 import { UsageError } from './errors.ts'
+import { channelDataRootFallback, matchFlagValue, parseEnvBoolean } from './launcher-args.ts'
 import { ensureWebProfile, WEB_PROFILE } from './profile.ts'
 import {
   DshRuntimeSupervisor,
   type DshRuntimeOptions,
   type RuntimeExit,
 } from './runtime.ts'
-import { bundledRuntimePaths, runtimeSearchPath, type BundledRuntimePaths } from './runtime-paths.ts'
+import {
+  bundledRuntimePaths,
+  resolveStandaloneResourcesRoot,
+  runtimeSearchPath,
+  type BundledRuntimePaths,
+} from './runtime-paths.ts'
 import { resolveProductVersion } from './version.ts'
 
 /** Default port matching the dsh-web-app bundle's own webserver default. */
@@ -68,16 +72,10 @@ function parsePort(value: string): number {
   return port
 }
 
-function parseOpen(value: string): boolean {
-  if (value === '1' || value.toLowerCase() === 'true') return true
-  if (value === '0' || value.toLowerCase() === 'false') return false
-  throw new UsageError(`invalid DSH_STUDIO_WEB_OPEN value: ${value}`)
-}
-
 function envBoolean(env: NodeJS.ProcessEnv, name: string): boolean | undefined {
   const value = env[name]
   if (value === undefined || value === '') return undefined
-  return parseOpen(value)
+  return parseEnvBoolean(value, name)
 }
 
 /**
@@ -115,13 +113,11 @@ export function parseLaunchArgs(
       continue
     }
     const flag = (name: string): string | undefined => {
-      if (argument === name) {
-        const value = args[index + 1]
-        if (value === undefined) throw new UsageError(`${name} needs a value`)
-        index += 1
-        return value
+      const matched = matchFlagValue(argument, name, args, index, true)
+      if (matched !== undefined) {
+        index = matched.next
+        return matched.value
       }
-      if (argument.startsWith(`${name}=`)) return argument.slice(name.length + 1)
       return undefined
     }
     const host = flag('--host')
@@ -156,9 +152,7 @@ export function parseLaunchArgs(
     }
     throw new UsageError(`unknown option: ${argument}`)
   }
-  if (channel !== undefined && !explicitData && !hasDshStudioHomeOverride(env)) {
-    options.dataRoot = defaultDshStudioHome(undefined, channel)
-  }
+  options.dataRoot = channelDataRootFallback(channel, explicitData, env, options.dataRoot)
   return options
 }
 
@@ -168,11 +162,6 @@ export function resolveWebRoot(env: NodeJS.ProcessEnv = process.env): string {
   if (packaged !== undefined && packaged !== '') return packaged
   // Development layout: dist/web.js lives directly under the repository root.
   return dirname(dirname(fileURLToPath(import.meta.url)))
-}
-
-/** Read release metadata from a standalone package or an Electron resource. */
-export function resolveWebVersion(root: string): string {
-  return resolveProductVersion(root)
 }
 
 function openBrowser(url: string, platform: NodeJS.Platform): void {
@@ -232,17 +221,10 @@ export async function main(
   // Normalize once and derive every runtime path from the absolute root.
   const dataRoot = resolve(options.dataRoot)
   const root = resolveWebRoot(env)
-  const version = resolveWebVersion(root)
+  const version = resolveProductVersion(root)
   // Packaged layout: <root>/node-runtime + <root>/dsh-runtime. Development
   // layout: the staged runtimes live under <root>/.stage/.
-  const stagedNode = process.platform === 'win32'
-    ? join(root, '.stage', 'node-runtime', 'node.exe')
-    : join(root, '.stage', 'node-runtime', 'bin', 'node')
-  const resourcesRoot = env.DSH_STUDIO_WEB_ROOT !== undefined
-    ? root
-    : existsSync(stagedNode)
-      ? join(root, '.stage')
-      : root
+  const resourcesRoot = resolveStandaloneResourcesRoot(root, env.DSH_STUDIO_WEB_ROOT)
   const paths: BundledRuntimePaths = bundledRuntimePaths(resourcesRoot)
   if (!existsSync(paths.nodeBinary)) {
     throw new Error(`packaged Node runtime is missing: ${paths.nodeBinary}`)
