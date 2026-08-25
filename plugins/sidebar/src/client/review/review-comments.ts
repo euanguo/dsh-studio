@@ -1,4 +1,11 @@
 import type { GitReviewCommit } from '../diff/git-review-diff.ts'
+import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
+import {
+  defaultSidebarCommentsChrome,
+  sanitizeSidebarComments,
+  UI_CHROME_TABLES,
+  type SidebarCommentsChrome,
+} from '@dsh-studio/shared/ui-chrome-tables'
 
 export type ReviewCommentSide = 'new' | 'old' | null
 
@@ -82,8 +89,9 @@ export interface ReviewSlashSource {
   candidates(): Promise<readonly never[]>
   onPick(): undefined
   codec: {
-    clipboardText(): string
-    serialize(): Promise<string>
+    /** `input.ref` selects which reference's model text to render. */
+    clipboardText(input?: { ref?: string }): string
+    serialize(input?: { ref?: string }): Promise<string>
   }
 }
 
@@ -107,10 +115,41 @@ interface ComposerBridge {
   setScope(branch: string | null): void
 }
 
-const STORAGE_KEY = 'dsh-studio.sidebar.review-comments.v1'
 const REVIEW_SOURCE = 'dsh-studio-review'
 const REVIEW_REF = 'review-comments'
 const MAX_PERSISTED_COMMENTS = 200
+
+// Domain-backed storage default: review comments live in the `comments`
+// table's `review` array (kind: 'review'), sharing it with workbench ones.
+const commentsStorage = createUiChromeStorage<SidebarCommentsChrome>({
+  table: UI_CHROME_TABLES.comments,
+  defaults: defaultSidebarCommentsChrome,
+  sanitize: sanitizeSidebarComments,
+})
+
+/** The persistence seam for review comments (domain-backed by default). */
+export interface ReviewCommentsPersistence {
+  load(): Promise<ReviewComment[]>
+  save(comments: readonly ReviewComment[]): void
+}
+
+/** The last full comments-table record seen, so the workbench half (written
+ *  by diff-comments-store) is preserved when review comments are saved. */
+let chromeRecordComments: SidebarCommentsChrome = defaultSidebarCommentsChrome()
+
+const domainPersistence: ReviewCommentsPersistence = {
+  async load() {
+    chromeRecordComments = await commentsStorage.load()
+    return (chromeRecordComments.review ?? []).filter(isReviewComment).slice(-MAX_PERSISTED_COMMENTS)
+  },
+  save(comments) {
+    chromeRecordComments = {
+      workbench: chromeRecordComments.workbench,
+      review: comments.slice(-MAX_PERSISTED_COMMENTS),
+    }
+    commentsStorage.save(chromeRecordComments)
+  },
+}
 
 function isReviewComment(value: unknown): value is ReviewComment {
   if (typeof value !== 'object' || value === null) return false
@@ -126,25 +165,6 @@ function isReviewComment(value: unknown): value is ReviewComment {
     && typeof comment.createdAt === 'string'
     && (comment.resolvedAt === undefined || typeof comment.resolvedAt === 'string')
     && typeof comment.request === 'string'
-}
-
-function readComments(storage: Storage): ReviewComment[] {
-  try {
-    const value = JSON.parse(storage.getItem(STORAGE_KEY) ?? '[]') as unknown
-    return Array.isArray(value)
-      ? value.filter(isReviewComment).slice(-MAX_PERSISTED_COMMENTS)
-      : []
-  } catch {
-    return []
-  }
-}
-
-function writeComments(storage: Storage, comments: readonly ReviewComment[]): void {
-  try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(comments.slice(-MAX_PERSISTED_COMMENTS)))
-  } catch {
-    // Review stays available in memory when browser storage is unavailable.
-  }
 }
 
 function commentLocation(comment: ReviewComment): string {
@@ -189,6 +209,107 @@ export function formatReviewRequest(comments: readonly string[]): string {
   ].join('\n')
 }
 
+/**
+ * Explicit delivery state machine for the review composer bridge (audit C5/§5).
+ *
+ * The composer's delivery lifecycle is a small state machine with two phases:
+ *
+ *   idle    → pending: an occurring comment block was removed while the draft
+ *             emptied and at least one comment remained (the user "closed" the
+ *             reference in a now-empty draft → the selection signals delivery).
+ *   pending → idle:     the draft was repopulated (delivery aborted), or a
+ *             reset happened (scope changed / no conversation current), or the
+ *             session's latest user-shorthand seq advanced past the baseline
+ *             recorded at arm time → `send` the pending ids as an out-effect.
+ *
+ * The reducer is pure and module-scope (`reduceDelivery`) so the lifecycle is
+ * testable without touching the reactive subscriptions. `createComposerBridge`
+ * is the constructor: it computes reducer events from the input/session
+ * subscriptions and, when `send` fires, runs `completeDelivery` for the real
+ * side effects (delete the delivered ids, persist the scoped map, publish,
+ * reconcile).
+ */
+// Phase tags use a const-object plus a string-literal union rather than a TS
+// `enum` so the module stays loadable by Node's strip-only TS test runner.
+const DeliveryPhase = {
+  /** No delivery armed. */
+  Idle: 'idle',
+  /** A comment occurrence was closed; awaiting session user-seq advance. */
+  Pending: 'pending',
+} as const
+
+interface PendingDelivery {
+  input: ReviewInput
+  ids: readonly string[]
+  baselineSeq: number
+}
+
+type DeliveryState =
+  | { phase: typeof DeliveryPhase.Idle }
+  | { phase: typeof DeliveryPhase.Pending; pending: PendingDelivery }
+
+type DeliveryEvent =
+  | {
+      type: 'input-state-changed'
+      input: ReviewInput
+      ids: readonly string[]
+      draftEmpty: boolean
+      occurrenceDropped: boolean
+      commentsSize: number
+      latestUserSeq: number
+    }
+  | { type: 'session-advanced'; latestUserSeq: number }
+  | { type: 'reset' }
+
+interface DeliveryResult {
+  state: DeliveryState
+  /** The ids to deliver, or null when no delivery is due from this event. */
+  send: readonly string[] | null
+}
+
+function reduceDelivery(state: DeliveryState, event: DeliveryEvent): DeliveryResult {
+  switch (state.phase) {
+    case DeliveryPhase.Idle:
+      if (event.type === 'input-state-changed') {
+        if (event.occurrenceDropped && event.draftEmpty && event.commentsSize > 0) {
+          return {
+            state: {
+              phase: DeliveryPhase.Pending,
+              pending: {
+                input: event.input,
+                ids: event.ids,
+                baselineSeq: event.latestUserSeq,
+              },
+            },
+            send: null,
+          }
+        }
+        return { state, send: null }
+      }
+      if (event.type === 'session-advanced') return { state, send: null }
+      return { state: { phase: DeliveryPhase.Idle }, send: null }
+    case DeliveryPhase.Pending: {
+      const pending = state.pending
+      if (event.type === 'input-state-changed') {
+        // A repopulated draft aborts the armed delivery. The idle→pending
+        // re-arm only runs from Idle, so an armed delivery stays armed while
+        // the draft stays empty.
+        if (!event.draftEmpty) return { state: { phase: DeliveryPhase.Idle }, send: null }
+        return { state, send: null }
+      }
+      if (event.type === 'session-advanced') {
+        if (event.latestUserSeq > pending.baselineSeq) {
+          return { state: { phase: DeliveryPhase.Idle }, send: pending.ids }
+        }
+        return { state, send: null }
+      }
+      return { state: { phase: DeliveryPhase.Idle }, send: null }
+    }
+  }
+  /* istanbul ignore next -- exhaustive enum switch; unreachable. */
+  return { state, send: null }
+}
+
 function createComposerBridge(
   sessions: ReviewSessionsService,
   inputTriggers: ReviewInputTriggersService,
@@ -206,11 +327,7 @@ function createComposerBridge(
   let stopInput: (() => void) | undefined
   let stopSession: (() => void) | undefined
   let previousInputState: ReviewInputState | undefined
-  let pending: {
-    input: ReviewInput
-    ids: readonly string[]
-    baselineSeq: number
-  } | undefined
+  let delivery: DeliveryState = { phase: DeliveryPhase.Idle }
 
   const label = (): string => `${String(comments.size)} comment${comments.size === 1 ? '' : 's'}`
   const payload = (): string => formatReviewRequest([...comments.values()])
@@ -279,10 +396,15 @@ function createComposerBridge(
     }) === true
   }
 
-  const completeDelivery = (): void => {
-    if (pending === undefined) return
-    const ids = pending.ids
-    pending = undefined
+  /** Reset any armed delivery (scope change / no current conversation). */
+  const resetDelivery = (): void => {
+    delivery = reduceDelivery(delivery, { type: 'reset' }).state
+  }
+
+  /** Apply the delivery out-effect: drop the delivered ids, persist the
+   *  scoped map, publish, and reconcile. `ids` comes from the reducer's
+   *  `send` out-signal. */
+  const completeDelivery = (ids: readonly string[]): void => {
     for (const id of ids) comments.delete(id)
     commentsByScope.set(activeScope, comments)
     onDelivered(ids)
@@ -299,7 +421,7 @@ function createComposerBridge(
       watchedSession = undefined
       watchedId = undefined
       previousInputState = undefined
-      pending = undefined
+      resetDelivery()
       return
     }
     if (watchedId === value.id && watchedInput === value.input
@@ -315,21 +437,27 @@ function createComposerBridge(
       const next = value.input.state.getSnapshot()
       previousInputState = next
       if (mutating) return
-      if (pending !== undefined && next.draft !== '') pending = undefined
-      if (pending === undefined && previous !== undefined
-        && occurrence(previous) !== undefined && occurrence(next) === undefined
-        && next.draft === '' && comments.size > 0) {
-        pending = {
-          input: value.input,
-          ids: [...comments.keys()],
-          baselineSeq: latestUserSeq(value.session),
-        }
-      }
+      const result = reduceDelivery(delivery, {
+        type: 'input-state-changed',
+        input: value.input,
+        ids: [...comments.keys()],
+        draftEmpty: next.draft === '',
+        occurrenceDropped: previous !== undefined
+          ? occurrence(previous) !== undefined && occurrence(next) === undefined
+          : false,
+        commentsSize: comments.size,
+        latestUserSeq: latestUserSeq(value.session),
+      })
+      delivery = result.state
       reconcile()
     })
     stopSession = value.session?.subscribe(() => {
-      if (pending !== undefined
-        && latestUserSeq(value.session) > pending.baselineSeq) completeDelivery()
+      const result = reduceDelivery(delivery, {
+        type: 'session-advanced',
+        latestUserSeq: latestUserSeq(value.session),
+      })
+      delivery = result.state
+      if (result.send !== null) completeDelivery(result.send)
     })
   }
 
@@ -346,7 +474,7 @@ function createComposerBridge(
         try { removeOccurrence(watchedInput, oldOccurrence) } finally { mutating = false }
       }
       comments = commentsByScope.get(nextScope) ?? new Map()
-      pending = undefined
+      resetDelivery()
     } else if (!initialized) {
       comments = commentsByScope.get(nextScope) ?? comments
     }
@@ -356,7 +484,8 @@ function createComposerBridge(
     if (value === null) return 'unavailable'
 
     const existing = occurrence(value.input.state.getSnapshot())
-    if (pending?.input === value.input && existing === undefined
+    if (delivery.phase === DeliveryPhase.Pending
+      && delivery.pending.input === value.input && existing === undefined
       && value.input.state.getSnapshot().draft === '') return 'inserted'
     if (comments.size === 0) {
       if (existing !== undefined) {
@@ -421,24 +550,30 @@ function createComposerBridge(
 }
 
 export class ReviewCommentsService {
-  private comments: ReviewComment[]
+  private comments: ReviewComment[] = []
   private readonly listeners = new Set<() => void>()
   private readonly bridge: ComposerBridge
   private readonly seededScopes = new Set<string>()
-  private readonly storage: Storage
+  private readonly persistence: ReviewCommentsPersistence
 
   constructor(
     sessions: ReviewSessionsService,
     inputTriggers: ReviewInputTriggersService,
-    storage: Storage,
+    persistence: ReviewCommentsPersistence = domainPersistence,
   ) {
-    this.storage = storage
-    this.comments = readComments(storage)
+    this.persistence = persistence
     this.bridge = createComposerBridge(
       sessions,
       inputTriggers,
       ids => { this.removeMany(ids, false) },
     )
+  }
+
+  /** Hydrate the review comments (call at bootstrap, after the one-time
+   *  legacy migration). Idempotent. */
+  async start(): Promise<void> {
+    this.comments = await this.persistence.load()
+    this.publish({ persist: false })
   }
 
   getSnapshot = (): readonly ReviewComment[] => this.comments
@@ -532,8 +667,8 @@ export class ReviewCommentsService {
     if (changed) this.publish()
   }
 
-  private publish(): void {
-    writeComments(this.storage, this.comments)
+  private publish(options?: { persist?: boolean }): void {
+    if (options?.persist !== false) this.persistence.save(this.comments)
     for (const listener of this.listeners) listener()
   }
 }

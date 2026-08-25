@@ -31,9 +31,8 @@ import {
 import type { SourceControlListMode } from './source-control/source-control-view-model.ts'
 import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 
-export function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
+// Re-export the shared error formatter (RD-23 public API for this panel).
+export { errorMessage } from '@dsh-studio/shared/errors'
 
 function actionLabelForConfirmation(
   kind: 'abort-merge' | 'abort-rebase',

@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { toast } from '@dsh-studio/shared/toast'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import type { WorkspaceFileRuntime } from '../runtimes/file-runtime.ts'
@@ -112,7 +113,7 @@ export function useEditableFile(options: {
         return true
       })
       .catch((cause: unknown) => {
-        const message = cause instanceof Error ? cause.message : String(cause)
+        const message = errorMessage(cause)
         if (aliveRef.current) {
           setError(message)
           toast(t('toast.save-failed', { message }))
@@ -136,11 +137,22 @@ export function useEditableFile(options: {
     }, AUTOSAVE_DELAY_MS)
   }, [save])
 
+  const disarmAutosave = useCallback((): void => {
+    // Cancel a pending autosave timer (1s after the last edit) so it cannot
+    // fire after we leave the edit state / flush manually (C19: exit leaves a
+    // stale timer still writing to disk once more).
+    if (autosaveTimerRef.current !== null) {
+      window.clearTimeout(autosaveTimerRef.current)
+      autosaveTimerRef.current = null
+    }
+  }, [])
+
   const enterEdit = useCallback(() => {
     setEditMode(true)
   }, [])
 
   const exitToView = useCallback(() => {
+    disarmAutosave()
     if (!dirty) {
       setEditMode(false)
       return
@@ -150,7 +162,7 @@ export function useEditableFile(options: {
     void save().then(ok => {
       if (ok && aliveRef.current) setEditMode(false)
     })
-  }, [dirty, save])
+  }, [disarmAutosave, dirty, save])
 
   // Mod+S flushes the editor immediately while editing (autosave is the
   // safety net); the viewer state leaves Mod+S to the host app.
@@ -165,8 +177,8 @@ export function useEditableFile(options: {
   // Unmount clears timers; pending writes still settle in the queue.
   useEffect(() => () => {
     aliveRef.current = false
-    if (autosaveTimerRef.current !== null) window.clearTimeout(autosaveTimerRef.current)
-  }, [])
+    disarmAutosave()
+  }, [disarmAutosave])
 
   return { editMode, content, dirty, saving, error, enterEdit, exitToView, save, handleChange }
 }

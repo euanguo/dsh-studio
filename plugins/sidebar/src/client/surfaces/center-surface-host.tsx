@@ -36,7 +36,8 @@ import {
 } from '@dsh-studio/shared/tabler-icons'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { EmptyState, ErrorState, ToolbarAction, useMenuAnchor } from '@dsh-studio/shared/ui'
-import { centerColumnElement, leftRailToggleButton, readLeftRailOpen } from './dsh-dom.ts'
+import { centerColumnElement, leftRailToggleButton, leftSidebarElement, readLeftRailOpen } from './dsh-dom.ts'
+import { createOverlayArbiter, OverlayArbiterProvider } from '../selection/overlay-arbiter.tsx'
 import type { SessionsService, WorkspacesService } from '../client-types.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import {
@@ -147,7 +148,9 @@ function useLeftRailOpenState(): {
     // chat streaming re-renders the conversation constantly, and this
     // state only depends on the sidebar toggle's aria-label.
     const observer = new MutationObserver(read)
-    const sidebarSlot = document.querySelector<HTMLElement>('[data-slot="sidebar"]')
+    // Reset targets from the dsh-dom probe module so an upstream sidebar-slot
+    // rename is re-pinned in one file (C5).
+    const sidebarSlot = leftSidebarElement()
     const root = sidebarSlot ?? document.body
     if (root !== null) {
       observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'class'] })
@@ -180,11 +183,18 @@ export function CenterSurfaceBody({
   if (active !== null && !hidden) {
     content = sidebar.renderSurface(active)
   }
+  // Each center surface gets its OWN overlay arbiter (C16): the conversation
+  // picker and comment rails on this surface share the lock, while switching
+  // to a different surface cannot deadlock a previous one. The instance is
+  // memoized on the surface identity so re-renders don't drop the lock.
+  const arbiter = useMemo(() => createOverlayArbiter(), [active])
   return (
     <div className={surfaceCss["dsh-studio-center-surface-body"]} data-hidden={hidden || undefined}>
-      {content ?? (
-        <EmptyState layout="centered" className={surfaceCss["dsh-studio-center-surface-empty"]} title="—" />
-      )}
+      <OverlayArbiterProvider arbiter={arbiter}>
+        {content ?? (
+          <EmptyState layout="centered" className={surfaceCss["dsh-studio-center-surface-empty"]} title="—" />
+        )}
+      </OverlayArbiterProvider>
     </div>
   )
 }
@@ -275,9 +285,9 @@ export class CenterSurfaceHost {
   /**
    * Mount the tab strip inside the DSH center column as a normal-flow flex
    * child (`.aOBRAa_centerCol` is a `flex-direction: column` container whose
-   * only child is the `[data-slot="conversation"]` slot — we prepend next to
-   * it, above the conversation, instead of overlaying the whole center area
-   * with a fixed element).
+   * only child is the DSH conversation slot located by dsh-dom.ts
+   * `centerColumnElement()` — we prepend next to it, above the conversation,
+   * instead of overlaying the whole center area with a fixed element).
    *
    * Normal flow removes every overlay problem: the strip never needs to
    * track the left-rail width (the column already sits between the rails),

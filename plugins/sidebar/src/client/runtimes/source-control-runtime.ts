@@ -14,14 +14,21 @@
  * selection, mode) lives in the chrome store.
  */
 import { RevisionedStore, GenerationGate } from '@dsh-studio/shared/runtime'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import type { WorkspaceFacts, WorkspaceSnapshot } from '../../protocol.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import type {
   CapabilitiesGitLogEntry,
   CapabilitiesGitBranch,
   CapabilitiesGitStatus,
+  CapabilitiesGitCommitFile,
+  CapabilitiesGitCommitted,
 } from '../sidebar-api.ts'
 import { workspaceChangesFromWire } from '../sidebar-api.ts'
+import type {
+  CommitFilesState,
+  CommittedState,
+} from '../commit-files.tsx'
 
 export type SourceControlRuntimePhase =
   | 'idle'
@@ -43,7 +50,14 @@ export interface SourceControlRuntimeSnapshot {
   message: string | null
   /** The Git panel snapshot (null until the first successful load). */
   snapshot: SourceControlWorkspaceSnapshot | null
+  /** Committed-changes projection (files in local commits ahead of the
+   *  branch upstream), retained per-scope so a project switch or a refresh
+   *  never leaks the previous project's committed list (D5/D8). */
+  committed: CommittedState
 }
+
+/** The committed-files state type used across the runtime's lazy cache. */
+export type { CommittedState }
 
 /** The scope shape the runtime requires (the project cwd). */
 export interface SourceControlScope {
@@ -55,6 +69,8 @@ export interface SourceControlTransport {
   gitBranch(scope: SourceControlScope, signal?: AbortSignal): Promise<CapabilitiesGitBranch>
   gitLog(scope: SourceControlScope, signal?: AbortSignal): Promise<CapabilitiesGitLogEntry[]>
   workspaceFacts(cwd: string, signal?: AbortSignal): Promise<WorkspaceFacts>
+  gitCommittedFiles(scope: SourceControlScope, signal?: AbortSignal): Promise<CapabilitiesGitCommitted>
+  gitCommitFiles(scope: SourceControlScope, hash: string, signal?: AbortSignal): Promise<CapabilitiesGitCommitFile[]>
 }
 
 export interface SourceControlRuntimeOptions {
@@ -104,12 +120,24 @@ export class SourceControlRuntime {
     phase: 'idle',
     message: null,
     snapshot: null,
+    committed: { status: 'none' },
   })
+  /** Lazy per-commit file lists (expanded history rows), keyed by hashFull.
+   *  Kept here instead of component state so the committed / commit-file
+   *  caches invalidate together on scope change and mutation (D5/D8). */
+  private readonly commitFilesByHash = new Map<string, CommitFilesState>()
   private readonly generation = new GenerationGate()
   private scope: SourceControlScope | null = null
   private inflight: Promise<void> | null = null
+  private inflightCommitted: Promise<void> | null = null
+  private inflightCommitFiles = new Map<string, Promise<void>>()
   private activeAbort: AbortController | null = null
   private disposed = false
+  /** Fingerprint of the last fetched `git.status` + workspace facts, used
+   *  by the polling path to skip the redundant branch/log fetches (D20b). */
+  private lastStatusKey = ''
+  /** Last known branch-name list, reused when a poll's status is unchanged. */
+  private lastBranchNames: string[] | null = null
 
   constructor(options: SourceControlRuntimeOptions) {
     this.transport = options.transport
@@ -127,14 +155,29 @@ export class SourceControlRuntime {
   fingerprint = (): string => {
     const snapshot = this.store.getSnapshot()
     const data = snapshot.snapshot
-    if (data === null) return `${snapshot.phase}:${snapshot.message ?? ''}`
-    return [
-      snapshot.phase,
-      data.kind,
-      data.branch ?? '',
-      data.changes.length,
-      data.history?.length ?? 0,
-    ].join(':')
+    let fingerprint = ''
+    if (data === null) {
+      fingerprint = `${snapshot.phase}:${snapshot.message ?? ''}`
+    } else {
+      fingerprint = [
+        snapshot.phase,
+        data.kind,
+        data.branch ?? '',
+        data.changes.length,
+        data.history?.length ?? 0,
+      ].join(':')
+    }
+    fingerprint += `|committed:${snapshot.committed.status}`
+    if (snapshot.committed.status === 'ready') {
+      fingerprint += `:${snapshot.committed.baseRef}:${snapshot.committed.entries.length}`
+    } else if (snapshot.committed.status === 'error') {
+      fingerprint += `:${snapshot.committed.error}`
+    }
+    for (const [hash, state] of this.commitFilesByHash) {
+      fingerprint += `|cf:${hash}:${state.status}`
+      if (state.status === 'ready') fingerprint += `:${state.entries.length}`
+    }
+    return fingerprint
   }
 
   setScope(scope: SourceControlScope | null): void {
@@ -149,13 +192,18 @@ export class SourceControlRuntime {
     this.scope = scope
     this.generation.next()
     this.inflight = null
+    this.inflightCommitted = null
+    this.inflightCommitFiles.clear()
+    this.commitFilesByHash.clear()
+    this.lastStatusKey = ''
+    this.lastBranchNames = null
     if (scope === null) {
-      this.store.setState({ phase: 'idle', message: null, snapshot: null })
+      this.store.setState({ phase: 'idle', message: null, snapshot: null, committed: { status: 'none' } })
       return
     }
     // Re-assert binding; a fresh scope starts a load (cached state from a
     // previous scope is dropped by the generation gate).
-    this.store.setState({ phase: 'loading', message: null, snapshot: null })
+    this.store.setState({ phase: 'loading', message: null, snapshot: null, committed: { status: 'none' } })
     void this.ensureLoaded()
   }
 
@@ -205,13 +253,126 @@ export class SourceControlRuntime {
     this.activeAbort = null
     this.generation.next()
     this.inflight = null
-    this.store.setState({ phase: 'idle', message: null, snapshot: null })
+    this.inflightCommitted = null
+    this.inflightCommitFiles.clear()
+    this.commitFilesByHash.clear()
+    this.lastStatusKey = ''
+    this.lastBranchNames = null
+    this.store.setState({ phase: 'idle', message: null, snapshot: null, committed: { status: 'none' } })
   }
 
   /** Surface a mutation failure through the runtime error phase. */
   reportError(message: string): void {
     this.assertOpen()
-    this.store.setState({ phase: 'error', message, snapshot: this.store.getSnapshot().snapshot })
+    const current = this.store.getSnapshot()
+    this.store.setState({ ...current, phase: 'error', message })
+  }
+
+  getCommitted = (): CommittedState => this.store.getSnapshot().committed
+
+  /** Soft-reload the committed projection, preserving the last good results
+   *  on a transient failure (D10 applies to committed too). */
+  async refreshCommitted(signal?: AbortSignal): Promise<void> {
+    this.assertOpen()
+    const scope = this.scope
+    if (scope === null) return
+    const requestGeneration = this.generation.current()
+    if (this.inflightCommitted !== null) {
+      await this.inflightCommitted
+      return
+    }
+    const request = (async () => {
+      try {
+        const result = await this.transport.gitCommittedFiles(scope, signal)
+        if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
+        this.store.setState({
+          ...this.store.getSnapshot(),
+          committed: result.baseRef === null
+            ? { status: 'none' }
+            : { status: 'ready', baseRef: result.baseRef, entries: result.entries },
+        })
+      } catch (cause) {
+        if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
+        const message = errorMessage(cause)
+        this.store.setState({
+          ...this.store.getSnapshot(),
+          committed: { status: 'error', error: message },
+        })
+      }
+    })()
+    this.inflightCommitted = request
+    try {
+      await request
+    } finally {
+      if (this.inflightCommitted === request) this.inflightCommitted = null
+    }
+  }
+
+  /** Invalidates the committed projection after a Git mutation (commit /
+   *  push / branch change): the committed files recompute on next poll. */
+  invalidateCommitted(): void {
+    this.assertOpen()
+    this.store.setState({
+      ...this.store.getSnapshot(),
+      committed: { status: 'none' },
+    })
+  }
+
+  getCommitFiles = (hash: string): CommitFilesState | undefined =>
+    this.disposed ? undefined : this.commitFilesByHash.get(hash)
+
+  /** HashFull keys that have a materialized file-list cache entry. */
+  listCommitFileHashes = (): readonly string[] =>
+    this.disposed ? [] : [...this.commitFilesByHash.keys()]
+
+  /** Lazy-load one commit's file list; Ready hits short-circuit. */
+  async ensureCommitFiles(hash: string, signal?: AbortSignal): Promise<CommitFilesState> {
+    this.assertOpen()
+    const scope = this.scope
+    const existing = this.commitFilesByHash.get(hash)
+    if (existing !== undefined && (existing.status === 'ready' || existing.status === 'error')) {
+      return existing
+    }
+    const pending = this.inflightCommitFiles.get(hash)
+    if (pending !== undefined) {
+      await pending
+      return this.commitFilesByHash.get(hash) ?? { status: 'loading' }
+    }
+    const requestGeneration = this.generation.current()
+    this.commitFilesByHash.set(hash, { status: 'loading' })
+    this.emit()
+    if (scope === null) return { status: 'loading' }
+    const request = (async () => {
+      try {
+        const entries = await this.transport.gitCommitFiles(scope, hash, signal)
+        if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
+        this.commitFilesByHash.set(hash, { status: 'ready', entries })
+        this.emit()
+      } catch (cause) {
+        if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
+        const message = errorMessage(cause)
+        this.commitFilesByHash.set(hash, { status: 'error', error: message })
+        this.emit()
+      }
+    })()
+    this.inflightCommitFiles.set(hash, request)
+    try {
+      await request
+    } finally {
+      if (this.inflightCommitFiles.get(hash) === request) this.inflightCommitFiles.delete(hash)
+    }
+    return this.commitFilesByHash.get(hash) ?? { status: 'loading' }
+  }
+
+  /** Drop one commit's cached file list (a commit's contents are immutable,
+   *  so this is only needed for a scope change / explicit reset). */
+  invalidateCommitFiles(hash: string): void {
+    this.assertOpen()
+    if (this.commitFilesByHash.delete(hash)) this.emit()
+  }
+
+  private emit(): void {
+    this.store.setState(current => ({ ...current }))
   }
 
   dispose(): void {
@@ -221,6 +382,11 @@ export class SourceControlRuntime {
     this.activeAbort = null
     this.generation.next()
     this.inflight = null
+    this.inflightCommitted = null
+    this.inflightCommitFiles.clear()
+    this.commitFilesByHash.clear()
+    this.lastStatusKey = ''
+    this.lastBranchNames = null
     this.store.dispose()
   }
 
@@ -228,9 +394,13 @@ export class SourceControlRuntime {
     const scope = this.scope
     if (scope === null) return
     const requestGeneration = this.generation.current()
-    const phase = this.store.getSnapshot().phase
+    const current = this.store.getSnapshot()
+    const phase = current.phase
     if (phase !== 'ready' && phase !== 'not-repo') {
-      this.store.setState({ phase: 'loading', message: null, snapshot: null })
+      // D10 soft-fail (兑现 leaf-3.2 :180-185): a revalidate from idle/error must
+      // NOT blank the last good rows — keep the prior snapshot during the
+      // loading transition so the panel never flashes a white/error screen.
+      this.store.setState({ ...current, phase: 'loading', message: null })
     }
     this.activeAbort?.abort()
     const controller = new AbortController()
@@ -241,15 +411,43 @@ export class SourceControlRuntime {
         this.transport.gitStatus(scope, controller.signal),
       ])
       if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
+      // D20b: when the status revision is identical to the last poll, skip
+      // the heavyweight branch+log refetch — nothing could have changed the
+      // history/remote view.
+      const statusKey = [
+        status.isRepo,
+        status.branch ?? '',
+        status.entries.map(e => `${e.xy}:${e.path}`).join('|'),
+        status.upstream?.ahead ?? 0,
+        status.upstream?.behind ?? 0,
+        status.upstream?.hasUpstream ?? false,
+      ].join(':')
+      const changed = statusKey !== this.lastStatusKey
+      this.lastStatusKey = statusKey
       let history: CapabilitiesGitLogEntry[] = []
       let branch: CapabilitiesGitBranch = { current: 'HEAD', names: [] }
-      if (status.isRepo && facts.kind === 'repository') {
+      if (status.isRepo && facts.kind === 'repository'
+        && (changed || this.lastBranchNames === null)) {
         const [nextBranch, nextHistory] = await Promise.all([
-          this.transport.gitBranch(scope, controller.signal).catch(() => branch),
-          this.transport.gitLog(scope, controller.signal).catch(() => []),
+          this.transport.gitBranch(scope, controller.signal)
+            .catch(cause => {
+              // D21: don't swallow a branch-listing failure silently — log it
+              // but degrade to the last known branch rather than blanking.
+              console.warn('[sidebar] git.branch failed, falling back', cause)
+              return branch
+            }),
+          this.transport.gitLog(scope, controller.signal)
+            .catch(cause => {
+              // D21: a history failure must not read as "no commits".
+              console.warn('[sidebar] git.log failed, falling back', cause)
+              return []
+            }),
         ])
         branch = nextBranch
         history = nextHistory
+        this.lastBranchNames = nextBranch.names
+      } else if (this.lastBranchNames !== null) {
+        branch = { current: status.branch ?? 'HEAD', names: this.lastBranchNames }
       }
       if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
       const snapshot = this.buildSnapshot({ facts, status, branch, history })
@@ -257,12 +455,22 @@ export class SourceControlRuntime {
         phase: snapshot.kind === 'repository' ? 'ready' : 'not-repo',
         message: null,
         snapshot,
+        committed: this.store.getSnapshot().committed,
       })
     } catch (cause) {
       if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
       if (cause instanceof DOMException && cause.name === 'AbortError') return
-      const message = cause instanceof Error ? cause.message : String(cause)
-      this.store.setState({ phase: 'error', message, snapshot: null })
+      const message = errorMessage(cause)
+      // D10 soft-fail: a single refresh/network failure must not demote a
+      // ready panel to a blank error page — keep the last good rows visible
+      // (they are fresher than an empty error screen).
+      const prior = this.store.getSnapshot()
+      this.store.setState({
+        ...prior,
+        phase: 'error',
+        message,
+        snapshot: prior.snapshot,
+      })
     } finally {
       if (this.activeAbort === controller) {
         this.activeAbort = null
@@ -282,5 +490,7 @@ export function sidebarSourceControlTransport(): SourceControlTransport {
     gitBranch: (scope, signal) => sidebarApi.gitBranch(scope, signal),
     gitLog: (scope, signal) => sidebarApi.gitLog(scope, 30, 0, signal),
     workspaceFacts: (cwd, signal) => sidebarApi.workspaceFacts(cwd, signal),
+    gitCommittedFiles: (scope, signal) => sidebarApi.gitCommittedFiles(scope, signal),
+    gitCommitFiles: (scope, hash, signal) => sidebarApi.gitCommitFiles(scope, hash, signal),
   }
 }

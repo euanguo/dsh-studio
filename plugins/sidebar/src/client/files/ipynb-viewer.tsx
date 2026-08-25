@@ -6,13 +6,15 @@
 import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { MarkdownViewer } from './markdown-viewer.tsx'
 import { parseIpynb, type IpynbCell } from './ipynb-parse.ts'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import type { WorkspaceMessage } from '../i18n.ts'
 import { EmptyState, ErrorState } from '@dsh-studio/shared/ui'
 
 function cellSource(cell: IpynbCell): string {
   return Array.isArray(cell.source) ? cell.source.join('') : cell.source
 }
 
-export function IpynbViewer({ content }: { content: string }): JSX.Element {
+export function IpynbViewer({ content, t }: { content: string; t: Translate<WorkspaceMessage> }): JSX.Element {
   const { cells, error } = parseIpynb(content)
   if (error !== null) {
     return <ErrorState message={error} />
@@ -26,7 +28,7 @@ export function IpynbViewer({ content }: { content: string }): JSX.Element {
           </div>
           {cell.cell_type === 'markdown' ? (
             <div className={surfaceCss["dsh-studio-ipynb-markdown"]}>
-              <MarkdownViewer content={cellSource(cell)} taskTogglesEnabled={false} />
+              <MarkdownViewer content={cellSource(cell)} taskTogglesEnabled={false} t={t} />
             </div>
           ) : (
             <pre className={surfaceCss["dsh-studio-ipynb-source"]}>
@@ -35,7 +37,7 @@ export function IpynbViewer({ content }: { content: string }): JSX.Element {
           )}
         </div>
       ))}
-      {cells.length === 0 ? <EmptyState title="Empty notebook" /> : null}
+      {cells.length === 0 ? <EmptyState title={t('files.empty-notebook')} /> : null}
     </div>
   )
 }

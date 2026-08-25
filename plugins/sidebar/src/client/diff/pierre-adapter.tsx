@@ -20,6 +20,7 @@ import { parsePatchFiles } from '@pierre/diffs'
 import type { AnnotationSide, DiffLineAnnotation } from '@pierre/diffs'
 import type { DiffLayoutStyle } from './file-diff.ts'
 import type { WorkbenchComment } from './diff-comments-store.ts'
+import { isDshDarkTheme, subscribeDshDarkTheme } from '../surfaces/dsh-dom.ts'
 
 /** Light/dark theme names Pierre understands. */
 export type PierreDiffTheme = 'github-light' | 'github-dark'
@@ -32,7 +33,7 @@ export type PierreDiffTheme = 'github-light' | 'github-dark'
  */
 export function resolvePierreDiffTheme(): PierreDiffTheme {
   if (typeof document === 'undefined') return 'github-light'
-  if (document.body?.dataset.dsDarkTheme !== undefined) return 'github-dark'
+  if (isDshDarkTheme()) return 'github-dark'
   const bg = getComputedStyle(document.body).backgroundColor
   const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(bg)
   if (m !== null) {
@@ -167,13 +168,11 @@ export function renderPierreDiff(
 export function usePierreDiffTheme(): PierreDiffTheme {
   const [theme, setTheme] = useState<PierreDiffTheme>(() => resolvePierreDiffTheme())
   useEffect(() => {
+    // The dsh-dom probe module owns the DSH dark-theme attribute observation
+    // (C6); an upstream rename re-pins there, not here.
     const apply = (): void => setTheme(resolvePierreDiffTheme())
     apply()
-    const observer = new MutationObserver(apply)
-    if (document.body !== null) {
-      observer.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme'] })
-    }
-    return () => { observer.disconnect() }
+    return subscribeDshDarkTheme(apply)
   }, [])
   return useMemo(() => theme, [theme])
 }

@@ -15,6 +15,7 @@
 import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useState } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Textarea } from '@dsh-studio/shared/ui'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 
@@ -65,7 +66,7 @@ export function CommentComposeCard({
       onPointerDown={event => event.stopPropagation()}
     >
       <div className={surfaceCss["dsh-studio-comment-compose-head"]}>{lineLabel}</div>
-      <textarea
+      <Textarea
         className={surfaceCss["dsh-studio-comment-compose-input"]}
         placeholder={placeholder}
         value={body}

@@ -189,6 +189,7 @@ export function ContentViewer({
       <PdfViewer
         path={path}
         data={data}
+        t={t}
         {...(onOpenExternal === undefined ? {} : { onOpenExternal })}
       />
     )
@@ -245,7 +246,7 @@ export function ContentViewer({
   if (kind === 'ipynb') {
     return (
       <div className={surfaceCss["dsh-studio-content-root"]}>
-        <IpynbViewer content={content} />
+        <IpynbViewer content={content} t={t} />
       </div>
     )
   }
@@ -266,6 +267,7 @@ export function ContentViewer({
             containerRef={textRootRef}
             content={content}
             taskTogglesEnabled={!truncated}
+            t={t}
             {...(onTaskToggle === undefined ? {} : { onTaskToggle })}
           />
           {selectionAction.overlay}
@@ -288,6 +290,7 @@ export function ContentViewer({
           language="markdown"
           lineNumbers={showLineNumbers}
           cacheKey={path}
+          t={t}
           {...(comments === undefined ? {} : { comments })}
           {...(rails === undefined ? {} : { rails })}
         />
@@ -333,6 +336,7 @@ export function ContentViewer({
         language={language}
         lineNumbers={showLineNumbers}
         cacheKey={path}
+        t={t}
         {...(comments === undefined ? {} : { comments })}
         {...(rails === undefined ? {} : { rails })}
       />
@@ -463,10 +467,12 @@ function PdfViewer({
   path,
   data,
   onOpenExternal,
+  t,
 }: {
   path: string
   data: string
   onOpenExternal?(): void
+  t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const name = basename(path)
   return (
@@ -479,7 +485,7 @@ function PdfViewer({
           : (
             <ToolbarAction
               icon={<IconExternalLink size={14} />}
-              label="Open externally"
+              label={t('files.open-externally')}
               onClick={onOpenExternal}
             />
           )}

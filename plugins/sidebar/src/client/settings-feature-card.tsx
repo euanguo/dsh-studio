@@ -10,6 +10,7 @@ import {
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { IconAdjustments } from '@dsh-studio/shared/tabler-icons'
 import { ErrorState, SettingsRow, Switch, ToolbarAction } from '@dsh-studio/shared/ui'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import type {
   SidebarSettingsProps,
 } from './client-types.ts'
@@ -62,7 +63,7 @@ export function FeatureSettingsPopup(props: {
         close: onClose,
       } satisfies SidebarSettingsRenderProps)
     } catch (error) {
-      body = <ErrorState message={error instanceof Error ? error.message : String(error)} />
+      body = <ErrorState message={errorMessage(error)} />
     }
   } else {
     body = (

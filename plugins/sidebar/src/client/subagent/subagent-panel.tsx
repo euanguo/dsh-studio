@@ -18,12 +18,12 @@
 import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
 } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
-import { sidebarApi } from '../sidebar-api.ts'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type {
@@ -38,6 +38,10 @@ import {
   subagentAutoOpenDecision,
   type SubagentTreeNode,
 } from './subagent-model.ts'
+import {
+  SubagentJobsRuntime,
+  sidebarJobsTransport,
+} from './jobs-runtime.ts'
 
 export interface SubagentPanelProps {
   sidebar: DesktopSidebarService
@@ -45,9 +49,6 @@ export interface SubagentPanelProps {
   runtime: SidebarRuntimeSettingsService
   t: Translate<WorkspaceMessage>
 }
-
-/** A job's replayed output, per job id ('…' = loading). */
-type OutputState = Record<string, string | 'loading'>
 
 export function SubagentPanel({
   sidebar,
@@ -60,9 +61,14 @@ export function SubagentPanel({
     sessions.list.getSnapshot,
   )
   const prefs = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot).preferences
-  const [outputs, setOutputs] = useState<OutputState>({})
-  const [killing, setKilling] = useState<Record<string, boolean>>({})
   const previousRef = useRef<SessionListState | undefined>(undefined)
+
+  // Jobs action state (output replay + kill) lives in a retained runtime keyed
+  // by sessionId:jobId so a job in one session never leaks into another (the
+  // "dual-key invalidation" requirement). The runtime is per-scope; the panel
+  // re-points it when the active session/cwd changes.
+  const jobsRuntime = useMemo(() => new SubagentJobsRuntime(sidebarJobsTransport(t)), [t])
+  const jobsSnapshot = useSyncExternalStore(jobsRuntime.subscribe, jobsRuntime.getSnapshot)
 
   // Auto-open: when a new subagent child or a new job appears for the
   // current session (gated by the two toggles), open the sidebar on this
@@ -90,28 +96,34 @@ export function SubagentPanel({
   const hasTopology = trees.length > 0
     || (current !== undefined && list.subagentsByParent?.[current] !== undefined)
 
+  // When the active session/cwd changes, invalidate the previous session's
+  // job state (dual-key invalidation on scope + session).
+  useEffect(() => {
+    jobsRuntime.setScope(scope, current ?? null)
+  }, [jobsRuntime, scope, current])
+
   const readOutput = (jobId: string): void => {
-    if (scope === null) return
-    setOutputs(prev => ({ ...prev, [jobId]: 'loading' }))
-    void sidebarApi.jobOutput(scope, jobId).then(
-      result => {
-        setOutputs(prev => ({
-          ...prev,
-          [jobId]: result.text === '' ? t('subagent.job-output-empty') : result.text,
-        }))
-      },
-      () => {
-        setOutputs(prev => ({ ...prev, [jobId]: t('subagent.job-output-failed') }))
-      },
-    )
+    if (current === undefined) return
+    void jobsRuntime.readOutput(current, jobId, t)
   }
 
   const killJob = (jobId: string): void => {
-    if (scope === null) return
-    setKilling(prev => ({ ...prev, [jobId]: true }))
-    void sidebarApi.jobKill(scope, jobId).finally(() => {
-      setKilling(prev => ({ ...prev, [jobId]: false }))
-    })
+    if (current === undefined) return
+    void jobsRuntime.kill(current, jobId)
+  }
+
+  const outputOf = (jobId: string): string | undefined => {
+    if (current === undefined) return undefined
+    const state = jobsSnapshot.outputs.get(`${current}:${jobId}`)
+    if (state === undefined) return undefined
+    if (state.status === 'loading') return 'loading'
+    if (state.status === 'error') return t('subagent.job-output-failed')
+    if (state.status === 'idle') return undefined
+    return state.text
+  }
+  const killingOf = (jobId: string): boolean => {
+    if (current === undefined) return false
+    return jobsSnapshot.killing.has(`${current}:${jobId}`)
   }
 
   const refresh = (): void => {
@@ -200,16 +212,16 @@ export function SubagentPanel({
                   variant="outline"
                   size="sm"
                   onClick={() => { killJob(job.id) }}
-                  disabled={scope === null || killing[job.id] === true
+                  disabled={scope === null || killingOf(job.id)
                     || job.status === 'completed' || job.status === 'killed'
                     || job.status === 'failed'}
                 >
                   {t('subagent.kill')}
                 </Button>
               </div>
-              {outputs[job.id] !== undefined && (
+              {outputOf(job.id) !== undefined && (
                 <pre className={surfaceCss["dsh-studio-subagent-job-output"]}>
-                  {outputs[job.id] === 'loading' ? t('overlay.loading') : outputs[job.id]}
+                  {outputOf(job.id) === 'loading' ? t('overlay.loading') : outputOf(job.id)}
                 </pre>
               )}
             </li>

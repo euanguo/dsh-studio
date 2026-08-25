@@ -1,3 +1,6 @@
+// // unwired-capability (leaf-R1 ①): restored arrow-key history mapping for the
+// // composer input. Not reached while composer history is dormant; kept as a
+// // pure, unit-tested helper.
 import type { InputHistoryDirection } from './input-history.ts'
 
 export interface ComposerCaret {

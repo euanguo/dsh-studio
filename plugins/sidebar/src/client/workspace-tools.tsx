@@ -6,10 +6,10 @@
  * on it without a plugin.tsx import cycle.
  */
 import {
+  useMemo,
   useSyncExternalStore,
 } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import { BottomWorkbench } from './bottom-workbench.tsx'
 import {
   createMountScheduler,
   findConversationColumn,
@@ -25,7 +25,7 @@ import { ToastHost } from '@dsh-studio/shared/toast'
 import { DialogHost } from './kit/dialog.tsx'
 import { SideToolsPanel } from './SideToolsPanel.tsx'
 import type { WorkspaceMessage } from './i18n.ts'
-import type { DesktopSidebarService, SidebarSnapshot } from './contract.ts'
+import type { DesktopSidebarService } from './contract.ts'
 import {
   binding,
   formatKeymapHint,
@@ -41,7 +41,7 @@ import type {
 import { applyChromeGeometry } from './chrome-geometry.ts'
 import { trajectoryTabButton } from './surfaces/dsh-dom.ts'
 import {
-  clampSidebarWidthForLayout,
+  clampSidebarWidth,
   SIDEBAR_COLLAPSE_THRESHOLD_PX,
 } from '../sidebar-preferences.ts'
 import { ensureSharedUiStyles } from '@dsh-studio/shared/ui'
@@ -50,8 +50,6 @@ import terminalViewCss from '@dsh-studio/shared/terminal-view.css'
 import xtermCss from '@xterm/xterm/css/xterm.css'
 
 export class WorkspaceToolsService implements WorkspaceTools {
-  private state: WorkspaceToolsState
-  private readonly listeners = new Set<() => void>()
   private stopSharedStyle: (() => void) | undefined
   private stopStyle: (() => void) | undefined
   private element: HTMLDivElement | undefined
@@ -66,11 +64,6 @@ export class WorkspaceToolsService implements WorkspaceTools {
   private stopKeymap: (() => void) | undefined
   private stopChromeGeometry: (() => void) | undefined
   private readonly disposeKeymapActions: Array<() => void> = []
-  // CUT (user preference): the bottom workbench (second pane) is no longer
-  // mounted under the conversation column — see mountBottomWorkbench below.
-  // private workbenchElement: HTMLDivElement | undefined
-  // private workbenchRoot: Root | undefined
-  // private stopWorkbenchObserver: (() => void) | undefined
 
   constructor(
     readonly sidebar: DesktopSidebarService,
@@ -80,29 +73,33 @@ export class WorkspaceToolsService implements WorkspaceTools {
     private readonly pinnedSummary: PinnedSummary,
     private readonly sessions: SessionsService,
     private readonly workspaces: WorkspacesService,
-  ) {
-    this.state = this.project(sidebar.getSnapshot())
+  ) {}
+
+  /** Live read of the panel geometry straight from the sidebar snapshot.
+   *  Only used by imperative methods; React surfaces derive their own memo.
+   */
+  private get panel(): WorkspaceToolsState {
+    const snapshot = this.sidebar.getSnapshot()
+    const active = snapshot.tabs.find(tab => tab.id === snapshot.activeId)
+    return {
+      maximized: snapshot.maximized,
+      open: snapshot.open,
+      view: active?.type ?? 'menu',
+      width: snapshot.width,
+    }
   }
 
-  getSnapshot = (): WorkspaceToolsState => this.state
-
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
-  }
-
-  /**
-   * A3: the ONE place encoding the right-panel ↔ pinned-summary mutual
-   * exclusion — opening or widening the side panel collapses the pinned
-   * summary card (and vice versa, enforced by the summary's own claim).
-   * Every panel-opening entry point funnels through here so the policy has
-   * exactly one home instead of being re-stated at each call site.
+  /** A3: the ONE place encoding the right-panel ↔ pinned-summary mutual
+   *  exclusion — opening or widening the side panel collapses the pinned
+   *  summary card (and vice versa, enforced by the summary's own claim).
+   *  Every panel-opening entry point funnels through here so the policy has
+   *  exactly one home instead of being re-stated at each call site.
    */
   private claimPanelExclusivity(): void {
     this.pinnedSummary.setOpen(false)
   }
 
-  isOpen(): boolean { return this.state.open }
+  isOpen(): boolean { return this.sidebar.getSnapshot().open }
 
   setOpen(open: boolean): void {
     if (open) this.claimPanelExclusivity()
@@ -111,7 +108,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   toggle(): void {
-    if (this.state.open && this.state.view === 'review') this.setOpen(false)
+    const panel = this.panel
+    if (panel.open && panel.view === 'review') this.setOpen(false)
     else this.openReview()
   }
 
@@ -139,8 +137,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   openFiles(): void {
-    const list = this.sessions.list.getSnapshot()
-    const cwd = list.current === undefined ? undefined : list.byId[list.current]?.cwd
+    const cwd = activeWorkspace(this.sessions)
     if (cwd === undefined || cwd === '') {
       // No workspace to browse: open the panel so the disabled files/Git
       // entries (with their hints) are visible, instead of a silent no-op
@@ -160,8 +157,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
    */
   private openDefaultView(): void {
     if (this.sidebar.getSnapshot().activeId !== null) return
-    const list = this.sessions.list.getSnapshot()
-    const cwd = list.current === undefined ? undefined : list.byId[list.current]?.cwd
+    const cwd = activeWorkspace(this.sessions)
     if (cwd === undefined || cwd === '') return
     this.openView('files', cwd)
   }
@@ -173,7 +169,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   toggleSidePanel(): void {
-    if (this.state.open) this.setOpen(false)
+    if (this.panel.open) this.setOpen(false)
     else {
       // Open from closed: start from the launcher, then apply the DEFAULT
       // view — a project with a workspace cwd lands on the file list, one
@@ -203,15 +199,16 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   togglePanelMaximized(): void {
-    if (!this.state.open) return
-    const maximized = !this.state.maximized
+    const panel = this.panel
+    if (!panel.open) return
+    const maximized = !panel.maximized
     this.sidebar.setMaximized(maximized)
     if (maximized) document.documentElement.dataset.dshStudioPanelMaximized = 'true'
     else delete document.documentElement.dataset.dshStudioPanelMaximized
   }
 
   setWidth(width: number): void {
-    this.sidebar.setWidth(clampSidebarWidthForLayout(width))
+    this.sidebar.setWidth(clampSidebarWidth(width))
   }
 
   /**
@@ -223,30 +220,31 @@ export class WorkspaceToolsService implements WorkspaceTools {
    * The final value is committed by {@link commitResizeWidth} on pointerup.
    */
   previewResizeWidth(rawWidth: number): void {
+    const panel = this.panel
     if (rawWidth < SIDEBAR_COLLAPSE_THRESHOLD_PX) {
       this.resizing = true
       const html = document.documentElement
       html.style.setProperty('--dsh-studio-sidebar-width', '0px')
       if (this.element !== undefined) this.element.style.width = '0px'
-      if (this.state.open) this.panels.previewRightPanel('0px')
+      if (panel.open) this.panels.previewRightPanel('0px')
       return
     }
     this.resizing = true
-    const width = clampSidebarWidthForLayout(rawWidth)
-    const fullWidth = this.state.maximized
+    const width = clampSidebarWidth(rawWidth)
+    const fullWidth = panel.maximized
     const html = document.documentElement
     html.style.setProperty('--dsh-studio-sidebar-width', `${String(width)}px`)
     if (this.element !== undefined) {
-      this.element.style.width = this.state.open
+      this.element.style.width = panel.open
         ? (fullWidth ? '100vw' : `${String(width)}px`)
         : '0px'
     }
-    if (this.state.open) {
+    if (panel.open) {
       // Mirror what claimRightPanel would produce once committed. While the
       // panel is dragged the sidebar is the only right-panel adapter moving;
       // the commit below re-asserts the claim so the coordinator stays the
       // owner of record.
-      this.panels.previewRightPanel(this.state.open && fullWidth ? '100vw' : `${String(width)}px`)
+      this.panels.previewRightPanel(panel.open && fullWidth ? '100vw' : `${String(width)}px`)
     }
   }
 
@@ -258,10 +256,10 @@ export class WorkspaceToolsService implements WorkspaceTools {
       this.setOpen(false)
       return
     }
-    const width = clampSidebarWidthForLayout(rawWidth)
-    if (width !== this.state.width) {
+    const width = clampSidebarWidth(rawWidth)
+    if (width !== this.panel.width) {
       this.sidebar.setWidth(width)
-      // setWidth publishes → syncSidebar → applyLayout() when it changed.
+      // setWidth publishes → the sidebar observer re-runs applyLayout().
       return
     }
     // Same width as the committed store value: the preview DOM writes are
@@ -271,8 +269,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   mount(): void {
-    if (this.state.open) this.claimPanelExclusivity()
-    this.stopSidebar = this.sidebar.subscribe(() => { this.syncSidebar() })
+    if (this.panel.open) this.claimPanelExclusivity()
+    this.stopSidebar = this.sidebar.subscribe(() => { this.onSidebarChanged() })
     this.stopSharedStyle = ensureSharedUiStyles('dsh-studio-sidebar-shared-ui')
     this.stopStyle = ensureStyle('dsh-studio-sidebar', [
       xtermCss,
@@ -315,16 +313,13 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.stopChromeGeometry = applyChromeGeometry()
     // Global (panel-level) shortcuts: registered for the app lifetime.
     // Surface-scoped shortcuts register from their mounted views.
-    // CUT: the bottom workbench no longer mounts under the conversation
-    // column (user preference); keep the panel-level shortcuts below.
-    // this.mountBottomWorkbench()
     this.disposeKeymapActions.push(
       registerKeymapAction('panel.toggle', binding({ mod: true, alt: true, key: 'b' }), () => {
         this.toggleSidePanel()
         return true
       }),
       registerKeymapAction('panel.maximizeEscape', binding({ key: 'Escape' }), () => {
-        if (!this.state.maximized) return false
+        if (!this.panel.maximized) return false
         this.togglePanelMaximized()
         return true
       }),
@@ -356,14 +351,6 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.stopKeymap = undefined
     this.stopChromeGeometry?.()
     this.stopChromeGeometry = undefined
-    // CUT: bottom-workbench cleanup (workbench root / element / observer)
-    // removed with the mounting chain.
-    // this.stopWorkbenchObserver?.()
-    // this.stopWorkbenchObserver = undefined
-    // this.workbenchRoot?.unmount()
-    // this.workbenchRoot = undefined
-    // this.workbenchElement?.remove()
-    // this.workbenchElement = undefined
     delete document.documentElement.dataset.dshStudioRightPanelWidth
     this.root?.unmount()
     this.element?.remove()
@@ -379,11 +366,6 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.panels.releaseRightPanel('sidebar')
   }
 
-  private publish(next: WorkspaceToolsState): void {
-    this.state = next
-    for (const listener of this.listeners) listener()
-  }
-
   private openView(view: string, resource?: string): void {
     this.claimPanelExclusivity()
     this.sidebar.openTab({
@@ -393,21 +375,13 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.sidebar.setOpen(true)
   }
 
-  private project(snapshot: SidebarSnapshot): WorkspaceToolsState {
-    const active = snapshot.tabs.find(tab => tab.id === snapshot.activeId)
-    return {
-      maximized: snapshot.maximized,
-      open: snapshot.open,
-      view: active?.type ?? 'menu',
-      width: snapshot.width,
-    }
-  }
-
-  private syncSidebar(): void {
-    const next = this.project(this.sidebar.getSnapshot())
-    if (next.open) this.claimPanelExclusivity()
-    this.publish(next)
-    if (next.maximized) {
+  /** Re-sync the DOM footprint whenever the sidebar snapshot changes (the
+   *  service's only subscription; the projection store it used to maintain
+   *  is gone — React surfaces read the sidebar snapshot directly). */
+  private onSidebarChanged(): void {
+    const panel = this.panel
+    if (panel.open) this.claimPanelExclusivity()
+    if (panel.maximized) {
       document.documentElement.dataset.dshStudioPanelMaximized = 'true'
     } else {
       delete document.documentElement.dataset.dshStudioPanelMaximized
@@ -415,19 +389,12 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.applyLayout()
   }
 
-  /**
-   * CUT (user preference): the bottom workbench is no longer mounted under
-   * the conversation column (its empty strip was persistent "hanging below
-   * the middle chain"). Restore by re-adding the workbench fields, this
-   * mount body and the `mountBottomWorkbench()` call in `mount()`.
-   */
-  private mountBottomWorkbench(): void {}
-
   private applyLayout(): void {
     const html = document.documentElement
-    const fullWidth = this.state.maximized
-    const widthCss = `${String(this.state.width)}px`
-    const overlayWidth = this.state.open
+    const panel = this.panel
+    const fullWidth = panel.maximized
+    const widthCss = `${String(panel.width)}px`
+    const overlayWidth = panel.open
       ? (fullWidth ? '100vw' : widthCss)
       : '0px'
 
@@ -439,16 +406,16 @@ export class WorkspaceToolsService implements WorkspaceTools {
     }
     // Full-width only for explicit maximize; the window minWidth guarantees
     // both side panels always fit, so no viewport-driven drawer mode exists.
-    if (this.state.open && fullWidth) {
+    if (panel.open && fullWidth) {
       if (html.dataset.dshStudioSidebarFullWidth !== 'true') html.dataset.dshStudioSidebarFullWidth = 'true'
     } else if (html.dataset.dshStudioSidebarFullWidth !== undefined) {
       delete html.dataset.dshStudioSidebarFullWidth
     }
-    if (this.state.open) {
+    if (panel.open) {
       if (html.dataset.dshStudioDesktopSidebarOpen !== 'true') html.dataset.dshStudioDesktopSidebarOpen = 'true'
       // Publish the resolved footprint so the DSH AppFrame patch can include
       // the plugin rail in its viewport-budget (forced-close) calculation.
-      const px = String(fullWidth ? window.innerWidth : this.state.width)
+      const px = String(fullWidth ? window.innerWidth : panel.width)
       if (html.dataset.dshStudioRightPanelWidth !== px) html.dataset.dshStudioRightPanelWidth = px
       // The #root squeeze is owned by the desktopPanels right-panel
       // coordinator — claim the footprint instead of writing global state.
@@ -472,6 +439,21 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 }
 
+/** The ONE cwd derivation for the panel: the current session's workspace
+ *  root, or the first non-blank workspace when none is active. Used by the
+ *  surface and the open/entry helpers (single source, no inline copies). */
+export function activeWorkspace(sessions: SessionsService): string | undefined {
+  const snapshot = sessions.list.getSnapshot()
+  const current = snapshot.current
+  const currentSummary = current === undefined ? undefined : snapshot.byId[current]
+  if (currentSummary?.cwd && currentSummary.cwd.trim() !== '') {
+    return currentSummary.cwd
+  }
+  return Object.values(snapshot.byId).find(
+    s => s.cwd && s.cwd.trim() !== '' && !s.blank,
+  )?.cwd
+}
+
 function WorkspaceToolsSurface(props: {
   locale: LocaleService
   t: Translate<WorkspaceMessage>
@@ -482,13 +464,25 @@ function WorkspaceToolsSurface(props: {
   workspaces: WorkspacesService
 }): JSX.Element {
   const t = useTranslate(props.locale, props.t)
-  const panelState = useSyncExternalStore(props.service.subscribe, props.service.getSnapshot)
-  const sessionList = useSyncExternalStore(props.sessions.list.subscribe, props.sessions.list.getSnapshot)
-  const current = sessionList.current
-  const currentSummary = current === undefined ? undefined : sessionList.byId[current]
-  const cwd = (currentSummary?.cwd && currentSummary.cwd.trim() !== '')
-    ? currentSummary.cwd
-    : Object.values(sessionList.byId).find(s => s.cwd && s.cwd.trim() !== '' && !s.blank)?.cwd
+  // The sidebar service is the single source of truth; derive the panel
+  // geometry with a memo keyed on the exact fields (referentially stable),
+  // instead of a second projected store.
+  const snapshot = useSyncExternalStore(props.sidebar.subscribe, props.sidebar.getSnapshot)
+  const panelState = useMemo(
+    () => {
+      const active = snapshot.tabs.find(tab => tab.id === snapshot.activeId)
+      return {
+        maximized: snapshot.maximized,
+        open: snapshot.open,
+        view: active?.type ?? 'menu',
+        width: snapshot.width,
+      }
+    },
+    [snapshot.activeId, snapshot.maximized, snapshot.open, snapshot.tabs, snapshot.width],
+  )
+  const cwd = activeWorkspace(props.sessions)
+  // Subscribe to session changes so the cwd-driven open policy re-derives.
+  void useSyncExternalStore(props.sessions.list.subscribe, props.sessions.list.getSnapshot)
   return (
     <>
       <SideToolsPanel

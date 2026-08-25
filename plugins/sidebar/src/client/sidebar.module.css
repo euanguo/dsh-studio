@@ -591,7 +591,7 @@ html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
 
 .dsh-studio-content-markdown code {
   font-family: var(--dsh-studio-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
 }
 
 /* Shiki-highlighted fenced blocks: the emitted pre carries its own theme
@@ -782,7 +782,7 @@ html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
 
 .dsh-studio-diff-tree-row :global(.dsh-studio-list-row-meta) {
   color: var(--dsw-alias-label-dimmed, #8c959f);
-  font-size: 10px;
+  font-size: var(--dsh-studio-font-xs);
 }
 
 .dsh-studio-diff-all-stack {
@@ -1057,7 +1057,7 @@ html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
   padding: 10px;
   overflow-x: auto;
   font-family: var(--dsh-studio-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
 }
 
 .dsh-studio-ipynb-markdown {
@@ -1111,7 +1111,7 @@ html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
   background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
   overflow-x: auto;
   font-family: var(--dsh-studio-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
 }
 
 /* ── Comment rails (R2): shared ToolbarAction gutter affordance + floating
@@ -1140,7 +1140,7 @@ html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
   color: var(--dsw-alias-label-primary, #fff);
 }
 .dsh-studio-comment-compose-head {
-  font-size: 11px;
+  font-size: var(--dsh-studio-font-sm);
   color: var(--dsw-alias-label-secondary, #b3b3b3);
   margin-bottom: 6px;
 }
@@ -1156,13 +1156,13 @@ html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
   padding: 2px 0;
   /* Explicit size — `font: inherit` was leaking the page body size into
      the placeholder (user report: "占位文字字号太大"). */
-  font-size: 13px;
+  font-size: var(--dsh-studio-font-lg);
   line-height: 1.5;
   font-family: inherit;
   box-sizing: border-box;
 }
 .dsh-studio-comment-compose-input::placeholder {
-  font-size: 13px;
+  font-size: var(--dsh-studio-font-lg);
   color: var(--dsw-alias-label-tertiary, #808080);
   opacity: 1;
 }
@@ -1348,7 +1348,7 @@ html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
   background: transparent;
   color: var(--dsw-alias-label-primary, #fff);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   text-align: left;
   padding: 7px 10px;
   border-radius: 6px;
@@ -1371,7 +1371,7 @@ html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
 }
 .dsh-studio-selection-conv-time {
   flex: none;
-  font-size: 11px;
+  font-size: var(--dsh-studio-font-sm);
   line-height: 1;
   color: var(--dsw-alias-label-tertiary, #808080);
   white-space: nowrap;

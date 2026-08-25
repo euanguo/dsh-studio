@@ -18,6 +18,7 @@ import {
   SourceControlRuntime,
   sidebarSourceControlTransport,
 } from './source-control-runtime.ts'
+export type { SourceControlRuntime } from './source-control-runtime.ts'
 import {
   WorkspaceFileRuntime,
   type WorkspaceFileTransport,
@@ -229,6 +230,8 @@ export function getDiffRuntime(scope: CapabilitiesScope): WorkspaceDiffRuntime {
         .then(result => parseGitReviewDiff(result.diff)),
     loadCommittedDoc: (baseRef, filePath, signal) =>
       sidebarApi.gitCommittedDiff(scope, baseRef, filePath, signal).then(result => result.diff),
+    loadImageDiff: (staged, filePath, signal) =>
+      sidebarApi.gitImageDiff(scope, filePath, staged, signal),
   }
   const runtime = new WorkspaceDiffRuntime(transport)
   runtime.setScope(scopeKey)

@@ -8,10 +8,11 @@ import {
 } from '../plugins/sidebar/src/client/sidebar-service.ts'
 import type { SidebarPreferencesStorage } from '../plugins/sidebar/src/client/sidebar-storage.ts'
 import {
-  clampSidebarWidthForLayout,
+  clampSidebarWidth,
   DEFAULT_SIDEBAR_PREFERENCES,
   parseSidebarPreferences,
   type DesktopSidebarPreferences,
+  SIDEBAR_MAX_TABS,
 } from '../plugins/sidebar/src/sidebar-preferences.ts'
 
 class MemorySidebarStorage implements SidebarPreferencesStorage {
@@ -37,9 +38,9 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
 }
 
 test('right sidebar width clamps to its own budget at any window size', () => {
-  assert.equal(clampSidebarWidthForLayout(700), 640)
-  assert.equal(clampSidebarWidthForLayout(200), 220)
-  assert.equal(clampSidebarWidthForLayout(480), 480)
+  assert.equal(clampSidebarWidth(700), 640)
+  assert.equal(clampSidebarWidth(200), 220)
+  assert.equal(clampSidebarWidth(480), 480)
 })
 
 function tab(
@@ -62,8 +63,9 @@ test('desktop sidebar validates the durable preference envelope', () => {
         activeId: 'file:a',
         lastUsed: 42,
         tabs: [{ id: 'file:a', type: 'file', title: 'a', resource: '/a' }],
-        // The bottom workbench is additive: the canonical parsed shape
-        // carries the defaults (legacy documents migrate to them).
+        // The bottom workbench is additive: the restored schema
+        // (leaf-R1 ②) round-trips the second-pane layout, so the canonical
+        // parsed shape carries the defaults (legacy documents migrate to them).
         bottomTabs: [],
         bottomActiveId: null,
       },
@@ -71,36 +73,92 @@ test('desktop sidebar validates the durable preference envelope', () => {
     pluginSettings: { 'my-plugin:db': { pageSize: 20 } },
   }
   assert.deepEqual(parseSidebarPreferences(valid), valid)
+  // The restored bottom-workbench schema read-backs `bottomTabs` and
+  // `bottomActiveId` (leaf-R1 ② / leaf-R2 ⑥): a hand-authored or persisted
+  // document keeps its second-pane layout instead of having it stripped.
+  {
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      workspaces: {
+        '/work/repo': {
+          ...valid.workspaces['/work/repo'],
+          bottomTabs: [{
+            id: 'file:b',
+            type: 'file',
+            title: 'b',
+            resource: '/b',
+          }],
+          bottomActiveId: 'file:b',
+        },
+      },
+    })
+    assert.ok(parsed !== undefined)
+    assert.deepEqual(
+      { ...parsed.workspaces['/work/repo'] },
+      {
+        ...valid.workspaces['/work/repo'],
+        bottomTabs: [{ id: 'file:b', type: 'file', title: 'b', resource: '/b' }],
+        bottomActiveId: 'file:b',
+      },
+    )
+  }
+  // F9/M2 field-level tolerance: below-min width still rejects the doc
+  // (top-level scalar contract), but per-entry corruption never wipes other
+  // projects' layouts and over-limit collections truncate instead of reject.
   assert.equal(parseSidebarPreferences({ ...valid, defaultWidth: 100 }), undefined)
   assert.equal(
     parseSidebarPreferences({ ...valid, defaultWidth: 720 })?.defaultWidth,
     640,
   )
-  assert.equal(parseSidebarPreferences({
-    ...valid,
-    workspaces: {
-      '/work/repo': { ...valid.workspaces['/work/repo'], activeId: 'missing' },
-    },
-  }), undefined)
-  // pluginSettings must stay JSON-safe (functions / NaN rejected).
-  assert.equal(parseSidebarPreferences({
-    ...valid,
-    pluginSettings: { x: { y: () => 1 } },
-  }), undefined)
-  assert.equal(parseSidebarPreferences({
-    ...valid,
-    pluginSettings: { x: { y: Number.NaN } },
-  }), undefined)
-  // tab meta must stay JSON-safe.
-  assert.equal(parseSidebarPreferences({
-    ...valid,
-    workspaces: {
-      '/work/repo': {
-        ...valid.workspaces['/work/repo'],
-        tabs: [{ id: 't', type: 'file', title: 'a', meta: { fn: () => 1 } }],
+  {
+    const good = valid.workspaces['/work/repo']
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      workspaces: {
+        '/work/good': { ...good },
+        '/work/bad': 'garbage', // non-object entry: dropped
       },
-    },
-  }), undefined)
+    })
+    assert.ok(parsed !== undefined)
+    assert.deepEqual(Object.keys(parsed.workspaces).sort(), ['/work/good'])
+  }
+  // Non-JSON-safe values drop the offending key/entry, not the document.
+  {
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      pluginSettings: { x: { y: () => 1 } },
+    })
+    assert.ok(parsed !== undefined)
+    assert.deepEqual(parsed.pluginSettings.x, {})
+  }
+  {
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      pluginSettings: { x: { y: Number.NaN } },
+    })
+    assert.ok(parsed !== undefined)
+    assert.deepEqual(parsed.pluginSettings.x, {})
+  }
+  {
+    const badTab = [{ id: 't', type: 'file', title: 'a', meta: { fn: () => 1 } }]
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      workspaces: { '/work/repo': { ...valid.workspaces['/work/repo'], tabs: badTab } },
+    })
+    assert.ok(parsed !== undefined)
+    assert.equal(parsed.workspaces['/work/repo']!.tabs.length, 0)
+  }
+  {
+    const many = Array.from({ length: SIDEBAR_MAX_TABS + 5 }, (_, i) => ({
+      id: `t${String(i)}`, type: 'file', title: `t${String(i)}`, resource: `/t${String(i)}`,
+    }))
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      workspaces: { '/work/repo': { ...valid.workspaces['/work/repo'], tabs: many } },
+    })
+    assert.ok(parsed !== undefined)
+    assert.equal(parsed.workspaces['/work/repo']!.tabs.length, SIDEBAR_MAX_TABS)
+  }
 })
 
 test('desktop sidebar restores workspaces and deduplicates registered tabs', async () => {
@@ -218,7 +276,12 @@ test('desktop sidebar persists bounded layouts and forwards enablement to settin
     viewersEnabled: { text: false },
   })
   assert.equal(storage.value.workspaces['/work/repo']?.tabs.length, 1)
-  assert.equal(storage.writes.length, 1)
+  // R1 switched persistence to the pull-driven `persistVia` facade: each
+  // mutator that mutates a persisted bucket fires one save (openTab →
+  // writeTarget, setWidth, setOpenByDefault), instead of one debounced
+  // flush pump. So 3 saves land here; the bounded-layout intent (width and
+  // single tab retained under the project bucket) is asserted above.
+  assert.equal(storage.writes.length, 3)
 })
 
 test('sidebar contract reports version and a monotonic feature list', async () => {

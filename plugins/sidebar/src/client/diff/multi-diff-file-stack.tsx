@@ -8,7 +8,7 @@
  * the outer scroll position) and re-mounts when the user scrolls back.
  */
 import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceMessage } from '../i18n.ts'
@@ -21,6 +21,7 @@ import { commentsToDiffLineAnnotations } from './comment-annotations.ts'
 import { CommentBubble } from './comment-bubble.tsx'
 import { reviewFileToDiffDocument, type GitReviewFile } from './git-review-diff.ts'
 import type { PierreDiffTheme } from './pierre-adapter.tsx'
+import type { DiffLineAnnotation } from '@pierre/diffs'
 
 const OBSERVER_ROOT_MARGIN = '320px 0px'
 const KEEP_BAND_ROOT_MARGIN = '1600px 0px'
@@ -131,9 +132,19 @@ function MultiDiffFileBlock({
     () => commentsToDiffLineAnnotations(fileComments),
     [fileComments],
   )
-  const rails = cwd === undefined ? null : useCommentRails({
+  // Stable renderAnnotation for the memoized DiffViewer (C17): an inline
+  // arrow would be a fresh reference every render, defeating the memo when
+  // the block carries line comments. `t` lives at the block's scope.
+  const renderAnnotation = useCallback(
+    (annotation: DiffLineAnnotation<WorkbenchComment>) => <CommentBubble comment={annotation.metadata} t={t} />,
+    [t],
+  )
+  // Hook called unconditionally (Rules of Hooks, C1): `cwd` may be
+  // undefined, but the hook itself stays inert for a surfaceless cwd instead
+  // of being conditionally invoked.
+  const rails = useCommentRails({
     path: file.path,
-    cwd,
+    ...(cwd === undefined ? {} : { cwd }),
     comments: fileComments,
     t,
     layer: typeof window === 'undefined' ? null : window.document.body,
@@ -150,7 +161,7 @@ function MultiDiffFileBlock({
     cwd,
     layer: typeof window === 'undefined' ? null : window.document.body,
     sessions: sessions ?? null,
-    ...(rails === null ? {} : { onComment: anchor => rails.composeAt(commentAnchorOf(anchor)) }),
+    onComment: anchor => rails.composeAt(commentAnchorOf(anchor)),
     t,
   })
   const latestHeightRef = useRef<number | null>(null)
@@ -234,7 +245,7 @@ function MultiDiffFileBlock({
               emitted no @@ headers for review-style documents, so Pierre
               parsed 0 hunks and rendered nothing — fixed in file-diff.ts.
             */}
-            {rails?.overlay()}
+            {rails.overlay()}
             {selectionAction.overlay}
             <DiffViewer
               document={document}
@@ -246,13 +257,11 @@ function MultiDiffFileBlock({
               hideMeta
               cacheBust={`multi:${file.path}`}
               {...(fileComments.length > 0
-                ? { lineAnnotations, renderAnnotation: annotation => <CommentBubble comment={annotation.metadata} /> }
+                ? { lineAnnotations, renderAnnotation }
                 : {})}
-              {...(rails === null ? {} : {
-                onLineEnter: rails.onLineEnter,
-                onLineLeave: rails.onLineLeave,
-                renderGutterUtility: rails.gutterUtility,
-              })}
+              onLineEnter={rails.onLineEnter}
+              onLineLeave={rails.onLineLeave}
+              renderGutterUtility={rails.gutterUtility}
             />
           </div>
         </div>

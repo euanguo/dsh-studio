@@ -72,76 +72,6 @@ function lineNumberOf(el: Element): number | null {
 }
 
 /**
- * Resolve the selection's line/column span robustly. Unlike the
- * container-walk approach, this works even when the selection's
- * startContainer is a light-DOM wrapper (the CDP drag-select can anchor at
- * a light-DOM boundary): it finds the rendered line elements that the
- * selection range intersects, then resolves columns against the first/last
- * intersecting line via caret positions at the selection's visual edges.
- *
- * Returns null when no line element intersects the selection.
- */
-export function resolveSelectionSpan(container: HTMLElement): SelectionSpan | null {
-  if (typeof window === 'undefined' || typeof document === 'undefined') return null
-  const selection = window.getSelection()
-  if (selection === null || selection.rangeCount === 0) return null
-  const range = selection.getRangeAt(0)
-
-  const lineEls = collectLineElements(container)
-  // Geometric intersection: `range.intersectsNode` fails for shadow-DOM rows
-  // when the selection's boundary points sit in light DOM (the CDP
-  // drag-select can anchor there). Compare each row's bounding rect against
-  // the selection's client rects instead — a row is selected when its rect
-  // overlaps any selection rect.
-  const selRects = Array.from(range.getClientRects())
-  if (selRects.length === 0) return null
-  const intersecting: Array<{ el: Element; line: number }> = []
-  for (const el of lineEls) {
-    const line = lineNumberOf(el)
-    if (line === null) continue
-    const r = el.getBoundingClientRect()
-    if (r.width === 0 || r.height === 0) continue
-    const hit = selRects.some(sr =>
-      sr.left < r.right && sr.right > r.left && sr.top < r.bottom && sr.bottom > r.top,
-    )
-    if (hit) intersecting.push({ el, line })
-  }
-  if (intersecting.length === 0) return null
-
-  const startLine = Math.min(...intersecting.map(x => x.line))
-  const endLine = Math.max(...intersecting.map(x => x.line))
-  const startEl = intersecting.find(x => x.line === startLine)?.el
-  const endEl = intersecting.find(x => x.line === endLine)?.el
-
-  let startColumn: number | undefined
-  let endColumn: number | undefined
-  const rects = range.getClientRects()
-  if (rects.length > 0) {
-    const first = rects[0]
-    const last = rects[rects.length - 1]
-    if (startEl !== undefined && first !== undefined) {
-      startColumn = columnAtPoint(startEl, first.left + 1, first.top + 1) ?? undefined
-    }
-    if (endEl !== undefined && last !== undefined) {
-      endColumn = columnAtPoint(endEl, last.right - 1, last.bottom - 1) ?? undefined
-    }
-  }
-  return {
-    startLine,
-    endLine,
-    ...(startColumn === undefined ? {} : { startColumn }),
-    ...(endColumn === undefined ? {} : { endColumn }),
-  }
-}
-
-/** Column of the caret at viewport point (x, y) within `lineElement`. */
-function columnAtPoint(lineElement: Element, x: number, y: number): number | null {
-  const caret = caretFromPoint(x, y)
-  if (caret === null) return null
-  return columnFromNode(lineElement, caret.node, caret.offset)
-}
-
-/**
  * Map a viewport point to the line number whose rendered row rect contains
  * it (shadow-aware). Returns null when the point falls outside every row.
  */
@@ -166,6 +96,13 @@ export function lineNumberAtPoint(container: HTMLElement, x: number, y: number):
     if (best === null || dy < best.dy) best = { line, dy }
   }
   return best === null ? null : best.line
+}
+
+/** Column of the caret at viewport point (x, y) within `lineElement`. */
+function columnAtPoint(lineElement: Element, x: number, y: number): number | null {
+  const caret = caretFromPoint(x, y)
+  if (caret === null) return null
+  return columnFromNode(lineElement, caret.node, caret.offset)
 }
 
 /**

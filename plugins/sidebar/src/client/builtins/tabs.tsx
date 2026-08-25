@@ -35,8 +35,8 @@ export function builtinTabs(deps: SidebarBuiltinDeps): readonly SidebarTabDescri
       render: () => (
         <WorkspacePanel
           reviewComments={deps.reviewComments}
-          service={deps.service}
           sessions={deps.sessions}
+          sidebar={deps.sidebar}
           t={t}
         />
       ),

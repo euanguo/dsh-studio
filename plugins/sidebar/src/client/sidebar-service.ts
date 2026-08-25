@@ -37,6 +37,8 @@ import {
   type PersistedWorkspaceLayout,
 } from '../sidebar-preferences.ts'
 import type { SidebarPreferencesStorage } from './sidebar-storage.ts'
+import { persistVia, type PersistViaHandle } from '@dsh-studio/shared/store-persistence'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import {
   SIDEBAR_FEATURES,
   SIDEBAR_SERVICE_VERSION,
@@ -96,7 +98,7 @@ function titleOf(descriptor: SidebarTabDescriptor): string {
 }
 
 function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  return errorMessage(error)
 }
 
 /** Clamp a reorder destination into `0..limit-1` (limit 0 → 0). */
@@ -156,11 +158,14 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   private readonly viewerDescriptors = new Map<string, SidebarViewerDescriptor>()
   private readonly surfaceRenderers = new Map<CenterSurfaceKind, (surface: CenterSurface) => ReactNode>()
   private preferences = freshPreferences()
-  private dirty = false
   private disposed = false
-  private flushing: Promise<void> | undefined
   private instance = 0
   private readonly storage: SidebarPreferencesStorage
+  /** Template-C persistence pump: hydrate is driven by `start()`; the facade
+   *  owns the single-flight flush and the teardown drain. */
+  private readonly persist: PersistViaHandle
+  /** Serializes saves so `settle()` can drain before host teardown. */
+  private writeQueue: Promise<void> = Promise.resolve()
   private readonly onFeatureEnablementChange: ((next: {
     tabsEnabled: Record<string, boolean>
     viewersEnabled: Record<string, boolean>
@@ -169,6 +174,10 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   private viewersEnabled: Record<string, boolean> = {}
   private snapshot: SidebarSnapshot = {
     activeId: null,
+    // // unwired-capability (leaf-R2 ①): BOTTOM workbench snapshot fields
+    // // restored as published dormant contract — the workbench is not
+    // // mounted pending a product decision, so they stay null/empty until
+    // // a dock UI re-wires the bottom methods below.
     bottomActiveId: null,
     bottomTabs: [],
     error: null,
@@ -200,6 +209,29 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   ) {
     this.storage = storage
     this.onFeatureEnablementChange = onFeatureEnablementChange
+    this.persist = persistVia<DesktopSidebarPreferences>(
+      {
+        // Pull-driven: schedulePersist() fires at the same mutators that used
+        // to call the hand-written flush pump.
+        subscribe: () => () => {},
+        snapshot: () => clonePreferences(this.preferences),
+        apply: () => {}, // hydration is owned by `start()` (awaited load)
+      },
+      {
+        // `DomainSidebarPreferencesStorage.save` flushes the ui-chrome table
+        // internally; a write queue still gives `settle()` a drain handle so
+        // teardown never returns before the last write lands.
+        backend: {
+          load: () => storage.load(),
+          save: value => {
+            this.writeQueue = this.writeQueue.then(() => storage.save(value))
+          },
+          flush: () => this.writeQueue.catch(() => {}),
+        },
+        merge: (stored, current) => current,
+        hydrate: false,
+      },
+    )
   }
 
   getSnapshot = (): SidebarSnapshot => this.snapshot
@@ -455,28 +487,6 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       this.focusExisting(target, existing, scope)
       return { kind: 'focused', tab: existing }
     }
-    // The bottom workbench holds the same tab vocabulary: a dedupe hit
-    // there focuses the DOCKED tab (the pane shows it without duplicating).
-    const bottomTabs = this.workspaceOf(target.cwd).bottomTabs ?? []
-    const docked = bottomTabs.find(candidate => {
-      if (candidate.id === tab.id) return true
-      if (candidate.type !== tab.type || key === undefined) return false
-      const candidateKey = descriptor.dedupeKey?.(candidate)
-        ?? (descriptor.single === true ? descriptor.id : undefined)
-      return candidateKey === key
-    })
-    if (docked !== undefined) {
-      this.writeTarget(
-        target,
-        tabs,
-        this.workspaceOf(target.cwd).activeId,
-        { activeId: docked.id },
-      )
-      safeCall(() => descriptor.onActivate?.(docked, scope ?? {
-        cwd: target.cwd,
-      }))
-      return { kind: 'focused', tab: docked }
-    }
     if (tabs.length >= SIDEBAR_MAX_TABS) return { kind: 'limit' }
     const nextTabs = created?.patch?.tabs !== undefined
       ? [...created.patch.tabs]
@@ -563,7 +573,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     }, scope)
   }
 
-  /* ── bottom workbench + tab drag layout ─────────────────────── */
+  /* ── tab drag layout ─────────────────────────────────────────── */
 
   reorderTabs(sourceId: string, targetId: string | null | undefined, side: 'before' | 'after' = 'after'): void {
     const target = this.targetOf()
@@ -587,6 +597,12 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     this.writeTarget(target, tabs, workspace.activeId)
   }
 
+  // // unwired-capability (leaf-R2 ①): the BOTTOM workbench methods are
+  // // restored as dormant contract — the workbench is not mounted pending a
+  // // product decision, so nothing calls these yet. Restored verbatim from
+  // // HEAD so the service face matches `DesktopSidebarService`; wiring them
+  // // up (dock/drag/close UI) re-enables the capability without a contract
+  // // change. `workspaceOf`/`writeTarget` already persist the bottom bucket.
   dockTabToBottom(tabId: string, targetId: string | null | undefined, side: 'before' | 'after' = 'after'): void {
     const target = this.targetOf()
     if (target === null) return
@@ -798,11 +814,10 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       const key = this.layoutKey(this.snapshot.cwd)
       const workspace = this.preferences.workspaces[key]
       this.preferences.workspaces[key] = {
-        ...(workspace ?? { activeId: null, tabs: [], bottomTabs: [], bottomActiveId: null }),
+        ...(workspace ?? { activeId: null, tabs: [] }),
         lastUsed: Date.now(),
         width: next,
         tabs: (workspace?.tabs ?? []).map(tab => ({ ...tab })),
-        bottomTabs: (workspace?.bottomTabs ?? []).map(tab => ({ ...tab })),
       }
       this.schedulePersist()
     } else {
@@ -893,7 +908,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   }
 
   async settle(): Promise<void> {
-    await this.flushing
+    await this.persist.flush()
   }
 
   /** The target workspace of an operation: the explicit scope or the active
@@ -937,8 +952,6 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       activeId: null,
       lastUsed: 0,
       tabs: [],
-      bottomTabs: [],
-      bottomActiveId: null,
     }
   }
 
@@ -1031,24 +1044,6 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
 
   private schedulePersist(): void {
     if (!this.snapshot.ready || this.disposed) return
-    this.dirty = true
-    if (this.flushing === undefined) {
-      this.flushing = this.flush().finally(() => { this.flushing = undefined })
-      void this.flushing.catch(error => {
-        this.publish({
-          ...this.snapshot,
-          error: messageOf(error),
-          revision: this.snapshot.revision + 1,
-        })
-      })
-    }
-  }
-
-  private async flush(): Promise<void> {
-    await Promise.resolve()
-    while (this.dirty && !this.disposed) {
-      this.dirty = false
-      await this.storage.save(clonePreferences(this.preferences))
-    }
+    this.persist.fire()
   }
 }

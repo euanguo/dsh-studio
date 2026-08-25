@@ -14,6 +14,7 @@ import {
   SOURCE_CONTROL_AI_SETTINGS_NS,
 } from '@dsh-studio/shared/capabilities-api'
 import type { CapabilitiesSourceControlAiModel } from '@dsh-studio/shared/capabilities-api'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import {
   Field,
   FieldDescription,
@@ -86,7 +87,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
       setModels(catalog.models)
       setFallback(catalog.defaultModel)
     } catch (cause) {
-      setStatus({ tone: 'error', message: cause instanceof Error ? cause.message : String(cause) })
+      setStatus({ tone: 'error', message: errorMessage(cause) })
     } finally {
       setLoading(false)
     }
@@ -167,7 +168,7 @@ export function SourceControlAiSettingsPanel(props: Props): JSX.Element {
       if (value !== undefined) setSettings(value)
       setStatus({ tone: 'success', message: props.t('source-control-ai.saved') })
     } catch (cause) {
-      setStatus({ tone: 'error', message: cause instanceof Error ? cause.message : String(cause) })
+      setStatus({ tone: 'error', message: errorMessage(cause) })
     } finally {
       setSaving(false)
     }

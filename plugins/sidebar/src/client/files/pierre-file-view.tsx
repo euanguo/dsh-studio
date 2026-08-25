@@ -16,6 +16,8 @@ import type { FileContents, LineAnnotation } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { basename } from '@dsh-studio/shared/path'
 import type { WorkbenchComment } from '../diff/diff-comments-store.ts'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import type { WorkspaceMessage } from '../i18n.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 
 export interface PierreFileViewProps {
@@ -31,6 +33,7 @@ export interface PierreFileViewProps {
   comments?: readonly WorkbenchComment[]
   /** Hover-comment rails wiring (gutter "+" + composer overlay). */
   rails?: CommentRails
+  t: Translate<WorkspaceMessage>
 }
 
 export function PierreFileView({
@@ -41,6 +44,7 @@ export function PierreFileView({
   cacheKey,
   comments,
   rails,
+  t,
 }: PierreFileViewProps): JSX.Element {
   const theme = usePierreDiffTheme()
   const file = useMemo<FileContents>(() => ({
@@ -72,7 +76,7 @@ export function PierreFileView({
           : {
               lineAnnotations,
               renderAnnotation: (annotation: LineAnnotation<WorkbenchComment>) => (
-                <CommentBubble comment={annotation.metadata} />
+                <CommentBubble comment={annotation.metadata} t={t} />
               ),
             })}
         {...(rails === undefined

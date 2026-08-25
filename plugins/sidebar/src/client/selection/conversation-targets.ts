@@ -11,6 +11,7 @@
  */
 import type { ReviewAgentContext, ReviewSessionsService } from '../review/review-comments.ts'
 import type { SessionsService } from '../client-types.ts'
+import { recordSelectionReference, SELECTION_SOURCE } from './slash-source.ts'
 
 /** A conversation the selection can be sent to. */
 export interface ConversationTarget {
@@ -120,6 +121,9 @@ function inputDraftState(input: TargetComposerInput): string {
  * carries the fenced payload as its clipboard text, and is removable as one
  * unit — the same mechanism the review-comments bridge uses.
  *
+ * Each chip gets a UNIQUE ref (C15) so multiple selections can coexist in
+ * one draft without clobbering each other's serialized payload.
+ *
  * Returns 'inserted' when the chip landed, 'unavailable' when the target
  * conversation's composer is unreachable or rejects the reference.
  */
@@ -138,13 +142,16 @@ export function insertReferenceIntoConversation(
   }).state?.getSnapshot?.()
   const draft = typeof state?.draft === 'string' ? state.draft : ''
   const draftRev = typeof state?.draftRev === 'number' ? state.draftRev : 0
-  // Record the model text for the codec (serialize happens at submit time;
-  // occurrences only carry label/clipboardText, not the serialized form).
-  recordSelectionReference(SELECTION_REF, input.clipboardText)
+  // Record the model text under a per-chip ref so the codec can look it up
+  // at submit time (C15). Uses crypto.randomUUID when available.
+  const ref = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `selection-${String(Date.now())}-${Math.random().toString(36).slice(2, 8)}`
+  recordSelectionReference(ref, input.clipboardText)
   const ok = context.bail(context, 'slash/input-insert-reference', {
     reference: {
       source: SELECTION_SOURCE,
-      ref: SELECTION_REF,
+      ref,
       label: input.label,
       clipboardText: input.clipboardText,
     },
@@ -152,5 +159,3 @@ export function insertReferenceIntoConversation(
   })
   return ok === true ? 'inserted' : 'unavailable'
 }
-
-import { recordSelectionReference, SELECTION_REF, SELECTION_SOURCE } from './slash-source.ts'

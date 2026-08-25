@@ -13,7 +13,7 @@ import {
   type SidebarChromeSlice,
   type SidebarChromeState,
 } from '@dsh-studio/shared/ui-chrome-tables'
-import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
+import { persistVia } from '@dsh-studio/shared/store-persistence'
 
 export type { GitListMode, SidebarChromeSlice } from '@dsh-studio/shared/ui-chrome-tables'
 export type ExplorerChromeSlice = SidebarChromeSlice['explorer']
@@ -28,6 +28,8 @@ interface SidebarChromeActions {
   toggleSourceControlSection: (scopeKey: string, id: string) => void
   toggleSourceControlDirectory: (scopeKey: string, key: string) => void
   setGitListMode: (scopeKey: string, mode: GitListMode) => void
+  setDiffViewLayout: (scopeKey: string, layout: 'unified' | 'split') => void
+  setDiffViewWordWrap: (scopeKey: string, wordWrap: boolean) => void
   clearScope: (scopeKey: string) => void
 }
 
@@ -157,6 +159,32 @@ export const useSidebarChromeStore = create<SidebarChromeStore>()((set, get) => 
     })
   },
 
+  setDiffViewLayout: (scopeKey, layout) => {
+    set(state => {
+      const slice = readSlice(state, scopeKey)
+      if (slice.diffView.layout === layout) return state
+      return {
+        byScope: writeSlice(state, scopeKey, {
+          ...slice,
+          diffView: { ...slice.diffView, layout },
+        }),
+      }
+    })
+  },
+
+  setDiffViewWordWrap: (scopeKey, wordWrap) => {
+    set(state => {
+      const slice = readSlice(state, scopeKey)
+      if (slice.diffView.wordWrap === wordWrap) return state
+      return {
+        byScope: writeSlice(state, scopeKey, {
+          ...slice,
+          diffView: { ...slice.diffView, wordWrap },
+        }),
+      }
+    })
+  },
+
   clearScope: scopeKey => {
     set(state => {
       if (state.byScope[scopeKey] === undefined) return state
@@ -167,42 +195,101 @@ export const useSidebarChromeStore = create<SidebarChromeStore>()((set, get) => 
   },
 }))
 
-const storage = createUiChromeStorage<SidebarChromeState>({
-  table: UI_CHROME_TABLES.sidebarChrome,
-  defaults: defaultSidebarChromeState,
-  sanitize: sanitizeSidebarChrome,
-  debounceMs: 250,
-})
+// -- persistence (template C, field-level merge) --------------------------
 
-function snapshot(): SidebarChromeState {
+function mergeStringLists(stored: readonly string[], current: readonly string[]): string[] {
+  // Union: persisted items already expanded/collapsed stay, early toggles are
+  // added. Dedupe preserves stored ordering then appends new early additions.
+  const seen = new Set<string>(stored)
+  const merged = [...stored]
+  for (const item of current) {
+    if (!seen.has(item)) {
+      seen.add(item)
+      merged.push(item)
+    }
+  }
+  return merged
+}
+
+/**
+ * Field-level merge of a stored chrome document with concurrent early UI
+ * changes. Scalar fields prefer the stored value and only accept the current
+ * value when it differs from the default sentinel (i.e. the user changed it
+ * before hydration); list fields (`expandedPaths`, collapsed sets) UNION the
+ * two sources so an early toggle never discards a persisted path. This is the
+ * F11 fix: the old whole-scope `{ ...value.byScope, ...current }` replaced an
+ * entire persisted scope with the in-memory projection and lost early work.
+ */
+export function mergeSidebarChrome(
+  stored: SidebarChromeState,
+  current: SidebarChromeState,
+): SidebarChromeState {
+  const byScope: Record<string, SidebarChromeSlice> = {}
+  const scopes = new Set([...Object.keys(stored.byScope), ...Object.keys(current.byScope)])
+  for (const scope of scopes) {
+    const storedSlice = stored.byScope[scope]
+    const currentSlice = current.byScope[scope]
+    if (storedSlice === undefined) {
+      if (currentSlice !== undefined) byScope[scope] = currentSlice
+      continue
+    }
+    if (currentSlice === undefined) { byScope[scope] = storedSlice; continue }
+    const defaults = defaultSidebarChromeSlice()
+    byScope[scope] = {
+      explorer: {
+        expandedPaths: mergeStringLists(
+          storedSlice.explorer.expandedPaths,
+          currentSlice.explorer.expandedPaths,
+        ),
+        selectedPath: currentSlice.explorer.selectedPath ?? storedSlice.explorer.selectedPath,
+      },
+      sourceControl: {
+        collapsedSections: mergeStringLists(
+          storedSlice.sourceControl.collapsedSections,
+          currentSlice.sourceControl.collapsedSections,
+        ),
+        collapsedDirectories: mergeStringLists(
+          storedSlice.sourceControl.collapsedDirectories,
+          currentSlice.sourceControl.collapsedDirectories,
+        ),
+        selectedPath: currentSlice.sourceControl.selectedPath ?? storedSlice.sourceControl.selectedPath,
+        commitMessage: currentSlice.sourceControl.commitMessage || storedSlice.sourceControl.commitMessage,
+      },
+      gitListMode: currentSlice.gitListMode === defaults.gitListMode
+        ? storedSlice.gitListMode
+        : currentSlice.gitListMode,
+      diffView: {
+        layout: currentSlice.diffView.layout === defaults.diffView.layout
+          ? storedSlice.diffView.layout
+          : currentSlice.diffView.layout,
+        wordWrap: currentSlice.diffView.wordWrap === defaults.diffView.wordWrap
+          ? storedSlice.diffView.wordWrap
+          : currentSlice.diffView.wordWrap,
+      },
+    }
+  }
+  return { byScope }
+}
+
+function chromeSnapshot(): SidebarChromeState {
   return { byScope: structuredClone(useSidebarChromeStore.getState().byScope) }
 }
 
-/** Start one storage subscriber and hydrate without overwriting early UI work. */
+/** Start one persistence facade: subscribe→save, hydrate with merge, flush. */
 export function startSidebarChromePersistence(): () => void {
-  let active = true
-  let hydrated = false
-  let changedBeforeHydrate = false
-  let applyingHydration = false
-  const stop = useSidebarChromeStore.subscribe(() => {
-    if (applyingHydration) return
-    if (hydrated) storage.save(snapshot())
-    else changedBeforeHydrate = true
-  })
-  void storage.load().then(value => {
-    if (!active) return
-    applyingHydration = true
-    const current = useSidebarChromeStore.getState().byScope
-    useSidebarChromeStore.setState({
-      byScope: changedBeforeHydrate ? { ...value.byScope, ...current } : value.byScope,
-    })
-    applyingHydration = false
-    hydrated = true
-    if (changedBeforeHydrate) storage.save(snapshot())
-  })
-  return () => {
-    active = false
-    stop()
-    void storage.flush()
-  }
+  const handle = persistVia<SidebarChromeState>(
+    {
+      subscribe: listener => useSidebarChromeStore.subscribe(listener),
+      snapshot: chromeSnapshot,
+      apply: value => useSidebarChromeStore.setState({ byScope: value.byScope }),
+    },
+    {
+      table: UI_CHROME_TABLES.sidebarChrome,
+      defaults: defaultSidebarChromeState,
+      sanitize: sanitizeSidebarChrome,
+      merge: mergeSidebarChrome,
+      debounceMs: 250,
+    },
+  )
+  return () => handle.stop()
 }

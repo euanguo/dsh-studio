@@ -19,7 +19,7 @@ import type {
   SourceControlActionKind,
   SourceControlActionState,
 } from './source-control-actions.ts'
-import { Textarea } from '@dsh-studio/shared/ui'
+import { StatusLine, Textarea } from '@dsh-studio/shared/ui'
 import type { SourceControlOperationState } from './source-control-action-controller.ts'
 
 export interface CommitAreaProps {
@@ -140,8 +140,12 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
           ><IconPlayerStop size={14} /></Button>
         )}
       </div>
-      {props.generationError !== null && <small role="alert" className={surfaceCss["dsh-studio-commit-error"]}>{props.generationError}</small>}
-      {props.operation.phase === 'error' && <small role="alert" className={surfaceCss["dsh-studio-commit-error"]}>{props.operation.message}</small>}
+      {props.generationError !== null && (
+        <StatusLine tone="error" className={surfaceCss["dsh-studio-commit-error"]}>{props.generationError}</StatusLine>
+      )}
+      {props.operation.phase === 'error' && (
+        <StatusLine tone="error" className={surfaceCss["dsh-studio-commit-error"]}>{props.operation.message}</StatusLine>
+      )}
       <div className={surfaceCss["dsh-studio-commit-actions"]}>
         <Button
           variant="outline"

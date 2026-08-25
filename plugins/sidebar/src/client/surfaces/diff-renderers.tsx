@@ -8,10 +8,9 @@ import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { sidebarApi } from '../sidebar-api.ts'
 import { getDiffRuntime, sidebarScopeKey } from '../runtimes/registry.ts'
 import { useSidebarChromeStore } from '../runtimes/chrome-store.ts'
-import { worktreeDocKey, worktreeListKey } from '../runtimes/diff-runtime.ts'
+import { worktreeDocKey, worktreeListKey, worktreeImageKey } from '../runtimes/diff-runtime.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
@@ -35,6 +34,7 @@ import { formatSelectionLabel } from '../selection/selection-reference.ts'
 import { buildCommentReference } from '../comments/comment-rails-core.ts'
 import type { SessionsService } from '../client-types.ts'
 import type { GitReviewFile } from '../diff/git-review-diff.ts'
+import type { DiffImageEntry } from '../runtimes/diff-runtime.ts'
 import type { DiffAllCenterSurface, DiffCenterSurface } from './types.ts'
 
 /** Single-file diff render caps (fall back to the too-large notice). */
@@ -58,7 +58,6 @@ export function DiffSurfaceView({
 }): JSX.Element {
   const [context, setContext] = useState(DIFF_CONTEXT_INITIAL)
   const [expanding, setExpanding] = useState(false)
-  const [imageDiff, setImageDiff] = useState<{ oldData: string; newData: string } | null>(null)
   const scrollRef = useRef<HTMLDivElement | null>(null)
   // Cooldown after "Expand context" (the button re-enables when it fires).
   const expandTimerRef = useRef<number | null>(null)
@@ -67,8 +66,8 @@ export function DiffSurfaceView({
   }, [])
   const isImagePath = /\.(png|jpe?g|gif|webp|bmp|ico|svg|avif)$/i.test(surface.filePath)
   const theme = usePierreDiffTheme()
-  const layout = useDiffViewPreferences(state => state.layout)
-  const wordWrap = useDiffViewPreferences(state => state.wordWrap)
+  const layout = useDiffViewPreferences(surface.cwd).layout
+  const wordWrap = useDiffViewPreferences(surface.cwd).wordWrap
 
   // The diff document lives in the retained diff runtime (M1): re-opening
   // this tab renders instantly from the cached entry.
@@ -79,12 +78,26 @@ export function DiffSurfaceView({
   useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
   const docKey = worktreeDocKey(surface.staged, surface.filePath, context)
   const doc = runtime.getDoc(docKey)
+  const imageKey = worktreeImageKey(surface.staged, surface.filePath)
+  // Binary base64 payloads are cached in the runtime too (D8/D9): a failed
+  // fetch renders an error branch with retry, never a permanent spinner.
+  const imageDoc = runtime.get(imageKey) as DiffImageEntry | undefined
   useEffect(() => {
     if (runtime.getDoc(docKey) === undefined) {
       void runtime.ensureWorktreeDoc(surface.staged, surface.filePath, context)
     }
   }, [runtime, docKey, surface.staged, surface.filePath, context])
   const diff = doc !== undefined && doc.phase === 'ready' ? doc.diff : null
+  const isBinaryDiff = diff !== null
+    && isImagePath
+    && diff.includes('Binary files ')
+    && diff.includes(' differ')
+  useEffect(() => {
+    if (!isBinaryDiff) return
+    if (runtime.get(imageKey) === undefined) {
+      void runtime.ensureImageDiff(surface.staged, surface.filePath)
+    }
+  }, [isBinaryDiff, runtime, imageKey, surface.staged, surface.filePath])
 
   // Persisted comments render as Pierre annotation rows on the new-side
   // lines; the store is the single live source (M5 — no local mirror).
@@ -141,12 +154,13 @@ export function DiffSurfaceView({
     return (
       <CommentBubble
         comment={annotation.metadata}
+        t={t}
         onResolve={id => { useDiffCommentsStore.getState().resolveComment(id) }}
         onUnresolve={id => { useDiffCommentsStore.getState().unresolveComment(id) }}
         onRemove={id => { useDiffCommentsStore.getState().removeComment(id) }}
       />
     )
-  }, [])
+  }, [t])
 
   const selectionAction = useSelectionActionOverlay({
     containerRef: scrollRef,
@@ -170,24 +184,11 @@ export function DiffSurfaceView({
     })),
     [diff, surface.filePath],
   )
-  useEffect(() => {
-    if (diff === null || !isImagePath || !(diff.includes('Binary files ') && diff.includes(' differ'))) {
-      setImageDiff(null)
-      return
-    }
-    let alive = true
-    setImageDiff(null)
-    void sidebarApi.gitImageDiff(
-      { cwd: surface.cwd },
-      surface.filePath,
-      surface.staged,
-    ).then(result => {
-      if (alive) setImageDiff(result)
-    }).catch(() => {
-      if (alive) setImageDiff(null)
-    })
-    return () => { alive = false }
-  }, [diff, isImagePath, surface.cwd, surface.filePath, surface.staged])
+  const retryImageDiff = useCallback((): void => {
+    if (!isBinaryDiff) return
+    void runtime.ensureImageDiff(surface.staged, surface.filePath)
+  }, [isBinaryDiff, runtime, surface.staged, surface.filePath])
+
   if (doc !== undefined && doc.phase === 'error') {
     return <ErrorState message={doc.message ?? t('overlay.no-content')} />
   }
@@ -200,16 +201,28 @@ export function DiffSurfaceView({
   if (diff.includes('Binary files ') && diff.includes(' differ')) {
     return (
       <div className={surfaceCss["dsh-studio-diff-surface"]}>
-        <DiffToolbar t={t} />
-        {imageDiff !== null ? (
+        <DiffToolbar t={t} cwd={surface.cwd} />
+        {imageDoc !== undefined && imageDoc.phase === 'ready' && imageDoc.data !== null ? (
           <ScrollArea className="dsh-studio-diff-surface-body">
             <ImageDiffViewer
-              oldData={imageDiff.oldData}
-              newData={imageDiff.newData}
+              oldData={imageDoc.data.oldData}
+              newData={imageDoc.data.newData}
               oldLabel={`Original · ${surface.filePath}`}
               newLabel={`Modified · ${surface.filePath}`}
             />
           </ScrollArea>
+        ) : imageDoc?.phase === 'error' ? (
+          <div className="dsh-studio-diff-surface-body">
+            <ErrorState
+              message={t('files.image-load-failed')}
+              description={imageDoc.message ?? ''}
+              action={(
+                <Button variant="outline" size="sm" onClick={retryImageDiff}>
+                  {t('overlay.retry')}
+                </Button>
+              )}
+            />
+          </div>
         ) : (
           <LoadingState label={t('workspace.loading-diff')} />
         )}
@@ -219,7 +232,7 @@ export function DiffSurfaceView({
   if (document.lines.length > DIFF_MAX_RENDER_LINES || diff.length > DIFF_MAX_RENDER_CHARS) {
     return (
       <div className={surfaceCss["dsh-studio-diff-surface"]}>
-        <DiffToolbar t={t} />
+        <DiffToolbar t={t} cwd={surface.cwd} />
         <EmptyState title={t('diff.too-large', { lines: document.lines.length })} />
       </div>
     )
@@ -234,6 +247,7 @@ export function DiffSurfaceView({
           </span>
         )}
         t={t}
+        cwd={surface.cwd}
       />
       <ScrollArea className="dsh-studio-diff-surface-body" ref={scrollRef}>
         {rails.overlay()}
@@ -291,8 +305,8 @@ export function DiffAllSurfaceView({
   // F7 navigation cache: block element → its change-row list + doc key.
   const rowsCacheRef = useRef(new WeakMap<Element, { key: string; rows: Element[] }>())
   const theme = usePierreDiffTheme()
-  const layout = useDiffViewPreferences(state => state.layout)
-  const wordWrap = useDiffViewPreferences(state => state.wordWrap)
+  const layout = useDiffViewPreferences(surface.cwd).layout
+  const wordWrap = useDiffViewPreferences(surface.cwd).wordWrap
 
   // The change list lives in the retained diff runtime (M1); selection and
   // collapsed directories are chrome (shared with the source-control panel).
@@ -446,6 +460,7 @@ export function DiffAllSurfaceView({
           </span>
         )}
         t={t}
+        cwd={surface.cwd}
         onPrevChange={() => { navigateChange(-1) }}
         onNextChange={() => { navigateChange(1) }}
       />

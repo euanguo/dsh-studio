@@ -189,19 +189,10 @@
   flex: none;
 }
 
-/* Center add portal menu styling and interactive highlights. Danger rows
-   keep the official Menu danger styling (red text + red hover fill). */
-body > div[role='menu'] [role='menuitem']:not([aria-disabled='true']):not([disabled]):not([class*='danger']),
-body > div[role='menu'] button:not(:disabled):not([aria-disabled='true']):not([class*='danger']) {
-  cursor: pointer;
-}
-
-body > div[role='menu'] [role='menuitem']:not([aria-disabled='true']):not([disabled]):not([class*='danger']):hover,
-body > div[role='menu'] button:not(:disabled):not([aria-disabled='true']):not([class*='danger']):hover,
-body > div[role='menu'] div:hover > [role='menuitem']:not([aria-disabled='true']):not([disabled]):not([class*='danger']) {
-  background-color: var(--dsw-alias-interactive-bg-hover, rgba(0, 0, 0, 0.06)) !important;
-  color: var(--dsw-alias-label-primary, #1f2328) !important;
-}
+/* Global portaled Menu styling is defined in ONE place —
+   side-tools.module.css (`body > div[role='menu']`, the canonical shared
+   Menu rewrite + exemption comment). This surface must not re-implement a
+   second copy; the merged stylesheet applies one rule set across the app. */
 
 .dsh-studio-left-rail-toggle svg,
 .dsh-studio-right-rail-reopen svg {

@@ -1,3 +1,11 @@
+/**
+ * Composer-level input history keyed by conversation session.
+ *
+ * // unwired-capability (leaf-R1 ①): restored as a real implementation over
+ * // confirmed conversation nodes. The composer frontend does not currently
+ * // call it (session history navigation is dormant). Kept functional, not a
+ * // dead wrapper; re-wire together with ../input-history.ts.
+ */
 import {
   DEFAULT_INPUT_HISTORY_LIMIT,
   type InputHistoryEntry,

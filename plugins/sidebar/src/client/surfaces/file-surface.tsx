@@ -31,6 +31,7 @@ import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
 import { ScrollArea } from '@dsh-studio/shared/ui'
 import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
 import type { SessionsService } from '../client-types.ts'
@@ -192,7 +193,7 @@ export function FileSurfaceView({
       .catch((cause: unknown) => {
         runtime.invalidate(surface.filePath)
         void runtime.ensureLoaded(surface.filePath)
-        const message = cause instanceof Error ? cause.message : String(cause)
+        const message = errorMessage(cause)
         setWriteError(message)
         toast(t('toast.save-failed', { message }))
       })
@@ -291,7 +292,7 @@ export function FileSurfaceView({
                 ? {
                     lineAnnotations,
                     renderAnnotation: (annotation: { metadata: WorkbenchComment }) => (
-                      <CommentBubble comment={annotation.metadata} />
+                      <CommentBubble comment={annotation.metadata} t={t} />
                     ),
                   }
                 : {})}

@@ -1,3 +1,4 @@
+import { errorMessage } from '@dsh-studio/shared/errors'
 /**
  * Pure ipynb JSON parsing (no React).
  *
@@ -25,6 +26,6 @@ export function parseIpynb(text: string): { cells: IpynbCell[]; error: string | 
       error: null,
     }
   } catch (error) {
-    return { cells: [], error: error instanceof Error ? error.message : String(error) }
+    return { cells: [], error: errorMessage(error) }
   }
 }

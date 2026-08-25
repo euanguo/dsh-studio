@@ -11,6 +11,8 @@
  */
 import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import type { WorkbenchComment } from './diff-comments-store.ts'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import type { WorkspaceMessage } from '../i18n.ts'
 import { ToolbarAction } from '@dsh-studio/shared/ui'
 import { IconCheck, IconTrash } from '@dsh-studio/shared/tabler-icons'
 
@@ -19,6 +21,7 @@ export interface CommentBubbleProps {
   onResolve?(id: string): void
   onUnresolve?(id: string): void
   onRemove?(id: string): void
+  t: Translate<WorkspaceMessage>
 }
 
 export function CommentBubble({
@@ -26,6 +29,7 @@ export function CommentBubble({
   onResolve,
   onUnresolve,
   onRemove,
+  t,
 }: CommentBubbleProps): JSX.Element {
   const resolved = comment.resolvedAt !== undefined
   return (
@@ -37,12 +41,12 @@ export function CommentBubble({
     >
       <span className={surfaceCss["dsh-studio-line-comment-body"]}>{comment.body}</span>
       {(onResolve !== undefined || onRemove !== undefined) ? (
-        <span className={surfaceCss["dsh-studio-line-comment-actions"]} role="group" aria-label="Comment actions">
+        <span className={surfaceCss["dsh-studio-line-comment-actions"]} role="group" aria-label={t('diff.comment-actions')}>
           {onResolve !== undefined && !resolved ? (
             <ToolbarAction
               variant="ghost"
               icon={<IconCheck aria-hidden="true" />}
-              label="Resolve"
+              label={t('diff.comment-resolve')}
               tooltipSide="top"
               className={surfaceCss["dsh-studio-line-comment-action"]}
               onClick={event => { event.stopPropagation(); onResolve(comment.id) }}
@@ -52,7 +56,7 @@ export function CommentBubble({
             <ToolbarAction
               variant="ghost"
               icon={<IconCheck aria-hidden="true" />}
-              label="Reopen"
+              label={t('diff.comment-reopen')}
               tooltipSide="top"
               className={surfaceCss["dsh-studio-line-comment-action"]}
               onClick={event => { event.stopPropagation(); onUnresolve(comment.id) }}
@@ -62,7 +66,7 @@ export function CommentBubble({
             <ToolbarAction
               variant="ghost"
               icon={<IconTrash aria-hidden="true" />}
-              label="Delete"
+              label={t('diff.comment-delete')}
               tooltipSide="top"
               className={`${surfaceCss["dsh-studio-line-comment-action"]} ${surfaceCss["dsh-studio-line-comment-action-danger"]}`}
               onClick={event => { event.stopPropagation(); onRemove(comment.id) }}

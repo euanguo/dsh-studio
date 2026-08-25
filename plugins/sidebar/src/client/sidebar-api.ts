@@ -42,7 +42,6 @@ export type {
   CapabilitiesGitLogEntry,
   CapabilitiesGitStatus,
   CapabilitiesGitStatusEntry,
-  CapabilitiesGitUpstreamStatus,
   CapabilitiesSourceControlAiModels,
   CapabilitiesScope,
   CapabilitiesSettingsView,
@@ -109,12 +108,17 @@ export const sidebarApi = {
     pattern: string,
     caseSensitive: boolean,
     signal?: AbortSignal,
-  ): Promise<Array<{ path: string; line: number; text: string }>> => callCapabilitiesApi(
+  ): Promise<{
+    hits: Array<{ path: string; line: number; text: string }>
+    error: string | null
+  }> => callCapabilitiesApi(
     'fs.search',
     scope,
     { pattern, caseSensitive },
     signal,
   ),
+  // // unwired-capability (leaf-R2 ④): fsTail restored as a dormant wrapper —
+  // // no surfaced consumer calls it yet. Re-wiring a tail view re-enables it.
   fsTail: (
     scope: CapabilitiesScope,
     path: string,

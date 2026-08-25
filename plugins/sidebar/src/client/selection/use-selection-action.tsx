@@ -171,7 +171,9 @@ export function useSelectionActionOverlay(
   useEffect(() => {
     const insidePopup = (target: EventTarget | null): boolean =>
       target instanceof Element
-      && target.closest('.dsh-studio-selection-action, .dsh-studio-comment-compose') !== null
+      && target.closest(
+        `.${surfaceCss["dsh-studio-selection-action"]}, .${surfaceCss["dsh-studio-comment-compose"]}`,
+      ) !== null
 
     const readCommittedSelection = (
       selection: Selection,
@@ -325,7 +327,6 @@ export function useSelectionActionOverlay(
    *  line:col span). Falls back to the bare path when line resolution
    *  failed. */
   const chipLabel = (): string => {
-    console.log('[chip-label] lines:', selection.lines, 'cols:', selection.startColumn, selection.endColumn, 'path:', path)
     if (selection.lines === null) return middleEllipsisPath(path)
     return formatSelectionLabel({
       path,

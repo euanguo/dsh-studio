@@ -8,7 +8,8 @@
  * model text — occurrences only carry `{source, ref, label, clipboardText}`
  * at insert time, so this module keeps a module-level map from ref → payload
  * that the insertion path (`insertReferenceIntoConversation`) populates and
- * the codec reads at submit time.
+ * the codec reads at submit time (C15: per-chip refs, keyed by the pass-in
+ * `ref` rather than one fixed slot).
  */
 import type { ReviewSlashSource } from '../review/review-comments.ts'
 
@@ -24,6 +25,9 @@ export function recordSelectionReference(ref: string, modelText: string): void {
 }
 
 export function createSelectionSlashSource(): ReviewSlashSource {
+  const textOf = (input: { ref?: string } | undefined): string =>
+    (input?.ref === undefined ? payloadByRef.get(SELECTION_REF) : payloadByRef.get(input.ref))
+    ?? ''
   return {
     trigger: '@',
     name: SELECTION_SOURCE,
@@ -31,12 +35,10 @@ export function createSelectionSlashSource(): ReviewSlashSource {
     candidates: async () => [],
     onPick: () => undefined,
     codec: {
-      // The workspace interface's codec is parameterless (see
-      // review-comments.ts ReviewSlashSource); it serializes the MOST
-      // RECENT reference of this source — sufficient for the single
-      // selection-chip-per-draft flow, matching the review bridge.
-      clipboardText: () => payloadByRef.get(SELECTION_REF) ?? '',
-      serialize: async () => payloadByRef.get(SELECTION_REF) ?? '',
+      // The workspace interface passes `{ ref }` per chip; fall back to the
+      // legacy single-slot ref for callers without one.
+      clipboardText: (input?: { ref?: string }) => textOf(input),
+      serialize: async (input?: { ref?: string }) => textOf(input),
     },
   }
 }

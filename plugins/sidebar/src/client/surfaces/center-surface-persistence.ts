@@ -5,7 +5,7 @@
 import {
   UI_CHROME_TABLES,
 } from '@dsh-studio/shared/ui-chrome-tables'
-import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
+import { persistVia, type PersistViaHandle } from '@dsh-studio/shared/store-persistence'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import type { CenterSurface } from './types.ts'
 
@@ -74,18 +74,7 @@ export function sanitizePersistedCenterSurfaces(value: unknown): PersistedCenter
   return { byCwd }
 }
 
-const storage = createUiChromeStorage<PersistedCenterSurfaces>({
-  table: UI_CHROME_TABLES.centerSurfaces,
-  defaults: () => ({ byCwd: {} }),
-  sanitize: sanitizePersistedCenterSurfaces,
-  debounceMs: 250,
-})
-
-let hydrated = false
-let applyingRestore = false
-let changedBeforeHydrate = false
-
-function payloadOf(): PersistedCenterSurfaces {
+function snapshot(): PersistedCenterSurfaces {
   const state = useCenterSurfaceStore.getState()
   return {
     byCwd: Object.fromEntries(Object.entries(state.byCwd).map(([cwd, slice]) => [
@@ -123,86 +112,87 @@ export function mergePayloads(
   return { byCwd }
 }
 
+/** Rebuild every workspace open-set into the identity store (facade `apply`). */
+function restore(payload: PersistedCenterSurfaces): void {
+  const state = useCenterSurfaceStore.getState()
+  state.clearAll()
+  for (const [cwd, entry] of Object.entries(payload.byCwd)) {
+    state.ensureCwd(cwd)
+    for (const surface of entry.open) {
+      if (surface.kind === 'conversation') {
+        state.openConversation({ cwd, sessionId: surface.sessionId, title: surface.title, activate: false })
+      } else if (surface.kind === 'file') {
+        state.openFile({
+          cwd,
+          filePath: surface.filePath,
+          title: surface.title,
+          preview: false,
+          ...(surface.markdownPreview === undefined ? {} : { markdownPreview: surface.markdownPreview }),
+        })
+      } else if (surface.kind === 'diff') {
+        state.openDiff({ cwd, filePath: surface.filePath, staged: surface.staged, title: surface.title, preview: false })
+      } else if (surface.kind === 'diff-all') {
+        state.openDiffAll({ cwd, staged: surface.staged, title: surface.title, preview: false })
+      } else if (surface.kind === 'commit') {
+        state.openCommit({ cwd, hash: surface.hash, title: surface.title, preview: false })
+      } else if (surface.kind === 'commit-file') {
+        state.openCommitFile({ cwd, hash: surface.hash, filePath: surface.filePath, title: surface.title, preview: false })
+      } else if (surface.kind === 'committed') {
+        state.openCommitted({
+          cwd,
+          baseRef: surface.baseRef,
+          ...(surface.filePath === undefined ? {} : { filePath: surface.filePath }),
+          title: surface.title,
+          preview: false,
+        })
+      } else if (surface.kind === 'conflict') {
+        state.openConflict({ cwd, filePath: surface.filePath, title: surface.title, preview: false })
+      } else if (surface.kind === 'browser') {
+        state.openBrowser({
+          cwd,
+          title: surface.title,
+          ...(surface.resource === undefined ? {} : { resource: surface.resource }),
+          preview: false,
+        })
+      } else if (surface.kind === 'terminal') {
+        state.openTerminal({ cwd, title: surface.title, id: surface.id })
+      }
+    }
+    const activeId = entry.open.some(surface => surface.id === entry.activeId)
+      ? entry.activeId
+      : entry.open.at(-1)?.id ?? null
+    if (activeId !== null) state.activate(cwd, activeId)
+  }
+}
+
+let persistence: PersistViaHandle | undefined
+
+function persistHandle(): PersistViaHandle {
+  if (persistence === undefined) {
+    persistence = persistVia<PersistedCenterSurfaces>(
+      {
+        subscribe: listener => useCenterSurfaceStore.subscribe(listener),
+        snapshot,
+        apply: restore,
+      },
+      {
+        table: UI_CHROME_TABLES.centerSurfaces,
+        defaults: () => ({ byCwd: {} }),
+        sanitize: sanitizePersistedCenterSurfaces,
+        merge: mergePayloads,
+        debounceMs: 250,
+      },
+    )
+  }
+  return persistence
+}
+
 /** Mirror every workspace open-set after the initial asynchronous hydrate. */
 export function persistCenterSurfaces(): () => void {
-  hydrated = false
-  changedBeforeHydrate = false
-  const stop = useCenterSurfaceStore.subscribe(() => {
-    if (applyingRestore) return
-    if (hydrated) storage.save(payloadOf())
-    else changedBeforeHydrate = true
-  })
-  return () => {
-    stop()
-    hydrated = false
-    void storage.flush()
-  }
+  return () => persistHandle().stop()
 }
 
 /** Rebuild every workspace open-set from the domain store at startup. */
 export async function restoreCenterSurfaces(): Promise<void> {
-  const stored = await storage.load()
-  const pending = payloadOf()
-  const payload = changedBeforeHydrate
-    ? mergePayloads(stored, pending)
-    : stored
-  applyingRestore = true
-  try {
-    const state = useCenterSurfaceStore.getState()
-    state.clearAll()
-    for (const [cwd, entry] of Object.entries(payload.byCwd)) {
-      state.ensureCwd(cwd)
-      for (const surface of entry.open) {
-        if (surface.kind === 'conversation') {
-          state.openConversation({ cwd, sessionId: surface.sessionId, title: surface.title, activate: false })
-        } else if (surface.kind === 'file') {
-          state.openFile({
-            cwd,
-            filePath: surface.filePath,
-            title: surface.title,
-            preview: false,
-            ...(surface.markdownPreview === undefined ? {} : { markdownPreview: surface.markdownPreview }),
-          })
-        } else if (surface.kind === 'diff') {
-          state.openDiff({ cwd, filePath: surface.filePath, staged: surface.staged, title: surface.title, preview: false })
-        } else if (surface.kind === 'diff-all') {
-          state.openDiffAll({ cwd, staged: surface.staged, title: surface.title, preview: false })
-        } else if (surface.kind === 'commit') {
-          state.openCommit({ cwd, hash: surface.hash, title: surface.title, preview: false })
-        } else if (surface.kind === 'commit-file') {
-          state.openCommitFile({ cwd, hash: surface.hash, filePath: surface.filePath, title: surface.title, preview: false })
-        } else if (surface.kind === 'committed') {
-          state.openCommitted({
-            cwd,
-            baseRef: surface.baseRef,
-            ...(surface.filePath === undefined ? {} : { filePath: surface.filePath }),
-            title: surface.title,
-            preview: false,
-          })
-        } else if (surface.kind === 'conflict') {
-          state.openConflict({ cwd, filePath: surface.filePath, title: surface.title, preview: false })
-        } else if (surface.kind === 'browser') {
-          state.openBrowser({
-            cwd,
-            title: surface.title,
-            ...(surface.resource === undefined ? {} : { resource: surface.resource }),
-            preview: false,
-          })
-        } else if (surface.kind === 'terminal') {
-          state.openTerminal({ cwd, title: surface.title, id: surface.id })
-        }
-      }
-      const activeId = entry.open.some(surface => surface.id === entry.activeId)
-        ? entry.activeId
-        : entry.open.at(-1)?.id ?? null
-      if (activeId !== null) state.activate(cwd, activeId)
-    }
-  } finally {
-    applyingRestore = false
-  }
-  hydrated = true
-  if (changedBeforeHydrate) {
-    changedBeforeHydrate = false
-    storage.save(payloadOf())
-  }
+  await persistHandle().ready
 }

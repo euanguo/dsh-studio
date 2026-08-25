@@ -100,12 +100,13 @@ export interface SidebarTabSeed {
 /** The snapshot the service publishes (geometry + open tabs + prefs). */
 export interface SidebarSnapshot {
   activeId: string | null
+  // // unwired-capability (leaf-R1 ②): the BOTTOM workbench snapshot fields
+  // // restored as dormant contract — the workbench is not mounted pending a
+  // // product decision. The impl must publish them (null / empty) in R2.
   /** The active tab of the BOTTOM workbench (the second pane above the
-   *  terminal dock); null when nothing is docked/active there.
-   *  @deprecated The bottom workbench is not mounted; always null. */
+   *  terminal dock); null when nothing is docked/active there. */
   bottomActiveId: string | null
-  /** Tabs docked into the bottom workbench, in dock order.
-   *  @deprecated The bottom workbench is not mounted; always empty. */
+  /** Tabs docked into the bottom workbench, in dock order. */
   bottomTabs: readonly SidebarTab[]
   error: string | null
   maximized: boolean
@@ -383,7 +384,7 @@ export interface DesktopSidebarService {
    * a specific project: the open lands in THAT project's state without
    * switching the UI's active project; absent, the open lands in the
    * currently active project. A disabled tab type is a no-op. A dedupe hit
-   * in the BOTTOM workbench focuses the docked tab there.
+   * focuses the existing tab in the rail.
    */
   openTab(seed: SidebarTabSeed, scope?: CapabilitiesScope): OpenTabResult
   /** Close a tab by id (fires descriptor.onClose). Unknown ids are a no-op. */
@@ -395,15 +396,10 @@ export interface DesktopSidebarService {
   /** Open a file in the sidebar of `scope`'s project (title defaults to the file name). */
   openFile(scope: CapabilitiesScope, path: string, title?: string): void
 
-  /* ── bottom workbench + tab drag layout (DSH Studio extension) ───
-   *
-   * @deprecated The bottom workbench is no longer mounted (CUT, user
-   * preference). The whole surface below is retained ONLY so older
-   * persisted layouts and external consumers keep working; do not call it
-   * from new code and do not extend it. Removal rides on the contract's
-   * feature-negotiation: consumers gate on `features` and these entries
-   * will be dropped in a major version together with the snapshot fields.
-   */
+  /* ── tab drag layout (DSH Studio extension) ────────────────── */
+  // // unwired-capability (leaf-R1 ②): bottom-workbench drag methods restored
+  // // as dormant contract — the workbench is not mounted (product decision
+  // // pending) and the impl is restored in R2. Keep signatures stable.
   /** Reorder one right-rail tab to `toIndex` (index in the full tab list). */
   moveTab(tabId: string, toIndex: number): void
   /** Reorder right-rail tabs by placing `sourceId` relative to `targetId`. */

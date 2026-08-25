@@ -19,6 +19,7 @@ import {
   IconTerminal,
   IconWorld,
 } from '@dsh-studio/shared/tabler-icons'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import {
   EmptyState,
   ErrorState,
@@ -75,7 +76,7 @@ export function SideMenu(props: SideToolsPanelProps): JSX.Element {
       if (result.kind === 'missing') throw new Error(props.t('side.tool-missing'))
       if (result.kind === 'not-ready') throw new Error(props.t('side.not-ready'))
     } catch (next) {
-      setError(next instanceof Error ? next.message : String(next))
+      setError(errorMessage(next))
     }
   }
   const snapshot = props.sidebar.getSnapshot()

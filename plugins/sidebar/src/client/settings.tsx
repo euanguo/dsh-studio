@@ -18,7 +18,6 @@ import { IconAdjustments } from '@dsh-studio/shared/tabler-icons'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from './i18n.ts'
 import type {
-  BoundSidebarSettingsActions,
   SidebarSettingsProps,
 } from './client-types.ts'
 import type {
@@ -262,26 +261,5 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
       </SettingsSection>
       {popup}
     </SettingsSection>
-  )
-}
-
-export function syncSidebarSettings(
-  actions: BoundSidebarSettingsActions | undefined,
-  snapshot: {
-    openByDefault: boolean
-    revision: number
-    tabsEnabled: Readonly<Record<string, boolean>>
-    viewersEnabled: Readonly<Record<string, boolean>>
-    width: number
-    pluginSettings: Readonly<Record<string, Record<string, unknown>>>
-  },
-): void {
-  actions?.sync(
-    snapshot.openByDefault,
-    snapshot.revision,
-    { ...snapshot.tabsEnabled },
-    { ...snapshot.viewersEnabled },
-    snapshot.width,
-    snapshot.pluginSettings,
   )
 }

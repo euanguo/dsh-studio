@@ -77,7 +77,7 @@ export function FileViewerChrome({
   const breadcrumb = (
     <nav
       className={surfaceCss["dsh-studio-file-viewer-breadcrumb"]}
-      aria-label="File path"
+      aria-label={t('files.file-path')}
       title={filePath}
     >
       <span className={surfaceCss["dsh-studio-file-viewer-breadcrumb-prefix"]}>

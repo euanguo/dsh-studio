@@ -14,6 +14,7 @@
  * chrome store. Views subscribe via `useSyncExternalStore`.
  */
 import { RevisionedStore, GenerationGate } from '@dsh-studio/shared/runtime'
+import { errorMessage } from '@dsh-studio/shared/errors'
 
 export type ExplorerListingPhase = 'loading' | 'ready' | 'empty' | 'error'
 
@@ -51,6 +52,9 @@ export class WorkspaceExplorerRuntime {
   private readonly generation = new GenerationGate()
   private listings = new Map<string, ExplorerListing>()
   private inflight = new Map<string, Promise<void>>()
+  /** Per-listing transport abort controls, so setScope / dispose / eviction
+   *  can cancel in-flight fs.tree calls instead of letting them linger. */
+  private aborts = new Map<string, AbortController>()
   private disposed = false
   private readonly maxListings: number
 
@@ -91,6 +95,7 @@ export class WorkspaceExplorerRuntime {
     this.assertOpen()
     if (this.store.getSnapshot().cwd === cwd) return
     this.generation.next()
+    this.abortAll()
     this.listings.clear()
     this.inflight.clear()
     this.store.setState({ cwd })
@@ -135,6 +140,7 @@ export class WorkspaceExplorerRuntime {
   async refresh(relativePath: string | null | undefined = null): Promise<void> {
     this.assertOpen()
     const key = explorerListingKey(relativePath)
+    this.abort(key)
     this.listings.delete(key)
     this.inflight.delete(key)
     await this.ensureListing(relativePath)
@@ -144,6 +150,7 @@ export class WorkspaceExplorerRuntime {
     if (this.disposed) return
     this.disposed = true
     this.generation.next()
+    this.abortAll()
     this.listings.clear()
     this.inflight.clear()
     this.store.dispose()
@@ -154,22 +161,43 @@ export class WorkspaceExplorerRuntime {
     key: string
     requestGeneration: number
   }): Promise<void> {
+    const controller = new AbortController()
+    this.aborts.set(input.key, controller)
     try {
-      const result = await this.transport.listDirectory(input.key)
+      const result = await this.transport.listDirectory(input.key, controller.signal)
+      this.clearAbort(input.key)
       if (this.disposed || !this.generation.isCurrent(input.requestGeneration)) return
       this.putListing(input.key, result.length === 0
         ? { phase: 'empty', entries: [] }
         : { phase: 'ready', entries: result })
       this.emit()
     } catch (cause) {
+      this.clearAbort(input.key)
       if (this.disposed || !this.generation.isCurrent(input.requestGeneration)) return
+      if (cause instanceof DOMException && cause.name === 'AbortError') return
       this.putListing(input.key, {
         phase: 'error',
         entries: [],
-        message: cause instanceof Error ? cause.message : String(cause),
+        message: errorMessage(cause),
       })
       this.emit()
     }
+  }
+
+  /** Cancel and forget one in-flight transport call, if any. */
+  private abort(key: string): void {
+    this.aborts.get(key)?.abort()
+    this.aborts.delete(key)
+  }
+
+  /** Cancel and forget every in-flight transport call. */
+  private abortAll(): void {
+    for (const controller of this.aborts.values()) controller.abort()
+    this.aborts.clear()
+  }
+
+  private clearAbort(key: string): void {
+    this.aborts.delete(key)
   }
 
   private touchListing(key: string, listing: ExplorerListing): void {
@@ -201,6 +229,7 @@ export class WorkspaceExplorerRuntime {
         break
       }
       if (victim === null) break
+      this.abort(victim)
       this.listings.delete(victim)
     }
   }

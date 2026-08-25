@@ -4,14 +4,20 @@
  * capture-phase listener (installed by the plugin root) matches and runs
  * the last registration per id — surfaces register while mounted, so the
  * ACTIVE surface's actions win naturally and unmounting a surface releases
- * its shortcuts. Bindings can be overridden per-action through
- * localStorage (`dsh-studio.keymap.v1`) for the future rebinding UI.
+ * its shortcuts.
+ *
+ * The localStorage-backed per-action override half (Q9 / M8) is restored as
+ * // unwired-capability: the persistence (read/write override) is functional,
+ * but the rebinding UI that would write these overrides is NOT wired in, so
+ * today the registry resolves from the defaults unless an override was
+ * written manually or by a future UI. The process cache (last registration
+ * wins) from W1 is kept.
  *
  * Kept hand-written on purpose (ADR): the matching core is ~30 lines and the
- * valuable parts — stable action-id registry, per-action override read/write,
- * hint formatting for the settings UI — are domain glue no hotkey library
- * (hotkeys-js, mousetrap) provides; a library would own the listener while
- * the registry/overrides still had to be hand-rolled around it.
+ * valuable parts — stable action-id registry, hint formatting for the
+ * settings UI — are domain glue no hotkey library (hotkeys-js, mousetrap)
+ * provides; a library would own the listener while the registry still had to
+ * be hand-rolled around it.
  */
 
 export interface KeyBinding {
@@ -126,6 +132,18 @@ export function eventMatchesBinding(
     : event.key === value.key
 }
 
+interface RegisteredAction {
+  id: string
+  binding: KeyBinding
+  run: (event: KeyboardEvent) => boolean
+}
+
+/** Last registration per action id wins (surface mount order = recency). */
+const actions = new Map<string, RegisteredAction>()
+
+// // unwired-capability (leaf-R1 ③): the localStorage persistence half is
+// // restored (read/write override below + per-registration resolution). The
+// // rebinding UI that calls writeKeymapOverride is NOT wired in.
 const STORAGE_KEY = 'dsh-studio.keymap.v1'
 
 /** Per-action binding overrides (`{ [actionId]: 'Mod+Shift+V' }`). */
@@ -156,15 +174,6 @@ export function writeKeymapOverride(id: string, bindingText: string): void {
   }
 }
 
-interface RegisteredAction {
-  id: string
-  binding: KeyBinding
-  run: (event: KeyboardEvent) => boolean
-}
-
-/** Last registration per action id wins (surface mount order = recency). */
-const actions = new Map<string, RegisteredAction>()
-
 /**
  * Register a keymap action. Returns the unregister function; re-registering
  * the same id replaces the previous registration. `run` returns whether the
@@ -177,6 +186,9 @@ export function registerKeymapAction(
   defaultBinding: KeyBinding,
   run: (event: KeyboardEvent) => boolean,
 ): () => void {
+  // Resolve the effective binding (a persisted override wins; else the
+  // process-cached default). Overrides are read eagerly here so the registry
+  // stays a single default source while a written override still applies.
   const overrideText = readKeymapOverrides()[id]
   const effective = overrideText === undefined
     ? defaultBinding

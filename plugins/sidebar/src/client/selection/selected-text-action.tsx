@@ -23,8 +23,9 @@
 import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from 'react'
 import { toast } from '@dsh-studio/shared/toast'
+import { relativeTimeParts, type RelativeTimeParts } from '@dsh-studio/shared/time'
 import { FloatingLayer, ScrollArea, useMenuAnchor } from '@dsh-studio/shared/ui'
-import { releaseExclusive, requestExclusive } from './overlay-arbiter.ts'
+import { useOverlayArbiter } from './overlay-arbiter.tsx'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import {
@@ -110,23 +111,28 @@ function ActionItem({
 /** Thin vertical divider between action items. */
 
 /**
- * Relative "updated X ago" string for a conversation target — same
- * semantics as the left rail (`relativeTime` in desktop-left-rail/tree.ts):
- * milliseconds epoch, minute/hour/day/month/year thresholds. A future or
- * missing timestamp degrades to ''.
+ * Localized relative "updated X ago" string for a conversation target, rendered
+ * from the shared bucketing (`relativeTimeParts` in @dsh-studio/shared/time,
+ * RD-22a) through the workspace `t()` contract (C37). It shares the `time.*`
+ * keys with desktop-left-rail so both surfaces show the same localized shapes;
+ * a missing/invalid timestamp degrades to ''. This is the same shape as the
+ * left-rail `hoverTimeLabel` (distance wrapped in the `ago` template; the
+ * "< 1 min" bucket stays bare as `time.now`).
  */
-export function relativeTimeAgo(updatedAt: number, now = Date.now()): string {
-  const diff = Math.max(0, now - updatedAt)
-  if (diff < 60_000) return '刚刚' // < 1 min
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`
-  if (diff < 30 * 86_400_000) return `${Math.floor(diff / 86_400_000)} 天前`
-  if (diff < 365 * 86_400_000) return `${Math.floor(diff / (30 * 86_400_000))} 个月前`
-  return `${Math.floor(diff / (365 * 86_400_000))} 年前`
+function formatRelativeTime(parts: RelativeTimeParts | null, t: Translate<WorkspaceMessage>): string {
+  if (parts === null) return ''
+  if (parts.value === 0) return t('time.now')
+  const unit = parts.unit === 'min' ? 'minutes'
+    : parts.unit === 'hour' ? 'hours'
+    : parts.unit === 'day' ? 'days'
+    : parts.unit === 'month' ? 'months'
+    : 'years'
+  const distance = t(`time.${unit}`, { n: parts.value })
+  return t('time.ago', { t: distance })
 }
 
-function formatTargetLabel(target: ConversationTarget): string {
-  const time = target.updatedAt === undefined ? '' : relativeTimeAgo(target.updatedAt)
+function formatTargetLabel(target: ConversationTarget, t: Translate<WorkspaceMessage>): string {
+  const time = target.updatedAt === undefined ? '' : formatRelativeTime(relativeTimeParts(target.updatedAt), t)
   return time === '' ? target.label : `${target.label} · ${time}`
 }
 
@@ -153,15 +159,20 @@ export function SelectedTextAction({
   // then sends to it. Defaults to the current conversation.
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null)
   const { open: menuOpen, toggle: toggleMenu, close: closeMenu, anchorRef, getAnchorRect } = useMenuAnchor()
+  // The surface-level overlay arbiter (C16): shares the exclusive lock with the
+  // comment rails on THIS surface via context, so the picker and the comment
+  // card never open together. Read before any conditional so the picker below
+  // can use it.
+  const arbiter = useOverlayArbiter()
   // The picker and the comment card are mutually exclusive: opening the
   // picker blocks/replaces the comment card.
   const handleToggleMenu = (): void => {
     if (menuOpen) {
       closeMenu()
-      releaseExclusive('conv')
+      arbiter.releaseExclusive('conv')
       return
     }
-    if (requestExclusive('conv')) toggleMenu()
+    if (arbiter.requestExclusive('conv')) toggleMenu()
   }
 
   const clearSelection = (): void => {
@@ -349,7 +360,7 @@ export function SelectedTextAction({
           </span>
           <FloatingLayer
             open={menuOpen}
-            onOpenChange={next => { if (!next) { closeMenu(); releaseExclusive('conv') } }}
+            onOpenChange={next => { if (!next) { closeMenu(); arbiter.releaseExclusive('conv') } }}
             anchor={{ x: anchorRef.current?.getBoundingClientRect()?.left ?? 0, y: anchorRef.current?.getBoundingClientRect()?.top ?? 0 }}
             side="top"
             align="end"
@@ -363,7 +374,7 @@ export function SelectedTextAction({
                 viewportClassName="dsh-studio-selection-conv-viewport"
               >
               {(conversations ?? []).map(target => {
-                const time = target.updatedAt === undefined ? '' : relativeTimeAgo(target.updatedAt)
+                const time = target.updatedAt === undefined ? '' : formatRelativeTime(relativeTimeParts(target.updatedAt), t)
                 const active = target.id === selectedTargetId || (selectedTargetId === null && target.current)
                 return (
                   <button

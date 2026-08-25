@@ -10,6 +10,14 @@
  * HTML5 drag & drop carries {@link SidebarTabDragPayload} in the
  * `application/x-dsh-studio-tab` dataTransfer slot; the drop-position math
  * lives in `tab-drag.ts` (pure, unit-tested).
+ *
+ * ADR (leaf-R1 ②): below is RESTORED as a **dormant** component —
+ * // unwired-capability: the workbench is NOT mounted (workspace-tools keeps
+ * // its CUT mounting chain removed), pending a product decision on whether to
+ * // bring back the second bottom pane. Awaiting that decision it compiles but
+ * // never renders. Re-wiring needs the sibling restorations below (R2) to
+ * // land first: (a) sidebar-service bottom methods + persisted bottomTabs
+ * // state, (b) side-tools.module.css + styles.ts bottom-workbench keys.
  */
 import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 import {

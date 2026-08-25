@@ -17,6 +17,7 @@ import { getFileRuntime, getSourceControlRuntime } from '../runtimes/registry.ts
 import { basename, resolveCapabilitiesPath } from '@dsh-studio/shared/path'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { ErrorState, LoadingState, SurfaceToolbar } from '@dsh-studio/shared/ui'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import { resolveConflictRegionContents } from '../diff/merge-conflict-resolve.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import type { ConflictCenterSurface } from './types.ts'
@@ -94,7 +95,7 @@ export function ConflictSurfaceView({
       })
     }).catch((cause: unknown) => {
       setBusy(false)
-      const message = cause instanceof Error ? cause.message : String(cause)
+      const message = errorMessage(cause)
       setError(message)
       toast(t('toast.save-failed', { message }))
     })

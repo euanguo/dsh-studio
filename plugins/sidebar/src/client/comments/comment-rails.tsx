@@ -34,12 +34,14 @@ import type { WorkbenchComment } from '../diff/diff-comments-store.ts'
 import { commentCoversLine } from './comment-rails-core.ts'
 import { CommentComposeCard } from './comment-compose-card.tsx'
 import { FloatingLayer } from '@dsh-studio/shared/ui'
-import { releaseExclusive, requestExclusive, setOwnerBlockedHandler } from '../selection/overlay-arbiter.ts'
+import { useOverlayArbiter } from '../selection/overlay-arbiter.tsx'
 
 export interface CommentRailsOptions {
   path: string
-  /** Surface cwd (absolute/relative path reconciliation). */
-  cwd: string
+  /** Surface cwd (absolute/relative path reconciliation). Optional: a
+   *  comment rail for a surface without a cwd stays inert (no comments match,
+   *  compose never opens) so the host can call the hook unconditionally. */
+  cwd?: string
   comments: readonly WorkbenchComment[]
   t: Translate<WorkspaceMessage>
   /** Overlay portal host (the surface's scroll/shadow layer). */
@@ -77,20 +79,23 @@ export function useCommentRails(options: CommentRailsOptions): CommentRails {
   const hoveredRef = useRef<{ line: number; rect: DOMRect } | null>(null)
   const [composing, setComposing] = useState<ComposeState | null>(null)
   const [body, setBody] = useState('')
+  // The surface-level arbiter from context (C16): the picker and comment card
+  // share one lock per surface and never deadlock across surfaces.
+  const arbiter = useOverlayArbiter()
 
   const hasCommentAt = useCallback((line: number): boolean =>
-    comments.some(comment => commentCoversLine(comment, path, cwd, line)),
-  [comments, cwd, path])
+    cwd === undefined ? false : comments.some(comment => commentCoversLine(comment, path, cwd, line)),
+  [cwd, comments, path])
 
   const closeCompose = useCallback((): void => {
-    releaseExclusive('comment')
+    arbiter.releaseExclusive('comment')
     setComposing(null)
     setBody('')
-  }, [])
+  }, [arbiter])
 
   useEffect(() => {
     if (composing === null) return
-    const stopBlocked = setOwnerBlockedHandler(owner => {
+    const stopBlocked = arbiter.setOwnerBlockedHandler(owner => {
       if (owner === 'conv') closeCompose()
     })
     const onKey = (event: KeyboardEvent): void => {
@@ -103,7 +108,7 @@ export function useCommentRails(options: CommentRailsOptions): CommentRails {
       document.removeEventListener('keydown', onKey, true)
       stopBlocked()
     }
-  }, [closeCompose, composing])
+  }, [arbiter, closeCompose, composing])
 
   const commit = useCallback((nextBody: string): void => {
     if (composing === null) return
@@ -126,11 +131,14 @@ export function useCommentRails(options: CommentRailsOptions): CommentRails {
   }, [closeCompose, composing, onReference, path])
 
   const openCompose = useCallback((anchor: ComposeState): void => {
+    // A rail without a resolved surface cwd cannot anchor a comment to a
+    // stable path — stay inert so it never opens a card.
+    if (cwd === undefined) return
     // The comment card and the conversation picker are mutually exclusive.
-    if (!requestExclusive('comment')) return
+    if (!arbiter.requestExclusive('comment')) return
     setComposing(anchor)
     setBody('')
-  }, [])
+  }, [arbiter, cwd])
 
   const onLineEnter = useCallback((props: { lineNumber: number; lineElement: HTMLElement }): void => {
     hoveredRef.current = {
@@ -206,9 +214,12 @@ export function useCommentRails(options: CommentRailsOptions): CommentRails {
   }, [body, closeCompose, commit, composing, onReference, referenceInChat, t])
 
   const reset = useCallback((): void => {
-    setComposing(null)
-    setBody('')
-  }, [])
+    // Clear compose state when the opened file changes. This MUST go through
+    // the same release path as closeCompose so the exclusive comment lock is
+    // released too — otherwise the conversation picker stays blocked forever
+    // (C2: reset used to only clear local state and leaked `currentOwner`).
+    closeCompose()
+  }, [closeCompose])
 
   return { onLineEnter, onLineLeave, gutterUtility, overlay, composeAt, reset }
 }

@@ -1,3 +1,6 @@
+// // unwired-capability (leaf-R1 ①): restored adapter between the composer's
+// // write path and the history registry. Not called while composer history is
+// // dormant; kept functional so re-wiring does not need a redesign.
 export interface ComposerHistoryInput {
   setDraft(text: string): void
 }

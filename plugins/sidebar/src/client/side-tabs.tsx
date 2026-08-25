@@ -9,9 +9,9 @@ import type { Translate } from '@dsh-studio/shared/i18n'
 import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
 import {
   IconMaximize,
+  IconRestore,
   IconSidebarRightFilled,
 } from '@dsh-studio/shared/tabler-icons'
-import { IconRestore } from '@dsh-studio/shared/icons'
 import { ToolIcon } from '@dsh-studio/shared/tool-icon'
 import { SurfaceTab, ToolbarAction } from '@dsh-studio/shared/ui'
 import { bindTabStripWheel } from '@dsh-studio/shared/tab-strip-wheel'
@@ -106,6 +106,9 @@ export function TabStrip({ sidebar, t }: {
   const drag = useTabStripDrag({
     source: 'side',
     onDrop: (payload, hoverId, side) => {
+      // // unwired-capability (leaf-R1 ②): the bottom branch is dormant — the
+      // // workbench is not mounted, so a docked tab can never be dragged back;
+      // // restored to keep the drag state machine complete for R2 wiring.
       if (payload.source === 'bottom') {
         sidebar.undockTabToSide(payload.tabId, hoverId === '' ? null : hoverId, side)
         return

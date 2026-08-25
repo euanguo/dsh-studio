@@ -10,6 +10,7 @@
  * (tree selection / collapsed directories) lives in the chrome store.
  */
 import { GenerationGate, RevisionedStore } from '@dsh-studio/shared/runtime'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import { parseGitReviewDiff, type GitReviewFile } from '../diff/git-review-diff.ts'
 
 export type DiffEntryPhase = 'loading' | 'ready' | 'error'
@@ -35,6 +36,20 @@ export interface WorkspaceDiffTransport {
   loadCommitDoc(hash: string, filePath: string, signal?: AbortSignal): Promise<string>
   loadCommittedList(baseRef: string, signal?: AbortSignal): Promise<GitReviewFile[]>
   loadCommittedDoc(baseRef: string, filePath: string, signal?: AbortSignal): Promise<string>
+  /** Binary base64 payloads for an image diff (D8: kept in the runtime so a
+   *  failed fetch renders an error branch instead of a permanent spinner). */
+  loadImageDiff(staged: boolean, filePath: string, signal?: AbortSignal): Promise<{ oldData: string; newData: string }>
+}
+
+/** Image-diff cache entry (retained alongside the worktree docs). */
+export interface DiffImageEntry {
+  phase: DiffEntryPhase
+  data: { oldData: string; newData: string } | null
+  message?: string
+}
+
+export function worktreeImageKey(staged: boolean, filePath: string): string {
+  return `img:w:${staged ? 'staged' : 'unstaged'}:${filePath}`
 }
 
 /** Max retained entries per diff runtime (LRU). */
@@ -70,8 +85,12 @@ export class WorkspaceDiffRuntime {
   private readonly transport: WorkspaceDiffTransport
   private readonly store = new RevisionedStore<{ scope: string | null }>({ scope: null })
   private readonly generation = new GenerationGate()
-  private entries = new Map<string, DiffDocEntry | DiffListEntry>()
+  private entries = new Map<string, DiffDocEntry | DiffListEntry | DiffImageEntry>()
   private inflight = new Map<string, Promise<void>>()
+  /** Per-entry transport abort controls (the explorer-runtime paradigm, D7):
+   *  setScope / dispose / LRU eviction cancel in-flight fetches instead of
+   *  letting them linger; an AbortError is discarded silently. */
+  private aborts = new Map<string, AbortController>()
   private disposed = false
   private readonly maxEntries: number
 
@@ -96,6 +115,12 @@ export class WorkspaceDiffRuntime {
     return entry !== undefined && 'files' in entry ? entry : undefined
   }
 
+  get = (key: string): DiffDocEntry | DiffListEntry | DiffImageEntry | undefined => {
+    if (this.disposed) return undefined
+    this.store.getSnapshot()
+    return this.entries.get(key)
+  }
+
   subscribe = this.store.subscribe
 
   /** Fingerprint for useSyncExternalStore: changes only when an entry changes. */
@@ -104,7 +129,9 @@ export class WorkspaceDiffRuntime {
     for (const [key, entry] of this.entries) {
       fingerprint += `|${key}:${entry.phase}`
       if (entry.phase === 'ready') {
-        fingerprint += 'files' in entry ? `:${entry.files?.length ?? 0}` : `:${entry.diff?.length ?? 0}`
+        if ('files' in entry) fingerprint += `:${entry.files?.length ?? 0}`
+        else if ('data' in entry) fingerprint += `:img`
+        else fingerprint += `:${entry.diff?.length ?? 0}`
       }
     }
     return fingerprint
@@ -114,6 +141,7 @@ export class WorkspaceDiffRuntime {
     this.assertOpen()
     if (this.store.getSnapshot().scope === scope) return
     this.generation.next()
+    this.abortAll()
     this.entries.clear()
     this.inflight.clear()
     this.store.setState({ scope })
@@ -198,21 +226,53 @@ export class WorkspaceDiffRuntime {
 
   invalidate(key: string): void {
     this.assertOpen()
+    this.abort(key)
     this.entries.delete(key)
     this.inflight.delete(key)
     this.emit()
+  }
+
+  /**
+   * Precise mutation invalidation (D20c / leaf-3.2 rev2): drop ONLY the
+   * worktree diff list/docs (staged + unstaged), which a stage/unstage/
+   * discard/commit/revert rewrites. Commit and committed projections are
+   * immutable once yielded, so they are left cached — invalidating them here
+   * would clear data.git didn't change.
+   */
+  invalidateWorktree(): void {
+    this.assertOpen()
+    let changed = false
+    for (const key of [...this.entries.keys()]) {
+      if (!key.startsWith('list:w:') && !key.startsWith('doc:w:') && !key.startsWith('img:w:')) continue
+      this.abort(key)
+      this.entries.delete(key)
+      this.inflight.delete(key)
+      changed = true
+    }
+    if (changed) this.emit()
+  }
+
+  /** Retained image-diff entry (null until loaded; error carries a message). */
+  ensureImageDiff(staged: boolean, filePath: string, signal?: AbortSignal): Promise<DiffImageEntry> {
+    return this.ensureEntry(
+      worktreeImageKey(staged, filePath),
+      { phase: 'loading', data: null },
+      controllerSignal => this.transport.loadImageDiff(staged, filePath, controllerSignal)
+        .then(data => ({ phase: 'ready' as const, data })),
+    )
   }
 
   dispose(): void {
     if (this.disposed) return
     this.disposed = true
     this.generation.next()
+    this.abortAll()
     this.entries.clear()
     this.inflight.clear()
     this.store.dispose()
   }
 
-  private async ensureEntry<E extends DiffDocEntry | DiffListEntry>(
+  private async ensureEntry<E extends DiffDocEntry | DiffListEntry | DiffImageEntry>(
     key: string,
     placeholder: E,
     load: (signal?: AbortSignal) => Promise<E>,
@@ -241,38 +301,63 @@ export class WorkspaceDiffRuntime {
     return (this.entries.get(key) as E | undefined) ?? placeholder
   }
 
-  private async loadEntry<E extends DiffDocEntry | DiffListEntry>(input: {
+  private async loadEntry<E extends DiffDocEntry | DiffListEntry | DiffImageEntry>(input: {
     key: string
     placeholder: E
     load: (signal?: AbortSignal) => Promise<E>
     requestGeneration: number
   }): Promise<void> {
+    const controller = new AbortController()
+    this.aborts.set(input.key, controller)
     try {
-      const result = await input.load()
+      const result = await input.load(controller.signal)
+      this.clearAbort(input.key)
       if (this.disposed || !this.generation.isCurrent(input.requestGeneration)) return
       this.put(input.key, result)
       this.emit()
     } catch (cause) {
+      this.clearAbort(input.key)
       if (this.disposed || !this.generation.isCurrent(input.requestGeneration)) return
-      const message = cause instanceof Error ? cause.message : String(cause)
+      // An aborted fetch (scope change / dispose / LRU eviction) is dropped
+      // silently — never surfaced into the error phase (D7).
+      if (cause instanceof DOMException && cause.name === 'AbortError') return
+      const message = errorMessage(cause)
       this.put(input.key, { ...input.placeholder, phase: 'error', message })
       this.emit()
     }
   }
 
-  private put(key: string, entry: DiffDocEntry | DiffListEntry): void {
+  private put(key: string, entry: DiffDocEntry | DiffListEntry | DiffImageEntry): void {
     this.touch(key, entry)
     while (this.entries.size > this.maxEntries) {
       const oldest = this.entries.keys().next().value
       if (oldest === undefined) break
       if (this.inflight.has(oldest)) break
+      // LRU eviction cancels any in-flight fetch for the victim (D7).
+      this.abort(oldest)
       this.entries.delete(oldest)
     }
   }
 
-  private touch(key: string, entry: DiffDocEntry | DiffListEntry): void {
+  private touch(key: string, entry: DiffDocEntry | DiffListEntry | DiffImageEntry): void {
     this.entries.delete(key)
     this.entries.set(key, entry)
+  }
+
+  /** Cancel and forget one in-flight transport call, if any. */
+  private abort(key: string): void {
+    this.aborts.get(key)?.abort()
+    this.aborts.delete(key)
+  }
+
+  /** Cancel and forget every in-flight transport call. */
+  private abortAll(): void {
+    for (const controller of this.aborts.values()) controller.abort()
+    this.aborts.clear()
+  }
+
+  private clearAbort(key: string): void {
+    this.aborts.delete(key)
   }
 
   private emit(): void {

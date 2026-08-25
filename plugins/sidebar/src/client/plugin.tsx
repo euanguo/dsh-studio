@@ -13,7 +13,6 @@
  *   - intercept.ts              — openPath + link interception (registry-based)
  *   - contract.ts               — the public registry protocol
  */
-import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
 import type { PinnedSummary } from '@dsh-studio/pinned-summary/client'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
@@ -22,7 +21,7 @@ import { configureOpenPipeline, openFileSurface } from './open/pipeline.ts'
 import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
 import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'
 import { CenterSurfaceHost } from './surfaces/center-surface-host.tsx'
-import { WorkspaceToolsService } from './workspace-tools.tsx'
+import { WorkspaceToolsService, activeWorkspace } from './workspace-tools.tsx'
 import { DesktopSidebarService } from './sidebar-service.ts'
 import { DomainSidebarPreferencesStorage } from './sidebar-storage.ts'
 import { DEFAULT_SIDEBAR_PREFERENCES } from '../sidebar-preferences.ts'
@@ -36,20 +35,24 @@ import type {
   BoundSidebarSettingsActions,
   ClientContext,
   SessionsService,
-  SidebarSettingsState,
   SlotsService,
   WorkspacesService,
 } from './client-types.ts'
 import { registerBuiltins } from './builtins/index.ts'
 import { TerminalTabContent } from './terminal-tab.tsx'
 import { disposeAllTerminalRuntimeOwners } from '@dsh-studio/shared/terminal-runtime-owner'
-import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
+import { SidebarSettingsRow } from './settings.tsx'
 import { AgentCapabilitiesSettingsSection } from './settings-agent.tsx'
 import { disposeSidebarRuntimes } from './runtimes/registry.ts'
 import { acquireOpenPathPatch, isLinkProtocolIntercepted, registerLinkHandler, registerLinkInterception, registerOpenPathHandler, releaseOpenPathPatch } from './intercept.ts'
 import { registerImeGuard } from './ime-guard.ts'
 import { registerPierreVisibilityRecovery } from './pierre-visibility.ts'
 import { startSidebarChromePersistence } from './runtimes/chrome-store.ts'
+import { startDiffCommentsPersistence } from './diff/diff-comments-store.ts'
+import { migrateLegacyCommentsIntoDomain } from '@dsh-studio/shared/comments-migration'
+import { snapshotStoreAdapter } from './snapshot-store-adapter.ts'
+import type { SidebarSnapshot } from './contract.ts'
+import type { SidebarSettingsState } from './client-types.ts'
 
 export const inject = [
   'desktopPanels',
@@ -61,15 +64,8 @@ export const inject = [
   'workspaces',
 ]
 
-function activeWorkspace(sessions: SessionsService): string | undefined {
-  const snapshot = sessions.list.getSnapshot()
-  const current = snapshot.current
-  const currentSummary = current === undefined ? undefined : snapshot.byId[current]
-  if (currentSummary?.cwd && currentSummary.cwd.trim() !== '') {
-    return currentSummary.cwd
-  }
-  return Object.values(snapshot.byId).find(s => s.cwd && s.cwd.trim() !== '' && !s.blank)?.cwd
-}
+// `activeWorkspace` (the cwd derivation single source) is exported from
+// workspace-tools.tsx and reused here (F5: no inline copies).
 
 function pathBelongsToActiveWorkspace(
   sessions: SessionsService,
@@ -78,6 +74,18 @@ function pathBelongsToActiveWorkspace(
   const cwd = activeWorkspace(sessions)
   if (cwd === undefined) return false
   return isUnderRoot(cwd, path)
+}
+
+/** The fields the settings section mirrors from the sidebar snapshot (F6). */
+function pickSidebarSettings(snapshot: SidebarSnapshot): SidebarSettingsState {
+  return {
+    openByDefault: snapshot.openByDefault,
+    revision: snapshot.revision,
+    tabsEnabled: { ...snapshot.tabsEnabled },
+    viewersEnabled: { ...snapshot.viewersEnabled },
+    width: snapshot.width,
+    pluginSettings: snapshot.pluginSettings,
+  }
 }
 
 export function apply(ctx: ClientContext): void {
@@ -103,7 +111,6 @@ export function apply(ctx: ClientContext): void {
   const reviewComments = new ReviewCommentsService(
     sessions,
     inputTriggers,
-    window.localStorage,
   )
   // Register the selection slash source so `slash/input-insert-reference`
   // accepts `dsh-studio-selection` chips (without registration the composer
@@ -142,38 +149,18 @@ export function apply(ctx: ClientContext): void {
     t,
     workspaces,
   })
-  const settingsStore = defineStore({
-    init: (): SidebarSettingsState => ({
-      openByDefault: false,
-      revision: -1,
-      tabsEnabled: {},
-      viewersEnabled: {},
-      pluginSettings: {},
-      width: DEFAULT_SIDEBAR_PREFERENCES.defaultWidth,
-    }),
-    actions: {
-      sync: (
-        draft,
-        openByDefault: boolean,
-        revision: number,
-        tabsEnabled: Record<string, boolean>,
-        viewersEnabled: Record<string, boolean>,
-        width: number,
-        pluginSettings: Record<string, Record<string, unknown>>,
-      ) => {
-        if (revision < draft.revision) return
-        draft.openByDefault = openByDefault
-        draft.revision = revision
-        draft.tabsEnabled = tabsEnabled
-        draft.viewersEnabled = viewersEnabled
-        draft.pluginSettings = pluginSettings
-        draft.width = width
-      },
-    },
-  })
+  // The settings store is a LIVE derived view of the sidebar snapshot (F6).
+  // snapshotStoreAdapter supplies a `sync` action that replaces the draft
+  // with `pickSidebarSettings(snapshot)`; the sidebar subscription below
+  // fires it (the framework re-delivers the bound action to `inject`).
+  const settingsStore = snapshotStoreAdapter(desktopSidebar, pickSidebarSettings)
   let settingsActions: BoundSidebarSettingsActions | undefined
   ctx.effect(() => {
     const stopChrome = startSidebarChromePersistence()
+    // Comments: migrate the legacy localStorage keys into the domain table
+    // once, then hydrate both comment families from it (F1/F2/M7).
+    const stopDiffComments = startDiffCommentsPersistence()
+    void migrateLegacyCommentsIntoDomain().then(() => reviewComments.start())
     const syncWorkspace = (): void => {
       // The current project = the active session's cwd, falling back to any
       // valid workspace cwd in the session roster.
@@ -182,9 +169,12 @@ export function apply(ctx: ClientContext): void {
     }
     syncWorkspace()
     const stopSessions = sessions.list.subscribe(syncWorkspace)
-    const stopSettings = desktopSidebar.subscribe(() => {
-      syncSidebarSettings(settingsActions, desktopSidebar.getSnapshot())
-    })
+    // Push the picked sidebar settings into the slots settings store once the
+    // framework has bound the store's `sync` action to inject().
+    const syncSettings = (): void => {
+      settingsActions?.sync(pickSidebarSettings(desktopSidebar.getSnapshot()))
+    }
+    const stopSettings = desktopSidebar.subscribe(syncSettings)
     const syncRuntime = (): void => {
       const prefs = runtimeSettings.getSnapshot().preferences
       desktopSidebar.setFeatureEnablement(prefs.tabsEnabled, prefs.viewersEnabled)
@@ -306,6 +296,7 @@ export function apply(ctx: ClientContext): void {
       desktopSidebar.dispose()
       runtimeSettings.dispose()
       stopChrome()
+      stopDiffComments()
       disposeAllTerminalRuntimeOwners()
       disposeSidebarRuntimes()
       void removeSidebar?.()
@@ -317,7 +308,7 @@ export function apply(ctx: ClientContext): void {
     id: 'dsh-studio-sidebar',
     inject: actions => {
       settingsActions = actions
-      syncSidebarSettings(settingsActions, desktopSidebar.getSnapshot())
+      settingsActions.sync(pickSidebarSettings(desktopSidebar.getSnapshot()))
       return {
         // Page-scoped reset: the Side panel page owns layout and opening
         // behavior; agent capabilities reset on their own page

@@ -581,11 +581,10 @@
 }
 
 .dsh-studio-sidebar-settings-grid {
+  /* C25: feature cards（工具 / 文件预览）回到单列 General-row——含
+     SettingsRow 的卡片不再并排成两列 feature tile。 */
   display: grid;
-  /* Only the compact feature cards (工具 / 文件预览) take two columns; the
-     settings-row sections stack via .dsh-studio-sidebar-settings-rows. */
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: var(--dsh-studio-space-6);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .dsh-studio-sidebar-settings-controls {
@@ -640,14 +639,14 @@
 
 .dsh-studio-sidebar-settings-popup-heading {
   margin: 8px 0 0;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   font-weight: 400;
   color: var(--dsw-alias-label-tertiary);
 }
 .dsh-studio-sidebar-settings-popup-empty {
   margin: 0;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
 }
 .dsh-studio-sidebar-settings-input {
   display: inline-flex;
@@ -661,7 +660,7 @@
   min-width: 0;
   flex: 1;
 }
-.dsh-studio-sidebar-settings-unit { color: var(--dsw-alias-label-tertiary); font-size: 12px; }
+.dsh-studio-sidebar-settings-unit { color: var(--dsw-alias-label-tertiary); font-size: var(--dsh-studio-font-md); }
 
 /* ---------- File browser (tree mode) ---------- */
 
@@ -747,6 +746,12 @@
 /* Any official Menu opened in portal mode (list portaled to document.body)
    must float above the sidebar's own fixed root (z-index 2147483647, the
    maximum — needed to clear the DSH window-drag strip). */
+/* 豁免注释（styles.ts 全局 Menu 重绘唯一入口）：这是全应用唯一一份
+   `body > div[role='menu']` 全局 Menu 重绘。官方 Menu 在 portal 模式下把弹层
+   挂到 document.body——portaled DOM 在 React 树之外，没有 dsh-studio-* 独占类
+   可定位，属性选择器是唯一稳定锚点（官方 Menu 保留 native role='menu' /
+   [role='menuitem'] 语义）。禁止在其它 surface 再复刻一份；上游改 DOM 契约时
+   在此集中维护。 */
 body > div[role='menu'] {
   z-index: 2147483647;
   border-radius: var(--dsh-studio-radius-md, 8px);

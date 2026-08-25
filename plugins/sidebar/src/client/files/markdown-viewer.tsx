@@ -18,6 +18,8 @@ import { codeToHtml } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { findTaskMarkerSourceLines } from './markdown-task-list.ts'
 import { ScrollArea } from '@dsh-studio/shared/ui'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import type { WorkspaceMessage } from '../i18n.ts'
 
 export interface MarkdownViewerProps {
   content: string
@@ -27,6 +29,7 @@ export interface MarkdownViewerProps {
   taskTogglesEnabled?: boolean
   /** Forwarded to the scroll host (the selection-insert popup host). */
   containerRef?: Ref<HTMLDivElement>
+  t: Translate<WorkspaceMessage>
 }
 
 export function MarkdownViewer({
@@ -34,6 +37,7 @@ export function MarkdownViewer({
   onTaskToggle,
   taskTogglesEnabled = true,
   containerRef,
+  t,
 }: MarkdownViewerProps): JSX.Element {
   const sourceLines = onTaskToggle === undefined ? [] : findTaskMarkerSourceLines(content)
   const headings = useMemo(() => extractHeadings(content), [content])
@@ -42,7 +46,7 @@ export function MarkdownViewer({
   return (
     <ScrollArea ref={containerRef} className={surfaceCss["dsh-studio-content-markdown"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="markdown-viewer">
       {headings.length > 1 ? (
-        <nav className={surfaceCss["dsh-studio-markdown-toc"]} aria-label="Table of contents">
+        <nav className={surfaceCss["dsh-studio-markdown-toc"]} aria-label={t('files.table-of-contents')}>
           {headings.map(heading => (
             <a key={heading.id} href={`#${heading.id}`} style={{ paddingLeft: `${(heading.level - 1) * 10}px` }}>
               {heading.text}

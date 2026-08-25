@@ -45,7 +45,11 @@ export type WorkspaceMessage =
   | 'files.not-file'
   | 'files.no-viewer'
   | 'files.empty-file'
+  | 'files.empty-notebook'
+  | 'files.file-path'
+  | 'files.table-of-contents'
   | 'files.search-no-matches'
+  | 'files.search-unavailable'
   | 'files.image-loading'
   | 'files.image-load-failed'
   | 'files.zoom-out'
@@ -91,6 +95,9 @@ export type WorkspaceMessage =
   | 'side.tab-limit'
   | 'side.tool-disabled'
   | 'side.tool-missing'
+  // // unwired-capability (leaf-R2 ②): bottom-workbench message keys restored
+  // // from HEAD — the workbench is dormant, but the keys keep the type
+  // // complete so `bottom-workbench.tsx` typechecks and re-wires trivially.
   | 'bottom-workbench.title'
   | 'bottom-workbench.tabs'
   | 'bottom-workbench.empty'
@@ -125,6 +132,15 @@ export type WorkspaceMessage =
   | 'selection.copy-failed'
   | 'selection.send-unavailable'
   | 'selection.edit-unavailable'
+  // Relative-time bucket keys (C37): shared with desktop-left-rail's `time.*`
+  // so the selection pill and the left rail render the same localized shapes.
+  | 'time.now'
+  | 'time.minutes'
+  | 'time.hours'
+  | 'time.days'
+  | 'time.months'
+  | 'time.years'
+  | 'time.ago'
   | 'settings.width'
   | 'settings.width-value'
   | 'settings.tools'
@@ -198,6 +214,7 @@ export type WorkspaceMessage =
   | 'workspace.current-branch'
   | 'workspace.commit-message'
   | 'workspace.commit-all'
+  | 'workspace.commit-staged-all'
   | 'workspace.commit-publish'
   | 'workspace.commit-force-push'
   | 'workspace.commit-force-push-confirm'
@@ -270,6 +287,12 @@ export type WorkspaceMessage =
   | 'overlay.retry'
   | 'diff.layout.unified'
   | 'diff.layout.split'
+  | 'diff.change-prev'
+  | 'diff.change-next'
+  | 'diff.comment-actions'
+  | 'diff.comment-resolve'
+  | 'diff.comment-reopen'
+  | 'diff.comment-delete'
   | 'diff.wrap'
   | 'diff.too-large'
   | 'diff.truncated'
@@ -334,7 +357,11 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.not-file': 'The selected path is not a regular file.',
     'files.no-viewer': 'No preview is available for this file ({size}).',
     'files.empty-file': 'Empty file',
+    'files.empty-notebook': 'Empty notebook',
+    'files.file-path': 'File path',
+    'files.table-of-contents': 'Table of contents',
     'files.search-no-matches': 'No matches',
+    'files.search-unavailable': 'Search unavailable',
     'files.image-loading': 'Loading image…',
     'files.image-load-failed': 'Could not load image.',
     'files.zoom-out': 'Zoom out',
@@ -413,6 +440,13 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'selection.copy-failed': 'Copy failed',
     'selection.send-unavailable': 'No reachable conversation to send to',
     'selection.edit-unavailable': 'No reachable conversation to apply the edit',
+    'time.now': 'now',
+    'time.minutes': '{n}min',
+    'time.hours': '{n}h',
+    'time.days': '{n}d',
+    'time.months': '{n}mo',
+    'time.years': '{n}y',
+    'time.ago': '{t} ago',
     'settings.layout-scope': 'Cross-project layout',
     'settings.layout-scope-description':
       'Share one side-panel tab layout across every project. Turn off to keep a separate layout per project.',
@@ -489,6 +523,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.current-branch': 'Current branch',
     'workspace.commit-message': 'Commit message',
     'workspace.commit-all': 'Commit all',
+    'workspace.commit-staged-all': 'No staged changes — staged everything and committed.',
     'workspace.commit-publish': 'Publish branch',
     'workspace.commit-force-push': 'Force push with lease',
     'workspace.commit-force-push-confirm': 'Force push the current branch with lease protection?',
@@ -561,6 +596,12 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'overlay.retry': 'Retry',
     'diff.layout.unified': 'Unified view',
     'diff.layout.split': 'Side-by-side view',
+    'diff.change-prev': 'Previous change ({hint})',
+    'diff.change-next': 'Next change ({hint})',
+    'diff.comment-actions': 'Comment actions',
+    'diff.comment-resolve': 'Resolve',
+    'diff.comment-reopen': 'Reopen',
+    'diff.comment-delete': 'Delete',
     'diff.wrap': 'Wrap long lines',
     'diff.too-large': 'Diff too large to render inline ({lines} lines).',
     'diff.truncated': 'Diff truncated to {lines} lines.',
@@ -624,7 +665,11 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.not-file': '所选路径不是常规文件。',
     'files.no-viewer': '此文件没有可用的预览（{size}）。',
     'files.empty-file': '空文件',
+    'files.empty-notebook': '空笔记本',
+    'files.file-path': '文件路径',
+    'files.table-of-contents': '目录',
     'files.search-no-matches': '无匹配结果',
+    'files.search-unavailable': '搜索不可用',
     'files.image-loading': '加载图片中…',
     'files.image-load-failed': '图片加载失败。',
     'files.zoom-out': '缩小',
@@ -702,6 +747,13 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'selection.copy-failed': '复制失败',
     'selection.send-unavailable': '没有可接收的会话，无法发送',
     'selection.edit-unavailable': '没有可接收的会话，无法应用编辑',
+    'time.now': '刚刚',
+    'time.minutes': '{n}分钟',
+    'time.hours': '{n}小时',
+    'time.days': '{n}天',
+    'time.months': '{n}个月',
+    'time.years': '{n}年',
+    'time.ago': '{t}前',
     'settings.layout-scope': '跨项目共享布局',
     'settings.layout-scope-description': '所有项目共用同一份侧栏标签布局；关闭后每个项目保留各自的布局。',
     'settings.width': '默认宽度',
@@ -777,6 +829,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.current-branch': '当前分支',
     'workspace.commit-message': '提交信息',
     'workspace.commit-all': '提交全部',
+    'workspace.commit-staged-all': '暂存区为空——已暂存全部变更并提交。',
     'workspace.commit-publish': '发布分支',
     'workspace.commit-force-push': '强制推送（带租约）',
     'workspace.commit-force-push-confirm': '确定使用租约保护强制推送当前分支吗？',
@@ -849,6 +902,12 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'overlay.retry': '重试',
     'diff.layout.unified': '统一视图',
     'diff.layout.split': '分栏视图',
+    'diff.change-prev': '上一处更改（{hint}）',
+    'diff.change-next': '下一处更改（{hint}）',
+    'diff.comment-actions': '评论操作',
+    'diff.comment-resolve': '标记为已解决',
+    'diff.comment-reopen': '重新打开',
+    'diff.comment-delete': '删除',
     'diff.wrap': '自动换行',
     'diff.too-large': '差异过大，无法内联渲染（{lines} 行）。',
     'diff.truncated': '差异已截断（仅显示 {lines} 行）。',

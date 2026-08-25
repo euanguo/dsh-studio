@@ -10,6 +10,7 @@ import type { WorkspaceMessage } from '../i18n.ts'
 import { loadMermaidChunk } from '../chunk-loader.ts'
 import { LoadingState } from '@dsh-studio/shared/ui'
 import { ScrollArea } from '@dsh-studio/shared/ui'
+import { errorMessage } from '@dsh-studio/shared/errors'
 
 export function MermaidViewer({
   content,
@@ -33,7 +34,7 @@ export function MermaidViewer({
       })
       .catch((cause: unknown) => {
         if (alive) {
-          setError(cause instanceof Error ? cause.message : String(cause))
+          setError(errorMessage(cause))
           setLoading(false)
         }
       })

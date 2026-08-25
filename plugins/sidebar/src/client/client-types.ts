@@ -137,15 +137,10 @@ export interface SidebarSettingsState {
   pluginSettings: Record<string, Record<string, unknown>>
 }
 
+/** The bound store action the slot injector receives: replace the derived
+ *  settings state with a freshly picked snapshot (see snapshotStoreAdapter). */
 export interface BoundSidebarSettingsActions {
-  sync(
-    openByDefault: boolean,
-    revision: number,
-    tabsEnabled: Record<string, boolean>,
-    viewersEnabled: Record<string, boolean>,
-    width: number,
-    pluginSettings: Record<string, Record<string, unknown>>,
-  ): void
+  sync(next: SidebarSettingsState): void
 }
 
 export interface SidebarSettingsProps {
@@ -191,8 +186,6 @@ export interface WorkspaceToolsState {
 }
 
 export interface WorkspaceTools {
-  getSnapshot(): WorkspaceToolsState
-  subscribe(listener: () => void): () => void
   isOpen(): boolean
   openBrowser(): void
   openBrowserUrl(url: string): void
@@ -213,5 +206,3 @@ export interface WorkspaceTools {
   /** The tab/viewer registry service (open file tabs from list previews). */
   sidebar: DesktopSidebarService
 }
-
-export const EMPTY_CONVERSATION: ConversationSnapshot = { runningCalls: [] }
