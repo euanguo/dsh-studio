@@ -10,13 +10,18 @@ import { cn } from '../shim/cn.ts'
 import {
   HoverCard, Menu, StateDot,
   IconArchiveOutline20, IconBranchOutline16, IconEditOutline16, IconEllipsisOutline16,
-  IconFolderClose16, IconFolderOpen16, IconPlusOutline16, IconTrashOutline16,
   IconTriangleRightFill14, type StateDotState,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
-import type { GroupNode, SearchResultNode, SessionNode } from '../tree.ts'
+import type { SearchResultNode, SessionNode } from '../tree.ts'
 import { relativeTime } from '../tree.ts'
 import { RowsCss as css } from '../styles.ts'
+
+/** Row-level status chip model (structural; mirrors StateDot states). */
+type SessionStatus = { state: 'ongoing' | 'warning' | 'done'; label: string }
+function assertNever(value: never): never {
+  throw new Error(`Unhandled value: ${String(value)}`)
+}
 
 /** The standard locale seat, prop-passed from the browser root. */
 type RowTranslate = WorkspaceBrowserProps['t']
@@ -39,34 +44,6 @@ function hoverTimeLabel(updatedAt: number, now: number, t: RowTranslate): string
 }
 
 /**
- * Absolute creation time through the dictionary's date template (the message
- * clock pattern): `toLocaleString` would follow the browser language, not the
- * app locale, and produce mixed-language text after a switch.
- */
-function createdLabel(createdAt: number, t: RowTranslate): string {
-  const d = new Date(createdAt)
-  const pad2 = (v: number): string => String(v).padStart(2, '0')
-  const date = t('date.ymd', { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate() })
-  return t('hover.created', { time: `${date} ${pad2(d.getHours())}:${pad2(d.getMinutes())}` })
-}
-
-/** Hover-card body: workspace title, full directory path, absolute creation time. */
-function WorkspaceHoverContent({ label, cwd, createdAt, t }: {
-  label: string
-  cwd: string | undefined
-  createdAt: number
-  t: RowTranslate
-}) {
-  return (
-    <div className={css.hoverContent}>
-      <div className={css.hoverTitle}>{label}</div>
-      <div className={css.hoverPath}>{cwd}</div>
-      <div className={css.hoverTime}>{createdLabel(createdAt, t)}</div>
-    </div>
-  )
-}
-
-/**
  * Row drag wiring supplied by the tree owner. `drop` reports the half of the
  * row where the pointer released so the owner can resolve an insert anchor.
  */
@@ -83,129 +60,13 @@ export interface RowDragProps {
   end: () => void
 }
 
-/** Drag lifecycle owned by a workspace row; its enclosing group owns hit testing. */
-interface WorkspaceRowDragProps {
-  start: () => void
-  end: () => void
-}
-
 /** Pointer-position half of a row (insert line above or below). */
 function rowHalf(e: { clientY: number; currentTarget: HTMLElement }): 'before' | 'after' {
   const rect = e.currentTarget.getBoundingClientRect()
   return e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
 }
 
-/**
- * Project (workspace) header row: folder + title;
- * hover reveals the chevron and create button, and dwelling on a real
- * Workspace shows its hover card (the ungrouped bucket has none).
- * `containsCurrent` arrives on the node (derivation fact, no renderer scan).
- * @param props.group - derived group node.
- * @param props.onToggle - expand/collapse the group.
- * @param props.onCreate - start a frontend Session inside this Workspace.
- * @param props.drag - optional workspace-row drag wiring.
- * @param props.t - the browser root's locale seat.
- * @returns the row element.
- */
-export function ProjectRowItem({ group, onToggle, onCreate, actions, drag, t }: {
-  group: GroupNode
-  onToggle: () => void
-  onCreate: () => void
-  /** Real-Workspace actions; absent for the ungrouped bucket (no menu shown). */
-  actions?: { rename: () => void; delete: () => void } | undefined
-  /** Present only for real Workspace rows in the grouped view. */
-  drag?: WorkspaceRowDragProps | undefined
-  t: RowTranslate
-}) {
-  const row = group
-  // The ungrouped bucket has no workspace title: its label is dictionary copy.
-  const label = row.workspaceId === undefined ? t('group.ungrouped') : row.label
-  const active = group.expanded && group.containsCurrent
-  const [menuOpen, setMenuOpen] = useState(false)
-  const workspaceMenuItems = [
-    { id: 'rename', label: t('rename'), icon: <IconEditOutline16 /> },
-    { id: 'delete', label: t('delete.workspace'), icon: <IconTrashOutline16 />, danger: true },
-  ]
-  const ownRow = (
-    <div
-      className={cn(css.projectRow, menuOpen && css.menuOpen)}
-      role="treeitem"
-      aria-expanded={row.expanded}
-      onClick={onToggle}
-      draggable={drag !== undefined}
-      onDragStart={drag === undefined
-        ? undefined
-        : (e) => {
-          e.dataTransfer.effectAllowed = 'move'
-          e.dataTransfer.setData('text/plain', row.key)
-          drag.start()
-        }}
-      onDragEnd={drag?.end}
-    >
-      <span className={cn(css.slot, active && css.folderActive)}>
-        {row.expanded ? <IconFolderOpen16 /> : <IconFolderClose16 />}
-      </span>
-      <span className={cn(css.slot, css.chevron)}>
-        <IconTriangleRightFill14 className={cn(css.arrow, row.expanded && css.arrowOpen)} />
-      </span>
-      <span className={css.projectText}>
-        <span className={css.title}>{label}</span>
-      </span>
-      <span className={css.rowActions}>
-        {actions !== undefined && (
-          <Menu
-            open={menuOpen}
-            onClose={() => { setMenuOpen(false) }}
-            items={workspaceMenuItems}
-            onSelect={(id) => {
-              setMenuOpen(false)
-              // Unknown ids leave before the dispatch: a future menu row must
-              // not inherit the destructive branch as an else fallback.
-              /* v8 ignore next -- workspaceMenuItems carries exactly these two rows today. */
-              if (id !== 'rename' && id !== 'delete') return
-              if (id === 'rename') actions.rename()
-              else actions.delete()
-            }}
-            portal
-            closeOnPointerLeave
-            anchor={(
-              <button
-                type="button"
-                className={css.iconButton}
-                aria-label={t('actions.workspace.aria', { name: label })}
-                onClick={(e) => { e.stopPropagation(); setMenuOpen(v => !v) }}
-              >
-                <IconEllipsisOutline16 />
-              </button>
-            )}
-          />
-        )}
-        <button
-          type="button"
-          className={css.iconButton}
-          aria-label={t('actions.newSession.aria', { name: label })}
-          onClick={(e) => { e.stopPropagation(); onCreate() }}
-        >
-          <IconPlusOutline16 />
-        </button>
-      </span>
-    </div>
-  )
-  // The ungrouped bucket has no backing Workspace: no card to show.
-  if (row.createdAt === undefined) return ownRow
-  return (
-    <HoverCard
-      anchor={ownRow}
-      content={<WorkspaceHoverContent label={row.label} cwd={row.cwd} createdAt={row.createdAt} t={t} />}
-      disabled={menuOpen}
-      copyText={row.cwd}
-      copyLabel={t('copy')}
-      copiedLabel={t('hover.copied')}
-    />
-  )
-}
-
-/* v8 ignore next 3 -- closed-union backstop; only reached if the status is forged */
+/** One top-level session row: status dot, title, relative time, and the row actions menu.
 function assertNever(value: never): never {
   throw new Error(`unknown pending interaction: ${String(value)}`)
 }

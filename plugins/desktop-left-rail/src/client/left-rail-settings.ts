@@ -58,3 +58,28 @@ export async function saveLeftRailSettings(
     revision: result.revision ?? 0,
   }
 }
+
+/**
+ * Persist the complete next slice with CAS and one self-healing retry. On a
+ * conflict (another surface wrote meanwhile) or a transport failure the
+ * latest slice is re-read and the write retried once over THAT base — a
+ * conflict never wedges persistence until reload and never reverts another
+ * surface's keys with a stale copy. A second failure is propagated to the
+ * caller (never silently swallowed) so the surface can surface it.
+ * @param base - the caller's last-known slice for the first attempt.
+ * @param revision - the caller's last-known revision for the first attempt.
+ * @param build - derive the next slice from a base (used on the retry too).
+ * @returns the accepted view; the caller adopts its value + revision.
+ */
+export async function withSettingsCas(
+  base: LeftRailSettings,
+  revision: number,
+  build: (nextBase: LeftRailSettings) => LeftRailSettings,
+): Promise<LeftRailSettingsView> {
+  try {
+    return await saveLeftRailSettings(build(base), revision)
+  } catch {
+    const latest = await loadLeftRailSettings()
+    return saveLeftRailSettings(build(latest.value), latest.revision)
+  }
+}

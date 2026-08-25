@@ -74,7 +74,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
   line-height: 20px;
 }
 
@@ -91,7 +91,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 17px;
 }
 
@@ -185,13 +185,13 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
   line-height: 20px;
 }
 
 .renameInput {
   min-width: 0;
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
   line-height: 20px;
   padding: 0 2px;
   border: 1px solid var(--dsw-alias-border-l2);
@@ -209,14 +209,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 20px;
   color: var(--dsw-alias-label-tertiary);
 }
 
 .time {
   flex: none;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 20px;
   color: var(--dsw-alias-label-tertiary);
 }
@@ -309,7 +309,12 @@
 /* Hover-card body (figma 169:16903): the HoverCard owns a fixed dark
    surface (#2C2C2E, both themes), so its text is the fixed light palette
    too — the same values the official rows use. Skin tokens must not reach
-   here: in light mode they resolve dark and vanish on the dark card. */
+   here: in light mode they resolve dark and vanish on the dark card.
+   记录在案权衡 (documented tradeoff): these fixed light hex values are an
+   intentional exemption from the token palette — the HoverCard does not
+   expose a token for its always-dark surface, so a per-theme token would
+   either break or silently no-op. Revisit if the HoverCard ever themes its
+   surface. */
 .hoverContent {
   display: flex;
   flex-direction: column;
@@ -317,21 +322,21 @@
 }
 
 .hoverTitle {
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
   line-height: 20px;
   color: #FFFFFF;
   overflow-wrap: break-word;
 }
 
 .hoverPath {
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
   color: #CFD3D6;
   word-break: break-all;
 }
 
 .hoverTime {
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
   color: #CFD3D6;
 }
@@ -340,7 +345,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 20px;
   color: #ADB2B8;
 }
@@ -421,7 +426,7 @@
 
 .branchBadge {
   flex: none;
-  font-size: 10px;
+  font-size: var(--dsh-studio-font-xs);
   line-height: 16px;
   height: 16px;
   padding: 0 5px;
@@ -432,7 +437,7 @@
 
 .mainBadge {
   flex: none;
-  font-size: 10px;
+  font-size: var(--dsh-studio-font-xs);
   line-height: 16px;
   height: 16px;
   padding: 0 5px;
@@ -445,7 +450,7 @@
    target rows discoverable (their actions expand per workspace in the menu). */
 .countBadge {
   flex: none;
-  font-size: 10px;
+  font-size: var(--dsh-studio-font-xs);
   line-height: 16px;
   height: 16px;
   padding: 0 5px;

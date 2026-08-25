@@ -25,6 +25,7 @@ import type { DirectoryFlowOwnerProps, WorkspacePickerProps } from './contract/s
 // shim, which mounts the scope attribute on the portal wrapper.
 import { WorkspacePickerCss as css } from './styles.ts'
 import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
+import { errorMessage } from '@dsh-studio/shared/errors'
 
 const ADD_WORKSPACE = '::add-workspace'
 
@@ -134,7 +135,7 @@ export function WorkspacePickFlow({
       setFlowOpen(false)
       onPick(workspace.workspaceId)
     }).catch((reason: unknown) => {
-      setModalError(reason instanceof Error ? reason.message : String(reason))
+      setModalError(errorMessage(reason))
       setFlowOpen(false)
       setErrorOpen(true)
     })

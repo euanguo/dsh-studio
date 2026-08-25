@@ -8,6 +8,8 @@
 import { defineStore, type EngineStoreHandle } from '@deepseek-ai/dsh-client-runtime/client'
 import type { ProjectIconPreference } from './domain/project-icon.ts'
 import { sanitizeProjectIconPreference } from './domain/project-icon.ts'
+import type { SessionOrderBy } from './tree.ts'
+import { DEFAULT_GROUP_ID } from './tree.ts'
 import type { LeftRailViewChrome } from '@dsh-studio/shared/ui-chrome-tables'
 
 /** Browser-local order account for the hierarchy-free flat Session list. */
@@ -15,8 +17,6 @@ export const FLAT_SESSION_ORDER_KEY = '__flat_session_order__'
 
 /** Session-list grouping mode: workspace sections or one flat recency list. */
 export type SessionGroupBy = 'workspace' | 'flat'
-/** Session order: user-arranged only, or user-arranged plus activity promotion. */
-export type SessionOrderBy = 'manual' | 'updated'
 
 /** Workspace browser viewing state persisted across surface remounts and reloads. */
 type WorkspaceViewState = {
@@ -84,7 +84,7 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
       groupExpansion: {},
       sessionOrderByAccount: {},
       sessionUpdatedAtByAccount: {},
-      activeTab: '__default__',
+      activeTab: DEFAULT_GROUP_ID,
       projectGroup: {},
       groupIds: [],
       groupLabels: {},
@@ -117,7 +117,7 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
       },
       setActiveTab: (d, tab: string) => { d.activeTab = tab },
       moveProjectToGroup: (d, repoRoot: string, groupId: string | undefined) => {
-        if (groupId === undefined || groupId === '__default__') delete d.projectGroup[repoRoot]
+        if (groupId === undefined || groupId === DEFAULT_GROUP_ID) delete d.projectGroup[repoRoot]
         else d.projectGroup[repoRoot] = groupId
       },
       createGroup: (d, id: string, label: string) => {
@@ -167,7 +167,9 @@ export function createWorkspaceViewStore(): EngineStoreHandle<WorkspaceViewState
         d.sessionOrderByAccount = Object.fromEntries(
           Object.entries(chrome.sessionOrder).map(([key, order]) => [key, [...order]]),
         )
-        d.sessionUpdatedAtByAccount = {}
+        // Keep the observed-update snapshot: discarding it here would re-trigger
+        // a full recency promotion on the next reload, reordering everything.
+        // Reviewed decision C30 — retention is the intended behavior.
       },
     },
   })

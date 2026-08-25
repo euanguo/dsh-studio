@@ -3,7 +3,7 @@
  * Rows render semantic action selections; they do not call Workspace, Git,
  * filesystem, or settings capabilities directly.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   HoverCard, Menu, StateDot,
   IconCopyOutline16, IconEditOutline16, IconEllipsisOutline16, IconFolderOpen16,
@@ -18,6 +18,7 @@ import { projectActionDescriptors, worktreeActionDescriptors } from '../domain/a
 import { projectIdOf, worktreeIdOf } from '../domain/identities.ts'
 import { ProjectIconGlyph } from '../ProjectIconGlyph.tsx'
 import type { ActivityKind, GroupTab, ProjectNode, WorktreeNode } from '../tree.ts'
+import { DEFAULT_GROUP_ID } from '../tree.ts'
 import { RowsCss as css } from '../styles.ts'
 import { cn } from '../shim/cn.ts'
 
@@ -144,7 +145,7 @@ export function ProjectRowItem({ project, onToggle, tabs, onAction, dot, hiddenK
             else if (id === 'copy-path') select('project.copy-path')
             else if (id === 'open-folder') select('project.open-directory')
             else if (id === 'remove') select('project.remove-registration')
-            else if (id === 'move-default') select('project.move-group', { groupId: '__default__' })
+            else if (id === 'move-default') select('project.move-group', { groupId: DEFAULT_GROUP_ID })
             else if (id === 'move-new') select('project.move-group', { groupId: '__new__' })
             else if (id.startsWith('move-group:')) select('project.move-group', { groupId: id.slice('move-group:'.length) })
           }}
@@ -196,48 +197,66 @@ export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAct
   t: RowTranslate
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const targets = workspaces ?? []
-  const target = { kind: 'worktree' as const, id: worktreeIdOf(project, worktree) }
-  const descriptors = worktreeActionDescriptors(project, worktree)
-  const descriptor = (id: ActionSelection['action'], workspaceId?: string) => descriptors.find(item => item.id === id && item.workspaceId === workspaceId)
-  // One rename / one remove per row (worktree = workspace). The suffix only
-  // disambiguates when one row genuinely carries several registrations.
+  // Stable deps for the memoized menu below (C41): avoid fresh `[]`/object
+  // identities per render so the menu recomputes only when its inputs move.
+  const targets = useMemo(() => workspaces ?? [], [workspaces])
+  // Stable identity for the menu's target: the id string is pure, so the
+  // object survives re-renders and keeps the memoized menu/selections
+  // effective (C41) instead of recomputing on every parent render.
+  const target = useMemo(
+    () => ({ kind: 'worktree' as const, id: worktreeIdOf(project, worktree) }),
+    [project, worktree],
+  )
+  const descriptors = useMemo(
+    () => worktreeActionDescriptors(project, worktree),
+    [project, worktree],
+  )
+  // Suffix only disambiguates when one row genuinely carries several
+  // registrations (worktree = workspace).
   const multi = targets.length > 1
-  const selections = new Map<string, ActionSelection>()
-  /** Rows for one verb: the explicit Workspace targets, or the single row-level fallback. */
-  const verbRows = (
-    action: 'worktree.create-session' | 'worktree.rename' | 'worktree.remove',
-    label: string,
-    icon: JSX.Element,
-    fallback: boolean,
-    danger?: boolean,
-  ): MenuEntry[] => {
-    if (targets.length > 0) {
-      return targets.map(workspace => {
-        const id = `${action}:${workspace.id}`
-        selections.set(id, actionIconSelection(action, target, { workspaceId: workspace.id }))
-        return { id, label: multi ? `${label} · ${workspace.title}` : label, icon, ...(danger ? { danger: true } : {}) }
-      })
+  // Build the action menu and its id→selection map together (C41): populating
+  // the Map during render is a render-phase side effect that also defeats any
+  // memoization of the menu. Recomputes only when the row's targets/configs
+  // change, not on every parent render.
+  const { menuItems, selections } = useMemo(() => {
+    const selections = new Map<string, ActionSelection>()
+    const descriptor = (id: ActionSelection['action'], workspaceId?: string) => descriptors.find(item => item.id === id && item.workspaceId === workspaceId)
+    /** Rows for one verb: the explicit Workspace targets, or the single row-level fallback. */
+    const verbRows = (
+      action: 'worktree.create-session' | 'worktree.rename' | 'worktree.remove',
+      label: string,
+      icon: JSX.Element,
+      fallback: boolean,
+      danger?: boolean,
+    ): MenuEntry[] => {
+      if (targets.length > 0) {
+        return targets.map(workspace => {
+          const id = `${action}:${workspace.id}`
+          selections.set(id, actionIconSelection(action, target, { workspaceId: workspace.id }))
+          return { id, label: multi ? `${label} · ${workspace.title}` : label, icon, ...(danger ? { danger: true } : {}) }
+        })
+      }
+      if (!fallback) return []
+      selections.set(action, actionIconSelection(action, target))
+      return [{ id: action, label, icon, ...(danger ? { danger: true } : {}) }]
     }
-    if (!fallback) return []
-    selections.set(action, actionIconSelection(action, target))
-    return [{ id: action, label, icon, ...(danger ? { danger: true } : {}) }]
-  }
-  const menuItems: MenuEntry[] = [
-    ...verbRows('worktree.create-session', t('worktree.newSession'), <IconPlusOutline16 />, false),
-    // Registration-less row: rename still offered (display alias).
-    ...verbRows('worktree.rename', t('rename.workspace.title'), <IconEditOutline16 />, true),
-    // Linked Git rows remove physically (registration entries above cover
-    // the main / non-git rows); nothing to remove when neither applies.
-    ...(targets.length > 0
-      ? verbRows('worktree.remove', t('worktree.remove'), <IconTrashOutline16 />, false, true)
-      : (descriptor('worktree.remove')?.enabled === true
-        ? verbRows('worktree.remove', t('worktree.remove'), <IconTrashOutline16 />, true, true)
-        : [])),
-    { type: 'separator', id: 'wt-sep-path' },
-    { id: 'copy-path', label: t('menu.copyPath'), icon: <IconCopyOutline16 /> },
-    { id: 'open-folder', label: t('menu.openFolder'), icon: <IconFolderOpenOutline16 /> },
-  ]
+    const menuItems: MenuEntry[] = [
+      ...verbRows('worktree.create-session', t('worktree.newSession'), <IconPlusOutline16 />, false),
+      // Registration-less row: rename still offered (display alias).
+      ...verbRows('worktree.rename', t('rename.workspace.title'), <IconEditOutline16 />, true),
+      // Linked Git rows remove physically (registration entries above cover
+      // the main / non-git rows); nothing to remove when neither applies.
+      ...(targets.length > 0
+        ? verbRows('worktree.remove', t('worktree.remove'), <IconTrashOutline16 />, false, true)
+        : (descriptor('worktree.remove')?.enabled === true
+          ? verbRows('worktree.remove', t('worktree.remove'), <IconTrashOutline16 />, true, true)
+          : [])),
+      { type: 'separator', id: 'wt-sep-path' },
+      { id: 'copy-path', label: t('menu.copyPath'), icon: <IconCopyOutline16 /> },
+      { id: 'open-folder', label: t('menu.openFolder'), icon: <IconFolderOpenOutline16 /> },
+    ]
+    return { menuItems, selections }
+  }, [targets, target, descriptors, multi, t])
   const handleSelect = (id: string): void => {
     setMenuOpen(false)
     const selection = selections.get(id)

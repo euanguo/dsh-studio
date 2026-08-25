@@ -14,6 +14,7 @@ import {
 import { FieldError } from '@dsh-studio/shared/ui'
 import { cn } from './shim/cn.ts'
 import { WorkspaceBrowserCss as css } from './styles.ts'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import {
   computeWorktreeLocation,
   type WorktreeDefaultsResult,
@@ -109,8 +110,11 @@ export function NewWorktreeDialog({
       })
     }
     const baseDir = repoRoot.replace(/[/\\]+$/, '')
-    const parent = baseDir.slice(0, baseDir.lastIndexOf('/'))
-    const name = baseDir.slice(baseDir.lastIndexOf('/') + 1)
+    // Windows absolute paths (C:\…) carry a backslash separator; split on
+    // either, so the parent/name derivation is not POSIX-only.
+    const parts = baseDir.split(/[/\\]/)
+    const name = parts.pop() ?? baseDir
+    const parent = parts.join('/')
     return `${parent}/${name}-worktrees/${slug(branch) === '' ? 'new' : slug(branch)}`
   }
 
@@ -149,7 +153,7 @@ export function NewWorktreeDialog({
       onClose()
     }).catch((reason: unknown) => {
       setPending(false)
-      setError(reason instanceof Error ? reason.message : String(reason))
+      setError(errorMessage(reason))
     })
   }
 

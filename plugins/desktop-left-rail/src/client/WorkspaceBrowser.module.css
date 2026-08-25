@@ -67,6 +67,10 @@
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
+  /* Slide durations are 180ms here and in .searchSlot/.sectionHeader; the
+     rail-search focus wait in WorkspaceBrowser.tsx (EXPAND_SLIDE_MS = 300ms)
+     is the single source and stays above these so the focus lands after the
+     slide. Keep these ≤ EXPAND_SLIDE_MS and change them together. */
   line-height: 20px;
   opacity: 1;
   visibility: visible;
@@ -206,7 +210,7 @@
   background: transparent;
   opacity: 0;
   pointer-events: none;
-  font-size: 13px;
+  font-size: var(--dsh-studio-font-lg);
   line-height: 18px;
   color: var(--dsw-alias-label-primary);
   transition: opacity 120ms var(--ds-ease-in-out);
@@ -367,7 +371,7 @@
 .searchStatus,
 .searchWarning {
   padding: 10px 12px;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 18px;
   color: var(--dsw-alias-label-tertiary);
 }
@@ -385,54 +389,6 @@
   margin-top: 4px;
 }
 
-.listTopDropIndicator,
-.workspaceDropBefore::before,
-.workspaceDropAfter::after {
-  content: '';
-  position: absolute;
-  z-index: 1;
-  left: 0;
-  right: 0;
-  height: 12px;
-  background:
-    linear-gradient(
-      55deg,
-      transparent calc(50% - 1px),
-      var(--dsw-alias-state-business-primary) calc(50% - 1px) calc(50% + 1px),
-      transparent calc(50% + 1px)
-    ) 0 0 / 5px 7px no-repeat,
-    linear-gradient(
-      125deg,
-      transparent calc(50% - 1px),
-      var(--dsw-alias-state-business-primary) calc(50% - 1px) calc(50% + 1px),
-      transparent calc(50% + 1px)
-    ) 0 5px / 5px 7px no-repeat,
-    linear-gradient(
-      var(--dsw-alias-state-business-primary) 0 0
-    ) 4px 5px / calc(100% - 4px) 2px no-repeat;
-  pointer-events: none;
-}
-
-/* The first insertion boundary keeps the same -8px coordinate as every
-   Workspace boundary, but lives outside the scrolling clip. */
-.listTopDropIndicator {
-  top: -8px;
-  left: 0;
-  right: var(--dsh-session-list-edge-inset);
-}
-
-.listTopDropActive > .workspaceDropBefore:first-child::before {
-  display: none;
-}
-
-.workspaceDropBefore::before {
-  top: -8px;
-}
-
-.workspaceDropAfter::after {
-  bottom: -8px;
-}
-
 .sessionOverflowButton {
   width: 100%;
   height: 28px;
@@ -442,7 +398,7 @@
   background: transparent;
   cursor: pointer;
   text-align: left;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   color: var(--dsw-alias-label-tertiary);
 }
 
@@ -458,7 +414,7 @@
 .empty {
   padding: 16px 12px;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 13px;
+  font-size: var(--dsh-studio-font-lg);
 }
 
 /* Rename dialog form (same figma dialog family as the create modals). */
@@ -471,7 +427,7 @@
   border-radius: 22px;
   outline: none;
   background: transparent;
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
   font-weight: 400;
   line-height: 22px;
   color: var(--dsw-alias-label-primary);
@@ -483,7 +439,7 @@
 
 .renameError {
   margin-top: 8px;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 18px;
   color: var(--dsw-alias-state-error-primary);
 }
@@ -493,7 +449,7 @@
 }
 
 .deleteStatus {
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 18px;
   color: var(--dsw-alias-label-secondary);
 }
@@ -504,7 +460,7 @@
   align-items: flex-start;
   gap: 8px;
   margin: 4px 0 8px;
-  font-size: 13px;
+  font-size: var(--dsh-studio-font-lg);
   line-height: 20px;
   color: var(--dsw-alias-label-secondary);
   cursor: pointer;
@@ -559,7 +515,7 @@
   corner-shape: superellipse(1.5);
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: var(--gw-skin-row-h, 28px);
   color: var(--dsw-alias-label-secondary);
 }
@@ -610,7 +566,7 @@
 
 .projectMatchHeader {
   padding: 4px 8px 2px;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
   color: var(--dsw-alias-label-tertiary);
 }
@@ -655,7 +611,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
+  font-size: var(--dsh-studio-font-lg);
   line-height: 18px;
   font-weight: 600;
 }
@@ -664,7 +620,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--dsh-studio-font-sm);
   line-height: 15px;
   color: var(--dsw-alias-label-tertiary);
 }
@@ -678,7 +634,7 @@
 }
 
 .wtModalContext {
-  font-size: 13px;
+  font-size: var(--dsh-studio-font-lg);
   line-height: 20px;
   color: var(--dsw-alias-label-secondary);
 }
@@ -689,7 +645,7 @@
 }
 
 .wtSectionLabel {
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
   color: var(--dsw-alias-label-tertiary);
   margin-bottom: 4px;
@@ -699,7 +655,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 13px;
+  font-size: var(--dsh-studio-font-lg);
   line-height: 22px;
   color: var(--dsw-alias-label-secondary);
 }
@@ -713,7 +669,7 @@
 }
 
 .wtExistingBranch {
-  font-size: 11px;
+  font-size: var(--dsh-studio-font-sm);
   opacity: 0.75;
 }
 
@@ -729,7 +685,7 @@
   background: transparent;
   cursor: pointer;
   text-align: left;
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
   color: var(--dsw-alias-label-primary);
 }
 
@@ -746,10 +702,10 @@
 .wtNewBranchInput {
   height: 36px;
   margin-top: 6px;
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
 }
 
 .wtPathInput {
   height: 36px;
-  font-size: 13px;
+  font-size: var(--dsh-studio-font-lg);
 }

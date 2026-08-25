@@ -1,5 +1,5 @@
 .pendingHint {
   margin: 0;
   color: var(--dsw-alias-label-tertiary, inherit);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
 }

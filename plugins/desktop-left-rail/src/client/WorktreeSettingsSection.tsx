@@ -10,10 +10,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 import {
-  loadLeftRailSettings,
-  saveLeftRailSettings,
+  withSettingsCas,
   type LeftRailSettings,
   type LeftRailSettingsView,
+  loadLeftRailSettings,
 } from './left-rail-settings.ts'
 import { fetchWorktreeDefaults } from './worktree-api.ts'
 import { sanitizeWorktreeDir, type WorktreeDefaultsResult } from '@dsh-studio/shared/worktree-preferences'
@@ -94,11 +94,11 @@ export function WorktreeSettingsSection({ t }: WorktreeSettingsSectionProps) {
     if (viewRef.current === null) return
     if (!dirDirty && !nestDirty) return
     const dir = sanitizeWorktreeDir(dirDraft)
-    const next = buildNext(viewRef.current.value, dir, nest)
+    const build = (base: LeftRailSettings): LeftRailSettings => buildNext(base, dir, nest)
     setSaving(true)
     setError(null)
     try {
-      const view = await saveLeftRailSettings(next, viewRef.current.revision)
+      const view = await withSettingsCas(viewRef.current.value, viewRef.current.revision, build)
       viewRef.current = view
       setSlice(view)
       setDirDraft(view.value.worktreeDir ?? '')
@@ -106,19 +106,7 @@ export function WorktreeSettingsSection({ t }: WorktreeSettingsSectionProps) {
       // The host resolves custom → effective; reflect it immediately.
       try { setDefaults(await fetchWorktreeDefaults()) } catch { /* placeholder stays */ }
     } catch {
-      // One retry over the fresh slice (another surface wrote meanwhile).
-      try {
-        const latest = await loadLeftRailSettings()
-        viewRef.current = latest
-        const view = await saveLeftRailSettings(buildNext(latest.value, dir, nest), latest.revision)
-        viewRef.current = view
-        setSlice(view)
-        setDirDraft(view.value.worktreeDir ?? '')
-        setNest(view.value.nestWorktrees ?? true)
-        try { setDefaults(await fetchWorktreeDefaults()) } catch { /* placeholder stays */ }
-      } catch {
-        setError(t('settings.worktree.saveFailed'))
-      }
+      setError(t('settings.worktree.saveFailed'))
     } finally {
       setSaving(false)
     }
@@ -162,7 +150,11 @@ export function WorktreeSettingsSection({ t }: WorktreeSettingsSectionProps) {
               onBlur={() => { void commit() }}
             />
             {custom && (
-              <Button variant="ghost" size="sm" disabled={saving} onClick={resetDir}>
+              // Labeled action (not icon-only): keep the official ghost Button
+              // at its default size — the `sm` capsule is for labeled actions,
+              // but the icon-button rule excludes `ghost + size="sm"`, so we
+              // deliberately drop the capsule here (AGENTS.md).
+              <Button variant="ghost" disabled={saving} onClick={resetDir}>
                 {t('settings.worktree.dirReset')}
               </Button>
             )}

@@ -98,17 +98,16 @@ export function ProjectTreeBody({
     const account = sessionIdsForAccount(accountKey)
     const index = account.indexOf(sessionId)
     if (index === -1) return
-    const swap = verb === 'up' ? index - 1 : index + 1
-    if (swap < 0 || swap >= account.length) return
-    const next = [...account]
-    const moving = next[index]
-    const displaced = next[swap]
-    if (moving === undefined || displaced === undefined) return
-    next[index] = displaced
-    next[swap] = moving
-    setSessionOrder(accountKey, next.map(id => id as string))
+    // Moving one slot up/down = inserting before the neighbour displaced by
+    // the move (before the first neighbour's slot for "up"; before the slot
+    // after the lower neighbour for "down", appending when it is the tail).
+    const neighbor = verb === 'up' ? account[index - 1] : account[index + 1]
+    if (neighbor === undefined) return
+    const anchor = verb === 'up' ? neighbor : account[index + 2]
+    const nextOrder = insertSessionInOrder(account, sessionId, anchor)
+    setSessionOrder(accountKey, nextOrder.map(id => id as string))
     if (orderBy === 'manual') {
-      insertSessionBefore(accountKey as WorkspaceId, sessionId, next[swap + 1])
+      insertSessionBefore(accountKey as WorkspaceId, sessionId, anchor)
         .catch((reason: unknown) => {
           console.warn('session reorder rejected:', reason)
         })
