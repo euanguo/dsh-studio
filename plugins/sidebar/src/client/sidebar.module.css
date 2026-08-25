@@ -984,15 +984,15 @@ html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
   flex: none;
 }
 
-.dsh-studio-files-search input {
+/* The official Input owns the field chrome (border, background, height,
+   focus ring) on its wrapper span; our className lands on that wrapper and
+   only stretches it across the panel. Styling the inner <input> again
+   draws a second box inside the official one. box-sizing is required: the
+   wrapper is content-box by default, so width:100% plus its own padding
+   and border would overflow the panel and get clipped. */
+.dsh-studio-files-search-input {
+  display: flex;
   width: 100%;
-  height: 26px;
-  padding: 0 10px;
-  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: var(--dsw-alias-bg-base, #fff);
-  color: var(--dsw-alias-label-primary, #1f2328);
-  font-size: var(--dsh-studio-font-xs);
   box-sizing: border-box;
 }
 

@@ -6,7 +6,7 @@
  * Extracted from files-view.tsx — behavior unchanged.
  */
 import { useState, type CSSProperties, type MouseEvent as ReactMouseEvent } from 'react'
-import { Input, Menu, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Menu, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import {
   FileGlyph,
@@ -52,7 +52,9 @@ export function formatSize(size: number | null): string {
 
 /* Inline "new file / new folder" editor row: Enter commits, Escape or blur
    cancels. Replaces the prompt dialog for creation — the row sits at the
-   top of the target directory and edits in place (VS Code explorer style). */
+   top of the target directory and edits in place (VS Code explorer style).
+   The editor is a flat borderless input (selection-action-edit precedent):
+   the ListRow owns the geometry, so no second field chrome inside the tree. */
 function InlineCreateRow({ kind, depth, placeholder, onCommit, onCancel }: {
   kind: 'file' | 'directory'
   depth: number
@@ -69,7 +71,7 @@ function InlineCreateRow({ kind, depth, placeholder, onCommit, onCancel }: {
     void onCommit(value)
   }
   return (
-    <ListRow className={`dsh-studio-files-inline-create`} data-kind={kind}>
+    <ListRow className={surfaceCss["dsh-studio-files-inline-create"]} data-kind={kind}>
       <ListRowLeading aria-hidden="true">
         {kind === 'directory' ? <IconFolderPlus size={14} /> : <IconFilePlus size={14} />}
       </ListRowLeading>
@@ -77,7 +79,7 @@ function InlineCreateRow({ kind, depth, placeholder, onCommit, onCancel }: {
         className={surfaceCss["dsh-studio-files-inline-main"]}
         style={{ '--tree-depth': depth } as CSSProperties}
       >
-        <Input
+        <input
           autoFocus
           className={surfaceCss["dsh-studio-files-inline-input"]}
           placeholder={placeholder}

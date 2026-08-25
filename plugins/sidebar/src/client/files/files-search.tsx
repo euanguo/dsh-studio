@@ -122,6 +122,7 @@ export function FilesSearch({
     <>
       <div className={surfaceCss["dsh-studio-files-search"]}>
         <Input
+          className={surfaceCss["dsh-studio-files-search-input"]}
           type="search"
           placeholder={t('files.search-placeholder')}
           value={query}
