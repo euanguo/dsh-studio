@@ -12,13 +12,12 @@
  * of keeping local copies, and every mutation writes through.
  */
 import { create } from 'zustand'
-import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
+import type { SidebarCommentsChrome } from '@dsh-studio/shared/ui-chrome-tables'
 import {
-  defaultSidebarCommentsChrome,
-  sanitizeSidebarComments,
-  UI_CHROME_TABLES,
-  type SidebarCommentsChrome,
-} from '@dsh-studio/shared/ui-chrome-tables'
+  adoptCommentsRecord,
+  commentsStorage,
+  readCommentsRecord,
+} from '@dsh-studio/shared/comments-record'
 import { persistVia } from '@dsh-studio/shared/store-persistence'
 
 export interface WorkbenchComment {
@@ -41,15 +40,6 @@ export interface WorkbenchComment {
 }
 
 const MAX_COMMENTS = 200
-
-const storage = createUiChromeStorage<SidebarCommentsChrome>({
-  table: UI_CHROME_TABLES.comments,
-  defaults: defaultSidebarCommentsChrome,
-  sanitize: sanitizeSidebarComments,
-})
-
-/** The last `comments` table record seen (both halves preserved on save). */
-let chromeRecord: SidebarCommentsChrome = defaultSidebarCommentsChrome()
 
 interface WorkbenchCommentState {
   comments: readonly WorkbenchComment[]
@@ -109,16 +99,18 @@ export function startDiffCommentsPersistence(): () => void {
     {
       subscribe: listener => useDiffCommentsStore.subscribe(listener),
       snapshot: () => ({
-        ...chromeRecord,
+        // The review half rides on the shared owner's freshest cache so this
+        // whole-record save can never erase newer review rows.
+        review: readCommentsRecord().review,
         workbench: [...useDiffCommentsStore.getState().comments],
       }),
       apply: record => {
-        chromeRecord = record
+        adoptCommentsRecord(record)
         useDiffCommentsStore.setState({ comments: record.workbench ?? [] })
       },
     },
     {
-      backend: storage,
+      backend: commentsStorage,
       merge: (stored, current) => {
         // changed-before-hydrate: keep concurrent identity changes, then
         // append the persisted workbench rows that do not collide.

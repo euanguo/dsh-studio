@@ -93,9 +93,11 @@ export function useLeftRailPersistence({
       if (cancelled) return
       chromeHydrated.current = true
       actions.hydrateChrome(chrome)
-    }).catch(() => {
-      if (!cancelled) chromeHydrated.current = true
-    })
+    }).catch((error: unknown) => {
+        // Hydration failed: leave chromeHydrated false so the save-back effect
+        tays off — persisting current memory now would overwrite the store.
+      console.warn('[left-rail] chrome hydrate failed; persistence paused', error)
+    }
     return () => { cancelled = true }
   }, [actions.hydrateChrome])
 

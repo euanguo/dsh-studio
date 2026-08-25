@@ -1,0 +1,9 @@
+{
+  "description": "left-rail parallel retained-state system unified onto shared/runtime + persistVia facade channels. The settings capability-name strings and direct ui-chrome storage factory may appear only in the shared backend modules after cutover.",
+  "scan": ["plugins/desktop-left-rail/src/**"],
+  "forbid": [
+    { "pattern": "defineStore", "reason": "dsh-client-runtime defineStore slice migrated onto shared/runtime family" },
+    { "pattern": "createUiChromeStorage", "reason": "direct ui-chrome storage access routed through the persistVia backend" },
+    { "pattern": "'settings\\.replace'|\"settings\\.replace\"", "reason": "raw settings RPC strings replaced by the settings persistVia backend" }
+  ]
+}

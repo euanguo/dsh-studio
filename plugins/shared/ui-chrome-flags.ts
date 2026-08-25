@@ -41,7 +41,18 @@ function runtime(): FlagsRuntime {
         table: UI_CHROME_TABLES.flags,
         defaults: defaultUiChromeFlags,
         sanitize: sanitizeUiChromeFlags,
-        merge: (stored, current) => ({ ...stored, ...current }),
+        // Field-wise sentinel merge (the chrome-store pattern): a current
+        // value still sitting at its default is "untouched", so the stored
+        // value wins. A whole-object spread here let one pre-hydration flag
+        // write reset every other persisted flag to its default.
+        merge: (stored, current) => {
+          const defaults = defaultUiChromeFlags()
+          const merged = { ...stored }
+          for (const key of Object.keys(current) as Array<keyof UiChromeFlags>) {
+            merged[key] = current[key] === defaults[key] ? stored[key] : current[key]
+          }
+          return merged
+        },
         debounceMs: 200,
       },
     )

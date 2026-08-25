@@ -17,7 +17,9 @@ const storage = createUiChromeStorage<LeftRailViewChrome>({
 export type { LeftRailViewChrome } from '@dsh-studio/shared/ui-chrome-tables'
 
 export function loadLeftRailChrome(signal?: AbortSignal): Promise<LeftRailViewChrome> {
-  return storage.load(signal)
+  // Strict by design: the consumer's hydrate→save-back effect must not run
+  // on transport-failure defaults, or it would overwrite the stored chrome.
+  return storage.loadStrict(signal)
 }
 
 export function saveLeftRailChrome(value: LeftRailViewChrome): void {

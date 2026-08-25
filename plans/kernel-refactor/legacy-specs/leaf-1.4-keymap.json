@@ -1,0 +1,12 @@
+{
+  "description": "keymap localStorage override half is deleted (Q9 adjudication); registry itself stays; guard allowlist shrunk accordingly.",
+  "scan": [
+    "plugins/sidebar/src/client/kit/keymap.ts",
+    "scripts/guards/guard-no-localstorage.mjs"
+  ],
+  "forbid": [
+    { "pattern": "localStorage", "reason": "persistence half removed; overrides were never wired to UI" },
+    { "pattern": "STORAGE_KEY", "reason": "no browser storage key may remain in keymap" },
+    { "pattern": "kit/keymap", "reason": "guard allowlist entry removed together with the violation" }
+  ]
+}

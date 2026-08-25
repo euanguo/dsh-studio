@@ -1,0 +1,10 @@
+{
+  "description": "StateStore cutover: comments record has exactly one writer slice; keymap localStorage persistence half deleted; guard allowlist shrunk.",
+  "scan": [
+    "plugins/sidebar/src/client/diff/diff-comments-store.ts",
+    "plugins/sidebar/src/client/review/review-comments.ts"
+  ],
+  "forbid": [
+    { "pattern": "chromeRecord", "reason": "dual-writer whole-record mirrors replaced by single StateStore slice" }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "description": "SurfaceRegistry unification: the three parallel registration APIs are absorbed by the kernel descriptor table.",
+  "scan": ["plugins/sidebar/src/**"],
+  "forbid": [
+    { "pattern": "\\bregisterTab\\b", "reason": "rail tab registration replaced by SurfaceRegistry descriptors" },
+    { "pattern": "\\bregisterViewer\\b", "reason": "viewer registration replaced by SurfaceRegistry descriptors" },
+    { "pattern": "\\bregisterSurfaceRenderer\\b", "reason": "center renderer registration replaced by SurfaceRegistry descriptors" }
+  ]
+}

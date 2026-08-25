@@ -15,9 +15,6 @@
  *   rule.
  */
 import {
-  createUiChromeStorage,
-} from './ui-chrome-storage.ts'
-import {
   defaultSidebarCommentsChrome,
   sanitizeSidebarComments,
   UI_CHROME_TABLES,
@@ -30,12 +27,6 @@ import { callCapabilitiesGlobalApi } from './contracts/capabilities-api.ts'
 const WORKBENCH_V2_KEY = 'dsh-studio.sidebar.diff-comments.v2'
 const WORKBENCH_V1_KEY = 'dsh-studio.sidebar.diff-comments.v1'
 const REVIEW_KEY = 'dsh-studio.sidebar.review-comments.v1'
-
-const storage = createUiChromeStorage<SidebarCommentsChrome>({
-  table: UI_CHROME_TABLES.comments,
-  defaults: defaultSidebarCommentsChrome,
-  sanitize: sanitizeSidebarComments,
-})
 
 interface LegacyWorkbenchComment {
   id?: unknown
@@ -95,10 +86,6 @@ function readJson(key: string): Record<string, unknown>[] | undefined {
   } catch {
     return undefined
   }
-}
-
-function existingComments(): Promise<SidebarCommentsChrome> {
-  return storage.load()
 }
 
 /** True when the persisted table holds any comments already. */
@@ -181,7 +168,20 @@ export function migrateCommentsFromLegacy(
 export async function migrateLegacyCommentsIntoDomain(): Promise<void> {
   if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') return
   try {
-    const current = await existingComments()
+    // Read through the raw RPC so a transport failure stays distinguishable
+    // from an empty table: `storage.load()` would return defaults here, and
+    // writing the legacy blob over unknown host state could destroy comments
+    // that are merely unreachable right now.
+    let current: SidebarCommentsChrome | undefined
+    try {
+      const envelope = await callCapabilitiesGlobalApi<{ value?: unknown }>(
+        'ui-chrome.get',
+        { table: UI_CHROME_TABLES.comments },
+      )
+      current = sanitizeSidebarComments(envelope?.value)
+    } catch {
+      return // domain unreachable — retry on the next boot, never write blind
+    }
     if (tablesHasData(current)) return // already migrated / has domain data
     const migrated = migrateCommentsFromLegacy(
       readWorkbenchV2(),

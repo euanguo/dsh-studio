@@ -165,34 +165,42 @@ function restore(payload: PersistedCenterSurfaces): void {
   }
 }
 
-let persistence: PersistViaHandle | undefined
+let activeHandle: PersistViaHandle | undefined
 
-function persistHandle(): PersistViaHandle {
-  if (persistence === undefined) {
-    persistence = persistVia<PersistedCenterSurfaces>(
-      {
-        subscribe: listener => useCenterSurfaceStore.subscribe(listener),
-        snapshot,
-        apply: restore,
-      },
-      {
-        table: UI_CHROME_TABLES.centerSurfaces,
-        defaults: () => ({ byCwd: {} }),
-        sanitize: sanitizePersistedCenterSurfaces,
-        merge: mergePayloads,
-        debounceMs: 250,
-      },
-    )
-  }
-  return persistence
+function createHandle(): PersistViaHandle {
+  return persistVia<PersistedCenterSurfaces>(
+    {
+      subscribe: listener => useCenterSurfaceStore.subscribe(listener),
+      snapshot,
+      apply: restore,
+    },
+    {
+      table: UI_CHROME_TABLES.centerSurfaces,
+      defaults: () => ({ byCwd: {} }),
+      sanitize: sanitizePersistedCenterSurfaces,
+      merge: mergePayloads,
+      debounceMs: 250,
+    },
+  )
 }
 
-/** Mirror every workspace open-set after the initial asynchronous hydrate. */
+/**
+ * Mirror every workspace open-set for THIS mount. A fresh facade per mount
+ * is deliberate: the host's dispose path stops the previous handle (which
+ * permanently deactivates it) before clearing the store, so reusing a cached
+ * handle left remounts with a dead feed — nothing hydrated, nothing saved —
+ * until a full page reload.
+ */
 export function persistCenterSurfaces(): () => void {
-  return () => persistHandle().stop()
+  const handle = createHandle()
+  activeHandle = handle
+  return () => {
+    if (activeHandle === handle) activeHandle = undefined
+    handle.stop()
+  }
 }
 
 /** Rebuild every workspace open-set from the domain store at startup. */
 export async function restoreCenterSurfaces(): Promise<void> {
-  await persistHandle().ready
+  await activeHandle?.ready
 }

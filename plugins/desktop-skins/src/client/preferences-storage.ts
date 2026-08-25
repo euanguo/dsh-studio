@@ -59,15 +59,15 @@ export class DesktopSkinPreferencesStorage implements StorageLike {
   }
 
   async load(): Promise<void> {
-    try {
-      const response = await this.request(PREFERENCES_API_PATH)
-      if (!response.ok) throw new Error(`desktop skin preferences load failed (${String(response.status)})`)
-      const preferences = parseSkinPreferences(await response.json())
-      if (preferences === undefined) throw new Error('desktop skin preferences response is invalid')
-      this.preferences = preferences
-    } finally {
-      this.loaded = true
-    }
+    // Deliberately unguarded: failures propagate so `loaded` stays false and
+    // later writes cannot persist resident defaults over the intact host
+    // record. The boot caller already logs and continues.
+    const response = await this.request(PREFERENCES_API_PATH)
+    if (!response.ok) throw new Error(`desktop skin preferences load failed (${String(response.status)})`)
+    const preferences = parseSkinPreferences(await response.json())
+    if (preferences === undefined) throw new Error('desktop skin preferences response is invalid')
+    this.preferences = preferences
+    this.loaded = true
   }
 
   getItem(key: string): string | null {
@@ -114,7 +114,9 @@ export class DesktopSkinPreferencesStorage implements StorageLike {
   private async flush(): Promise<void> {
     await Promise.resolve()
     while (this.dirty) {
-      this.dirty = false
+      // Clear `dirty` only after a confirmed write: a failed PUT keeps it set
+      // so the next flush/mutation retries, instead of silently dropping the
+      // pending batch and letting memory diverge from the host.
       const payload = this.preferences
       const response = await this.request(PREFERENCES_API_PATH, {
         method: 'PUT',
@@ -124,6 +126,7 @@ export class DesktopSkinPreferencesStorage implements StorageLike {
       if (!response.ok) {
         throw new Error(`desktop skin preferences save failed (${String(response.status)})`)
       }
+      if (this.preferences === payload) this.dirty = false
     }
   }
 }

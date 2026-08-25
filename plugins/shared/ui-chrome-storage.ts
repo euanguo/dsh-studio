@@ -87,6 +87,19 @@ export class UiChromeStorage<T> {
     }
   }
 
+  /**
+   * Like {@link load} but THROWS on transport failure instead of returning
+   * defaults. Callers that would write their loaded value back (hydrate
+   * pipelines, migrations) must use this variant: treating "host down" as
+   * "table empty" is how intact records get clobbered with defaults once
+   * the transport recovers.
+   */
+  async loadStrict(signal?: AbortSignal): Promise<T> {
+    const value = await this.api.get(this.options.table, signal)
+    this.state = 'available'
+    return copy(this.options.sanitize(value))
+  }
+
   save(value: T): void {
     this.pendingVersion += 1
     this.pending = copy(value)

@@ -8,6 +8,7 @@
     "./bundle-names": "./bundle-names.ts",
     "./column-mount": "./column-mount.ts",
     "./comments-migration": "./comments-migration.ts",
+    "./comments-record": "./comments-record.ts",
     "./data-root-names": "./data-root-names.ts",
     "./desktop-contracts": "./contracts/desktop-contracts.ts",
     "./errors": "./errors.ts",

@@ -27,6 +27,13 @@ import type { UiChromeTableName } from './ui-chrome-tables.ts'
 /** The backing persistence seam: load the stored value, save it, drain it. */
 export interface PersistBackend<V> {
   load(): Promise<V>
+  /**
+   * Strict load: THROWS on transport failure instead of resolving defaults.
+   * When present, the facade's hydration prefers it and retries transient
+   * failures, so a short outage cannot hydrate defaults and later persist
+   * them over the intact host record.
+   */
+  loadStrict?(): Promise<V>
   save(value: V): void
   flush(): Promise<void>
 }
@@ -109,28 +116,73 @@ export function persistVia<V>(
   const stopSubscribe = store.subscribe(persist)
 
   if (hydrate) {
-    void backend.load().then(stored => {
-      if (!active) return
-      applying = true
-      try {
-        const merged = changedBeforeHydrate
-          ? options.merge(stored, store.snapshot())
-          : stored
-        store.apply(merged)
-      } finally {
-        applying = false
-      }
-      hydrated = true
-      if (changedBeforeHydrate) {
-        changedBeforeHydrate = false
-        backend.save(store.snapshot())
-      }
-      readyResolve()
-    })
+    void hydrateWithRetry()
   } else {
     // No auto-hydrate: element starts hydrated so explicit saves flow through.
     hydrated = true
     readyResolve()
+  }
+
+  /**
+   * Hydrate with bounded retry on strict loads. A transient transport outage
+   * must not resolve into defaults (which a later save would write back over
+   * the intact host record); after exhausting retries we fall back to the
+   * legacy defaults path so consumers still boot, loudly.
+   */
+  const HYDRATE_RETRY_LIMIT = 6
+  async function hydrateWithRetry(): Promise<void> {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        const stored = backend.loadStrict !== undefined
+          ? await backend.loadStrict()
+          : await backend.load()
+        if (!active) return
+        applying = true
+        try {
+          const merged = changedBeforeHydrate
+            ? options.merge(stored, store.snapshot())
+            : stored
+          store.apply(merged)
+        } finally {
+          applying = false
+        }
+        hydrated = true
+        if (changedBeforeHydrate) {
+          changedBeforeHydrate = false
+          backend.save(store.snapshot())
+        }
+        readyResolve()
+        return
+      } catch (error) {
+        attempt += 1
+        if (!active || attempt >= HYDRATE_RETRY_LIMIT || backend.loadStrict === undefined) {
+          console.warn('[persist] hydrate failed; continuing with defaults', error)
+          try {
+            const stored = await backend.load()
+            if (active) {
+              applying = true
+              try {
+                const merged = changedBeforeHydrate
+                  ? options.merge(stored, store.snapshot())
+                  : stored
+                store.apply(merged)
+                hydrated = true
+                if (changedBeforeHydrate) {
+                  changedBeforeHydrate = false
+                  backend.save(store.snapshot())
+                }
+              } finally {
+                applying = false
+              }
+            }
+          } finally {
+            readyResolve()
+          }
+          return
+        }
+        await new Promise(resolve => setTimeout(resolve, Math.min(8_000, 400 * 2 ** (attempt - 1))))
+      }
+    }
   }
 
   const stop = (): void => {

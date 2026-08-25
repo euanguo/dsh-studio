@@ -1,11 +1,8 @@
 import type { GitReviewCommit } from '../diff/git-review-diff.ts'
-import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
 import {
-  defaultSidebarCommentsChrome,
-  sanitizeSidebarComments,
-  UI_CHROME_TABLES,
-  type SidebarCommentsChrome,
-} from '@dsh-studio/shared/ui-chrome-tables'
+  loadCommentsRecord,
+  putReviewComments,
+} from '@dsh-studio/shared/comments-record'
 
 export type ReviewCommentSide = 'new' | 'old' | null
 
@@ -119,13 +116,10 @@ const REVIEW_SOURCE = 'dsh-studio-review'
 const REVIEW_REF = 'review-comments'
 const MAX_PERSISTED_COMMENTS = 200
 
-// Domain-backed storage default: review comments live in the `comments`
-// table's `review` array (kind: 'review'), sharing it with workbench ones.
-const commentsStorage = createUiChromeStorage<SidebarCommentsChrome>({
-  table: UI_CHROME_TABLES.comments,
-  defaults: defaultSidebarCommentsChrome,
-  sanitize: sanitizeSidebarComments,
-})
+// Review comments live in the `comments` table's `review` array, sharing it
+// with workbench ones. The record is owned by the shared comments-record
+// module: half-writes ride on its freshest other-half cache instead of a
+// stale local copy that used to erase newer workbench rows.
 
 /** The persistence seam for review comments (domain-backed by default). */
 export interface ReviewCommentsPersistence {
@@ -133,21 +127,15 @@ export interface ReviewCommentsPersistence {
   save(comments: readonly ReviewComment[]): void
 }
 
-/** The last full comments-table record seen, so the workbench half (written
- *  by diff-comments-store) is preserved when review comments are saved. */
-let chromeRecordComments: SidebarCommentsChrome = defaultSidebarCommentsChrome()
-
 const domainPersistence: ReviewCommentsPersistence = {
   async load() {
-    chromeRecordComments = await commentsStorage.load()
-    return (chromeRecordComments.review ?? []).filter(isReviewComment).slice(-MAX_PERSISTED_COMMENTS)
+    const record = await loadCommentsRecord()
+    return (record.review ?? []).filter(isReviewComment).slice(-MAX_PERSISTED_COMMENTS)
   },
   save(comments) {
-    chromeRecordComments = {
-      workbench: chromeRecordComments.workbench,
-      review: comments.slice(-MAX_PERSISTED_COMMENTS),
-    }
-    commentsStorage.save(chromeRecordComments)
+    void putReviewComments(comments.slice(-MAX_PERSISTED_COMMENTS)).catch(error => {
+      console.warn('[sidebar] failed to persist review comments', error)
+    })
   },
 }
 
@@ -572,8 +560,21 @@ export class ReviewCommentsService {
   /** Hydrate the review comments (call at bootstrap, after the one-time
    *  legacy migration). Idempotent. */
   async start(): Promise<void> {
-    this.comments = await this.persistence.load()
-    this.publish({ persist: false })
+    try {
+      const persisted = await this.persistence.load()
+      // Union with additions that landed while the async load was in flight,
+      // instead of letting the persisted snapshot replace them wholesale.
+      const known = new Set(persisted.map(comment => comment.id))
+      this.comments = [
+        ...this.comments.filter(comment => !known.has(comment.id)),
+        ...persisted,
+      ].slice(-MAX_PERSISTED_COMMENTS)
+      this.publish({ persist: false })
+    } catch (error) {
+      // Domain down: keep whatever memory holds and never publish an empty
+      // list over it; a later start()/mutation retries persistence.
+      console.warn('[sidebar] failed to load review comments', error)
+    }
   }
 
   getSnapshot = (): readonly ReviewComment[] => this.comments
