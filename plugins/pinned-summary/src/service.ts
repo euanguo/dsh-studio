@@ -7,9 +7,11 @@
  * service wire-up; the stylesheet lives in summary.css (attribute-selector
  * only, plain text import — no class names to scope into a CSS module).
  *
- * State convention (ADR, B7): open-state + listener set stays a small
- * hand-written store (see plugins/shared/toast.tsx for the rationale);
- * heavier stores use zustand or the official client-runtime defineStore.
+ * State convention (ADR, B7): the consumer-facing face exposes only the
+ * toggle surface (setOpen/toggle); open state is a single private field
+ * mirrored to the ui-chrome flags. Subtle state stores stay small hand-written
+ * hold-ons (see plugins/shared/toast.tsx for the rationale); heavier stores
+ * use zustand or the official client-runtime defineStore.
  */
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
 import { localeTag } from '@dsh-studio/shared/i18n'
@@ -54,9 +56,7 @@ export interface SessionsService {
 
 /** Public toggle face consumed by the unified desktop client. */
 export interface PinnedSummary {
-  isOpen(): boolean
   setOpen(open: boolean): void
-  subscribe(listener: () => void): () => void
   toggle(): void
 }
 
@@ -99,7 +99,6 @@ class PinnedSummaryService implements PinnedSummary {
   readonly #locale: LocaleService
   readonly #t: Translate<PinnedSummaryMessage>
   readonly #panels: DesktopPanels
-  readonly #listeners = new Set<() => void>()
   #open = false
   #panel: HTMLElement | undefined
   #style: HTMLStyleElement | undefined
@@ -133,7 +132,6 @@ class PinnedSummaryService implements PinnedSummary {
     if (this.#open === flags.pinnedSummaryOpen) return
     this.#open = flags.pinnedSummaryOpen
     this.applyState()
-    for (const listener of this.#listeners) listener()
   }
 
   mount(): void {
@@ -188,15 +186,6 @@ class PinnedSummaryService implements PinnedSummary {
     this.#panels.releaseRightPanel('pinned-summary')
   }
 
-  isOpen(): boolean {
-    return this.#open
-  }
-
-  subscribe = (listener: () => void): (() => void) => {
-    this.#listeners.add(listener)
-    return () => { this.#listeners.delete(listener) }
-  }
-
   toggle(): void {
     this.setOpen(!this.#open)
   }
@@ -206,7 +195,6 @@ class PinnedSummaryService implements PinnedSummary {
     this.#open = open
     setUiChromeFlag('pinnedSummaryOpen', open)
     this.applyState()
-    for (const listener of this.#listeners) listener()
   }
 
   private applyState(): void {

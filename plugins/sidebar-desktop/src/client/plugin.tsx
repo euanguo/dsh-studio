@@ -7,6 +7,7 @@ import type {
 import type { WorkspaceMessage } from '@dsh-studio/sidebar/client/i18n'
 import type { BrowserCenterSurface } from '@dsh-studio/sidebar/client/surfaces-types'
 import { BrowserView, BrowserSurfaceView } from './browser-view.tsx'
+import { clearLiveBrowserUrl } from './browser-runtime.ts'
 
 interface ClientContext {
   effect(effect: () => (() => void) | void, label?: string): void
@@ -35,6 +36,9 @@ export function apply(ctx: ClientContext): void {
       id: 'browser',
       order: 30,
       render: (props: SidebarRenderProps) => <BrowserView {...props} t={t} />,
+      // Frees the retained live URL when the browser tab is closed so the
+      // runtime does not leak per-tab entries (see browser-runtime.ts).
+      onClose: tab => clearLiveBrowserUrl(tab.id),
       shortcut: '⌘T',
       // Declarative settings: the link-takeover MASTER switch and the two
       // per-protocol flags render under this tab's card in the settings page.

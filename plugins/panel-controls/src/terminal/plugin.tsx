@@ -4,9 +4,7 @@
  * The terminal bottom dock was removed by user preference; this plugin keeps
  * its public surface — the right-panel claim coordinator + the DesktopPanels
  * API — so the sidebar and other plugins keep compiling and the layout
- * squeeze stays intact. The dock-only methods (setAutoOpenTerminal,
- * setTerminalFontPreferences, toggleBottomPanel, isBottomPanelOpen) are
- * deliberate no-ops.
+ * squeeze stays intact. The native menu binder owning the old dock toggle was removed
  */
 import type { LocaleService } from '@dsh-studio/shared/i18n'
 import { TERMINAL_MESSAGES } from './i18n.ts'
@@ -35,7 +33,6 @@ export interface RightPanelClaim {
 
 export interface DesktopPanels {
   claimRightPanel(ownerId: string, claim: RightPanelClaim): void
-  isBottomPanelOpen(): boolean
   /**
    * Live drag preview of the right panel's `#root` squeeze. Writes the real
    * padding-right so the center column follows a width drag frame-by-frame,
@@ -45,22 +42,16 @@ export interface DesktopPanels {
    */
   previewRightPanel(paddingRight: string): void
   releaseRightPanel(ownerId: string): void
-  setAutoOpenTerminal(enabled: boolean): void
-  /** Apply the GLOBAL terminal font preferences. CUT: dock no longer mounts — no-op. */
-  setTerminalFontPreferences(family: string, size: number): void
-  subscribe(listener: () => void): () => void
-  toggleBottomPanel(): void
   toggleSidebar(): void
 }
 
-export const inject = ['layout', 'locale', 'sessions']
+export const inject = ['layout', 'locale']
 
 interface LayoutService {
   toggleSidebar(): void
 }
 
 class DesktopPanelService implements DesktopPanels {
-  private readonly listeners = new Set<() => void>()
   private readonly layout: LayoutService
   private readonly rightPanelClaims = new Map<string, RightPanelClaim>()
   private readonly rightPanelOrder: string[] = []
@@ -74,16 +65,6 @@ class DesktopPanelService implements DesktopPanels {
 
   dispose(): void {
     // Right-panel claims are released by their owners.
-  }
-
-  /** CUT: the bottom panel no longer exists — always closed. */
-  isBottomPanelOpen(): boolean {
-    return false
-  }
-
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-    return () => { this.listeners.delete(listener) }
   }
 
   /**
@@ -152,21 +133,10 @@ class DesktopPanelService implements DesktopPanels {
     }
   }
 
-  /** CUT: the terminal dock no longer mounts — no-op. */
-  setAutoOpenTerminal(): void {}
-
-  /** CUT: the terminal dock no longer mounts — no-op. */
-  setTerminalFontPreferences(): void {}
-
   /** CUT: the bottom panel no longer exists — no-op. */
-  toggleBottomPanel(): void {}
 
   toggleSidebar(): void {
     this.layout.toggleSidebar()
-  }
-
-  private notify(): void {
-    for (const listener of this.listeners) listener()
   }
 }
 
