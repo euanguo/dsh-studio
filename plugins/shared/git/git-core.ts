@@ -511,7 +511,16 @@ export async function worktreeAdd(
   createBranch: boolean,
   base?: string,
 ): Promise<void> {
+  // Refspecs ride argv verbatim (spawn array, no shell): a model-supplied
+  // name shaped like an option ("-b", "--force", "-c key=value") would be
+  // parsed as a git switch rather than a name. Fail loud instead.
+  if (branch.startsWith('-')) {
+    throw new GitCommandError(`branch name "${branch}" must not start with "-"`, 'git-error', 'worktree add')
+  }
   const trimmedBase = base?.trim()
+  if (trimmedBase !== undefined && trimmedBase.startsWith('-')) {
+    throw new GitCommandError(`base "${trimmedBase}" must not start with "-"`, 'git-error', 'worktree add')
+  }
   const args = createBranch
     ? ['worktree', 'add', '-b', branch, path, ...(trimmedBase === undefined || trimmedBase === '' ? [] : [trimmedBase])]
     : ['worktree', 'add', path, branch]
