@@ -53,6 +53,7 @@ import { isTrustedApiRequest } from './trust-fence.ts'
 import { registerBundleRoute } from './bundle-route.ts'
 import { resolveDefaultWorktreeRoot } from '@dsh-studio/shared/worktree-preferences'
 import { attachAgentList, attachTerminal, clearPtyPauseOwners } from './terminal/terminal-route.ts'
+import { GitWatchCoordinator, attachGitWatch } from './git/git-watch.ts'
 import { buildCapabilitiesRoutes, sessionCwdOf, type CapabilitiesSettingsFace } from './routes.ts'
 import {
   SourceControlAiGenerator,
@@ -608,6 +609,26 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     },
   }), 'capabilities: agent-terminals push WebSocket')
 
+  // ── Git freshness push WebSocket ────────────────────────────────────────
+  // One cheap status-fingerprint loop per subscribed cwd (single porcelain v2
+  // subprocess per tick, only while a panel is actually watching) notifies
+  // subscribers on change; clients pull the real data via `git.status`. This
+  // replaces the sidebar's fixed 4s poll — see git/git-watch.ts.
+  const gitWatchWss = new WebSocketServer({ noServer: true })
+  const gitWatchCoordinator = new GitWatchCoordinator()
+  ctx.effect(() => ctx.webServer.registerUpgrade({
+    path: '/capabilities/ws/git-watch',
+    handler: (req, socket, head) => {
+      if (!fence(req)) {
+        socket.destroy()
+        return
+      }
+      gitWatchWss.handleUpgrade(req, socket, head, (ws) => {
+        attachGitWatch(gitWatchCoordinator, ws, req)
+      })
+    },
+  }), 'capabilities: git-watch push WebSocket')
+
   ctx.effect(() => () => {
     toolsDisposers?.()
     worktreeToolsDisposer?.()
@@ -619,5 +640,7 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     clearPtyPauseOwners()
     wss.close()
     agentListWss.close()
+    gitWatchWss.close()
+    gitWatchCoordinator.dispose()
   }, 'capabilities: teardown')
 }

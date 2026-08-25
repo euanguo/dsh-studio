@@ -64,6 +64,7 @@ import {
   type SourceControlRuntime,
 } from './runtimes/registry.ts'
 import type { SourceControlRuntimeSnapshot } from './runtimes/source-control-runtime.ts'
+import { GIT_FALLBACK_POLL_MS, openGitWatch } from './runtimes/git-watch-client.ts'
 import { useSidebarChromeStore } from './runtimes/chrome-store.ts'
 import {
   openCommittedSurface,
@@ -245,33 +246,58 @@ export function useWorkspaceSourceControl(options: {
     upstream: snapshot?.upstream,
   }), [actionController.state.phase, commitMessage, snapshot?.changes.length, snapshot?.upstream])
 
-  // Load cadence while the review panel is open: ensure a first load, then a
-  // 4s soft revalidate (skipped while the document is hidden; the focus /
-  // visibility listeners cover the return to the foreground). D20b keeps each
-  // idle tick cheap by skipping redundant branch/log fetches.
+  // Load cadence while the review panel is open: ensure a first load, then
+  // stay fresh through the git-watch push socket (server-side fingerprint
+  // loop, ≤1s change latency). The fixed interval survives ONLY as a
+  // disconnected fallback so a dead push channel degrades to the historical
+  // behavior instead of going stale; both paths skip while the document is
+  // hidden (focus / visibility listeners cover the return to the foreground).
   useEffect(() => {
     if (!active) return
     void runtime.ensureLoaded()
     void runtime.refreshCommitted()
-    const timer = window.setInterval(() => {
-      if (document.hidden) return
-      void runtime.refresh()
-      void runtime.refreshCommitted()
-    }, 4_000)
-    const onFocus = (): void => {
+    const refreshAll = (): void => {
       void runtime.refresh()
       void runtime.refreshCommitted()
     }
+    let pushConnected = false
+    let fallbackId: number | undefined
+    const syncFallback = (): void => {
+      if (pushConnected) {
+        if (fallbackId !== undefined) {
+          window.clearInterval(fallbackId)
+          fallbackId = undefined
+        }
+        return
+      }
+      if (fallbackId === undefined) {
+        fallbackId = window.setInterval(() => {
+          if (!document.hidden) refreshAll()
+        }, GIT_FALLBACK_POLL_MS)
+      }
+    }
+    const watch = openGitWatch(cwd, {
+      onChanged: refreshAll,
+      onConnection: up => {
+        pushConnected = up
+        syncFallback()
+        if (up) refreshAll()
+      },
+    })
+    syncFallback()
+    const onFocus = (): void => {
+      refreshAll()
+    }
     const onVisibility = (): void => {
       if (!document.hidden) {
-        void runtime.refresh()
-        void runtime.refreshCommitted()
+        refreshAll()
       }
     }
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
-      window.clearInterval(timer)
+      watch.close()
+      if (fallbackId !== undefined) window.clearInterval(fallbackId)
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibility)
     }
