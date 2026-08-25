@@ -8,6 +8,7 @@ import {
   DEFAULT_SIDEBAR_PREFERENCES,
   parseSidebarPreferences,
   type DesktopSidebarPreferences,
+  SIDEBAR_PERSISTED_MAX_WIDTH,
 } from '../plugins/sidebar/src/sidebar-preferences.ts'
 
 class MemorySidebarStorage implements SidebarPreferencesStorage {
@@ -72,7 +73,7 @@ test('unknown preview/layout values fall back instead of rejecting the document'
   assert.equal(parsed?.layoutScope, 'workspace')
 })
 
-test('per-workspace width is optional and clamped when present', () => {
+test('per-workspace width is optional and document-clamped when present', () => {
   const parsed = parseSidebarPreferences({
     openByDefault: false,
     defaultWidth: 480,
@@ -82,7 +83,10 @@ test('per-workspace width is optional and clamped when present', () => {
     },
     pluginSettings: {},
   })
-  assert.equal(parsed?.workspaces['/repo/a']?.width, 640)
+  // Document parsing bounds absurd values to the persisted ceiling; the
+  // live viewport cap applies when the width is read out (layoutWidth),
+  // never here — a width saved on a larger display must survive.
+  assert.equal(parsed?.workspaces['/repo/a']?.width, SIDEBAR_PERSISTED_MAX_WIDTH)
   assert.equal(parsed?.workspaces['/repo/b']?.width, undefined)
 })
 

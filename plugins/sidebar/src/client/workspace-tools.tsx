@@ -208,7 +208,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
   }
 
   setWidth(width: number): void {
-    this.sidebar.setWidth(clampSidebarWidth(width))
+    // The service applies the live viewport cap itself.
+    this.sidebar.setWidth(width)
   }
 
   /**
@@ -230,7 +231,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
       return
     }
     this.resizing = true
-    const width = clampSidebarWidth(rawWidth)
+    const width = clampSidebarWidth(rawWidth, window.innerWidth)
     const fullWidth = panel.maximized
     const html = document.documentElement
     html.style.setProperty('--dsh-studio-sidebar-width', `${String(width)}px`)
@@ -256,7 +257,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
       this.setOpen(false)
       return
     }
-    const width = clampSidebarWidth(rawWidth)
+    const width = clampSidebarWidth(rawWidth, window.innerWidth)
     if (width !== this.panel.width) {
       this.sidebar.setWidth(width)
       // setWidth publishes → the sidebar observer re-runs applyLayout().

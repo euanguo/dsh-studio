@@ -13,6 +13,9 @@ import {
   parseSidebarPreferences,
   type DesktopSidebarPreferences,
   SIDEBAR_MAX_TABS,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  sidebarMaxWidth,
 } from '../plugins/sidebar/src/sidebar-preferences.ts'
 
 class MemorySidebarStorage implements SidebarPreferencesStorage {
@@ -37,10 +40,20 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
   }
 }
 
-test('right sidebar width clamps to its own budget at any window size', () => {
-  assert.equal(clampSidebarWidth(700), 640)
-  assert.equal(clampSidebarWidth(200), 220)
+test('right sidebar width falls back to the static budget without a viewport', () => {
+  assert.equal(clampSidebarWidth(700), SIDEBAR_MAX_WIDTH)
+  assert.equal(clampSidebarWidth(200), SIDEBAR_MIN_WIDTH)
   assert.equal(clampSidebarWidth(480), 480)
+})
+
+test('right sidebar live width caps at three quarters of the window', () => {
+  assert.equal(clampSidebarWidth(900, 1000), 750)
+  assert.equal(clampSidebarWidth(480, 1000), 480)
+  assert.equal(clampSidebarWidth(100, 1000), SIDEBAR_MIN_WIDTH)
+  // Tiny windows floor the cap at the minimum instead of collapsing it.
+  assert.equal(sidebarMaxWidth(200), SIDEBAR_MIN_WIDTH)
+  // Without a viewport the static budget stays authoritative.
+  assert.equal(sidebarMaxWidth(), SIDEBAR_MAX_WIDTH)
 })
 
 function tab(
@@ -106,10 +119,18 @@ test('desktop sidebar validates the durable preference envelope', () => {
   // (top-level scalar contract), but per-entry corruption never wipes other
   // projects' layouts and over-limit collections truncate instead of reject.
   assert.equal(parseSidebarPreferences({ ...valid, defaultWidth: 100 }), undefined)
+  // Document widths validate against the viewport-independent persisted
+  // ceiling, so a width saved on a larger display parses back unchanged;
+  // the live viewport cap applies at read-out (layoutWidth), not here.
   assert.equal(
     parseSidebarPreferences({ ...valid, defaultWidth: 720 })?.defaultWidth,
-    640,
+    720,
   )
+  assert.equal(
+    parseSidebarPreferences({ ...valid, defaultWidth: 1200 })?.defaultWidth,
+    1200,
+  )
+  assert.equal(parseSidebarPreferences({ ...valid, defaultWidth: 5000 }), undefined)
   {
     const good = valid.workspaces['/work/repo']
     const parsed = parseSidebarPreferences({

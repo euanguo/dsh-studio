@@ -10,7 +10,21 @@ export const SIDEBAR_MIN_WIDTH = INSPECTOR_PANEL_BUDGET.minSizePx
 export const SIDEBAR_MAX_WIDTH = INSPECTOR_PANEL_BUDGET.maxSizePx
 export const SIDEBAR_DEFAULT_WIDTH = INSPECTOR_PANEL_BUDGET.defaultSizePx
 export const SIDEBAR_COLLAPSE_THRESHOLD_PX = INSPECTOR_PANEL_BUDGET.collapseThresholdPx
-const SIDEBAR_LEGACY_MAX_WIDTH = 720
+/**
+ * Live-cap policy: the rail may occupy at most this fraction of the window
+ * width ({@link sidebarMaxWidth}). {@link SIDEBAR_MAX_WIDTH} remains as the
+ * fallback cap for contexts without a viewport, so pure parsers and tests
+ * keep a bounded range.
+ */
+export const SIDEBAR_MAX_VIEWPORT_RATIO = 0.75
+/**
+ * Viewport-independent sanity bound for PERSISTED widths. Document
+ * validation must not depend on the current window: a width saved against a
+ * larger display has to survive a later session on a smaller one
+ * (non-destructive migration), so documents accept anything sane and the
+ * live viewport cap applies when the width is read out instead.
+ */
+export const SIDEBAR_PERSISTED_MAX_WIDTH = 4096
 export const SIDEBAR_MAX_WORKSPACES = 50
 export const SIDEBAR_MAX_TABS = 30
 
@@ -199,7 +213,7 @@ function parseWorkspace(value: unknown): PersistedWorkspaceLayout | undefined {
   const width = input.width === undefined
     ? undefined
     : (typeof input.width === 'number' && Number.isFinite(input.width)
-      ? clampSidebarWidth(input.width)
+      ? clampPersistedWidth(input.width)
       : undefined)
   return {
     activeId: activeTabId,
@@ -217,10 +231,32 @@ export interface SidebarLayoutGeometry {
   detailsWidth: number
 }
 
-export function clampSidebarWidth(value: number): number {
+/**
+ * Effective live maximum rail width: the viewport ratio when a window width
+ * is known, otherwise the static budget cap (pure / non-DOM contexts).
+ */
+export function sidebarMaxWidth(viewportWidth?: number): number {
+  if (viewportWidth === undefined || !Number.isFinite(viewportWidth)
+    || viewportWidth <= 0) return SIDEBAR_MAX_WIDTH
+  return Math.max(
+    SIDEBAR_MIN_WIDTH,
+    Math.round(viewportWidth * SIDEBAR_MAX_VIEWPORT_RATIO),
+  )
+}
+
+export function clampSidebarWidth(value: number, viewportWidth?: number): number {
   if (!Number.isFinite(value)) return SIDEBAR_DEFAULT_WIDTH
   return Math.min(
-    SIDEBAR_MAX_WIDTH,
+    sidebarMaxWidth(viewportWidth),
+    Math.max(SIDEBAR_MIN_WIDTH, Math.round(value)),
+  )
+}
+
+/** Persisted-document bound (no viewport): the parse/clone-time defense. */
+export function clampPersistedWidth(value: number): number {
+  if (!Number.isFinite(value)) return SIDEBAR_DEFAULT_WIDTH
+  return Math.min(
+    SIDEBAR_PERSISTED_MAX_WIDTH,
     Math.max(SIDEBAR_MIN_WIDTH, Math.round(value)),
   )
 }
@@ -266,7 +302,7 @@ export function parseSidebarPreferences(
   if (typeof input.defaultWidth !== 'number'
     || !Number.isFinite(input.defaultWidth)
     || input.defaultWidth < SIDEBAR_MIN_WIDTH
-    || input.defaultWidth > SIDEBAR_LEGACY_MAX_WIDTH) return undefined
+    || input.defaultWidth > SIDEBAR_PERSISTED_MAX_WIDTH) return undefined
   const pluginSettings = parsePluginSettings(input.pluginSettings)
   if (pluginSettings === undefined) return undefined
   // Per-entry tolerant (F9/M2): parse every well-formed workspace entry and
@@ -288,7 +324,7 @@ export function parseSidebarPreferences(
     }
   }
   return {
-    defaultWidth: clampSidebarWidth(input.defaultWidth),
+    defaultWidth: clampPersistedWidth(input.defaultWidth),
     openByDefault: input.openByDefault,
     workspaces,
     pluginSettings,

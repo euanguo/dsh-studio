@@ -29,8 +29,8 @@ import type {
 import type { SidebarRuntimePreferences } from './runtime-settings.ts'
 import { DEFAULT_SIDEBAR_RUNTIME_PREFERENCES } from './runtime-settings.ts'
 import {
-  SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
+  sidebarMaxWidth,
 } from '../sidebar-preferences.ts'
 import { ErrorState, SettingsRow, SettingsSection, Slider, Switch, ToolbarAction } from '@dsh-studio/shared/ui'
 import { FeatureCard, FeatureSettingsPopup } from './settings-feature-card.tsx'
@@ -145,7 +145,8 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
             control={(
               <Slider
                 min={SIDEBAR_MIN_WIDTH}
-                max={SIDEBAR_MAX_WIDTH}
+                // Live cap: three quarters of the current window width.
+                max={sidebarMaxWidth(window.innerWidth)}
                 step={10}
                 value={state.width}
                 aria-label={props.t('settings.width')}

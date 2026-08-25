@@ -28,6 +28,7 @@ import type { PreviewTabsMode } from '@dsh-studio/shared/workbench-contracts'
 import type { LayoutScopeMode } from '../sidebar-preferences.ts'
 import { GLOBAL_SCOPE_BUCKET } from '@dsh-studio/shared/workbench-contracts'
 import {
+  clampPersistedWidth,
   clampSidebarWidth,
   DEFAULT_SIDEBAR_PREFERENCES,
   SIDEBAR_MAX_TABS,
@@ -101,6 +102,11 @@ function messageOf(error: unknown): string {
   return errorMessage(error)
 }
 
+/** Window width for the live rail cap; absent in pure / node contexts. */
+function currentViewportWidth(): number | undefined {
+  return typeof window === 'undefined' ? undefined : window.innerWidth
+}
+
 /** Clamp a reorder destination into `0..limit-1` (limit 0 → 0). */
 function clampIndex(index: number, limit: number): number {
   if (limit <= 0) return 0
@@ -129,7 +135,10 @@ function clonePreferences(
 ): DesktopSidebarPreferences {
   return {
     ...preferences,
-    defaultWidth: clampSidebarWidth(preferences.defaultWidth),
+    // Document-bound defense only: the LIVE viewport cap is applied when a
+    // width is read out (layoutWidth), never at persist time — otherwise a
+    // width saved on a larger display would silently shrink here.
+    defaultWidth: clampPersistedWidth(preferences.defaultWidth),
     workspaces: Object.fromEntries(Object.entries(preferences.workspaces).map(
       ([cwd, workspace]) => [cwd, cloneWorkspace(workspace)],
     )),
@@ -804,7 +813,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   }
 
   setWidth(width: number): void {
-    const next = clampSidebarWidth(width)
+    const next = clampSidebarWidth(width, currentViewportWidth())
     if (this.snapshot.width === next) return
     if (this.snapshot.cwd !== null) {
       // Remember per workspace bucket; `defaultWidth` stays the fallback for
@@ -940,11 +949,20 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     return this.preferences.layoutScope === 'global' ? GLOBAL_SCOPE_BUCKET : cwd
   }
 
-  /** The remembered rail width for a project (falls back to the default). */
+  /**
+   * The rail width for a project (falls back to the default), clamped to the
+   * LIVE viewport cap. The persisted bucket keeps its raw document-bounded
+   * value, so a width saved on a larger display comes back when the window
+   * grows again.
+   */
   private layoutWidth(cwd: string | null): number {
-    if (cwd === null) return this.preferences.defaultWidth
-    return this.preferences.workspaces[this.layoutKey(cwd)]?.width
-      ?? this.preferences.defaultWidth
+    return clampSidebarWidth(
+      cwd === null
+        ? this.preferences.defaultWidth
+        : this.preferences.workspaces[this.layoutKey(cwd)]?.width
+          ?? this.preferences.defaultWidth,
+      currentViewportWidth(),
+    )
   }
 
   private workspaceOf(cwd: string): PersistedWorkspaceLayout {
@@ -1019,8 +1037,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       bottomActiveId: workspace?.bottomActiveId ?? null,
       bottomTabs: workspace?.bottomTabs?.map(tab => ({ ...tab })) ?? [],
       tabs: workspace?.tabs.map(tab => ({ ...tab })) ?? [],
-      // The rail width is remembered per workspace bucket.
-      width: workspace?.width ?? this.preferences.defaultWidth,
+      // The rail width is remembered per workspace bucket, live-clamped.
+      width: this.layoutWidth(cwd),
     }
   }
 
