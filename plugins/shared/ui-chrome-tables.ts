@@ -326,7 +326,7 @@ const union = (discriminator: string, variants: Record<string, Record<string, Fi
 })
 // `opt` marks a field optional; `dflt` supplies the host default.
 const o = (field: Field): Field => ({ ...field, optional: true })
-const def = (field: Field, value: string | boolean | number | Record<string, never> | never[]): Field => ({
+const def = (field: Field, value: string | boolean | number | Record<string, unknown> | unknown[]): Field => ({
   ...field,
   default: value,
 })
@@ -369,7 +369,9 @@ const sidebarChromeSlice: Field = obj({
     selectedPath: nb(), commitMessage: s(),
   }),
   gitListMode: en(['tree', 'flat']),
-  diffView: obj({ layout: en(['unified', 'split']), wordWrap: fl() }),
+  // Host default mirrors the client sanitizer default so rows persisted
+  // before this field existed still parse at domain open.
+  diffView: def(obj({ layout: en(['unified', 'split']), wordWrap: fl() }), { layout: 'unified', wordWrap: false }),
 })
 
 /**

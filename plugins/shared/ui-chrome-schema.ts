@@ -49,9 +49,9 @@ export interface Optional {
   optional?: boolean
   /**
    * The value the host applies when the field is absent (zod `.default`).
-   * Object/array defaults are expressed as `{}` / `[]`.
+   * Object/array defaults are expressed as plain JSON objects / arrays.
    */
-  default?: string | boolean | number | Record<string, never> | never[]
+  default?: string | boolean | number | Record<string, unknown> | unknown[]
 }
 
 export type Field =

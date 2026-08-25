@@ -229,7 +229,10 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
         uiChromeFace = createUiChromeFace(candidate)
       },
       (error) => {
-        storageCtx.logger?.warn?.(`[ui-chrome] domain open failed: ${errorMessage(error)}`)
+        // Loud on purpose: a dark ui-chrome domain silently drops every tab/
+        // layout persistence (nothing restores, nothing saves). The plugin
+        // context owns the logger; the storage child context may not have one.
+        ctx.logger?.warn?.(`[ui-chrome] domain open failed: ${errorMessage(error)}`)
       },
     )
     storageCtx.effect(() => () => {
