@@ -58,20 +58,23 @@ export function subscribeDshDarkTheme(onChange: () => void): () => void {
  * Candidate aria-labels for the DSH left-rail toggle, in both the shipped
  * Chinese and English localizations. The label describes the ACTION the
  * button performs — "收起侧边栏"/"Collapse sidebar" while the rail is
- * EXPANDED (clicking collapses it), "展开侧边栏"/"Expand sidebar" while it
- * is collapsed. Matching any candidate finds the button regardless of the
- * active locale (C8: the old probe hard-coded the Chinese substring and
- * found nothing in English environments).
+ * EXPANDED (clicking collapses it), "打开侧边栏"/"Open sidebar" while it
+ * is collapsed (the upstream `sidebar` dictionary's `toggle.open`; the
+ * shell never says "展开" there). Matching any candidate finds the button
+ * regardless of the active locale (C8: the old probe hard-coded the Chinese
+ * substring and found nothing in English environments).
  */
 export const LEFT_RAIL_TOGGLE_LABELS: readonly string[] = [
   '收起侧边栏',
   '收起',
   '展开侧边栏',
   '展开',
+  '打开侧边栏',
   'Collapse sidebar',
   'Collapse',
   'Expand sidebar',
   'Expand',
+  'Open sidebar',
 ]
 
 function matchesToggleLabel(label: string): boolean {
