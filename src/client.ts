@@ -94,6 +94,30 @@ html[data-dsh-studio='true']:has([aria-modal='true']) body * {
 html[data-dsh-studio='true'] [data-slot='sidebar'] > div {
   padding-top: 28px;
 }
+
+/* The sidebar brand row is dead chrome in the desktop shell: its whale mark
+   and "deepseek" wordmark artwork (HARNESS badge drawn into the same SVG)
+   are omitted, and the collapse toggle it hosts is superseded by the center
+   tab strip's left-rail toggle. The row keeps its upstream fixed height
+   (60px wide / 36px collapsed) even when empty, so remove the row itself.
+   The selector anchors on the official slot-contract wrapper the renderer
+   emits inside the row's only buttons, so it survives upstream revisions.
+   Gated on the attribute the desktop shell client actually installs. */
+html[data-dsh-studio-desktop='true'] [data-slot='sidebar'] div:has(
+  > button [data-slot='sidebar.brand.mark']
+) {
+  display: none;
+}
+
+/* Collapsed-rail traffic-light clearance: the upstream collapsed root pins
+   its padding with a two-class selector that out-specifies the center
+   surface's [data-slot='sidebar'] > div clearance rule, so once the brand
+   row is gone the rail's first button slides under the macOS traffic
+   lights. Re-assert the host's --dsh-studio-traffic-top token at
+   desktop-shell specificity for both rail states. */
+html[data-dsh-studio-desktop='true'] [data-slot='sidebar'] > div {
+  padding-top: var(--dsh-studio-traffic-top, 34px);
+}
 html[data-dsh-studio-preview='true'] body::after {
   content: attr(data-dsh-studio-preview-label);
   position: fixed;
