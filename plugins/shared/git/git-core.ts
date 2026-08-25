@@ -298,7 +298,18 @@ export function parsePorcelainV2(output: string): GitStatusV2Result {
     // Other `# ...` lines (branch.oid, rebase state) are ignored.
   }
 
-  return { isRepo: true, branch, upstream, ahead, behind, entries }
+  // Omit absent branch/upstream keys instead of carrying `undefined`: the
+  // model-facing tool boundary validates results as lossless JSON, which
+  // rejects explicit `undefined` properties (the RPC path drops them silently,
+  // so this only changes the in-process shape, not any wire payload).
+  return {
+    isRepo: true,
+    ...(branch === undefined ? {} : { branch }),
+    ...(upstream === undefined ? {} : { upstream }),
+    ahead,
+    behind,
+    entries,
+  }
 }
 
 /** Working-tree status via one porcelain v2 subprocess (non-repo → isRepo:false). */
