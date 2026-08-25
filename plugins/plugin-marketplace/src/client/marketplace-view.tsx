@@ -121,11 +121,11 @@ function MarketplaceSurface({ bridge, locale, translate, view, store }: {
   const t = useTranslate(locale, translate)
   const open = useSyncExternalStore(view.subscribe, () => view.getSnapshot().open)
   const { data, run } = useMarketplaceData(bridge, store)
-  // C34: key the modal body on open so reopening remounts fresh filters
-  // (no effect-based reset of the five filter/selection fields).
+  // C34(resolved): no reset machinery at all — filter selections persist
+  // across close/open by design; the old effect-based reset (and the
+  // harmful whole-tree remount key) are gone.
   return (
     <MarketplaceModal
-      key={open ? 'open' : 'closed'}
       t={t}
       locale={locale}
       open={open}
