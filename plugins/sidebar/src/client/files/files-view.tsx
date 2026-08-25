@@ -80,13 +80,17 @@ export function FilesView({
   // the affected parent directory subtree (D20c) instead of clearing every
   // cached directory — deep trees stop repainting on an unrelated rename.
   // Without a path (the explicit refresh button) every cached listing reloads.
+  // `affectedPath` IS the changed directory (every caller passes the create
+  // parent or dirname(target)); taking dirname here again escaped the
+  // workspace for root-level ops, whose key filter then matched nothing and
+  // left the tree stale until a manual refresh.
   const refreshListings = useCallback((affectedPath?: string): void => {
     if (runtime === null || cwd === undefined) return
     let keys: string[]
     if (affectedPath === undefined) {
       keys = [...runtime.getListingsSnapshot().keys()]
     } else {
-      const relativeParent = relativePathOf(cwd, dirname(affectedPath))
+      const relativeParent = relativePathOf(cwd, affectedPath)
       const prefix = relativeParent === '' ? '' : `${relativeParent}/`
       keys = [...runtime.getListingsSnapshot().keys()]
         .filter(key => key === relativeParent || key.startsWith(prefix))
