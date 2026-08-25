@@ -291,3 +291,11 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 - **修复**：先记录 CDP HTTP 端点作为应用存活证据，停止重复连接；在 relay 恢复后
   建立新的命名会话再继续 UI 验证。构建与静态验证不受影响。
 - **来源**：本轮实测。
+
+### 27. `ensure --force-restart` 半失败：helper 报"已就绪"但跑的是旧进程
+- **日期**：2026-08-25
+- **症状**：`ensure --force-restart` 后 helper 打印 targets 正常，chrome-use 也能连上、页面能用；但刚改的 host 插件代码行为不生效（旧 bundle 的行为）。
+- **根因**：新 Electron 撞上单实例锁/端口竞态静默退出（`electron exited (code=0)`，PITFALLS #9 的变体），**旧实例继续持有 CDP 端口**；helper 的"已可达即复用"检测把旧实例当成重启成功。同时 helper 的 state 已被清掉，`stop` 发 SIGTERM 的进程组不含这组孤儿进程（旧 Electron + 旧 runtime node 各自存活）。
+- **修复**：重启后不要只看 CDP 是否可达——**核对 runtime 进程启动时间 vs bundle mtime**：
+  `lsof -iTCP:<runtimePort> -sTCP:LISTEN` 拿到 PID → `ps -p <pid> -o lstart`，必须晚于 `.stage` bundle 的修改时间；CDP 9222 的持有进程同理。发现旧进程就用 `kill <pid>`（dev 实例，路径含本 worktree 的 node_modules/.pnpm/electron 或 .stage）清干净再 `ensure`。
+- **来源**：本轮实测（worktree 工具验证中修复 git-core 后重启，status 行为不生效，追因到 runtime node 是 8:25 启动的旧进程）。
