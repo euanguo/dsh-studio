@@ -154,12 +154,17 @@ export function subscribeMarketplaceHost(
   store: MarketplaceStore,
 ): () => void {
   let alive = true
+  let seq = 0
   const unsubscribe = bridge.pluginMarketplace.onSnapshotChanged(() => {
     if (!alive) return
+    seq += 1
+    const requestSeq = seq
     void bridge.pluginMarketplace
       .getSnapshot()
       .then(snapshot => {
-        if (alive) store.getState().acceptPush(snapshot as MarketplaceSnapshot)
+        if (alive && requestSeq === seq) {
+          store.getState().acceptPush(snapshot as MarketplaceSnapshot)
+        }
       })
   })
   return () => { alive = false; unsubscribe() }
