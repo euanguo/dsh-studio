@@ -8,6 +8,7 @@ import {
   useCenterSurfaceStore,
 } from '../plugins/sidebar/src/client/surfaces/center-surface-store.ts'
 import {
+  conversationPosture,
   currentConversationSyncAction,
   resolveCenterWorkspace,
   retainConversationSurface,
@@ -141,6 +142,37 @@ test('incomplete session snapshots do not prune an existing conversation tab', (
     list: { byId: { 's-1': { cwd: '/other' } } },
   }), false)
   assert.equal(retainConversationSurface({ cwd: '/ws', sessionId: 's-1', list: { byId: {} } }), false)
+})
+
+test('subagent children are never conversation tabs, even with a matching cwd', () => {
+  // A restored subagent entry drops instead of being retained (left-rail
+  // sessionVisible parity); mainline sessions under the same cwd stay.
+  assert.equal(retainConversationSurface({
+    cwd: '/ws',
+    sessionId: 'sub-1',
+    list: { byId: { 'sub-1': { origin: 'subagent', cwd: '/ws' } } },
+  }), false)
+  assert.equal(retainConversationSurface({
+    cwd: '/ws',
+    sessionId: 's-1',
+    list: { byId: { 's-1': { cwd: '/ws' } } },
+  }), true)
+})
+
+test('conversation posture mirrors the left-rail status precedence', () => {
+  const dotOf = (summary: Parameters<typeof conversationPosture>[0]) => conversationPosture(summary)
+  // Idle: no posture — the tab keeps its dialogue icon.
+  assert.equal(dotOf(undefined), undefined)
+  assert.equal(dotOf({}), undefined)
+  // Pending user interaction outranks running and the done reminder.
+  assert.equal(dotOf({ pendingInteraction: 'approval', running: true, completed: true }), 'warning')
+  assert.equal(dotOf({ pendingInteraction: 'plan-review' }), 'warning')
+  assert.equal(dotOf({ pendingInteraction: 'question' }), 'warning')
+  // Running outranks the finished-but-unviewed reminder.
+  assert.equal(dotOf({ running: true, completed: true }), 'ongoing')
+  assert.equal(dotOf({ running: true }), 'ongoing')
+  // The green reminder only when nothing else is live.
+  assert.equal(dotOf({ completed: true }), 'done')
 })
 
 test('center sync seeds only unknown queues and handles same-project navigation', () => {

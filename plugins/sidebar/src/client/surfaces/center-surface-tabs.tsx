@@ -9,6 +9,7 @@ import type { WorkspaceMessage } from '../i18n.ts'
 import type { SessionsService } from '../client-types.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import { SurfaceTab, SurfaceTabStrip } from '@dsh-studio/shared/ui'
+import { StateDot } from '@deepseek-ai/dsh-client-ui-primitives'
 import { useTabStripDrag } from '../use-tab-strip-drag.ts'
 import {
   releaseTerminalInstance,
@@ -18,6 +19,7 @@ import type {
 } from './types.ts'
 import {
   currentConversationSyncAction,
+  conversationPosture,
   resolveCenterWorkspace,
   retainConversationSurface,
   type CenterWorkspace,
@@ -65,11 +67,15 @@ export function CenterSurfaceTabs({
 
   // The current project's sessions (same cwd as the active session), the
   // current session included — it must show as the active tab, and the
-  // "new conversation" blank placeholder is not a real tab.
+  // "new conversation" blank placeholder is not a real tab. Subagent
+  // children never become tabs (the left rail's sessionVisible rule);
+  // they live in the parent's subagent panel instead.
   const conversationTabs = useMemo(() => {
     if (cwd === undefined) return []
     return Object.entries(sessionList.byId)
-      .filter(([id, summary]) => summary.cwd?.trim() === cwd && !summary.blank)
+      .filter(([id, summary]) => summary.cwd?.trim() === cwd
+        && !summary.blank
+        && summary.origin !== 'subagent')
       .map(([id, summary]) => ({ id, cwd: cwd!, summary }))
   }, [cwd, sessionList])
 
@@ -151,12 +157,17 @@ export function CenterSurfaceTabs({
           : surface.title
         const active = slice.activeId === surface.id
         const dropClass = drag.chip.markerClass(surface.id)
+        // A postured conversation swaps its dialogue icon for the official
+        // StateDot (left-rail parity); idle conversations keep the icon.
+        const posture = isConversation ? conversationPosture(summary) : undefined
         return (
           <SurfaceTab
             key={surface.id}
             label={label}
             title={isConversation ? surface.sessionId : (surface.kind === 'file' || surface.kind === 'diff' || surface.kind === 'commit-file' ? surface.filePath : surface.title)}
-            icon={surfaceIcon(surface)}
+            icon={posture !== undefined
+              ? <StateDot state={posture} />
+              : surfaceIcon(surface)}
             active={active}
             {...(dropClass === undefined ? {} : { className: dropClass })}
             isPreview={!isConversation && surface.kind !== 'terminal' && surface.isPreview}

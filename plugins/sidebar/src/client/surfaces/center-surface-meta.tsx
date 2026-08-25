@@ -1,11 +1,11 @@
 /** Center surface panel shared helpers: icons, labels and the empty slice. */
 import {
   IconExternalLink,
-  IconFile,
   IconFileDiff,
   IconGitBranch,
   IconGitCommit,
   IconHistory,
+  IconMessageCircle,
   IconTerminal,
   getIconForFile,
 } from '@dsh-studio/shared/tabler-icons'
@@ -21,9 +21,9 @@ function fileTypeIcon(filePath: string): JSX.Element {
   return getIconForFile({ fileName: fileNameFromPath(filePath), autoAssign: true, width: 13, height: 13 })
 }
 
-/** Tab icon per surface kind. */
+/** Tab icon per surface kind. Conversations read as dialogue, not files. */
 export function surfaceIcon(surface: CenterSurface): JSX.Element | null {
-  if (surface.kind === 'conversation') return <IconFile size={13} />
+  if (surface.kind === 'conversation') return <IconMessageCircle size={13} />
   if (surface.kind === 'file') return fileTypeIcon(surface.filePath)
   if (surface.kind === 'diff') return <IconGitBranch size={13} />
   if (surface.kind === 'diff-all') return <IconGitBranch size={13} />

@@ -34,6 +34,16 @@ export interface SessionSummary {
   origin?: 'subagent'
   /** Whether the session's agent is currently running. */
   running?: boolean
+  /**
+   * User interaction currently blocking this session (the left rail's amber
+   * StateDot state; mirrors the host runtime SessionSummary).
+   */
+  pendingInteraction?: 'approval' | 'plan-review' | 'question'
+  /**
+   * Finished while not selected and not yet opened (the green "done"
+   * reminder); absent = false.
+   */
+  completed?: boolean
   /** Last activity wall-clock (ms epoch); the left rail sorts by this. */
   updatedAt?: number
 }
