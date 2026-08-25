@@ -424,33 +424,48 @@ export class SourceControlRuntime {
       ].join(':')
       const changed = statusKey !== this.lastStatusKey
       this.lastStatusKey = statusKey
-      let history: CapabilitiesGitLogEntry[] = []
-      let branch: CapabilitiesGitBranch = { current: 'HEAD', names: [] }
+      let history: CapabilitiesGitLogEntry[] | null = null
+      let branch: CapabilitiesGitBranch | null = null
       if (status.isRepo && facts.kind === 'repository'
         && (changed || this.lastBranchNames === null)) {
         const [nextBranch, nextHistory] = await Promise.all([
           this.transport.gitBranch(scope, controller.signal)
             .catch(cause => {
               // D21: don't swallow a branch-listing failure silently — log it
-              // but degrade to the last known branch rather than blanking.
+              // and resolve to null so the merge below falls back to the last
+              // known branch instead of blanking.
               console.warn('[sidebar] git.branch failed, falling back', cause)
-              return branch
+              return null
             }),
           this.transport.gitLog(scope, controller.signal)
             .catch(cause => {
-              // D21: a history failure must not read as "no commits".
+              // D21: a history failure must not read as "no commits" — log it
+              // and resolve to null so the merge below keeps the previous rows.
               console.warn('[sidebar] git.log failed, falling back', cause)
-              return []
+              return null
             }),
         ])
-        branch = nextBranch
-        history = nextHistory
-        this.lastBranchNames = nextBranch.names
-      } else if (this.lastBranchNames !== null) {
-        branch = { current: status.branch ?? 'HEAD', names: this.lastBranchNames }
+        if (nextBranch !== null) {
+          branch = nextBranch
+          this.lastBranchNames = nextBranch.names
+        }
+        if (nextHistory !== null) history = nextHistory
       }
       if (this.disposed || !this.generation.isCurrent(requestGeneration)) return
-      const snapshot = this.buildSnapshot({ facts, status, branch, history })
+      // D20b completion: on an unchanged poll the fetch above is skipped, and
+      // on a transient failure either call may resolve to null — both must
+      // fall back to the previous snapshot's rows. Writing fresh defaults
+      // here made every unchanged 4s poll wipe the commit history.
+      const priorSnapshot = current.snapshot
+      const snapshot = this.buildSnapshot({
+        facts,
+        status,
+        branch: branch ?? {
+          current: status.branch ?? 'HEAD',
+          names: this.lastBranchNames ?? priorSnapshot?.branches ?? [],
+        },
+        history: history ?? priorSnapshot?.history ?? [],
+      })
       this.store.setState({
         phase: snapshot.kind === 'repository' ? 'ready' : 'not-repo',
         message: null,
