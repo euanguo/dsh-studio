@@ -34,7 +34,16 @@ import {
 
 const PLUGIN_SOURCE = 'dsh-studio-capabilities'
 const RESULT_LIMIT = 24_000
-const SUMMARY_LIMIT = 180
+// Aligned with the upstream notice-summary bound (CONTEXT_SUMMARY_MAX_CHARS):
+// longer summaries get ellipsized by the presentation layer anyway.
+const SUMMARY_LIMIT = 120
+/** Recursion budget for worktree_delegate chains. delegationDepth is durable
+ *  bookkeeping only — the runtime never enforces it, so the registry does. */
+const MAX_DELEGATION_DEPTH = 4
+/** Settled delegation snapshots kept for status/result calls; older settled
+ *  records are pruned so a long-lived host cannot accumulate unbounded
+ *  prompt/result strings. Live (starting/running) records are never pruned. */
+const MAX_SETTLED_RECORDS = 50
 
 type DelegationState = 'starting' | 'running' | 'completed' | 'aborted' | 'failed'
 
@@ -80,6 +89,10 @@ interface DelegationRecord extends DelegationSnapshot {
   readonly firstSeq: number
   readonly agent?: CapabilitiesDelegationAgent
   readonly workspace?: CapabilitiesWorkspace
+  /** Set by stop() when the task prompt has not been submitted yet, so the
+   *  pending followup is dropped instead of running a full turn (the runtime
+   *  treats a cancel with no active activity as a no-op). */
+  readonly stopRequested?: boolean
 }
 
 function textOfAssistantMessage(value: unknown): string {
@@ -136,6 +149,14 @@ async function makeMessage(
   })
 }
 
+/** Injectable seams for tests: the default prompt factory dynamic-imports
+ *  @deepseek-ai/dsh-llm, which only resolves inside the DSH runtime's module
+ *  graph (the capabilities bundle externalizes @deepseek-ai/*). Tests inject
+ *  a stub so the delegation lifecycle is drivable outside the runtime. */
+export interface WorktreeDelegationRegistryOptions {
+  readonly createUserMessage?: (text: string, source: Record<string, unknown>) => Promise<CapabilitiesUserMessage>
+}
+
 function stateFromReason(reason: TurnReason | undefined): DelegationState {
   if (reason?.kind === 'completed') return 'completed'
   if (reason?.kind === 'aborted') return 'aborted'
@@ -167,9 +188,11 @@ export class WorktreeDelegationRegistry {
   private readonly records = new Map<string, DelegationRecord>()
   private readonly stopSessionEvents: () => void
   private readonly ctx: Context
+  private readonly createUserMessage: (text: string, source: Record<string, unknown>) => Promise<CapabilitiesUserMessage>
 
-  constructor(ctx: Context) {
+  constructor(ctx: Context, options: WorktreeDelegationRegistryOptions = {}) {
     this.ctx = ctx
+    this.createUserMessage = options.createUserMessage ?? makeMessage
     this.stopSessionEvents = ctx.on('session/event', (session, event) => {
       const sessionId = typeof (session as { id?: unknown })?.id === 'string'
         ? (session as { id: string }).id
@@ -395,6 +418,12 @@ export class WorktreeDelegationRegistry {
   async start(parentSessionId: string, worktreePath: string, prompt: string, agentOptions?: CapabilitiesAgentOptions): Promise<DelegationSnapshot> {
     const parent = this.requireParent(parentSessionId)
     const target = await this.assertVisible(parentSessionId, worktreePath)
+    // Recursion budget: the runtime stores delegationDepth but never enforces
+    // it, and delegated children inherit the same tools — cap the chain here.
+    const depth = parent.session.header.delegationDepth ?? 0
+    if (depth >= MAX_DELEGATION_DEPTH) {
+      throw new Error(`worktree delegation depth limit reached (${MAX_DELEGATION_DEPTH}); run the task in the current worktree instead`)
+    }
     const id = `worktree-${randomUUID()}`
     const sessionId = id
     const handle = await this.ctx.agents.create({
@@ -402,8 +431,15 @@ export class WorktreeDelegationRegistry {
       meta: {
         cwd: target,
         parentSession: parent.id,
-        origin: 'subagent',
-        delegationDepth: (parent.session.header.delegationDepth ?? 0) + 1,
+        // Deliberately NO `origin: 'subagent'`: a delegated task is a NORMAL
+        // conversation. The subagent origin would (a) hide it from the left
+        // rail (the rail filters subagent children into the parent's catalog)
+        // and (b) strand it in that catalog's perpetual loading state, because
+        // the runtime subagent catalog classifies children through the
+        // subagent-control projection that only its own drivers write. As an
+        // ordinary session (cwd = the target worktree) it groups under the
+        // worktree row and opens like any conversation.
+        delegationDepth: depth + 1,
       },
       agentOptions: agentOptions ?? parent.options,
       ...(parent.ctx === undefined ? {} : {
@@ -415,8 +451,17 @@ export class WorktreeDelegationRegistry {
         },
       }),
     })
-    const workspace = await this.ctx.workspaceRegistry.create(target, basename(target))
-    await workspace.attachSession(sessionId)
+    // Rollback-covered registration: a failed workspace create/attach must
+    // dispose the just-created agent, otherwise the session stays published
+    // with no record and the parent never learns about it.
+    let workspace: CapabilitiesWorkspace
+    try {
+      workspace = await this.ctx.workspaceRegistry.create(target, basename(target))
+      await workspace.attachSession(sessionId)
+    } catch (error) {
+      await handle.dispose().catch(() => {})
+      throw error
+    }
     const record: DelegationRecord = {
       id,
       parentSessionId: parent.id,
@@ -432,7 +477,18 @@ export class WorktreeDelegationRegistry {
       workspace,
     }
     this.records.set(id, record)
-    void makeMessage(prompt, { kind: 'user' }).then(message => {
+    void this.createUserMessage(prompt, { kind: 'user' }).then(message => {
+      const current = this.records.get(id)
+      if (current === undefined) return
+      // stop() may land while the prompt message is still being built; the
+      // runtime cancel for a not-yet-driven agent is a no-op, so the flag is
+      // what actually prevents the task from running.
+      if (current.stopRequested === true) {
+        this.replace(id, { state: 'aborted', finishedAt: Date.now(), stopReason: 'aborted' })
+        const settled = this.records.get(id)
+        if (settled !== undefined) void this.notifyParent(settled)
+        return
+      }
       handle.agent?.followup(message)
       void this.drive(record)
     }, error => {
@@ -459,29 +515,46 @@ export class WorktreeDelegationRegistry {
     return this.snapshot(record)
   }
 
-  async wait(parentSessionId: string, id: string, timeoutMs: number): Promise<DelegationSnapshot> {
-    const record = this.requireOwned(parentSessionId, id)
-    if (record.state !== 'starting' && record.state !== 'running') return this.snapshot(record)
+  async wait(parentSessionId: string, id: string, timeoutMs: number, signal?: AbortSignal): Promise<DelegationSnapshot> {
+    this.requireOwned(parentSessionId, id)
     const deadline = Date.now() + Math.max(100, Math.min(timeoutMs, 300_000))
-    while (record.state === 'starting' || record.state === 'running') {
+    for (;;) {
+      // Re-read the live record every iteration: replace() swaps the Map
+      // entry for a new object, so a reference captured before the loop
+      // would never observe the settled state (the wait burned its whole
+      // timeout and returned the stale entry state).
+      const current = this.records.get(id)
+      if (current === undefined) throw new Error(`unknown WorkTree delegation "${id}"`)
+      if (current.state !== 'starting' && current.state !== 'running') return this.snapshot(current)
       const remaining = deadline - Date.now()
-      if (remaining <= 0) break
+      if (remaining <= 0) return this.snapshot(current)
+      if (signal?.aborted === true) return this.snapshot(current)
       await new Promise<void>(resolvePromise => setTimeout(resolvePromise, Math.min(remaining, 100)))
     }
-    return this.snapshot(record)
   }
 
   stop(parentSessionId: string, id: string): DelegationSnapshot {
     const record = this.requireOwned(parentSessionId, id)
-    if (record.agent !== undefined && (record.state === 'starting' || record.state === 'running')) {
-      record.agent.cancel({ kind: 'user' })
+    if (record.state === 'starting' || record.state === 'running') {
+      // Flag first: if the task prompt has not been submitted yet, the
+      // pending followup is dropped (a runtime cancel with no active
+      // activity is a no-op and would not stop the later submission).
+      this.replace(id, { stopRequested: true })
+      if (record.agent !== undefined && record.agent.status === 'running') {
+        record.agent.cancel({ kind: 'user' })
+      }
     }
-    return this.snapshot(record)
+    return this.snapshot(this.records.get(id) ?? record)
   }
 
   private async drive(record: DelegationRecord): Promise<void> {
     try {
       if (record.agent === undefined) throw new Error('delegated agent was not published')
+      // A stop() that raced the followup submission cancels the just-started
+      // turn immediately instead of letting the whole task run out.
+      if (this.records.get(record.id)?.stopRequested === true) {
+        record.agent.cancel({ kind: 'user' })
+      }
       this.replace(record.id, { state: 'running' })
       await record.agent.whenIdle()
       await this.ctx.sessions.flush(record.agent.session)
@@ -504,14 +577,28 @@ export class WorktreeDelegationRegistry {
       })
     }
     const settled = this.records.get(record.id)
-    if (settled !== undefined) void this.notifyParent(settled)
+    if (settled !== undefined) {
+      this.pruneSettled()
+      void this.notifyParent(settled)
+    }
+  }
+
+  /** Drop the oldest settled records beyond the retention cap (live records
+   *  are never pruned). Pruned ids answer "unknown WorkTree delegation" on
+   *  later status/result calls — bounded memory over unbounded history. */
+  private pruneSettled(): void {
+    const settled = [...this.records.values()]
+      .filter(record => record.state !== 'starting' && record.state !== 'running')
+      .sort((a, b) => a.startedAt - b.startedAt)
+    const excess = settled.length - MAX_SETTLED_RECORDS
+    for (let index = 0; index < excess; index += 1) this.records.delete(settled[index]!.id)
   }
 
   private async notifyParent(record: DelegationRecord): Promise<void> {
     const detail = record.error ?? record.result ?? record.stopReason ?? record.state
     const summary = `WorkTree delegation ${record.id} ${record.state}: ${summaryOf(detail)}`
     try {
-      const message = await makeMessage(
+      const message = await this.createUserMessage(
         `[WorkTree delegation callback]\nworktree: ${record.worktreePath}\nstate: ${record.state}\nresult: ${detail}`,
         {
           kind: 'plugin',

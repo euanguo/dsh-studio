@@ -168,7 +168,7 @@ export function registerWorktreeDelegationTools(
 
   register(ctx, defineTool({
     name: 'worktree_delegate',
-    description: 'Start an independent Agent conversation in a visible WorkTree. It returns immediately; the initiating conversation receives a lifecycle callback when the WorkTree Agent settles.',
+    description: 'Start an independent Agent conversation in a visible WorkTree. The conversation is a normal session (visible in the workspace sidebar under its worktree); this tool returns immediately and the initiating conversation receives a lifecycle callback when the delegated conversation settles.',
     parameters: {
       worktree_path: { type: 'string', required: true, description: 'Visible WorkTree path.' },
       prompt: { type: 'string', required: true, description: 'Task for the WorkTree Agent.' },
@@ -215,7 +215,7 @@ export function registerWorktreeDelegationTools(
     },
     execute(args: { delegation_id: string; timeout_ms?: number }, exec) {
       exec.signal.throwIfAborted()
-      return registry.wait(parentSessionIdOf(exec), args.delegation_id, args.timeout_ms ?? 120_000)
+      return registry.wait(parentSessionIdOf(exec), args.delegation_id, args.timeout_ms ?? 120_000, exec.signal)
     },
   }), disposers)
 
