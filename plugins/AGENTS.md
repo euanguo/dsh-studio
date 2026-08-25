@@ -60,6 +60,33 @@ when a semantic alias does not exist). `@dsh-studio/shared/theme.css` may add
 spacing, radius, and control-size bridges that DSW does not name. Feature
 CSS must not introduce a second palette.
 
+## Data & state discipline
+
+These rules are CI-enforced by `scripts/guards/*.mjs` and detailed in
+`.workflow/specs/`. Components render from zustand stores and the
+`shared/runtime` caches; they do not own server data.
+
+- **State ownership (S1):** derivable values are computed, not stored in a
+  second store or `useEffect`; cross-component UI identity goes in a zustand
+  store (pure memory); server data lives in a `shared/runtime`
+  RevisionedStore-family cache.
+- **Data flow (S3):** RPC caching uses the shared RevisionedStore /
+  GenerationGate / ScopedRuntimeRegistry layer, keyed by cwd/scope, with soft
+  refresh and precise mutation invalidation. No hand-written
+  loading/error/data triplets, no scattered bare `callCapabilitiesApi`.
+- **Persistence (S2):** everything persists through `persistVia` onto a
+  host-owned domain (ui-chrome table, settings namespace, or nodeFs). No
+  component reads or writes `localStorage`/`sessionStorage` (guarded by
+  `scripts/guards/guard-no-localstorage.mjs`).
+- **Race & singletons (S6):** async effects abort (`AbortController` +
+  `signal.aborted` check or a generation token); dialogs/promise services are
+  queued; mutexes and overlay arbiters come from a `createXxx()` factory
+  through context, never a module-level mutable singleton.
+
+Upstream DOM probes stay in the single per-plugin probe module (see "Upstream
+DOM probes" above); this is enforced by
+`scripts/guards/guard-no-inline-probe.mjs`.
+
 ## Do not invent a second kit
 
 There is no DSH Studio Button, Dialog, Toast surface, or icon alias layer.

@@ -52,6 +52,8 @@
     "build:dsh": "node scripts/build-dsh.mjs",
     "stage:dsh": "node scripts/stage-dsh.mjs",
     "check:plugins": "node scripts/smoke-runtime.mjs",
+    "check:guards": "node scripts/guards/guard-no-localstorage.mjs && node scripts/guards/guard-no-inline-probe.mjs && node scripts/guards/guard-dead-exports.mjs",
+    "check:rescan": "node scripts/guards/rescan-shim.mjs --stage final",
     "check:sidebar-source": "node scripts/check-sidebar-source.mjs",
     "smoke:runtime": "node scripts/smoke-runtime.mjs",
     "smoke:app": "node scripts/smoke-runtime.mjs \"release/mac-arm64/DSH Studio.app/Contents/Resources\"",

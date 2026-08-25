@@ -141,6 +141,42 @@ Web 与 TUI 的 `--data` 只覆盖当前进程。
   surface 队列因其对象绑定工作区，恒按 cwd 分桶。
 - 上游 DOM 探测必须收口在每个插件的单个模块（sidebar 为 `dsh-dom.ts`）。
 
+## 数据流与持久化（Data flow & persistence）
+
+客户端不直接持有服务端数据；取数与持久化统一走 DSH 运行时的既有管道，
+组件只消费 zustand store 与运行时缓存。语义见 `.workflow/specs/`
+（S1–S3），并被 `scripts/guards/*.mjs` 强制：
+
+```text
+  client store / component
+      │  render             订阅
+      ▼                          ▼
+  zustand store(纯内存)  ──────────►  shared/runtime RevisionedStore/GenerationGate
+      │  persistVia(store,{table,sanitize,merge,debounceMs})
+      ▼
+  共享 persistVia 门面 ──────────────► host 域后端
+      │                              ├── ui-chrome 表（capabilities ui-chrome.get/put JSON）
+      │                              ├── settings 命名空间（replace/mutate）
+      │                              └── nodeFs（文件系统原子写）
+      ▼
+  transport：capabilities JSON / ui-chrome / settings / WS / IPC
+      ▼
+  cordis 服务（capabilities、terminal、marketplace…）
+      ▼
+  data-root  ~/.dsh-studio / ~/.dsh-studio-dev（按 DSH_STUDIO_CHANNEL）
+```
+
+要点：
+- **唯一取数形态**：RPC 缓存走 shared/runtime RevisionedStore 家族（按
+  cwd/scope 键控、软刷新、mutation 精准失效）；命令式 mutation 收敛到单
+  lane 并在 store action 中包装；事件推送（如 marketplace changed）由 host
+  状态跃迁触发，store 订阅 revalidate。禁止组件内手写
+  loading/error/data 三件套或散落裸 `callCapabilitiesApi`。
+- **唯一持久化路径**：经 `persistVia` 落 host 域后端。`localStorage` /
+  `sessionStorage` 仅作为 legacy 迁移源（如 comments-migration.ts 一把读入
+  ui-chrome 表），绝非运行期写通道。
+- **运行时缓存唯一形态**：同一工作区的多 surface 共享一份
+  ScopedRuntimeRegistry 实例，禁止各自为政另建缓存。
 
 ## 统一悬浮评论（Unified hover comments）
 

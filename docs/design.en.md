@@ -168,6 +168,45 @@ instance. The Web and TUI `--data` flags override only the current process.
 
 See [installation, operations, and troubleshooting](./usage.en.md).
 
+## Data flow & persistence
+
+Client components do not own server data; fetching and persistence go through
+the pinned DSH runtime's existing pipes, and components only consume zustand
+stores and runtime caches. The semantics live in `.workflow/specs/` (S1–S3)
+and are enforced by `scripts/guards/*.mjs`:
+
+```text
+  client store / component
+      │  render                 queue subscribe
+      ▼                          ▼
+  zustand store (pure memory)  ──────────►  shared/runtime RevisionedStore / GenerationGate
+      │  persistVia(store,{table,sanitize,merge,debounceMs})
+      ▼
+  shared persistVia facade ──────────────► host-owned backend
+      │                                   ├── ui-chrome table (capabilities ui-chrome.get/put JSON)
+      │                                   ├── settings namespace (replace/mutate)
+      │                                   └── nodeFs (atomic file writes)
+      ▼
+  transport: capabilities JSON / ui-chrome / settings / WS / IPC
+      ▼
+  cordis service (capabilities, terminal, marketplace, …)
+      ▼
+  data-root  ~/.dsh-studio / ~/.dsh-studio-dev  (per DSH_STUDIO_CHANNEL)
+```
+
+- **One fetch shape:** RPC caching uses the shared/runtime RevisionedStore
+  family, keyed by cwd/scope, with soft refresh and precise mutation
+  invalidation; command-style mutations converge on a single lane wrapped in a
+  store action; event pushes (e.g. marketplace changed) are triggered by a host
+  state transition and each store subscription revalidates. No hand-written
+  loading/error/data triplets, no scattered bare `callCapabilitiesApi`.
+- **One persistence path:** everything persists through `persistVia` onto a
+  host-owned backend. `localStorage`/`sessionStorage` are only a legacy
+  migration source (e.g. `comments-migration.ts` reads them once into an
+  ui-chrome table) — never a runtime write channel.
+- **One runtime cache shape:** surfaces in the same workspace share a single
+  ScopedRuntimeRegistry instance; they do not each build their own cache.
+
 
 ## Unified hover comments
 

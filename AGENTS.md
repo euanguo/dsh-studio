@@ -31,6 +31,12 @@ its subtree. Keep this file to durable rules; put explanations in `docs/`.
 - Derive displayed versions from the repository version resolver. Do not
   duplicate versions, platform paths, executable names, or data roots.
 - Make user-state migrations non-destructive, restart-safe, and idempotent.
+- Client data flow: components render from zustand stores and `shared/runtime`
+  caches; RPC caching uses the shared RevisionedStore layer exclusively;
+  persistence goes through the shared `persistVia` facade onto host-owned
+  domains (ui-chrome tables, settings namespaces, or nodeFs). No
+  component-local loading/error/data fetch loops, no direct browser-storage
+  writes. See `.workflow/specs/` and `scripts/guards/`.
 - Preserve macOS arm64/x64, Linux x64, and Windows x64 behavior.
 
 See `docs/design.en.md` and `docs/design.md` for detailed boundaries.
