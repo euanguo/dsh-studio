@@ -343,3 +343,17 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 - **修复**：schema 推导必须单递归路径、每层应用 nullable/optional/default
   （`ui-chrome-schemas.ts`）；新增字段一律带 default；打开失败必须打日志。
 - **来源**：本次修复实测（2026-08-25 12:54 重构引入推导 bug，当晚才暴露）。
+
+### 31. 侧栏收起时面板 DOM 仍在（width=0）：数据"冻结"假象 + 坐标点击被拖拽区吞掉
+- **日期**：2026-08-25。
+- **症状**：验证轮询/刷新类行为时，`sidebar-root.textContent` 能读到完整面板内容、
+  RPC 也正常，但定时器永不触发、网络零请求——误判为"修复没生效"。另外对
+  y≈20px 顶部条内的 surface-tab 用 CDP 坐标点击无效果。
+- **根因**：侧栏收起时 `#dsh-studio-sidebar-root` 宽度为 0 但 DOM 照常渲染；
+  面板的 `active` 门（open && tab==='review'）为 false，轮询 effect 整个不挂载。
+  顶部条是 `-webkit-app-region: drag` 区域，CDP Input 坐标点击会被窗口拖拽消费，
+  到不了页面。
+- **修复**：解释任何"没有轮询/没有刷新"的观察前，先量
+  `getBoundingClientRect().width`；展开用 `press alt+meta+b`。切 surface-tab 用
+  `pointerdown+click` 的 eval 合成事件（真实用户语义），不要用坐标点击顶条。
+- **来源**：提交历史被清空 bug 的复现过程实测（收起态导致两轮误判）。
