@@ -700,7 +700,7 @@ test('refresh keeps public catalogs available when GitHub CLI is unavailable', a
   }
 })
 
-test('a client reconnect during apply does not leave a sticky busy error', async () => {
+test('a client reconnect during apply is rejected (not silently dropped) and busy does not stick', async () => {
   const setup = fixture()
   try {
     let release: (() => void) | undefined
@@ -711,9 +711,12 @@ test('a client reconnect during apply does not leave a sticky busy error', async
     }
     const refresh = setup.manager.dispatch({ type: 'refresh' })
     await new Promise(resolve => { setImmediate(resolve) })
-    const reconnect = await setup.manager.dispatch({ type: 'refresh' })
-    assert.equal(reconnect.busy, true)
-    assert.equal(reconnect.error, null)
+    // D4: a concurrent command while the host is busy is a typed rejection,
+    // never a silent no-op snapshot.
+    await assert.rejects(
+      setup.manager.dispatch({ type: 'refresh' }),
+      /busy processing another operation/,
+    )
     release?.()
     const settled = await refresh
     assert.equal(settled.busy, false)

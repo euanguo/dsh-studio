@@ -9,6 +9,7 @@ import {
   type DesktopSkinPreferences,
 } from '../preferences.ts'
 import type { StorageLike } from './skin-controller.ts'
+import { persistVia, type PersistViaHandle } from '@dsh-studio/shared/store-persistence'
 
 interface FetchResponse {
   ok: boolean
@@ -28,9 +29,33 @@ export class DesktopSkinPreferencesStorage implements StorageLike {
   private dirty = false
   private loaded = false
   private flushing: Promise<void> | undefined
+  /** Template-C single-flight flush pump (absorbed from the hand-written
+   *  `update`/`flush` pair). `fire()` coalesces writes into one host PUT. */
+  private readonly persist: PersistViaHandle
 
   constructor(request: PreferencesFetch) {
     this.request = request
+    this.persist = persistVia<DesktopSkinPreferences>(
+      {
+        // Pull-driven: `update()` fires after folding each patch. Hydration is
+        // owned by the plugin boot (explicit `storage.load()`).
+        subscribe: () => () => {},
+        snapshot: () => this.preferences,
+        apply: () => {},
+      },
+      {
+        backend: {
+          load: () => Promise.resolve(this.preferences),
+          save: value => {
+            this.preferences = Object.freeze(value)
+            this.queueFlush()
+          },
+          flush: () => this.settle(),
+        },
+        merge: (stored) => stored,
+        hydrate: false,
+      },
+    )
   }
 
   async load(): Promise<void> {
@@ -74,6 +99,10 @@ export class DesktopSkinPreferencesStorage implements StorageLike {
     this.preferences = next
     if (!this.loaded) return
     this.dirty = true
+    this.persist.fire()
+  }
+
+  private queueFlush(): void {
     if (this.flushing === undefined) {
       this.flushing = this.flush().finally(() => { this.flushing = undefined })
       void this.flushing.catch(error => {

@@ -70,6 +70,19 @@ const ANCHORS = [
   { name: 'WRAP', patterns: ['_wrap'] },
   { name: 'ICON', patterns: ['_icon'] },
   { name: 'BUTTON_MD', combined: true, patterns: ['_button_', '_md'] },
+  // CHATGPT_GEOMETRY_CSS 里手写的组件级哈希选择器（leaf-4.3 C24）：这些
+  // 曾在 skins.ts 内联硬编码，现迁入生成输入清单，上游 bump 后由
+  // generate:selectors 重钉。精确后缀见对应常量在 CHATGPT_GEOMETRY_CSS 的
+  // 使用处（._close_18d3q_30 / ._remove_1hk8w_53 / ._arrow_1hk8w_90 /
+  // ._pill_e3ygd_1 / ._toast_fvpz7_7 / ._onboardingMask_1cfrq_10）。
+  { name: 'CLOSE_BUTTON', patterns: ['_close_'] },
+  { name: 'REMOVE_BUTTON', patterns: ['_remove_'] },
+  { name: 'ARROW_BUTTON', patterns: ['_arrow_'] },
+  { name: 'FILTER_PILL', patterns: ['_pill_'] },
+  { name: 'TOAST', patterns: ['_toast_'] },
+  { name: 'ONBOARDING_MASK', patterns: ['_onboardingMask_'] },
+  // 设置触发折叠座 rail（ui-settings-general 折叠态，与 xuwxfG_trigger 配套）。
+  { name: 'RAIL', patterns: ['_rail'] },
 ]
 
 /** 收集一次扫描的全部候选类名（去重、排序）。 */

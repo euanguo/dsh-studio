@@ -12,12 +12,9 @@ function read(path: string): string {
 
 test('shared UI source layer avoids duplicate official atoms and styling runtimes', () => {
   const sources = [
-    read('plugins/shared/ui/card.tsx'),
     read('plugins/shared/ui/field.tsx'),
-    read('plugins/shared/ui/separator.tsx'),
     read('plugins/shared/ui/alert.tsx'),
     read('plugins/shared/ui/empty.tsx'),
-    read('plugins/shared/ui/skeleton.tsx'),
     read('plugins/shared/ui/slider.tsx'),
     read('plugins/shared/ui/switch.tsx'),
     read('plugins/shared/ui/textarea.tsx'),

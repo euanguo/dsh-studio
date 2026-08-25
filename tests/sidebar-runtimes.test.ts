@@ -107,6 +107,8 @@ function fakeSourceControlRuntime(): SourceControlRuntimeOptions['transport'] & 
     },
     gitBranch: async () => ({ current: 'main', names: ['main'] }),
     gitLog: async () => [],
+    gitCommittedFiles: async () => ({ baseRef: 'origin/main', entries: [] }),
+    gitCommitFiles: async () => [],
     workspaceFacts: async cwd => ({
       kind: 'repository',
       cwd,

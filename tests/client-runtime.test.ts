@@ -5,7 +5,7 @@ import {
   RevisionedStore,
   ScopedRuntimeRegistry,
   SubscriptionScope,
-} from '../plugins/shared/runtime/client-runtime.ts'
+} from '../plugins/shared/runtime/runtime.ts'
 
 test('RevisionedStore manages snapshots, revisions, and cleanups', () => {
   const store = new RevisionedStore({ count: 0 })

@@ -10,6 +10,7 @@ import {
 import type {
   ReviewSessionsService,
   ReviewInputTriggersService,
+  ReviewCommentsPersistence,
 } from '../plugins/sidebar/src/client/review/review-comments.ts'
 import type { GitReviewCommit } from '../plugins/sidebar/src/client/diff/git-review-diff.ts'
 
@@ -55,15 +56,11 @@ function trackingInputTriggers(): {
   }
 }
 
-function memoryStorage(): Storage {
-  const map = new Map<string, string>()
+function memoryStorage(): ReviewCommentsPersistence {
+  let value: ReviewComment[] = []
   return {
-    get length() { return map.size },
-    clear: () => map.clear(),
-    getItem: key => map.get(key) ?? null,
-    key: index => [...map.keys()][index] ?? null,
-    removeItem: key => { map.delete(key) },
-    setItem: (key, value) => { map.set(key, value) },
+    load: async () => [...value],
+    save: comments => { value = [...comments] },
   }
 }
 
@@ -74,13 +71,14 @@ const COMMIT: GitReviewCommit = {
   files: [],
 } as unknown as GitReviewCommit
 
-function makeService(storage: Storage): {
+async function makeService(storage: ReviewCommentsPersistence): Promise<{
   service: ReviewCommentsService
   comment: ReviewComment
-} {
+}> {
   const service = new ReviewCommentsService(fakeSessions(), {
     registerSource: () => () => {},
   }, storage)
+  await service.start()
   const draft = {
     id: nextReviewCommentId(),
     workspacePath: '/repo',
@@ -100,7 +98,7 @@ function makeService(storage: Storage): {
 
 test('resolve keeps the comment listed and persisted but flagged', async () => {
   const storage = memoryStorage()
-  const { service, comment } = makeService(storage)
+  const { service, comment } = await makeService(storage)
   assert.equal(comment.resolvedAt, undefined)
 
   service.resolve(comment.id)
@@ -111,33 +109,35 @@ test('resolve keeps the comment listed and persisted but flagged', async () => {
   const reloaded = new ReviewCommentsService(fakeSessions(), {
     registerSource: () => () => {},
   }, storage)
+  await reloaded.start()
   assert.ok(reloaded.getSnapshot().find(item => item.id === comment.id)?.resolvedAt)
 })
 
 test('unresolve clears the flag and re-injects on the active branch', async () => {
-  const { service, comment } = makeService(memoryStorage())
+  const { service, comment } = await makeService(memoryStorage())
   service.resolve(comment.id)
   service.unresolve(comment.id)
   const reopened = service.getSnapshot().find(item => item.id === comment.id)
   assert.equal(reopened?.resolvedAt, undefined)
 })
 
-test('formatReviewComment renders the anchored request body', () => {
+test('formatReviewComment renders the anchored request body', async () => {
   const storage = memoryStorage()
-  const { comment } = makeService(storage)
+  const { comment } = await makeService(storage)
   const text = formatReviewComment(COMMIT, comment)
   assert.match(text, /Repository: \/repo/)
   assert.match(text, /Branch: feature\/x/)
   assert.match(text, /Location: src\/a\.ts:R12/)
 })
 
-test('activate skips resolved comments when seeding a fresh scope', () => {
-  // Shared storage so persisted comments survive across service instances.
+test('activate skips resolved comments when seeding a fresh scope', async () => {
+  // Shared persistence so persisted comments survive across service instances.
   const shared = memoryStorage()
 
   // Phase 1: add two comments on the same branch, then resolve the first.
   const { triggers: triggers1 } = trackingInputTriggers()
   const svc1 = new ReviewCommentsService(fakeSessions(), triggers1, shared)
+  await svc1.start()
   svc1.activate('/repo', 'feature/x')
   const draftA = {
     id: nextReviewCommentId(),
@@ -167,11 +167,12 @@ test('activate skips resolved comments when seeding a fresh scope', () => {
   assert.ok(commentA !== undefined)
   svc1.resolve(commentA.id)
 
-  // Phase 2: a fresh service (empty seededScopes) re-reads from storage and
-  // calls activate() for the same scope. Only the unresolved comment should
-  // be seeded into the bridge; the resolved one must stay out.
+  // Phase 2: a fresh service (empty seededScopes) re-reads from persistence
+  // and calls activate() for the same scope. Only the unresolved comment
+  // should be seeded into the bridge; the resolved one must stay out.
   const { triggers: triggers2, getSource } = trackingInputTriggers()
   const svc2 = new ReviewCommentsService(fakeSessions(), triggers2, shared)
+  await svc2.start()
   svc2.activate('/repo', 'feature/x')
 
   const payload = getSource()?.codec.clipboardText() ?? ''

@@ -89,7 +89,7 @@ test('scrub module: generated deterministically and written idempotently', () =>
   try {
     const modulePath = ensureEnvScrubModule(root)
     assert.ok(modulePath !== null)
-    assert.equal(modulePath, join(root, 'dsh-studio-env-scrub.cjs'))
+    assert.equal(modulePath, join(root, 'cache/dsh-studio-env-scrub.cjs'))
     const first = readFileSync(modulePath, 'utf8')
     assert.equal(first, envScrubModuleSource())
     // Idempotent rewrite: same content on the second call.

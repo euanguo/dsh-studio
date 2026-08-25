@@ -63,6 +63,7 @@ test('sidebar chrome sanitizer drops malformed scopes and clamps list mode', () 
           commitMessage: 'draft',
         },
         gitListMode: 'flat',
+        diffView: { layout: 'unified', wordWrap: false },
       },
     },
   })

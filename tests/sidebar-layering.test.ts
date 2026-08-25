@@ -7,20 +7,18 @@ import { test } from 'node:test'
 /**
  * Sidebar internal layering guard.
  *
- * The sidebar package is one package with THREE workbenches inside: the
- * right rail (the panel shell), the center-surface subsystem, and the
- * bottom workbench. The subsystems register through the public service
- * contract and must never reach into the rail's shell modules — that
- * direction is what keeps a future physical split (rail / surfaces /
- * workbench packages) a move, not a rewrite. This guard pins it:
+ * The sidebar package is one package with TWO workbenches inside: the
+ * right rail (the panel shell) and the center-surface subsystem. The
+ * subsystems register through the public service contract and must never
+ * reach into the rail's shell modules — that direction is what keeps a
+ * future physical split (rail / surfaces packages) a move, not a rewrite.
+ * This guard pins it:
  *
- * - client/surfaces/**, client/bottom-workbench.tsx, client/files/**,
+ * - client/surfaces/**, client/files/**,
  *   client/diff/**, client/source-control/**, client/subagent/**,
  *   client/review/**, and client/runtimes/** must NOT import the shell
  *   trio (SideToolsPanel, workspace-tools, workspace-panel) or the plugin
  *   assembly (plugin.tsx).
- * - The center-surface subsystem and the bottom workbench must not import
- *   each other.
  *
  * The composition direction (plugin.tsx / workspace-tools importing the
  * subsystems and registering them) is allowed and expected.
@@ -47,7 +45,7 @@ const SUBSYSTEM_DIRS = [
 ]
 
 function subsystemFiles(): string[] {
-  const files: string[] = ['bottom-workbench.tsx']
+  const files: string[] = []
   for (const dir of SUBSYSTEM_DIRS) {
     const dirPath = join(clientRoot, dir)
     for (const name of readdirSync(dirPath)) {
@@ -80,27 +78,4 @@ test('subsystems never import the rail shell modules', () => {
     [],
     'subsystem modules reaching into the rail shell (blocks the future package split)',
   )
-})
-
-test('center surfaces and the bottom workbench stay mutually independent', () => {
-  const surfacesDir = join(clientRoot, 'surfaces')
-  for (const name of readdirSync(surfacesDir)) {
-    if (!name.endsWith('.ts') && !name.endsWith('.tsx')) continue
-    const source = readFileSync(join(surfacesDir, name), 'utf8')
-    assert.doesNotMatch(
-      source,
-      /from '\.\.\/bottom-workbench(\.tsx)?'/,
-      `surfaces/${name} imports the bottom workbench`,
-    )
-  }
-  const workbench = readFileSync(join(clientRoot, 'bottom-workbench.tsx'), 'utf8')
-  for (const name of readdirSync(surfacesDir)) {
-    if (!name.endsWith('.ts') && !name.endsWith('.tsx')) continue
-    const base = name.replace(/\.tsx?$/, '')
-    assert.doesNotMatch(
-      workbench,
-      new RegExp(`from '\\./surfaces/${base}(\\.tsx?)?'`),
-      `bottom-workbench imports surfaces/${name}`,
-    )
-  }
 })

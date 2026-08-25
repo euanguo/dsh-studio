@@ -1,0 +1,50 @@
+# errorMessage-sweep — deep-refactor leaf-R4 ② legacy error-literal inventory.
+#
+# Contract (guarded by rescan rule `error-idiom-plugins`, countMax 0 over plugins):
+# every `x instanceof Error ? x.message : String(x)` has been replaced with
+# `import { errorMessage } from '@dsh-studio/shared/errors'` + `errorMessage(x)`.
+# The strict count of the legacy idiom is zero; this file documents the files
+# that carried the 64 inline literals before the sweep so the migration stays
+# auditable and re-runnable. Keep it in sync if a new host is swept.
+#
+# Swept files (64 occurrences total):
+plugins/sidebar/src/client/runtimes/file-runtime.ts
+plugins/sidebar/src/client/runtimes/source-control-runtime.ts
+plugins/sidebar/src/client/runtimes/explorer-runtime.ts
+plugins/sidebar/src/client/runtimes/diff-runtime.ts
+plugins/sidebar/src/client/settings-feature-card.tsx
+plugins/sidebar/src/client/source-control/source-control-action-controller.ts
+plugins/sidebar/src/client/source-control/source-control-ai-settings.tsx
+plugins/sidebar/src/client/files/mermaid-viewer.tsx
+plugins/sidebar/src/client/files/files-view.tsx
+plugins/sidebar/src/client/files/file-actions.ts
+plugins/sidebar/src/client/files/use-editable-file.ts
+plugins/sidebar/src/client/files/ipynb-parse.ts
+plugins/sidebar/src/client/sidebar-service.ts
+plugins/sidebar/src/client/surfaces/file-surface.tsx
+plugins/sidebar/src/client/surfaces/conflict-renderer.tsx
+plugins/sidebar/src/client/subagent/jobs-runtime.ts
+plugins/sidebar/src/client/side-tools-menu.tsx
+plugins/capabilities/src/worktree/worktree-orchestration.ts
+plugins/capabilities/src/terminal/terminal-route.ts
+plugins/capabilities/src/index.ts
+plugins/capabilities/src/routes/settings.ts
+plugins/capabilities/src/routes/fs.ts
+plugins/capabilities/src/routes/shared.ts
+plugins/capabilities/src/routes/jobs-routes.ts
+plugins/desktop-left-rail/src/client/WorkspacePicker.tsx
+plugins/desktop-left-rail/src/client/NewWorktreeDialog.tsx
+plugins/desktop-left-rail/src/client/browser/action-dispatcher.ts
+plugins/desktop-left-rail/src/client/browser/DeleteWorkspaceDialog.tsx
+plugins/desktop-left-rail/src/client/browser/useRenameDialogs.tsx
+plugins/desktop-left-rail/src/client/browser/PhysicalRemoveFlow.tsx
+plugins/desktop-left-rail/src/client/worktree-api.ts
+plugins/shared/runtime/wire.ts
+plugins/shared/terminal/terminal-socket.ts
+plugins/shared/fs-tree.ts
+plugins/desktop-skins/src/preferences-server.ts
+plugins/sidebar-desktop/src/client/use-electron-webview.ts
+plugins/plugin-marketplace/src/host/transaction-manager.ts
+plugins/plugin-marketplace/src/host/platform.ts
+plugins/plugin-marketplace/src/host/agent-gateway.ts
+plugins/plugin-marketplace/src/client/store.ts

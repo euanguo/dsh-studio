@@ -200,3 +200,34 @@ export const ICON = Object.freeze([
 export const BUTTON_MD = Object.freeze([
   '._button_kz6gm_4._md_kz6gm_24',
 ] as const)
+
+// leaf-4.3 C24: 组件级哈希选择器迁入生成输入清单（scripts/generate-skin-selectors.mjs
+// ANCHORS 末尾），pnpm run generate:selectors 在上游 bump 后重钉。当前值与
+// CHATGPT_GEOMETRY_CSS 的使用处一一对应。
+export const CLOSE_BUTTON = Object.freeze([
+  '._close_18d3q_30',
+] as const)
+
+export const REMOVE_BUTTON = Object.freeze([
+  '._remove_1hk8w_53',
+] as const)
+
+export const ARROW_BUTTON = Object.freeze([
+  '._arrow_1hk8w_90',
+] as const)
+
+export const FILTER_PILL = Object.freeze([
+  '._pill_e3ygd_1',
+] as const)
+
+export const TOAST = Object.freeze([
+  '._toast_fvpz7_7',
+] as const)
+
+export const ONBOARDING_MASK = Object.freeze([
+  '._onboardingMask_1cfrq_10',
+] as const)
+
+export const RAIL = Object.freeze([
+  '.xuwxfG_rail',
+] as const)

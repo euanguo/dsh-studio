@@ -7,9 +7,12 @@ import {
   CHATGPT_NIGHT_TOKENS,
 } from '../shared-tokens.ts'
 import {
+  ARROW_BUTTON,
   BUTTON_MD,
   CARD,
+  CLOSE_BUTTON,
   DIALOG,
+  FILTER_PILL,
   GROUP_LABEL,
   ICON,
   ITEM_LABEL,
@@ -19,13 +22,17 @@ import {
   MENU_SURFACE,
   NAV_CELL,
   NEW_SESSION,
+  ONBOARDING_MASK,
   PRIMARY_PILL,
   PROJECT_ROW,
+  RAIL,
+  REMOVE_BUTTON,
   RENAME_INPUT,
   SEAT,
   SELECTOR,
   SESSION_ROW,
   THEME_CUBE,
+  TOAST,
   TRIGGER_EFFORT,
   TRIGGER_ICON,
   TRIGGER_LABEL,
@@ -507,9 +514,9 @@ ${gate([...TRIGGER_LABEL, ...TRIGGER_EFFORT, ...WORKSPACE_LABEL])} {
   line-height: var(--gw-skin-row-lh) !important;
 }
 /* ui-settings-general 设置触发（xuwxfG_trigger 展开行 / xuwxfG_rail 折叠座）：
-   官方折叠态把图标放大到 18px，与全应用 16px 图标不一致——钉回 16px。 */
-body[data-dsh-studio-skin] .xuwxfG_trigger svg,
-body[data-dsh-studio-skin] .xuwxfG_rail svg {
+   官方折叠态把图标放大到 18px，与全应用 16px 图标不一致——钉回 16px。
+   xuwxfG_trigger 经 TRIGGER_PILL 的精确类名引用；rail 经 RAIL 常量。 */
+${gate([...TRIGGER_PILL.filter(sel => sel.includes('xuwxfG_trigger')), ...RAIL])} svg {
   width: 16px !important;
   height: 16px !important;
 }
@@ -561,6 +568,9 @@ ${gate(RENAME_INPUT)} {
   border: 1px solid var(--dsw-alias-border-l2) !important;
   background: var(--dsw-specific-input-major) !important;
 }
+/* 聚焦/选中边框统一使用品牌 token。--dsw-alias-state-business-primary
+   是合法 DSW 别名（Q10 已在 dsh-source token 目录核对：design-platform.css
+   light deepseek-500 / dark deepseek-400），直接引用无需 fallback。 */
 ${gatePseudo(RENAME_INPUT, ':focus')} {
   border-color: var(--dsw-alias-state-business-primary) !important;
   box-shadow: none !important;
@@ -604,8 +614,7 @@ ${gatePseudo(WRAP, ':focus-within')} {
    on the base .KQbuAq_card class, which the element also carries, producing
    a visible double border (solid + dashed). Exclude it so the upstream
    transparent border + dashed ::after remains the sole border. */
-body[data-dsh-studio-skin] .KQbuAq_cardWorkspaceTrigger:focus-within,
-body[data-dsh-studio-skin] [class*="cardWorkspaceTrigger"]:focus-within {
+${gatePseudo(CARD.filter(sel => sel.includes('cardWorkspaceTrigger')), ':focus-within')} {
   border-color: rgba(0, 0, 0, 0) !important;
   box-shadow: none !important;
 }
@@ -655,15 +664,13 @@ body[data-dsh-studio-skin] .dsh-studio-surface-tab {
 
 /* 组件自带的圆形按钮：通用 button 12.5px 规则会把它们压成方角
    （实测 28×28 关闭钮被压），恢复 pill。 */
-body[data-dsh-studio-skin] ._close_18d3q_30,
-body[data-dsh-studio-skin] ._remove_1hk8w_53,
-body[data-dsh-studio-skin] ._arrow_1hk8w_90 {
+${gate([...CLOSE_BUTTON, ...REMOVE_BUTTON, ...ARROW_BUTTON])} {
   border-radius: var(--gw-skin-radius-pill) !important;
 }
 
-/* 过滤 pill（Pill 组件 e3ygd）：pill + 行规格（官方 24px/12px 方角）。
+/* 过滤 pill（Pill 组件 FILTER_PILL）：pill + 行规格（官方 24px/12px 方角）。
    padding/字号/行高全在配方里，高度自然形成（18.59 + 5×2 = 28.59）。 */
-body[data-dsh-studio-skin] ._pill_e3ygd_1 {
+${gate(FILTER_PILL)} {
   height: auto !important;
   min-height: var(--gw-skin-row-h) !important;
   padding: var(--gw-skin-row-pad) !important;
@@ -675,15 +682,15 @@ body[data-dsh-studio-skin] ._pill_e3ygd_1 {
 /* toast：官方用 button-contrast-fill（night 浅底）与语义错配；改用
    toast-bg（两套深 #212121）。day 的 label-primary-inverted 已是白字；
    night 的 inverted 是主按钮深字，需显式改白。 */
-body[data-dsh-studio-skin] ._toast_fvpz7_7 {
+${gate(TOAST)} {
   background: var(--dsw-alias-toast-bg) !important;
 }
-body[data-dsh-studio-skin="dsh-studio-skin-chatgpt-night"] ._toast_fvpz7_7 {
+body[data-dsh-studio-skin="dsh-studio-skin-chatgpt-night"] ${TOAST.join(',')} {
   color: var(--dsw-alias-label-primary) !important;
 }
 
 /* onboarding 遮罩：硬编码 #0000003d + blur 2px → mask token + 皮肤 blur */
-body[data-dsh-studio-skin] ._onboardingMask_1cfrq_10 {
+${gate(ONBOARDING_MASK)} {
   background: var(--dsw-alias-bg-mask-1) !important;
   backdrop-filter: var(--dsw-mask-blur) !important;
   -webkit-backdrop-filter: var(--dsw-mask-blur) !important;

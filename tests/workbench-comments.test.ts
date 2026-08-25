@@ -1,79 +1,71 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
-  readWorkbenchComments,
-  writeWorkbenchComments,
-  type WorkbenchComment,
-} from '../plugins/sidebar/src/client/diff/diff-comments-store.ts'
+  migrateCommentsFromLegacy,
+} from '../plugins/shared/comments-migration.ts'
 
-/** DOM-free Storage shim (the module reads/writes window.localStorage). */
-const LEGACY = 'dsh-studio.sidebar.diff-comments.v1'
-const KEY = 'dsh-studio.sidebar.diff-comments.v2'
-
-function memoryStorage(): { storage: Storage; read(key: string): unknown } {
-  const map = new Map<string, string>()
-  const storage: Storage = {
-    get length() { return map.size },
-    clear: () => map.clear(),
-    getItem: key => map.get(key) ?? null,
-    key: index => [...map.keys()][index] ?? null,
-    removeItem: key => { map.delete(key) },
-    setItem: (key, value) => { map.set(key, value) },
-  }
-  ;(globalThis as Record<string, unknown>).window = { localStorage: storage } as unknown as Window
-  return { storage, read: key => { const raw = map.get(key); return raw === undefined ? null : JSON.parse(raw) } }
-}
-
-test('workbench comments migrate idempotently from the v1 line shape', () => {
-  const { storage, read } = memoryStorage()
-  storage.setItem(LEGACY, JSON.stringify([
-    { id: 'a', filePath: 'src/a.ts', line: 12, body: 'watch the null check', createdAt: 't1' },
-    { id: 'b', filePath: 'src/b.ts', line: 3, body: 'rename', createdAt: 't2' },
-  ]))
-
-  // First load migrates and writes v2…
-  const first = readWorkbenchComments()
-  assert.equal(first.length, 2)
+test('workbench v1 line comments map onto the persisted workbench shape', () => {
+  const out = migrateCommentsFromLegacy(
+    undefined,
+    [
+      { id: 'a', filePath: 'src/a.ts', line: 12, body: 'watch the null check', createdAt: 't1' },
+      { id: 'b', filePath: 'src/b.ts', line: 3, body: 'rename', createdAt: 't2' },
+    ],
+    undefined,
+  )
+  assert.equal(out.workbench.length, 2)
   assert.deepEqual(
-    { path: first[0]!.path, startLine: first[0]!.startLine, endLine: first[0]!.endLine },
+    { path: out.workbench[0]!.path, startLine: out.workbench[0]!.startLine, endLine: out.workbench[0]!.endLine },
     { path: 'src/a.ts', startLine: 12, endLine: undefined },
   )
-
-  // …and a second load reads the migrated document (no duplicates).
-  readWorkbenchComments()
-  assert.equal((read(KEY) as WorkbenchComment[]).length, 2)
-  // The legacy blob survives untouched as the audit trail.
-  assert.ok(storage.getItem(LEGACY) !== null)
+  assert.deepEqual(out.review, [])
 })
 
-test('workbench comments persist the full v2 anchor + lifecycle fields', () => {
-  const { storage, read } = memoryStorage()
-  const comment: WorkbenchComment = {
-    id: 'c1',
-    path: 'src/a.ts',
-    startLine: 10,
-    endLine: 14,
-    contentHash: 'sha256:abc',
-    branch: 'feature/x',
-    body: 'extract this block',
-    createdAt: 't',
-  }
-  writeWorkbenchComments([comment])
-  const stored = read(KEY) as WorkbenchComment[]
-  assert.equal(stored.length, 1)
-  assert.equal(stored[0]!.endLine, 14)
-  assert.equal(stored[0]!.contentHash, 'sha256:abc')
-  assert.equal(stored[0]!.branch, 'feature/x')
-  assert.equal(stored[0]!.resolvedAt, undefined)
+test('workbench v2 (already folded) wins over the v1 fallback', () => {
+  const out = migrateCommentsFromLegacy(
+    [{ id: 'v2', path: 'p.ts', startLine: 5, body: 'b', createdAt: 't', contentHash: 'h' }],
+    [{ id: 'v1', filePath: 'p.ts', line: 5, body: 'b', createdAt: 't' }],
+    undefined,
+  )
+  assert.equal(out.workbench.length, 1)
+  assert.equal(out.workbench[0]!.id, 'v2')
+  assert.equal(out.workbench[0]!.contentHash, 'h')
 })
 
-test('read tolerates malformed documents and falls back to migration', () => {
-  const { storage } = memoryStorage()
-  storage.setItem(KEY, '{not json')
-  storage.setItem(LEGACY, JSON.stringify([
-    { id: 'a', filePath: 'x.ts', line: 1, body: 'b', createdAt: 't' },
-  ]))
-  const comments = readWorkbenchComments()
-  assert.equal(comments.length, 1)
-  assert.equal(comments[0]!.path, 'x.ts')
+test('review comments keep their lifecycle fields through migration', () => {
+  const out = migrateCommentsFromLegacy(
+    undefined,
+    undefined,
+    [{
+      id: 'r1',
+      workspacePath: '/ws',
+      branch: 'feature/x',
+      commitId: 'abc123',
+      filePath: 'src/x.ts',
+      line: 7,
+      side: 'new',
+      body: 'consider a guard',
+      createdAt: 't',
+      resolvedAt: 't2',
+      request: '[[[...]]]',
+    }],
+  )
+  assert.equal(out.review.length, 1)
+  assert.equal(out.review[0]!.branch, 'feature/x')
+  assert.equal(out.review[0]!.line, 7)
+  assert.equal(out.review[0]!.resolvedAt, 't2')
+})
+
+test('malformed legacy entries are dropped, not fatal', () => {
+  const out = migrateCommentsFromLegacy(
+    undefined,
+    [
+      { id: 'ok', filePath: 'x.ts', line: 1, body: 'b', createdAt: 't' },
+      { id: 'bad', filePath: 'x.ts', line: 'nope', body: 'b', createdAt: 't' },
+    ],
+    [{ id: 'incomplete', workspacePath: '/ws' }],
+  )
+  assert.equal(out.workbench.length, 1)
+  assert.equal(out.workbench[0]!.id, 'ok')
+  assert.equal(out.review.length, 0)
 })

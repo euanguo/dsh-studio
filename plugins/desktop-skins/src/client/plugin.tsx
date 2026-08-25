@@ -1,7 +1,6 @@
 import type { CSSProperties } from 'react'
 import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
-import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
-import { IconCheckOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ensureStyle } from '@dsh-studio/shared/style-injector'
 import { ensureSharedUiStyles, SettingsRow } from '@dsh-studio/shared/ui'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
@@ -103,40 +102,28 @@ function SkinSettingsRow({ setSkin, t, useStore }: SkinRowProps): JSX.Element {
       description={t('skins.description')}
       disabled={!ready}
       control={(
-        <div className={SkinPickerCss["dsh-studio-skin-picker"]} data-slot="skin-picker">
+        <div className={SkinPickerCss["dsh-studio-skin-picker"]} data-slot="skin-picker" role="group" aria-label={t('skins.title')}>
           {OPTIONS.map(option => {
             const selected = activeId === (option.id ?? '')
             const previewStyle = {
-              '--dsh-studio-skin-preview': option.preview,
               '--dsh-studio-skin-accent': option.accent,
             } as CSSProperties
             return (
-              <Button
+              <Pill
                 key={option.id ?? 'default'}
-                variant="outline"
-                size="sm"
+                active={selected}
                 type="button"
                 className={SkinPickerCss["dsh-studio-skin-option"]}
-                data-selected={selected}
-                aria-label={`${t(option.label)} · ${t(option.mode)}`}
                 aria-pressed={selected}
                 disabled={!ready}
                 onClick={() => { setSkin(option.id) }}
               >
-                <span className={SkinPickerCss["dsh-studio-skin-option-preview"]} style={previewStyle} />
-                <span className={SkinPickerCss["dsh-studio-skin-option-meta"]}>
-                  <span className={SkinPickerCss["dsh-studio-skin-option-swatch"]} style={previewStyle} />
-                  <span className={SkinPickerCss["dsh-studio-skin-option-copy"]}>
-                    <span className={SkinPickerCss["dsh-studio-skin-option-name"]}>{t(option.label)}</span>
-                    <span className={SkinPickerCss["dsh-studio-skin-option-mode"]}>{t(option.mode)}</span>
-                  </span>
-                  {selected && (
-                    <span className={SkinPickerCss["dsh-studio-skin-option-check"]} title={t('skins.selected')}>
-                      <IconCheckOutline16 size={14} />
-                    </span>
-                  )}
+                <span className={SkinPickerCss["dsh-studio-skin-option-swatch"]} style={previewStyle} />
+                <span className={SkinPickerCss["dsh-studio-skin-option-copy"]}>
+                  <span className={SkinPickerCss["dsh-studio-skin-option-name"]}>{t(option.label)}</span>
+                  <span className={SkinPickerCss["dsh-studio-skin-option-mode"]}>{t(option.mode)}</span>
                 </span>
-              </Button>
+              </Pill>
             )
           })}
         </div>
