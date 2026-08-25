@@ -1,5 +1,6 @@
-/** /capabilities pty.* and agent-pty.* handlers: terminal release, retained
- *  projections, restart and agent-terminal close. Split from routes.ts. */
+/** /capabilities pty.* and agent-pty.close handlers: terminal release,
+ *  retained projections, restart and agent-terminal close. Split from
+ *  routes.ts. */
 import {
   optionalInteger,
   requireString,
@@ -16,7 +17,7 @@ export interface PtyHandlerDeps {
   agentPtyRegistry: AgentPtyRegistry
 }
 
-/** Build the pty.* and agent-pty.* route groups. */
+/** Build the pty.* route groups, incl. the unwired agent-pty.close orphan. */
 export function buildPtyHandlers(deps: PtyHandlerDeps): Record<string, ApiMethod> {
   const { cwdOf, ptyManager, agentPtyRegistry } = deps
   return {
@@ -51,10 +52,9 @@ export function buildPtyHandlers(deps: PtyHandlerDeps): Record<string, ApiMethod
       const handle = ptyManager.restart(cwd, tab, cwd, cols, rows)
       return { ok: true, incarnationId: handle.incarnationId }
     },
-    // Release an agent terminal by uuid. The WS close frame already does
-    // this while the socket is open; this route covers the tab-close that
-    // happens while the socket is down (reconnect loop) so a closed agent
-    // tab never leaves a zombie pty behind. Idempotent.
+    // // unwired-capability (leaf-R2 ④): agent-pty.close restored as a dormant
+    // // handler — no agent-terminal sidebar surface calls it today. Idempotent:
+    // // releasing an already-closed agent pty is a no-op.
     'agent-pty.close': (payload) => {
       const uuid = requireString(payload, 'uuid')
       agentPtyRegistry.close(uuid)

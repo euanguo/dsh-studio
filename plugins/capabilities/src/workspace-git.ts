@@ -17,12 +17,6 @@ import type {
   CapabilitiesWorkspaceMutationResponse,
 } from '@dsh-studio/shared/capabilities-api'
 
-export type {
-  CapabilitiesWorkspaceFacts,
-  CapabilitiesWorkspaceMutation,
-  CapabilitiesWorkspaceMutationResponse,
-} from '@dsh-studio/shared/capabilities-api'
-
 export { isCapabilitiesWorkspaceMutation } from '@dsh-studio/shared/capabilities-api'
 
 function normalizeWorkspacePath(raw: string | undefined): string {

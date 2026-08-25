@@ -6,18 +6,8 @@
  */
 
 import z from 'schemastery'
-import {
-  SIDEBAR_PREFS_DEFAULTS,
-  SIDEBAR_PREFS_NS,
-  type SidebarPrefs,
-} from '@dsh-studio/shared/prefs-shared'
+import type { SidebarPrefs } from '@dsh-studio/shared/prefs-shared'
 import { DESKTOP_TERMINALS_PER_SESSION_DEFAULT } from '@dsh-studio/shared/terminal-scrollback-policy'
-
-export {
-  SIDEBAR_PREFS_DEFAULTS,
-  SIDEBAR_PREFS_NS,
-  type SidebarPrefs,
-} from '@dsh-studio/shared/prefs-shared'
 
 /** Tunable sidebar host limits (every field optional; defaults fill in). */
 export interface CapabilitiesConfig {

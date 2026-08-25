@@ -231,12 +231,6 @@ export interface CapabilitiesJobView {
   finishedAt?: number
 }
 
-/** The host jobs registry face the sidebar routes touch (structural mirror of `JobRegistry`). */
-export interface CapabilitiesJobsService {
-  /** Request cancellation; throws for an unknown or foreign job. */
-  kill(id: string, caller?: CapabilitiesAgent, reason?: string): 'requested' | 'already-finished'
-}
-
 /** Runtime model route accepted by the AgentRegistry factory. */
 export interface CapabilitiesAgentOptions {
   provider?: string
@@ -351,51 +345,6 @@ export interface CapabilitiesSessionsService {
 }
 
 /**
- * The client locale service face (mirror of @deepseek-ai/dsh-client-locale's
- * LocaleRuntime — only the slices the sidebar touches). The sidebar follows
- * the DSH i18n system: the active locale is the Host-backed preference
- * (`locale.preference` in settings.yaml) rather than the raw browser
- * language, and the sidebar's zh/en dictionaries register into the service's
- * namespace registry.
- */
-export interface CapabilitiesLocaleService {
-  /** Current immutable locale snapshot (uSES-safe; `active` is 'zh' | 'en' today). */
-  getSnapshot(): { active: string }
-  /** Subscribe to snapshot changes (locale switch or dictionary registration). */
-  subscribe(fn: () => void): () => void
-  /** Register one locale's dictionary for a namespace; returns the disposer. */
-  register(ns: string, locale: string, dict: Record<string, string>): () => void
-}
-
-/** The composer draft face the sidebar reaches through `ctx.conversation.input`. */
-export interface CapabilitiesSessionInput {
-  /** The live input store (draft read for append). */
-  state: {
-    getSnapshot(): { draft: string }
-  }
-  /** Replace the draft text (the input machine's single public write path). */
-  setDraft(text: string): void
-}
-
-/** The composer draft face the sidebar reaches through `ctx.get('conversation')`. */
-export interface CapabilitiesConversation {
-  input: {
-    for(actx: Context): CapabilitiesSessionInput
-  }
-}
-
-/**
- * The client workspaces service face (mirror of the runtime IWorkspaces). Only
- * the chat's file-open funnel is touched: `openPath` hands an absolute path
- * to the Host OS's default application, and every chat-side file open
- * (tool rows, produced-files, prose mentions) funnels through it.
- */
-export interface CapabilitiesWorkspacesService {
-  /** Open a filesystem path with the Host operating system's default application. */
-  openPath(path: string): Promise<void>
-}
-
-/**
  * The invariant service face (mirror of @deepseek-ai/dsh-invariants'
  * InvariantRegistry). The upstream augmentation does not reach this Context
  * (dual-cordis-instance resolution), so the register signature is restated
@@ -446,11 +395,6 @@ export interface CapabilitiesSettingsService {
   replace(ns: string, section: object, expectedRevision?: number): Promise<void>
   /** Service-level path-addressed set/unset edits (deletion-capable). */
   mutate(ns: string, ops: ReadonlyArray<{ op: 'set' | 'unset'; path: string[]; value?: unknown }>, expectedRevision?: number): Promise<void>
-}
-
-/** The official domain-storage facility exposed by dsh-storage-domain. */
-export interface CapabilitiesStorageDomainService {
-  open(spec: unknown): Promise<unknown>
 }
 
 /**
@@ -508,24 +452,11 @@ declare module 'cordis' {
     connection: CapabilitiesConnectionHandle
     loader: CapabilitiesLoader
     slots: CapabilitiesSlotsService
-    workspaces: CapabilitiesWorkspacesService
     workspaceRegistry: CapabilitiesWorkspaceRegistry
     settings: CapabilitiesSettingsService
-    storageDomain: CapabilitiesStorageDomainService
     invariants: CapabilitiesInvariantsService
     tools: CapabilitiesToolsService
     llm: CapabilitiesLlmService
-    /**
-     * The client locale service (`@deepseek-ai/dsh-client-locale`): the
-     * sidebar's copy follows its active locale and registers its
-     * dictionaries. Client side only.
-     */
-    locale: CapabilitiesLocaleService
-    /**
-     * The host background-job registry (`ctx.get('jobs')`; optional — the
-     * sidebar routes degrade to a 503 when the deployment lacks it).
-     */
-    jobs: CapabilitiesJobsService
     /**
      * The host live-agent registry (`ctx.get('agents')`; optional — used to
      * resolve the caller the jobs fence compares against).

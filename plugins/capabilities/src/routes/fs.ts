@@ -1,9 +1,9 @@
 /** /capabilities fs.* handlers: tree/read/write/create/rename/delete/copy/
- *  search/tail, scoped to the session working directory. Split from
- *  routes.ts. */
+ *  search, scoped to the session working directory. Split from routes.ts. */
 import { copyFile, mkdir, open, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { requireAbsolute, listDirectory } from '@dsh-studio/shared/fs-tree'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import {
   optionalBoolean,
   optionalInteger,
@@ -58,7 +58,7 @@ export function buildFsHandlers(deps: FsHandlerDeps): Record<string, ApiMethod> 
         await rename(tmp, path)
       } catch (error) {
         await rm(tmp, { force: true }).catch(() => {})
-        throw new CapabilityError('fs-error', `cannot write "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot write "${path}": ${errorMessage(error)}`, 400)
       }
       return { ok: true }
     },
@@ -74,7 +74,7 @@ export function buildFsHandlers(deps: FsHandlerDeps): Record<string, ApiMethod> 
           await writeFile(path, '', { encoding: 'utf8', flag: 'wx' })
         }
       } catch (error) {
-        throw new CapabilityError('fs-error', `cannot create "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot create "${path}": ${errorMessage(error)}`, 400)
       }
       return { ok: true }
     },
@@ -87,7 +87,7 @@ export function buildFsHandlers(deps: FsHandlerDeps): Record<string, ApiMethod> 
       try {
         await rename(from, to)
       } catch (error) {
-        throw new CapabilityError('fs-error', `cannot rename "${from}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot rename "${from}": ${errorMessage(error)}`, 400)
       }
       return { ok: true }
     },
@@ -98,7 +98,7 @@ export function buildFsHandlers(deps: FsHandlerDeps): Record<string, ApiMethod> 
       try {
         await rm(path, { recursive: true, force: false })
       } catch (error) {
-        throw new CapabilityError('fs-error', `cannot delete "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot delete "${path}": ${errorMessage(error)}`, 400)
       }
       return { ok: true }
     },
@@ -111,7 +111,7 @@ export function buildFsHandlers(deps: FsHandlerDeps): Record<string, ApiMethod> 
       try {
         await copyFile(from, to)
       } catch (error) {
-        throw new CapabilityError('fs-error', `cannot copy "${from}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot copy "${from}": ${errorMessage(error)}`, 400)
       }
       return { ok: true }
     },
@@ -120,12 +120,15 @@ export function buildFsHandlers(deps: FsHandlerDeps): Record<string, ApiMethod> 
       const pattern = requireString(payload, 'pattern')
       return searchWorkspace(cwd, pattern, optionalBoolean(payload, 'caseSensitive') === true)
     },
+    // // unwired-capability (leaf-R2 ④): fs.tail restored as a dormant
+    // // handler — no surfaced consumer calls it yet. Reads the tail of a
+    // // session-scoped file (runs-byte window, capped at 512 KiB).
     'fs.tail': async (payload) => {
       const { cwd } = cwdOf(payload)
       const path = await resolveGitPath(cwd, requireString(payload, 'path'))
       const maxBytes = Math.min(optionalInteger(payload, 'maxBytes', 1, Number.MAX_SAFE_INTEGER) ?? 128 * 1024, 512 * 1024)
       const info = await stat(path).catch((error: unknown) => {
-        throw new CapabilityError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+        throw new CapabilityError('fs-error', `cannot read "${path}": ${errorMessage(error)}`, 400)
       })
       const handle = await open(path, 'r')
       try {

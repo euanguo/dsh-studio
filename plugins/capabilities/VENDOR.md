@@ -36,8 +36,8 @@ recorded here so upstream upgrades can be re-applied:
   upgraded to `statusV2` + per-entry `numstat` stats; added `cwdScopeOf`
   and `git.worktree-list` / `git.worktree-add` (bare-cwd scope, no session).
 - `jobs-routes.ts` — optional `text` returned conditionally (strict-mode).
-- `pty-manager.ts` — `defaultShell()` upgraded to the full resolution chain
-  (`resolveShell`, extracted into the NEW `shell-resolver.ts` below): the
+- `pty-manager.ts` — shell resolution moved OUT into the NEW
+  `shell-resolver.ts` below): the
   injectable priority is deployment `shell` config → settings
   `terminalShell` → `DSH_SIDEBAR_SHELL` → Windows pwsh.exe probe (PATH +
   known install dirs, ProgramW6432 preferred) / POSIX login-shell passwd
@@ -69,7 +69,7 @@ recorded here so upstream upgrades can be re-applied:
 - `client/api.ts` — fetch init assembled without an optional `signal`
   spread (strict-mode overload compatibility).
 - `vendor.d.ts` — structural type shims for runtime-provided externals
-  (cordis / @deepseek-ai/cordis / dsh-settings / dsh-tools / dsh-llm /
+  (cordis / dsh-settings / dsh-tools / dsh-llm /
   dsh-agent / ws). The vendored tree typechecks with a looser pass
   (`tsconfig.json` here; `noImplicitAny` off) because cordis infers most
   context types.

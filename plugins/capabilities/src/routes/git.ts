@@ -255,6 +255,10 @@ export function buildGitHandlers(deps: GitHandlerDeps): Record<string, ApiMethod
       await git.discard(cwd, await Promise.all(paths.map(raw => resolveGitPath(cwd, raw))))
       return { ok: true }
     },
+    // // unwired-capability (leaf-R2 ④): revert/cherry-pick/show handler
+    // // names restored as dormant contract — nothing calls them yet (R1 cut
+    // // the source-control surface wiring). The git-core helpers were never
+    // // removed, so mounting these re-enables the capability as-is.
     'git.revert': async (payload) => {
       const { cwd } = cwdOf(payload)
       await git.revert(cwd, requireString(payload, 'hash'))
@@ -270,5 +274,6 @@ export function buildGitHandlers(deps: GitHandlerDeps): Record<string, ApiMethod
       const path = await resolveGitPath(cwd, requireString(payload, 'path'))
       const rev = requireString(payload, 'rev')
       return { content: await git.show(cwd, rev, path) }
-    },  }
+    },
+  }
 }

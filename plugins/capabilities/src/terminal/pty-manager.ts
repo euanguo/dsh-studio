@@ -14,7 +14,7 @@ import * as nodePty from 'node-pty'
 import { CapabilityError } from '@dsh-studio/shared/wire'
 import { resolveShell, type ShellResolutionOptions } from '../shell-resolver.ts'
 import { spawnTerminalPty } from './terminal-spawn.ts'
-import { defaultProcessTreeKiller } from '../process-tree-killer.ts'
+import { terminateProcessTreeWithGrace } from '../process-tree-killer.ts'
 import {
   terminalHistoryLimitsForRows,
 } from '@dsh-studio/shared/terminal-scrollback-policy'
@@ -97,6 +97,13 @@ export interface CapabilitiesPty {
 export interface PtyManagerOptions {
   getPolicy?: () => TerminalRuntimePolicy
   store?: TerminalSessionStore
+  /**
+   * The DSH data root, used only when no {@link store} is injected (the
+   * host always injects one, so this is a safe fallback that still honors
+   * the host-resolved home instead of guessing). Required by
+   * TerminalSessionStore (M1).
+   */
+  storeRoot: string
 }
 
 export class PtyManager {
@@ -118,12 +125,13 @@ export class PtyManager {
   constructor(
     getShell: () => string,
     maxPerProject: number,
-    options: PtyManagerOptions = {},
+    options: PtyManagerOptions,
   ) {
     this.getShell = getShell
     this.maxPerProject = maxPerProject
     this.getPolicy = options.getPolicy ?? (() => DEFAULT_TERMINAL_RUNTIME_POLICY)
     this.store = options.store ?? new TerminalSessionStore({
+      root: options.storeRoot,
       maxRetainedInactiveSessions: () => this.getPolicy().retainedInactiveSessions,
       historyLimits: () => ({
         maxLines: this.getPolicy().scrollbackRows,
@@ -319,7 +327,10 @@ export class PtyManager {
         cols: existing.pty.cols,
         rows: existing.pty.rows,
       })
-      try { this.terminateProcessTree(existing) } catch { /* already gone */ }
+      try { terminateProcessTreeWithGrace(existing.pty, this.getPolicy().processKillGraceMs, () => existing.exited, {
+        clear: () => this.clearKillEscalation(key),
+        set: timer => { this.killEscalations.set(key, timer) },
+      }) } catch { /* already gone */ }
     }
     return this.open(cwd, tabId, spawnCwd, cols, rows)
   }
@@ -330,27 +341,6 @@ export class PtyManager {
     clearTimeout(timer)
     this.killEscalations.delete(key)
   }
-
-  private terminateProcessTree(handle: CapabilitiesPty): void {
-    const pid = handle.pty.pid
-    if (!Number.isInteger(pid) || pid <= 0) {
-      handle.pty.kill()
-      return
-    }
-    this.clearKillEscalation(handle.key)
-    const capturedTree = defaultProcessTreeKiller.capture(pid)
-    defaultProcessTreeKiller.signalCaptured(pid, capturedTree, 'SIGTERM')
-    if (process.platform === 'win32') return
-    const timer = setTimeout(() => {
-      this.killEscalations.delete(handle.key)
-      if (!handle.exited) {
-        defaultProcessTreeKiller.signalCaptured(pid, capturedTree, 'SIGKILL')
-      }
-    }, this.getPolicy().processKillGraceMs)
-    timer.unref?.()
-    this.killEscalations.set(handle.key, timer)
-  }
-
 
   close(key: string, expectedIncarnationId?: string): void {
     this.cancelClose(key)
@@ -364,7 +354,10 @@ export class PtyManager {
     this.clearKillEscalation(key)
     this.store.close(key, handle.incarnationId)
     try {
-      this.terminateProcessTree(handle)
+      terminateProcessTreeWithGrace(handle.pty, this.getPolicy().processKillGraceMs, () => handle.exited, {
+        clear: () => this.clearKillEscalation(key),
+        set: timer => { this.killEscalations.set(key, timer) },
+      })
     } catch {
       // Already exited or gone; nothing left to kill.
     }
@@ -387,7 +380,10 @@ export class PtyManager {
         rows: handle.pty.rows,
       })
       try {
-        this.terminateProcessTree(handle)
+        terminateProcessTreeWithGrace(handle.pty, this.getPolicy().processKillGraceMs, () => handle.exited, {
+          clear: () => this.clearKillEscalation(key),
+          set: timer => { this.killEscalations.set(key, timer) },
+        })
       } catch {
         // Already exited or gone; nothing left to kill.
       }
@@ -399,21 +395,13 @@ export class PtyManager {
     }
     await this.store.flush()
   }
-
-  /** Flush retained metadata before a host teardown completes. */
-  async flush(): Promise<void> {
-    await this.store.flush()
-  }
 }
 
-/**
- * The interactive shell for this platform — compatibility wrapper over
- * {@link resolveShell} for callers that do not need injectable options
- * (the plugin body resolves through the settings-aware thunk instead).
- * Chain: deployment `shell` config → settings `terminalShell` →
- * `DSH_SIDEBAR_SHELL` → Windows pwsh probe / POSIX login-shell chain →
- * platform fallback. See shell-resolver.ts for the full contract.
- */
+// unwired-capability: convenience wrapper restored from HEAD. The plugin
+// body now injects a settings-aware shell thunk via `index.ts` (getShell),
+// so this exported compatibility helper is not referenced anywhere in the
+// tree. Kept exported (same HEAD signature) for external callers; it is not
+// part of the wired terminal flow.
 export function defaultShell(options?: ShellResolutionOptions): string {
   return resolveShell(options)
 }

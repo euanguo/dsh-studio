@@ -24,6 +24,7 @@ import type {
 import * as git from '@dsh-studio/shared/git-core'
 import { isWithin } from '@dsh-studio/shared/fs-tree'
 import { LEFT_RAIL_SETTINGS_NS } from '@dsh-studio/shared/left-rail-preferences'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import {
   computeWorktreeLocation,
   resolveDefaultWorktreeRoot,
@@ -439,7 +440,7 @@ export class WorktreeDelegationRegistry {
         state: 'failed',
         finishedAt: Date.now(),
         stopReason: 'error',
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       })
       const failed = this.records.get(id)
       if (failed !== undefined) void this.notifyParent(failed)
@@ -499,7 +500,7 @@ export class WorktreeDelegationRegistry {
         state: 'failed',
         finishedAt: Date.now(),
         stopReason: 'error',
-        error: error instanceof Error ? error.message : String(error),
+        error: errorMessage(error),
       })
     }
     const settled = this.records.get(record.id)
@@ -562,6 +563,11 @@ export class WorktreeDelegationRegistry {
   }
 }
 
+// unwired-capability: restored from HEAD. Worktree location for a session is
+// now tracked through the worktree delegation records above rather than this
+// projection helper, so nothing in the tree references it. Kept exported
+// (same HEAD signature) for external callers; it is not part of the wired
+// worktree flow.
 export function worktreeSessionPathOf(session: CapabilitiesLiveSession): string | undefined {
   return session.header.cwd
 }

@@ -32,9 +32,8 @@ const READ_BYTE_LIMIT = 256 * 1024
  * splits a multi-byte UTF-8 sequence: when the byte cap lands inside one,
  * the walk-back retreats to the sequence's leading byte so the retained
  * prefix decodes cleanly (a split would decode to U+FFFD).
- * @internal exported for the unit tests, like {@link snapshotOf}.
  */
-export function boundBytes(text: string, maxBytes: number): { text: string; truncated: boolean } {
+function boundBytes(text: string, maxBytes: number): { text: string; truncated: boolean } {
   const buf = Buffer.from(text, 'utf8')
   if (buf.byteLength <= maxBytes) return { text, truncated: false }
   // The byte at `end` is a continuation byte (10xxxxxx) exactly when the

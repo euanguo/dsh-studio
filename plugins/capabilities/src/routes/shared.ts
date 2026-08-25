@@ -20,6 +20,7 @@ import type {
   SourceControlModelSelection,
 } from '../source-control-ai.ts'
 import { SIDEBAR_PREFS_NS } from '@dsh-studio/shared/prefs-shared'
+import { errorMessage } from '@dsh-studio/shared/errors'
 
 /** An approved path edit shape for the settings.mutate route. */
 export interface SettingsPathEdit {
@@ -143,17 +144,34 @@ export interface FsSearchHit {
   text: string
 }
 
-/** Search the workspace with `git grep` (falls back to an empty result set
- *  when the workspace is not a repository — the UI shows a no-results state
- *  instead of a hard error). */
-export function searchWorkspace(cwd: string, pattern: string, caseSensitive: boolean): Promise<FsSearchHit[]> {
+/**
+ * Search the workspace with `git grep` (D15). Distinguishes "no matches"
+ * from "search unavailable": `git grep` exits 1 when nothing matched (that is
+ * a legitimate empty result), whereas a spawn failure / timeout / `git` missing
+ * is surfaced as an `error` so the UI can show "search unavailable" instead of
+ * a misleading empty list. A non-repository workspace degrades to an empty
+ * result set without an error (the UI's no-results state covers it).
+ */
+export function searchWorkspace(
+  cwd: string,
+  pattern: string,
+  caseSensitive: boolean,
+): Promise<{ hits: FsSearchHit[]; error: string | null }> {
   const args = ['-C', cwd, 'grep', '--no-color', '-n', '-I', '-E']
   if (!caseSensitive) args.push('-i')
   args.push('-e', pattern)
   return new Promise(resolvePromise => {
     execFile('git', args, { encoding: 'utf8', timeout: 20_000, maxBuffer: 10 * 1024 * 1024 }, (error, stdout) => {
-      if (error !== null && error.code !== 1) {
-        resolvePromise([])
+      // Exit code 1 = no matches: a real empty result, not a failure.
+      if (error !== null && error.code === 1) {
+        resolvePromise({ hits: [], error: null })
+        return
+      }
+      if (error !== null) {
+        const message = error instanceof Error
+          ? error.message
+          : `search failed (exit ${String(error.code ?? 'unknown')})`
+        resolvePromise({ hits: [], error: message })
         return
       }
       const hits: FsSearchHit[] = []
@@ -163,7 +181,7 @@ export function searchWorkspace(cwd: string, pattern: string, caseSensitive: boo
         if (match === null) continue
         hits.push({ path: match[1]!, line: Number(match[2]), text: match[3] ?? '' })
       }
-      resolvePromise(hits.slice(0, 500))
+      resolvePromise({ hits: hits.slice(0, 500), error: null })
     })
   })
 }
@@ -182,7 +200,7 @@ export async function readText(path: string, readLimit: number): Promise<{
   data?: string
 }> {
   const info = await stat(path).catch((error: unknown) => {
-    throw new CapabilityError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+    throw new CapabilityError('fs-error', `cannot read "${path}": ${errorMessage(error)}`, 400)
   })
   if (info.isDirectory()) {
     throw new CapabilityError('fs-error', `"${path}" is a directory`, 400)
@@ -190,7 +208,7 @@ export async function readText(path: string, readLimit: number): Promise<{
   const size = info.size
   const truncated = size > readLimit
   const handle = await open(path, 'r').catch((error: unknown) => {
-    throw new CapabilityError('fs-error', `cannot read "${path}": ${error instanceof Error ? error.message : String(error)}`, 400)
+    throw new CapabilityError('fs-error', `cannot read "${path}": ${errorMessage(error)}`, 400)
   })
   try {
     const buffer = Buffer.alloc(Math.min(size, readLimit))
@@ -243,5 +261,3 @@ export interface FsHandlerDeps {
   cwdOf(payload: unknown): { cwd: string }
   resolved: ResolvedCapabilitiesConfig
 }
-
-export { ResolvedCapabilitiesConfig }

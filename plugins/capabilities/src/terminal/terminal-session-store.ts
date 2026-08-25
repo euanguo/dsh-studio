@@ -5,10 +5,9 @@ import {
   mkdirSync,
   readFileSync,
   renameSync,
-  writeFileSync,
 } from 'node:fs'
-import { homedir } from 'node:os'
 import { join } from 'node:path'
+import { writeFileAtomic, writeFileAtomicSync } from '@dsh-studio/shared/host-atomic-fs'
 import {
   capHistoryByLimits,
   type HistoryLimits,
@@ -43,8 +42,13 @@ interface PersistedTerminalStore {
 }
 
 export interface TerminalSessionStoreOptions {
-  /** Existing DSH data root. The store creates only a terminal-sessions child. */
-  root?: string
+  /**
+   * The DSH data root, resolved by the host and injected at the construction
+   * point (M1). The store creates only a terminal-sessions child under it.
+   * Required so a bare launch or missing env can never fall back to a guessed
+   * root (which would silently write dev-channel history into the stable pair).
+   */
+  root: string
   maxRetainedInactiveSessions?: number | (() => number)
   historyLimits?: HistoryLimits | (() => HistoryLimits)
   persistIdleMs?: number
@@ -90,16 +94,24 @@ export class TerminalSessionStore {
   private readonly persistMaxIntervalMs: number
   private readonly now: () => number
   private readonly pendingUpdates = new Map<string, () => TerminalSessionPersistencePatch>()
+  /**
+   * Set when the on-disk snapshot carries a version this build does not
+   * understand (newer, or unknown). In that state the store reads nothing and
+   * disables write-back, so the old file is preserved byte-for-byte — the
+   * non-destructive degrade contract (M4c): never overwrite a version we
+   * cannot interpret. In-memory records still work for the running process,
+   * they just no longer persist.
+   */
+  private readonlyDegraded = false
+  private disposed = false
   private persistTimer: ReturnType<typeof setTimeout> | null = null
   private maxPersistTimer: ReturnType<typeof setTimeout> | null = null
   private persistQueue: Promise<void> = Promise.resolve()
   private lastPersistedHash = ''
   private dirty = false
-  private disposed = false
 
-  constructor(options: TerminalSessionStoreOptions = {}) {
-    const root = options.root ?? resolveTerminalDataRoot()
-    this.directory = join(root, 'terminal-sessions')
+  constructor(options: TerminalSessionStoreOptions) {
+    this.directory = join(options.root, 'terminal-sessions')
     this.currentPath = join(this.directory, 'sessions.json')
     this.previousPath = join(this.directory, 'sessions.previous.json')
     this.maxRetainedInactiveSessions = options.maxRetainedInactiveSessions
@@ -171,14 +183,14 @@ export class TerminalSessionStore {
 
   /** Coalesce hot PTY output without materializing the full history per chunk. */
   queueUpdate(key: string, materialize: () => TerminalSessionPersistencePatch): void {
-    if (this.disposed || !this.records.has(key)) return
+    if (!this.records.has(key)) return
     this.pendingUpdates.set(key, materialize)
     this.queuePersist()
   }
 
   private applyPatch(key: string, patch: TerminalSessionPersistencePatch): void {
     const record = this.records.get(key)
-    if (record === undefined || this.disposed) return
+    if (record === undefined) return
     const limits = this.resolveHistoryLimits()
     record.rawHistory = capHistoryByLimits(patch.rawHistory, limits)
     record.replayHistory = capHistoryByLimits(patch.replayHistory, limits)
@@ -237,7 +249,7 @@ export class TerminalSessionStore {
   flushSync(): void {
     this.clearPersistTimers()
     this.applyPendingUpdates()
-    if (!this.dirty) return
+    if (!this.dirty || this.readonlyDegraded) return
     this.dirty = false
     const snapshot = {
       version: STORE_VERSION,
@@ -249,14 +261,13 @@ export class TerminalSessionStore {
     const hash = createHash('sha256').update(payload).digest('hex')
     if (hash === this.lastPersistedHash) return
     try {
-      mkdirSync(this.directory, { recursive: true, mode: 0o700 })
-      if (existsSync(this.currentPath)) {
-        try { renameSync(this.currentPath, this.previousPath) } catch { /* best effort */ }
-      }
-      const temporary = `${this.currentPath}.${process.pid}.${randomUUID()}.tmp`
-      writeFileSync(temporary, payload, { encoding: 'utf8', mode: 0o600 })
-      renameSync(temporary, this.currentPath)
-      try { chmodSync(this.currentPath, 0o600) } catch { /* best effort */ }
+      writeSnapshotAtomic(
+        this.directory,
+        this.currentPath,
+        this.previousPath,
+        payload,
+        true,
+      )
       this.lastPersistedHash = hash
     } catch {
       this.dirty = true
@@ -268,10 +279,14 @@ export class TerminalSessionStore {
     this.clearPersistTimers()
     this.applyPendingUpdates()
     await this.persistQueue
-    if (this.dirty) await this.writeSnapshot()
+    if (this.dirty && !this.readonlyDegraded) await this.writeSnapshot()
     await this.persistQueue
   }
 
+  // // unwired-capability (leaf-R2 ⑤): `dispose()` restored as the terminal
+  // // session store's teardown drain — HEAD-era public contract re-added for
+  // // host shutdown parity. `flush()` must run before the store is marked
+  // // dead so a final pending write survives Cordis teardown.
   async dispose(): Promise<void> {
     await this.flush()
     this.disposed = true
@@ -307,7 +322,15 @@ export class TerminalSessionStore {
 
   private load(): void {
     const raw = readSnapshot(this.currentPath) ?? readSnapshot(this.previousPath)
-    if (raw === undefined || raw.version !== STORE_VERSION) return
+    if (raw === undefined) return
+    // A snapshot exists but with a version we do not understand (future or
+    // unknown): degrade to read-only. The in-memory store starts empty and
+    // queuePersist is disabled, so no later flush rewrites the file — the old
+    // data is preserved untouched (M4c non-destructive contract).
+    if (raw.version !== STORE_VERSION) {
+      this.readonlyDegraded = true
+      return
+    }
     for (const record of raw.records) {
       if (!isRecordValid(record)) continue
       this.records.set(record.key, {
@@ -326,7 +349,7 @@ export class TerminalSessionStore {
   }
 
   private queuePersist(): void {
-    if (this.disposed) return
+    if (this.readonlyDegraded || this.disposed) return
     this.dirty = true
     if (this.persistTimer === null) {
       this.persistTimer = setTimeout(() => {
@@ -352,7 +375,7 @@ export class TerminalSessionStore {
   }
 
   private async writeSnapshot(): Promise<void> {
-    if (!this.dirty) return
+    if (!this.dirty || this.readonlyDegraded || this.disposed) return
     this.applyPendingUpdates()
     this.dirty = false
     const snapshot = {
@@ -368,14 +391,13 @@ export class TerminalSessionStore {
     const nextHash = createHash('sha256').update(nextPayload).digest('hex')
     if (nextHash === this.lastPersistedHash) return
     this.persistQueue = this.persistQueue.then(async () => {
-      mkdirSync(this.directory, { recursive: true, mode: 0o700 })
-      if (existsSync(this.currentPath)) {
-        try { renameSync(this.currentPath, this.previousPath) } catch { /* best effort */ }
-      }
-      const temporary = `${this.currentPath}.${process.pid}.${randomUUID()}.tmp`
-      writeFileSync(temporary, nextPayload, { encoding: 'utf8', mode: 0o600 })
-      renameSync(temporary, this.currentPath)
-      try { chmodSync(this.currentPath, 0o600) } catch { /* best effort */ }
+      await writeSnapshotAtomic(
+        this.directory,
+        this.currentPath,
+        this.previousPath,
+        nextPayload,
+        false,
+      )
       this.lastPersistedHash = nextHash
     }).catch(() => {
       // A read-only or unavailable data root must not kill the terminal host.
@@ -400,11 +422,33 @@ export function terminalSessionKey(sessionId: string, tabId: string): string {
   return `${sessionId}:${tabId}`
 }
 
-export function resolveTerminalDataRoot(env: NodeJS.ProcessEnv = process.env): string {
-  const configured = env.DSH_STUDIO_DESKTOP_APP_DATA ?? env.DSH_STUDIO_HOME ?? env.DSH_HOME
-  return configured !== undefined && configured.trim() !== ''
-    ? configured
-    : join(homedir(), '.dsh-studio')
+/**
+ * Atomic five-step snapshot write shared by the sync and async flush paths
+ * (RD-26): mkdir → rotate current→previous → shared tmp+rename atomic write →
+ * 0600. Reusing one helper removes the duplicated block and guarantees both
+ * paths apply the same rotation/atomicity contract. The tmp+rename atomic
+ * step is delegated to `host-atomic-fs.writeFileAtomic[Sync]` (W1); `sync`
+ * selects the synchronous shutdown-checkpoint variant (`flushSync`) from the
+ * asynchronous queue variant (`writeSnapshot`).
+ */
+function writeSnapshotAtomic(
+  directory: string,
+  currentPath: string,
+  previousPath: string,
+  nextPayload: string,
+  sync: boolean,
+): Promise<void> {
+  mkdirSync(directory, { recursive: true, mode: 0o700 })
+  if (existsSync(currentPath)) {
+    try { renameSync(currentPath, previousPath) } catch { /* best effort */ }
+  }
+  const finish = (): void => { try { chmodSync(currentPath, 0o600) } catch { /* best effort */ } }
+  if (sync) {
+    writeFileAtomicSync(currentPath, nextPayload, { mode: 0o600, suffix: 'sessions' })
+    finish()
+    return Promise.resolve()
+  }
+  return writeFileAtomic(currentPath, nextPayload, { mode: 0o600, suffix: 'sessions' }).then(finish)
 }
 
 function clampDimension(value: number, fallback: number): number {

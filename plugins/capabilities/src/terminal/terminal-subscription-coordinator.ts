@@ -85,11 +85,6 @@ export class TerminalSubscriptionCoordinator {
     return this.entries.get(key)?.primaryId ?? null
   }
 
-  disposeKey(key: string): void {
-    const entry = this.entries.get(key)
-    if (entry !== undefined) this.disposeEntry(key, entry)
-  }
-
   dispose(): void {
     for (const [key, entry] of [...this.entries]) this.disposeEntry(key, entry)
   }

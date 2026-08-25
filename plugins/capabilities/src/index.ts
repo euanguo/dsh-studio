@@ -15,8 +15,9 @@
  */
 import { readFile, stat } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
-import { basename, extname } from 'node:path'
-import type { IncomingMessage } from 'node:http'
+import { basename, dirname, extname } from 'node:path'
+import { homedir } from 'node:os'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import { WebSocket, WebSocketServer } from 'ws'
 import {
   TerminalOutputBatcher,
@@ -29,12 +30,14 @@ import {
   LeftRailSettingsSchema,
   PrefsSchema,
   resolveCapabilitiesConfig,
-  SIDEBAR_PREFS_DEFAULTS,
-  SIDEBAR_PREFS_NS,
   type CapabilitiesConfig,
   type ResolvedCapabilitiesConfig,
-  type SidebarPrefs,
 } from './config.ts'
+import {
+  SIDEBAR_PREFS_DEFAULTS,
+  SIDEBAR_PREFS_NS,
+  type SidebarPrefs,
+} from '@dsh-studio/shared/prefs-shared'
 import { migrateLegacyLeftRailSlice } from './left-rail-settings-migration.ts'
 import {
   UI_CHROME_DOMAIN,
@@ -46,9 +49,9 @@ import { cleanupLegacySidebarPrefs } from './sidebar-prefs-cleanup.ts'
 import { LEFT_RAIL_SETTINGS_NS } from '@dsh-studio/shared/left-rail-preferences'
 import { isWithin, requireAbsolute } from '@dsh-studio/shared/fs-tree'
 import { decodeHtmlUrl } from './html-route.ts'
-import { extractFrameAncestors } from './browser-probe.ts'
-import { isTrustedApiRequest, isLoopbackHostname } from './trust-fence.ts'
+import { isTrustedApiRequest } from './trust-fence.ts'
 import { registerBundleRoute } from './bundle-route.ts'
+import { resolveDefaultWorktreeRoot } from '@dsh-studio/shared/worktree-preferences'
 import { attachAgentList, attachTerminal, clearPtyPauseOwners } from './terminal/terminal-route.ts'
 import { buildCapabilitiesRoutes, sessionCwdOf, type CapabilitiesSettingsFace } from './routes.ts'
 import {
@@ -73,6 +76,7 @@ import {
   registerWorktreeDelegationTools,
   registerWorktreeTools,
 } from './worktree/worktree-tools.ts'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import {
   readJsonBody,
   requireString,
@@ -119,9 +123,6 @@ const MEDIA_TYPES: Record<string, string> = {
   '.htm': 'text/html',
 }
 
-/** Shared pause ownership prevents an old reconnect socket from resuming a PTY
- * while a newer socket is still flow-controlled. */
-
 /** Content type served by /capabilities/file (binary-safe fallback for unknowns). */
 export function mediaTypeForPath(path: string): string {
   return MEDIA_TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream'
@@ -162,7 +163,14 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     processKillGraceMs: settingsPrefs.terminalProcessKillGraceMs,
     retainedInactiveSessions: settingsPrefs.terminalRetainedInactiveSessions,
   })
+  // M1: the host-resolved DSH data root, derived channel-aware through the
+  // shared worktree-defaults resolver (honors DSH_STUDIO_HOME override and the
+  // stable/dev sibling pair; injected instead of env-guessed so a bare launch
+  // can never write dev history into the stable root). The terminal store
+  // owns only the `terminal-sessions` child under it.
+  const terminalStoreRoot = dirname(resolveDefaultWorktreeRoot(process.env, homedir()))
   const terminalStore = new TerminalSessionStore({
+    root: terminalStoreRoot,
     maxRetainedInactiveSessions: () => getTerminalPolicy().retainedInactiveSessions,
     historyLimits: { maxLines: 50_000, maxBytes: 8 * 1024 * 1024 },
   })
@@ -179,6 +187,7 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
   const ptyManager = new PtyManager(getShell, resolved.terminalsPerSession, {
     getPolicy: getTerminalPolicy,
     store: terminalStore,
+    storeRoot: terminalStoreRoot,
   })
   // The agent-owned terminal registry is parallel to the UI-tab registry and
   // shares policy (scrollback and configurable kill escalation).
@@ -220,7 +229,7 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
         uiChromeFace = createUiChromeFace(candidate)
       },
       (error) => {
-        storageCtx.logger?.warn?.(`[ui-chrome] domain open failed: ${error instanceof Error ? error.message : String(error)}`)
+        storageCtx.logger?.warn?.(`[ui-chrome] domain open failed: ${errorMessage(error)}`)
       },
     )
     storageCtx.effect(() => () => {
@@ -316,7 +325,7 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     }).then(
       () => undefined,
       (error) => {
-        ctx.logger?.warn?.(`[left-rail] settings migration failed: ${error instanceof Error ? error.message : String(error)}`)
+        ctx.logger?.warn?.(`[left-rail] settings migration failed: ${errorMessage(error)}`)
       },
     )
     // Best-effort cleanup of sidebar prefs removed from the schema
@@ -335,7 +344,7 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     }).then(
       () => undefined,
       (error) => {
-        ctx.logger?.warn?.(`[sidebar] legacy pref cleanup failed: ${error instanceof Error ? error.message : String(error)}`)
+        ctx.logger?.warn?.(`[sidebar] legacy pref cleanup failed: ${errorMessage(error)}`)
       },
     )
     const viewOf = (target: string): { value?: unknown; revision?: number } => {
@@ -390,6 +399,7 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
       await uiChromeGate
       return uiChromeFace
     },
+    () => worktreeDelegations.defaults(),
   )
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
@@ -428,6 +438,35 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
   // (see bundle-route.ts / src/client/chunk-loader.ts).
   ctx.effect(() => registerBundleRoute(ctx, fence), 'capabilities: /capabilities/bundle chunk route')
 
+  // Shared skeleton for the media (/capabilities/file) and HTML preview
+  // (/capabilities/html) GET routes (RD-28): resolve the absolute path and its
+  // cwd, enforce isWithin + isFile + size, read binary-safe, then let the
+  // caller write its own headers. Error phrasing rides the caller's `scope`
+  // so the two routes keep their distinct security/header contracts.
+  const serveSessionFile = async (res: ServerResponse, opts: {
+    scope: 'media' | 'html'
+    sessionId: string
+    clientCwd?: string
+    resolvePath: () => string
+    headers(type: string, path: string): Record<string, string>
+  }): Promise<void> => {
+    const cwd = sessionCwdOf(ctx, opts.sessionId, opts.clientCwd)
+    const absolute = requireAbsolute(opts.resolvePath())
+    if (!isWithin(cwd, absolute)) {
+      // Only files under the session cwd are served (isWithin, not a raw
+      // startsWith, so case-mismatched Windows paths and mixed separators
+      // cannot be misclassified).
+      throw new CapabilityError('fs-error', `${opts.scope} path outside the session working directory`, 403)
+    }
+    const info = await stat(absolute)
+    if (!info.isFile() || info.size > resolved.mediaLimit) {
+      throw new CapabilityError('fs-error', 'not a file or too large', 400)
+    }
+    const body = await readFile(absolute)
+    res.writeHead(200, opts.headers(mediaTypeForPath(absolute), absolute))
+    res.end(body)
+  }
+
   // ── Media route (images for the editor) ─────────────────────────────────
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
@@ -448,29 +487,21 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
         const sessionId = url.searchParams.get('sessionId')
         const raw = url.searchParams.get('path')
         if (sessionId === null || raw === null) throw new CapabilityError('bad-request', 'sessionId and path are required')
-        const cwd = sessionCwdOf(ctx, sessionId, url.searchParams.get('cwd') ?? undefined)
-        const path = requireAbsolute(raw)
-        if (!isWithin(cwd, path)) {
-          // Only files under the session cwd are served as media (the editor
-          // opens images from the explorer; produced files go through read).
-          // isWithin (not a raw startsWith) so case-mismatched Windows paths
-          // and mixed separators cannot be misclassified.
-          throw new CapabilityError('fs-error', 'media path outside the session working directory', 403)
-        }
-        const info = await stat(path)
-        if (!info.isFile() || info.size > resolved.mediaLimit) {
-          throw new CapabilityError('fs-error', 'not a file or too large', 400)
-        }
-        const type = mediaTypeForPath(path)
-        const body = await readFile(path)
-        // Raw bytes either way (binary-safe); ?download=1 switches the
-        // disposition so the browser saves the file instead of showing it.
-        const headers: Record<string, string> = { 'content-type': type, 'cache-control': 'no-cache' }
-        if (url.searchParams.get('download') === '1') {
-          headers['content-disposition'] = `attachment; filename*=UTF-8''${encodeURIComponent(basename(path))}`
-        }
-        res.writeHead(200, headers)
-        res.end(body)
+        await serveSessionFile(res, {
+          scope: 'media',
+          sessionId,
+          ...(url.searchParams.get('cwd') === null ? {} : { clientCwd: url.searchParams.get('cwd') as string }),
+          resolvePath: () => raw,
+          headers: (type, path) => {
+            // Raw bytes either way (binary-safe); ?download=1 switches the
+            // disposition so the browser saves the file instead of showing it.
+            const headers: Record<string, string> = { 'content-type': type, 'cache-control': 'no-cache' }
+            if (url.searchParams.get('download') === '1') {
+              headers['content-disposition'] = `attachment; filename*=UTF-8''${encodeURIComponent(basename(path))}`
+            }
+            return headers
+          },
+        })
       } catch (error) {
         writeError(res, error)
       }
@@ -509,32 +540,21 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
           return
         }
         const { sessionId, path } = decoded.ref
-        // The session's authoritative cwd (client cwd cannot ride in the URL
-        // — the path encoding has no query; a detached first request falls
-        // back to the process cwd and is normally refused by isWithin, same
-        // semantics as the media route's fallback).
-        const cwd = sessionCwdOf(ctx, sessionId)
-        const absolute = requireAbsolute(path)
-        if (!isWithin(cwd, absolute)) {
-          throw new CapabilityError('fs-error', 'html path outside the session working directory', 403)
-        }
-        const info = await stat(absolute)
-        if (!info.isFile() || info.size > resolved.mediaLimit) {
-          throw new CapabilityError('fs-error', 'not a file or too large', 400)
-        }
-        const type = mediaTypeForPath(absolute)
-        const body = await readFile(absolute)
-        res.writeHead(200, {
-          'content-type': type,
-          'cache-control': 'no-cache',
-          'x-content-type-options': 'nosniff',
-          'referrer-policy': 'no-referrer',
-          // The sandbox directive (no allow-same-origin → opaque origin) is
-          // the previewer's security boundary even for top-level loads;
-          // object-src 'none' blocks plugin embeds.
-          'content-security-policy': "sandbox allow-scripts allow-popups allow-downloads allow-modals; object-src 'none'",
+        await serveSessionFile(res, {
+          scope: 'html',
+          sessionId,
+          resolvePath: () => path,
+          headers: (type) => ({
+            'content-type': type,
+            'cache-control': 'no-cache',
+            'x-content-type-options': 'nosniff',
+            'referrer-policy': 'no-referrer',
+            // The sandbox directive (no allow-same-origin → opaque origin) is
+            // the previewer's security boundary even for top-level loads;
+            // object-src 'none' blocks plugin embeds.
+            'content-security-policy': "sandbox allow-scripts allow-popups allow-downloads allow-modals; object-src 'none'",
+          }),
         })
-        res.end(body)
       } catch (error) {
         writeError(res, error)
       }
@@ -593,10 +613,8 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
     ptyManager.disposeAll()
     agentPtyRegistry.disposeAll()
     terminalSubscriptions.dispose()
-        clearPtyPauseOwners()
+    clearPtyPauseOwners()
     wss.close()
     agentListWss.close()
   }, 'capabilities: teardown')
 }
-
-/** Push the live agent-terminal list for one session to a connected sidebar view. */

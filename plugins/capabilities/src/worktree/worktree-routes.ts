@@ -1,11 +1,8 @@
 /** WorkTree-specific capability routes. */
 import * as git from '@dsh-studio/shared/git-core'
-import { LEFT_RAIL_SETTINGS_NS } from '@dsh-studio/shared/left-rail-preferences'
 import { requireAbsolute } from '@dsh-studio/shared/fs-tree'
-import {
-  resolveDefaultWorktreeRoot,
-  sanitizeWorktreeDir,
-  type WorktreeDefaultsResult,
+import type {
+  WorktreeDefaultsResult,
 } from '@dsh-studio/shared/worktree-preferences'
 import {
   optionalBoolean,
@@ -13,43 +10,26 @@ import {
   requireString,
   CapabilityError,
 } from '@dsh-studio/shared/wire'
-
-export type WorktreeRoute = (payload: unknown) => Promise<unknown> | unknown
-
-export interface WorktreeSettingsFace {
-  get(ns: string): Promise<{ value?: unknown; revision?: number }> | { value?: unknown; revision?: number }
-}
+import type { ApiMethod } from '../routes/types.ts'
 
 export interface WorktreeRouteDependencies {
   cwdScopeOf(payload: unknown): string
-  getSettings(): WorktreeSettingsFace | undefined
+  /** Single source for the effective worktree store defaults (RD-46) — the
+   *  delegation registry resolves the user override or the channel-aware
+   *  data-root default with one consistent fallback. */
+  getDefaults(): WorktreeDefaultsResult
 }
 
 export function buildWorktreeRoutes(
   dependencies: WorktreeRouteDependencies,
-): Record<string, WorktreeRoute> {
+): Record<string, ApiMethod> {
   return {
     'git.worktree-list': (payload) => {
       const cwd = dependencies.cwdScopeOf(payload)
       return git.worktreeList(cwd)
     },
     'git.worktree-defaults': async () => {
-      const settings = dependencies.getSettings()
-      let dir: string | undefined
-      let nest = true
-      if (settings !== undefined) {
-        const view = await settings.get(LEFT_RAIL_SETTINGS_NS)
-        const record = (typeof view.value === 'object' && view.value !== null
-          ? view.value
-          : {}) as Record<string, unknown>
-        dir = sanitizeWorktreeDir(record.worktreeDir)
-        if (typeof record.nestWorktrees === 'boolean') nest = record.nestWorktrees
-      }
-      return {
-        root: dir ?? resolveDefaultWorktreeRoot(process.env, process.env.HOME ?? process.cwd()),
-        nest,
-        custom: dir !== undefined,
-      } satisfies WorktreeDefaultsResult
+      return dependencies.getDefaults()
     },
     'git.worktree-add': (payload) => {
       const cwd = dependencies.cwdScopeOf(payload)

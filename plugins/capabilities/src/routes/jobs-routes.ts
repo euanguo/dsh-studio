@@ -20,6 +20,7 @@
  */
 import type { Context, CapabilitiesSessionEvent } from '../context-types.ts'
 import { requireString, CapabilityError } from '@dsh-studio/shared/wire'
+import { errorMessage } from '@dsh-studio/shared/errors'
 
 /** The two background-job routes of the sidebar API. */
 export interface CapabilitiesJobsRoutes {
@@ -204,7 +205,7 @@ export function buildJobsApi(ctx: Context, outputLimit: number): CapabilitiesJob
   const callerOf = (sessionId: string) => agents?.get(sessionId)
   /** Registry refusals become a 404 job-error; unknown and foreign ids are indistinguishable. */
   const registryError = (error: unknown): CapabilityError =>
-    new CapabilityError('job-error', error instanceof Error ? error.message : String(error), 404)
+    new CapabilityError('job-error', errorMessage(error), 404)
   return {
     output(payload) {
       const sessionId = requireString(payload, 'sessionId')

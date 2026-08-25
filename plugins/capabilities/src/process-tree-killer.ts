@@ -169,3 +169,49 @@ export function createProcessTreeKiller(): ProcessTreeKiller {
 }
 
 export const defaultProcessTreeKiller: ProcessTreeKiller = createProcessTreeKiller()
+
+/** A per-terminal kill-escalation slot (clear + replace the pending timer). */
+export interface KillEscalationSlot {
+  clear(): void
+  /** Record the grace timer so a later dispose can cancel or await it. */
+  set(timer: ReturnType<typeof setTimeout>): void
+}
+
+/**
+ * Terminate a pty's process tree with the standard SIGTERM → grace → SIGKILL
+ * escalation shared by the UI-tab and agent registries (RD-25). After the
+ * initial SIGTERM reaches the captured tree, a grace timer re-checks
+ * `isExited`; if the process has not gone by then, the same captured tree is
+ * SIGKILLed. Windows uses task-kill semantics inside the killer and never
+ * escalates.
+ *
+ * @param pty - the live node-pty handle (its pid + kill).
+ * @param graceMs - escalation delay (the registry policy's processKillGraceMs).
+ * @param isExited - live check; the escalation is skipped once the process exited.
+ * @param slot - the caller's kill-escalation bookkeeping (cleared before signal,
+ *   and updated with the grace timer so teardown can cancel/await it).
+ */
+export function terminateProcessTreeWithGrace(
+  pty: { pid: number; kill(): void },
+  graceMs: number,
+  isExited: () => boolean,
+  slot: KillEscalationSlot,
+): void {
+  const pid = pty.pid
+  if (!Number.isInteger(pid) || pid <= 0) {
+    pty.kill()
+    return
+  }
+  slot.clear()
+  const capturedTree = defaultProcessTreeKiller.capture(pid)
+  defaultProcessTreeKiller.signalCaptured(pid, capturedTree, 'SIGTERM')
+  if (process.platform === 'win32') return
+  const timer = setTimeout(() => {
+    slot.clear()
+    if (!isExited()) {
+      defaultProcessTreeKiller.signalCaptured(pid, capturedTree, 'SIGKILL')
+    }
+  }, graceMs)
+  timer.unref?.()
+  slot.set(timer)
+}

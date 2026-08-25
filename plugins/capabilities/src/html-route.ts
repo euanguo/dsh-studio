@@ -15,9 +15,8 @@
  *   Windows: C:\Users\me\a.html → /capabilities/html/S/C%3A/Users/me/a.html
  *
  * This module is intentionally dependency-free (no node imports, no wire
- * helpers) so the client bundle can import `encodeHtmlUrl` without tripping
- * the build-time purity gate; the host converts decode failures into
- * CapabilityError responses at the route boundary.
+ * helpers); the host converts decode failures into CapabilityError responses
+ * at the route boundary.
  */
 
 /** One decoded route reference. */
@@ -35,6 +34,10 @@ export type HtmlDecodeResult =
 /** The route prefix both encoders/decoders agree on. */
 export const HTML_ROUTE_PREFIX = '/capabilities/html/'
 
+// unwired-capability: restored from HEAD. Client preview links now encode the
+// route at their call sites, so this encoder helper is not referenced
+// anywhere in the tree. Kept for the shared client+host URL vocabulary; not
+// part of the wired html route flow.
 /** Build the route URL for one absolute file path (client + tests). */
 export function encodeHtmlUrl(sessionId: string, path: string): string {
   const segments = path.split(/[\\/]+/).filter(segment => segment !== '')

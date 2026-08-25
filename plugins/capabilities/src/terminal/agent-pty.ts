@@ -15,7 +15,7 @@ import { randomUUID } from 'node:crypto'
 import * as nodePty from 'node-pty'
 import { ensureSpawnHelper } from './pty-manager.ts'
 import { spawnTerminalPty } from './terminal-spawn.ts'
-import { defaultProcessTreeKiller } from '../process-tree-killer.ts'
+import { terminateProcessTreeWithGrace } from '../process-tree-killer.ts'
 import { TerminalHistoryBuffer } from './terminal-history.ts'
 import { TerminalHistorySanitizer } from './terminal-history-sanitizer.ts'
 import {
@@ -346,12 +346,6 @@ export class AgentPtyRegistry {
     return handle
   }
 
-  /** Resolve a handle's snapshot, or undefined if it does not exist. */
-  snapshot(uuid: string): AgentTerminalSnapshot | undefined {
-    const handle = this.sessions.get(uuid)
-    return handle === undefined ? undefined : snapshotOf(handle)
-  }
-
   /** Write raw text to a terminal's stdin (tmux `send-keys` semantics). */
   send(uuid: string, text: string): void {
     const handle = this.expect(uuid)
@@ -534,23 +528,10 @@ export class AgentPtyRegistry {
   }
 
   private terminateProcessTree(handle: AgentTerminalHandle): void {
-    const pid = handle.pty.pid
-    if (!Number.isInteger(pid) || pid <= 0) {
-      handle.pty.kill()
-      return
-    }
-    this.clearKillEscalation(handle.uuid)
-    const capturedTree = defaultProcessTreeKiller.capture(pid)
-    defaultProcessTreeKiller.signalCaptured(pid, capturedTree, 'SIGTERM')
-    if (process.platform === 'win32') return
-    const timer = setTimeout(() => {
-      this.killEscalations.delete(handle.uuid)
-      if (!handle.exited) {
-        defaultProcessTreeKiller.signalCaptured(pid, capturedTree, 'SIGKILL')
-      }
-    }, this.getPolicy().processKillGraceMs)
-    timer.unref?.()
-    this.killEscalations.set(handle.uuid, timer)
+    terminateProcessTreeWithGrace(handle.pty, this.getPolicy().processKillGraceMs, () => handle.exited, {
+      clear: () => this.clearKillEscalation(handle.uuid),
+      set: timer => { this.killEscalations.set(handle.uuid, timer) },
+    })
   }
 
   /**

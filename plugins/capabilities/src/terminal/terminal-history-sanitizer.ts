@@ -239,6 +239,11 @@ export class TerminalHistorySanitizer {
   }
 }
 
+// unwired-capability: restored from HEAD. Persisted-history sanitization is
+// now applied through TerminalHistorySanitizer.feed() on the replay path, so
+// this one-shot helper is not referenced anywhere in the tree. Kept exported
+// (same HEAD signature) for external callers; it is not part of the wired
+// terminal flow.
 export function sanitizePersistedTerminalHistory(history: string): string {
   if (history.length === 0) return history
   return sanitizeTerminalHistoryChunk('', history).visibleText

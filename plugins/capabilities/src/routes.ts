@@ -1,48 +1,24 @@
 /**
  * The /capabilities JSON API route table (M3): every `buildCapabilitiesRoutes`
- * method — workspace cwd, fs operations, git, worktrees, pty release,
- * background jobs, settings and the browser probe. Scoped requests carry
- * the PROJECT cwd (the sidebar data model is project-dimension); the pty
- * routes key terminals by `cwd:tabId` (project-shared shells). The
- * session-derived cwd fallback (`sessionCwdOf`) remains for the host's
- * agent/media surfaces, not the fs/git routes.
+ * method — fs operations, git, worktrees, workspace facts/mutations, pty
+ * release, background jobs and settings. Scoped requests carry the PROJECT
+ * cwd (the sidebar data model is project-dimension); the pty routes key
+ * terminals by `cwd:tabId` (project-shared shells). The session-derived cwd
+ * fallback (`sessionCwdOf`) remains for the host's agent/media surfaces, not
+ * the fs/git routes. The orphan surfaces (browser.probe, workspace.cwd,
+ * git.revert/cherry-pick/show, fs.tail, agent-pty.close) are restored as
+ * unwired dormant handlers (leaf-R2 ④) — the DTO table and client wrappers
+ * were restored with them.
  */
-import { execFile } from 'node:child_process'
-import { copyFile, mkdir, open, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { homedir } from 'node:os'
-import { basename, dirname, isAbsolute, join } from 'node:path'
 import type { Context } from './context-types.ts'
-import { isLoopbackHostname } from './trust-fence.ts'
-import { extractFrameAncestors } from './browser-probe.ts'
 import type { ResolvedCapabilitiesConfig } from './config.ts'
-import { isWithin, requireAbsolute, listDirectory, parentOf, rootLabel } from '@dsh-studio/shared/fs-tree'
-import * as git from '@dsh-studio/shared/git-core'
+import { requireAbsolute, parentOf, rootLabel } from '@dsh-studio/shared/fs-tree'
+import { isLoopbackHostname } from './trust-fence.ts'
 import type { PtyManager } from './terminal/pty-manager.ts'
 import type { AgentPtyRegistry } from './terminal/agent-pty.ts'
 import { buildJobsApi, type CapabilitiesJobsRoutes } from './routes/jobs-routes.ts'
 import { buildWorktreeRoutes } from './worktree/worktree-routes.ts'
 import { detectProjectIcon } from './project-icon.ts'
-import { terminalSessionKey } from './terminal/terminal-session-store.ts'
-import {
-  DEFAULT_COMMIT_MESSAGE_PROMPT,
-  type SourceControlAiGenerator,
-  type SourceControlAiSettings,
-  type SourceControlModelSelection,
-} from './source-control-ai.ts'
-import { SOURCE_CONTROL_AI_SETTINGS_NS } from '@dsh-studio/shared/capabilities-api'
-import {
-  isCapabilitiesWorkspaceMutation,
-  mutateWorkspace,
-  readWorkspaceFacts,
-} from './workspace-git.ts'
-import {
-  optionalBoolean,
-  optionalInteger,
-  optionalPathList,
-  optionalString,
-} from '@dsh-studio/shared/wire'
-
-import { SIDEBAR_PREFS_NS } from '@dsh-studio/shared/prefs-shared'
 import {
   CapabilityError,
   requireString,
@@ -54,21 +30,37 @@ import type { UiChromeFace } from './routes/ui-chrome.ts'
 import { buildPtyHandlers } from './routes/pty.ts'
 import { buildGitHandlers } from './routes/git.ts'
 import {
-  gitBlobBase64,
-  readText,
-  resolveGitPath,
-  searchWorkspace,
-  sessionCwdOf,
-  isSettingsPathOp,
-  modelSelectionOf,
-  settingsNamespaceOf,
-  sourceControlAiSettingsOf,
-  type SettingsPathEdit,
+  isCapabilitiesWorkspaceMutation,
+  mutateWorkspace,
+  readWorkspaceFacts,
+} from './workspace-git.ts'
+import {
   type CapabilitiesSettingsFace,
 } from './routes/shared.ts'
+import type { SourceControlAiGenerator } from './source-control-ai.ts'
+import type { ApiMethod } from './routes/types.ts'
+import type { WorktreeDefaultsResult } from '@dsh-studio/shared/worktree-preferences'
 
-export type ApiMethod = (payload: unknown) => Promise<unknown> | unknown
-
+// // unwired-capability (leaf-R2 ④): `extractFrameAncestors` restored inline
+// // (its module `browser-probe.ts` was removed in the dormant cut). Kept
+// // dependency-free so the parser is unit-testable; re-wiring browser.probe
+// // into a surfaced browser tab restores the embed-safety signal it feeds.
+/**
+ * Extract the `frame-ancestors` source list of a Content-Security-Policy
+ * header, or undefined when the directive is absent (or empty). Sources are
+ * space-separated tokens (`'none'`, `'self'`, `*`, or origins).
+ */
+function extractFrameAncestors(csp: string | null): string[] | undefined {
+  if (csp === null) return undefined
+  for (const directive of csp.split(';')) {
+    const parts = directive.trim().split(/\s+/)
+    if (parts[0] === 'frame-ancestors') {
+      const sources = parts.slice(1).filter(source => source !== '')
+      return sources.length === 0 ? undefined : sources
+    }
+  }
+  return undefined
+}
 
 /** Build the API method table bound to the plugin context, pty manager, agent pty registry, and resolved config. */
 export function buildCapabilitiesRoutes(
@@ -79,6 +71,7 @@ export function buildCapabilitiesRoutes(
   getSettings: () => CapabilitiesSettingsFace | undefined,
   getSourceControlAiGenerator: () => SourceControlAiGenerator | undefined,
   getUiChrome: () => Promise<UiChromeFace | undefined>,
+  getWorktreeDefaults: () => WorktreeDefaultsResult,
 ): Record<string, ApiMethod> {
   const cwdOf = (payload: unknown): { cwd: string } => {
     const record = payload as { cwd?: unknown } | null
@@ -101,16 +94,19 @@ export function buildCapabilitiesRoutes(
   // API). A deployment without the jobs registry downgrades kill to a 503.
   const jobsApi: CapabilitiesJobsRoutes = buildJobsApi(ctx, resolved.readLimit)
   return {
-    'workspace.cwd': (payload) => {
-      const { cwd } = cwdOf(payload)
-      return { cwd, root: rootLabel(cwd), parent: parentOf(cwd) ?? null }
-    },
     ...buildFsHandlers({ cwdOf, resolved }),
     ...buildGitHandlers({ cwdOf, ctx, getSettings, getSourceControlAiGenerator }),
-    ...buildWorktreeRoutes({ cwdScopeOf, getSettings }),
+    ...buildWorktreeRoutes({ cwdScopeOf, getDefaults: getWorktreeDefaults }),
     'project.icon-detect': async (payload) => {
       const cwd = cwdScopeOf(payload)
       return detectProjectIcon(cwd)
+    },
+    // // unwired-capability (leaf-R2 ④): workspace.cwd restored as a dormant
+    // // handler — the sidebar surface that would call it is not mounted. The
+    // // workspace browser previously asked this for the breadcrumb/root label.
+    'workspace.cwd': (payload) => {
+      const { cwd } = cwdOf(payload)
+      return { cwd, root: rootLabel(cwd), parent: parentOf(cwd) ?? null }
     },
     // Workspace-level facts/mutations (fork): the same bare-cwd scope as the
     // worktree endpoints, serving the source-control panel's repository
@@ -142,6 +138,11 @@ export function buildCapabilitiesRoutes(
     // silently overwritten (mirror of the settings seam's own guard).
     ...buildSettingsHandlers({ getSettings }),
     ...buildUiChromeHandlers({ getUiChrome }),
+    // // unwired-capability (leaf-R2 ④): browser.probe restored as a dormant
+    // // handler — the sidebar browser tab that used it for embed-safety
+    // // preview is not mounted, so nothing calls it yet. Re-wiring the tab
+    // // surface re-enables the capability as-is (the `extractFrameAncestors`
+    // // parser it needs is inlined above).
     'browser.probe': async (payload) => {
       const raw = requireString(payload, 'url')
       let parsed: URL

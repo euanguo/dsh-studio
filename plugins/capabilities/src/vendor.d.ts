@@ -8,17 +8,6 @@ declare module 'cordis' {
   export interface Context {
     [key: string]: any
     inject(names: string[], callback: (service: any) => void): void
-    effect(callback: () => void, name?: string): void
-  }
-  export type Service<T = Record<string, unknown>> = T & Context
-}
-
-declare module '@deepseek-ai/cordis' {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  export interface Context {
-    [key: string]: any
-    inject(names: string[], callback: (service: any) => void): void
-    effect(callback: () => void, name?: string): void
   }
   export type Service<T = Record<string, unknown>> = T & Context
 }
