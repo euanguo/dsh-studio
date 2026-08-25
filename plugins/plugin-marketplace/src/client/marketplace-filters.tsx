@@ -45,7 +45,6 @@ import {
   marketplaceLoadedNotice,
 } from './marketplace-notices.ts'
 import type { MarketplaceDispatchOutcome } from './store.ts'
-import { MarketplaceCss } from './styles.js'
 
 export type StatusFilter = 'all' | 'installed' | 'available' | 'updates' | 'disabled'
 
@@ -152,8 +151,8 @@ export function MarketplaceToolbar({
   onDirectSubmit(): void
 }): JSX.Element {
   return (
-    <div className={MarketplaceCss["oh-marketplace-toolbar"]}>
-      <div className={MarketplaceCss["oh-marketplace-search"]}>
+    <div className="oh-marketplace-toolbar">
+      <div className="oh-marketplace-search">
         <Input
           icon={<IconSearch size={16} />}
           aria-label={t('search.label')}
@@ -171,7 +170,7 @@ export function MarketplaceToolbar({
           />
         )}
       </div>
-      <div className={MarketplaceCss["oh-marketplace-direct-source"]}>
+      <div className="oh-marketplace-direct-source">
         <Input
           aria-label={t('direct-source.label')}
           onChange={event => { filters.setRepositoryInput(event.target.value) }}
@@ -187,7 +186,7 @@ export function MarketplaceToolbar({
           {t('direct-source.submit')}
         </Button>
       </div>
-      <div className={MarketplaceCss["oh-marketplace-status-tabs"]} role="group" aria-label={t('installation-status')}>
+      <div className="oh-marketplace-status-tabs" role="group" aria-label={t('installation-status')}>
         {STATUS_TABS.map(([value, labelKey]) => (
           <Pill
             active={filters.statusFilter === value}
@@ -295,11 +294,11 @@ export function MarketplaceModal({
         title={t('plugins')}
         description={loadedNotice === null ? t('subtitle') : `${t('subtitle')} ${loadedNotice}`}
         closeLabel={t('close')}
-        className={MarketplaceCss["oh-marketplace-shell"]}
+        className="oh-marketplace-shell"
         contentClassName="oh-marketplace-shell-content"
         footer={(
-          <div className={MarketplaceCss["oh-marketplace-shell-footer"]}>
-            <span className={MarketplaceCss["oh-marketplace-count"]}>
+          <div className="oh-marketplace-shell-footer">
+            <span className="oh-marketplace-count">
               {t('plugin-count', { count: viewMeta.plugins.length })}
             </span>
             {data.snapshot?.undoAvailable === true && (
@@ -313,9 +312,9 @@ export function MarketplaceModal({
           </div>
         )}
       >
-        <div className={MarketplaceCss["oh-marketplace-app"]}>
+        <div className="oh-marketplace-app">
         {data.snapshot?.preview !== null && data.snapshot?.preview !== undefined && (
-          <div className={MarketplaceCss["oh-marketplace-preview-banner"]}>
+          <div className="oh-marketplace-preview-banner">
             <strong>{t('preview.running', { plugin: data.snapshot.preview.pluginId })}</strong>
             <Button variant="outline" size="sm" disabled={data.busy} onClick={() => { void runCommand({ type: 'discard' }) }}>
               {t('discard')}
@@ -334,7 +333,7 @@ export function MarketplaceModal({
           </div>
         )}
         {error !== null && (
-          <Alert variant="destructive" className={MarketplaceCss["oh-marketplace-error"]}>
+          <Alert variant="destructive" className="oh-marketplace-error">
             <AlertDescription>{error}</AlertDescription>
             <AlertAction>
               <Button
@@ -349,7 +348,7 @@ export function MarketplaceModal({
           </Alert>
         )}
         {actionNotice !== null && (
-          <div className={MarketplaceCss["oh-marketplace-notice"]}>
+          <div className="oh-marketplace-notice">
             {actionNotice}
           </div>
         )}
@@ -363,7 +362,7 @@ export function MarketplaceModal({
         />
         {data.snapshot?.candidate !== null && data.snapshot?.candidate !== undefined && (
           <div
-            className={MarketplaceCss["oh-marketplace-direct-candidate"]}
+            className="oh-marketplace-direct-candidate"
             data-execution={data.snapshot.candidate.execution}
             onClick={() => {
               if (data.snapshot?.candidate?.identity.pluginId !== undefined) {
@@ -378,20 +377,20 @@ export function MarketplaceModal({
             <span>{data.snapshot.candidate.execution}</span>
           </div>
         )}
-        <ScrollArea className={MarketplaceCss["oh-marketplace-main"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+        <ScrollArea className="oh-marketplace-main" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
           {data.snapshot === null || data.busy && data.snapshot.catalog.length === 0 ? (
-            <LoadingState className={MarketplaceCss["oh-marketplace-empty"]} label={t('loading-catalog')} />
+            <LoadingState className="oh-marketplace-empty" label={t('loading-catalog')} />
           ) : data.snapshot.auth.status !== 'ready' && data.snapshot.catalog.length === 0 ? (
             <EmptyState
               layout="centered"
-              className={MarketplaceCss["oh-marketplace-empty"]}
+              className="oh-marketplace-empty"
               title={t('github-auth-required')}
               description={localizedAuthDetail(data.snapshot.auth.detail, t)}
             />
           ) : viewMeta.plugins.length === 0 ? (
-            <EmptyState layout="centered" className={MarketplaceCss["oh-marketplace-empty"]} title={t('no-match')} />
+            <EmptyState layout="centered" className="oh-marketplace-empty" title={t('no-match')} />
           ) : (
-            <div className={MarketplaceCss["oh-marketplace-grid"]}>
+            <div className="oh-marketplace-grid">
               {viewMeta.plugins.map(plugin => (
                 <PluginCard
                   key={plugin.id}

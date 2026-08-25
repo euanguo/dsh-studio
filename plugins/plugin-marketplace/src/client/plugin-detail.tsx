@@ -22,7 +22,6 @@ import {
   runtimeRiskLabel,
   shortCommit,
 } from './marketplace-meta.ts'
-import { MarketplaceCss } from './styles.js'
 
 export function PluginDetail({
   bridge,
@@ -60,7 +59,7 @@ export function PluginDetail({
       : current.filter(entry => entry !== confirmation))
   }
   const actions = (
-    <div className={MarketplaceCss["oh-marketplace-detail-actions"]}>
+    <div className={"oh-marketplace-detail-actions"}>
       {plugin.mechanism === 'unsupported' || plugin.protected ? (
         <Button variant="outline" size="sm" onClick={() => { void bridge.openExternal(plugin.url) }}>
           {t('open-repository')}
@@ -146,13 +145,13 @@ export function PluginDetail({
       title={plugin.title}
       description={pluginMeta(plugin, t)}
       closeLabel={t('close')}
-      className={MarketplaceCss["oh-marketplace-dialog"]}
+      className={"oh-marketplace-dialog"}
       contentClassName="oh-marketplace-dialog-content"
       footer={actions}
     >
-      <div className={MarketplaceCss["oh-marketplace-detail"]} aria-label={t('details', { plugin: plugin.title })}>
-        <p className={MarketplaceCss["oh-marketplace-detail-copy"]}>{plugin.description}</p>
-        <dl className={MarketplaceCss["oh-marketplace-facts"]}>
+      <div className={"oh-marketplace-detail"} aria-label={t('details', { plugin: plugin.title })}>
+        <p className={"oh-marketplace-detail-copy"}>{plugin.description}</p>
+        <dl className={"oh-marketplace-facts"}>
           <dt>{t('updated')}</dt>
           <dd>
             {plugin.pushedAt === null
@@ -179,14 +178,14 @@ export function PluginDetail({
           )}
         </dl>
         {plan !== null && (
-          <section className={MarketplaceCss["oh-marketplace-plan"]}>
+          <section className={"oh-marketplace-plan"}>
             <h3>{t('prepared-plan', { action: t(`action.${plan.action}`) })}</h3>
-            <div className={MarketplaceCss["oh-marketplace-flow"]} aria-label={t('prepared-plan', { action: t(`action.${plan.action}`) })}>
+            <div className={"oh-marketplace-flow"} aria-label={t('prepared-plan', { action: t(`action.${plan.action}`) })}>
               <span data-active="true">1 · {t('flow.review')}</span>
               <span data-active={String(snapshot.preview !== null)}>2 · {t('flow.preview')}</span>
               <span>3 · {t('flow.apply')}</span>
             </div>
-            <dl className={MarketplaceCss["oh-marketplace-facts"]}>
+            <dl className={"oh-marketplace-facts"}>
               <dt>{t('risk-level')}</dt>
               <dd data-risk={approval?.riskLevel ?? plan.riskLevel}>{t(`risk-level.${approval?.riskLevel ?? plan.riskLevel}`)}</dd>
               <dt>{t('source-review')}</dt>
@@ -197,22 +196,22 @@ export function PluginDetail({
               <dd>{shortCommit(plan.resolvedCommit)}</dd>
             </dl>
             {plan.packageName !== null && (
-              <p className={MarketplaceCss["oh-marketplace-plan-line"]}>{t('package', { package: plan.packageName })}</p>
+              <p className={"oh-marketplace-plan-line"}>{t('package', { package: plan.packageName })}</p>
             )}
             {plan.riskReasons.length > 0 && (
-              <ul className={MarketplaceCss["oh-marketplace-risk-reasons"]}>
+              <ul className={"oh-marketplace-risk-reasons"}>
                 {plan.riskReasons.map(reason => (
                   <li key={reason}>{riskReasonLabel(reason, t)}</li>
                 ))}
               </ul>
             )}
             {hasScripts && (
-              <pre className={MarketplaceCss["oh-marketplace-scripts"]}>
+              <pre className={"oh-marketplace-scripts"}>
                 {Object.entries(plan.buildScripts).map(([name, script]) => `${name}: ${script}`).join('\n')}
               </pre>
             )}
             {requiredConfirmations.map(requirement => (
-              <label className={MarketplaceCss["oh-marketplace-confirm"]} key={requirement}>
+              <label className={"oh-marketplace-confirm"} key={requirement}>
                 <input
                   checked={confirmations.includes(requirement)}
                   onChange={event => { setConfirmed(requirement, event.target.checked) }}
@@ -221,7 +220,7 @@ export function PluginDetail({
                 <span>{confirmationLabel(requirement, t)}</span>
               </label>
             ))}
-            <p className={MarketplaceCss["oh-marketplace-recovery-note"]}>{t('recovery-note')}</p>
+            <p className={"oh-marketplace-recovery-note"}>{t('recovery-note')}</p>
           </section>
         )}
       </div>

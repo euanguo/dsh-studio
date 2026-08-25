@@ -10,7 +10,6 @@ import { IconChevronDown } from '@dsh-studio/shared/tabler-icons'
 import type { MarketplacePlugin } from '../protocol.ts'
 import type { MarketplaceMessage } from './i18n.ts'
 import { pluginMeta } from './marketplace-meta.ts'
-import { MarketplaceCss } from './styles.js'
 
 /** Category dropdown: filters the card grid ("all" = no filter). */
 export function CategoryMenu({
@@ -45,7 +44,7 @@ export function CategoryMenu({
       anchor={(
         <button
           type="button"
-          className={MarketplaceCss["oh-marketplace-selector"]}
+          className="oh-marketplace-selector"
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={t('plugin-category')}
@@ -73,14 +72,14 @@ export function PluginCard({
 }): JSX.Element {
   return (
     <button
-      className={MarketplaceCss["oh-marketplace-card"]}
+      className="oh-marketplace-card"
       data-selected={String(selected)}
       onClick={select}
       type="button"
     >
       <h2>{plugin.title}</h2>
-      <div className={MarketplaceCss["oh-marketplace-card-meta"]}>{pluginMeta(plugin, t)}</div>
-      <p className={MarketplaceCss["oh-marketplace-card-description"]}>{plugin.description}</p>
+      <div className="oh-marketplace-card-meta">{pluginMeta(plugin, t)}</div>
+      <p className="oh-marketplace-card-description">{plugin.description}</p>
     </button>
   )
 }

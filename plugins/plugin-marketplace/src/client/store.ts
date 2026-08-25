@@ -46,6 +46,8 @@ interface MarketplaceStoreState {
 interface MarketplaceStoreActions {
   /** Apply a fresh snapshot only if it is still the latest request (D17). */
   accept(requestId: number, snapshot: MarketplaceSnapshot): void
+  /** Replace the snapshot from a host push (no requestId/busy side effects). */
+  acceptPush(snapshot: MarketplaceSnapshot): void
   setBusy(busy: boolean): void
   setLocalError(message: string | null): void
 }
@@ -68,6 +70,11 @@ export function createMarketplaceStore(): MarketplaceStore {
       set(current => (requestId === current.requestId ? { snapshot } : current))
     },
     setBusy: busy => set({ busy }),
+    /** Host-push snapshots replace state WITHOUT touching requestId/busy:
+     *  they are background notifications, not commands (fixes the mount
+     *  deadlock where a push bumping requestId orphaned the in-flight
+     *  dispatch's busy=false reset). */
+    acceptPush: snapshot => set({ snapshot }),
     setLocalError: message => set({ localError: message }),
   }))
 }
@@ -105,7 +112,8 @@ export async function runMarketplaceCommand(
       rejected: { kind: 'busy', message },
     }
   } finally {
-    if (store.getState().requestId === requestId) {
+    // Clear busy unless a newer request owns the spinner now.
+    if (store.getState().requestId <= requestId) {
       store.getState().setBusy(false)
     }
   }
@@ -148,14 +156,10 @@ export function subscribeMarketplaceHost(
   let alive = true
   const unsubscribe = bridge.pluginMarketplace.onSnapshotChanged(() => {
     if (!alive) return
-    const requestId = store.getState().requestId + 1
-    store.setState({ requestId })
     void bridge.pluginMarketplace
       .getSnapshot()
       .then(snapshot => {
-        if (alive && store.getState().requestId === requestId) {
-          store.getState().accept(requestId, snapshot as MarketplaceSnapshot)
-        }
+        if (alive) store.getState().acceptPush(snapshot as MarketplaceSnapshot)
       })
   })
   return () => { alive = false; unsubscribe() }
