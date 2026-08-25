@@ -322,3 +322,24 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
   `btn.click()`，等待 ~400ms 后读 `[role=menuitem]`。跨 eval 分步操作会因
   面板/焦点状态在命令间变化而读到空菜单。
 - **来源**：文件树行菜单删除流程实测。
+
+### 30. 中间 tab / 布局"全部不恢复、也不保存"：先探 ui-chrome 域是否可用
+- **日期**：2026-08-25。
+- **症状**：View ▸ Reload 后中间 tab 只剩当前会话一个；`dsh_studio_ui.json`
+  mtime 长时间不动；无任何日志报错。极易误判为"持久化没实现"或"reload 没触发恢复"。
+- **根因**：capabilities 的 `storageDomain.open(UI_CHROME_DOMAIN)` 打开时逐记录
+  zod 校验，一条 `invalid-record` 就让整个域打不开；而失败走
+  `ctx.logger?.warn?.()` 静默吞掉（当时还误用了子上下文的 logger）。客户端
+  load 失败回默认值、save 失败静默挂起，于是"读不到 + 写不进"同时发生且无声。
+- **诊断命令**（毫秒级，先于一切 UI 排查）：
+  ```bash
+  curl -s -X POST http://127.0.0.1:<runtimePort>/capabilities/api/ui-chrome.get \
+    -H 'content-type: application/json' -d '{"table":"center_surfaces"}'
+  ```
+  返回 `{"ok":false,...,"UI chrome storage is unavailable"}` 即域不可用；
+  `ok:true` 才谈得上 UI 层问题。数据侧复核用
+  `.agent-workflows/ui-chrome-domain-unavailable/scripts/validate-via-host-schema.mjs`
+  （真实 host schema 逐表校验落盘 JSON）。
+- **修复**：schema 推导必须单递归路径、每层应用 nullable/optional/default
+  （`ui-chrome-schemas.ts`）；新增字段一律带 default；打开失败必须打日志。
+- **来源**：本次修复实测（2026-08-25 12:54 重构引入推导 bug，当晚才暴露）。
