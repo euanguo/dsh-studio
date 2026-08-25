@@ -299,3 +299,26 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 - **修复**：重启后不要只看 CDP 是否可达——**核对 runtime 进程启动时间 vs bundle mtime**：
   `lsof -iTCP:<runtimePort> -sTCP:LISTEN` 拿到 PID → `ps -p <pid> -o lstart`，必须晚于 `.stage` bundle 的修改时间；CDP 9222 的持有进程同理。发现旧进程就用 `kill <pid>`（dev 实例，路径含本 worktree 的 node_modules/.pnpm/electron 或 .stage）清干净再 `ensure`。
 - **来源**：本轮实测（worktree 工具验证中修复 git-core 后重启，status 行为不生效，追因到 runtime node 是 8:25 启动的旧进程）。
+
+### 28. 客户端 bundle 热替换会重置右侧面板的打开状态与激活 tab
+- **日期**：2026-08-25。
+- **症状**：改 `plugins/*/src/client*` 触发 SSE 热替换后，`workspace-panel` 的
+  `data-open` 变回 `false`、文件/Git tab 取消选中；下一步 eval 找不到
+  `input[type=search]` 等面板内元素，误判为"修复没生效"。
+- **根因**：热替换重挂载了面板宿主，面板开合/激活 tab 是内存态，不随热替换恢复。
+- **修复**：每次热替换后的第一条命令先恢复面板状态：点
+  `aria-label === "侧边栏 (⌥⌘B)"` 的可见按钮开面板（左栏的"展开侧边栏"不可靠），
+  再点目标 `[role=tab]`，然后重新快照/eval。注意"收起侧边栏"按钮在面板关闭后
+  仍可能被选择器命中，开面板一律用 `侧边栏 (⌥⌘B)`。
+- **来源**：文件 tab 输入框样式验证实测（连续三轮热替换均复现）。
+
+### 29. 程序化打开 hover 才显示的行内菜单锚点：先发 pointerdown 再 click
+- **日期**：2026-08-25。
+- **症状**：对 `ListRowActions` 的 ⋯ 按钮直接 `btn.click()`，菜单不出现
+  （`[role=menuitem]` 为空），断言"菜单没开"其实是打开方式不对。
+- **根因**：Menu 锚点按真实指针序列注册开合，纯 `click()` 不满足其打开条件。
+- **修复**：同一 eval 内先
+  `btn.dispatchEvent(new MouseEvent('pointerdown',{bubbles:true}))` 再
+  `btn.click()`，等待 ~400ms 后读 `[role=menuitem]`。跨 eval 分步操作会因
+  面板/焦点状态在命令间变化而读到空菜单。
+- **来源**：文件树行菜单删除流程实测。
