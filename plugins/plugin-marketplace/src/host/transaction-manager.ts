@@ -1,3 +1,4 @@
+import { errorMessage } from '@dsh-studio/shared/errors'
 import { randomUUID } from 'node:crypto'
 import {
   chmodSync,
@@ -116,7 +117,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  return errorMessage(error)
+}
+
+/** Typed rejection for a concurrent marketplace command while the host is
+ *  busy (D4). The client distinguishes this from a normal failure and shows
+ *  a "busy" notice instead of treating the command as silently dropped. */
+export class MarketplaceBusyError extends Error {
+  readonly kind = 'marketplace-busy' as const
 }
 
 function readJson(path: string): unknown {
@@ -505,7 +513,13 @@ export class PluginMarketplaceManager {
   }
 
   async dispatch(command: MarketplaceCommand): Promise<MarketplaceSnapshot> {
-    if (this.#busy) return this.getSnapshot()
+    // D4: a busy host must not silently drop a concurrent command. Instead of
+    // short-circuiting to the current snapshot, throw a typed rejection so the
+    // client can surface "a marketplace operation is already running" instead
+    // of implying the command was accepted.
+    if (this.#busy) {
+      throw new MarketplaceBusyError('the marketplace is busy processing another operation')
+    }
     this.#busy = true
     this.#error = null
     try {
@@ -1039,7 +1053,12 @@ export class PluginMarketplaceManager {
     try {
       const value = readJson(this.#rollbackStatePath)
       if (!isRecord(value) || typeof value.backupProfile !== 'string'
-        || typeof value.pluginId !== 'string' || typeof value.transactionId !== 'string') return null
+        || typeof value.pluginId !== 'string' || typeof value.transactionId !== 'string') {
+        // D21: a corrupt/partial rollback marker must be surfaced instead of
+        // silently disabling Undo with no explanation.
+        this.#warn?.(`marketplace: ignoring invalid rollback state at ${this.#rollbackStatePath}`)
+        return null
+      }
       ensureWithin(this.#rollbacksRoot, value.backupProfile)
       return existsSync(value.backupProfile) ? {
         appliedAt: typeof value.appliedAt === 'string'
@@ -1049,7 +1068,9 @@ export class PluginMarketplaceManager {
         pluginId: value.pluginId,
         transactionId: value.transactionId,
       } : null
-    } catch {
+    } catch (cause) {
+      // D21: a read/corruption failure disables Undo; log rather than hide it.
+      this.#warn?.(`marketplace: cannot read rollback state: ${message(cause)}`)
       return null
     }
   }

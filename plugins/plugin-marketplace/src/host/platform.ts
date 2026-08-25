@@ -1,3 +1,4 @@
+import { errorMessage } from '@dsh-studio/shared/errors'
 import { spawn } from 'node:child_process'
 import {
   constants,
@@ -381,7 +382,7 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
       return { detail: 'Authenticated with GitHub CLI.', status: 'ready' }
     } catch (error) {
       return {
-        detail: error instanceof Error ? error.message : String(error),
+        detail: errorMessage(error),
         status: 'signed-out',
       }
     }

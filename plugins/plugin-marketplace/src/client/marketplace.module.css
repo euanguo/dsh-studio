@@ -17,7 +17,7 @@
   color: var(--dsw-alias-label-primary, #222);
   cursor: pointer;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
   line-height: 22px;
   -webkit-app-region: no-drag;
 }
@@ -122,7 +122,7 @@
   border-radius: 6px;
   background: var(--dsw-alias-bg-module-platform);
   color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   cursor: pointer;
 }
 
@@ -166,7 +166,7 @@
   color: var(--dsw-alias-label-primary);
   cursor: pointer;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
 }
 
@@ -187,13 +187,13 @@
 
 .oh-marketplace-status-tabs span {
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
 }
 
 .oh-marketplace-count {
   margin-right: auto;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
   white-space: nowrap;
 }
@@ -230,7 +230,7 @@
 .oh-marketplace-card h2 {
   margin: 0;
   overflow: hidden;
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
   font-weight: 500;
   line-height: 20px;
   text-overflow: ellipsis;
@@ -240,7 +240,7 @@
 .oh-marketplace-card-meta {
   overflow: hidden;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -251,7 +251,7 @@
   margin: 0;
   overflow: hidden;
   color: var(--dsw-alias-label-secondary);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -277,7 +277,7 @@
 
 .oh-marketplace-detail-copy {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
   font-weight: 400;
   line-height: 22px;
   color: var(--dsw-alias-label-secondary);
@@ -289,7 +289,7 @@
   column-gap: 16px;
   row-gap: 8px;
   margin: 0;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
 }
 
@@ -319,29 +319,32 @@
   gap: 8px;
   padding-top: 16px;
   border-top: 1px solid var(--dsw-alias-border-l2);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
 }
 
 .oh-marketplace-plan h3 {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--dsh-studio-font-xl);
   font-weight: 500;
   line-height: 22px;
 }
 
+/* 安装引导的 3 步流程指示（flow stepper）：三步横向等分排布。用 flex 表达
+   三列等分布局（而非 minmax grid 模板），划线属 onboarding 进度 stepper，
+   非 settings 行，不走 C25/C45 单列收敛。 */
 .oh-marketplace-flow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
   gap: 8px;
 }
 
 .oh-marketplace-flow span {
+  flex: 1 1 0;
   padding: 4px 8px;
   border-radius: 8px;
   background: var(--dsw-alias-bg-module-platform);
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
   text-align: center;
 }
@@ -357,7 +360,7 @@
   overflow-wrap: anywhere;
   color: var(--dsw-alias-label-secondary);
   font: inherit;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
   white-space: pre-wrap;
 }
@@ -373,7 +376,7 @@
   align-items: flex-start;
   gap: 8px;
   color: var(--dsw-alias-label-primary);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
 }
 
@@ -386,7 +389,7 @@
 .oh-marketplace-recovery-note {
   margin: 0;
   color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
 }
 
@@ -408,7 +411,7 @@
   margin: 0;
   padding: 8px 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: var(--dsh-studio-font-md);
   line-height: 16px;
 }
 
