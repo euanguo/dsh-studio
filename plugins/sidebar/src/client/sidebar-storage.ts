@@ -2,7 +2,7 @@
 import {
   UI_CHROME_TABLES,
 } from '@dsh-studio/shared/ui-chrome-tables'
-import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
+import { createUiChromeStorage, type UiChromeStorageAvailability } from '@dsh-studio/shared/ui-chrome-storage'
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
   SIDEBAR_LAYOUTS_VERSION,
@@ -13,6 +13,8 @@ import {
 export interface SidebarPreferencesStorage {
   load(): Promise<DesktopSidebarPreferences>
   save(preferences: DesktopSidebarPreferences): Promise<void>
+  /** Transport availability, present when backed by {@link UiChromeStorage}. */
+  availability?(): UiChromeStorageAvailability
 }
 
 /**

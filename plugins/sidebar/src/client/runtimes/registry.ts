@@ -184,39 +184,36 @@ export function getDiffRuntime(scope: CapabilitiesScope): WorkspaceDiffRuntime {
         if (staged) return parsed
         // Untracked files produce no git diff output — synthesize added-file
         // diffs from their contents so "view all" shows them too. Reads ride
-        // the file runtime cache (M6: one file-read path).
-        let untrackedFiles: GitReviewFile[] = []
-        try {
-          const status = await sidebarApi.gitStatus(scope, signal)
-          const fileRuntime = getFileRuntime(scope)
-          const synthesized: Array<GitReviewFile | null> = await Promise.all(status.entries
-            .filter(entry => entry.xy === '??')
-            .map(async entry => {
-              const absolute = resolveCapabilitiesPath(scope.cwd, entry.path)
-              const loaded = await fileRuntime.ensureLoaded(absolute)
-              const snapshot = loaded.phase === 'ready' ? loaded.snapshot : null
-              if (snapshot === null || snapshot.kind !== 'text' || snapshot.content === null) return null
-              const lines = snapshot.content.split('\n')
-              return {
-                path: entry.path,
-                oldPath: null,
-                status: 'added' as const,
-                additions: lines.length,
-                deletions: 0,
-                lines: lines.map((content, index) => ({
-                  key: `untracked:${entry.path}:${index}`,
-                  type: 'addition' as const,
-                  content,
-                  oldLine: null,
-                  newLine: index + 1,
-                })),
-              }
-            }))
-          untrackedFiles = synthesized.filter((file): file is GitReviewFile => file !== null)
-        } catch (cause) {
-          console.warn('[sidebar] failed to synthesize untracked-file diffs', cause)
-          untrackedFiles = []
-        }
+        // the file runtime cache (M6: one file-read path). A top-level status
+        // failure propagates so the listing marks error instead of caching an
+        // empty untracked slice as ready forever. Individual unreadable files
+        // still degrade to null gracefully.
+        const status = await sidebarApi.gitStatus(scope, signal)
+        const fileRuntime = getFileRuntime(scope)
+        const synthesized: Array<GitReviewFile | null> = await Promise.all(status.entries
+          .filter(entry => entry.xy === '??')
+          .map(async entry => {
+            const absolute = resolveCapabilitiesPath(scope.cwd, entry.path)
+            const loaded = await fileRuntime.ensureLoaded(absolute)
+            const snapshot = loaded.phase === 'ready' ? loaded.snapshot : null
+            if (snapshot === null || snapshot.kind !== 'text' || snapshot.content === null) return null
+            const lines = snapshot.content.split('\n')
+            return {
+              path: entry.path,
+              oldPath: null,
+              status: 'added' as const,
+              additions: lines.length,
+              deletions: 0,
+              lines: lines.map((content, index) => ({
+                key: `untracked:${entry.path}:${index}`,
+                type: 'addition' as const,
+                content,
+                oldLine: null,
+                newLine: index + 1,
+              })),
+            }
+          }))
+        const untrackedFiles = synthesized.filter((file): file is GitReviewFile => file !== null)
         return [...parsed, ...untrackedFiles]
       }),
     loadWorktreeDoc: (staged, filePath, context, signal) =>

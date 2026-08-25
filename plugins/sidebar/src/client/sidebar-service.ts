@@ -257,7 +257,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       // A transport hiccup resolves to defaults; retry briefly before
       // adopting them, so a short outage cannot later persist defaults over
       // the intact host record.
-      for (let attempt = 0; attempt < 5 && this.storage.availability() === 'unavailable'; attempt += 1) {
+      for (let attempt = 0; attempt < 5 && this.storage.availability?.() === 'unavailable'; attempt += 1) {
         await new Promise(resolve => setTimeout(resolve, 600 * (attempt + 1)))
         storedPreferences = await this.storage.load()
       }
