@@ -1,7 +1,0 @@
-{
-  "description": "The localStorage guard allowlist no longer exempts the deleted keymap persistence half.",
-  "scan": ["scripts/guards/guard-no-localstorage.mjs"],
-  "forbid": [
-    { "pattern": "plugins/sidebar/src/client/kit/keymap.ts", "reason": "keymap exemption removed with the storage code" }
-  ]
-}

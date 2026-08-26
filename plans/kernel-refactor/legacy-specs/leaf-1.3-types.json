@@ -1,7 +1,0 @@
-{
-  "description": "The duplicated CenterSurfaceKind union no longer lives in the sidebar surfaces module; the canonical declaration is the shared/kernel descriptor vocabulary.",
-  "scan": ["plugins/sidebar/src/client/surfaces/types.ts"],
-  "forbid": [
-    { "pattern": "CenterSurfaceKind", "reason": "kind union re-declaration deleted; canonical type imported from kernel contracts" }
-  ]
-}

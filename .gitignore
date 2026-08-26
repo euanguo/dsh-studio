@@ -16,5 +16,5 @@ result-*
 # per-file whitelist. Internal research, planning, and handoff docs stay
 # under .agent-workflows/ (git-ignored above).
 
-# Score-uplift execution ledgers are development-only process artifacts.
-/plans/score-uplift/
+# Planning and gate ledgers are development-only process artifacts.
+/plans/
