@@ -111,6 +111,21 @@ export async function resolveGitPath(cwd: string, raw: string): Promise<string> 
   return requireAbsolute(join(root, raw))
 }
 
+/**
+ * Resolve a client path against the session's repository layout AND return
+ * the server-derived anchor the result must be fenced against. Git commands
+ * report paths RELATIVE TO THE REPO TOP LEVEL, which may sit above the
+ * session cwd (a session inside a subdirectory of a repository), so the
+ * anchor widens from the cwd to that repo root — computed here from the
+ * cwd itself (`git.repoRoot`), never from client input. Absolute raw paths
+ * pass through with the plain cwd as anchor.
+ */
+export async function resolveSessionPath(cwd: string, raw: string): Promise<{ path: string; base: string }> {
+  if (isAbsolute(raw)) return { path: requireAbsolute(raw), base: cwd }
+  const root = await git.repoRoot(cwd).catch(() => cwd)
+  return { path: requireAbsolute(join(root, raw)), base: root }
+}
+
 /** Refuse mutating fs operations outside the session working directory. */
 export function assertWithinSession(cwd: string, path: string, op: string): void {
   if (!isWithin(cwd, path)) {

@@ -1,0 +1,124 @@
+name: Nightly runtime smoke
+
+# Runtime smokes beyond the PR Linux-only gate (.github/workflows/ci.yml,
+# job `runtime`): boot the staged web profile and the npm-packed artifact on
+# every supported OS nightly so Windows/macOS runtime regressions surface
+# within 24h instead of at release packaging time.
+#
+# Platform gating rationale:
+# - scripts/smoke-web.mjs is cross-platform (Node + git + fetch/WebSocket +
+#   headless Electron with --no-sandbox). Linux needs xvfb because runners
+#   there have no display; macOS/Windows runners provide a real GUI session.
+# - scripts/smoke-pack.mjs hard-link-copies the staged runtime via
+#   `cp -al` on non-win32 (verified working on darwin) and falls back to
+#   portable fs.cpSync plus pnpm.cmd on win32, so both smokes run on all
+#   three OSes; no smoke is Linux-only by design.
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly-smoke-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  runtime:
+    name: Nightly runtime smoke (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    continue-on-error: false
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: macOS arm64
+            os: macos-15
+            node_architecture: arm64
+          - name: macOS x64
+            os: macos-15-intel
+            node_architecture: x64
+          - name: Linux x64
+            os: ubuntu-24.04
+            node_architecture: x64
+          - name: Windows x64
+            os: windows-2025
+            node_architecture: x64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Initialize submodules
+        # Mirrors ci.yml: the pinned upstream/ source must be present before
+        # any build or typecheck step.
+        shell: bash
+        run: |
+          set -euo pipefail
+          attempts=5
+          backoff=5
+          for ((attempt = 1; attempt <= attempts; attempt++)); do
+            echo "::group::Submodule checkout attempt ${attempt}/${attempts}"
+            if git submodule sync --recursive \
+              && git -c protocol.version=2 submodule update --init --force --recursive; then
+              echo "::endgroup::"
+              exit 0
+            fi
+            echo "::endgroup::"
+            echo "::warning::Submodule checkout attempt ${attempt}/${attempts} failed"
+            git submodule deinit --force --all >/dev/null 2>&1 || true
+            git clean -ffd -- upstream >/dev/null 2>&1 || true
+            if (( attempt < attempts )); then
+              sleep "$((attempt * backoff))"
+            fi
+          done
+          echo "::error::Submodule checkout failed after ${attempts} attempts"
+          exit 1
+
+      - name: Set up pnpm
+        # No version input: package.json `packageManager` pins pnpm.
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          architecture: ${{ matrix.node_architecture }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build and stage the pinned runtime
+        # Both smokes consume `.stage` produced by stage:dsh.
+        run: pnpm run build && pnpm run build:dsh && pnpm run stage:dsh
+
+      - name: Install xvfb
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Smoke web profile and packed artifact (Linux)
+        # Headless Linux needs xvfb for the Electron render pass of both smokes.
+        if: runner.os == 'Linux'
+        shell: bash
+        run: xvfb-run -a pnpm run smoke:web && xvfb-run -a pnpm run smoke:pack
+
+      - name: Smoke the web profile (macOS / Windows)
+        # Runners ship a real GUI session: Electron boots without xvfb.
+        if: runner.os != 'Linux'
+        shell: bash
+        run: pnpm run smoke:web
+
+      - name: Smoke the packed artifact (macOS / Windows)
+        # smoke-pack.mjs supports darwin (`cp -al`) and win32 (fs.cpSync +
+        # pnpm.cmd), so the pack smoke runs here too.
+        if: runner.os != 'Linux'
+        shell: bash
+        run: pnpm run smoke:pack

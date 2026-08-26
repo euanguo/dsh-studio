@@ -1,19 +1,10 @@
-import { errorMessage } from '@dsh-studio/shared/errors'
+// Marketplace transaction phase orchestration. State-file semantics live in
+// state-file.ts, allowBuild YAML editing in allowbuild-yaml.ts, and raw
+// filesystem surgery in fs-ops.ts; this module owns phases, guards, and the
+// preview/apply/undo coordination across runtime + journal.
 import { randomUUID } from 'node:crypto'
-import {
-  chmodSync,
-  cpSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import type {
   MarketplaceAction,
   MarketplaceCandidate,
@@ -23,15 +14,8 @@ import type {
   MarketplacePlan,
   MarketplacePlugin,
   MarketplacePreview,
-  MarketplaceRiskLevel,
-  MarketplaceRiskReason,
   MarketplaceSnapshot,
-  MarketplaceSourceLock,
-  MarketplaceSourceReview,
   SourceRef,
-} from '../protocol.ts'
-import {
-  isProtectedMarketplacePlugin,
 } from '../protocol.ts'
 import type { MarketplacePlatform } from './platform.ts'
 import { CatalogSourceManager } from './catalog-source-manager.ts'
@@ -50,28 +34,25 @@ import {
   makeMarketplaceApprovalDecision,
   platformRepositoryAdapter,
 } from './source-resolver.ts'
+import { PINNED_DSH_VERSION, type MarketplaceSourceResolver } from './source-types.ts'
 import {
-  MARKETPLACE_STATE_VERSION,
-  migrateMarketplaceLocks,
-  sourceLockFromCandidate,
-  validateMarketplaceSourceLock,
-} from './source-lock.ts'
+  MANAGED_DIRECTORY,
+  applyPlanToPreviewProfile,
+  buildManageCandidate,
+  bundleEnabled,
+  bundleInstalled,
+  installedEntryEnabled,
+  readMarketplaceState,
+  resolveInstallCandidate,
+  setBundleEnabled,
+  writeMarketplaceState,
+} from './state-file.ts'
 import {
-  PINNED_DSH_VERSION,
-  type MarketplaceSourceResolver,
-} from './source-types.ts'
-
-const STATE_VERSION = MARKETPLACE_STATE_VERSION
-const MANAGED_DIRECTORY = '.dsh-studio'
-const STATE_FILE = 'marketplace.json'
-const BUILD_BEGIN = '# >>> DSH Studio allowed plugin builds'
-const BUILD_END = '# <<< DSH Studio allowed plugin builds'
-
-interface MarketplaceStateFile {
-  entries: MarketplaceInstalledPlugin[]
-  locks: MarketplaceSourceLock[]
-  version: 3
-}
+  copyDirectory,
+  defaultWarn,
+  message,
+  removeWithin,
+} from './fs-ops.ts'
 
 interface ActivePreview {
   candidateHome: string
@@ -98,29 +79,11 @@ export interface MarketplaceRuntime {
 export interface PluginMarketplaceOptions {
   appDataPath: string
   dshHome: string
-  onWarn?: (message: string) => void
+  onWarn?: (message_: string) => void
   platform: MarketplacePlatform
   profile: string
   resolver?: MarketplaceSourceResolver
   runtime: MarketplaceRuntime
-}
-
-interface PackageManifest {
-  dependencies?: unknown
-  dsh?: {
-    bundle?: { patch?: unknown }
-    profile?: { bundles?: unknown }
-  }
-  name?: unknown
-  scripts?: unknown
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
-
-function message(error: unknown): string {
-  return errorMessage(error)
 }
 
 /**
@@ -213,323 +176,6 @@ export class MarketplaceBusyError extends Error {
   readonly kind = 'marketplace-busy' as const
 }
 
-function readJson(path: string): unknown {
-  return JSON.parse(readFileSync(path, 'utf8')) as unknown
-}
-
-function writeJsonAtomic(path: string, value: unknown): void {
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
-  const temporary = `${path}.tmp-${String(process.pid)}-${randomUUID()}`
-  writeFileSync(temporary, JSON.stringify(value, undefined, 2) + '\n', { mode: 0o600 })
-  renameSync(temporary, path)
-}
-
-function validateInstalledEntry(value: unknown): value is MarketplaceInstalledPlugin {
-  if (!isRecord(value)) return false
-  return typeof value.pluginId === 'string'
-    && /^[A-Za-z0-9_.-]{1,100}$/.test(value.pluginId)
-    && (value.mechanism === 'bundle' || value.mechanism === 'repository')
-    && (value.packageName === null || typeof value.packageName === 'string')
-    && typeof value.resolvedCommit === 'string'
-    && /^[0-9a-f]{40}$/.test(value.resolvedCommit)
-    && typeof value.source === 'string'
-    && typeof value.installedAt === 'string'
-}
-
-function readMarketplaceState(profileDir: string): MarketplaceStateFile {
-  const path = join(profileDir, MANAGED_DIRECTORY, STATE_FILE)
-  if (!existsSync(path)) return { entries: [], locks: [], version: STATE_VERSION }
-  try {
-    const parsed = readJson(path)
-    if (!isRecord(parsed) || !Array.isArray(parsed.entries)) {
-      throw new Error('unsupported marketplace state version')
-    }
-    if (parsed.version === 1) {
-      return {
-        entries: parsed.entries.filter(validateInstalledEntry),
-        locks: [],
-        version: STATE_VERSION,
-      }
-    }
-    if ((parsed.version !== 2 && parsed.version !== STATE_VERSION) || !Array.isArray(parsed.locks)) {
-      throw new Error('unsupported marketplace state version')
-    }
-    return {
-      entries: parsed.entries.filter(validateInstalledEntry),
-      locks: migrateMarketplaceLocks(parsed.locks).filter(validateMarketplaceSourceLock),
-      version: STATE_VERSION,
-    }
-  } catch (error) {
-    throw new Error(`failed to read plugin marketplace state at ${path}: ${message(error)}`)
-  }
-}
-
-function writeMarketplaceState(profileDir: string, state: MarketplaceStateFile): void {
-  writeJsonAtomic(join(profileDir, MANAGED_DIRECTORY, STATE_FILE), {
-    entries: state.entries,
-    locks: state.locks,
-    version: STATE_VERSION,
-  } satisfies MarketplaceStateFile)
-}
-
-function profileManifest(profileDir: string): PackageManifest {
-  const path = join(profileDir, 'package.json')
-  const manifest = readJson(path)
-  if (!isRecord(manifest)) throw new Error(`${path} must contain an object`)
-  return manifest as PackageManifest
-}
-
-function profileBundles(manifest: PackageManifest): string[] {
-  const bundles = manifest.dsh?.profile?.bundles
-  return Array.isArray(bundles)
-    ? bundles.filter((entry): entry is string => typeof entry === 'string')
-    : []
-}
-
-function bundleInstalled(profileDir: string, packageNameValue: string | null): boolean {
-  if (packageNameValue === null) return false
-  const dependencies = profileManifest(profileDir).dependencies
-  return isRecord(dependencies) && typeof dependencies[packageNameValue] === 'string'
-}
-
-function bundleEnabled(profileDir: string, packageNameValue: string | null): boolean {
-  return packageNameValue !== null
-    && profileBundles(profileManifest(profileDir)).includes(packageNameValue)
-}
-
-function setBundleEnabled(
-  profileDir: string,
-  packageNameValue: string,
-  enabled: boolean,
-): void {
-  const path = join(profileDir, 'package.json')
-  const manifest = profileManifest(profileDir)
-  if (!isRecord(manifest.dsh)) manifest.dsh = {}
-  if (!isRecord(manifest.dsh.profile)) manifest.dsh.profile = {}
-  const current = profileBundles(manifest)
-  manifest.dsh.profile.bundles = enabled
-    ? current.includes(packageNameValue) ? current : [...current, packageNameValue]
-    : current.filter(entry => entry !== packageNameValue)
-  writeJsonAtomic(path, manifest)
-}
-
-/** One `  'name': true` (or legacy bare `name: true`) entry inside the
- *  managed block; anything else in the interior is ignored. */
-function managedEntryName(line: string): string | null {
-  const match = /^[ \t]+(?:'((?:[^']|'')*)'|([^#' \t][^:#]*?)):[ \t]*true[ \t\r]*$/.exec(line)
-  if (match === null) return null
-  if (match[1] !== undefined) return match[1].replaceAll("''", "'")
-  return match[2]?.trim() ?? null
-}
-
-/**
- * Whole-block allowBuild protocol (leaf-3.3): everything between the begin
- * and end markers is owned by this module. The rewrite strips the marked
- * block, rejects any foreign `allowBuilds` key outside it with its line
- * number, and deterministically regenerates one sorted block — replacing the
- * old block in place or appending one at the end. It never performs regex
- * surgery on the surrounding YAML: every other line — comments, quoting,
- * CRLF endings — survives byte-for-byte, and reruns over the same inputs
- * produce identical bytes.
- */
-export function regenerateManagedAllowBuilds(text: string, packageNameValue: string): string {
-  const lines = text.split('\n')
-  let beginLine = -1
-  let endLine = -1
-  for (let index = 0; index < lines.length; index += 1) {
-    if (lines[index]?.includes(BUILD_BEGIN) === true) {
-      beginLine = index
-      break
-    }
-  }
-  if (beginLine >= 0) {
-    for (let index = beginLine + 1; index < lines.length; index += 1) {
-      if (lines[index]?.includes(BUILD_END) === true) {
-        endLine = index
-        break
-      }
-    }
-    if (endLine < 0) throw new Error(`managed configuration block is missing ${BUILD_END}`)
-  }
-  for (let index = 0; index < lines.length; index += 1) {
-    if (beginLine >= 0 && index >= beginLine && index <= endLine) continue
-    if (/^[ \t]*allowBuilds[ \t]*:/.test(lines[index] ?? '')) {
-      throw new Error(
-        `pnpm-workspace.yaml line ${index + 1} has an allowBuilds key outside the managed `
-        + `${BUILD_BEGIN} block; move it between the markers or remove it`,
-      )
-    }
-  }
-  const names = new Set<string>([packageNameValue])
-  if (beginLine >= 0) {
-    for (let index = beginLine + 1; index < endLine; index += 1) {
-      const name = managedEntryName(lines[index] ?? '')
-      if (name !== null) names.add(name)
-    }
-  }
-  const block = [
-    BUILD_BEGIN,
-    'allowBuilds:',
-    ...[...names].sort().map(name => `  ${yamlString(name)}: true`),
-    BUILD_END,
-  ]
-  if (beginLine < 0) {
-    // No managed block yet: append one after a single blank line, keeping a
-    // single trailing newline regardless of the original file's shape.
-    while (lines.at(-1) === '') lines.pop()
-    return [...lines, '', ...block, ''].join('\n')
-  }
-  // In-place replacement: every line outside the marked block keeps its
-  // exact bytes.
-  return [...lines.slice(0, beginLine), ...block, ...lines.slice(endLine + 1)].join('\n')
-}
-
-function repositoryFromSource(source: string): string | null {
-  const match = /^github:([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)#/.exec(source)
-  return match?.[1] ?? null
-}
-
-function installedEntryEnabled(
-  profileDir: string,
-  entry: MarketplaceInstalledPlugin,
-): boolean {
-  return entry.mechanism === 'bundle' ? bundleEnabled(profileDir, entry.packageName) : false
-}
-
-function yamlString(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`
-}
-
-function allowBuild(profileDir: string, packageNameValue: string): void {
-  const path = join(profileDir, 'pnpm-workspace.yaml')
-  const original = existsSync(path) ? readFileSync(path, 'utf8') : 'packages:\n  - .\n'
-  writeFileSync(path, regenerateManagedAllowBuilds(original, packageNameValue), { mode: 0o600 })
-}
-
-function ensureWithin(parent: string, candidate: string): void {
-  const root = resolve(parent)
-  const target = resolve(candidate)
-  if (target !== root && !target.startsWith(root + sep)) {
-    throw new Error(`refusing filesystem operation outside ${root}: ${target}`)
-  }
-}
-
-function assertBundleEntryFiles(checkout: string, targets: readonly string[]): void {
-  const canonicalCheckout = realpathSync(checkout)
-  for (const target of targets) {
-    const entry = resolve(checkout, target)
-    ensureWithin(checkout, entry)
-    if (!existsSync(entry)) {
-      throw new Error(`bundle entry ${target} was not materialized in the exact checkout`)
-    }
-    if (!lstatSync(entry).isFile()) {
-      throw new Error(`bundle entry ${target} is not a regular file in the exact checkout`)
-    }
-    ensureWithin(canonicalCheckout, realpathSync(entry))
-  }
-}
-
-function defaultWarn(message: string): void {
-  console.warn(`plugin-marketplace: ${message}`)
-}
-
-/**
- * Windows maps the read-only attribute to the owner write bit. Git packs and
- * some cloned files are created read-only, so `rmSync` fails with EPERM before
- * it can recurse into the tree. Clear that attribute before the retry while
- * never following symlinks out of the disposable tree.
- */
-function clearReadOnlyAttributes(
-  path: string,
-  platform: NodeJS.Platform = process.platform,
-): void {
-  if (platform !== 'win32') return
-  try {
-    const stats = lstatSync(path)
-    if (stats.isDirectory()) {
-      chmodSync(path, stats.mode | 0o200)
-      for (const entry of readdirSync(path)) {
-        clearReadOnlyAttributes(join(path, entry), platform)
-      }
-    } else if (stats.isFile()) {
-      chmodSync(path, stats.mode | 0o200)
-    }
-  } catch {
-    // Best-effort attribute pass; the removal retry below reports the real failure.
-  }
-}
-
-function removeTree(
-  path: string,
-  onWarn: (message: string) => void = defaultWarn,
-  platform: NodeJS.Platform = process.platform,
-): void {
-  try {
-    rmSync(path, { force: true, recursive: true })
-    return
-  } catch {
-    if (platform === 'win32') clearReadOnlyAttributes(path, platform)
-  }
-  try {
-    rmSync(path, { force: true, recursive: true })
-  } catch (error) {
-    onWarn(`failed to clean plugin marketplace tree at ${path}: ${message(error)}`)
-  }
-}
-
-export function removeWithin(
-  parent: string,
-  candidate: string,
-  onWarn: (message: string) => void = defaultWarn,
-  platform: NodeJS.Platform = process.platform,
-): void {
-  ensureWithin(parent, candidate)
-  removeTree(candidate, onWarn, platform)
-}
-
-function copyDirectory(source: string, target: string): void {
-  if (!existsSync(source)) throw new Error(`source profile does not exist: ${source}`)
-  if (existsSync(target)) throw new Error(`candidate profile already exists: ${target}`)
-  mkdirSync(dirname(target), { recursive: true, mode: 0o700 })
-  cpSync(source, target, {
-    preserveTimestamps: true,
-    recursive: true,
-    verbatimSymlinks: true,
-  })
-}
-
-function normalizeBundleDependency(
-  profileDir: string,
-  packageNameValue: string,
-  checkout: string,
-): void {
-  ensureWithin(profileDir, checkout)
-  const path = join(profileDir, 'package.json')
-  const manifest = readJson(path)
-  if (!isRecord(manifest) || !isRecord(manifest.dependencies)) {
-    throw new Error('DSH profile package.json is missing dependencies')
-  }
-  const source = relative(profileDir, checkout).split(sep).join('/')
-  if (source === '' || source === '..' || source.startsWith('../')) {
-    throw new Error(`bundle checkout is not portable from the profile: ${checkout}`)
-  }
-  manifest.dependencies[packageNameValue] = `link:${source}`
-  writeJsonAtomic(path, manifest)
-}
-
-function assertPortableBundleProfile(profileDir: string, previewRoot: string): void {
-  for (const name of ['package.json', 'pnpm-lock.yaml']) {
-    const path = join(profileDir, name)
-    if (existsSync(path) && readFileSync(path, 'utf8').includes(previewRoot)) {
-      throw new Error(`${name} retained an absolute path into the disposable preview`)
-    }
-  }
-}
-
-function cloneSnapshot(snapshot: MarketplaceSnapshot): MarketplaceSnapshot {
-  return structuredClone(snapshot)
-}
-
 /**
  * Own the complete preview/apply/undo transaction behind a two-method
  * interface. Callers never manipulate profile paths or package commands.
@@ -554,7 +200,7 @@ export class PluginMarketplaceManager {
   }
   #error: string | null = null
   #lastAction: string | null = null
-  readonly #warn: (message: string) => void
+  readonly #warn: (message_: string) => void
 
   constructor(options: PluginMarketplaceOptions) {
     this.#options = options
@@ -572,7 +218,7 @@ export class PluginMarketplaceManager {
     this.#previewsRoot = join(this.#root, 'previews')
     this.#rollbacksRoot = join(this.#root, 'rollbacks')
     this.#rollbackStatePath = join(this.#rollbacksRoot, 'current.json')
-    removeTree(this.#previewsRoot, this.#warn)
+    removeWithin(this.#root, this.#previewsRoot, this.#warn)
     mkdirSync(this.#previewsRoot, { recursive: true, mode: 0o700 })
     mkdirSync(this.#rollbacksRoot, { recursive: true, mode: 0o700 })
     // Crash reconciliation (journal v2): settle every W1..W5/U1..U3 leftover
@@ -610,7 +256,7 @@ export class PluginMarketplaceManager {
     const installed = receipts.filter(entry => entry.mechanism === 'repository'
       || bundleInstalled(this.#profileDir, entry.packageName))
     const installedById = new Map(installed.map(entry => [entry.pluginId, entry]))
-    return cloneSnapshot({
+    return structuredClone({
       approval: makeMarketplaceApprovalDecision(
         this.#tx.plan,
         this.#tx.active !== null,
@@ -816,132 +462,34 @@ export class PluginMarketplaceManager {
       if (requestedPluginId === undefined) throw new Error(`${action} requires a marketplace plugin id`)
       const current = state.entries.find(entry => entry.pluginId === requestedPluginId)
       if (current === undefined) throw new Error(`${requestedPluginId} was not installed by this marketplace`)
-      const enabled = installedEntryEnabled(this.#profileDir, current)
-      if (action === 'enable' && enabled) throw new Error(`${requestedPluginId} is already enabled`)
-      if (action === 'disable' && !enabled) throw new Error(`${requestedPluginId} is already disabled`)
-      if (current.mechanism !== 'bundle') {
+      const resolved = await buildManageCandidate({
+        action,
+        requestedPluginId,
+        current,
+        lock: state.locks.find(entry => entry.pluginId === requestedPluginId),
+        profileDir: this.#profileDir,
+        resolver: this.#resolver,
+      })
+      if (resolved.guideOnly) {
         this.#tx.candidate = null
-        this.#tx.plan = {
-          action,
-          artifactDigest: '',
-          buildScripts: {},
-          catalogSourceId: null,
-          description: `Manage ${requestedPluginId} in the desktop profile.`,
-          entryTargets: [],
-          execution: 'guide-only',
-          installSpec: current.source,
-          license: null,
-          manifestHash: '',
-          manifestPath: '.dsh-plugin/package.json',
-          mechanism: 'repository',
-          packageName: current.packageName,
-          patchHash: null,
-          pluginId: requestedPluginId,
-          requirements: [],
-          repository: repositoryFromSource(current.source) ?? 'unknown/unknown',
-          resolvedCommit: current.resolvedCommit,
-          riskLevel: 'blocked',
-          riskReasons: ['unsupported-runtime'],
-          source: current.source,
-          sourceReview: 'matched',
-          subpath: null,
-          version: null,
-        }
+        this.#tx.plan = resolved.plan
         this.#transition('planning')
         return
       }
-      const lock = state.locks.find(entry => entry.pluginId === requestedPluginId)
-      if (isProtectedMarketplacePlugin(requestedPluginId, repositoryFromSource(current.source), current.packageName)) {
-        throw new Error(`${requestedPluginId} is protected by the desktop and cannot be modified by its own marketplace`)
-      }
-      const candidate: MarketplaceCandidate = {
-        buildScripts: {},
-        description: `Manage ${requestedPluginId} in the desktop profile.`,
-        diagnostics: [],
-        evidence: {
-          compatibility: null,
-          filesPresent: lock === undefined ? [] : [lock.manifestPath],
-          license: null,
-          release: null,
-          signature: null,
-        },
-        execution: 'installable',
-        identity: {
-          packageName: current.packageName ?? '',
-          pluginId: requestedPluginId,
-          repository: repositoryFromSource(current.source) ?? 'unknown/unknown',
-          subpath: lock?.subpath ?? null,
-        },
-        manifest: {
-          artifactDigest: lock?.artifactDigest ?? '',
-          bundlePatch: null,
-          entryTargets: [],
-          hash: lock?.manifestHash ?? '',
-          license: null,
-          patchHash: lock?.patchHash ?? null,
-          path: lock?.manifestPath ?? 'package.json',
-          version: null,
-        },
-        mechanism: 'bundle',
-        risk: { level: 'low', reasons: [], requiredConfirmations: [] },
-        source: {
-          catalogSourceId: lock?.catalogSourceId ?? null,
-          installSpec: lock?.installSpec ?? current.source,
-          kind: lock?.catalogSourceId === null ? 'direct-repository' : 'catalog',
-          locator: `https://github.com/${repositoryFromSource(current.source) ?? 'unknown/unknown'}`,
-          requestedRef: lock?.requestedRef ?? null,
-          resolvedCommit: current.resolvedCommit,
-        },
-      }
-      this.#tx.candidate = candidate
-      this.#tx.plan = this.#resolver.makePlan(candidate, action)
+      this.#tx.candidate = resolved.candidate
+      this.#tx.plan = this.#resolver.makePlan(resolved.candidate, action)
       this.#transition('planning')
       return
     }
 
-    if (requestedPluginId !== undefined) {
-      const current = state.entries.find(entry => entry.pluginId === requestedPluginId)
-      if (action === 'install' && current !== undefined) throw new Error(`${requestedPluginId} is already installed`)
-      if (action === 'update' && current === undefined) throw new Error(`${requestedPluginId} is not installed`)
-    }
-    let repositoryRef: Extract<SourceRef, { kind: 'repository' }>
-    let catalogPlugin: MarketplacePlugin | undefined
-    if (sourceRef?.kind === 'repository') {
-      repositoryRef = sourceRef
-    } else {
-      if (requestedPluginId === undefined) throw new Error('install/update requires a plugin id or repository sourceRef')
-      catalogPlugin = this.#catalog.find(plugin => plugin.id === requestedPluginId)
-      if (catalogPlugin === undefined) throw new Error(`plugin is not present in the loaded catalog: ${requestedPluginId}`)
-      if (catalogPlugin.mechanism === 'unsupported' || catalogPlugin.mechanism === 'repository') {
-        throw new Error(`${requestedPluginId} is guide-only or blocked by the pinned DSH runtime`)
-      }
-      if (catalogPlugin.protected || isProtectedMarketplacePlugin(requestedPluginId, catalogPlugin.repository)) {
-        throw new Error(`${requestedPluginId} is protected by the desktop and cannot be modified by its own marketplace`)
-      }
-      repositoryRef = {
-        catalogSourceId: catalogPlugin.catalogSourceId ?? 'builtin',
-        input: catalogPlugin.repository,
-        kind: 'repository',
-        requestedRef: null,
-        subpath: null,
-      }
-    }
-    const candidate = await this.#resolver.resolveRepository(repositoryRef)
-    if (catalogPlugin !== undefined) candidate.identity.pluginId = catalogPlugin.id
-    if (isProtectedMarketplacePlugin(
-      candidate.identity.pluginId,
-      candidate.identity.repository,
-      candidate.identity.packageName,
-    )) {
-      throw new Error(`${candidate.identity.pluginId} is protected by the desktop and cannot be modified by its own marketplace`)
-    }
-    const current = state.entries.find(entry => entry.pluginId === candidate.identity.pluginId
-      || entry.packageName === candidate.identity.packageName)
-    if (action === 'install' && current !== undefined) throw new Error(`${candidate.identity.pluginId} is already installed`)
-    if (action === 'update' && current === undefined) throw new Error(`${candidate.identity.pluginId} is not installed`)
-    if (action === 'update' && current?.resolvedCommit === candidate.source.resolvedCommit) {
-      throw new Error(`${candidate.identity.pluginId} is already at the latest commit`)
-    }
+    const candidate = await resolveInstallCandidate({
+      resolver: this.#resolver,
+      action: action as 'install' | 'update',
+      pluginId: requestedPluginId,
+      sourceRef: sourceRef !== undefined && sourceRef.kind === 'repository' ? sourceRef : undefined,
+      catalog: this.#catalog,
+      stateEntries: state.entries,
+    })
     this.#latestCommits.set(candidate.identity.pluginId, candidate.source.resolvedCommit)
     this.#tx.candidate = candidate
     this.#tx.plan = this.#resolver.makePlan(candidate, action)
@@ -969,6 +517,8 @@ export class PluginMarketplaceManager {
     const candidateHome = join(root, 'dsh')
     const candidateProfile = join(candidateHome, 'profiles', this.#options.profile)
     copyDirectory(this.#profileDir, candidateProfile)
+    const candidate = this.#tx.candidate
+    if (candidate === null) throw new Error('bundle preview is missing its source candidate')
     try {
       // A live profile can carry a `node_modules` whose `.modules.yaml` points
       // at a pnpm store that no longer exists: applying a preview deletes the
@@ -981,119 +531,19 @@ export class PluginMarketplaceManager {
         removeWithin(candidateProfile, join(candidateProfile, 'node_modules'), this.#warn)
         rmSync(join(candidateProfile, 'pnpm-lock.yaml'), { force: true })
       }
-      const candidateState = readMarketplaceState(candidateProfile)
-      const current = candidateState.entries
-      const remaining = current.filter(entry => entry.pluginId !== plan.pluginId
-        && (plan.packageName === null || entry.packageName !== plan.packageName))
-      const existing = current.find(entry => entry.pluginId === plan.pluginId
-        || (plan.packageName !== null && entry.packageName === plan.packageName))
-      if (plan.action === 'install' || plan.action === 'update') {
-        const preserveEnabled = existing === undefined
-          ? true
-          : installedEntryEnabled(candidateProfile, existing)
-        const installed: MarketplaceInstalledPlugin = {
-          installedAt: new Date().toISOString(),
-          mechanism: plan.mechanism,
-          packageName: plan.packageName,
-          pluginId: plan.pluginId,
-          resolvedCommit: plan.resolvedCommit,
-          source: plan.source,
-        }
-        if (existing?.mechanism === 'bundle'
-          && (plan.mechanism !== 'bundle' || existing.packageName !== plan.packageName)) {
-          await this.removeBundle(candidateHome, candidateProfile, root, existing)
-        }
-        if (plan.mechanism === 'bundle') {
-          if (plan.packageName === null) throw new Error('bundle plan is missing its package name')
-          const sources = join(candidateProfile, MANAGED_DIRECTORY, 'sources')
-          if (existsSync(sources)) {
-            for (const entry of readdirSync(sources)) {
-              if (entry.startsWith(`${plan.pluginId}-`)) {
-                removeWithin(sources, join(sources, entry), this.#warn)
-              }
-            }
-          }
-          mkdirSync(sources, { recursive: true, mode: 0o700 })
-          const sourceName = `${plan.pluginId}-${plan.resolvedCommit.slice(0, 12)}`
-          const checkout = join(sources, sourceName)
-          const scriptNames = Object.keys(plan.buildScripts)
-          const cloneTarget = scriptNames.length > 0
-            ? join(root, 'bundle-builds', sourceName)
-            : checkout
-          await this.#options.platform.cloneRepository(
-            plan.repository,
-            plan.resolvedCommit,
-            cloneTarget,
-          )
-          if (scriptNames.length > 0) {
-            allowBuild(candidateProfile, plan.packageName)
-            await this.#options.platform.buildBundle({
-              checkout: cloneTarget,
-              sandboxRoot: root,
-              scripts: scriptNames,
-            })
-            renameSync(cloneTarget, checkout)
-            assertBundleEntryFiles(checkout, plan.entryTargets)
-          }
-          await this.#options.platform.runDsh({
-            args: ['plugin', '--profile', this.#options.profile, 'add', checkout],
-            dshHome: candidateHome,
-            sandboxRoot: root,
-          })
-          if (scriptNames.length === 0) assertBundleEntryFiles(checkout, plan.entryTargets)
-          const manifest = readJson(join(candidateProfile, 'package.json'))
-          if (!isRecord(manifest) || !isRecord(manifest.dependencies)
-            || typeof manifest.dependencies[plan.packageName] !== 'string') {
-            throw new Error(`DSH did not add ${plan.packageName} to the preview profile`)
-          }
-          normalizeBundleDependency(candidateProfile, plan.packageName, checkout)
-          await this.#options.platform.runDsh({
-            args: ['plugin', '--profile', this.#options.profile, 'install', '--ignore-scripts'],
-            dshHome: candidateHome,
-            sandboxRoot: root,
-          })
-          setBundleEnabled(candidateProfile, plan.packageName, preserveEnabled)
-          assertPortableBundleProfile(candidateProfile, root)
-        }
-        const next = [...remaining, installed]
-        const previousLock = candidateState.locks.find(lock => lock.pluginId === plan.pluginId)
-        const candidate = this.#tx.candidate
-        if (candidate === null) throw new Error('bundle preview is missing its source candidate')
-        const locks = [
-          ...candidateState.locks.filter(lock => lock.pluginId !== plan.pluginId),
-          sourceLockFromCandidate(candidate, previousLock),
-        ]
-        writeMarketplaceState(candidateProfile, {
-          entries: next,
-          locks,
-          version: STATE_VERSION,
-        })
-      } else if (plan.action === 'uninstall') {
-        const installed = existing
-        if (installed === undefined) throw new Error(`${plan.pluginId} is no longer installed`)
-        if (installed.mechanism !== 'bundle') {
-          throw new Error('repository-plugin receipts are guide-only and cannot be changed')
-        }
-        await this.removeBundle(candidateHome, candidateProfile, root, installed)
-        writeMarketplaceState(candidateProfile, {
-          entries: remaining,
-          locks: candidateState.locks,
-          version: STATE_VERSION,
-        })
-      } else {
-        const installed = existing
-        if (installed === undefined) throw new Error(`${plan.pluginId} is no longer installed`)
-        if (installed.mechanism !== 'bundle' || installed.packageName === null) {
-          throw new Error('repository-plugin receipts are guide-only and cannot be changed')
-        }
-        const enabled = plan.action === 'enable'
-        setBundleEnabled(candidateProfile, installed.packageName, enabled)
-        writeMarketplaceState(candidateProfile, {
-          entries: current,
-          locks: candidateState.locks,
-          version: STATE_VERSION,
-        })
-      }
+      await applyPlanToPreviewProfile({
+        platform: this.#options.platform,
+        removeBundle: async installed => {
+          await this.removeBundle(candidateHome, candidateProfile, root, installed)
+        },
+        warn: this.#warn,
+        profileName: this.#options.profile,
+        candidateHome,
+        candidateProfile,
+        root,
+        plan,
+        candidate,
+      })
       const preview: MarketplacePreview = {
         action: plan.action,
         pluginId: plan.pluginId,

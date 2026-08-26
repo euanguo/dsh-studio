@@ -159,7 +159,12 @@ The facts, deep-module seam, semantic commands, project-icon resolution, and phy
 ## Security boundaries
 
 - Web binds to loopback by default; LAN exposure requires trusted authorities.
-- Files, PTY, and Git requests are bound to the active Session and Workspace.
+- The cwd of every Files, PTY, and Git request is validated against a
+  server-side workspace scope registry (registered workspace roots ∪ live
+  session cwds; unregistered directories get `forbidden`); paths are then
+  fenced to the session subtree — reads anchor on the server-resolved
+  repository root so subdirectory sessions keep working. The same-origin
+  loopback fence is transport hygiene, not authentication.
 - Local `view_image` reads are bound to the active Session workspace; remote
   vision requests go only to the user-configured endpoint.
 - Desktop/Web image paste, thumbnails, and submission remain owned by DSH's

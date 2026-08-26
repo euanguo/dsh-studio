@@ -81,8 +81,7 @@ Rules:
 
 ### D4 Preview-tab semantics and preference
 
-Long-running community debate (vscode#81093/#9388/#128755; zed#39054/#4324/
-#53203; Cursor forum "double-click file reference should open full tab")
+Long-running community debate (vscode#81093/#9388/#128755; zed#39054/#4324/#53203; Cursor forum "double-click file reference should open full tab")
 converges on:
 
 - single click = preview (italic tab, at most one, replaces the previous

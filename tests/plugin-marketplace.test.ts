@@ -21,10 +21,10 @@ import {
 } from '../plugins/plugin-marketplace/src/host/platform.ts'
 import {
   PluginMarketplaceManager,
-  removeWithin,
   type MarketplacePreviewRuntimeInput,
   type MarketplaceRuntime,
 } from '../plugins/plugin-marketplace/src/host/transaction-manager.ts'
+import { removeWithin } from '../plugins/plugin-marketplace/src/host/fs-ops.ts'
 import { startMarketplaceAgentGateway } from '../plugins/plugin-marketplace/src/host/agent-gateway.ts'
 import {
   initialSessionNavigationState,
@@ -241,7 +241,7 @@ test('preview tree cleanup clears Windows read-only attributes before retrying',
     chmodSync(previews, 0o555)
     chmodSync(pack, 0o555)
     const warnings: string[] = []
-    removeWithin(root, previews, message => { warnings.push(message) }, 'win32')
+    removeWithin(root, previews, (message: string) => { warnings.push(message) }, 'win32')
     assert.deepEqual(warnings, [])
     assert.equal(existsSync(previews), false)
   } finally {

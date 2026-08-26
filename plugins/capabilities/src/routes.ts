@@ -18,6 +18,7 @@ import type { PtyManager } from './terminal/pty-manager.ts'
 import type { AgentPtyRegistry } from './terminal/agent-pty.ts'
 import { buildJobsApi, type CapabilitiesJobsRoutes } from './routes/jobs-routes.ts'
 import { buildWorktreeRoutes } from './worktree/worktree-routes.ts'
+import { createWorkspaceScopeRegistry } from './workspace-scope.ts'
 import { detectProjectIcon } from './project-icon.ts'
 import {
   CapabilityError,
@@ -73,20 +74,27 @@ export function buildCapabilitiesRoutes(
   getUiChrome: () => Promise<UiChromeFace | undefined>,
   getWorktreeDefaults: () => WorktreeDefaultsResult,
 ): Record<string, ApiMethod> {
-  const cwdOf = (payload: unknown): { cwd: string } => {
+  // Server-side scope fence (workspace-scope.ts): the cwd field is validated
+  // against registered workspace roots ∪ live session cwds on EVERY use —
+  // both sources are synchronous host registries, so there is no staleness
+  // window. Unknown cwds are refused with `forbidden` before any handler
+  // body runs; the same-origin POST fence stays transport hygiene only.
+  const workspaceScope = createWorkspaceScopeRegistry({
+    workspaces: () => ctx.workspaceRegistry.list().map(workspace => workspace.path),
+    sessions: () => ctx.sessions.list().map(session => session.header.cwd),
+  })
+  const scopedCwd = (payload: unknown): string => {
     const record = payload as { cwd?: unknown } | null
     const raw = typeof record?.cwd === 'string' && record.cwd !== '' ? record.cwd : undefined
     if (raw === undefined) throw new CapabilityError('bad-request', 'cwd is required')
-    return { cwd: requireAbsolute(raw) }
-  }
-  // Worktree-only scope: the workspace browser has no session binding, so the
-  // worktree endpoints accept a bare absolute cwd (same same-origin POST fence).
-  const cwdScopeOf = (payload: unknown): string => {
-    const record = payload as { cwd?: unknown } | null
-    const raw = typeof record?.cwd === 'string' && record.cwd !== '' ? record.cwd : undefined
-    if (raw === undefined) throw new CapabilityError('bad-request', 'cwd is required')
+    workspaceScope.assertAllowed(raw)
     return requireAbsolute(raw)
   }
+  const cwdOf = (payload: unknown): { cwd: string } => ({ cwd: scopedCwd(payload) })
+  // Worktree-only scope: the workspace browser has no session binding, so the
+  // worktree endpoints take the bare cwd through the SAME registry fence —
+  // the difference to cwdOf is the shape, never the strictness.
+  const cwdScopeOf = (payload: unknown): string => scopedCwd(payload)
   // Background jobs: the LIST rides the harness's `session/jobs` push
   // mirror, so these routes only replay output the model has read (from the
   // session's own event log — no DSH source is touched, the model's

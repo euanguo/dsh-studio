@@ -87,6 +87,9 @@ const runtimeEnvironment = {
   DSH_STUDIO_WEB_DATA: webData,
   DSH_STUDIO_WEB_PROFILE: WEB_PROFILE,
   DSH_STUDIO_WEB_VERSION: 'smoke',
+  // The smoke process owns this temporary repository; pass it to the host as
+  // server-derived bootstrap scope before the UI creates a workspace entry.
+  DSH_STUDIO_BOOTSTRAP_WORKSPACE: smokeRoot,
   PATH: runtimeSearchPath(paths),
 }
 

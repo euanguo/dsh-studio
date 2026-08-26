@@ -6,6 +6,7 @@
   "author": "dsh-external",
   "desktopName": "dsh-studio.desktop",
   "private": true,
+  "packageManager": "pnpm@11.20.0",
   "type": "module",
   "main": "dist/main.js",
   "bin": {
@@ -52,7 +53,7 @@
     "build:pages": "node scripts/build-pages.mjs",
     "build:dsh": "node scripts/build-dsh.mjs",
     "stage:dsh": "node scripts/stage-dsh.mjs",
-    "check:guards": "node scripts/guards/guard-dsh-dependencies.mjs && node scripts/guards/guard-no-localstorage.mjs && node scripts/guards/guard-no-inline-probe.mjs && node scripts/guards/guard-dead-exports.mjs && node scripts/guards/guard-effect-abort.mjs && node scripts/guards/guard-overlay-arbiter.mjs && node scripts/guards/guard-whole-store-subscribe.mjs",
+    "check:guards": "pnpm exec biome check . && node scripts/guards/run-all.mjs",
     "check:rescan": "node scripts/guards/rescan-shim.mjs --stage final",
     "check:sidebar-source": "node scripts/check-sidebar-source.mjs",
     "smoke:web": "node scripts/smoke-web.mjs",
@@ -84,6 +85,7 @@
     "smoke:pack": "node scripts/smoke-pack.mjs"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.6",
     "@dsh-studio/panel-controls": "workspace:*",
     "@dsh-studio/pinned-summary": "workspace:*",
     "@dsh-studio/shared": "workspace:*",

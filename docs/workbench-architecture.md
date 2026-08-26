@@ -1,11 +1,13 @@
 # 工作台架构演进：从「插件补丁」到「Workbench 内核」
 
 > 状态：已实现（implemented）· 提案 2026-08-23 · 入库 2026-08-24 · 实现落地（kernel-refactor，W1–W8）
-> 偏差记录：实现以 `plugins/workbench` 五服务 + `@dsh-studio/shared/workbench-contracts`
-> 为准——SurfaceRegistry / OpenPipeline / LayoutService / StateStore / WorkspaceEvents；
-> 身份事件源采用 runtime 的 `currentProvideInfo` 投影（本文初稿假设逐会话订阅点改造），
-> GitWatch/websocket 新鲜度事件按计划保留在 source-control 域、未并入 WorkspaceEvents；
-> 状态持久化经 `persistVia` 落 host 域后端，localStorage 仅作 legacy 只读迁移源。
+> 偏差记录：实现以 `plugins/workbench` 四服务 + `@dsh-studio/shared/workbench-contracts`
+> 为准——SurfaceRegistry / OpenPipeline / LayoutService / WorkspaceEvents；原方案的
+> `StateStore`/`ScopeService` 未作为 runtime service 发布，slice schema/version 词汇保留在
+> shared contracts 并经 `persistVia` 落 host 域后端。身份事件源采用 runtime 的
+> `currentProvideInfo` 投影（本文初稿假设逐会话订阅点改造），GitWatch/websocket 新鲜度
+> 事件按计划保留在 source-control 域、未并入 WorkspaceEvents；localStorage 仅作 legacy
+> 只读迁移源。
 > 前置：`docs/interaction-model.md`（交互决策 D1–D7）。本文回答：**如何调整整体架构，
 > 让这些优化成为内核能力，而不是逐项打补丁。**
 >
@@ -67,7 +69,7 @@ dsh-dom.ts），`centerColumnElement/leftRailToggleButton/readLeftRailOpen` 直�
 
 新增一个**纯 cordis 服务插件** `@dsh-studio/workbench`（host+client），不新增 loader、
 不违反「跨插件值导入禁止」——一切通过 `ctx.get()/ctx.reflect.provide()` 注入。
-五个内核服务：
+四个运行时内核服务（原提案的 StateStore/ScopeService 见实现偏差说明）：
 
 1. **SurfaceRegistry** —— surface kind 注册表
    （conversation/file/diff/browser/terminal/review/subagent…）：descriptor 含
@@ -75,7 +77,7 @@ dsh-dom.ts），`centerColumnElement/leftRailToggleButton/readLeftRailOpen` 直�
    renderer }`。右栏 tab 与中间 tab 都渲染 registry 条目，消灭 descriptor 双轨。
 2. **OpenPipeline** —— 唯一打开入口
    `open({kind, target, intent: 'preview'|'pin'|'background', area?: 'auto'})`
-   → scope 解析（ScopeService）→ 区域裁决（右栏快速预览 vs 中间 tab）→ FocusPolicy
+   → 区域裁决（右栏快速预览 vs 中间 tab）→ FocusPolicy
    执行（永不抢焦点，除非用户显式动作）→ 渲染。D2/D3/D4 从「散在各处的行为」变成
    「管道参数」：agent file chips、会话链接、右栏点击、marketplace 打开全部走它；
    `previewTabs` 偏好在管道内生效。intercept 的 monkey-patch 改为向 pipeline
@@ -85,13 +87,12 @@ dsh-dom.ts），`centerColumnElement/leftRailToggleButton/readLeftRailOpen` 直�
    claim/release 面板足迹改为布局树协商（替代写 `#root` padding 的副作用）；
    承载 `layoutScope: 'workspace'|'global'`（D5a）与每-worktree 宽度记忆（D7）；
    bottom 区位保留声明但默认关闭（CUT 语义显式化）。
-4. **ScopeService + StateStore** —— 作用域原语与统一持久化
-   `ScopeKey = workspace(cwd) | session | global` 三档枚举 + 带 schemaVersion 与
-   迁移框架的持久化适配器（对齐 VS Code StorageScope 的 APPLICATION/WORKSPACE 语义与
-   JetBrains PersistentStateComponent 的 component 粒度）。现有 8 个 store 迁入；
-   评论桶改 `workspacePath\0branch`（D5b），`authorSessionId` 作元数据；
-   `dsh-sidebar:v1:<sessionId>` 明确标注 session 维度的合理性后保留或并入。
-5. **WorkspaceEvents** —— 切换事件源
+实现说明：**持久化词汇（非 runtime service）** —— schema/version 与 host-owned 持久化
+   `StateSliceDefinition` 保留 schema/version 与迁移词汇；实际持久化经 `persistVia`
+   写入 host-owned backend。各域继续按 workspace/session/global 约定分桶，center
+   surface 队列按 cwd 分桶；原方案中的 ScopeService/StateStore 没有发布为 runtime
+   service，因为落地后没有真实消费者。
+4. **WorkspaceEvents** —— 切换事件源
    worktree(cwd) 变更 / 会话变更两类事件，所有需要跟随切换的组件订阅它，
    取代各自 watch sessions snapshot。
 
@@ -102,12 +103,12 @@ service（tab 模型与打开）+ openerService（导航入口）+ StorageScope�
 Eclipse perspectives 是反面教训：布局语义过度集中且僵化后被社区弃用——所以我们的
 LayoutService 只管「区域与足迹」，不管内容编排。
 
-## 4. 迁移路线（strangler，四阶段各自可发布可回滚）
+## 4. 提案历史迁移路线（strangler，四阶段各自可发布可回滚；实际实现以页首偏差记录为准）
 
 | 阶段 | 内容 | 对应优化 | 回滚方式 |
 | --- | --- | --- | --- |
-| P0 契约周 | 定义五服务接口（类型层）；冻结新 store/key；补焦点不变式 smoke | — | 纯增量 |
-| P1 Scope+State | ScopeService 上线；review-comments v1→v2 重归属迁移；center/sidebar-preferences 接入适配器；顺带清理重复注释块与 CUT 死代码 | D5b | feature flag `workbench.state` |
+| P0 契约周 | 定义四个 runtime service 接口与 shared persistence vocabulary；冻结新 store/key；补焦点不变式 smoke | — | 纯增量 |
+| P1 Persistence | `StateSliceDefinition`/`persistVia` 词汇与 host-owned storage；review-comments v1→v2 重归属迁移；center/sidebar-preferences 接入适配器；顺带清理重复注释块与 CUT 死代码 | D5b | migration rollback / previous-value snapshot |
 | P2 OpenPipeline | intercept hijack → pipeline handler；右栏快速预览短路径；previewTabs 偏好；agent file chips；删除 openPath 补丁 | D2/D3/D4 | flag `workbench.open` |
 | P3 Layout | claims → 布局树协商；geometry 入 PreferenceService；layoutScope 开关；bottom 区位显式保留 | D5a/D7 | flag `workbench.layout` |
 | P4 收尾 | SurfaceRegistry 吸收双 descriptor；删除 legacy 路径；design.md/design.en.md 双语更新；SIDEBAR_SERVICE_VERSION → WORKBENCH_CONTRACT_VERSION | D1 固化 | 删除 flag |
@@ -121,7 +122,7 @@ LayoutService 只管「区域与足迹」，不管内容编排。
   （呼应 desktop-skins generated-selectors 的重钉机制），bump 时只重钉一处。
 - **web 平价**：内核服务的 Electron-only 能力以 capability gate 标注（对齐
   dshStudioSurface 契约）；Web 表面走同一 pipeline 但 area 集合受限；TUI 不消费 browser 图。
-- **性能回归**：retained runtime 缓存（LRU 16/32）语义原样迁入 ScopeService，
+- **性能回归**：retained runtime 缓存（LRU 16/32）语义由 shared/runtime registry
   切换零刷新行为加 smoke 锁定。
 - **迁移破坏用户数据**：所有 v(n)→v(n+1) 迁移幂等、非破坏、重启安全（AGENTS.md 硬约束），
   迁移前快照原值到 `<key>.bak` 一代。

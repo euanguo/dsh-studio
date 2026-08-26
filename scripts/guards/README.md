@@ -9,6 +9,7 @@
 | --- | --- | --- |
 | `guard-no-localstorage.mjs` | S2 持久化 | 扫描 `plugins/*/src/client/**`，禁止组件直接读写 `localStorage`/`sessionStorage`。白名单：`plugins/shared/comments-migration.ts`（legacy 只读迁移）、`plugins/sidebar/src/client/kit/keymap.ts`（leaf-R1 ③ 恢复的 override 持久化半）。 |
 | `guard-no-inline-probe.mjs` | S4 上游探针 | 扫描 sidebar / marketplace / left-rail 三个 feature client 树，上游 DOM 探针（`[data-slot="conversation"/"sidebar"]`、`[class*=`/`[aria-*=`）只能出现在各插件唯一探针模块与生成物（`dsh-dom.ts`、`marketplace-dom.ts`、`skin-dom.ts`、`generated-selectors.ts`、`styles.ts`、`chunk-loader.ts`）。查询自有 `data-slot`（如 `surface-tab`、`[data-line]`）不算违规。 |
+| `run-all.mjs` | 聚合执行器 | 顺序跑完所有 guard 并汇总全部失败（report-all）；dead-export 在其中强制 --strict。 |
 | `guard-dead-exports.mjs` | 死导出告警 | 提取 `@dsh-studio/shared` 命名导出，全仓词边界计数，外部引用 ≤1 且无 tests/ 引用的告警（警告模式 `exit 0`；仅被 `tests/` 引用视为存活待接产线）；`--strict` 下非白名单者 `exit 1`。白名单 `scripts/dead-export-allowlist.json`（逐模块裁决理由见下表）。 |
 | `guard-dsh-dependencies.mjs` | 依赖事实源（leaf-4.1） | 对拍五清单：inject ⊆ cordis.patch.yml insert ⊆ profile.ts BUNDLED_*；externals 覆盖全部 @deepseek-ai import；config/dsh-dependencies.json 为唯一可写事实源，派生产物必须一致。 |
 | `guard-effect-abort.mjs` | S6 竞态纪律（leaf-5.3 内迁 rescan d7） | `plugins/sidebar/src/client/runtimes/*.ts` 中含异步传输（async/Promise 链/WebSocket）的模块必须携带显式取消/清理机制（AbortController/AbortSignal/GenerationGate/转发 signal/.close()）；无异步工作的纯同步模块豁免。只验存在性，不证接线——接线正确性由测试与评审承担。 |
@@ -47,9 +48,22 @@
 ## 运行
 
 ```sh
-pnpm run check:guards            # 三个守卫全部要求 GUARD-OK
-node scripts/guards/guard-dead-exports.mjs --strict   # 死导出严格模式
+pnpm run check:guards            # biome + run-all 聚合器（报告全部失败）
+node scripts/guards/run-all.mjs --strict-dead-exports   # 等价复现 CI 行为
 ```
+
+### run-all.mjs 聚合器
+
+顺序执行 `scripts/guards/guard-*.mjs` 全部守卫（dead-export 自动带 `--strict`），
+逐条打印 `OK <name>` / `FAIL <name>`，结尾 `SUMMARY` 列出**所有**失败项——
+替代旧 `&&` 链的首错遮蔽语义。任一失败退出码 1。`--extra cmd1,cmd2`
+仅供负控测试追加外部命令，CI 不使用。
+
+### biome
+
+`check:guards` 首步为 `biome check .`（配置 `biome.jsonc`：formatter 关闭、
+lint recommended + 少量有意模式规则降级为 warn 保持可见；降级清单与理由见
+配置内注释）。错误级诊断才会阻塞门禁。
 
 ## rescan.mjs（RG5 终扫 oracle）
 

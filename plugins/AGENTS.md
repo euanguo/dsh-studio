@@ -19,8 +19,8 @@ re-decided at each call site.
 
 ## Workbench kernel services
 
-The five kernel services in `plugins/workbench` own their domains; consumers
-wire in and never re-implement them:
+The four runtime kernel services in `plugins/workbench` own their domains;
+consumers wire in and never re-implement them:
 
 - **OpenPipeline** — every open goes through the pipeline (`resolveOpenPlan`
   decides area/preview/activation). Do not move keyboard focus on open; the

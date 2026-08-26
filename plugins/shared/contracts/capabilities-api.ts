@@ -236,9 +236,9 @@ export interface CapabilitiesApiRequests {
   /** Safe pull: host always executes `git pull --ff-only`. */
   'git.pull': Record<string, never>
   /** Pushes the current branch; publishes it when no upstream exists. */
-  'git.push': Record<string, never>
+  'git.push': { confirm: boolean }
   /** Safe force push: host always executes `git push --force-with-lease`. */
-  'git.force-push': Record<string, never>
+  'git.force-push': { confirm: boolean }
   /** Host-owned safe sequence: fast-forward pull followed by push. */
   'git.sync': Record<string, never>
   'git.abort-merge': Record<string, never>

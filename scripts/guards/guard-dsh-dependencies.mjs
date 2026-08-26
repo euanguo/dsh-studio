@@ -294,4 +294,19 @@ console.log(
   + `(${facts.inject.length} inject, ${Object.keys(facts.typePackages).length} typePackages, `
   + `${imported.length} distinct @deepseek-ai import sites covered)`,
 )
+// Pin single-source: the pnpm version is declared once (package.json
+// packageManager) and mirrored byte-identically into dsh-source.json.
+{
+  const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))
+  const source = JSON.parse(readFileSync(join(root, 'dsh-source.json'), 'utf8'))
+  const declared = typeof pkg.packageManager === 'string' ? pkg.packageManager : ''
+  if (!declared.startsWith('pnpm@')) {
+    console.error('package.json packageManager must pin a pnpm version, got:', declared)
+    process.exit(1)
+  }
+  if (source.packageManager !== declared) {
+    console.error(`pnpm pin drift: dsh-source.json=${String(source.packageManager)} vs package.json=${declared}`)
+    process.exit(1)
+  }
+}
 console.log('GUARD-OK')

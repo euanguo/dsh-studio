@@ -1,0 +1,62 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.6/schema.json",
+  // Formatter stays off: the tree predates biome; lint-only gate.
+  "formatter": { "enabled": false },
+  "assist": { "enabled": false },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      // Error-level rules demoted to warn: patterns are intentional in this
+      // tree and fixes would touch files owned by other domains. They stay
+      // VISIBLE in every run's summary; only errors block the gate.
+      "suspicious": {
+        "noControlCharactersInRegex": "warn",
+        "noAssignInExpressions": "warn",
+        "noShadowRestrictedNames": "warn",
+        "useIterableCallbackReturn": "warn",
+        "noArrayIndexKey": "warn",
+        "noImplicitAnyLet": "warn"
+      },
+      "correctness": {
+        "useExhaustiveDependencies": "warn",
+        "noUnknownProperty": "warn",
+        "noUnknownFunction": "warn",
+        "noUnsafeFinally": "warn",
+        "noUnreachable": "warn"
+      },
+      "security": { "noDangerouslySetInnerHtml": "warn" },
+      "a11y": {
+        "noStaticElementInteractions": "warn",
+        "useAriaPropsSupportedByRole": "warn",
+        "noNoninteractiveElementToInteractiveRole": "warn",
+        "useFocusableInteractive": "warn",
+        "noAriaHiddenOnFocusable": "warn",
+        "useKeyWithClickEvents": "warn",
+        "noLabelWithoutControl": "warn",
+        "useSemanticElements": "warn",
+        "useAriaPropsForRole": "warn",
+        "noSvgWithoutTitle": "warn",
+        "noAutofocus": "warn"
+      },
+
+    }
+  },
+  "files": {
+    "includes": [
+      "**",
+      "!**/node_modules/**",
+      "!**/dist/**",
+      "!**/.stage/**",
+      "!**/release/**",
+      "!**/tmp/**",
+      "!**/.cache/**",
+      "!**/coverage/**",
+      "!**/.agent-workflows/**",
+      "!**/.unlazy/**",
+      "!**/.agents/**",
+      "!**/upstream/**",
+      "!patches/**"
+    ]
+  }
+}

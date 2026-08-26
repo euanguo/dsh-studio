@@ -33,6 +33,7 @@
   "contracts/workbench-contracts.ts:SessionCurrentInfoSnapshot",
   "contracts/workbench-contracts.ts:StatePersistenceAdapter",
   "contracts/workbench-contracts.ts:StateSlice",
+  "contracts/workbench-contracts.ts:StateSliceDefinition",
   "contracts/workbench-contracts.ts:SurfaceArea",
   "contracts/workbench-contracts.ts:ViewerSpec",
   "contracts/workbench-contracts.ts:WorkspaceIdentity",

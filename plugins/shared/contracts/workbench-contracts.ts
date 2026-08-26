@@ -116,7 +116,7 @@ export function resolveScopeBucket(
  *
  * The kernel plugin exposes its services only through the fixed ctx ids
  * `workbench.registry` / `workbench.open` / `workbench.layout` /
- * `workbench.state` / `workbench.events`; every type below is shared
+ * `workbench.events`; every type below is shared
  * vocabulary those services hand across the ctx boundary. Because plugins
  * must never value-import each other, ALL kernel types live here.
  */
@@ -409,7 +409,7 @@ export function forwardSessionIdentity(
   return current.subscribe(push)
 }
 
-/* ---------- State slices (ScopeService + StateStore) ---------- */
+/* ---------- State slice definition (persistVia vocabulary) ---------- */
 
 /**
  * Definition of ONE persisted state slice: a single table with a single
@@ -437,36 +437,8 @@ export interface StateSliceDefinition<T> {
  * later leaves wire this onto the shared `persistVia` facade without changing
  * the slice semantics.
  */
+/** Host-owned persistence seam behind a persisted slice. */
 export interface StatePersistenceAdapter {
   read(table: string, bucket: string): unknown
   write(table: string, bucket: string, value: unknown): void
-}
-
-export interface ScopeService {
-  /** The ONE bucket-key decision ({@linkcode resolveScopeBucket}). */
-  bucket(level: ScopeLevel, key: string | null | undefined): string
-}
-
-export interface StateSlice<T> {
-  readonly definition: StateSliceDefinition<T>
-  /**
-   * Read `bucket` through the version policy: equal version returns stored
-   * data; older versions migrate via the definition's hook or follow its
-   * reset policy; newer versions can never migrate and always reset.
-   */
-  get(bucket: string): T | undefined
-  /** Write `bucket` as a version-stamped envelope. */
-  set(bucket: string, value: T): void
-  /** Drop `bucket`; reading it afterwards yields `undefined`. */
-  delete(bucket: string): void
-}
-
-/** Unified retained-state layer (`ctx.get('workbench.state')`). */
-export interface StateStore {
-  readonly scope: ScopeService
-  /**
-   * Register the single slice owning `definition.table`. A second slice for
-   * the same table throws — one table, one writer.
-   */
-  slice<T>(definition: StateSliceDefinition<T>): StateSlice<T>
 }

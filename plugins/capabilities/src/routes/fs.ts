@@ -13,7 +13,7 @@ import {
 import {
   assertWithinSession,
   readText,
-  resolveGitPath,
+  resolveSessionPath,
   searchWorkspace,
   type FsHandlerDeps,
 } from './shared.ts'
@@ -26,14 +26,24 @@ export function buildFsHandlers(deps: FsHandlerDeps): Record<string, ApiMethod> 
     'fs.tree': async (payload) => {
       const { cwd } = cwdOf(payload)
       const record = payload as { path?: unknown }
-      const target = record.path === undefined ? cwd : requireAbsolute(requireString(payload, 'path'))
+      const explicit = typeof record?.path === 'string' && record.path !== ''
+        ? requireAbsolute(requireString(payload, 'path'))
+        : undefined
+      const target = explicit ?? cwd
+      // Listings are fenced to the session subtree like every other read;
+      // the cwd itself was already registry-validated by cwdOf.
+      assertWithinSession(cwd, target, 'tree')
       return listDirectory(target, resolved.listLimit)
     },
     'fs.read': async (payload) => {
       const { cwd } = cwdOf(payload)
       // Relative paths are git-derived (status/diff report repo-root-relative
       // names; the untracked diff view reads the file through this route).
-      const path = await resolveGitPath(cwd, requireString(payload, 'path'))
+      // The fence anchors on the SERVER-DERIVED repo root so a subdirectory
+      // session keeps reading its own repository, while an absolute path
+      // outside the session subtree is refused (403).
+      const { path, base } = await resolveSessionPath(cwd, requireString(payload, 'path'))
+      assertWithinSession(base, path, 'read')
       const { content, truncated, binary, size, head, data } = await readText(path, resolved.readLimit)
       if (binary) {
         return {
@@ -122,10 +132,12 @@ export function buildFsHandlers(deps: FsHandlerDeps): Record<string, ApiMethod> 
     },
     // fs.tail stays a dormant handler — no surfaced consumer calls it yet.
     // Reads the tail of a session-scoped file (runs-byte window, capped at
-    // 512 KiB).
+    // 512 KiB). Fenced like fs.read: repo-root anchor for git-derived
+    // relative paths, cwd subtree for absolute ones.
     'fs.tail': async (payload) => {
       const { cwd } = cwdOf(payload)
-      const path = await resolveGitPath(cwd, requireString(payload, 'path'))
+      const { path, base } = await resolveSessionPath(cwd, requireString(payload, 'path'))
+      assertWithinSession(base, path, 'tail')
       const maxBytes = Math.min(optionalInteger(payload, 'maxBytes', 1, Number.MAX_SAFE_INTEGER) ?? 128 * 1024, 512 * 1024)
       const info = await stat(path).catch((error: unknown) => {
         throw new CapabilityError('fs-error', `cannot read "${path}": ${errorMessage(error)}`, 400)

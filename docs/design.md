@@ -107,7 +107,10 @@ Project → Worktree → Session 左栏的事实来源、深模块 seam、语义
 ## 安全边界
 
 - Web 默认只监听 loopback；对局域网开放时必须配置可信 authority。
-- Files、PTY 和 Git 请求绑定当前 Session 与 Workspace。
+- Files、PTY 和 Git 请求的 cwd 经服务端 workspace scope 注册表校验
+  （已注册工作区根 ∪ 活跃会话 cwd，未注册目录返回 forbidden）；读写路径再过
+  会话子树围栏——读类以服务端解析的仓库根为锚，兼容子目录会话。同源
+  loopback 栅栏只是传输层防线，不是认证。
 - `view_image` 的本地文件读取绑定当前 Session Workspace；远程视觉请求只发送到用户配置的端点。
 - Desktop/Web 的图片粘贴、缩略图和提交全部由 DSH attachment store 与原生
   attachment rail 负责；`@dsh-studio/vision` 在 DeepSeek V4 的最终图片 admission

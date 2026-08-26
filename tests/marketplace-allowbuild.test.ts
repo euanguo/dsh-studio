@@ -13,10 +13,10 @@ import type {
 import { startMarketplaceAgentGateway } from '../plugins/plugin-marketplace/src/host/agent-gateway.ts'
 import {
   PluginMarketplaceManager,
-  regenerateManagedAllowBuilds,
   type MarketplacePreviewRuntimeInput,
   type MarketplaceRuntime,
 } from '../plugins/plugin-marketplace/src/host/transaction-manager.ts'
+import { regenerateManagedAllowBuilds } from '../plugins/plugin-marketplace/src/host/allowbuild-yaml.ts'
 
 // Behavior tests for the leaf-3.3 whole-block allowBuild protocol and the
 // error-retention snapshot semantics:

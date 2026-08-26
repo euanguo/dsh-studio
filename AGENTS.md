@@ -59,7 +59,11 @@ See `docs/design.en.md` and `docs/design.md` for detailed boundaries.
   removal, or model reduction.
 - Do not edit generated output in `dist/`, `.stage/`, `release/`, or caches.
 - Do not weaken `.npmrc`, lockfile, provenance, or release safety policies.
-- Update both language variants when user-facing documentation changes.
+- Bilingual docs follow a two-tier policy. Tier-EN-required core docs —
+  `design*`, `usage*`, `PLUGIN-DEVELOPMENT*`, `persistence-architecture*`,
+  `workbench-architecture*`, `interaction-model*` — must keep zh/en pairs in
+  sync when changed. All other docs are the zh-only tier (EN counterparts
+  optional; zh is authoritative). State the tier when adding a new doc.
 - Add tests only for reusable, non-trivial contracts or regressions.
 - Run `pnpm run typecheck`, `pnpm test`, and `pnpm run build` when code changes.
   Run the relevant surface smoke or package check for runtime changes.

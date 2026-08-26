@@ -12,7 +12,8 @@
  * `filters.reset()` is still available for the error-banner "reset and
  * reload" action, which must reset without a remount.
  */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import {
   Button,
   Input,
@@ -124,6 +125,116 @@ export function deriveMarketplaceCatalog(
       .some(value => value.toLowerCase().includes(needle))
   })
   return { categories, statusCounts, plugins }
+}
+
+/** Card geometry: the description is line-clamped to 2, so every card renders
+ *  at a fixed height — which is what makes row virtualization exact. */
+const CARD_MIN_WIDTH = 240
+const CARD_GAP = 8
+const CARD_HEIGHT = 104
+const ROW_HEIGHT = CARD_HEIGHT + CARD_GAP
+
+/**
+ * Windowed card grid: only viewport rows (+ overscan) mount real cards, so a
+ * 1700+ entry catalog no longer mounts ~1761 buttons into the DOM. Row
+ * virtualization over a measured column count keeps the CSS auto-fill grid's
+ * visual contract (min 240px columns, 8px gaps) while PluginCard stays a pure
+ * presentational component. Only mounted cards are tabbable — same tradeoff
+ * as the left-rail session list.
+ */
+function VirtualCardGrid({
+  plugins,
+  selectedId,
+  onSelect,
+  t,
+}: {
+  plugins: MarketplacePlugin[]
+  selectedId: string | null
+  onSelect(id: string): void
+  t: Translate<MarketplaceMessage>
+}): JSX.Element {
+  // The virtualizer must observe the ACTUAL scrolling viewport, not whatever
+  // node ScrollArea's forwardRef happens to land on: base-ui can remap the
+  // viewport during the modal open animation, and observing an unbounded
+  // wrapper makes the whole catalog count as "visible" (all rows mount).
+  // Resolve the real viewport through a callback ref into state so the hook
+  // re-targets when the node identity changes.
+  const [scrollElement, setScrollElement] = useState<HTMLDivElement | null>(null)
+  const resolveScrollElement = useCallback((node: HTMLDivElement | null): void => {
+    // The forwarded node can be the unbounded CONTENT wrapper inside the
+    // viewport (shared ScrollArea applies this className to both layers), so
+    // climb first, then descend, then fall back to the node itself.
+    const viewport = node?.closest<HTMLDivElement>(
+      '.dsh-studio-ui-scroll-area-viewport',
+    ) ?? node?.querySelector<HTMLDivElement>(
+      '.dsh-studio-ui-scroll-area-viewport',
+    ) ?? node
+    setScrollElement(viewport)
+  }, [])
+  const [width, setWidth] = useState(0)
+  useEffect(() => {
+    if (scrollElement === null) return
+    setWidth(scrollElement.clientWidth)
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0]
+      if (entry !== undefined) setWidth(entry.contentRect.width)
+    })
+    observer.observe(scrollElement)
+    return () => { observer.disconnect() }
+  }, [scrollElement])
+  const columns = Math.max(1, Math.floor((width + CARD_GAP) / (CARD_MIN_WIDTH + CARD_GAP)))
+  const rowCount = Math.ceil(plugins.length / columns)
+  const virtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => scrollElement,
+    estimateSize: () => ROW_HEIGHT,
+    overscan: 3,
+    getItemKey: index => plugins[index * columns]?.id ?? index,
+  })
+  useEffect(() => {
+    // First rect read can land before the open animation settles; re-measure
+    // once the real viewport is attached.
+    virtualizer.measure()
+  }, [scrollElement, virtualizer])
+  return (
+    <ScrollArea
+      ref={resolveScrollElement}
+      className="oh-marketplace-main"
+      viewportClassName="dsh-studio-ui-scroll-viewport-inset"
+    >
+      <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
+        {virtualizer.getVirtualItems().map(virtualRow => {
+          const start = virtualRow.index * columns
+          const rowPlugins = plugins.slice(start, start + columns)
+          return (
+            <div
+              key={virtualRow.key}
+              className="oh-marketplace-grid"
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: CARD_HEIGHT,
+                transform: `translateY(${String(virtualRow.start)}px)`,
+                gridTemplateColumns: `repeat(${String(columns)}, minmax(0, 1fr))`,
+              }}
+            >
+              {rowPlugins.map(plugin => (
+                <PluginCard
+                  key={plugin.id}
+                  plugin={plugin}
+                  selected={selectedId === plugin.id}
+                  select={() => { onSelect(plugin.id) }}
+                  t={t}
+                />
+              ))}
+            </div>
+          )
+        })}
+      </div>
+    </ScrollArea>
+  )
 }
 
 const STATUS_TABS = [
@@ -377,32 +488,33 @@ export function MarketplaceModal({
             <span>{data.snapshot.candidate.execution}</span>
           </div>
         )}
-        <ScrollArea className="oh-marketplace-main" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
-          {data.snapshot === null || data.busy && data.snapshot.catalog.length === 0 ? (
+        {data.snapshot === null || data.busy && data.snapshot.catalog.length === 0 ? (
+          <ScrollArea className="oh-marketplace-main" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
             <LoadingState className="oh-marketplace-empty" label={t('loading-catalog')} />
-          ) : data.snapshot.auth.status !== 'ready' && data.snapshot.catalog.length === 0 ? (
+          </ScrollArea>
+        ) : data.snapshot.auth.status !== 'ready' && data.snapshot.catalog.length === 0 ? (
+          <ScrollArea className="oh-marketplace-main" viewportClassName="dsh-studio-ui-scroll-viewport-inset">
             <EmptyState
               layout="centered"
               className="oh-marketplace-empty"
               title={t('github-auth-required')}
               description={localizedAuthDetail(data.snapshot.auth.detail, t)}
             />
-          ) : viewMeta.plugins.length === 0 ? (
+          </ScrollArea>
+        ) : viewMeta.plugins.length === 0 ? (
+          <div className="oh-marketplace-main">
             <EmptyState layout="centered" className="oh-marketplace-empty" title={t('no-match')} />
-          ) : (
-            <div className="oh-marketplace-grid">
-              {viewMeta.plugins.map(plugin => (
-                <PluginCard
-                  key={plugin.id}
-                  plugin={plugin}
-                  selected={filters.selectedId === plugin.id}
-                  select={() => { filters.setSelectedId(plugin.id) }}
-                  t={t}
-                />
-              ))}
-            </div>
-          )}
-        </ScrollArea>
+          </div>
+        ) : (
+          // The grid OWNS its scroller: wrapping it in another ScrollArea
+          // would leave the inner unbounded and defeat windowing.
+          <VirtualCardGrid
+            plugins={viewMeta.plugins}
+            selectedId={filters.selectedId}
+            onSelect={filters.setSelectedId}
+            t={t}
+          />
+        )}
         </div>
       </Modal>
       {open && selected !== null && data.snapshot !== null && (

@@ -35,11 +35,33 @@ export interface GitHandlerDeps {
   ctx: Context
   getSettings(): CapabilitiesSettingsFace | undefined
   getSourceControlAiGenerator(): SourceControlAiGenerator | undefined
+  /**
+   * Remote-mutation face, injectable for tests. Defaults to the shared
+   * git-core module; only push-class commands ride it so the confirmation
+   * gate can be exercised without touching a real repository.
+   */
+  remoteGit?: Pick<typeof git, 'push' | 'forcePushWithLease'>
+}
+
+/**
+ * Remote mutation is higher-stakes than any workspace write (it changes
+ * shared state other people build on), so push-class commands demand the
+ * client echo explicit confirmation intent on every call. The gate runs
+ * BEFORE cwd resolution: intent is checked first, scope second.
+ */
+function requirePushConfirmation(payload: unknown): void {
+  const record = payload as { confirm?: unknown } | null
+  if (typeof record?.confirm !== 'boolean') {
+    throw new CapabilityError('bad-request', 'git push requires an explicit boolean confirm field')
+  }
+  if (!record.confirm) {
+    throw new CapabilityError('forbidden', 'push rejected without explicit confirmation', 403)
+  }
 }
 
 /** Build the git.* and source-control-ai.* route groups. */
 export function buildGitHandlers(deps: GitHandlerDeps): Record<string, ApiMethod> {
-  const { cwdOf, ctx, getSettings, getSourceControlAiGenerator } = deps
+  const { cwdOf, ctx, getSettings, getSourceControlAiGenerator, remoteGit = git } = deps
   return {
     'git.status': async (payload) => {
       const { cwd } = cwdOf(payload)
@@ -181,13 +203,15 @@ export function buildGitHandlers(deps: GitHandlerDeps): Record<string, ApiMethod
       return { ok: true }
     },
     'git.push': async (payload) => {
+      requirePushConfirmation(payload)
       const { cwd } = cwdOf(payload)
-      await git.push(cwd)
+      await remoteGit.push(cwd)
       return { ok: true }
     },
     'git.force-push': async (payload) => {
+      requirePushConfirmation(payload)
       const { cwd } = cwdOf(payload)
-      await git.forcePushWithLease(cwd)
+      await remoteGit.forcePushWithLease(cwd)
       return { ok: true }
     },
     'git.sync': async (payload) => {

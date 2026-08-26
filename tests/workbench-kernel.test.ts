@@ -1,13 +1,12 @@
 /**
  * Workbench kernel skeleton behavior tests (kernel-refactor leaf-1.1).
  *
- * Exercises the five @dsh-studio/workbench services end to end through
+ * Exercises the four @dsh-studio/workbench services end to end through
  * their public factories AND the plugin entry's ctx wiring: registry
  * register/resolve/dedupe; open-pipeline plan routing, dedupe, and
  * dispatcher contract; layout claim/release/preview negotiation and the
- * z-index table; state slice set/get with version migration hooks;
- * workspace/session event publication. Boundary assertions pin that the
- * kernel stays DOM/React-free and reachable only via ctx ids.
+ * z-index table; workspace/session event publication. Boundary assertions
+ * pin that the kernel stays DOM/React-free and reachable only via ctx ids.
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -15,7 +14,6 @@ import { dirname, join } from 'node:path'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import {
-  GLOBAL_SCOPE_BUCKET,
   LAYOUT_REGION_Z,
   type OpenPipelineAction,
   resolveSurfaceDedupeKey,
@@ -26,11 +24,6 @@ import { createWorkspaceEvents } from '../plugins/workbench/src/events.ts'
 import { createLayoutService } from '../plugins/workbench/src/layout.ts'
 import { createOpenPipeline } from '../plugins/workbench/src/open-pipeline.ts'
 import { createSurfaceRegistry } from '../plugins/workbench/src/registry.ts'
-import {
-  createMemoryAdapter,
-  createStateStore,
-  defineStateSlice,
-} from '../plugins/workbench/src/state.ts'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 
@@ -270,88 +263,6 @@ test('layout z-index arbitration uses the shared table and stacks overlays in la
   assert.equal(layout.zIndexFor('overlay'), LAYOUT_REGION_Z.overlay)
 })
 
-/* ---------- ScopeService + StateStore ---------- */
-
-test('state slices round-trip per bucket and global collapses onto one bucket', () => {
-  const store = createStateStore(createMemoryAdapter())
-  assert.equal(store.scope.bucket('workspace', '/repo'), '/repo')
-  assert.equal(store.scope.bucket('workspace', '   '), GLOBAL_SCOPE_BUCKET)
-  assert.equal(store.scope.bucket('global', '/ignored'), GLOBAL_SCOPE_BUCKET)
-
-  const flags = store.slice<string>({
-    table: 'workbench_flags',
-    scope: 'global',
-    version: 1,
-  })
-  assert.equal(flags.get(GLOBAL_SCOPE_BUCKET), undefined)
-  flags.set(GLOBAL_SCOPE_BUCKET, 'dark')
-  assert.equal(flags.get(GLOBAL_SCOPE_BUCKET), 'dark')
-  flags.delete(GLOBAL_SCOPE_BUCKET)
-  assert.equal(flags.get(GLOBAL_SCOPE_BUCKET), undefined)
-
-  const layouts = store.slice<Record<string, number>>({
-    table: 'center_layouts',
-    scope: 'workspace',
-    version: 1,
-  })
-  layouts.set('/repo-a', { width: 100 })
-  layouts.set('/repo-b', { width: 200 })
-  assert.deepEqual(layouts.get('/repo-a'), { width: 100 })
-  assert.deepEqual(layouts.get('/repo-b'), { width: 200 })
-})
-
-test('state slice versions migrate forward and reset on incompatible formats', () => {
-  const adapter = createMemoryAdapter()
-
-  // v1 data written "before" the bump migrates on read.
-  adapter.write('comments', '/repo', { version: 1, data: ['legacy'] })
-  const slice = defineStateSlice<string[]>({
-    table: 'comments',
-    scope: 'workspace',
-    version: 2,
-    onIncompatible: 'migrate',
-    migrate: raw => (Array.isArray(raw) ? raw.map(String) : []),
-  }, adapter)
-  assert.deepEqual(slice.get('/repo'), ['legacy'])
-
-  // Default policy resets legacy shapes instead of guessing.
-  adapter.write('flags', '__global__', 'raw-string-not-envelope')
-  const resetting = defineStateSlice<string>({
-    table: 'flags',
-    scope: 'global',
-    version: 3,
-  }, adapter)
-  assert.equal(resetting.get('__global__'), undefined)
-  assert.equal(adapter.read('flags', '__global__'), undefined)
-
-  // Forward versions can never migrate: they reset under both policies.
-  adapter.write('forward', 'b', { version: 9, data: { future: true } })
-  const migrating = defineStateSlice<{ future?: boolean }>({
-    table: 'forward',
-    scope: 'session',
-    version: 2,
-    onIncompatible: 'migrate',
-    migrate: raw => ({ future: Boolean((raw as { future?: boolean }).future) }),
-  }, adapter)
-  assert.equal(migrating.get('b'), undefined)
-
-  // Declaring migrate-without-hook is rejected at definition time.
-  assert.throws(() => {
-    defineStateSlice({ table: 'bad', scope: 'global', version: 1, onIncompatible: 'migrate' }, adapter)
-  }, /without a migrate hook/)
-})
-
-test('one table has exactly one slice owner per store', () => {
-  const store = createStateStore(createMemoryAdapter())
-  store.slice({ table: 'flags', scope: 'global', version: 1 })
-  assert.throws(() => store.slice({ table: 'flags', scope: 'global', version: 1 }), /slice owner/)
-  // Separate stores own separate tables — the guard is per store graph.
-  const other = createStateStore(createMemoryAdapter())
-  assert.doesNotThrow(() => other.slice({ table: 'flags', scope: 'global', version: 1 }))
-  assert.throws(() => store.slice({ table: '', scope: 'global', version: 1 }), /non-empty table/)
-  assert.throws(() => store.slice({ table: 'x', scope: 'global', version: 0 }), /positive integer/)
-})
-
 /* ---------- WorkspaceEvents ---------- */
 
 test('workspace events keep cwd switches and session switches distinct', () => {
@@ -392,7 +303,7 @@ test('workspace events keep cwd switches and session switches distinct', () => {
 
 /* ---------- Plugin wiring & boundaries ---------- */
 
-test('client entry provides the five kernel services under the fixed ctx ids', () => {
+test('client entry provides the four kernel services under the fixed ctx ids', () => {
   const provided = new Map<string, unknown>()
   const removed: string[] = []
   let teardown: (() => void) | undefined
@@ -411,14 +322,12 @@ test('client entry provides the five kernel services under the fixed ctx ids', (
   // The fixed service ids are the entire cross-plugin surface.
   assert.deepEqual(
     [...provided.keys()].sort(),
-    ['workbench.events', 'workbench.layout', 'workbench.open', 'workbench.registry', 'workbench.state'],
+    ['workbench.events', 'workbench.layout', 'workbench.open', 'workbench.registry'],
   )
   // The wired services are real: exercise each one through the ctx map.
   const registry = provided.get('workbench.registry') as ReturnType<typeof createSurfaceRegistry>
   registry.register(descriptor({ kind: 'file' }))
   assert.deepEqual((provided.get('workbench.registry') as typeof registry).kinds(), ['file'])
-  const store = provided.get('workbench.state') as ReturnType<typeof createStateStore>
-  assert.equal(typeof store.slice, 'function')
   const events = provided.get('workbench.events') as ReturnType<typeof createWorkspaceEvents>
   assert.equal(typeof events.onWorkspaceChanged, 'function')
   const layout = provided.get('workbench.layout') as ReturnType<typeof createLayoutService>
@@ -435,7 +344,6 @@ test('client entry provides the five kernel services under the fixed ctx ids', (
     'workbench.layout',
     'workbench.open',
     'workbench.registry',
-    'workbench.state',
   ])
   assert.equal(provided.size, 0)
 })
@@ -451,7 +359,6 @@ test('kernel sources stay DOM/React/cordis free (import-direction boundary)', ()
     'plugins/workbench/src/layout.ts',
     'plugins/workbench/src/open-pipeline.ts',
     'plugins/workbench/src/registry.ts',
-    'plugins/workbench/src/state.ts',
     'plugins/shared/contracts/workbench-contracts.ts',
   ]
   const banned = /(?:from\s+|import\s*\()\s*['"](react|react-dom[^'"]*|cordis|@deepseek-ai\/[^'"]*)['"]/
