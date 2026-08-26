@@ -76,8 +76,9 @@ export function WorkspacePickFlow({
   side = 'bottom',
   selectedId,
 }: WorkspacePickFlowProps) {
-  const workspaceSnapshot = useWorkspaces(state => state)
-  const workspaces = workspaceSnapshot.items
+  // Per-field subscriptions keep the picker off whole-store re-renders.
+  const workspaces = useWorkspaces(state => state.items)
+  const workspacePhase = useWorkspaces(state => state.phase)
   const getAnchorRect = useCallback(
     () => anchorRef?.current?.getBoundingClientRect() ?? null,
     [anchorRef],
@@ -155,7 +156,7 @@ export function WorkspacePickFlow({
   // only final once the baseline lands — until then the menu stays up with its
   // loading status instead of jumping into a flow the arriving list would have
   // made unnecessary; the add-only surface lists nothing and never waits.
-  const listSettled = addOnly || workspaceSnapshot.phase === 'ready'
+  const listSettled = addOnly || workspacePhase === 'ready'
   const addIsTheOnlyEntry = !pinAdd && listSettled && addEntries.length === 1
   // `flowBusy` gates this exactly as it disables the equivalent menu entry: a
   // pick still being adopted owns the surface until it settles.
@@ -201,7 +202,7 @@ export function WorkspacePickFlow({
         portal
         getAnchorRect={getAnchorRect}
       />
-      {open && !addIsTheOnlyEntry && !menuIsEmpty && workspaceSnapshot.phase === 'pending' && (
+      {open && !addIsTheOnlyEntry && !menuIsEmpty && workspacePhase === 'pending' && (
         <LoadingState className={css.menuStatus} label={t('picker.loading')} />
       )}
       {renderDirectoryFlow(flowOwner)}

@@ -62,7 +62,27 @@ export function WorkspaceBrowser({
   t,
 }: WorkspaceBrowserProps) {
   const workspaces = useWorkspaces(state => state.items)
-  const sessionList = useSessions(s => s)
+  // Subscribe per-field: a whole-store identity selector re-renders on every
+  // store change, so reassemble the slice the subtree actually consumes.
+  const sessionsById = useSessions(s => s.byId)
+  const sessionIdsOrder = useSessions(s => s.ids)
+  const sessionsCurrent = useSessions(s => s.current)
+  const sessionsPhase = useSessions(s => s.phase)
+  const sessionsSubagents = useSessions(s => s.subagentsByParent)
+  const sessionsJobs = useSessions(s => s.jobsBySession)
+  const sessionsCurrentAddress = useSessions(s => s.currentAddress)
+  const sessionList = useMemo(
+    () => ({
+      byId: sessionsById,
+      ids: sessionIdsOrder,
+      current: sessionsCurrent,
+      phase: sessionsPhase,
+      subagentsByParent: sessionsSubagents,
+      jobsBySession: sessionsJobs,
+      currentAddress: sessionsCurrentAddress,
+    }),
+    [sessionsById, sessionIdsOrder, sessionsCurrent, sessionsPhase, sessionsSubagents, sessionsJobs, sessionsCurrentAddress],
+  )
   const workspacePhase = useWorkspaces(state => state.phase)
   const archivedSessionIds = useWorkspaces(state => state.archivedSessionIds)
   const directoryFlowAvailable = useDirectoryFlow(occupied => occupied)

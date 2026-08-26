@@ -17,10 +17,10 @@ import {
   workspaceExpansionKey, worktreeExpansionKey,
 } from '../tree.ts'
 import { loadLeftRailChrome, flushLeftRailChrome, saveLeftRailChrome } from '../left-rail-chrome.ts'
-import { loadLeftRailSettings, withSettingsCas, type LeftRailSettings } from '../left-rail-settings.ts'
+import { loadLeftRailSettings, startLeftRailSettingsPersistence, type LeftRailSettings } from '../left-rail-settings.ts'
 import { toast } from '@dsh-studio/shared/toast'
 
-/** Debounce before a whole-slice `settings.replace` (matches the chrome store's own 300ms). */
+/** Debounce before a whole-slice settings write (matches the chrome store's own 300ms). */
 const SETTINGS_SAVE_DEBOUNCE_MS = 300
 
 export interface LeftRailViewSlice {
@@ -57,10 +57,10 @@ export function useLeftRailPersistence({
   t: WorkspaceBrowserProps['t']
 }): void {
   // Last-known server slice: the browser owns ONLY the view fields below, so
-  // every whole-section save merges them over the server truth — keys owned
-  // by other surfaces ride along untouched instead of being deleted/reverted.
+  // every save merges them over this base — and each write diffs against a
+  // FRESH read inside the settings backend, so keys owned by other surfaces
+  // compare equal and ride untouched instead of being deleted/reverted.
   const settingsSlice = useRef<LeftRailSettings>({})
-  const settingsRevision = useRef<number>(0)
   const settingsHydrated = useRef(false)
   // The latest whole-section writer, kept current every render so a debounced
   // save or an unmount flush always persists the freshest view fields.
@@ -72,12 +72,22 @@ export function useLeftRailPersistence({
     projectIconOverrides: view.projectIconOverrides,
   })
   const chromeHydrated = useRef(false)
+  // One persistVia-driven settings pump per mount: debounced view saves and
+  // the unmount flush both snapshot through it, and write failures surface
+  // through its callback (same toast as before the unification).
+  const settingsPump = useRef<ReturnType<typeof startLeftRailSettingsPersistence> | undefined>(undefined)
+  useEffect(() => {
+    const pump = startLeftRailSettingsPersistence({
+      onWriteFailed: () => { toast(t('settings.worktree.saveFailed')) },
+    })
+    settingsPump.current = pump
+    return () => { pump.stop() }
+  }, [t])
 
   useEffect(() => {
     let cancelled = false
     loadLeftRailSettings().then((view) => {
       if (cancelled) return
-      settingsRevision.current = view.revision
       settingsSlice.current = view.value
       actions.hydrateGrouping(view.value)
       settingsHydrated.current = true
@@ -116,13 +126,9 @@ export function useLeftRailPersistence({
   useEffect(() => {
     if (!settingsHydrated.current) return
     const timer = window.setTimeout(() => {
-      // CAS persistence with one self-healing retry (see withSettingsCas).
-      void withSettingsCas(settingsSlice.current, settingsRevision.current, buildSettingsSlice.current)
-        .then(view => {
-          settingsRevision.current = view.revision
-          settingsSlice.current = view.value
-        })
-        .catch(() => { toast(t('settings.worktree.saveFailed')) })
+      // Whole-section CAS persistence with one self-healing retry, queued
+      // through the persistVia settings pump (see startLeftRailSettingsPersistence).
+      settingsPump.current?.write(buildSettingsSlice.current(settingsSlice.current))
     }, SETTINGS_SAVE_DEBOUNCE_MS)
     return () => { window.clearTimeout(timer) }
   }, [view.activeTab, view.projectGroup, view.groupIds, view.groupLabels,
@@ -133,12 +139,7 @@ export function useLeftRailPersistence({
     // write would be lost; persist the freshest slice now instead.
     return () => {
       if (!settingsHydrated.current) return
-      void withSettingsCas(settingsSlice.current, settingsRevision.current, buildSettingsSlice.current)
-        .then(view => {
-          settingsRevision.current = view.revision
-          settingsSlice.current = view.value
-        })
-        .catch(() => { /* the surface is unmounting; nothing left to render */ })
+      void settingsPump.current?.flush()
     }
   }, [])
 

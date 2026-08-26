@@ -4,7 +4,7 @@
  * messages (wire error strings) pass through untranslated by policy.
  */
 
-/** Simplified Chinese dictionary (the key-set source of truth). */
+/** Simplified Chinese dictionary — the key-set source of truth for both locales. */
 export const zh = {
   'group.ungrouped': '未分组',
   'session.new': '新会话',
@@ -163,7 +163,14 @@ export const zh = {
 /** The workspace namespace key union. */
 export type WorkspaceKey = keyof typeof zh
 
-/** English dictionary, checked complete against the zh key set. */
+/**
+ * English dictionary, pinned to the zh key set in both directions: the
+ * `Record<WorkspaceKey, string>` side fails when a key is missing here,
+ * and the fresh object literal's excess-property check fails when an extra
+ * key is added — neither table can gain a key the other lacks. The runtime
+ * backstop for this contract is the key-set equality assertion in
+ * tests/i18n-discipline.test.ts.
+ */
 export const en = {
   'group.ungrouped': 'Ungrouped',
   'session.new': 'New Session',

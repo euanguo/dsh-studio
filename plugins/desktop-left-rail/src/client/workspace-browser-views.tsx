@@ -128,7 +128,19 @@ export function FlatList({
   useSessions, open, forkSession, onSessionRename, onSessionArchive, archivedSessionIds,
   orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t,
 }: BrowserViewProps) {
-  const list = useSessions(s => s)
+  // Per-field subscriptions: an identity selector would re-render the whole
+  // list on every unrelated store change.
+  const byId = useSessions(s => s.byId)
+  const ids = useSessions(s => s.ids)
+  const current = useSessions(s => s.current)
+  const phase = useSessions(s => s.phase)
+  const subagentsByParent = useSessions(s => s.subagentsByParent)
+  const jobsBySession = useSessions(s => s.jobsBySession)
+  const currentAddress = useSessions(s => s.currentAddress)
+  const list = useMemo(
+    () => ({ byId, ids, current, phase, subagentsByParent, jobsBySession, currentAddress }),
+    [byId, ids, current, phase, subagentsByParent, jobsBySession, currentAddress],
+  )
   const baseRows = useMemo(
     () => deriveFlat(list, archivedSessionIds),
     [list, archivedSessionIds],
@@ -310,7 +322,19 @@ export function SearchResults({
   /** Optional block rendered above the session rows (project matches). */
   header?: ReactNode
 }) {
-  const list = useSessions(s => s)
+  // Per-field subscriptions: an identity selector would re-render the whole
+  // search view on every unrelated store change.
+  const byId = useSessions(s => s.byId)
+  const ids = useSessions(s => s.ids)
+  const current = useSessions(s => s.current)
+  const phase = useSessions(s => s.phase)
+  const subagentsByParent = useSessions(s => s.subagentsByParent)
+  const jobsBySession = useSessions(s => s.jobsBySession)
+  const currentAddress = useSessions(s => s.currentAddress)
+  const list = useMemo(
+    () => ({ byId, ids, current, phase, subagentsByParent, jobsBySession, currentAddress }),
+    [byId, ids, current, phase, subagentsByParent, jobsBySession, currentAddress],
+  )
   // Stable reference when the remote page still matches the query, so the
   // derive memo below only re-runs when the query or the page actually moves
   // (the fallback "loading" projection is memoized once per query mismatch).
