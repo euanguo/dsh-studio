@@ -179,7 +179,7 @@ export interface KillEscalationSlot {
 
 /**
  * Terminate a pty's process tree with the standard SIGTERM → grace → SIGKILL
- * escalation shared by the UI-tab and agent registries (RD-25). After the
+ * escalation shared by the UI-tab and agent registries. After the
  * initial SIGTERM reaches the captured tree, a grace timer re-checks
  * `isExited`; if the process has not gone by then, the same captured tree is
  * SIGKILLed. Windows uses task-kill semantics inside the killer and never

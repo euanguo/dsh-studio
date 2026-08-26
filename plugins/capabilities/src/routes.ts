@@ -7,8 +7,8 @@
  * fallback (`sessionCwdOf`) remains for the host's agent/media surfaces, not
  * the fs/git routes. The orphan surfaces (browser.probe, workspace.cwd,
  * git.revert/cherry-pick/show, fs.tail, agent-pty.close) are restored as
- * unwired dormant handlers (leaf-R2 ④) — the DTO table and client wrappers
- * were restored with them.
+ * unwired dormant handlers — the DTO table and client wrappers were restored
+ * with them.
  */
 import type { Context } from './context-types.ts'
 import type { ResolvedCapabilitiesConfig } from './config.ts'
@@ -41,10 +41,10 @@ import type { SourceControlAiGenerator } from './source-control-ai.ts'
 import type { ApiMethod } from './routes/types.ts'
 import type { WorktreeDefaultsResult } from '@dsh-studio/shared/worktree-preferences'
 
-// // unwired-capability (leaf-R2 ④): `extractFrameAncestors` restored inline
-// // (its module `browser-probe.ts` was removed in the dormant cut). Kept
-// // dependency-free so the parser is unit-testable; re-wiring browser.probe
-// // into a surfaced browser tab restores the embed-safety signal it feeds.
+// `extractFrameAncestors` lives inline here (its module `browser-probe.ts`
+// was removed in an earlier cut). Kept dependency-free so the parser is
+// unit-testable; re-wiring browser.probe into a surfaced browser tab restores
+// the embed-safety signal it feeds.
 /**
  * Extract the `frame-ancestors` source list of a Content-Security-Policy
  * header, or undefined when the directive is absent (or empty). Sources are
@@ -101,9 +101,9 @@ export function buildCapabilitiesRoutes(
       const cwd = cwdScopeOf(payload)
       return detectProjectIcon(cwd)
     },
-    // // unwired-capability (leaf-R2 ④): workspace.cwd restored as a dormant
-    // // handler — the sidebar surface that would call it is not mounted. The
-    // // workspace browser previously asked this for the breadcrumb/root label.
+    // workspace.cwd stays a dormant handler — the sidebar surface that would
+    // call it is not mounted. The workspace browser previously asked this for
+    // the breadcrumb/root label.
     'workspace.cwd': (payload) => {
       const { cwd } = cwdOf(payload)
       return { cwd, root: rootLabel(cwd), parent: parentOf(cwd) ?? null }
@@ -138,11 +138,10 @@ export function buildCapabilitiesRoutes(
     // silently overwritten (mirror of the settings seam's own guard).
     ...buildSettingsHandlers({ getSettings }),
     ...buildUiChromeHandlers({ getUiChrome }),
-    // // unwired-capability (leaf-R2 ④): browser.probe restored as a dormant
-    // // handler — the sidebar browser tab that used it for embed-safety
-    // // preview is not mounted, so nothing calls it yet. Re-wiring the tab
-    // // surface re-enables the capability as-is (the `extractFrameAncestors`
-    // // parser it needs is inlined above).
+    // browser.probe stays a dormant handler — the sidebar browser tab that
+    // used it for embed-safety preview is not mounted, so nothing calls it
+    // yet. Re-wiring the tab surface re-enables the capability as-is (the
+    // `extractFrameAncestors` parser it needs is inlined above).
     'browser.probe': async (payload) => {
       const raw = requireString(payload, 'url')
       let parsed: URL

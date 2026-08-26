@@ -14,7 +14,7 @@ import type { ApiMethod } from '../routes/types.ts'
 
 export interface WorktreeRouteDependencies {
   cwdScopeOf(payload: unknown): string
-  /** Single source for the effective worktree store defaults (RD-46) — the
+  /** Single source for the effective worktree store defaults — the
    *  delegation registry resolves the user override or the channel-aware
    *  data-root default with one consistent fallback. */
   getDefaults(): WorktreeDefaultsResult

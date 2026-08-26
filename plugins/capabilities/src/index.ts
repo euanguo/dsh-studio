@@ -443,7 +443,7 @@ export function apply(ctx: Context, config?: CapabilitiesConfig): void {
   ctx.effect(() => registerBundleRoute(ctx, fence), 'capabilities: /capabilities/bundle chunk route')
 
   // Shared skeleton for the media (/capabilities/file) and HTML preview
-  // (/capabilities/html) GET routes (RD-28): resolve the absolute path and its
+  // (/capabilities/html) GET routes: resolve the absolute path and its
   // cwd, enforce isWithin + isFile + size, read binary-safe, then let the
   // caller write its own headers. Error phrasing rides the caller's `scope`
   // so the two routes keep their distinct security/header contracts.

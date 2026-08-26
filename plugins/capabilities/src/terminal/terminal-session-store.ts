@@ -283,10 +283,9 @@ export class TerminalSessionStore {
     await this.persistQueue
   }
 
-  // // unwired-capability (leaf-R2 ⑤): `dispose()` restored as the terminal
-  // // session store's teardown drain — HEAD-era public contract re-added for
-  // // host shutdown parity. `flush()` must run before the store is marked
-  // // dead so a final pending write survives Cordis teardown.
+  // `dispose()` drains the terminal session store's teardown — public
+  // contract kept for host shutdown parity. `flush()` must run before the
+  // store is marked dead so a final pending write survives Cordis teardown.
   async dispose(): Promise<void> {
     await this.flush()
     this.disposed = true
@@ -424,8 +423,7 @@ export function terminalSessionKey(sessionId: string, tabId: string): string {
 
 /**
  * Atomic five-step snapshot write shared by the sync and async flush paths
- * (RD-26): mkdir → rotate current→previous → shared tmp+rename atomic write →
- * 0600. Reusing one helper removes the duplicated block and guarantees both
+ * mkdir → rotate current→previous → shared tmp+rename atomic write → 0600. Reusing one helper removes the duplicated block and guarantees both
  * paths apply the same rotation/atomicity contract. The tmp+rename atomic
  * step is delegated to `host-atomic-fs.writeFileAtomic[Sync]` (W1); `sync`
  * selects the synchronous shutdown-checkpoint variant (`flushSync`) from the

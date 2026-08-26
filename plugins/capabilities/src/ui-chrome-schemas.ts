@@ -109,6 +109,9 @@ const descriptorSchemas: Record<UiChromeTableName, any> = Object.fromEntries(
  */
 const workbenchCommentSchema = z.object({
   id: z.string().min(1),
+  // Optional for one release so pre-scope rows remain readable; the client
+  // sanitizer normalizes absent values to the legacy null scope.
+  cwd: z.string().min(1).nullable().optional(),
   path: z.string().min(1),
   startLine: z.number().int(),
   endLine: z.number().int().optional(),

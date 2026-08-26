@@ -52,9 +52,9 @@ export function buildPtyHandlers(deps: PtyHandlerDeps): Record<string, ApiMethod
       const handle = ptyManager.restart(cwd, tab, cwd, cols, rows)
       return { ok: true, incarnationId: handle.incarnationId }
     },
-    // // unwired-capability (leaf-R2 ④): agent-pty.close restored as a dormant
-    // // handler — no agent-terminal sidebar surface calls it today. Idempotent:
-    // // releasing an already-closed agent pty is a no-op.
+    // agent-pty.close stays a dormant handler — no agent-terminal sidebar
+    // surface calls it today. Idempotent: releasing an already-closed agent
+    // pty is a no-op.
     'agent-pty.close': (payload) => {
       const uuid = requireString(payload, 'uuid')
       agentPtyRegistry.close(uuid)

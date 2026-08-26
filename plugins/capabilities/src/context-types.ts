@@ -131,7 +131,7 @@ export interface CapabilitiesSlotRegisterOptions {
   locale?: string
   registrant?: string
   /** Business-face factory; args depend on the slot scope. */
-  inject?: (...args: any[]) => Record<string, unknown>
+  inject?: (...args: never[]) => Record<string, unknown>
   children?: Record<string, unknown>
 }
 
@@ -472,7 +472,7 @@ declare module 'cordis' {
      */
     on(event: 'session/event', listener: (session: unknown, event: CapabilitiesSessionEvent) => void): () => void
     on(event: 'tools/pre-execute', listener: (exec: { name: string }, next: () => Promise<unknown>) => unknown): () => void
-    on(event: string, listener: (...args: any[]) => unknown): () => void
+    on(event: string, listener: (...args: unknown[]) => unknown): () => void
     /**
      * Register a lifecycle callback (DSH-vendored cordis): runs at plugin
      * activation; its returned cleanup runs at disposal.

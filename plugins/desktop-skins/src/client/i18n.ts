@@ -1,3 +1,5 @@
+import type { LocaleMessages } from '@dsh-studio/shared/i18n'
+
 export type DesktopSkinsMessage =
   | 'skins.title'
   | 'skins.description'
@@ -15,7 +17,7 @@ export type DesktopSkinsMessage =
   | 'skins.mode.dark'
   | 'skins.selected'
 
-export const DESKTOP_SKINS_MESSAGES: Record<'en' | 'zh', Record<DesktopSkinsMessage, string>> = {
+export const DESKTOP_SKINS_MESSAGES: LocaleMessages<DesktopSkinsMessage> = {
   en: {
     'skins.title': 'Desktop skin',
     'skins.description': 'Choose a visual skin. Your selection is applied immediately.',

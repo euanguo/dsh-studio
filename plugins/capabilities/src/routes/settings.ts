@@ -21,7 +21,7 @@ export interface SettingsHandlerDeps {
 
 /**
  * Wrap one settings write with the three cases every mutation shares
- * (RD-29): the absent-service 503 guard, the namespace + expectedRevision
+ * the absent-service 503 guard, the namespace + expectedRevision
  * extraction, and the settings-conflict → 409 mapping. The per-operation
  * body is validated by the caller before invoking `run`.
  */

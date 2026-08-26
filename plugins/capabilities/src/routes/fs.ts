@@ -120,9 +120,9 @@ export function buildFsHandlers(deps: FsHandlerDeps): Record<string, ApiMethod> 
       const pattern = requireString(payload, 'pattern')
       return searchWorkspace(cwd, pattern, optionalBoolean(payload, 'caseSensitive') === true)
     },
-    // // unwired-capability (leaf-R2 ④): fs.tail restored as a dormant
-    // // handler — no surfaced consumer calls it yet. Reads the tail of a
-    // // session-scoped file (runs-byte window, capped at 512 KiB).
+    // fs.tail stays a dormant handler — no surfaced consumer calls it yet.
+    // Reads the tail of a session-scoped file (runs-byte window, capped at
+    // 512 KiB).
     'fs.tail': async (payload) => {
       const { cwd } = cwdOf(payload)
       const path = await resolveGitPath(cwd, requireString(payload, 'path'))

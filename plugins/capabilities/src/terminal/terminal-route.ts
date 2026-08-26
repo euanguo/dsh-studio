@@ -139,7 +139,7 @@ interface TerminalSocketPumpOptions {
 }
 
 /**
- * One socket ↔ pty pump, shared by the UI-tab and agent attach modes (RD-24).
+ * One socket ↔ pty pump, shared by the UI-tab and agent attach modes.
  * Batcher construction, data/exit forwarding, control-frame parsing
  * (close/ack/resync/resize), replay and socket-close cleanup were duplicated
  * across the two paths; this single pump keeps them identical and gives the
