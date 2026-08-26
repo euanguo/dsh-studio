@@ -16,6 +16,8 @@ import { Component, useCallback, useEffect, useMemo, useRef, useState, useSyncEx
 import type { ErrorInfo, ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '@dsh-studio/shared/i18n'
+import type { LayoutService } from '@dsh-studio/shared/workbench-contracts'
+import { ensureLayoutDom } from '@dsh-studio/shared/layout-dom'
 import {
   Button,
   Menu,
@@ -172,7 +174,10 @@ export function CenterSurfaceBody({
   sessions: SessionsService
   sidebar: DesktopSidebarServiceLike
 }): JSX.Element {
-  const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
+  // Identity reactivity rides the runtime's current-session projection
+  // (leaf-1.7); the roster itself is read fresh at render.
+  useSyncExternalStore(sessions.currentProvideInfo.subscribe, sessions.currentProvideInfo.getSnapshot)
+  const sessionList = sessions.list.getSnapshot()
   const workspace = resolveCenterWorkspace(sessionList)
   const cwd = workspace.status === 'ready' ? workspace.cwd : undefined
   const slice = useCenterSurfaceStore(state =>
@@ -208,6 +213,8 @@ export interface CenterSurfaceHostOptions {
   sidebar: DesktopSidebarServiceLike
   /** Workspace/session control — the center "+" menu starts new sessions. */
   workspaces: WorkspacesService
+  /** The workbench kernel layout service (center-tabs region claimant). */
+  layout: LayoutService
 }
 
 /** The subset of the sidebar service the center strip drives. */
@@ -232,6 +239,10 @@ export class CenterSurfaceHost {
   private readonly t: Translate<WorkspaceMessage>
   private readonly sidebar: DesktopSidebarServiceLike
   private readonly workspaces: WorkspacesService
+  // The center-tabs region claim + the document-style channel for the
+  // column-height variable (single write point).
+  private readonly dom: ReturnType<typeof ensureLayoutDom>
+  private centerClaim: { release(): void } | null = null
   private root: Root | null = null
   private element: HTMLDivElement | null = null
   private attachObserver: MutationObserver | null = null
@@ -243,10 +254,12 @@ export class CenterSurfaceHost {
     this.t = options.t
     this.sidebar = options.sidebar
     this.workspaces = options.workspaces
+    this.dom = ensureLayoutDom(options.layout)
   }
 
   mount(): void {
     if (this.element !== null) return
+    this.centerClaim = this.dom.layout.claim('center-tabs', 'center-surfaces')
     this.element = document.createElement('div')
     this.element.id = 'dsh-studio-center-tabs-root'
     this.root = createRoot(this.element)
@@ -261,6 +274,8 @@ export class CenterSurfaceHost {
     this.attachObserver = null
     this.stopPersist?.()
     this.stopPersist = null
+    this.centerClaim?.release()
+    this.centerClaim = null
     this.root?.unmount()
     this.root = null
     this.element?.remove()
@@ -278,6 +293,7 @@ export class CenterSurfaceHost {
         t={this.t}
         sidebar={this.sidebar}
         workspaces={this.workspaces}
+        dom={this.dom}
       />,
     )
   }
@@ -367,11 +383,13 @@ function CenterSurfaceHostView({
   t,
   sidebar,
   workspaces,
+  dom,
 }: {
   sessions: SessionsService
   t: Translate<WorkspaceMessage>
   sidebar: DesktopSidebarServiceLike
   workspaces: WorkspacesService
+  dom: ReturnType<typeof ensureLayoutDom>
 }): JSX.Element {
   const [mounted, setMounted] = useState(false)
   const { leftRailOpen, toggleLeftRail } = useLeftRailOpenState()
@@ -380,7 +398,7 @@ function CenterSurfaceHostView({
     () => sidebar.getSnapshot().open,
   )
   useEffect(() => { setMounted(true) }, [])
-  useCenterColumnHeight()
+  useCenterColumnHeight(dom)
   // A real placeholder keeps the host root non-empty while mounting: the
   // self-healing attach logic treats an EMPTIED root as "DSH rebuilt its
   // tree and discarded our children" and force-remounts.
@@ -409,16 +427,16 @@ function CenterSurfaceHostView({
 }
 
 /**
- * Keep `--dsh-studio-center-col-height` on the tabs root in sync with the DSH
- * center column's real height (grid-stretched, not expressible as 100%):
+ * Keep the center column's real height published through the region host's
+ * document-style channel (`--dsh-studio-center-col-height`, grid-stretched, not expressible as 100%):
  * the surface body fills the column exactly — never drifting off the top
  * (strip scrolled away) or overflowing past the bottom (conversation
  * leaking below the body).
  */
-function useCenterColumnHeight(): void {
+function useCenterColumnHeight(dom: ReturnType<typeof ensureLayoutDom>): void {
   useEffect(() => {
-    const rootElement = document.getElementById('dsh-studio-center-tabs-root')
-    if (rootElement === null) return
+    // The tabs root must exist before the height channel starts publishing.
+    if (document.getElementById('dsh-studio-center-tabs-root') === null) return
     let lastHeight = -1
     const apply = (): void => {
       const column = centerColumnElement()
@@ -430,7 +448,9 @@ function useCenterColumnHeight(): void {
       // style write that cascades layout to children.
       if (next === lastHeight) return
       lastHeight = next
-      rootElement.style.setProperty('--dsh-studio-center-col-height', `${String(next)}px`)
+      dom.applyDocumentStyles({
+        vars: { '--dsh-studio-center-col-height': `${String(next)}px` },
+      })
     }
     apply()
     let observer: ResizeObserver | null = null

@@ -3,12 +3,12 @@ html {
   --dsh-studio-sidebar-width: 300px;
 }
 
-/* The desktop sidebar is a fixed overlay; :global(#root) is left untouched (the
-   squeeze is applied as inline padding-right by the workspace service,
-   coordinated through the desktopPanels right-panel claim). The container
-   only spans the panel footprint while open on wide viewports (width 0
-   otherwise) and never intercepts pointer events itself — the panel
-   re-enables pointer-events when visible. */
+/* The desktop sidebar is a fixed overlay; the app shell root is left
+   untouched (the center-column squeeze derives from the workbench
+   LayoutService right-panel footprint via the shared region host). The
+   container only spans the panel footprint while open on wide viewports
+   (width 0 otherwise) and never intercepts pointer events itself — the
+   panel re-enables pointer-events when visible. */
 :global(#dsh-studio-sidebar-root) {
   position: fixed;
   /* Keep the panel above ordinary app content, but below global menus and

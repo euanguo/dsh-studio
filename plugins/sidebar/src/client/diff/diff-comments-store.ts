@@ -13,6 +13,7 @@
  */
 import { create } from 'zustand'
 import type { SidebarCommentsChrome } from '@dsh-studio/shared/ui-chrome-tables'
+import { COMMENTS_SANITIZE_LIMIT } from '@dsh-studio/shared/ui-chrome-tables'
 import {
   adoptCommentsRecord,
   commentsStorage,
@@ -22,6 +23,8 @@ import { persistVia } from '@dsh-studio/shared/store-persistence'
 
 export interface WorkbenchComment {
   id: string
+  /** Workspace cwd; null/undefined marks a pre-scope legacy row. */
+  cwd?: string | null
   /** Absolute path (Electron surface) or git-relative (diff surface). */
   path: string
   /** 1-based anchor line — the range start. */
@@ -39,7 +42,16 @@ export interface WorkbenchComment {
   resolvedAt?: string
 }
 
-const MAX_COMMENTS = 200
+/** Durable cap — the single shared Q4 constant (sanitizer = runtime). */
+const MAX_COMMENTS = COMMENTS_SANITIZE_LIMIT
+
+/**
+ * Match a comment to a surface's workspace. Legacy rows have no reliable cwd
+ * and remain visible for compatibility; every newly-created row is explicit.
+ */
+export function commentBelongsToCwd(comment: Pick<WorkbenchComment, 'cwd'>, cwd: string): boolean {
+  return comment.cwd === undefined || comment.cwd === null || comment.cwd === cwd
+}
 
 interface WorkbenchCommentState {
   comments: readonly WorkbenchComment[]
@@ -102,7 +114,10 @@ export function startDiffCommentsPersistence(): () => void {
         // The review half rides on the shared owner's freshest cache so this
         // whole-record save can never erase newer review rows.
         review: readCommentsRecord().review,
-        workbench: [...useDiffCommentsStore.getState().comments],
+        workbench: useDiffCommentsStore.getState().comments.map(comment => ({
+          ...comment,
+          cwd: comment.cwd ?? null,
+        })),
       }),
       apply: record => {
         adoptCommentsRecord(record)

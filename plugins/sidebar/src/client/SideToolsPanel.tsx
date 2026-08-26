@@ -38,9 +38,9 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
     props.sidebar.getSnapshot,
   )
   const activeTab = snapshot.tabs.find(tab => tab.id === snapshot.activeId)
-  const descriptor = activeTab === undefined
+  const rail = activeTab === undefined
     ? undefined
-    : props.sidebar.getTab(activeTab.type)
+    : props.sidebar.getTab(activeTab.type)?.rail
   const beginResize = (event: ReactPointerEvent<HTMLDivElement>): void => {
     event.preventDefault()
     const startX = event.clientX
@@ -90,9 +90,9 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
     }
   const content: ReactNode = activeTab === undefined
     ? <SideMenu {...props} />
-    : descriptor?.render === undefined || renderProps === undefined
+    : rail?.render === undefined || renderProps === undefined
       ? <OrphanedTab tab={activeTab} t={props.t} />
-      : descriptor.render(renderProps)
+      : rail.render(renderProps)
   return (
     <aside
       className={`dsh-studio-workspace-panel ${surfaceCss["dsh-studio-side-panel"]}`}
@@ -118,7 +118,6 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
           onToggleMaximized={props.onToggleMaximized}
           onToggleSide={props.onToggleSide}
           open={props.open}
-          panels={props.panels}
           t={props.t}
         />
       </div>

@@ -1,6 +1,6 @@
 /** Side tools menu rows: one descriptor entry with its icon and hint. */
 import { ToolIcon, type ToolIconKind } from '@dsh-studio/shared/tool-icon'
-import type { SidebarTabDescriptor } from './contract.ts'
+import type { SidebarRailSpec, SidebarSurfaceDescriptor } from './contract.ts'
 import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 
 /** Tab descriptor icon size (px). */
@@ -13,27 +13,27 @@ function defaultIcon(id: string): ToolIconKind {
   return 'file'
 }
 
-function descriptorTitle(descriptor: SidebarTabDescriptor): string {
-  return typeof descriptor.title === 'function'
-    ? descriptor.title()
-    : descriptor.title
+function railTitle(rail: SidebarRailSpec): string {
+  return typeof rail.title === 'function' ? rail.title() : rail.title
 }
 
 function DescriptorIcon({ descriptor }: {
-  descriptor: SidebarTabDescriptor
+  descriptor: SidebarSurfaceDescriptor
 }): JSX.Element {
-  const icon = typeof descriptor.icon === 'function'
-    ? descriptor.icon(DESCRIPTOR_ICON_SIZE)
-    : descriptor.icon
-  return <>{icon ?? <ToolIcon kind={defaultIcon(descriptor.id)} />}</>
+  const icon = descriptor.rail?.icon
+  const resolved = typeof icon === 'function'
+    ? icon(DESCRIPTOR_ICON_SIZE)
+    : icon
+  return <>{resolved ?? <ToolIcon kind={defaultIcon(descriptor.kind)} />}</>
 }
 
 export function ToolRow(props: {
-  descriptor: SidebarTabDescriptor
+  descriptor: SidebarSurfaceDescriptor
   disabled?: boolean
   disabledTitle?: string
   onClick(): void
 }): JSX.Element {
+  const rail = props.descriptor.rail
   return (
     <button
       className={surfaceCss["dsh-studio-side-tool-row"]}
@@ -44,10 +44,8 @@ export function ToolRow(props: {
       onClick={props.onClick}
     >
       <DescriptorIcon descriptor={props.descriptor} />
-      <span>{descriptorTitle(props.descriptor)}</span>
-      {props.descriptor.shortcut !== undefined && (
-        <kbd>{props.descriptor.shortcut}</kbd>
-      )}
+      <span>{rail === undefined ? props.descriptor.kind : railTitle(rail)}</span>
+      {rail?.shortcut !== undefined && <kbd>{rail.shortcut}</kbd>}
     </button>
   )
 }

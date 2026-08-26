@@ -5,7 +5,13 @@
 import {
   UI_CHROME_TABLES,
 } from '@dsh-studio/shared/ui-chrome-tables'
-import { persistVia, type PersistViaHandle } from '@dsh-studio/shared/store-persistence'
+import {
+  persistVia,
+  persistedSliceBackend,
+  type PersistedSliceDefinition,
+  type PersistViaHandle,
+} from '@dsh-studio/shared/store-persistence'
+import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import type { CenterSurface } from './types.ts'
 
@@ -167,6 +173,24 @@ function restore(payload: PersistedCenterSurfaces): void {
 
 let activeHandle: PersistViaHandle | undefined
 
+/** The single ui-chrome table this module (and only this module) persists. */
+const CENTER_SURFACES_TABLE = UI_CHROME_TABLES.centerSurfaces
+
+/**
+ * THE slice owning the `center_surfaces` table (one table, one writer; the
+ * per-cwd open-sets are the slice's workspace buckets). Wire DTO is fixed,
+ * so the `bare` encoding routes every read and write through the release
+ * sanitizer as the format-compatibility hook.
+ */
+const CENTER_SURFACES_SLICE: PersistedSliceDefinition<PersistedCenterSurfaces> = {
+  table: CENTER_SURFACES_TABLE,
+  scope: 'workspace',
+  version: 1,
+  encoding: 'bare',
+  onIncompatible: 'migrate',
+  migrate: raw => sanitizePersistedCenterSurfaces(raw),
+}
+
 function createHandle(): PersistViaHandle {
   return persistVia<PersistedCenterSurfaces>(
     {
@@ -175,11 +199,16 @@ function createHandle(): PersistViaHandle {
       apply: restore,
     },
     {
-      table: UI_CHROME_TABLES.centerSurfaces,
-      defaults: () => ({ byCwd: {} }),
-      sanitize: sanitizePersistedCenterSurfaces,
+      backend: persistedSliceBackend(
+        CENTER_SURFACES_SLICE,
+        createUiChromeStorage<PersistedCenterSurfaces>({
+          table: CENTER_SURFACES_TABLE,
+          defaults: () => ({ byCwd: {} }),
+          sanitize: sanitizePersistedCenterSurfaces,
+          debounceMs: 250,
+        }),
+      ),
       merge: mergePayloads,
-      debounceMs: 250,
     },
   )
 }

@@ -40,8 +40,13 @@ export function WorkspacePanel({
   const sidebarSnapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
   const activeTab = sidebarSnapshot.tabs.find(tab => tab.id === sidebarSnapshot.activeId)
   const panelActive = sidebarSnapshot.open && (activeTab?.type ?? 'menu') === 'review'
-  const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
-  const currentSessionId = sessionList.current
+  // Identity reactivity rides the runtime's current-session projection
+  // (leaf-1.7); the roster itself is read fresh at render.
+  const currentSessionId = useSyncExternalStore(
+    sessions.currentProvideInfo.subscribe,
+    () => sessions.list.getSnapshot().current,
+  )
+  const sessionList = sessions.list.getSnapshot()
   const cwd = currentSessionId === undefined ? undefined : sessionList.byId[currentSessionId]?.cwd
 
   return (

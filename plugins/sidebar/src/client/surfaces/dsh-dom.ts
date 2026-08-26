@@ -1,7 +1,8 @@
 /**
  * The only file that touches DSH's internal DOM shapes: the center column,
- * the left-rail toggle and the obfuscated fallback class all live here so
- * the rest of the sidebar never spells DSH selectors inline.
+ * the left-rail toggle, the Settings rail trigger and the obfuscated fallback
+ * class all live here so the rest of the sidebar never spells DSH selectors
+ * inline.
  *
  * Coupling notes (kept intentionally tight):
  * - The center column is located via the stable `[data-slot="conversation"]`
@@ -134,4 +135,39 @@ export function trajectoryTabButton(
 export function hasOpenMenuOrDialog(): boolean {
   if (typeof document === 'undefined') return false
   return document.querySelector('[role="menu"], [role="dialog"]') !== null
+}
+
+/**
+ * The upstream Settings trigger in the sidebar rail, located so the desktop
+ * shell's native "show settings" command can open the DSH Settings shell.
+ * Relocated verbatim from src/client.ts (kernel-refactor leaf-2.1): this is
+ * the one module allowed to pin upstream selectors, and no official
+ * programmatic "open settings" API exists in the pinned client, so clicking
+ * the real trigger remains the only path.
+ *
+ * Coupling notes (pinned to the Settings shell):
+ * - The trigger content carries a stable `[data-slot="settings.trigger"]`
+ *   slot marker; the rail copy is the one inside a `[data-slot="sidebar"]`
+ *   ancestor (an open settings panel renders its own second copy).
+ * - Fallback 1: any button whose text / aria-label / title reads
+ *   "settings" or "设置" (both shipped localizations).
+ * - Fallback 2 (collapsed rail): the icon-only trigger is the sidebar's
+ *   bottom-most `button[aria-haspopup="dialog"]`.
+ */
+export function settingsTriggerButton(): HTMLButtonElement | null {
+  const slotted = [...document.querySelectorAll<HTMLButtonElement>('button')]
+    .find(button => button.querySelector('[data-slot="settings.trigger"]') !== null
+      && button.closest('[data-slot="sidebar"]') !== null)
+  if (slotted !== undefined) return slotted
+  const labeled = [...document.querySelectorAll<HTMLButtonElement>('button')]
+    .find(button => /settings|设置/i.test([
+      button.textContent,
+      button.getAttribute('aria-label'),
+      button.getAttribute('title'),
+    ].filter(Boolean).join(' ')))
+  if (labeled !== undefined) return labeled
+  return [...document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')]
+    .filter(button => button.closest('[data-slot="sidebar"]') !== null)
+    .sort((left, right) => right.getBoundingClientRect().bottom - left.getBoundingClientRect().bottom)[0]
+    ?? null
 }

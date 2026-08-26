@@ -13,7 +13,12 @@ import {
   type SidebarChromeSlice,
   type SidebarChromeState,
 } from '@dsh-studio/shared/ui-chrome-tables'
-import { persistVia } from '@dsh-studio/shared/store-persistence'
+import {
+  persistVia,
+  persistedSliceBackend,
+  type PersistedSliceDefinition,
+} from '@dsh-studio/shared/store-persistence'
+import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
 
 export type { GitListMode, SidebarChromeSlice } from '@dsh-studio/shared/ui-chrome-tables'
 export type ExplorerChromeSlice = SidebarChromeSlice['explorer']
@@ -275,6 +280,25 @@ function chromeSnapshot(): SidebarChromeState {
   return { byScope: structuredClone(useSidebarChromeStore.getState().byScope) }
 }
 
+/** The single ui-chrome table this store (and only this store) persists. */
+const SIDEBAR_CHROME_TABLE = UI_CHROME_TABLES.sidebarChrome
+
+/**
+ * THE slice owning the `sidebar_chrome` table (one table, one writer). The
+ * wire DTO carries no version field, so the slice declares the `bare`
+ * encoding: format compatibility is expressed by the sanitize/migrate hook
+ * that runs on every read and write, and a future format bump extends this
+ * definition instead of re-deciding policy at the call site.
+ */
+const SIDEBAR_CHROME_SLICE: PersistedSliceDefinition<SidebarChromeState> = {
+  table: SIDEBAR_CHROME_TABLE,
+  scope: 'workspace',
+  version: 1,
+  encoding: 'bare',
+  onIncompatible: 'migrate',
+  migrate: raw => sanitizeSidebarChrome(raw),
+}
+
 /** Start one persistence facade: subscribe→save, hydrate with merge, flush. */
 export function startSidebarChromePersistence(): () => void {
   const handle = persistVia<SidebarChromeState>(
@@ -284,11 +308,16 @@ export function startSidebarChromePersistence(): () => void {
       apply: value => useSidebarChromeStore.setState({ byScope: value.byScope }),
     },
     {
-      table: UI_CHROME_TABLES.sidebarChrome,
-      defaults: defaultSidebarChromeState,
-      sanitize: sanitizeSidebarChrome,
+      backend: persistedSliceBackend(
+        SIDEBAR_CHROME_SLICE,
+        createUiChromeStorage<SidebarChromeState>({
+          table: SIDEBAR_CHROME_TABLE,
+          defaults: defaultSidebarChromeState,
+          sanitize: sanitizeSidebarChrome,
+          debounceMs: 250,
+        }),
+      ),
       merge: mergeSidebarChrome,
-      debounceMs: 250,
     },
   )
   return () => handle.stop()

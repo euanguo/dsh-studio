@@ -12,6 +12,7 @@ import type {
   ReviewInputTriggersService,
   ReviewCommentsPersistence,
 } from '../plugins/sidebar/src/client/review/review-comments.ts'
+import type { WorkspaceEventsService } from '../plugins/shared/contracts/workbench-contracts.ts'
 import type { GitReviewCommit } from '../plugins/sidebar/src/client/diff/git-review-diff.ts'
 
 interface ReviewSlashSource {
@@ -64,6 +65,16 @@ function memoryStorage(): ReviewCommentsPersistence {
   }
 }
 
+/** Inert kernel events stub: these tests exercise scopes directly. */
+function stubEvents(): WorkspaceEventsService {
+  return {
+    identify: () => {},
+    snapshot: () => ({ cwd: null, sessionId: null }),
+    onWorkspaceChanged: () => () => {},
+    onSessionChanged: () => () => {},
+  }
+}
+
 const COMMIT: GitReviewCommit = {
   id: 'abc123def',
   shortId: 'abc123d',
@@ -77,7 +88,7 @@ async function makeService(storage: ReviewCommentsPersistence): Promise<{
 }> {
   const service = new ReviewCommentsService(fakeSessions(), {
     registerSource: () => () => {},
-  }, storage)
+  }, stubEvents(), storage)
   await service.start()
   const draft = {
     id: nextReviewCommentId(),
@@ -108,7 +119,7 @@ test('resolve keeps the comment listed and persisted but flagged', async () => {
   // The resolution is durable.
   const reloaded = new ReviewCommentsService(fakeSessions(), {
     registerSource: () => () => {},
-  }, storage)
+  }, stubEvents(), storage)
   await reloaded.start()
   assert.ok(reloaded.getSnapshot().find(item => item.id === comment.id)?.resolvedAt)
 })
@@ -136,7 +147,7 @@ test('activate skips resolved comments when seeding a fresh scope', async () => 
 
   // Phase 1: add two comments on the same branch, then resolve the first.
   const { triggers: triggers1 } = trackingInputTriggers()
-  const svc1 = new ReviewCommentsService(fakeSessions(), triggers1, shared)
+  const svc1 = new ReviewCommentsService(fakeSessions(), triggers1, stubEvents(), shared)
   await svc1.start()
   svc1.activate('/repo', 'feature/x')
   const draftA = {
@@ -171,7 +182,7 @@ test('activate skips resolved comments when seeding a fresh scope', async () => 
   // and calls activate() for the same scope. Only the unresolved comment
   // should be seeded into the bridge; the resolved one must stay out.
   const { triggers: triggers2, getSource } = trackingInputTriggers()
-  const svc2 = new ReviewCommentsService(fakeSessions(), triggers2, shared)
+  const svc2 = new ReviewCommentsService(fakeSessions(), triggers2, stubEvents(), shared)
   await svc2.start()
   svc2.activate('/repo', 'feature/x')
 

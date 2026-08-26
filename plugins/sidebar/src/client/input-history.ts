@@ -1,10 +1,10 @@
 /**
  * Session-scoped history for the conversation composer.
  *
- * // unwired-capability (leaf-R1 ①): restored as a real implementation, NOT a
- * // dead wrapper. The composer frontend does not currently wire this core in
- * // (submission history Up/Down navigation is not re-enabled). Dormant until
- * // the composer re-glues it; re-wiring does not need a redesign.
+ * A real implementation, NOT a dead wrapper. The composer frontend does not
+ * currently wire this core in (submission history Up/Down navigation is not
+ * re-enabled). Dormant until the composer re-glues it; re-wiring does not
+ * need a redesign.
  */
 
 export const DEFAULT_INPUT_HISTORY_LIMIT = 100

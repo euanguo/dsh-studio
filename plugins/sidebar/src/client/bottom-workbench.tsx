@@ -11,13 +11,12 @@
  * `application/x-dsh-studio-tab` dataTransfer slot; the drop-position math
  * lives in `tab-drag.ts` (pure, unit-tested).
  *
- * ADR (leaf-R1 ②): below is RESTORED as a **dormant** component —
- * // unwired-capability: the workbench is NOT mounted (workspace-tools keeps
- * // its CUT mounting chain removed), pending a product decision on whether to
- * // bring back the second bottom pane. Awaiting that decision it compiles but
- * // never renders. Re-wiring needs the sibling restorations below (R2) to
- * // land first: (a) sidebar-service bottom methods + persisted bottomTabs
- * // state, (b) side-tools.module.css + styles.ts bottom-workbench keys.
+ * Below is RESTORED as a **dormant** component: the workbench is NOT mounted
+ * (workspace-tools keeps its mounting chain removed), pending a product
+ * decision on whether to bring back the second bottom pane. Awaiting that
+ * decision it compiles but never renders. Re-wiring needs the sibling pieces
+ * to land first: (a) sidebar-service bottom methods + persisted bottomTabs
+ * state, (b) side-tools.module.css + styles.ts bottom-workbench keys.
  */
 import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 import {
@@ -113,10 +112,10 @@ export function BottomWorkbench({ sidebar, t }: BottomWorkbenchProps): JSX.Eleme
   }
 
   const activeTab = tabs.find(tab => tab.id === snapshot.bottomActiveId) ?? tabs[0]!
-  const descriptor = sidebar.getTab(activeTab.type)
-  const body = descriptor?.render === undefined ? null : (
+  const rail = sidebar.getTab(activeTab.type)?.rail
+  const body = rail?.render === undefined ? null : (
     <div className={surfaceCss["dsh-studio-bottom-workbench-body"]} key={activeTab.id}>
-      {descriptor.render(renderPropsOf(sidebar, activeTab, snapshot.scope))}
+      {rail.render(renderPropsOf(sidebar, activeTab, snapshot.scope))}
     </div>
   )
 
@@ -142,10 +141,10 @@ function tabBadgeFor(
   tab: SidebarTab,
   snapshot: SidebarSnapshot,
 ): ReactNode {
-  const descriptor = sidebar.getTab(tab.type)
-  if (descriptor?.badge === undefined) return null
+  const badge = sidebar.getTab(tab.type)?.rail?.badge
+  if (badge === undefined) return null
   try {
-    const value = descriptor.badge(snapshot.scope, snapshot)
+    const value = badge(snapshot.scope, snapshot)
     if (value === undefined || value === null) return null
     const label = typeof value === 'number' ? (value > 99 ? '99+' : String(value)) : value
     return <span className={`dsh-studio-surface-tab-badge`} aria-hidden="true">{label}</span>

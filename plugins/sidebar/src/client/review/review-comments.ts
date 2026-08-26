@@ -1,8 +1,11 @@
 import type { GitReviewCommit } from '../diff/git-review-diff.ts'
+import type { WorkspaceEventsService } from '@dsh-studio/shared/workbench-contracts'
 import {
+  groupReviewCommentsByScope,
   loadCommentsRecord,
-  putReviewComments,
+  putReviewCommentsByScope,
 } from '@dsh-studio/shared/comments-record'
+import { COMMENTS_SANITIZE_LIMIT } from '@dsh-studio/shared/ui-chrome-tables'
 
 export type ReviewCommentSide = 'new' | 'old' | null
 
@@ -114,12 +117,14 @@ interface ComposerBridge {
 
 const REVIEW_SOURCE = 'dsh-studio-review'
 const REVIEW_REF = 'review-comments'
-const MAX_PERSISTED_COMMENTS = 200
 
 // Review comments live in the `comments` table's `review` array, sharing it
 // with workbench ones. The record is owned by the shared comments-record
 // module: half-writes ride on its freshest other-half cache instead of a
-// stale local copy that used to erase newer workbench rows.
+// stale local copy that used to erase newer workbench rows, and the review
+// half is addressed as workspace×branch buckets (`reviewScopeKey`). The
+// durable cap is the single shared Q4 constant.
+const MAX_PERSISTED_COMMENTS = COMMENTS_SANITIZE_LIMIT
 
 /** The persistence seam for review comments (domain-backed by default). */
 export interface ReviewCommentsPersistence {
@@ -133,7 +138,12 @@ const domainPersistence: ReviewCommentsPersistence = {
     return (record.review ?? []).filter(isReviewComment).slice(-MAX_PERSISTED_COMMENTS)
   },
   save(comments) {
-    void putReviewComments(comments.slice(-MAX_PERSISTED_COMMENTS)).catch(error => {
+    // One bucket-addressed half-write: the service's list is the whole-half
+    // snapshot, so grouping it reproduces every row while the write rides
+    // the owner's freshest workbench half.
+    void putReviewCommentsByScope(
+      groupReviewCommentsByScope(comments.slice(-MAX_PERSISTED_COMMENTS)),
+    ).catch(error => {
       console.warn('[sidebar] failed to persist review comments', error)
     })
   },
@@ -301,6 +311,7 @@ function reduceDelivery(state: DeliveryState, event: DeliveryEvent): DeliveryRes
 function createComposerBridge(
   sessions: ReviewSessionsService,
   inputTriggers: ReviewInputTriggersService,
+  events: WorkspaceEventsService,
   onDelivered: (ids: readonly string[]) => void,
 ): ComposerBridge {
   const commentsByScope = new Map<ScopeKey, Map<string, string>>()
@@ -494,7 +505,11 @@ function createComposerBridge(
   }
 
   const unregister = inputTriggers.registerSource(source)
-  const stopSessions = sessions.list.subscribe(() => { reconcile() })
+  // Switching awareness rides the kernel identity events (leaf-1.7): the
+  // scoped comment map and watched conversation re-resolve whenever the
+  // active session or workspace changes.
+  const stopSessions = events.onSessionChanged(() => { reconcile() })
+  const stopWorkspaces = events.onWorkspaceChanged(() => { reconcile() })
 
   return {
     addComment(text, id, nextBranch) {
@@ -525,6 +540,7 @@ function createComposerBridge(
     },
     dispose() {
       stopSessions()
+      stopWorkspaces()
       stopInput?.()
       stopSession?.()
       unregister()
@@ -547,12 +563,14 @@ export class ReviewCommentsService {
   constructor(
     sessions: ReviewSessionsService,
     inputTriggers: ReviewInputTriggersService,
+    events: WorkspaceEventsService,
     persistence: ReviewCommentsPersistence = domainPersistence,
   ) {
     this.persistence = persistence
     this.bridge = createComposerBridge(
       sessions,
       inputTriggers,
+      events,
       ids => { this.removeMany(ids, false) },
     )
   }

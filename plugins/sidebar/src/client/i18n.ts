@@ -1,20 +1,20 @@
 import type { LocaleMessages } from '@dsh-studio/shared/i18n'
+import {
+  TERMINAL_SIDEBAR_SHARED_MESSAGES,
+  type TerminalSidebarSharedKey,
+} from '@dsh-studio/shared/terminal-messages'
 
 export type WorkspaceMessage =
   | 'side.expand'
   | 'side.restore'
   | 'summary.title'
-  | 'terminal.toggle'
   | 'terminal.title'
-  | 'terminal.process-exited'
-  | 'terminal.unknown'
-  | 'terminal.error'
+  | TerminalSidebarSharedKey
   | 'add.open'
   | 'add.new-conversation'
   | 'side.toggle'
   | 'side.title'
   | 'review'
-  | 'terminal'
   | 'browser'
   | 'files'
   | 'side-chat'
@@ -95,9 +95,9 @@ export type WorkspaceMessage =
   | 'side.tab-limit'
   | 'side.tool-disabled'
   | 'side.tool-missing'
-  // // unwired-capability (leaf-R2 ②): bottom-workbench message keys restored
-  // // from HEAD — the workbench is dormant, but the keys keep the type
-  // // complete so `bottom-workbench.tsx` typechecks and re-wires trivially.
+  // Bottom-workbench message keys stay in the key type while the workbench
+  // is dormant, keeping the type complete so `bottom-workbench.tsx`
+  // typechecks and re-wires trivially.
   | 'bottom-workbench.title'
   | 'bottom-workbench.tabs'
   | 'bottom-workbench.empty'
@@ -316,17 +316,13 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.expand': 'Expand side panel',
     'side.restore': 'Restore side panel',
     'summary.title': 'Pinned summary',
-    'terminal.toggle': 'Toggle terminal panel',
     'terminal.title': 'Terminal',
-    'terminal.process-exited': 'process exited with code {code}',
-    'terminal.unknown': 'unknown',
-    'terminal.error': 'terminal error: {message}',
+    ...TERMINAL_SIDEBAR_SHARED_MESSAGES.en,
     'add.open': 'Add browser, terminal or conversation',
     'add.new-conversation': 'New conversation',
     'side.toggle': 'Toggle side panel',
     'side.title': 'Side panel',
     review: 'Review',
-    terminal: 'Terminal',
     browser: 'Browser',
     files: 'Files',
     'side-chat': 'Side chat',
@@ -624,17 +620,13 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.expand': '展开侧边栏',
     'side.restore': '恢复侧边栏',
     'summary.title': '固定摘要',
-    'terminal.toggle': '切换终端面板',
     'terminal.title': '终端',
-    'terminal.process-exited': '进程已退出，代码 {code}',
-    'terminal.unknown': '未知',
-    'terminal.error': '终端错误：{message}',
+    ...TERMINAL_SIDEBAR_SHARED_MESSAGES.zh,
     'add.open': '添加浏览器、终端或新对话',
     'add.new-conversation': '新对话',
     'side.toggle': '切换侧边栏',
     'side.title': '侧边栏',
     review: '审查',
-    terminal: '终端',
     browser: '浏览器',
     files: '文件',
     'side-chat': '侧边对话',

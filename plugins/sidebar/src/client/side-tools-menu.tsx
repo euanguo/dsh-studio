@@ -7,7 +7,6 @@ import {
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { ToolbarAction } from '@dsh-studio/shared/ui'
 import type { Translate } from '@dsh-studio/shared/i18n'
-import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
 import {
   IconClose,
   IconDots,
@@ -29,10 +28,13 @@ import {
 import type {
   CapabilitiesScope,
   DesktopSidebarService,
+  SidebarSurfaceDescriptor,
   SidebarTab,
-  SidebarTabDescriptor,
 } from './contract.ts'
-import { tabAvailability } from './contract.ts'
+import {
+  sidebarDescriptorTitle,
+  tabAvailability,
+} from './contract.ts'
 import type { WorkspaceMessage } from './i18n.ts'
 import { ToolRow } from './side-tool-row.tsx'
 import { unavailableTitle } from './side-tool-helpers.tsx'
@@ -49,28 +51,27 @@ export interface SideToolsPanelProps {
   onToggleMaximized(): void
   onToggleSide(): void
   open: boolean
-  panels: DesktopPanels
   sidebar: DesktopSidebarService
   t: Translate<WorkspaceMessage>
   width: number
 }
 
-function descriptorTitle(descriptor: SidebarTabDescriptor): string {
-  return typeof descriptor.title === 'function'
-    ? descriptor.title()
-    : descriptor.title
+function descriptorTitle(descriptor: SidebarSurfaceDescriptor): string {
+  const title = sidebarDescriptorTitle(descriptor)
+  return typeof title === 'function' ? title() : title
 }
 
 export function SideMenu(props: SideToolsPanelProps): JSX.Element {
   const [error, setError] = useState('')
-  const open = async (descriptor: SidebarTabDescriptor): Promise<void> => {
+  const open = async (descriptor: SidebarSurfaceDescriptor): Promise<void> => {
+    const rail = descriptor.rail
     try {
       setError('')
-      if (descriptor.action !== undefined && descriptor.render === undefined) {
-        await descriptor.action()
+      if (rail !== undefined && rail.action !== undefined && rail.render === undefined) {
+        await rail.action()
         return
       }
-      const result = props.sidebar.openTab({ type: descriptor.id })
+      const result = props.sidebar.openTab({ type: descriptor.kind })
       if (result.kind === 'limit') throw new Error(props.t('side.tab-limit'))
       if (result.kind === 'disabled') throw new Error(props.t('side.tool-disabled'))
       if (result.kind === 'missing') throw new Error(props.t('side.tool-missing'))
@@ -84,16 +85,16 @@ export function SideMenu(props: SideToolsPanelProps): JSX.Element {
     ? null
     : { cwd: props.cwd }
   const descriptors = props.sidebar.getTabs().filter(descriptor =>
-    descriptor.hidden !== true && props.sidebar.isTabEnabled(descriptor.id),
+    descriptor.rail?.hidden !== true && props.sidebar.isTabEnabled(descriptor.kind),
   )
   return (
     <ScrollArea className={surfaceCss["dsh-studio-side-menu"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
       {descriptors.map(descriptor => {
-        const availability = tabAvailability(descriptor, scope, snapshot, props.sidebar.isTabEnabled(descriptor.id))
+        const availability = tabAvailability(descriptor, scope, snapshot, props.sidebar.isTabEnabled(descriptor.kind))
         const unavailableArea = unavailableTitle(availability, props.t)
         return (
           <ToolRow
-            key={descriptor.id}
+            key={descriptor.kind}
             descriptor={descriptor}
             disabled={!availability.ok}
             {...(unavailableArea === undefined ? {} : { disabledTitle: unavailableArea })}
@@ -150,16 +151,16 @@ export function AddToolsMenu({ sidebar, t }: {
   const snapshot = useSyncExternalStore(sidebar.subscribe, sidebar.getSnapshot)
   const { open, toggle, anchorRef, getAnchorRect, close } = useMenuAnchor()
   const descriptors = sidebar.getTabs().filter(descriptor =>
-    descriptor.hidden !== true
-    && sidebar.isTabEnabled(descriptor.id)
-    && !snapshot.tabs.some(tab => tab.type === descriptor.id)
+    descriptor.rail?.hidden !== true
+    && sidebar.isTabEnabled(descriptor.kind)
+    && !snapshot.tabs.some(tab => tab.type === descriptor.kind)
   )
   const items: MenuEntry[] = descriptors.length === 0
     ? [{ type: 'label', id: 'no-more-tools', text: t('side.no-more-tools') }]
     : descriptors.map(descriptor => ({
-      id: descriptor.id,
+      id: descriptor.kind,
       label: descriptorTitle(descriptor),
-      icon: TOOL_MENU_ICONS[descriptor.id] ?? <IconDots />,
+      icon: TOOL_MENU_ICONS[descriptor.kind] ?? <IconDots />,
     }))
   return (
     <div className={surfaceCss["dsh-studio-add-tools"]}>

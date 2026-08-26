@@ -38,7 +38,7 @@ import type { SessionsService } from '../client-types.ts'
 import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
 import { useEditableFile } from '../files/use-editable-file.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
-import { useDiffCommentsStore, commentPathMatches, type WorkbenchComment } from '../diff/diff-comments-store.ts'
+import { useDiffCommentsStore, commentBelongsToCwd, commentPathMatches, type WorkbenchComment } from '../diff/diff-comments-store.ts'
 import { commentsToFileLineAnnotations } from '../diff/comment-annotations.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { buildCommentReference } from '../comments/comment-rails-core.ts'
@@ -95,7 +95,8 @@ export function FileSurfaceView({
   const allComments = useDiffCommentsStore(state => state.comments)
   const comments = useMemo(
     () => allComments.filter(comment =>
-      commentPathMatches(comment.path, surface.filePath, surface.cwd)
+      commentBelongsToCwd(comment, surface.cwd)
+      && commentPathMatches(comment.path, surface.filePath, surface.cwd)
       && comment.createdAt.length > 0,
     ),
     [allComments, surface.cwd, surface.filePath],
@@ -109,6 +110,7 @@ export function FileSurfaceView({
     onAdd: input => {
       useDiffCommentsStore.getState().addComment({
         ...input,
+        cwd: surface.cwd,
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
       })

@@ -11,7 +11,7 @@ import type { CapabilitiesScope } from '@dsh-studio/shared/capabilities-api'
 import { basename, isUnderRoot, joinPath } from '@dsh-studio/shared/path'
 import { EmptyState, LoadingState, ScrollArea } from '@dsh-studio/shared/ui'
 import { sidebarApi } from '../sidebar-api.ts'
-import { openFileSurface } from '../open/pipeline.ts'
+import { workbenchOpen } from '../open/pipeline.ts'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
@@ -89,11 +89,11 @@ export function useFileSearch(
 function openHit(cwd: string | undefined, hit: FileSearchHit): void {
   if (cwd === undefined) return
   const absolute = isUnderRoot(cwd, hit.path) ? hit.path : joinPath(cwd, hit.path)
-  openFileSurface({
-    cwd,
-    filePath: absolute,
-    title: basename(hit.path),
+  workbenchOpen().open({
+    kind: 'file',
+    target: { cwd, path: absolute },
     intent: 'preview',
+    title: basename(hit.path),
   })
 }
 

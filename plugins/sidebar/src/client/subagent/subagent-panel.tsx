@@ -56,10 +56,14 @@ export function SubagentPanel({
   runtime,
   t,
 }: SubagentPanelProps): JSX.Element {
-  const list = useSyncExternalStore(
-    sessions.list.subscribe,
-    sessions.list.getSnapshot,
+  // Identity/roster reactivity rides the runtime's current-session
+  // projection (leaf-1.7): session selection and provider-roster changes
+  // republish it. The roster itself is read fresh at render.
+  useSyncExternalStore(
+    sessions.currentProvideInfo.subscribe,
+    sessions.currentProvideInfo.getSnapshot,
   )
+  const list = sessions.list.getSnapshot()
   const prefs = useSyncExternalStore(runtime.subscribe, runtime.getSnapshot).preferences
   const previousRef = useRef<SessionListState | undefined>(undefined)
 
@@ -72,7 +76,8 @@ export function SubagentPanel({
 
   // Auto-open: when a new subagent child or a new job appears for the
   // current session (gated by the two toggles), open the sidebar on this
-  // page.
+  // page. Job arrivals re-render through the jobs runtime, so its snapshot
+  // rides the deps and the decision always reads the freshest roster.
   useEffect(() => {
     const previous = previousRef.current
     previousRef.current = list
@@ -84,7 +89,7 @@ export function SubagentPanel({
     if (decision === null) return
     sidebar.setOpen(true)
     sidebar.activateTab('subagent')
-  }, [list, prefs.autoOpenSubagent, prefs.autoOpenJobs, sidebar])
+  }, [jobsSnapshot, list, prefs.autoOpenJobs, prefs.autoOpenSubagent, sidebar])
 
   const current = list.current
   const currentCwd = current === undefined ? undefined : list.byId[current]?.cwd

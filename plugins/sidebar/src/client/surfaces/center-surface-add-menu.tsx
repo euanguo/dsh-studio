@@ -22,12 +22,8 @@ import {
 } from '@dsh-studio/shared/tabler-icons'
 import { ToolbarAction, useMenuAnchor } from '@dsh-studio/shared/ui'
 import type { SessionsService, WorkspacesService } from '../client-types.ts'
-import {
-  canOpenTerminalInstance,
-  touchTerminalInstance,
-} from '../runtimes/terminal-runtime.ts'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { useCenterSurfaceStore } from './center-surface-store.ts'
+import { workbenchOpen } from '../open/pipeline.ts'
 import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import type { DesktopSidebarServiceLike } from './center-surface-host.tsx'
 
@@ -61,7 +57,10 @@ export function CenterAddMenu({
       window.removeEventListener('blur', clear)
     }
   }, [open])
-  const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
+  // Identity reactivity rides the runtime's current-session projection
+  // (leaf-1.7); the roster itself is read fresh at render.
+  useSyncExternalStore(sessions.currentProvideInfo.subscribe, sessions.currentProvideInfo.getSnapshot)
+  const sessionList = sessions.list.getSnapshot()
   const current = sessionList.current
   // The active workspace: use the current session cwd, or fallback to the
   // first non-blank session with a cwd, or "/".
@@ -87,11 +86,18 @@ export function CenterAddMenu({
     if (id === 'browser') {
       const targetCwd = (typeof cwd === 'string' && cwd.trim() !== '') ? cwd : '/'
       if (altDown) {
+        // Alt = the RIGHT RAIL chip instead of a center tab; rail tabs join
+        // the surface registry in the registry-unification leaf.
         sidebar.openTab({ type: 'browser' })
         sidebar.setOpen(true)
         return
       }
-      useCenterSurfaceStore.getState().openBrowser({ cwd: targetCwd, title: t('browser'), preview: false })
+      workbenchOpen().open({
+        kind: 'browser',
+        target: { cwd: targetCwd },
+        intent: 'pin',
+        title: t('browser'),
+      })
       return
     }
     if (id === 'terminal') {
@@ -101,10 +107,14 @@ export function CenterAddMenu({
         sidebar.setOpen(true)
         return
       }
-      const scope = { cwd: targetCwd }
-      if (!canOpenTerminalInstance(scope)) return
-      const surface = useCenterSurfaceStore.getState().openTerminal({ cwd: targetCwd, title: t('terminal') })
-      touchTerminalInstance(scope, surface.id)
+      // One fresh terminal instance per open; the per-workspace instance cap
+      // is enforced by the dispatcher (see client/open/pipeline.ts).
+      workbenchOpen().open({
+        kind: 'terminal',
+        target: { cwd: targetCwd },
+        intent: 'pin',
+        title: t('terminal'),
+      })
       return
     }
     // New conversation: a fresh blank session in the center (same as the

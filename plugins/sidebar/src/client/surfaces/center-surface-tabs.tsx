@@ -41,7 +41,13 @@ export function CenterSurfaceTabs({
   sessions: SessionsService
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const sessionList = useSyncExternalStore(sessions.list.subscribe, sessions.list.getSnapshot)
+  // Identity reactivity rides the runtime's current-session projection
+  // (leaf-1.7): a selection switch (navigate within the project) or a
+  // provider-roster change re-renders; the roster itself is read fresh at
+  // render and the retain/activate/deactivate sync below maps the two kernel
+  // identity event classes onto the open set.
+  useSyncExternalStore(sessions.currentProvideInfo.subscribe, sessions.currentProvideInfo.getSnapshot)
+  const sessionList = sessions.list.getSnapshot()
   const workspace = resolveCenterWorkspace(sessionList)
   const current = workspace.status === 'ready' ? workspace.sessionId : undefined
   const cwd = workspace.status === 'ready' ? workspace.cwd : undefined

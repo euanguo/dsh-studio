@@ -144,10 +144,15 @@ export function useSelectionActionOverlay(
   callbackRef.current = { path, cwd, onComment, onConsumed }
 
   const sessionStore = sessions ?? null
+  // Reactive source: the runtime's current-session projection (identity +
+  // provider roster — leaf-1.7); the roster itself is read fresh at render
+  // for the conversation-target dropdown.
   const sessionList = useSyncExternalStore(
-    useCallback((notify: () => void) => (
-      sessionStore === null ? () => {} : sessionStore.list.subscribe(notify)
-    ), [sessionStore]),
+    useCallback((notify: () => void) => {
+      if (sessionStore === null) return () => {}
+      const { subscribe } = sessionStore.currentProvideInfo
+      return subscribe(notify)
+    }, [sessionStore]),
     useCallback(() => (
       sessionStore === null ? null : sessionStore.list.getSnapshot()
     ), [sessionStore]),

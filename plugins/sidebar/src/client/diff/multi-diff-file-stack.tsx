@@ -16,7 +16,7 @@ import { DiffViewer } from './diff-viewer.tsx'
 import { useCommentRails } from '../comments/comment-rails.tsx'
 import { useSelectionActionOverlay, commentAnchorOf } from '../selection/use-selection-action.tsx'
 import type { SessionsService } from '../client-types.ts'
-import { useDiffCommentsStore, commentPathMatches, type WorkbenchComment } from './diff-comments-store.ts'
+import { useDiffCommentsStore, commentBelongsToCwd, commentPathMatches, type WorkbenchComment } from './diff-comments-store.ts'
 import { commentsToDiffLineAnnotations } from './comment-annotations.ts'
 import { CommentBubble } from './comment-bubble.tsx'
 import { reviewFileToDiffDocument, type GitReviewFile } from './git-review-diff.ts'
@@ -125,7 +125,9 @@ function MultiDiffFileBlock({
   const fileComments = useMemo(
     () => (cwd === undefined
       ? []
-      : allComments.filter(comment => commentPathMatches(comment.path, file.path, cwd))),
+      : allComments.filter(comment =>
+          commentBelongsToCwd(comment, cwd)
+          && commentPathMatches(comment.path, file.path, cwd))),
     [allComments, cwd, file.path],
   )
   const lineAnnotations = useMemo(
@@ -149,7 +151,12 @@ function MultiDiffFileBlock({
     t,
     layer: typeof window === 'undefined' ? null : window.document.body,
     onAdd: input => {
-      useDiffCommentsStore.getState().addComment({ ...input, id: crypto.randomUUID(), createdAt: new Date().toISOString() })
+      useDiffCommentsStore.getState().addComment({
+         ...input,
+         ...(cwd === undefined ? {} : { cwd }),
+         id: crypto.randomUUID(),
+         createdAt: new Date().toISOString(),
+       })
     },
     onResolve: id => { useDiffCommentsStore.getState().resolveComment(id) },
     onUnresolve: id => { useDiffCommentsStore.getState().unresolveComment(id) },

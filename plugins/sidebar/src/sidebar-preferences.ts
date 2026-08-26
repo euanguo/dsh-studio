@@ -50,10 +50,10 @@ export interface PersistedSidebarTab {
  *  the sidebar is project-dimension, so two conversations of the same project
  *  share one layout and switching conversations never resets the panel.
  *
- *  ADR (leaf-R1 ②): the BOTTOM workbench fields are RESTORED as dormant
- *  schema. // unwired-capability: the workbench is not mounted (product
- *  decision pending); the parser round-trips the persisted bottomTabs keys so
- *  legacy/manual documents keep their data until re-wiring lands in R2. */
+ *  The BOTTOM workbench fields are RESTORED as dormant schema: the workbench
+ *  is not mounted (product decision pending); the parser round-trips the
+ *  persisted bottomTabs keys so legacy/manual documents keep their data until
+ *  re-wiring lands. */
 export interface PersistedWorkspaceLayout {
   activeId: string | null
   lastUsed: number
@@ -191,9 +191,9 @@ function parseWorkspace(value: unknown): PersistedWorkspaceLayout | undefined {
   const activeTabId = (activeId !== null && activeId !== undefined && ids.has(activeId))
     ? activeId
     : null
-  // // unwired-capability (leaf-R1 ②): bottomTabs/bottomActiveId round-trip is
-  // // restored as dormant schema so persisted (or hand-authored) documents
-  // // keep the second-pane layout until the workbench re-wires in R2.
+  // bottomTabs/bottomActiveId round-trip as dormant schema so persisted (or
+  // hand-authored) documents keep the second-pane layout until the workbench
+  // re-wires.
   const bottomTabs: PersistedSidebarTab[] = []
   const bottomIds = new Set<string>()
   if (Array.isArray(input.bottomTabs)) {

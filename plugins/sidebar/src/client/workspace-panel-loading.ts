@@ -66,15 +66,7 @@ import {
 import type { SourceControlRuntimeSnapshot } from './runtimes/source-control-runtime.ts'
 import { GIT_FALLBACK_POLL_MS, openGitWatch } from './runtimes/git-watch-client.ts'
 import { useSidebarChromeStore } from './runtimes/chrome-store.ts'
-import {
-  openCommittedSurface,
-  openCommitFileSurface,
-  openCommitSurface,
-  openConflictSurface,
-  openDiffAllSurface,
-  openDiffSurface,
-  openFileSurface,
-} from './open/pipeline.ts'
+import { workbenchOpen } from './open/pipeline.ts'
 
 /** The visible change list cap (before the "more changes" notice). */
 export const VISIBLE_CHANGES_LIMIT = 200
@@ -326,57 +318,58 @@ export function useWorkspaceSourceControl(options: {
     setSelectedPath(path)
     // Single click = preview diff tab; double click = pinned diff tab.
     // Untracked files have no diff baseline — show the file content instead.
-    if (change === undefined || change.status === 'untracked') {
-      openFileSurface({ cwd, filePath: path, title: name, intent })
-      return
-    }
-    if (change.status === 'conflicted') {
-      openConflictSurface({ cwd, filePath: path, title: name, intent })
-      return
-    }
-    openDiffSurface({ cwd, filePath: path, staged: change.staged, title: name, intent })
+    // The kind encodes the diff variant (see client/open/pipeline.ts).
+    const kind = change === undefined || change.status === 'untracked'
+      ? 'file'
+      : change.status === 'conflicted'
+        ? 'conflict'
+        : (change.staged ? 'diff-staged' : 'diff')
+    workbenchOpen().open({ kind, target: { cwd, path }, intent, title: name })
   }, [cwd, snapshot?.changes, setSelectedPath])
 
   const viewAll = useCallback((id: SourceControlSectionId): void => {
     const staged = id === 'staged'
-    openDiffAllSurface({
-      cwd,
-      staged,
-      title: staged ? t('source-control.section.staged') : t('source-control.section.unstaged'),
+    workbenchOpen().open({
+      kind: staged ? 'diff-all-staged' : 'diff-all',
+      target: { cwd },
       intent: 'preview',
+      title: staged ? t('source-control.section.staged') : t('source-control.section.unstaged'),
     })
   }, [cwd, t])
 
   const openCommitDiff = useCallback((entry: CapabilitiesGitLogEntry): void => {
-    openCommitSurface({
-      cwd,
-      hash: entry.hashFull,
-      title: entry.subject || entry.hash,
+    workbenchOpen().open({
+      kind: 'commit',
+      target: { cwd, path: entry.hashFull },
       intent: 'preview',
+      title: entry.subject || entry.hash,
     })
   }, [cwd])
 
   const openCommitFile = useCallback((entry: CapabilitiesGitLogEntry, filePath: string): void => {
-    openCommitFileSurface({
-      cwd,
-      hash: entry.hashFull,
-      filePath,
-      title: filePath.split('/').pop() || filePath,
+    workbenchOpen().open({
+      kind: 'commit-file',
+      target: { cwd, path: `${entry.hashFull}::${filePath}` },
       intent: 'preview',
+      title: filePath.split('/').pop() || filePath,
     })
   }, [cwd])
 
   const openCommittedAll = useCallback((baseRef: string): void => {
-    openCommittedSurface({ cwd, baseRef, title: baseRef, intent: 'preview' })
+    workbenchOpen().open({
+      kind: 'committed',
+      target: { cwd, path: baseRef },
+      intent: 'preview',
+      title: baseRef,
+    })
   }, [cwd])
 
   const openCommittedFile = useCallback((baseRef: string, filePath: string): void => {
-    openCommittedSurface({
-      cwd,
-      baseRef,
-      filePath,
-      title: filePath.split('/').pop() || filePath,
+    workbenchOpen().open({
+      kind: 'committed-file',
+      target: { cwd, path: `${baseRef}::${filePath}` },
       intent: 'preview',
+      title: filePath.split('/').pop() || filePath,
     })
   }, [cwd])
 

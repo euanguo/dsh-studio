@@ -4,21 +4,12 @@
  *
  * A surface id is a parseable canonical string — the single identity fact
  * source for the open-set. Surfaces store identity + minimal visual state
- * (`isPreview`) only; never business data.
+ * (`isPreview`) only; never business data. The surface KIND vocabulary is
+ * owned by the kernel descriptor model
+ * (`@dsh-studio/shared/workbench-contracts`): every kind here is one
+ * registered descriptor `kind`, so no local union is re-declared.
  */
 import { basename } from '@dsh-studio/shared/path'
-
-export type CenterSurfaceKind =
-  | 'conversation'
-  | 'file'
-  | 'diff'
-  | 'diff-all'
-  | 'commit'
-  | 'commit-file'
-  | 'committed'
-  | 'conflict'
-  | 'browser'
-  | 'terminal'
 
 export interface ConversationCenterSurface {
   id: string

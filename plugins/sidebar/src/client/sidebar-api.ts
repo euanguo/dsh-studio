@@ -117,8 +117,8 @@ export const sidebarApi = {
     { pattern, caseSensitive },
     signal,
   ),
-  // // unwired-capability (leaf-R2 ④): fsTail restored as a dormant wrapper —
-  // // no surfaced consumer calls it yet. Re-wiring a tail view re-enables it.
+  // fsTail is a dormant wrapper — no surfaced consumer calls it yet.
+  // Re-wiring a tail view re-enables it.
   fsTail: (
     scope: CapabilitiesScope,
     path: string,

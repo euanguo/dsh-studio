@@ -112,8 +112,8 @@ function ActionItem({
 
 /**
  * Localized relative "updated X ago" string for a conversation target, rendered
- * from the shared bucketing (`relativeTimeParts` in @dsh-studio/shared/time,
- * RD-22a) through the workspace `t()` contract (C37). It shares the `time.*`
+ * from the shared bucketing (`relativeTimeParts` in @dsh-studio/shared/time)
+ * through the workspace `t()` contract. It shares the `time.*`
  * keys with desktop-left-rail so both surfaces show the same localized shapes;
  * a missing/invalid timestamp degrades to ''. This is the same shape as the
  * left-rail `hoverTimeLabel` (distance wrapped in the `ago` template; the

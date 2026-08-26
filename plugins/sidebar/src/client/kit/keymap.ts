@@ -6,12 +6,12 @@
  * ACTIVE surface's actions win naturally and unmounting a surface releases
  * its shortcuts.
  *
- * The localStorage-backed per-action override half (Q9 / M8) is restored as
- * // unwired-capability: the persistence (read/write override) is functional,
- * but the rebinding UI that would write these overrides is NOT wired in, so
- * today the registry resolves from the defaults unless an override was
- * written manually or by a future UI. The process cache (last registration
- * wins) from W1 is kept.
+ * The per-action override half (Q9 / M8 adjudication) is DELETED: the
+ * rebinding UI that would write overrides was never wired in, the direct
+ * browser-storage persistence violated the host-domain persistence
+ * discipline, and no data value was lost (overrides were only reachable by
+ * hand-editing browser storage). The registry resolves from its defaults;
+ * the process cache (last registration wins) from W1 is kept.
  *
  * Kept hand-written on purpose (ADR): the matching core is ~30 lines and the
  * valuable parts — stable action-id registry, hint formatting for the
@@ -141,39 +141,6 @@ interface RegisteredAction {
 /** Last registration per action id wins (surface mount order = recency). */
 const actions = new Map<string, RegisteredAction>()
 
-// // unwired-capability (leaf-R1 ③): the localStorage persistence half is
-// // restored (read/write override below + per-registration resolution). The
-// // rebinding UI that calls writeKeymapOverride is NOT wired in.
-const STORAGE_KEY = 'dsh-studio.keymap.v1'
-
-/** Per-action binding overrides (`{ [actionId]: 'Mod+Shift+V' }`). */
-export function readKeymapOverrides(): Record<string, string> {
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (raw === null) return {}
-    const parsed = JSON.parse(raw) as unknown
-    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
-    const out: Record<string, string> = {}
-    for (const [id, value] of Object.entries(parsed)) {
-      if (typeof value === 'string' && value.length > 0) out[id] = value
-    }
-    return out
-  } catch {
-    return {}
-  }
-}
-
-/** Persist one action's override (the future rebinding UI's write path). */
-export function writeKeymapOverride(id: string, bindingText: string): void {
-  try {
-    const overrides = readKeymapOverrides()
-    overrides[id] = bindingText
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(overrides))
-  } catch {
-    // Storage may be unavailable (private mode); rebinding is best-effort.
-  }
-}
-
 /**
  * Register a keymap action. Returns the unregister function; re-registering
  * the same id replaces the previous registration. `run` returns whether the
@@ -186,14 +153,7 @@ export function registerKeymapAction(
   defaultBinding: KeyBinding,
   run: (event: KeyboardEvent) => boolean,
 ): () => void {
-  // Resolve the effective binding (a persisted override wins; else the
-  // process-cached default). Overrides are read eagerly here so the registry
-  // stays a single default source while a written override still applies.
-  const overrideText = readKeymapOverrides()[id]
-  const effective = overrideText === undefined
-    ? defaultBinding
-    : (parseBindingString(overrideText) ?? defaultBinding)
-  actions.set(id, { id, binding: effective, run })
+  actions.set(id, { id, binding: defaultBinding, run })
   return () => {
     const current = actions.get(id)
     if (current !== undefined && current.run === run) actions.delete(id)

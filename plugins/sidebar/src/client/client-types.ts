@@ -110,6 +110,13 @@ export interface SessionBinding {
 
 export interface SessionsService extends ReviewSessionsService {
   list: ObservableSnapshot<SessionListState>
+  /**
+   * The runtime's atomic current-session projection (`ISessions
+   * .currentProvideInfo`): session selection AND provider-roster changes
+   * publish through this one observable. React views subscribe here for
+   * identity reactivity and read `list.getSnapshot()` fresh at render.
+   */
+  readonly currentProvideInfo: ObservableSnapshot<{ sessionId: string | undefined }>
   binding(id: string): SessionBinding | undefined
   fork(options: { sessionId: string; increaseTitle?: boolean }): Promise<string>
   open(id: string): void

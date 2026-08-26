@@ -236,11 +236,22 @@ export function getDiffRuntime(scope: CapabilitiesScope): WorkspaceDiffRuntime {
   return runtime
 }
 
-/** Dispose every retained runtime (dependency teardown / test reset). */
-export function disposeSidebarRuntimes(): void {
+/**
+ * Evict every retained cwd-keyed runtime so the next `get*` rebuilds it with
+ * fresh data. Fired on kernel workspace changes (leaf-1.7): without this the
+ * cwd-keyed entries never expire and a project's git/file state could stay
+ * stale forever. Live terminal instances are session-owned state, not cached
+ * RPC data, and deliberately survive.
+ */
+export function invalidateRetainedRuntimes(): void {
   explorerRuntimeRegistry.clear()
   sourceControlRuntimeRegistry.clear()
   fileRuntimeRegistry.clear()
   diffRuntimeRegistry.clear()
+}
+
+/** Dispose every retained runtime (dependency teardown / test reset). */
+export function disposeSidebarRuntimes(): void {
+  invalidateRetainedRuntimes()
   terminalInstanceRegistry.clear()
 }

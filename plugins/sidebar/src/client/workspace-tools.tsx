@@ -15,12 +15,13 @@ import {
   findConversationColumn,
   mutationNeedsMount,
 } from '@dsh-studio/shared/column-mount'
-import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
 import type { PinnedSummary } from '@dsh-studio/pinned-summary/client'
 import { basename } from '@dsh-studio/shared/path'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
 import { useTranslate } from '@dsh-studio/shared/use-i18n'
 import { ensureStyle } from '@dsh-studio/shared/style-injector'
+import { ensureLayoutDom } from '@dsh-studio/shared/layout-dom'
+import type { LayoutService } from '@dsh-studio/shared/workbench-contracts'
 import { ToastHost } from '@dsh-studio/shared/toast'
 import { DialogHost } from './kit/dialog.tsx'
 import { SideToolsPanel } from './SideToolsPanel.tsx'
@@ -54,6 +55,9 @@ export class WorkspaceToolsService implements WorkspaceTools {
   private stopStyle: (() => void) | undefined
   private element: HTMLDivElement | undefined
   private root: Root | undefined
+  // Overlay-region handles for the body-level surfaces this service mounts.
+  private sidebarOverlay: (() => void) | undefined
+  private toastOverlay: (() => void) | undefined
   // The toast host mounts on its own document.body element (the sidebar
   // root is a clipped fixed overlay that only spans the panel footprint,
   // so an in-panel host would hide or misplace toasts).
@@ -64,16 +68,22 @@ export class WorkspaceToolsService implements WorkspaceTools {
   private stopKeymap: (() => void) | undefined
   private stopChromeGeometry: (() => void) | undefined
   private readonly disposeKeymapActions: Array<() => void> = []
+  // The LayoutService region host: the single DOM write point for the
+  // right-panel reservation and document-level chrome flags.
+  private readonly dom: ReturnType<typeof ensureLayoutDom>
 
   constructor(
     readonly sidebar: DesktopSidebarService,
-    private readonly panels: DesktopPanels,
+    /** The workbench kernel layout service (`ctx.get('workbench.layout')`). */
+    private readonly layout: LayoutService,
     private readonly locale: LocaleService,
     private readonly t: Translate<WorkspaceMessage>,
     private readonly pinnedSummary: PinnedSummary,
     private readonly sessions: SessionsService,
     private readonly workspaces: WorkspacesService,
-  ) {}
+  ) {
+    this.dom = ensureLayoutDom(layout)
+  }
 
   /** Live read of the panel geometry straight from the sidebar snapshot.
    *  Only used by imperative methods; React surfaces derive their own memo.
@@ -104,7 +114,9 @@ export class WorkspaceToolsService implements WorkspaceTools {
   setOpen(open: boolean): void {
     if (open) this.claimPanelExclusivity()
     this.sidebar.setOpen(open)
-    if (!open) delete document.documentElement.dataset.dshStudioPanelMaximized
+    // The snapshot observer re-applies the flag; clear eagerly on close so
+    // the document never keeps a stale maximize marker.
+    if (!open) this.applyMaximizedFlag(null)
   }
 
   toggle(): void {
@@ -203,8 +215,15 @@ export class WorkspaceToolsService implements WorkspaceTools {
     if (!panel.open) return
     const maximized = !panel.maximized
     this.sidebar.setMaximized(maximized)
-    if (maximized) document.documentElement.dataset.dshStudioPanelMaximized = 'true'
-    else delete document.documentElement.dataset.dshStudioPanelMaximized
+    this.applyMaximizedFlag(maximized)
+  }
+
+  /** The maximize marker is written through the region host's document
+   *  style channel (the single documentElement write point). */
+  private applyMaximizedFlag(value: boolean | null): void {
+    this.dom.applyDocumentStyles({
+      flags: { dshStudioPanelMaximized: value === null ? null : 'true' },
+    })
   }
 
   setWidth(width: number): void {
@@ -214,38 +233,36 @@ export class WorkspaceToolsService implements WorkspaceTools {
 
   /**
    * Live drag preview (pointermove hot path). The width is written straight
-   * to the DOM (CSS variable + overlay size + the `#root` squeeze) without
-   * touching the sidebar store, React state, persistence or the
-   * DesktopPanels claim coordinator — so a frame of pointermove never
-   * commits a React tree, a localStorage write, or a theme observer hit.
-   * The final value is committed by {@link commitResizeWidth} on pointerup.
+   * to the DOM (CSS variable + overlay size + the right-panel reservation)
+   * without touching the sidebar store, React state or persistence — so a
+   * frame of pointermove never commits a React tree, a persistence write,
+   * or a theme observer hit. The reservation goes through the LayoutService
+   * preview path: it participates in negotiation immediately but the
+   * committed claim is re-asserted by {@link commitResizeWidth} on pointerup.
    */
   previewResizeWidth(rawWidth: number): void {
     const panel = this.panel
     if (rawWidth < SIDEBAR_COLLAPSE_THRESHOLD_PX) {
       this.resizing = true
-      const html = document.documentElement
-      html.style.setProperty('--dsh-studio-sidebar-width', '0px')
+      this.dom.applyDocumentStyles({ vars: { '--dsh-studio-sidebar-width': '0px' } })
       if (this.element !== undefined) this.element.style.width = '0px'
-      if (panel.open) this.panels.previewRightPanel('0px')
+      if (panel.open) this.dom.previewPanel('sidebar', 0)
       return
     }
     this.resizing = true
     const width = clampSidebarWidth(rawWidth, window.innerWidth)
     const fullWidth = panel.maximized
-    const html = document.documentElement
-    html.style.setProperty('--dsh-studio-sidebar-width', `${String(width)}px`)
+    this.dom.applyDocumentStyles({ vars: { '--dsh-studio-sidebar-width': `${String(width)}px` } })
     if (this.element !== undefined) {
       this.element.style.width = panel.open
         ? (fullWidth ? '100vw' : `${String(width)}px`)
         : '0px'
     }
     if (panel.open) {
-      // Mirror what claimRightPanel would produce once committed. While the
-      // panel is dragged the sidebar is the only right-panel adapter moving;
-      // the commit below re-asserts the claim so the coordinator stays the
-      // owner of record.
-      this.panels.previewRightPanel(panel.open && fullWidth ? '100vw' : `${String(width)}px`)
+      // Mirror what the committed claim will produce once the drag settles.
+      // While the panel is dragged the sidebar is the only right-panel
+      // claimant moving; commitResizeWidth re-asserts the claim.
+      this.dom.previewPanel('sidebar', fullWidth ? window.innerWidth : width)
     }
   }
 
@@ -264,8 +281,8 @@ export class WorkspaceToolsService implements WorkspaceTools {
       return
     }
     // Same width as the committed store value: the preview DOM writes are
-    // already final, but re-run layout so claim/padding stay authoritative
-    // (the preview bypassed the claim coordinator).
+    // already final, but re-run layout so the committed claim stays
+    // authoritative (the preview only published a pending footprint).
     this.applyLayout()
   }
 
@@ -282,17 +299,18 @@ export class WorkspaceToolsService implements WorkspaceTools {
     ].join('\n'))
     this.element = document.createElement('div')
     this.element.id = 'dsh-studio-sidebar-root'
-    // The sidebar is a fixed overlay; #root is left in place (no wrapper, no
-    // DOM restructuring). The squeeze is applied as padding-right on #root,
-    // coordinated through the desktopPanels right-panel claim.
-    document.body.append(this.element)
+    // The sidebar is a fixed overlay; the app's center column is squeezed
+    // through the LayoutService right-panel claim (applyLayout), never by
+    // DOM restructuring. Body-level mounting goes through the overlay
+    // region protocol; its stacking stays pinned below upstream dialogs
+    // (the stylesheet keeps z-index: 10 for the same reason).
+    this.sidebarOverlay = this.dom.mountOverlay('sidebar', this.element, { zIndex: 10 }).release
     this.root = createRoot(this.element)
     this.root.render(
       <WorkspaceToolsSurface
         locale={this.locale}
         t={this.t}
         service={this}
-        panels={this.panels}
         sessions={this.sessions}
         workspaces={this.workspaces}
         sidebar={this.sidebar}
@@ -300,7 +318,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
     )
     this.toastElement = document.createElement('div')
     this.toastElement.id = 'dsh-studio-toast-root'
-    document.body.append(this.toastElement)
+    this.toastOverlay = this.dom.mountOverlay('toast-host', this.toastElement).release
     this.toastRoot = createRoot(this.toastElement)
     this.toastRoot.render(
       <>
@@ -352,19 +370,30 @@ export class WorkspaceToolsService implements WorkspaceTools {
     this.stopKeymap = undefined
     this.stopChromeGeometry?.()
     this.stopChromeGeometry = undefined
-    delete document.documentElement.dataset.dshStudioRightPanelWidth
     this.root?.unmount()
-    this.element?.remove()
     this.toastRoot?.unmount()
-    this.toastElement?.remove()
+    // Overlay releases remove the body-level elements and drop their claims.
+    this.sidebarOverlay?.()
+    this.sidebarOverlay = undefined
+    this.toastOverlay?.()
+    this.toastOverlay = undefined
+    this.element = undefined
+    this.toastElement = undefined
     this.stopSharedStyle?.()
     this.stopSharedStyle = undefined
     this.stopStyle?.()
     this.stopStyle = undefined
-    delete document.documentElement.dataset.dshStudioDesktopSidebarOpen
-    delete document.documentElement.dataset.dshStudioPanelMaximized
-    document.documentElement.style.removeProperty('--dsh-studio-sidebar-width')
-    this.panels.releaseRightPanel('sidebar')
+    // Clear every document-level marker this service owned.
+    this.dom.applyDocumentStyles({
+      vars: { '--dsh-studio-sidebar-width': null },
+      flags: {
+        dshStudioDesktopSidebarOpen: null,
+        dshStudioPanelMaximized: null,
+        dshStudioRightPanelWidth: null,
+        dshStudioSidebarFullWidth: null,
+      },
+    })
+    this.dom.releasePanel('sidebar')
   }
 
   private openView(view: string, resource?: string): void {
@@ -382,16 +411,11 @@ export class WorkspaceToolsService implements WorkspaceTools {
   private onSidebarChanged(): void {
     const panel = this.panel
     if (panel.open) this.claimPanelExclusivity()
-    if (panel.maximized) {
-      document.documentElement.dataset.dshStudioPanelMaximized = 'true'
-    } else {
-      delete document.documentElement.dataset.dshStudioPanelMaximized
-    }
+    this.applyMaximizedFlag(panel.maximized ? true : null)
     this.applyLayout()
   }
 
   private applyLayout(): void {
-    const html = document.documentElement
     const panel = this.panel
     const fullWidth = panel.maximized
     const widthCss = `${String(panel.width)}px`
@@ -399,37 +423,31 @@ export class WorkspaceToolsService implements WorkspaceTools {
       ? (fullWidth ? '100vw' : widthCss)
       : '0px'
 
-    // Dirty-checked writes: every one of these lands on `html.style` or an
-    // element style, and a no-op write would still trip the terminal theme
-    // observer / cascade a ResizeObserver. Only touch what actually changed.
-    if (html.style.getPropertyValue('--dsh-studio-sidebar-width') !== widthCss) {
-      html.style.setProperty('--dsh-studio-sidebar-width', widthCss)
-    }
-    // Full-width only for explicit maximize; the window minWidth guarantees
-    // both side panels always fit, so no viewport-driven drawer mode exists.
-    if (panel.open && fullWidth) {
-      if (html.dataset.dshStudioSidebarFullWidth !== 'true') html.dataset.dshStudioSidebarFullWidth = 'true'
-    } else if (html.dataset.dshStudioSidebarFullWidth !== undefined) {
-      delete html.dataset.dshStudioSidebarFullWidth
-    }
+    // All document-level markers go through the region host's single write
+    // point; the values themselves stay sidebar-domain decisions.
+    this.dom.applyDocumentStyles({
+      vars: { '--dsh-studio-sidebar-width': widthCss },
+      flags: {
+        // Full-width only for explicit maximize; the window minWidth
+        // guarantees both side panels always fit, so no viewport-driven
+        // drawer mode exists.
+        dshStudioSidebarFullWidth: panel.open && fullWidth ? 'true' : null,
+        dshStudioDesktopSidebarOpen: panel.open ? 'true' : null,
+        dshStudioRightPanelWidth: panel.open
+          // Publish the resolved footprint so the DSH AppFrame patch can
+          // include the plugin rail in its viewport-budget calculation.
+          ? String(fullWidth ? window.innerWidth : panel.width)
+          : null,
+      },
+    })
     if (panel.open) {
-      if (html.dataset.dshStudioDesktopSidebarOpen !== 'true') html.dataset.dshStudioDesktopSidebarOpen = 'true'
-      // Publish the resolved footprint so the DSH AppFrame patch can include
-      // the plugin rail in its viewport-budget (forced-close) calculation.
-      const px = String(fullWidth ? window.innerWidth : panel.width)
-      if (html.dataset.dshStudioRightPanelWidth !== px) html.dataset.dshStudioRightPanelWidth = px
-      // The #root squeeze is owned by the desktopPanels right-panel
-      // coordinator — claim the footprint instead of writing global state.
-      // The overlay container is flush with the window's right edge (no
-      // right inset anymore), so the squeeze equals the panel width: the
-      // app's center column ends exactly at the panel's left edge.
-      this.panels.claimRightPanel('sidebar', {
-        paddingRight: fullWidth ? '100vw' : widthCss,
-      })
+      // Reserve the right-panel footprint through the LayoutService: the
+      // overlay container is flush with the window's right edge, so the
+      // center-column squeeze equals the panel width — the app's center
+      // column ends exactly at the panel's left edge.
+      this.dom.reservePanel('sidebar', fullWidth ? window.innerWidth : panel.width)
     } else {
-      delete html.dataset.dshStudioDesktopSidebarOpen
-      if (html.dataset.dshStudioRightPanelWidth !== undefined) delete html.dataset.dshStudioRightPanelWidth
-      this.panels.releaseRightPanel('sidebar')
+      this.dom.releasePanel('sidebar')
     }
     // The overlay container only occupies the panel footprint while open on
     // wide viewports; closed it collapses to 0 so it never intercepts
@@ -460,7 +478,6 @@ function WorkspaceToolsSurface(props: {
   t: Translate<WorkspaceMessage>
   service: WorkspaceToolsService
   sidebar: DesktopSidebarService
-  panels: DesktopPanels
   sessions: SessionsService
   workspaces: WorkspacesService
 }): JSX.Element {
@@ -482,8 +499,10 @@ function WorkspaceToolsSurface(props: {
     [snapshot.activeId, snapshot.maximized, snapshot.open, snapshot.tabs, snapshot.width],
   )
   const cwd = activeWorkspace(props.sessions)
-  // Subscribe to session changes so the cwd-driven open policy re-derives.
-  void useSyncExternalStore(props.sessions.list.subscribe, props.sessions.list.getSnapshot)
+  // Identity reactivity rides the runtime's current-session projection
+  // (leaf-1.7); the roster itself is read fresh at render so the cwd-driven
+  // open policy re-derives on session/workspace switches.
+  useSyncExternalStore(props.sessions.currentProvideInfo.subscribe, props.sessions.currentProvideInfo.getSnapshot)
   return (
     <>
       <SideToolsPanel
@@ -492,7 +511,6 @@ function WorkspaceToolsSurface(props: {
         width={panelState.width}
         maximized={panelState.maximized}
         sidebar={props.sidebar}
-        panels={props.panels}
         t={t}
         onClose={() => { props.service.setOpen(false) }}
         // Drag live-updates the DOM only (preview); pointerup commits the

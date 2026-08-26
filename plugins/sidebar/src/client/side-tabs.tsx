@@ -6,7 +6,6 @@ import {
   useSyncExternalStore,
 } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
-import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
 import {
   IconMaximize,
   IconRestore,
@@ -25,6 +24,7 @@ import type {
 import { tabAvailability } from './contract.ts'
 import type { WorkspaceMessage } from './i18n.ts'
 import { tabBadge, unavailableTitle } from './side-tool-helpers.tsx'
+import { workbenchOpen } from './open/pipeline.ts'
 import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 
 /* Pinned panel entries — 文件 (files) and Git (review) stay one click away,
@@ -52,13 +52,11 @@ export function PinnedTabs({ sidebar, t, cwd }: {
     snapshot,
     sidebar.isTabEnabled('review'),
   )
+  // The pinned chips open through the workbench pipeline: the kernel dedupes
+  // by the chip's declared identity and replays activation, so no manual
+  // find-existing lives here (see client/open/pipeline.ts).
   const openType = (type: string): void => {
-    const existing = snapshot.tabs.find(tab => tab.type === type)
-    if (existing !== undefined) {
-      sidebar.activateTab(existing.id)
-      return
-    }
-    sidebar.openTab({ type })
+    workbenchOpen().open({ kind: type, target: {}, intent: 'pin' })
   }
   const filesTab = snapshot.tabs.find(tab => tab.type === 'files')
   const reviewTab = snapshot.tabs.find(tab => tab.type === 'review')
@@ -106,9 +104,9 @@ export function TabStrip({ sidebar, t }: {
   const drag = useTabStripDrag({
     source: 'side',
     onDrop: (payload, hoverId, side) => {
-      // // unwired-capability (leaf-R1 ②): the bottom branch is dormant — the
-      // // workbench is not mounted, so a docked tab can never be dragged back;
-      // // restored to keep the drag state machine complete for R2 wiring.
+      // The bottom branch is dormant — the workbench is not mounted, so a
+      // docked tab can never be dragged back; kept to make the drag state
+      // machine complete for future wiring.
       if (payload.source === 'bottom') {
         sidebar.undockTabToSide(payload.tabId, hoverId === '' ? null : hoverId, side)
         return
@@ -186,7 +184,6 @@ export function PanelActions({
   onToggleMaximized(): void
   onToggleSide(): void
   open: boolean
-  panels: DesktopPanels
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   return (

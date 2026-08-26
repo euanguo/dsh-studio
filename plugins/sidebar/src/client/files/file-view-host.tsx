@@ -81,8 +81,9 @@ export function FileViewHost({
     ? new Uint8Array([0])
     : new TextEncoder().encode((snapshot.content ?? '').slice(0, VIEWER_SNIFF_BYTES))
   const viewer = sidebar.matchViewer(path, head)
-  if (viewer?.render !== undefined) {
-    return <>{viewer.render({
+  const viewerSpec = viewer?.viewer
+  if (viewerSpec?.render !== undefined) {
+    return <>{viewerSpec.render({
       ...(snapshot.content !== null ? { content: snapshot.content } : {}),
       path,
       title,

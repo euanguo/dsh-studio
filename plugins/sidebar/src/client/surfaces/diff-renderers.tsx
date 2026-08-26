@@ -22,7 +22,7 @@ import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
 import { MultiDiffFileStack } from '../diff/multi-diff-file-stack.tsx'
 import { ImageDiffViewer } from '../diff/image-diff-viewer.tsx'
-import { useDiffCommentsStore, commentPathMatches, type WorkbenchComment } from '../diff/diff-comments-store.ts'
+import { useDiffCommentsStore, commentBelongsToCwd, commentPathMatches, type WorkbenchComment } from '../diff/diff-comments-store.ts'
 import { commentsToDiffLineAnnotations } from '../diff/comment-annotations.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { buildDiffDocument } from '../diff/file-diff.ts'
@@ -104,7 +104,8 @@ export function DiffSurfaceView({
   const allComments = useDiffCommentsStore(state => state.comments)
   const comments = useMemo(
     () => allComments.filter(comment =>
-      commentPathMatches(comment.path, surface.filePath, surface.cwd)
+      commentBelongsToCwd(comment, surface.cwd)
+      && commentPathMatches(comment.path, surface.filePath, surface.cwd)
       && comment.createdAt.length > 0,
     ),
     [allComments, surface.cwd, surface.filePath],
@@ -118,6 +119,7 @@ export function DiffSurfaceView({
     onAdd: input => {
       useDiffCommentsStore.getState().addComment({
         ...input,
+        cwd: surface.cwd,
         id: crypto.randomUUID(),
         createdAt: new Date().toISOString(),
       })

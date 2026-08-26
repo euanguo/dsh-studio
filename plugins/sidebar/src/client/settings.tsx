@@ -21,11 +21,10 @@ import type {
   SidebarSettingsProps,
 } from './client-types.ts'
 import type {
-  SidebarSettingToggle,
   SidebarSettingsRenderProps,
-  SidebarTabDescriptor,
-  SidebarViewerDescriptor,
+  SidebarSurfaceDescriptor,
 } from './contract.ts'
+import { sidebarDescriptorSettings } from './contract.ts'
 import type { SidebarRuntimePreferences } from './runtime-settings.ts'
 import { DEFAULT_SIDEBAR_RUNTIME_PREFERENCES } from './runtime-settings.ts'
 import {
@@ -45,10 +44,8 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
     props.runtime.subscribe,
     props.runtime.getSnapshot,
   )
-  const [settingsFor, setSettingsFor] = useState<
-    SidebarTabDescriptor | SidebarViewerDescriptor | null
-  >(null)
-  const tabs = props.sidebar.getTabs().filter(descriptor => descriptor.hidden !== true)
+  const [settingsFor, setSettingsFor] = useState<SidebarSurfaceDescriptor | null>(null)
+  const tabs = props.sidebar.getTabs().filter(descriptor => descriptor.rail?.hidden !== true)
   const viewers = props.sidebar.getViewers()
   const updateRuntime = (
     key: keyof SidebarRuntimePreferences,
@@ -64,7 +61,7 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
   }), [runtimeState.preferences, state.openByDefault, state.width])
   const pluginSettings = settingsFor === null
     ? {}
-    : state.pluginSettings[settingsFor.id] ?? {}
+    : state.pluginSettings[settingsFor.kind] ?? {}
   const centerPreviewTabs = useSyncExternalStore(
     props.sidebar.subscribe,
     () => props.sidebar.getSnapshot().centerPreviewTabs,
@@ -229,12 +226,12 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         <div className={surfaceCss["dsh-studio-sidebar-settings-grid"]}>
           {tabs.map(descriptor => (
             <FeatureCard
-              key={descriptor.id}
+              key={descriptor.kind}
               feature={descriptor}
-              enabled={state.tabsEnabled[descriptor.id] !== false}
-              onToggle={enabled => { props.setTabEnabled(descriptor.id, enabled) }}
+              enabled={state.tabsEnabled[descriptor.kind] !== false}
+              onToggle={enabled => { props.setTabEnabled(descriptor.kind, enabled) }}
               onOpenSettings={() => { setSettingsFor(descriptor) }}
-              hasSettings={descriptor.settings !== undefined}
+              hasSettings={sidebarDescriptorSettings(descriptor) !== undefined}
               meta=""
               t={props.t}
             />
@@ -248,13 +245,13 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
         <div className={surfaceCss["dsh-studio-sidebar-settings-grid"]}>
           {viewers.map(descriptor => (
             <FeatureCard
-              key={descriptor.id}
+              key={descriptor.kind}
               feature={descriptor}
-              enabled={state.viewersEnabled[descriptor.id] !== false}
-              onToggle={enabled => { props.setViewerEnabled(descriptor.id, enabled) }}
+              enabled={state.viewersEnabled[descriptor.kind] !== false}
+              onToggle={enabled => { props.setViewerEnabled(descriptor.kind, enabled) }}
               onOpenSettings={() => { setSettingsFor(descriptor) }}
-              hasSettings={descriptor.settings !== undefined}
-              meta={descriptor.exts.length === 0 ? 'any' : descriptor.exts.join(' ')}
+              hasSettings={sidebarDescriptorSettings(descriptor) !== undefined}
+              meta={descriptor.viewer!.exts.length === 0 ? 'any' : descriptor.viewer!.exts.join(' ')}
               t={props.t}
             />
           ))}

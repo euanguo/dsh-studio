@@ -7,13 +7,18 @@
  * and external consumer plugins). This module implements it.
  *
  * Design notes:
- * - The registry is synchronous-snapshot (Map + listener set) so React can
- *   read it through `useSyncExternalStore` without tearing.
+ * - One sidebar descriptor table (`Map<kind, SidebarSurfaceDescriptor>`): the
+ *   former tab / viewer / surface-renderer registrations are aspects of a
+ *   single descriptor, registered through `register()` alone. Each accepted
+ *   registration projects its routing metadata into the injected kernel
+ *   `workbench.registry`; no caller maintains a second routing list.
+ * - The sidebar view is a synchronous snapshot (Map + listener set) so React
+ *   can read it through `useSyncExternalStore` without tearing.
  * - `dedupeKey` unifies the open-tab strategies: single-instance
- *   (`single: true` ≡ `() => id`), per-resource (`tab => tab.resource`) and
+ *   (`single: true` ≡ `() => kind`), per-resource (`tab => tab.resource`) and
  *   per-id. `createTab` lets a descriptor own tab instantiation and state
  *   patching.
- * - `matchViewer` walks descriptors in priority order (desc, stable): per
+ * - `matchViewer` walks viewer specs in priority order (desc, stable): per
  *   descriptor it tries `detect` first (when `head` bytes are given), then
  *   `exts`; `exts: []` is a catch-all.
  * - Lifecycle callbacks (onOpen/onActivate/onClose) fire from the SERVICE
@@ -23,8 +28,12 @@
  */
 import type { ReactNode } from 'react'
 import { basename } from '@dsh-studio/shared/path'
-import type { CenterSurface, CenterSurfaceKind } from './surfaces/types.ts'
-import type { PreviewTabsMode } from '@dsh-studio/shared/workbench-contracts'
+import type { CenterSurface } from './surfaces/types.ts'
+import type {
+  PreviewTabsMode,
+  SurfaceDescriptor,
+  SurfaceRegistry,
+} from '@dsh-studio/shared/workbench-contracts'
 import type { LayoutScopeMode } from '../sidebar-preferences.ts'
 import { GLOBAL_SCOPE_BUCKET } from '@dsh-studio/shared/workbench-contracts'
 import {
@@ -48,17 +57,18 @@ import {
   type OpenTabResult,
   type CapabilitiesScope,
   type SidebarSnapshot,
+  type SidebarSurfaceDescriptor,
   type SidebarTab,
-  type SidebarTabDescriptor,
   type SidebarTabSeed,
-  type SidebarViewerDescriptor,
 } from './contract.ts'
 import { reorderById } from './tab-drag.ts'
 
 export type {
   OpenTabResult,
   SidebarFeature,
+  SidebarCenterSpec,
   SidebarFileFetchStrategy,
+  SidebarRailSpec,
   SidebarRenderProps,
   CapabilitiesScope,
   SidebarSettingToggle,
@@ -66,12 +76,11 @@ export type {
   SidebarSettingsDeclaration,
   SidebarSettingsRenderProps,
   SidebarSnapshot,
-  SidebarSurfaceRenderer,
+  SidebarSurfaceDescriptor,
   SidebarTab,
-  SidebarTabDescriptor,
   SidebarTabSeed,
-  SidebarViewerDescriptor,
   SidebarViewerRenderInput,
+  SidebarViewerSpec,
 } from './contract.ts'
 
 export { SIDEBAR_FEATURES, SIDEBAR_SERVICE_VERSION } from './contract.ts'
@@ -92,10 +101,52 @@ function extensionOf(path: string): string {
   return dot > separator ? path.slice(dot + 1).toLowerCase() : ''
 }
 
-function titleOf(descriptor: SidebarTabDescriptor): string {
-  return typeof descriptor.title === 'function'
-    ? descriptor.title()
-    : descriptor.title
+function titleOf(descriptor: SidebarSurfaceDescriptor): string {
+  const title = descriptor.rail?.title
+  if (title === undefined) return descriptor.kind
+  return typeof title === 'function' ? title() : title
+}
+
+/**
+ * Project the React-bearing sidebar descriptor into the React-free kernel
+ * vocabulary. The sidebar keeps the presentation payload; the workbench
+ * registry owns the routing facts used by every open request.
+ */
+function toKernelDescriptor(
+  descriptor: SidebarSurfaceDescriptor,
+  kind: string,
+): SurfaceDescriptor {
+  const rail = descriptor.rail === undefined
+    ? undefined
+    : {
+      ...(descriptor.rail.order === undefined ? {} : { order: descriptor.rail.order }),
+      ...(descriptor.rail.single === undefined ? {} : { single: descriptor.rail.single }),
+      ...(descriptor.rail.single === true ? { dedupeKey: kind } : {}),
+    }
+  const center = descriptor.center === undefined
+    ? undefined
+    : {
+      ...(descriptor.center.dedupeKey === undefined
+        ? {}
+        : { dedupeKey: descriptor.center.dedupeKey }),
+    }
+  const viewer = descriptor.viewer === undefined
+    ? undefined
+    : {
+      exts: descriptor.viewer.exts,
+      ...(descriptor.viewer.priority === undefined
+        ? {}
+        : { priority: descriptor.viewer.priority }),
+    }
+  return {
+    kind,
+    ...(rail === undefined ? {} : { rail }),
+    ...(center === undefined ? {} : { center }),
+    ...(viewer === undefined ? {} : { viewer }),
+    scopeNeed: descriptor.scopeNeed,
+    previewable: descriptor.previewable,
+    focusPolicy: descriptor.focusPolicy,
+  }
 }
 
 function messageOf(error: unknown): string {
@@ -163,9 +214,10 @@ function cloneWorkspace(workspace: PersistedWorkspaceLayout): PersistedWorkspace
 
 export class DesktopSidebarService implements DesktopSidebarServiceContract {
   private readonly listeners = new Set<() => void>()
-  private readonly tabDescriptors = new Map<string, SidebarTabDescriptor>()
-  private readonly viewerDescriptors = new Map<string, SidebarViewerDescriptor>()
-  private readonly surfaceRenderers = new Map<CenterSurfaceKind, (surface: CenterSurface) => ReactNode>()
+  /** The sidebar presentation table; registration projects into the kernel table. */
+  private readonly surfaces = new Map<string, SidebarSurfaceDescriptor>()
+  private readonly kernelRegistry: SurfaceRegistry
+  private readonly kernelDisposers = new Map<string, () => void>()
   private preferences = freshPreferences()
   private disposed = false
   private instance = 0
@@ -183,10 +235,9 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   private viewersEnabled: Record<string, boolean> = {}
   private snapshot: SidebarSnapshot = {
     activeId: null,
-    // // unwired-capability (leaf-R2 ①): BOTTOM workbench snapshot fields
-    // // restored as published dormant contract — the workbench is not
-    // // mounted pending a product decision, so they stay null/empty until
-    // // a dock UI re-wires the bottom methods below.
+    // BOTTOM workbench snapshot fields are published dormant contract — the
+    // workbench is not mounted pending a product decision, so they stay
+    // null/empty until a dock UI re-wires the bottom methods below.
     bottomActiveId: null,
     bottomTabs: [],
     error: null,
@@ -211,13 +262,15 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
 
   constructor(
     storage: SidebarPreferencesStorage,
-    onFeatureEnablementChange?: (next: {
+    onFeatureEnablementChange: ((next: {
       tabsEnabled: Record<string, boolean>
       viewersEnabled: Record<string, boolean>
-    }) => void,
+    }) => void) | undefined,
+    kernelRegistry: SurfaceRegistry,
   ) {
     this.storage = storage
     this.onFeatureEnablementChange = onFeatureEnablementChange
+    this.kernelRegistry = kernelRegistry
     this.persist = persistVia<DesktopSidebarPreferences>(
       {
         // Pull-driven: schedulePersist() fires at the same mutators that used
@@ -293,73 +346,66 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
 
   dispose(): void {
     this.disposed = true
+    for (const dispose of this.kernelDisposers.values()) dispose()
+    this.kernelDisposers.clear()
+    this.surfaces.clear()
     this.listeners.clear()
   }
 
-  registerTab(descriptor: SidebarTabDescriptor): () => void {
-    if (this.tabDescriptors.has(descriptor.id)) {
-      throw new Error(`sidebar: duplicate tab "${descriptor.id}"`)
+  register(descriptor: SidebarSurfaceDescriptor): () => void {
+    const kind = typeof descriptor.kind === 'string' ? descriptor.kind.trim() : ''
+    if (kind === '') {
+      throw new Error('sidebar: surface descriptor requires a non-empty kind')
     }
-    this.tabDescriptors.set(descriptor.id, descriptor)
+    if (descriptor.rail === undefined
+      && descriptor.center === undefined
+      && descriptor.viewer === undefined) {
+      throw new Error(`surface ${kind} must declare a rail, center or viewer spec`)
+    }
+    // Kernel parity: only center-class surfaces can be replaceable previews.
+    if (descriptor.previewable && descriptor.center === undefined) {
+      throw new Error(`surface ${kind} is previewable but declares no center spec`)
+    }
+    if (this.surfaces.has(kind)) {
+      throw new Error(`sidebar: duplicate surface "${kind}"`)
+    }
+    const disposeKernel = this.kernelRegistry.register(toKernelDescriptor(descriptor, kind))
+    this.surfaces.set(kind, descriptor)
+    this.kernelDisposers.set(kind, disposeKernel)
     this.touch()
     return () => {
-      if (this.tabDescriptors.get(descriptor.id) === descriptor) {
-        this.tabDescriptors.delete(descriptor.id)
-        this.touch()
-      }
-    }
-  }
-
-  registerViewer(descriptor: SidebarViewerDescriptor): () => void {
-    if (this.viewerDescriptors.has(descriptor.id)) {
-      throw new Error(`sidebar: duplicate viewer "${descriptor.id}"`)
-    }
-    this.viewerDescriptors.set(descriptor.id, descriptor)
-    this.touch()
-    return () => {
-      if (this.viewerDescriptors.get(descriptor.id) === descriptor) {
-        this.viewerDescriptors.delete(descriptor.id)
-        this.touch()
-      }
-    }
-  }
-
-  registerSurfaceRenderer(
-    kind: CenterSurfaceKind,
-    renderer: (surface: CenterSurface) => ReactNode,
-  ): () => void {
-    if (this.surfaceRenderers.has(kind)) {
-      throw new Error(`sidebar: duplicate surface renderer "${kind}"`)
-    }
-    this.surfaceRenderers.set(kind, renderer)
-    this.touch()
-    return () => {
-      if (this.surfaceRenderers.get(kind) === renderer) {
-        this.surfaceRenderers.delete(kind)
+      if (this.surfaces.get(kind) === descriptor) {
+        this.surfaces.delete(kind)
+        this.kernelDisposers.get(kind)?.()
+        this.kernelDisposers.delete(kind)
         this.touch()
       }
     }
   }
 
   renderSurface(surface: CenterSurface): ReactNode {
-    const renderer = this.surfaceRenderers.get(surface.kind)
+    const renderer = this.surfaces.get(surface.kind)?.center?.render
     return renderer === undefined ? null : renderer(surface)
   }
 
-  getTabs(): readonly SidebarTabDescriptor[] {
-    return [...this.tabDescriptors.values()].sort(
-      (left, right) => (left.order ?? 100) - (right.order ?? 100),
-    )
+  getTabs(): readonly SidebarSurfaceDescriptor[] {
+    return [...this.surfaces.values()]
+      .filter(descriptor => descriptor.rail !== undefined)
+      .sort(
+        (left, right) => (left.rail!.order ?? 100) - (right.rail!.order ?? 100),
+      )
   }
 
-  getViewers(): readonly SidebarViewerDescriptor[] {
-    return [...this.viewerDescriptors.values()].sort(
-      (left, right) => (right.priority ?? 0) - (left.priority ?? 0),
-    )
+  getViewers(): readonly SidebarSurfaceDescriptor[] {
+    return [...this.surfaces.values()]
+      .filter(descriptor => descriptor.viewer !== undefined)
+      .sort(
+        (left, right) => (right.viewer!.priority ?? 0) - (left.viewer!.priority ?? 0),
+      )
   }
 
-  getTab(id: string): SidebarTabDescriptor | undefined {
-    return this.tabDescriptors.get(id)
+  getTab(id: string): SidebarSurfaceDescriptor | undefined {
+    return this.surfaces.get(id)
   }
 
   isTabEnabled(id: string): boolean {
@@ -387,37 +433,38 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   matchViewer(
     path: string,
     head?: Uint8Array,
-  ): SidebarViewerDescriptor | undefined {
+  ): SidebarSurfaceDescriptor | undefined {
     const extension = extensionOf(path)
-    for (const viewer of this.getViewers()) {
-      if (!this.isViewerEnabled(viewer.id)) continue
+    for (const descriptor of this.getViewers()) {
+      if (!this.isViewerEnabled(descriptor.kind)) continue
+      const viewer = descriptor.viewer!
       if (head !== undefined && viewer.detect !== undefined) {
-        if (viewer.detect(path, head)) return viewer
+        if (viewer.detect(path, head)) return descriptor
         // A catch-all with detect is SNIFF-ONLY: it must not blind-claim
         // paths it never sniffed.
         if (viewer.exts.length === 0) continue
       } else if (viewer.exts.length === 0) {
         // Blind catch-all (no detect) claims anything; a sniff-only
         // catch-all (detect defined, no head yet) yields this round.
-        if (viewer.detect === undefined) return viewer
+        if (viewer.detect === undefined) return descriptor
         continue
       }
       if (viewer.exts.map(value => value.toLowerCase()).includes(extension)) {
-        return viewer
+        return descriptor
       }
     }
     return undefined
   }
 
-  resolveUrlTarget(url: URL): SidebarTabDescriptor | undefined {
+  resolveUrlTarget(url: URL): SidebarSurfaceDescriptor | undefined {
     // Registration order wins (Map iteration is insertion order); a
     // disabled tab type is skipped; a throwing predicate is swallowed.
-    for (const descriptor of this.tabDescriptors.values()) {
-      if (descriptor.urlTarget === undefined) continue
-      if (!this.isTabEnabled(descriptor.id)) continue
+    for (const descriptor of this.surfaces.values()) {
+      if (descriptor.rail?.urlTarget === undefined) continue
+      if (!this.isTabEnabled(descriptor.kind)) continue
       let claimed = false
       try {
-        claimed = descriptor.urlTarget(url) === true
+        claimed = descriptor.rail.urlTarget(url) === true
       } catch (error) {
         console.error('[sidebar] urlTarget error:', error)
         continue
@@ -460,41 +507,43 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     if (!this.snapshot.ready) return { kind: 'not-ready' }
     const target = this.targetOf(scope)
     if (target === null) return { kind: 'not-ready' }
-    const descriptor = this.tabDescriptors.get(seed.type)
-    if (descriptor === undefined) return { kind: 'missing' }
-    // ONE availability gate: folds `requiresWorkspace`, `available` and the
-    // enable map into a single answer, so `openTab` and every UI entry point
-    // agree on whether (and why) a tab can open right now.
+    const descriptor = this.surfaces.get(seed.type)
+    // Only rail-mounted surfaces can host an open tab.
+    const rail = descriptor?.rail
+    if (descriptor === undefined || rail === undefined) return { kind: 'missing' }
+    // ONE availability gate: folds `scopeNeed`, the rail `available`
+    // predicate and the enable map into a single answer, so `openTab` and
+    // every UI entry point agree on whether (and why) a tab can open now.
     const availability = tabAvailability(descriptor, { cwd: target.cwd }, this.snapshot, this.isTabEnabled(seed.type))
     if (!availability.ok) return { kind: 'disabled', reason: availability.reason }
     const tabs = [...this.workspaceOf(target.cwd).tabs]
     // Action-only descriptors run instead of opening a tab.
-    if (descriptor.action !== undefined && descriptor.render === undefined) {
-      void descriptor.action()
+    if (rail.action !== undefined && rail.render === undefined) {
+      void rail.action()
       return { kind: 'focused', tab: {
-        id: descriptor.id,
-        type: descriptor.id,
+        id: descriptor.kind,
+        type: descriptor.kind,
         title: titleOf(descriptor),
       } }
     }
-    const created = descriptor.createTab?.(seed, tabs)
+    const created = rail.createTab?.(seed, tabs)
     if (created === null) return { kind: 'disabled' }
     const tab = created?.tab ?? {
-      id: seed.id ?? (descriptor.single === true
-        ? descriptor.id
-        : `${descriptor.id}:${String(Date.now())}:${String(++this.instance)}`),
-      type: descriptor.id,
+      id: seed.id ?? (rail.single === true
+        ? descriptor.kind
+        : `${descriptor.kind}:${String(Date.now())}:${String(++this.instance)}`),
+      type: descriptor.kind,
       title: seed.title ?? titleOf(descriptor),
       ...(seed.resource !== undefined ? { resource: seed.resource } : {}),
       ...(seed.meta !== undefined ? { meta: seed.meta } : {}),
     }
-    const key = descriptor.dedupeKey?.(tab)
-      ?? (descriptor.single === true ? descriptor.id : undefined)
+    const key = rail.dedupeKey?.(tab)
+      ?? (rail.single === true ? descriptor.kind : undefined)
     const existing = tabs.find(candidate => {
       if (candidate.id === tab.id) return true
       if (candidate.type !== tab.type || key === undefined) return false
-      const candidateKey = descriptor.dedupeKey?.(candidate)
-        ?? (descriptor.single === true ? descriptor.id : undefined)
+      const candidateKey = rail.dedupeKey?.(candidate)
+        ?? (rail.single === true ? descriptor.kind : undefined)
       return candidateKey === key
     })
     if (existing !== undefined) {
@@ -515,7 +564,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     // The callback scope carries the caller's explicit scope or the target
     // workspace (project cwd).
     const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
-    safeCall(() => descriptor.onOpen?.(tab, callbackScope))
+    safeCall(() => rail.onOpen?.(tab, callbackScope))
     return { kind: 'opened', tab }
   }
 
@@ -531,7 +580,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       ? next[Math.min(index, next.length - 1)]?.id ?? null
       : this.workspaceOf(target.cwd).activeId
     this.writeTarget(target, next, activeId)
-    const descriptor = this.tabDescriptors.get(closed.type)
+    const descriptor = this.surfaces.get(closed.type)?.rail
     const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
     safeCall(() => descriptor?.onClose?.(closed, callbackScope))
   }
@@ -547,7 +596,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       const activated = workspace.tabs.find(tab => tab.id === tabId)
       const descriptor = activated === undefined
         ? undefined
-        : this.tabDescriptors.get(activated.type)
+        : this.surfaces.get(activated.type)?.rail
       const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
       safeCall(() => descriptor?.onActivate?.(activated!, callbackScope))
     }
@@ -614,11 +663,10 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     this.writeTarget(target, tabs, workspace.activeId)
   }
 
-  // // unwired-capability (leaf-R2 ①): the BOTTOM workbench methods are
-  // // restored as dormant contract — the workbench is not mounted pending a
-  // // product decision, so nothing calls these yet. Restored verbatim from
-  // // HEAD so the service face matches `DesktopSidebarService`; wiring them
-  // // up (dock/drag/close UI) re-enables the capability without a contract
+  // The BOTTOM workbench methods are dormant contract — the workbench is
+  // not mounted pending a product decision, so nothing calls these yet.
+  // The service face matches `DesktopSidebarService`; wiring them up
+  // (dock/drag/close UI) re-enables the capability without a contract
   // // change. `workspaceOf`/`writeTarget` already persist the bottom bucket.
   dockTabToBottom(tabId: string, targetId: string | null | undefined, side: 'before' | 'after' = 'after'): void {
     const target = this.targetOf()
@@ -774,7 +822,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       const activated = bottomTabs.find(tab => tab.id === bottomTabId)
       const descriptor = activated === undefined
         ? undefined
-        : this.tabDescriptors.get(activated.type)
+        : this.surfaces.get(activated.type)?.rail
       const callbackScope: CapabilitiesScope = { cwd: target.cwd }
       safeCall(() => descriptor?.onActivate?.(activated!, callbackScope))
     }
@@ -796,7 +844,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       tabs: next,
       activeId: nextActive ?? null,
     })
-    const descriptor = this.tabDescriptors.get(closed.type)
+    const descriptor = this.surfaces.get(closed.type)?.rail
     const callbackScope: CapabilitiesScope = { cwd: target.cwd }
     safeCall(() => descriptor?.onClose?.(closed, callbackScope))
   }
@@ -1028,7 +1076,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     if (workspace.activeId !== tab.id) {
       this.writeTarget(target, workspace.tabs, tab.id)
     }
-    const descriptor = this.tabDescriptors.get(tab.type)
+    const descriptor = this.surfaces.get(tab.type)?.rail
     const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
     safeCall(() => descriptor?.onActivate?.(tab, callbackScope))
   }

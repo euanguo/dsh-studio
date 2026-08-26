@@ -1,183 +1,258 @@
 /**
- * The workbench open pipeline: every center-surface open funnels its click
- * INTENT through `resolveOpenPlan` here instead of hand-computing the
- * `preview` flag, so the user's preview-tab preference is honored in exactly
- * one place.
+ * The sidebar side of the workbench OpenPipeline (target-design §3.2): the
+ * ONE wiring between the `workbench.open` / `workbench.registry` kernel
+ * services and the sidebar's renderers (center-surface store + side-rail
+ * tabs). Every open entry in the sidebar funnels its click INTENT through
+ * `workbenchOpen().open({ kind, target, intent })` here; the kernel resolves
+ * the descriptor, decides the plan via the shared `resolveOpenPlan` core,
+ * and hands exactly one action to the dispatcher installed below. The
+ * `preview` flag never appears outside this boundary — the dispatcher is the
+ * only place a plan becomes store flags.
  *
- * Focus invariant: activation only changes which tab is VISIBLE — no call in
- * this module moves keyboard focus. Background intent is reserved (the store
- * does not accept unactivated appends yet); see workbench-contracts.
+ * Identity split (single decision each):
+ *  - RAIL kinds (`files`, `review`) are permanent single-instance chips: the
+ *    kernel's dedupe map tracks their liveness and replays `activate`.
+ *  - CENTER kinds are replaceable/pre-existing-capable identities whose
+ *    liveness lives in the center-surface store's surface ids. The pipeline
+ *    bookkeeping is released right after dispatch (`deactivate`), so every
+ *    click applies a FRESH plan — that is what keeps double-click pin
+ *    promotion and preview replacement working without a second decision
+ *    point.
+ *
+ * Target conventions (the shared `OpenTarget` vocabulary, interpreted per
+ * kind as its contracts allow):
+ *   kind             target.path                        extra
+ *   file             file path
+ *   diff             file path                          unstaged diff
+ *   diff-staged      file path                          staged diff
+ *   conflict         file path
+ *   diff-all         —                                  unstaged section
+ *   diff-all-staged  —                                  staged section
+ *   commit           commit hash
+ *   commit-file      `<hash>::<file path>`
+ *   committed        base ref
+ *   committed-file   `<base ref>::<file path>`
+ *   browser          resource href (when claimed)
+ *   terminal         —                                  one new instance/open
+ *
+ * Focus invariant: activation only changes which tab is VISIBLE — nothing in
+ * this module moves keyboard focus. Background intent stays reserved for
+ * center kinds (the store does not accept unactivated appends yet); see
+ * workbench-contracts.
  */
-import {
-  resolveOpenPlan,
-  type OpenIntent,
-  type PreviewTabsMode,
+import { basename } from '@dsh-studio/shared/path'
+import type {
+  OpenPipeline,
+  OpenPipelineAction,
+  OpenPlan,
+  OpenRequest,
+  PreviewTabsMode,
 } from '@dsh-studio/shared/workbench-contracts'
 import { useCenterSurfaceStore } from '../surfaces/center-surface-store.ts'
-
-let getPreviewTabs: () => PreviewTabsMode = () => 'default'
-
-/** Bind the pipeline to the live preference (called once from plugin.tsx). */
-export function configureOpenPipeline(options: {
-  getPreviewTabs(): PreviewTabsMode
-}): void {
-  getPreviewTabs = options.getPreviewTabs
-}
-
-/** Pure decision table (unit-tested): a click intent ⇒ store flags. */
-export function planCenterOpen(input: {
-  kind: string
-  intent: OpenIntent
-}, previewTabs: PreviewTabsMode): { preview: boolean; activate: boolean } {
-  const plan = resolveOpenPlan({ kind: input.kind, intent: input.intent }, { previewTabs })
-  return { preview: !plan.pinned, activate: plan.activate }
-}
+import {
+  canOpenTerminalInstance,
+  touchTerminalInstance,
+} from '../runtimes/terminal-runtime.ts'
 
 /**
- * Open a file surface from a click intent. Single click passes `'preview'`
- * (a replaceable tab under `default`, permanent under `disabled`); explicit
- * opens (double click, context menu) pass `'pin'`.
+ * The sidebar open request: the kernel {@linkcode OpenRequest} plus the
+ * render-title hint. The field rides through the pipeline structurally (the
+ * kernel forwards the request verbatim) and is interpreted ONLY by the
+ * sidebar dispatcher below — it is presentation, never a decision input.
  */
-export function openFileSurface(request: {
-  cwd: string
-  filePath: string
-  title: string
-  intent?: OpenIntent
-  markdownPreview?: boolean
-}): void {
-  const { preview } = planCenterOpen(
-    { kind: 'file', intent: request.intent ?? 'preview' },
-    getPreviewTabs(),
-  )
-  useCenterSurfaceStore.getState().openFile({
-    cwd: request.cwd,
-    filePath: request.filePath,
-    title: request.title,
-    preview,
-    ...(request.markdownPreview === undefined ? {} : { markdownPreview: request.markdownPreview }),
-  })
+export interface SidebarOpenRequest extends OpenRequest {
+  /** Tab title hint; each kind derives the same default the store would. */
+  title?: string
 }
+
+/** The bound pipeline as feature code consumes it. */
+export interface WorkbenchOpenService extends OpenPipeline {
+  open(request: SidebarOpenRequest): OpenPlan
+}
+
+let bound: OpenPipeline | undefined
 
 /**
- * Open a diff surface from a click intent. Source-control change rows use
- * this so the preview-tab preference applies uniformly to diffs, conflicts,
- * and plain file opens.
+ * The ONE open entry for sidebar feature code. Throws when the plugin
+ * assembly has not connected the kernel services (no silent opens).
  */
-export function openDiffSurface(request: {
-  cwd: string
-  filePath: string
-  staged: boolean
-  title: string
-  intent?: OpenIntent
-}): void {
-  const { preview } = planCenterOpen(
-    { kind: 'diff', intent: request.intent ?? 'preview' },
-    getPreviewTabs(),
-  )
-  useCenterSurfaceStore.getState().openDiff({
-    cwd: request.cwd,
-    filePath: request.filePath,
-    staged: request.staged,
-    title: request.title,
-    preview,
-  })
+export function workbenchOpen(): WorkbenchOpenService {
+  if (bound === undefined) {
+    throw new Error('sidebar open pipeline is not connected')
+  }
+  return bound as WorkbenchOpenService
 }
 
-/** Open a merge-conflict resolver surface from a click intent. */
-export function openConflictSurface(request: {
-  cwd: string
-  filePath: string
-  title: string
-  intent?: OpenIntent
-}): void {
-  const { preview } = planCenterOpen(
-    { kind: 'conflict', intent: request.intent ?? 'preview' },
-    getPreviewTabs(),
-  )
-  useCenterSurfaceStore.getState().openConflict({
-    cwd: request.cwd,
-    filePath: request.filePath,
-    title: request.title,
-    preview,
-  })
+/* ---------- dispatcher ---------- */
+
+/** The structural slice of the sidebar service the rail executor needs. */
+export interface SidebarOpenHost {
+  getSnapshot(): {
+    centerPreviewTabs: PreviewTabsMode
+    tabs: ReadonlyArray<{ id: string; type: string }>
+  }
+  subscribe(listener: () => void): () => void
+  openTab(tab: { type: string }): void
+  activateTab(id: string): void
 }
 
-/** Open a diff-all (section-wide) surface from a click intent. */
-export function openDiffAllSurface(request: {
-  cwd: string
-  staged: boolean
-  title: string
-  intent?: OpenIntent
-}): void {
-  const { preview } = planCenterOpen(
-    { kind: 'diff-all', intent: request.intent ?? 'preview' },
-    getPreviewTabs(),
-  )
-  useCenterSurfaceStore.getState().openDiffAll({
-    cwd: request.cwd,
-    staged: request.staged,
-    title: request.title,
-    preview,
-  })
+/** Split `<head>::<tail>` composite targets (see the convention table). */
+function splitComposite(path: string): [string, string] {
+  const at = path.indexOf('::')
+  return at === -1 ? [path, ''] : [path.slice(0, at), path.slice(at + 2)]
 }
 
-/** Open a whole-commit diff surface from a click intent. */
-export function openCommitSurface(request: {
-  cwd: string
-  hash: string
-  title: string
-  intent?: OpenIntent
-}): void {
-  const { preview } = planCenterOpen(
-    { kind: 'commit', intent: request.intent ?? 'preview' },
-    getPreviewTabs(),
-  )
-  useCenterSurfaceStore.getState().openCommit({
-    cwd: request.cwd,
-    hash: request.hash,
-    title: request.title,
-    preview,
-  })
+function executeRail(action: OpenPipelineAction, sidebar: SidebarOpenHost): void {
+  const type = action.request.kind
+  const existing = sidebar.getSnapshot().tabs.find(tab => tab.type === type)
+  // Liveness fallback: if the chip's tab vanished outside the pipeline
+  // (external close), an `activate` replay degrades to a fresh open instead
+  // of dying silently.
+  if (existing !== undefined) {
+    if (action.plan.activate) sidebar.activateTab(existing.id)
+    return
+  }
+  sidebar.openTab({ type })
 }
 
-/** Open a single file's diff within a commit from a click intent. */
-export function openCommitFileSurface(request: {
-  cwd: string
-  hash: string
-  filePath: string
-  title: string
-  intent?: OpenIntent
-}): void {
-  const { preview } = planCenterOpen(
-    { kind: 'commit-file', intent: request.intent ?? 'preview' },
-    getPreviewTabs(),
-  )
-  useCenterSurfaceStore.getState().openCommitFile({
-    cwd: request.cwd,
-    hash: request.hash,
-    filePath: request.filePath,
-    title: request.title,
-    preview,
-  })
+function executeCenter(action: OpenPipelineAction): void {
+  const request = action.request as SidebarOpenRequest
+  const target = action.request.target ?? {}
+  const cwd = target.cwd ?? '/'
+  const path = target.path
+  const store = useCenterSurfaceStore.getState()
+  const preview = !action.plan.pinned
+  switch (action.request.kind) {
+    case 'file':
+      store.openFile({
+        cwd,
+        filePath: path ?? '',
+        title: request.title?.trim() || basename(path ?? ''),
+        preview,
+      })
+      break
+    case 'diff':
+    case 'diff-staged':
+      store.openDiff({
+        cwd,
+        filePath: path ?? '',
+        staged: action.request.kind === 'diff-staged',
+        title: request.title?.trim() || basename(path ?? ''),
+        preview,
+      })
+      break
+    case 'conflict':
+      store.openConflict({
+        cwd,
+        filePath: path ?? '',
+        title: request.title?.trim() || basename(path ?? ''),
+        preview,
+      })
+      break
+    case 'diff-all':
+    case 'diff-all-staged': {
+      const staged = action.request.kind === 'diff-all-staged'
+      store.openDiffAll({
+        cwd,
+        staged,
+        title: request.title?.trim() || (staged ? 'Staged changes' : 'Changes'),
+        preview,
+      })
+      break
+    }
+    case 'commit':
+      store.openCommit({
+        cwd,
+        hash: path ?? '',
+        title: request.title?.trim() || (path ?? '').slice(0, 7),
+        preview,
+      })
+      break
+    case 'commit-file': {
+      const [hash, filePath] = splitComposite(path ?? '')
+      store.openCommitFile({
+        cwd,
+        hash,
+        filePath,
+        title: request.title?.trim() || basename(filePath),
+        preview,
+      })
+      break
+    }
+    case 'committed':
+      store.openCommitted({
+        cwd,
+        baseRef: path ?? '',
+        title: request.title?.trim() || (path ?? ''),
+        preview,
+      })
+      break
+    case 'committed-file': {
+      const [baseRef, filePath] = splitComposite(path ?? '')
+      store.openCommitted({
+        cwd,
+        baseRef,
+        ...(filePath === '' ? {} : { filePath }),
+        title: request.title?.trim() || basename(filePath),
+        preview,
+      })
+      break
+    }
+    case 'browser':
+      store.openBrowser({
+        cwd,
+        title: request.title?.trim() || 'Browser',
+        ...(path === undefined ? {} : { resource: path }),
+        preview,
+      })
+      break
+    case 'terminal': {
+      const scope = { cwd }
+      if (!canOpenTerminalInstance(scope)) return
+      const surface = store.openTerminal({ cwd, title: request.title?.trim() || 'Terminal' })
+      touchTerminalInstance(scope, surface.id)
+      break
+    }
+    default:
+      throw new Error(`sidebar open dispatcher: unhandled center kind ${action.request.kind}`)
+  }
 }
 
-/** Open a committed (base-ref) diff surface from a click intent. */
-export function openCommittedSurface(request: {
-  cwd: string
-  baseRef: string
-  filePath?: string
-  title: string
-  intent?: OpenIntent
-}): void {
-  const { preview } = planCenterOpen(
-    { kind: 'committed', intent: request.intent ?? 'preview' },
-    getPreviewTabs(),
-  )
-  useCenterSurfaceStore.getState().openCommitted({
-    cwd: request.cwd,
-    baseRef: request.baseRef,
-    ...(request.filePath === undefined ? {} : { filePath: request.filePath }),
-    title: request.title,
-    preview,
+function executeAction(action: OpenPipelineAction, sidebar: SidebarOpenHost, open: OpenPipeline): void {
+  if (action.plan.area === 'side-rail') {
+    executeRail(action, sidebar)
+    return
+  }
+  executeCenter(action)
+  // Center identities are replaceable: release the pipeline bookkeeping so
+  // the next open applies a fresh plan (see the module header).
+  open.deactivate(action.dedupeKey)
+}
+
+/* ---------- connection ---------- */
+
+/**
+ * Connect the sidebar dispatcher to the kernel open service and push the live
+ * preview-tab preference. Surface registration is owned by the sidebar
+ * descriptor events, so this connection has no second routing table.
+ * Returns the disposer (HMR-safe: the workbench provides fresh services per
+ * activation).
+ */
+export function connectOpenPipeline(options: {
+  open: OpenPipeline
+  sidebar: SidebarOpenHost
+}): () => void {
+  bound = options.open
+  options.open.setPreviewTabs(options.sidebar.getSnapshot().centerPreviewTabs)
+  const stopPreference = options.sidebar.subscribe(() => {
+    options.open.setPreviewTabs(options.sidebar.getSnapshot().centerPreviewTabs)
   })
+  const uninstallDispatcher = options.open.installDispatcher(action => {
+    executeAction(action, options.sidebar, options.open)
+  })
+  return () => {
+    uninstallDispatcher()
+    stopPreference()
+    if (bound === options.open) bound = undefined
+  }
 }

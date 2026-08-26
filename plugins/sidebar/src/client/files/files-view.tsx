@@ -27,7 +27,7 @@ import {
   sidebarScopeKey,
 } from '../runtimes/registry.ts'
 import { useSidebarChromeStore } from '../runtimes/chrome-store.ts'
-import { openFileSurface } from '../open/pipeline.ts'
+import { workbenchOpen } from '../open/pipeline.ts'
 import type {
   DesktopSidebarService,
   SidebarRenderProps,
@@ -186,7 +186,7 @@ export function FilesView({
     // Single click = preview intent (a replaceable tab under `default`,
     // permanent when previews are disabled); double click / explicit open =
     // pin. The pipeline owns the mapping — see client/open/pipeline.ts.
-    openFileSurface({ cwd, filePath, title: name, intent })
+    workbenchOpen().open({ kind: 'file', target: { cwd, path: filePath }, intent, title: name })
   }
 
   // Inline creation: open an editor row at the top of `parent` (expanding the

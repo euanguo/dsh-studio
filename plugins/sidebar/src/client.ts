@@ -6,7 +6,9 @@ export type { DesktopSidebarTab } from './client/sidebar-service.ts'
 export type {
   OpenTabResult,
   SidebarFeature,
+  SidebarCenterSpec,
   SidebarFileFetchStrategy,
+  SidebarRailSpec,
   SidebarRenderProps,
   CapabilitiesScope,
   SidebarSettingToggle,
@@ -14,10 +16,9 @@ export type {
   SidebarSettingsDeclaration,
   SidebarSettingsRenderProps,
   SidebarSnapshot,
-  SidebarSurfaceRenderer,
+  SidebarSurfaceDescriptor,
   SidebarTab,
-  SidebarTabDescriptor,
   SidebarTabSeed,
-  SidebarViewerDescriptor,
   SidebarViewerRenderInput,
+  SidebarViewerSpec,
 } from './client/sidebar-service.ts'

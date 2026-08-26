@@ -15,15 +15,16 @@ import type {
   SidebarSettingsProps,
 } from './client-types.ts'
 import type {
-  SidebarSettingToggle,
   SidebarSettingsRenderProps,
-  SidebarTabDescriptor,
-  SidebarViewerDescriptor,
+  SidebarSurfaceDescriptor,
+} from './contract.ts'
+import {
+  sidebarDescriptorSettings,
+  sidebarDescriptorTitle,
 } from './contract.ts'
 import type { SidebarRuntimePreferences } from './runtime-settings.ts'
 import { DEFAULT_SIDEBAR_RUNTIME_PREFERENCES } from './runtime-settings.ts'
 import type { WorkspaceMessage } from './i18n.ts'
-import { sidebarLabel } from './settings-rows.tsx'
 import { renderToggleRow } from './settings-rows.tsx'
 import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 
@@ -33,8 +34,15 @@ function isRuntimePrefKey(key: string): key is keyof SidebarRuntimePreferences {
   return key in DEFAULT_SIDEBAR_RUNTIME_PREFERENCES
 }
 
+/** Resolve the user-facing label of a descriptor (rail title, then viewer
+ *  display name, then the kind). */
+function featureLabel(descriptor: SidebarSurfaceDescriptor): string {
+  const title = sidebarDescriptorTitle(descriptor)
+  return typeof title === 'function' ? title() : title
+}
+
 export function FeatureSettingsPopup(props: {
-  feature: SidebarTabDescriptor | SidebarViewerDescriptor
+  feature: SidebarSurfaceDescriptor
   prefs: Record<string, unknown>
   pluginSettings: Record<string, unknown>
   runtime: SidebarSettingsProps['runtime']
@@ -43,7 +51,7 @@ export function FeatureSettingsPopup(props: {
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const { feature, prefs, pluginSettings, runtime, updatePluginSetting, onClose, t } = props
-  const declaration = feature.settings
+  const declaration = sidebarDescriptorSettings(feature)
   const hasRender = declaration?.render !== undefined
   const hostToggles = (declaration?.toggles ?? []).filter(toggle =>
     isRuntimePrefKey(toggle.key))
@@ -58,7 +66,7 @@ export function FeatureSettingsPopup(props: {
         prefs,
         pluginSettings,
         updatePluginSetting: (key, value) => {
-          updatePluginSetting(feature.id, key, value)
+          updatePluginSetting(feature.kind, key, value)
         },
         close: onClose,
       } satisfies SidebarSettingsRenderProps)
@@ -97,7 +105,7 @@ export function FeatureSettingsPopup(props: {
                   toggle,
                   value: pluginSettings[toggle.key],
                   onCommit: value => {
-                    updatePluginSetting(feature.id, toggle.key, value)
+                    updatePluginSetting(feature.kind, toggle.key, value)
                   },
                 })}
               </div>
@@ -115,8 +123,8 @@ export function FeatureSettingsPopup(props: {
     <Modal
       open
       onClose={onClose}
-      title={sidebarLabel(feature.title ?? feature.id)}
-      description={feature.id}
+      title={featureLabel(feature)}
+      description={feature.kind}
       closeLabel={t('settings.done')}
       className={surfaceCss["dsh-studio-sidebar-settings-popup"]}
       contentClassName="dsh-studio-sidebar-settings-popup-content"
@@ -134,7 +142,7 @@ export function FeatureSettingsPopup(props: {
 /* ── registry-driven feature cards ─────────────────────────────── */
 
 export function FeatureCard(props: {
-  feature: SidebarTabDescriptor | SidebarViewerDescriptor
+  feature: SidebarSurfaceDescriptor
   enabled: boolean
   onToggle(enabled: boolean): void
   onOpenSettings(): void
@@ -143,8 +151,8 @@ export function FeatureCard(props: {
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const { feature, enabled, onToggle, onOpenSettings, hasSettings, meta, t } = props
-  const id = feature.id
-  const label = sidebarLabel(feature.title ?? id)
+  const id = feature.kind
+  const label = featureLabel(feature)
   const description = meta === '' ? undefined : meta
   return (
     <SettingsRow
@@ -163,7 +171,7 @@ export function FeatureCard(props: {
           )}
           <Switch
             checked={enabled}
-            aria-label={sidebarLabel(feature.title ?? id)}
+            aria-label={featureLabel(feature)}
             onCheckedChange={onToggle}
           />
         </span>

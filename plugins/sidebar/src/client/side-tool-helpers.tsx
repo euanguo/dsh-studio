@@ -24,10 +24,10 @@ export function tabBadge(
   sidebar: DesktopSidebarService,
   tab: SidebarTab,
 ): ReactNode {
-  const descriptor = sidebar.getTab(tab.type)
-  if (descriptor?.badge === undefined) return null
+  const badge = sidebar.getTab(tab.type)?.rail?.badge
+  if (badge === undefined) return null
   try {
-    const value = descriptor.badge(sidebar.getSnapshot().scope, sidebar.getSnapshot())
+    const value = badge(sidebar.getSnapshot().scope, sidebar.getSnapshot())
     if (value === null || value === undefined) return null
     const label = typeof value === 'number'
       ? (value > 99 ? '99+' : String(value))
