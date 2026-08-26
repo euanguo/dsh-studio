@@ -3,6 +3,11 @@
 本目录是 DSH Studio **结构轮一次性完整重构**的执行计划包。它由纯计划阶段产出，
 本身不包含任何产品代码改动；执行时按 unlazy orchestrated mode 驱动。
 
+本包已与近期提交 `7514a69`、`674392f`、`5928e82`、`05f6543`、`377d0b1`、
+`1b75b96`、`1c88b8d`、`7595452`、`9efaadf` 对账。执行时把这些提交视为 baseline：
+不得重复实现 comments-record、strict hydration、GitWatch、marketplace push token、
+ui-chrome recursive schema 或 sidebar width policy。
+
 ## 包结构
 
 ```text
@@ -14,7 +19,7 @@ plans/kernel-refactor/
 ├── gates/
 │   ├── leaf-*.md        ← 22 个叶子台账（每个叶子独立完成契约）
 │   └── node-*.md        ← 5 个分支集成账
-├── legacy-specs/*.json  ← 12 份"清零规格"（无增容层军规的机器 oracle）
+├── legacy-specs/*.json  ← 13 份清零规格（无增容层军规的机器 oracle）
 └── scripts/
     ├── check-absent.mjs      ← 清零探测器（含 --self-test 正控）
     └── lint-package.mjs      ← 全包台账 lint
@@ -36,10 +41,12 @@ node plans/kernel-refactor/scripts/check-absent.mjs --self-test   # SELFTEST-OK
 pnpm run typecheck && pnpm test && pnpm run build                 # 三连绿
 node plans/kernel-refactor/scripts/lint-package.mjs               # PACKAGE-LINT-OK
 
-# 1. 记录清零规格红基线（12 份规格今天必须全红，证明 oracle 可失败）
+# 1. 记录每份清零规格的真实基线（已落地的 baseline 项允许为绿，
+#    其余遗留项应为红；不要把“全红”当作成功条件）
 for f in plans/kernel-refactor/legacy-specs/*.json; do
-  node plans/kernel-refactor/scripts/check-absent.mjs --spec "$f" >/dev/null 2>&1 \
-    || echo "red-baseline: $(basename $f)"
+  node plans/kernel-refactor/scripts/check-absent.mjs --spec "$f" >/tmp/kernel-refactor-spec.out 2>&1
+  code=$?
+  printf '%s exit=%s %s\n' "$(basename "$f")" "$code" "$(head -1 /tmp/kernel-refactor-spec.out)"
 done
 
 # 2. 台账以本包为唯一事实源（不要复制到 .unlazy，避免双源漂移）；
@@ -60,19 +67,19 @@ node /Users/verger/.agents/skills/unlazy/scripts/gate-check.mjs \
 | Wave | Leaves |
 |---|---|
 | W1 | leaf-4.1 · leaf-2.1 · leaf-3.1 · leaf-4.3 |
-| W2 | leaf-1.1 · leaf-2.2 · leaf-3.2 · leaf-5.1 |
+| W2 | leaf-1.1 · leaf-2.2 · leaf-3.2 |
 | W3 | leaf-1.2 · leaf-2.3 |
 | W4 | leaf-1.4 · leaf-2.4 · leaf-3.3 |
 | W5 | leaf-1.3 · leaf-1.5 |
-| W6 | leaf-1.6 · leaf-2.5 |
-| W7 | leaf-1.7 · leaf-5.4(初稿) |
-| W8 | leaf-5.2 → leaf-5.3 → leaf-5.4(终稿) |
+| W6 | leaf-1.6 · leaf-2.5 · leaf-5.1 |
+| W7 | leaf-1.7 |
+| W8 | leaf-5.2 → leaf-5.3 → leaf-5.4（终稿） |
 | 终局 | node-1..node-5 → ROOT |
 
 依赖细节与 OWNS 全表见 [PLAN.md](PLAN.md)；架构依据见 [target-design.md](target-design.md)。
 
 ## 完成定义
 
-ROOT RG0-RG7 全部 runnable 绿 + RG8 人工对账签收；12 份清零规格全绿；
-PLAN 契约清单 O1-O21 每行有 VERIFIED owner；无 ABANDON 遗留（若出现，
-按 unlazy 规则作为 HANDOFF REQUIRED 显式交接，不算完成）。
+ROOT RG0-RG7 全部 runnable 绿 + RG8 人工对账签收；13 份清零规格全绿；
+PLAN 契约清单 O1-O21 每行有 VERIFIED owner；近期 baseline 保护项在分支账中有回归证据；
+无 ABANDON 遗留（若出现，按 unlazy 规则作为 HANDOFF REQUIRED 显式交接，不算完成）。

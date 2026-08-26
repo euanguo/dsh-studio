@@ -81,19 +81,35 @@ next launch. There is no second theme loader.
 ## Workbench kernel contracts
 
 The right-panel workbench converges open semantics and state scoping onto the
-shared kernel contract `@dsh-studio/shared/workbench-contracts`:
+shared kernel contract `@dsh-studio/shared/workbench-contracts`, carried by the
+five kernel services in `plugins/workbench` (all implemented below). The old
+scattered open/layout/state entry points are gone:
 
-- `resolveOpenPlan` is the single open-decision table: intent
-  (`preview`/`pin`/`background`) × the `centerPreviewTabs` preference ⇒ area,
-  replaceable-preview, and activation. The focus invariant (an open never
-  moves keyboard focus) is upheld by every caller.
-- `resolveScopeBucket` is the single state-bucket decision across
+- `SurfaceRegistry`: the one surface registry per region (center/left/right);
+  registration declares region ownership and lifecycle — consumers never build
+  a second table.
+- `OpenPipeline`: the single open-decision pipeline. intent
+  (`preview`/`pin`/`background`) × `resolveOpenPlan` ⇒ area, replaceable
+  preview, and activation. The focus invariant (an open never moves keyboard
+  focus) is upheld by the pipeline itself, not by each caller.
+- `LayoutService`: cross-plugin layout negotiation. The sidebar width policy
+  stays in the sidebar domain (persisted cap 4096, live viewport capped at
+  75%); the service only receives final footprints and coordinates regional
+  footprint plus overlay mounting through `ensureLayoutDom`
+  (`@dsh-studio/shared/layout-dom`).
+- `StateStore`: the single state-bucket decision across
   `workspace`/`session`/`global`; `global` collapses onto one bucket. The
   sidebar layout and its remembered width implement the `layoutScope`
   preference through it; center-surface queues always bucket by cwd because
   their objects are workspace-bound.
-- Upstream DOM probes must live in exactly one module per plugin (`dsh-dom.ts`
-  for the sidebar).
+- `WorkspaceEvents`: the workspace/session identity event source.
+  `onWorkspaceChanged` / `onSessionChanged` are driven by one identity pump
+  (the runtime `currentProvideInfo` projection); workspace fires before
+  session. GitWatch/websocket freshness events stay in the source-control
+  domain and are deliberately not folded into this service.
+
+Upstream DOM probes still live in exactly one module per plugin (`dsh-dom.ts`
+for the sidebar).
 
 ## Plugin installation transaction
 

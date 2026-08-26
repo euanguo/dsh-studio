@@ -10,10 +10,32 @@ Any selector, `data-slot`, aria-label, or class-name probe into the DSH web
 client's DOM lives in exactly ONE module per plugin (the sidebar's is
 `sidebar/src/client/surfaces/dsh-dom.ts`), with the coupling documented where
 the probe is declared. Never spell upstream selectors inline in feature code:
-an upstream bump must be re-pinnable by editing one file. Open semantics
+an upstream bump must be re-pinnable by editing one file. New probe modules
+must be registered in `scripts/guards/guard-no-inline-probe.mjs` so the guard
+keeps enforcing one-probe-module-per-plugin for your tree too. Open semantics
 (intents, preview vs pinned, activation) go through
 `@dsh-studio/shared/workbench-contracts` (`resolveOpenPlan`) instead of being
 re-decided at each call site.
+
+## Workbench kernel services
+
+The five kernel services in `plugins/workbench` own their domains; consumers
+wire in and never re-implement them:
+
+- **OpenPipeline** — every open goes through the pipeline (`resolveOpenPlan`
+  decides area/preview/activation). Do not move keyboard focus on open; the
+  focus invariant is enforced at the pipeline level.
+- **WorkspaceEvents** — workspace/session identity arrives via
+  `workbench.events.onWorkspaceChanged` / `onSessionChanged`, pumped from the
+  runtime's current-session projection. Subscribe to events instead of
+  imperatively subscribing to session-list stores.
+- **LayoutService** — negotiate final footprints only. Width policy lives in
+  its owning domain (sidebar preferences persist the bound; live viewport cap
+  stays there too); the service receives final numbers.
+- **Overlay mounting** — floating layers mount through
+  `ensureLayoutDom` from `@dsh-studio/shared/layout-dom`, never by appending
+  to `<body>` (the sanctioned exception is `@dsh-studio/shared/tab-drag-image`,
+  which needs a drag ghost outside any clipping ancestor).
 
 ## Official chrome
 

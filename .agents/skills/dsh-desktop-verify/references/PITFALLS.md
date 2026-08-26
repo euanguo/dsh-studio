@@ -12,6 +12,51 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 
 ---
 
+## 2026-08-27（kernel-refactor W6 DEV 验证）
+
+### 25. 带命名 session 的 `tab --url` 可能把 URL glob 当成 tab label
+- **症状**：执行 `chrome-use --session dsh-dev-w6 tab --url "*127.0.0.1*"` 报
+  `Invalid tab label '*127.0.0.1*'`；CDP 与目标页面均已正常连接。
+- **根因**：当前 chrome-use CLI 版本在该调用形态下没有按文档把 `--url` 解析为
+  tab 过滤选项，而是将其后参数当作位置 tab label。
+- **修复**：先执行不带过滤器的 `chrome-use --session dsh-dev-w6 tab`，确认唯一
+  `127.0.0.1:<runtime-port>/` 目标后继续；多目标时使用 CLI 能接受的目标 id/label
+  切换，不把 URL glob 当作 label 重试。
+- **来源**：本次实测。
+
+## 2026-08-26（kernel-refactor W5 DEV 验证）
+
+### 24. `chrome-use screenshot` 的相对路径可能不继承当前仓库 cwd
+- **症状**：在已创建证据目录的仓库 cwd 中执行 `chrome-use screenshot tmp/desktop-verify/w5/settings-general.png`，命令仍返回 `No such file or directory`；同一目录下的 chrome-use session 可正常操作。
+- **根因**：screenshot 保存由 chrome-use daemon 进程解析路径，daemon 的 cwd 不保证是命令的仓库 cwd；相对路径因此可能指向不存在的目录。
+- **修复**：截图证据统一传入已存在证据目录的绝对路径；目录创建仍由 Bash 在仓库根执行，UI 驱动仍只走 chrome-use。
+- **来源**：本次实测。
+
+## 2026-08-26（kernel-refactor W3 DEV 验证）
+
+### 21. W3 代码稳定后，必须用 helper 做一次干净 DEV 重启再判断插件加载
+- **症状**：`ensure` 复用的 CDP 页面显示 `Failed to load plugins`，同时早先的 dev 日志包含
+  多轮增量构建期间的临时错误（旧导入、私有字段未声明、半编辑状态）；端口仍可连接，
+  但页面不是可用的 DSH Studio。
+- **根因**：W3 两个并行 leaf 在同一 dev watcher 生命周期内分阶段写入，watcher 曾加载过
+  中间状态；`ensure` 只确认 CDP 可达，不能证明当前 target 已由最终 bundle 成功加载。
+- **修复**：保存失败日志后，使用仓库 helper 的 `stop`，再 `ensure --port 9222`；重新建立
+  chrome-use session，等待 runtime URL 后用 accessibility snapshot、`errors`/`console` 和
+  smoke suite 验证最终页面。不得用一次性脚本注入 UI 或按截图定位。
+- **来源**：本次实测。
+
+### 22. DEV smoke 套件不应绑定某个工作区名称
+- **症状**：基线套件的 `ui-ux-refactor` 树项断言失败，但 accessibility snapshot 显示桌面正常渲染且存在多个真实 treeitem。
+- **根因**：DEV 数据根是持久化的，当前会话的工作区集合可能来自另一轮验证或用户本地状态；固定仓库目录名不是桌面壳/Workbench 契约。
+- **修复**：将套件断言改为至少一个非空真实 treeitem，保留 shell URL、root 和 composer 行为断言；不要为通过验证篡改 DEV 数据。
+- **来源**：本次实测。
+
+### 23. Electron 页面 title 可能带活动会话前缀
+- **症状**：DEV smoke 的 `document.title === 'DeepSeek Harness'` 断言在页面实际可用时失败；当前值为 `你有哪些worktree工具？ — DeepSeek Harness`。
+- **根因**：DSH Studio 根据当前活动会话派生窗口/页面标题，CDP target 的标题与页面完整 title 不是永远相同的固定字符串。
+- **修复**：用 URL `127.0.0.1` 识别主 target，title 只断言以 `DeepSeek Harness` 结尾；不要按标题选择窗口。
+- **来源**：本次实测。
+
 ## 2026-08-23（首版，全部实测）
 
 ### 1. 已有一个 DEV 实例时，带 CDP 启动的 Electron 以 exit 0 静默退出

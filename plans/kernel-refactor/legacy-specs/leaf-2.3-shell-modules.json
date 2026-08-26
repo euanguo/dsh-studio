@@ -1,0 +1,10 @@
+{
+  "description": "Desktop shell policy is split into windows/menu/ipc/runtime-options modules; extracted function bodies do not remain declared in src/main.ts.",
+  "scan": ["src/main.ts"],
+  "forbid": [
+    {
+      "pattern": "^\\s*(?:export\\s+)?(?:async\\s+)?function\\s+(?:createWindow|showSplash|openUpdateWindow|closeUpdateWindow|windowIconPath|applyInstanceIcon|labels|buildMenu|attachEditingContextMenu|installIpc|sendCommand|sendUpdateState|broadcastMarketplaceChanged|selectWorkspacePaths|chooseWorkspace|installLocalPlugin|normalizeWorkspacePaths|baseRuntimeOptions|runtimeEnvironment|runtimeOptions|previewRuntimeOptions)\\s*\\(",
+      "reason": "extracted desktop shell function bodies belong to their dedicated module"
+    }
+  ]
+}

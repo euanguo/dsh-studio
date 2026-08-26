@@ -131,15 +131,26 @@ Web 与 TUI 的 `--data` 只覆盖当前进程。
 ## Workbench 内核契约
 
 右栏工作台的打开语义与状态作用域收敛到共享内核契约
-`@dsh-studio/shared/workbench-contracts`：
+`@dsh-studio/shared/workbench-contracts`，并由 `plugins/workbench` 的五个内核服务
+承载（均已实现，见下）。旧路径（散落的打开/布局/状态入口）已清零：
 
-- `resolveOpenPlan` 是唯一的打开决策表：intent（`preview`/`pin`/`background`）×
-  `centerPreviewTabs` 偏好 ⇒ 区域、是否可替换预览、是否激活。焦点不变式（打开永不
-  移动键盘焦点）由所有调用方共同维护。
-- `resolveScopeBucket` 是唯一的状态分桶决策：`workspace`/`session`/`global` 三档，
-  `global` 折叠到单一桶。侧栏布局与宽度记忆经此实现 `layoutScope` 偏好；center
-  surface 队列因其对象绑定工作区，恒按 cwd 分桶。
-- 上游 DOM 探测必须收口在每个插件的单个模块（sidebar 为 `dsh-dom.ts`）。
+- `SurfaceRegistry`：center/left/right 各区域的 surface 唯一注册表；
+  注册即声明区域归属与生命周期，消费方不得自建第二张表。
+- `OpenPipeline`：唯一打开决策管线。intent（`preview`/`pin`/`background`）×
+  `resolveOpenPlan` ⇒ 区域、是否可替换预览、是否激活；焦点不变式（打开永不移动
+  键盘焦点）由管线统一维护，调用方不再各自决定。
+- `LayoutService`：跨插件布局协商。侧栏宽度策略留在 sidebar 域（持久化上限 4096、
+  视口 75% 现算），服务只接收最终占位并协调各区域 footprint 与 overlay 挂载
+  （经 `@dsh-studio/shared/layout-dom` 的 `ensureLayoutDom`）。
+- `StateStore`：状态分桶唯一决策。`resolveScopeBucket` 按 workspace/session/global
+  三档分桶，仅 global 桶折叠到单一桶；侧栏布局与宽度记忆经此实现 `layoutScope`
+  偏好，center surface 队列恒按 cwd 分桶。
+- `WorkspaceEvents`：工作区/会话身份事件源。`onWorkspaceChanged` /
+  `onSessionChanged` 由单一身份泵（runtime `currentProvideInfo` 投影）驱动，
+  workspace 先于 session 派发；GitWatch/websocket 新鲜度事件保留在
+  source-control 域，不并入本服务。
+
+上游 DOM 探测仍收口在每个插件的单个探针模块（sidebar 为 `dsh-dom.ts`）。
 
 ## 数据流与持久化（Data flow & persistence）
 

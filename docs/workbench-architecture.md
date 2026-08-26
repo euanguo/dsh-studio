@@ -1,6 +1,11 @@
 # 工作台架构演进：从「插件补丁」到「Workbench 内核」
 
-> 状态：提案（proposal）· 2026-08-23 · 已入库（2026-08-24，docs/ 全目录跟踪）
+> 状态：已实现（implemented）· 提案 2026-08-23 · 入库 2026-08-24 · 实现落地（kernel-refactor，W1–W8）
+> 偏差记录：实现以 `plugins/workbench` 五服务 + `@dsh-studio/shared/workbench-contracts`
+> 为准——SurfaceRegistry / OpenPipeline / LayoutService / StateStore / WorkspaceEvents；
+> 身份事件源采用 runtime 的 `currentProvideInfo` 投影（本文初稿假设逐会话订阅点改造），
+> GitWatch/websocket 新鲜度事件按计划保留在 source-control 域、未并入 WorkspaceEvents；
+> 状态持久化经 `persistVia` 落 host 域后端，localStorage 仅作 legacy 只读迁移源。
 > 前置：`docs/interaction-model.md`（交互决策 D1–D7）。本文回答：**如何调整整体架构，
 > 让这些优化成为内核能力，而不是逐项打补丁。**
 >

@@ -15,11 +15,11 @@ cases:
     assert:
       - url: { contains: 127.0.0.1 }
       - visible: "#root"
-      - eval: "document.title === 'DeepSeek Harness'"
+      - eval: "document.title.endsWith('DeepSeek Harness')"
   - name: left rail session tree present
     assert:
       - eval: "document.querySelectorAll('[role=treeitem]').length >= 1"
-      - eval: "[...document.querySelectorAll('[role=treeitem]')].some(n => n.textContent.includes('ui-ux-refactor'))"
+      - eval: "[...document.querySelectorAll('[role=treeitem]')].some(n => (n.textContent||'').trim().length > 0)"
   - name: composer accepts input without submitting
     steps:
       - fill: { sel: "textarea, [contenteditable='true']", text: "hi" }

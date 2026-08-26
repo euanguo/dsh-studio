@@ -65,7 +65,10 @@ node <this-skill>/scripts/ensure-dev-desktop.mjs ensure --port 9222
 helper 会：检查前置 → 检测是否已有带 CDP 的实例（有则复用）→ 检测无 CDP 的旧
 DEV 实例（单实例锁冲突，提示处理）→ `pnpm run dev` 后台拉起并等待 CDP 就绪 →
 打印目标列表与下一步命令。状态/日志在 gitignored 的
-`tmp/dsh-dev-desktop/`（`node $H status` / `stop` / `logs --tail 80`）。
+`tmp/dsh-dev-desktop/`（`node $H status` / `stop` / `logs --tail 80`）。`ensure` 只证明
+CDP 可达；并行源码热编译后若页面显示 `Failed to load plugins` 或日志含中间态构建错误，
+先保存日志，再执行 `stop` → `ensure --port <port>`，重建 chrome-use session 后重新确认
+runtime URL、accessibility snapshot、`errors`/`console`，不要把旧 target 当作最终验证。
 
 ### 1.4 手工等价命令（不依赖 helper 时）
 
@@ -97,10 +100,13 @@ chrome-use --session dsh-dev-<task-slug> tab        # 确认目标
 目标选择规则：
 
 - 用 **`--url`/tab 列表里的 URL** 识别主窗口（`127.0.0.1:<runtime端口>`），
-  **不要**按窗口标题猜（CDP 的 page title 是 `DeepSeek Harness`；
+  **不要**按窗口标题猜（CDP target title 通常是 `DeepSeek Harness`，但活动会话可能让
+  `document.title` 带前缀；
   OS 窗口标题 `DSH Studio (Dev)` 不在 CDP 里）。
-- 插件市场预览窗口、更新窗口会出现额外 page target；用
-  `chrome-use tab --url "*<特征>*"` 切换。
+- 插件市场预览窗口、更新窗口会出现额外 page target；优先用
+  `chrome-use tab --url "*<特征>*"` 切换。若当前 CLI 把 URL glob 报为非法
+  tab label，则先用不带过滤器的 `chrome-use tab` 列出目标，再按目标 id/label
+  切换，不要把 URL glob 作为位置参数重试。
 - 若 `tab` 后 URL 还是 splash：`wait --url "**127.0.0.1**"` 后再 `tab`。
 
 **探测 runtime 用 `curl` 直达 CDP，别用 chrome-use 命令去"问"**（PITFALLS #23）：
@@ -193,9 +199,11 @@ cases:
 
 - 运行：`cd tmp/desktop-verify/<run> && chrome-use test <套件绝对路径> --session <s>`
   （PITFALLS #5：产物目录跟随 cwd，别在仓库根跑）。
+- 截图保存传入证据目录的绝对路径：chrome-use daemon 的 cwd 不保证继承当前
+  shell cwd，相对 screenshot 路径可能报 `No such file or directory`（PITFALLS #24）。
 - 断言引擎限制：`count` 只支持 `eq: <n>`，范围断言用 `eval`（PITFALLS #4）。
 - 失败会留 `cu-test-artifacts/<case>.png`；修复代码后重跑直到全绿。
-- 套件自带的基线：`.agents/skills/dsh-desktop-verify/suites/dsh-desktop-smoke.yaml`。
+- 套件自带的基线：`.agents/skills/dsh-desktop-verify/suites/dsh-desktop-smoke.yaml`。DEV 数据根是持久化的，套件不得把某个固定工作区名称当作 shell 健康条件；优先断言角色、结构和非空语义锚点。
 
 ### 4.2 模式 B：探索式验证（找 bug / 全量回归）
 

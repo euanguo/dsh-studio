@@ -1,13 +1,21 @@
 {
-  "description": "LayoutService cutover: right-panel footprint negotiation has one owner; DOM padding writes and dataset flags exist only inside plugins/workbench layout module.",
+  "description": "LayoutService cutover: right-panel footprint negotiation has one owner; DOM padding writes, overlay body mounts, and document layout flags exist only inside the shared LayoutDom host.",
   "scan": [
     "plugins/sidebar/src/**",
     "plugins/panel-controls/src/**",
-    "plugins/pinned-summary/src/**"
+    "plugins/pinned-summary/src/**",
+    "plugins/plugin-marketplace/src/client/**",
+    "plugins/workbench/src/**",
+    "plugins/shared/**"
+  ],
+  "allowFiles": [
+    "plugins/shared/layout-dom.ts",
+    "plugins/shared/tab-drag-image.ts"
   ],
   "forbid": [
-    { "pattern": "claimRightPanel|applyRightPanel|previewRightPanel", "reason": "panel-controls coordinator replaced by LayoutService claims" },
-    { "pattern": "#root", "reason": "center column padding negotiation moved behind LayoutService" },
-    { "pattern": "data-dsh-studio-right-panel-owner", "reason": "ownership flag set only by LayoutService" }
+    { "pattern": "claimRightPanel|previewRightPanel|releaseRightPanel|applyRightPanel", "reason": "panel-controls coordinator replaced by LayoutService claims" },
+    { "pattern": "getElementById\\(['\"]root['\"]\\)|querySelector\\(['\"]#root['\"]\\)", "reason": "app-root DOM access belongs only to the LayoutDom host" },
+    { "pattern": "data-dsh-studio-right-panel-owner", "reason": "ownership flag set only by LayoutDom" },
+    { "pattern": "document\\.body\\.(append|appendChild)", "reason": "body-level plugin mounts use LayoutDom.mountOverlay" }
   ]
 }
