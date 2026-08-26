@@ -8,7 +8,8 @@ html {
 
 [data-dsh-studio-pinned-summary] {
   position: fixed;
-  z-index: 9000;
+  /* Stacking is assigned by the overlay mount protocol from the declarative
+     z-index table (layout.zIndexFor('overlay')); no local magic number. */
   top: calc(var(--dsh-studio-titlebar-height, 40px) + 12px);
   right: 12px;
   height: calc((100vh - var(--dsh-studio-titlebar-height, 40px) - 24px) / 2);

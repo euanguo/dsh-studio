@@ -4,7 +4,10 @@
  * dictionaries in i18n.ts.
  */
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
-import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
+import type {
+  LayoutService,
+  WorkspaceEventsService,
+} from '@dsh-studio/shared/workbench-contracts'
 import {
   PINNED_SUMMARY_MESSAGES,
   type PinnedSummaryMessage,
@@ -25,7 +28,7 @@ interface ClientContext {
   }
 }
 
-export const inject = ['desktopPanels', 'locale', 'sessions']
+export const inject = ['workbench.layout', 'workbench.events', 'locale', 'sessions']
 
 /** Provide the pinned-summary service and its layout-reserving DOM surface. */
 export function apply(ctx: ClientContext): void {
@@ -39,7 +42,8 @@ export function apply(ctx: ClientContext): void {
     ctx.get('sessions') as SessionsService,
     locale,
     t,
-    ctx.get('desktopPanels') as DesktopPanels,
+    ctx.get('workbench.layout') as LayoutService,
+    ctx.get('workbench.events') as WorkspaceEventsService,
   )
   ctx.effect(() => {
     service.mount()

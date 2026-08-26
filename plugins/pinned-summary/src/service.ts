@@ -1,11 +1,12 @@
 /**
  * Pinned summary service: imperative-DOM surface (no React) that renders a
- * layout-reserving floating summary of the active session, opening through
- * the desktopPanels right-panel claim so the center column never overlaps.
+ * layout-reserving floating summary of the active session, reserving its
+ * footprint through the workbench LayoutService right-panel region so the
+ * center column never overlaps.
  *
  * Split out of client.ts (single-file plugin) so the entry keeps only the
- * service wire-up; the stylesheet lives in summary.css (attribute-selector
- * only, plain text import — no class names to scope into a CSS module).
+ * service wire-up; the stylesheet lives in summary.css and mounts through
+ * the shared style injector.
  *
  * State convention (ADR, B7): the consumer-facing face exposes only the
  * toggle surface (setOpen/toggle); open state is a single private field
@@ -16,13 +17,25 @@
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
 import { localeTag } from '@dsh-studio/shared/i18n'
 import themeCss from '@dsh-studio/shared/theme.css'
-import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
+import type {
+  LayoutService,
+  WorkspaceEventsService,
+} from '@dsh-studio/shared/workbench-contracts'
+import { ensureLayoutDom } from '@dsh-studio/shared/layout-dom'
+import { ensureStyle } from '@dsh-studio/shared/style-injector'
 import {
   PINNED_SUMMARY_MESSAGES,
   type PinnedSummaryMessage,
 } from './i18n.ts'
 import summaryCss from './summary.css'
 import { loadUiChromeFlags, setUiChromeFlag } from '@dsh-studio/shared/ui-chrome-flags'
+
+/**
+ * Footprint reserved from the center column while the summary is pinned on
+ * a wide viewport: the card width (`--dsh-studio-pinned-summary-width`,
+ * 288px) plus its window-edge gap.
+ */
+export const PINNED_SUMMARY_RESERVE_PX = 288 + 24
 
 interface ObservableSnapshot<T> {
   getSnapshot(): T
@@ -98,10 +111,12 @@ class PinnedSummaryService implements PinnedSummary {
   readonly #sessions: SessionsService
   readonly #locale: LocaleService
   readonly #t: Translate<PinnedSummaryMessage>
-  readonly #panels: DesktopPanels
+  readonly #dom: ReturnType<typeof ensureLayoutDom>
+  readonly #events: WorkspaceEventsService
   #open = false
   #panel: HTMLElement | undefined
-  #style: HTMLStyleElement | undefined
+  #overlay: (() => void) | undefined
+  #stopStyle: (() => void) | undefined
   #title: HTMLElement | undefined
   #headerTitle: HTMLElement | undefined
   #close: HTMLButtonElement | undefined
@@ -109,7 +124,8 @@ class PinnedSummaryService implements PinnedSummary {
   #source: HTMLElement | undefined
   #text: HTMLElement | undefined
   #currentId: string | undefined
-  #unsubscribeList: (() => void) | undefined
+  #unsubscribeIdentity: (() => void) | undefined
+  #unsubscribeWorkspace: (() => void) | undefined
   #unsubscribeSession: (() => void) | undefined
   #unsubscribeLocale: (() => void) | undefined
   readonly #narrowViewport = window.matchMedia('(max-width: 900px)')
@@ -119,12 +135,14 @@ class PinnedSummaryService implements PinnedSummary {
     sessions: SessionsService,
     locale: LocaleService,
     t: Translate<PinnedSummaryMessage>,
-    panels: DesktopPanels,
+    layout: LayoutService,
+    events: WorkspaceEventsService,
   ) {
     this.#sessions = sessions
     this.#locale = locale
     this.#t = t
-    this.#panels = panels
+    this.#dom = ensureLayoutDom(layout)
+    this.#events = events
   }
 
   async hydrate(): Promise<void> {
@@ -135,10 +153,9 @@ class PinnedSummaryService implements PinnedSummary {
   }
 
   mount(): void {
-    this.#style = document.createElement('style')
-    this.#style.dataset.dshStudioPinnedSummaryStyles = 'true'
-    this.#style.textContent = `${themeCss}\n${summaryCss}`
-    document.head.append(this.#style)
+    // The stylesheet mounts through the shared injector (head-owned) — the
+    // overlay region protocol is for body-level elements only.
+    this.#stopStyle = ensureStyle('dsh-studio-pinned-summary', `${themeCss}\n${summaryCss}`)
 
     const panel = document.createElement('aside')
     panel.dataset.dshStudioPinnedSummary = 'true'
@@ -155,7 +172,9 @@ class PinnedSummaryService implements PinnedSummary {
         <p data-dsh-studio-summary-text></p>
       </div>
     `
-    document.body.append(panel)
+    // Body-level mounting goes through the overlay region protocol: the
+    // host claims the overlay stacking layer and owns element removal.
+    this.#overlay = this.#dom.mountOverlay('pinned-summary', panel).release
     this.#panel = panel
     this.#title = required(panel, '[data-dsh-studio-summary-title]')
     this.#headerTitle = required(panel, '[data-dsh-studio-summary-header] span')
@@ -165,7 +184,11 @@ class PinnedSummaryService implements PinnedSummary {
     this.#text = required(panel, '[data-dsh-studio-summary-text]')
     this.#close.addEventListener('click', () => { this.setOpen(false) })
     this.#narrowViewport.addEventListener('change', this.#handleViewportChange)
-    this.#unsubscribeList = this.#sessions.list.subscribe(() => { this.bindAndRender() })
+    // Switching awareness rides the kernel identity events (leaf-1.7): a
+    // session or workspace switch re-binds the rendered conversation. Content
+    // refreshes still come from the bound conversation snapshot below.
+    this.#unsubscribeIdentity = this.#events.onSessionChanged(() => { this.bindAndRender() })
+    this.#unsubscribeWorkspace = this.#events.onWorkspaceChanged(() => { this.bindAndRender() })
     this.#unsubscribeLocale = this.#locale.subscribe(() => {
       this.renderChrome()
       this.render()
@@ -176,14 +199,17 @@ class PinnedSummaryService implements PinnedSummary {
   }
 
   dispose(): void {
-    this.#unsubscribeList?.()
+    this.#unsubscribeIdentity?.()
+    this.#unsubscribeWorkspace?.()
     this.#unsubscribeSession?.()
     this.#unsubscribeLocale?.()
     this.#narrowViewport.removeEventListener('change', this.#handleViewportChange)
-    this.#panel?.remove()
-    this.#style?.remove()
-    delete document.documentElement.dataset.dshStudioSummaryPinned
-    this.#panels.releaseRightPanel('pinned-summary')
+    this.#overlay?.()
+    this.#overlay = undefined
+    this.#stopStyle?.()
+    this.#stopStyle = undefined
+    this.#dom.applyDocumentStyles({ flags: { dshStudioSummaryPinned: null } })
+    this.#dom.releasePanel('pinned-summary')
   }
 
   toggle(): void {
@@ -198,23 +224,22 @@ class PinnedSummaryService implements PinnedSummary {
   }
 
   private applyState(): void {
-    const html = document.documentElement
     if (this.#panel !== undefined) {
       this.#panel.dataset.open = String(this.#open)
       this.#panel.setAttribute('aria-hidden', String(!this.#open))
     }
     if (this.#open) {
-      html.dataset.dshStudioSummaryPinned = 'true'
-      // The #root squeeze is owned by the desktopPanels right-panel
-      // coordinator — claim the footprint instead of writing global state.
-      this.#panels.claimRightPanel('pinned-summary', {
-        paddingRight: this.#narrowViewport.matches
-          ? '0px'
-          : 'calc(var(--dsh-studio-pinned-summary-width) + 24px)',
-      })
+      // The center-column reservation is negotiated through the LayoutService
+      // right-panel region; the pinned flag is set through the same region
+      // host's document-style channel (single write point).
+      this.#dom.applyDocumentStyles({ flags: { dshStudioSummaryPinned: 'true' } })
+      this.#dom.reservePanel(
+        'pinned-summary',
+        this.#narrowViewport.matches ? 0 : PINNED_SUMMARY_RESERVE_PX,
+      )
     } else {
-      delete html.dataset.dshStudioSummaryPinned
-      this.#panels.releaseRightPanel('pinned-summary')
+      this.#dom.applyDocumentStyles({ flags: { dshStudioSummaryPinned: null } })
+      this.#dom.releasePanel('pinned-summary')
     }
   }
 
