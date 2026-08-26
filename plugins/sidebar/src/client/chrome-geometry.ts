@@ -2,7 +2,7 @@
  * Window-chrome geometry → CSS variables for the unified top rail.
  *
  * Deliberately STATELESS: the top rows' reservations are decided by app
- * state (left rail collapsed/expanded, panel full-width), never by
+ * state (left rail collapsed/expanded, panel maximize mode), never by
  * measuring elements — see center-surface.css and side-tools.css for
  * those state-driven rules. This module only publishes the two raw
  * chrome facts the renderer cannot know on its own:

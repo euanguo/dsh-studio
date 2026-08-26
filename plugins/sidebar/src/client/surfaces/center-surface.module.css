@@ -20,9 +20,7 @@
    - strip left:  `:global(.is-left-collapsed)` (left rail collapsed) reserves
      the traffic lights minus the DSH collapsed rail's own offset;
    - strip right: `:global(.is-right-free)` (right panel closed — the strip's
-     right edge reaches the window edge) reserves the overlay buttons;
-   - panel row:   `[data-dsh-studio-sidebar-full-width='true']` (panel
-     overlays the whole window) reserves the full traffic-light zone. */
+     right edge reaches the window edge) reserves the overlay buttons. */
 :root {
   --dsh-studio-traffic-left: 74px;
   /* The DSH collapsed activity rail (55px) plus its 1px border — the

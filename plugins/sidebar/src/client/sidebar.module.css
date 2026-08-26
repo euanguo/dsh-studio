@@ -30,15 +30,6 @@ html[data-dsh-studio-sidebar-open='true'] :global(#dsh-studio-sidebar-root) {
   overflow: visible;
 }
 
-/* Maximized: the panel covers the whole window and the app is squeezed out
-   (padding-right: 100vw). */
-html[data-dsh-studio-panel-maximized='true'] :global(#dsh-studio-sidebar-root) {
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 100vw;
-}
-
 /* Resize handle follows Synara: only on >=640px viewports. */
 @media (max-width: 639px) {
   .dsh-studio-workspace-resize {

@@ -18,6 +18,7 @@ import type { SidebarPreferencesStorage } from '../plugins/sidebar/src/client/si
 import {
   clampSidebarWidth,
   DEFAULT_SIDEBAR_PREFERENCES,
+  maximizedSidebarWidth,
   parseSidebarPreferences,
   type DesktopSidebarPreferences,
   SIDEBAR_MAX_TABS,
@@ -62,6 +63,14 @@ test('right sidebar live width caps at three quarters of the window', () => {
   assert.equal(sidebarMaxWidth(200), SIDEBAR_MIN_WIDTH)
   // Without a viewport the static budget stays authoritative.
   assert.equal(sidebarMaxWidth(), SIDEBAR_MAX_WIDTH)
+})
+
+test('maximized right overlay width preserves the left rail boundary', () => {
+  assert.equal(maximizedSidebarWidth(1280, 300), 980)
+  assert.equal(maximizedSidebarWidth(1280, 56), 1224)
+  assert.equal(maximizedSidebarWidth(300, 360), 0)
+  assert.equal(maximizedSidebarWidth(Number.NaN, 300), 0)
+  assert.equal(maximizedSidebarWidth(1280, Number.POSITIVE_INFINITY), 1280)
 })
 
 function rail(

@@ -33,6 +33,60 @@ export function leftSidebarElement(): HTMLElement | null {
 }
 
 /**
+ * The upstream grid column containing the display-contents sidebar slot. The
+ * slot itself has no box, so maximized overlay geometry reads this parent.
+ */
+export function leftSidebarColumnElement(): HTMLElement | null {
+  return leftSidebarElement()?.parentElement ?? null
+}
+
+/**
+ * Observe the left-rail grid column and reconnect when the upstream frame
+ * replaces it. The mutation observer watches only the frame and its direct
+ * parent once mounted; the body subtree is used only while the frame is absent.
+ */
+export function observeLeftSidebarColumnResize(onChange: () => void): () => void {
+  if (typeof ResizeObserver === 'undefined' && typeof MutationObserver === 'undefined') {
+    return () => {}
+  }
+
+  let column: HTMLElement | null = null
+  let frame: HTMLElement | null = null
+  let parent: HTMLElement | null = null
+  const resizeObserver = typeof ResizeObserver === 'undefined'
+    ? undefined
+    : new ResizeObserver(onChange)
+  const mutationObserver = typeof MutationObserver === 'undefined'
+    ? undefined
+    : new MutationObserver(() => {
+      const nextColumn = leftSidebarColumnElement()
+      const nextFrame = nextColumn?.parentElement ?? null
+      const nextParent = nextFrame?.parentElement ?? null
+      if (nextColumn === column && nextFrame === frame && nextParent === parent) return
+      bind()
+      onChange()
+    })
+
+  function bind(): void {
+    resizeObserver?.disconnect()
+    mutationObserver?.disconnect()
+    column = leftSidebarColumnElement()
+    frame = column?.parentElement ?? null
+    parent = frame?.parentElement ?? null
+    if (column !== null) resizeObserver?.observe(column)
+    if (frame !== null) mutationObserver?.observe(frame, { childList: true })
+    if (parent !== null && parent !== frame) mutationObserver?.observe(parent, { childList: true })
+    if (frame === null) mutationObserver?.observe(document.body, { childList: true, subtree: true })
+  }
+
+  bind()
+  return () => {
+    resizeObserver?.disconnect()
+    mutationObserver?.disconnect()
+  }
+}
+
+/**
  * Whether the DSH app is currently rendering a dark theme. DSH sets
  * `data-ds-dark-theme` on `<body>` when dark, and Pierre's `github-light` /
  * `github-dark` theme maps onto that flag (C6). The pierre adapter consults

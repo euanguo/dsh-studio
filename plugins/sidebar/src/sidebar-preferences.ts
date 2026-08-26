@@ -252,6 +252,18 @@ export function clampSidebarWidth(value: number, viewportWidth?: number): number
   )
 }
 
+/**
+ * Width available to the maximized right overlay after preserving the left
+ * rail. The live measurement belongs to the surface adapter; this pure helper
+ * keeps the subtraction and malformed-input policy testable in the sidebar
+ * domain.
+ */
+export function maximizedSidebarWidth(viewportWidth: number, leftRailWidth: number): number {
+  const viewport = Number.isFinite(viewportWidth) ? Math.max(0, viewportWidth) : 0
+  const left = Number.isFinite(leftRailWidth) ? Math.max(0, leftRailWidth) : 0
+  return Math.max(0, viewport - left)
+}
+
 /** Persisted-document bound (no viewport): the parse/clone-time defense. */
 export function clampPersistedWidth(value: number): number {
   if (!Number.isFinite(value)) return SIDEBAR_DEFAULT_WIDTH
