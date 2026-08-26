@@ -364,7 +364,6 @@ pnpm run build && pnpm run stage:dsh && pnpm start
 | `pnpm run stage:dsh` | 把 DSH 产物 staging 到应用资源目录 |
 | `pnpm test` | node:test 全量测试 |
 | `pnpm typecheck` | TypeScript 全量类型检查 |
-| `pnpm run check:plugins` | 已废弃，不运行；旧 Electron 冒烟依赖可用工作区，不能作为通用验证 |
 | `pnpm start` | 构建 + staging + 启动 Electron |
 | `pnpm run dist:mac[:quick]` | 打 DMG/ZIP 发行包 |
 
@@ -374,7 +373,7 @@ pnpm run build && pnpm run stage:dsh && pnpm start
 pnpm run typecheck
 pnpm test
 pnpm run dist:mac
-pnpm run smoke:app
+pnpm run smoke:pack
 codesign --verify --deep --strict release/mac-arm64/DSH Studio.app
 hdiutil verify release/DSH Studio-0.1.2-arm64.dmg
 ```

@@ -93,6 +93,9 @@ jobs:
       - name: Type check
         run: pnpm run typecheck
 
+      - name: Guards
+        run: pnpm run check:guards
+
       - name: Run tests
         run: pnpm test
 
@@ -158,9 +161,6 @@ jobs:
 
       - name: Smoke the web profile
         run: xvfb-run -a pnpm run smoke:web
-
-      - name: Smoke the desktop profile
-        run: xvfb-run -a pnpm run smoke:runtime
 
       - name: Smoke the packed artifact
         # npm pack → scratch profile (`dsh plugin add <tarball>`) → boot the

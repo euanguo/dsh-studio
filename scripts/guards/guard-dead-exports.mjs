@@ -21,7 +21,7 @@
  *   - default (warning): prints the candidate list (file:symbol), prints
  *     `GUARD-OK`, exits 0.
  *   - --strict: the same list minus the allowlist becomes a violation — prints
- *     the list and exits 1. The allowlist is `.unlazy/dead-export-allowlist.json`
+ *     the list and exits 1. The allowlist is `scripts/dead-export-allowlist.json`
  *     (relative to repo root), an array of qualified names `module:symbol`.
  *
  * Usage:
@@ -119,20 +119,25 @@ for (const file of repoFiles) {
   }
 }
 
-// Dead-export candidates: ≤1 external file references the symbol.
+// Dead-export candidates: ≤1 external file references the symbol, and no
+// test references it. A tests/-only reference counts as alive: the export is
+// exercised by `tests/` and is awaiting a production consumer, not dead.
 const candidates = []
 for (const [sym, info] of exports) {
   const ext = external.get(sym).size
-  if (ext <= 1) {
-    const declaring = info.declaring.map((f) => relative(sharedDir, f)).join('/')
-    candidates.push({ sym, declaring, ext, extFiles: [...external.get(sym)].map((f) => relative(root, f)) })
-  }
+  if (ext > 1) continue
+  const extFiles = [...external.get(sym)]
+  if (extFiles.some((f) => /(^|\/)tests\//.test(relative(root, f)))) continue
+  const declaring = info.declaring.map((f) => relative(sharedDir, f)).join('/')
+  candidates.push({ sym, declaring, ext, extFiles: extFiles.map((f) => relative(root, f)) })
 }
 candidates.sort((a, b) => a.declaring.localeCompare(b.declaring) || a.sym.localeCompare(b.sym))
 
-// Allowlist: `plugin-shared-qualified:symbol` or `module:symbol`.
+// Allowlist: `plugin-shared-qualified:symbol` or `module:symbol`, checked in
+// `scripts/dead-export-allowlist.json` (repo-owned; per-module reasons live in
+// scripts/guards/README.md).
 let allowlist = []
-const allowPath = join(root, '.unlazy', 'dead-export-allowlist.json')
+const allowPath = join(root, 'scripts', 'dead-export-allowlist.json')
 if (existsSync(allowPath)) {
   try {
     const parsed = JSON.parse(readFileSync(allowPath, 'utf8'))
@@ -160,7 +165,7 @@ if (shown.length > 0) {
 
 if (strict && shown.length > 0) {
   console.log('... add a real consumer or move the export to '
-    + '.unlazy/dead-export-allowlist.json with a comment in the owning module')
+    + 'scripts/dead-export-allowlist.json with a comment in the owning module')
   console.log('GUARD-FAIL(candidates above)')
   process.exit(1)
 }

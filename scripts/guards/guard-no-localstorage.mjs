@@ -16,8 +16,8 @@
  * or comment explaining why):
  *   - plugins/shared/comments-migration.ts — one-way legacy localStorage read
  *     migration into the domain-backed `comments` ui-chrome table.
- *   - plugins/sidebar/src/client/kit/keymap.ts — the restored localStorage
- *     override persistence half (leaf-R1 ③ / Q9).
+ *     (The keymap override persistence half was deleted with its storage
+ *     code in kernel-refactor leaf-1.4; no other exemption exists.)
  *
  * Output: a violation list (file:line) then exit 1; when clean prints
  * `GUARD-OK` and exits 0.
@@ -34,7 +34,6 @@ const rootAbs = root
 // Paths (relative to repo root) that are exempt.
 const ALLOWLIST = [
   'plugins/shared/comments-migration.ts',
-  'plugins/sidebar/src/client/kit/keymap.ts',
 ]
 
 // Matches real browser storage invocations but not prose that merely says the word.

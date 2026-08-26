@@ -19,7 +19,7 @@
  *
  * Mirrors the upstream e2e-mount.sh idea (npm pack → scratch profile →
  * headless render) at the granularity the repository's existing smokes
- * (smoke-runtime.mjs / smoke-web.mjs) already use.
+ * (smoke-web.mjs) already use.
  */
 import assert from 'node:assert/strict'
 import { spawn, spawnSync } from 'node:child_process'
