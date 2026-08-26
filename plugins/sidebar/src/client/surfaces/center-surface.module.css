@@ -80,26 +80,12 @@
   align-items: center;
   gap: var(--dsh-studio-space-1);
   min-height: 42px;
-  padding: var(--dsh-studio-space-1) var(--dsh-studio-space-2) var(--dsh-studio-space-1) var(--dsh-studio-space-2);
+  padding: var(--dsh-studio-space-1) var(--dsh-studio-space-2) var(--dsh-studio-space-1) var(--dsh-studio-left-rail-toggle-inset, var(--dsh-studio-space-2));
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
   background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
   backdrop-filter: blur(6px);
   flex: none;
-}
-
-/* Left rail collapsed: reserve the traffic lights. The strip already
-   starts right of the DSH collapsed rail (--dsh-studio-rail-offset), so
-   only the remainder is padded — the in-flow toggle lands right of the
-   lights with an extra breathing gap so the toggle's 28px hover fill
-   never crowds the traffic lights. */
-.dsh-studio-center-tabs-strip:global(.is-left-collapsed) {
-  /* max() keeps the base padding on platforms without left-side lights
-     (Windows: --dsh-studio-traffic-left is 0, the calc would go negative). */
-  padding-left: max(
-    var(--dsh-studio-space-2),
-    calc(var(--dsh-studio-traffic-left, 76px) - var(--dsh-studio-rail-offset, 56px) + var(--dsh-studio-space-3))
-  );
 }
 
 /* Right panel closed: the strip's right edge reaches the window edge,
