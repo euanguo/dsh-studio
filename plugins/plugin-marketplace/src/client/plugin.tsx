@@ -7,6 +7,10 @@
  * controller and the slots entry, keeping it small enough to read in a glance.
  */
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
+import type {
+  LayoutService,
+  WorkspaceEventsService,
+} from '@dsh-studio/shared/workbench-contracts'
 import type { MarketplaceMessage } from './i18n.ts'
 import { MARKETPLACE_MESSAGES } from './i18n.ts'
 import { createMarketplaceStore } from './store.ts'
@@ -14,11 +18,10 @@ import {
   MarketplaceNavigationEntry,
   PluginMarketplaceViewService,
   type ClientContext,
-  type SessionsService,
   type SlotsService,
 } from './marketplace-view.tsx'
 
-export const inject = ['locale', 'sessions', 'slots']
+export const inject = ['locale', 'slots', 'workbench.layout', 'workbench.events']
 
 export function apply(ctx: ClientContext): void {
   const bridge = window.dshDesktop
@@ -27,11 +30,17 @@ export function apply(ctx: ClientContext): void {
     return
   }
   const locale = ctx.get('locale') as LocaleService
-  const sessions = ctx.get('sessions') as SessionsService
   const slots = ctx.get('slots') as SlotsService
   const t: Translate<MarketplaceMessage> = locale.bind('dsh-studio.plugin-marketplace')
   const store = createMarketplaceStore()
-  const view = new PluginMarketplaceViewService(bridge, locale, t, sessions, store)
+  const view = new PluginMarketplaceViewService(
+    bridge,
+    locale,
+    t,
+    ctx.get('workbench.events') as WorkspaceEventsService,
+    store,
+    ctx.get('workbench.layout') as LayoutService,
+  )
   ctx.effect(
     () => locale.register('dsh-studio.plugin-marketplace', MARKETPLACE_MESSAGES),
     'dsh-studio: marketplace dictionaries',

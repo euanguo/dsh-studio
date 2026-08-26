@@ -36,6 +36,16 @@ import {
 import type { MarketplacePlatform } from './platform.ts'
 import { CatalogSourceManager } from './catalog-source-manager.ts'
 import {
+  clearJournal,
+  journalAppliedRecord,
+  journalIntentRecord,
+  readRawJournal,
+  reconcileJournal,
+  restoreJournal,
+  writeJournal,
+  type MarketplaceRecoveryPoint,
+} from './journal.ts'
+import {
   DefaultMarketplaceSourceResolver,
   makeMarketplaceApprovalDecision,
   platformRepositoryAdapter,
@@ -61,13 +71,6 @@ interface MarketplaceStateFile {
   entries: MarketplaceInstalledPlugin[]
   locks: MarketplaceSourceLock[]
   version: 3
-}
-
-interface RollbackState {
-  appliedAt: string
-  backupProfile: string
-  pluginId: string
-  transactionId: string
 }
 
 interface ActivePreview {
@@ -118,6 +121,89 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function message(error: unknown): string {
   return errorMessage(error)
+}
+
+/**
+ * Explicit marketplace transaction phases. Every command guard and every
+ * state mutation is expressed against this enum; the manager never derives
+ * "what is happening" from scattered null/boolean flags. `applying` and
+ * `undoing` are explicit in-memory phases today and become the persisted
+ * journal phases in the leaf that owns disk timing.
+ */
+export type MarketplacePhase =
+  | 'idle'
+  | 'catalog-ready'
+  | 'planning'
+  | 'previewing'
+  | 'applying'
+  | 'applied-with-undo'
+  | 'undoing'
+
+const MARKETPLACE_PHASES = [
+  'idle',
+  'catalog-ready',
+  'planning',
+  'previewing',
+  'applying',
+  'applied-with-undo',
+  'undoing',
+] as const satisfies readonly MarketplacePhase[]
+
+/** Legal phase-to-phase moves; anything else is a programming error. */
+const PHASE_TRANSITIONS: Readonly<Record<MarketplacePhase, readonly MarketplacePhase[]>> = {
+  idle: ['catalog-ready', 'planning'],
+  'catalog-ready': ['planning'],
+  planning: ['previewing', 'catalog-ready', 'idle'],
+  previewing: ['applying', 'planning', 'catalog-ready', 'idle', 'applied-with-undo'],
+  applying: ['applied-with-undo', 'previewing'],
+  'applied-with-undo': ['undoing', 'planning', 'catalog-ready', 'idle'],
+  undoing: ['catalog-ready', 'idle', 'applied-with-undo'],
+}
+
+/**
+ * Command×phase guard matrix: the only phases in which each marketplace
+ * command is accepted. A command issued outside its rows (and not rejected by
+ * the orthogonal busy flag) fails with the same user-visible error wording as
+ * before the matrix existed.
+ */
+const COMMAND_PHASE_GUARDS: Readonly<Record<MarketplaceCommand['type'], readonly MarketplacePhase[]>> = {
+  refresh: MARKETPLACE_PHASES,
+  inspect: ['idle', 'catalog-ready', 'planning', 'applied-with-undo'],
+  prepare: ['idle', 'catalog-ready', 'planning', 'applied-with-undo'],
+  preview: ['planning'],
+  discard: MARKETPLACE_PHASES,
+  apply: ['previewing'],
+  undo: ['applied-with-undo'],
+}
+
+function phaseRejection(type: MarketplaceCommand['type'], phase: MarketplacePhase): string {
+  switch (type) {
+    case 'inspect':
+    case 'prepare':
+      return phase === 'previewing'
+        ? 'Apply or discard the current preview first.'
+        : `Cannot ${type} a plugin while the marketplace transaction is ${phase}.`
+    case 'preview':
+      return phase === 'previewing'
+        ? 'A plugin preview is already active.'
+        : 'Inspect a plugin before starting its preview.'
+    case 'apply':
+      return 'There is no prepared preview to apply.'
+    case 'undo':
+      return 'There is no previous plugin profile to restore.'
+    default:
+      // refresh and discard accept every phase, so this is unreachable.
+      return `the marketplace cannot accept a ${type} command during the ${phase} phase`
+  }
+}
+
+/** The whole transaction lifecycle as one state value plus its payloads. */
+interface MarketplaceTransaction {
+  active: ActivePreview | null
+  candidate: MarketplaceCandidate | null
+  phase: MarketplacePhase
+  plan: MarketplacePlan | null
+  rollback: MarketplaceRecoveryPoint | null
 }
 
 /** Typed rejection for a concurrent marketplace command while the host is
@@ -227,13 +313,75 @@ function setBundleEnabled(
   writeJsonAtomic(path, manifest)
 }
 
-function removeMarkedBlock(text: string, begin: string, end: string): string {
-  const start = text.indexOf(begin)
-  if (start < 0) return text
-  const finish = text.indexOf(end, start)
-  if (finish < 0) throw new Error(`managed configuration block is missing ${end}`)
-  const after = finish + end.length
-  return `${text.slice(0, start).trimEnd()}\n${text.slice(after).trimStart()}`.trimEnd() + '\n'
+/** One `  'name': true` (or legacy bare `name: true`) entry inside the
+ *  managed block; anything else in the interior is ignored. */
+function managedEntryName(line: string): string | null {
+  const match = /^[ \t]+(?:'((?:[^']|'')*)'|([^#' \t][^:#]*?)):[ \t]*true[ \t\r]*$/.exec(line)
+  if (match === null) return null
+  if (match[1] !== undefined) return match[1].replaceAll("''", "'")
+  return match[2]?.trim() ?? null
+}
+
+/**
+ * Whole-block allowBuild protocol (leaf-3.3): everything between the begin
+ * and end markers is owned by this module. The rewrite strips the marked
+ * block, rejects any foreign `allowBuilds` key outside it with its line
+ * number, and deterministically regenerates one sorted block — replacing the
+ * old block in place or appending one at the end. It never performs regex
+ * surgery on the surrounding YAML: every other line — comments, quoting,
+ * CRLF endings — survives byte-for-byte, and reruns over the same inputs
+ * produce identical bytes.
+ */
+export function regenerateManagedAllowBuilds(text: string, packageNameValue: string): string {
+  const lines = text.split('\n')
+  let beginLine = -1
+  let endLine = -1
+  for (let index = 0; index < lines.length; index += 1) {
+    if (lines[index]?.includes(BUILD_BEGIN) === true) {
+      beginLine = index
+      break
+    }
+  }
+  if (beginLine >= 0) {
+    for (let index = beginLine + 1; index < lines.length; index += 1) {
+      if (lines[index]?.includes(BUILD_END) === true) {
+        endLine = index
+        break
+      }
+    }
+    if (endLine < 0) throw new Error(`managed configuration block is missing ${BUILD_END}`)
+  }
+  for (let index = 0; index < lines.length; index += 1) {
+    if (beginLine >= 0 && index >= beginLine && index <= endLine) continue
+    if (/^[ \t]*allowBuilds[ \t]*:/.test(lines[index] ?? '')) {
+      throw new Error(
+        `pnpm-workspace.yaml line ${index + 1} has an allowBuilds key outside the managed `
+        + `${BUILD_BEGIN} block; move it between the markers or remove it`,
+      )
+    }
+  }
+  const names = new Set<string>([packageNameValue])
+  if (beginLine >= 0) {
+    for (let index = beginLine + 1; index < endLine; index += 1) {
+      const name = managedEntryName(lines[index] ?? '')
+      if (name !== null) names.add(name)
+    }
+  }
+  const block = [
+    BUILD_BEGIN,
+    'allowBuilds:',
+    ...[...names].sort().map(name => `  ${yamlString(name)}: true`),
+    BUILD_END,
+  ]
+  if (beginLine < 0) {
+    // No managed block yet: append one after a single blank line, keeping a
+    // single trailing newline regardless of the original file's shape.
+    while (lines.at(-1) === '') lines.pop()
+    return [...lines, '', ...block, ''].join('\n')
+  }
+  // In-place replacement: every line outside the marked block keeps its
+  // exact bytes.
+  return [...lines.slice(0, beginLine), ...block, ...lines.slice(endLine + 1)].join('\n')
 }
 
 function repositoryFromSource(source: string): string | null {
@@ -255,34 +403,7 @@ function yamlString(value: string): string {
 function allowBuild(profileDir: string, packageNameValue: string): void {
   const path = join(profileDir, 'pnpm-workspace.yaml')
   const original = existsSync(path) ? readFileSync(path, 'utf8') : 'packages:\n  - .\n'
-  const clean = removeMarkedBlock(original, BUILD_BEGIN, BUILD_END)
-  const escapedName = packageNameValue.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  if (new RegExp(`^\\s{2,}${escapedName}:\\s*true\\s*$`, 'm').test(clean)
-    || new RegExp(`^\\s{2,}${yamlString(packageNameValue).replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')}:\\s*true\\s*$`, 'm').test(clean)) {
-    writeFileSync(path, clean, { mode: 0o600 })
-    return
-  }
-  const lines = clean.trimEnd().split('\n')
-  const allowIndex = lines.findIndex(line => /^allowBuilds:\s*$/.test(line))
-  if (allowIndex >= 0) {
-    let end = allowIndex + 1
-    while (end < lines.length && (lines[end]?.trim() === '' || /^\s/.test(lines[end] ?? ''))) end += 1
-    lines.splice(end, 0,
-      `  ${BUILD_BEGIN}`,
-      `  ${yamlString(packageNameValue)}: true`,
-      `  ${BUILD_END}`,
-    )
-    writeFileSync(path, lines.join('\n') + '\n', { mode: 0o600 })
-    return
-  }
-  lines.push(
-    '',
-    BUILD_BEGIN,
-    'allowBuilds:',
-    `  ${yamlString(packageNameValue)}: true`,
-    BUILD_END,
-  )
-  writeFileSync(path, lines.join('\n') + '\n', { mode: 0o600 })
+  writeFileSync(path, regenerateManagedAllowBuilds(original, packageNameValue), { mode: 0o600 })
 }
 
 function ensureWithin(parent: string, candidate: string): void {
@@ -421,9 +542,10 @@ export class PluginMarketplaceManager {
   readonly #previewsRoot: string
   readonly #rollbacksRoot: string
   readonly #rollbackStatePath: string
-  #active: ActivePreview | null = null
+  readonly #latestCommits = new Map<string, string>()
+  // Orthogonal busy flag: true while a dispatch runs, independent of phase.
   #busy = false
-  #candidate: MarketplaceCandidate | null = null
+  #tx: MarketplaceTransaction
   #catalog: MarketplacePlugin[] = []
   #catalogGeneratedAt: string | null = null
   #auth: MarketplaceSnapshot['auth'] = {
@@ -431,10 +553,7 @@ export class PluginMarketplaceManager {
     status: 'error',
   }
   #error: string | null = null
-  readonly #latestCommits = new Map<string, string>()
   #lastAction: string | null = null
-  #plan: MarketplacePlan | null = null
-  #rollback: RollbackState | null
   readonly #warn: (message: string) => void
 
   constructor(options: PluginMarketplaceOptions) {
@@ -456,7 +575,33 @@ export class PluginMarketplaceManager {
     removeTree(this.#previewsRoot, this.#warn)
     mkdirSync(this.#previewsRoot, { recursive: true, mode: 0o700 })
     mkdirSync(this.#rollbacksRoot, { recursive: true, mode: 0o700 })
-    this.#rollback = this.readRollback()
+    // Crash reconciliation (journal v2): settle every W1..W5/U1..U3 leftover
+    // warn-first before the first command runs. Reported problems seed #error
+    // so a fatal loss is never silent; the error persists until the next
+    // successful dispatch (leaf-3.3 retention).
+    const reconciliation = reconcileJournal({
+      profile: options.profile,
+      profileDir: this.#profileDir,
+      rollbacksRoot: this.#rollbacksRoot,
+      statePath: this.#rollbackStatePath,
+      warn: this.#warn,
+    })
+    this.#tx = {
+      active: null,
+      candidate: null,
+      phase: reconciliation.recovery === null ? 'idle' : 'applied-with-undo',
+      plan: null,
+      rollback: reconciliation.recovery,
+    }
+    if (reconciliation.problems.length > 0) {
+      this.#error = reconciliation.problems.join(' ')
+    }
+  }
+
+  /** Current explicit transaction phase. Host-side introspection only; it is
+   *  not part of the wire snapshot DTO. */
+  get phase(): MarketplacePhase {
+    return this.#tx.phase
   }
 
   getSnapshot(): MarketplaceSnapshot {
@@ -466,10 +611,14 @@ export class PluginMarketplaceManager {
       || bundleInstalled(this.#profileDir, entry.packageName))
     const installedById = new Map(installed.map(entry => [entry.pluginId, entry]))
     return cloneSnapshot({
-      approval: makeMarketplaceApprovalDecision(this.#plan, this.#active !== null, this.#rollback !== null),
+      approval: makeMarketplaceApprovalDecision(
+        this.#tx.plan,
+        this.#tx.active !== null,
+        this.#tx.rollback !== null,
+      ),
       auth: this.#auth,
       busy: this.#busy,
-      candidate: this.#candidate,
+      candidate: this.#tx.candidate,
       catalog: this.#catalog.map(plugin => {
         const receipt = installedById.get(plugin.id)
         const latestCommit = this.#latestCommits.get(plugin.id) ?? null
@@ -494,21 +643,21 @@ export class PluginMarketplaceManager {
       installed,
       lastAction: this.#lastAction,
       lifecycle: {
-        candidate: this.#active?.preview ?? null,
+        candidate: this.#tx.active?.preview ?? null,
         current: {
           profile: this.#options.profile,
           state: 'live',
         },
-        previous: this.#rollback === null ? null : {
-          appliedAt: this.#rollback.appliedAt,
-          pluginId: this.#rollback.pluginId,
-          transactionId: this.#rollback.transactionId,
+        previous: this.#tx.rollback === null ? null : {
+          appliedAt: this.#tx.rollback.appliedAt,
+          pluginId: this.#tx.rollback.pluginId,
+          transactionId: this.#tx.rollback.transactionId,
         },
       },
-      plan: this.#plan,
-      preview: this.#active?.preview ?? null,
+      plan: this.#tx.plan,
+      preview: this.#tx.active?.preview ?? null,
       sourceLocks: state.locks,
-      undoAvailable: this.#rollback !== null,
+      undoAvailable: this.#tx.rollback !== null,
     })
   }
 
@@ -516,13 +665,19 @@ export class PluginMarketplaceManager {
     // D4: a busy host must not silently drop a concurrent command. Instead of
     // short-circuiting to the current snapshot, throw a typed rejection so the
     // client can surface "a marketplace operation is already running" instead
-    // of implying the command was accepted.
+    // of implying the command was accepted. This is the single throw site for
+    // MarketplaceBusyError; it also guards commands that would race an
+    // in-flight applying/undoing phase.
     if (this.#busy) {
       throw new MarketplaceBusyError('the marketplace is busy processing another operation')
     }
     this.#busy = true
-    this.#error = null
+    let succeeded = false
     try {
+      // Command×phase guard matrix: reject before any state mutation.
+      if (!COMMAND_PHASE_GUARDS[command.type].includes(this.#tx.phase)) {
+        throw new Error(phaseRejection(command.type, this.#tx.phase))
+      }
       switch (command.type) {
         case 'refresh':
           await this.refresh(command.force === true)
@@ -549,17 +704,40 @@ export class PluginMarketplaceManager {
         default:
           command satisfies never
       }
+      succeeded = true
     } catch (error) {
+      // Error retention (leaf-3.3): the failure message stays in every later
+      // snapshot until the next successful dispatch replaces it.
       this.#error = message(error)
     } finally {
       this.#busy = false
     }
-    const snapshot = this.getSnapshot()
-    // The snapshot above already reports this dispatch's outcome. Clear the
-    // error so later read-only snapshots (search/status polls) do not keep
-    // surfacing a stale failure from a previous dispatch.
-    this.#error = null
-    return snapshot
+    // A successful dispatch supersedes any retained error (including the
+    // constructor's reconcile problems); a failed one leaves it standing so
+    // read-only snapshots keep surfacing the failure.
+    if (succeeded) this.#error = null
+    return this.getSnapshot()
+  }
+
+  /** Move to an explicit phase; any move outside PHASE_TRANSITIONS is a bug. */
+  #transition(phase: MarketplacePhase): void {
+    const current = this.#tx.phase
+    if (phase === current) return
+    if (!PHASE_TRANSITIONS[current].includes(phase)) {
+      throw new Error(`illegal marketplace phase transition: ${current} -> ${phase}`)
+    }
+    this.#tx.phase = phase
+  }
+
+  /** The resting phase implied by the settled transaction data. */
+  #restingPhase(): MarketplacePhase {
+    if (this.#tx.rollback !== null) return 'applied-with-undo'
+    return this.#catalogGeneratedAt !== null ? 'catalog-ready' : 'idle'
+  }
+
+  /** Return to the resting phase once plan/candidate/active data is cleared. */
+  #settle(): void {
+    this.#transition(this.#restingPhase())
   }
 
   private async refresh(force = false): Promise<void> {
@@ -601,6 +779,9 @@ export class PluginMarketplaceManager {
         }
       }))
     this.#lastAction = `Loaded ${String(this.#catalog.length)} catalog plugins.`
+    // A loaded catalog upgrades the resting phase; an active transaction keeps
+    // its phase (refresh never abandons a plan or preview).
+    if (this.#tx.phase === 'idle') this.#transition('catalog-ready')
   }
 
   private async prepare(
@@ -609,11 +790,14 @@ export class PluginMarketplaceManager {
     sourceRef?: SourceRef,
   ): Promise<void> {
     await this.inspect(action, pluginId, sourceRef)
-    if (this.#plan === null) throw new Error('marketplace inspection did not produce a plan')
-    if (this.#plan.execution !== 'installable' || this.#plan.riskLevel === 'blocked') {
-      throw new Error(`${this.#plan.pluginId} is guide-only or blocked by the pinned DSH runtime`)
+    if (this.#tx.plan === null) throw new Error('marketplace inspection did not produce a plan')
+    if (this.#tx.plan.execution !== 'installable' || this.#tx.plan.riskLevel === 'blocked') {
+      throw new Error(`${this.#tx.plan.pluginId} is guide-only or blocked by the pinned DSH runtime`)
     }
-    if (this.#plan.requirements.length === 0) await this.preview([])
+    // Explicit planning→previewing transition: a requirements-free plan enters
+    // the preview phase through the same guarded move as an explicit preview
+    // command instead of an implicit side effect of prepare.
+    if (this.#tx.plan.requirements.length === 0) await this.preview([])
   }
 
   private async inspect(
@@ -621,9 +805,11 @@ export class PluginMarketplaceManager {
     pluginId?: string,
     sourceRef?: SourceRef,
   ): Promise<void> {
-    if (this.#active !== null) throw new Error('Apply or discard the current preview first.')
-    this.#candidate = null
-    this.#plan = null
+    // A new inspection abandons the previous plan/candidate first; the phase
+    // falls back to its resting value before the new candidate is resolved.
+    this.#tx.candidate = null
+    this.#tx.plan = null
+    this.#settle()
     const state = readMarketplaceState(this.#profileDir)
     const requestedPluginId = pluginId ?? (sourceRef?.kind === 'catalog' ? sourceRef.pluginId : undefined)
     if (action === 'uninstall' || action === 'enable' || action === 'disable') {
@@ -634,8 +820,8 @@ export class PluginMarketplaceManager {
       if (action === 'enable' && enabled) throw new Error(`${requestedPluginId} is already enabled`)
       if (action === 'disable' && !enabled) throw new Error(`${requestedPluginId} is already disabled`)
       if (current.mechanism !== 'bundle') {
-        this.#candidate = null
-        this.#plan = {
+        this.#tx.candidate = null
+        this.#tx.plan = {
           action,
           artifactDigest: '',
           buildScripts: {},
@@ -661,6 +847,7 @@ export class PluginMarketplaceManager {
           subpath: null,
           version: null,
         }
+        this.#transition('planning')
         return
       }
       const lock = state.locks.find(entry => entry.pluginId === requestedPluginId)
@@ -706,8 +893,9 @@ export class PluginMarketplaceManager {
           resolvedCommit: current.resolvedCommit,
         },
       }
-      this.#candidate = candidate
-      this.#plan = this.#resolver.makePlan(candidate, action)
+      this.#tx.candidate = candidate
+      this.#tx.plan = this.#resolver.makePlan(candidate, action)
+      this.#transition('planning')
       return
     }
 
@@ -755,14 +943,17 @@ export class PluginMarketplaceManager {
       throw new Error(`${candidate.identity.pluginId} is already at the latest commit`)
     }
     this.#latestCommits.set(candidate.identity.pluginId, candidate.source.resolvedCommit)
-    this.#candidate = candidate
-    this.#plan = this.#resolver.makePlan(candidate, action)
+    this.#tx.candidate = candidate
+    this.#tx.plan = this.#resolver.makePlan(candidate, action)
+    this.#transition('planning')
   }
 
   private async preview(confirmations: readonly MarketplaceConfirmation[]): Promise<void> {
-    const plan = this.#plan
-    if (plan === null) throw new Error('Inspect a plugin before starting its preview.')
-    if (this.#active !== null) throw new Error('A plugin preview is already active.')
+    // Only reachable from the planning phase: the dispatch guard matrix (or
+    // the prepare cascade right after inspect). Narrow defensively through
+    // the same rejection wording instead of a second ad-hoc predicate.
+    const plan = this.#tx.plan
+    if (plan === null) throw new Error(phaseRejection('preview', this.#tx.phase))
     const missing = plan.requirements.filter(requirement => !confirmations.includes(requirement))
     if (missing.length > 0) {
       throw new Error(`Preview requires explicit confirmation: ${missing.join(', ')}`)
@@ -866,7 +1057,7 @@ export class PluginMarketplaceManager {
         }
         const next = [...remaining, installed]
         const previousLock = candidateState.locks.find(lock => lock.pluginId === plan.pluginId)
-        const candidate = this.#candidate
+        const candidate = this.#tx.candidate
         if (candidate === null) throw new Error('bundle preview is missing its source candidate')
         const locks = [
           ...candidateState.locks.filter(lock => lock.pluginId !== plan.pluginId),
@@ -910,7 +1101,8 @@ export class PluginMarketplaceManager {
         startedAt: new Date().toISOString(),
         transactionId,
       }
-      this.#active = { candidateHome, candidateProfile, preview, root }
+      this.#tx.active = { candidateHome, candidateProfile, preview, root }
+      this.#transition('previewing')
       await this.#options.runtime.startPreview({
         dshHome: candidateHome,
         pluginId: plan.pluginId,
@@ -919,7 +1111,10 @@ export class PluginMarketplaceManager {
       })
       this.#lastAction = `Isolated ${plan.action} preview is ready for ${plan.pluginId}.`
     } catch (error) {
-      this.#active = null
+      // The preview never became usable: back to planning with the plan kept
+      // so the client can adjust confirmations and retry.
+      this.#tx.active = null
+      this.#transition('planning')
       await this.#options.runtime.stopPreview().catch(() => {})
       removeWithin(this.#previewsRoot, root, this.#warn)
       throw error
@@ -946,27 +1141,46 @@ export class PluginMarketplaceManager {
   }
 
   private async discard(): Promise<void> {
-    const active = this.#active
+    const active = this.#tx.active
     if (active === null) {
-      this.#plan = null
-      this.#candidate = null
+      // Nothing to tear down; abandoning a plan-only transaction settles the
+      // phase back to its resting value.
+      if (this.#tx.plan !== null || this.#tx.candidate !== null) {
+        this.#tx.plan = null
+        this.#tx.candidate = null
+        this.#settle()
+      }
       return
     }
     await this.#options.runtime.stopPreview()
     removeWithin(this.#previewsRoot, active.root, this.#warn)
-    this.#active = null
-    this.#plan = null
-    this.#candidate = null
+    this.#tx.active = null
+    this.#tx.plan = null
+    this.#tx.candidate = null
     this.#lastAction = `Discarded the ${active.preview.pluginId} preview without changing the desktop profile.`
+    // A previous recovery point (if any) survives a preview discard.
+    this.#settle()
   }
 
   private async applyPreview(): Promise<void> {
-    const active = this.#active
-    if (active === null) throw new Error('There is no prepared preview to apply.')
-    await this.#options.runtime.stopPreview()
-    await this.#options.runtime.stopLive()
+    // Guard matrix admits apply only from the previewing phase.
+    const active = this.#tx.active
+    if (active === null) throw new Error(phaseRejection('apply', this.#tx.phase))
+    this.#transition('applying')
     const rollbackRoot = join(this.#rollbacksRoot, active.preview.transactionId)
     const backupProfile = join(rollbackRoot, this.#options.profile)
+    // Intent-before-rename: durably record the applying intent BEFORE any
+    // profile rename (and before runtime teardown), so a crash in any window
+    // (W1..W5) leaves a reconcilable ledger instead of an unmarked
+    // half-swap.
+    const priorJournal = readRawJournal(this.#rollbackStatePath)
+    writeJournal(this.#rollbackStatePath, journalIntentRecord('applying', {
+      backupProfile,
+      pluginId: active.preview.pluginId,
+      transactionId: active.preview.transactionId,
+    }))
+    await this.#options.runtime.stopPreview()
+    await this.#options.runtime.stopLive()
     mkdirSync(rollbackRoot, { recursive: true, mode: 0o700 })
     let candidateInstalled = false
     try {
@@ -995,32 +1209,62 @@ export class PluginMarketplaceManager {
       }
       if (existsSync(backupProfile)) renameSync(backupProfile, this.#profileDir)
       await this.#options.runtime.startLive().catch(() => {})
+      // The apply failed and rolled back on disk; the journal returns to its
+      // exact pre-transaction form so a prior recovery point survives
+      // verbatim (a v1 file stays v1 until a successful transaction).
+      restoreJournal(this.#rollbackStatePath, priorJournal)
+      // The preview handle stays as before (leaf-3.2 owns the reconcile of
+      // that crashed transaction).
+      this.#transition('previewing')
       throw new Error(`plugin preview failed to apply and was rolled back: ${message(error)}`)
     }
-    this.#rollback = {
+    this.#tx.rollback = {
       appliedAt: new Date().toISOString(),
       backupProfile,
       pluginId: active.preview.pluginId,
       transactionId: active.preview.transactionId,
     }
-    writeJsonAtomic(this.#rollbackStatePath, this.#rollback)
+    // Terminal journal state: the swap completed and is durably committed;
+    // this write is also where a v1 record lazily upgrades to v2.
+    writeJournal(this.#rollbackStatePath, journalAppliedRecord({
+      appliedAt: this.#tx.rollback.appliedAt,
+      backupProfile,
+      pluginId: active.preview.pluginId,
+      transactionId: active.preview.transactionId,
+    }))
     removeWithin(this.#previewsRoot, active.root, this.#warn)
-    this.#active = null
-    this.#plan = null
-    this.#candidate = null
+    this.#tx.active = null
+    this.#tx.plan = null
+    this.#tx.candidate = null
     this.#lastAction = `Applied ${active.preview.pluginId}; the previous profile remains available for Undo.`
     this.remapCatalogInstalled()
+    this.#transition('applied-with-undo')
   }
 
   private async undo(): Promise<void> {
-    const rollback = this.#rollback
-    if (rollback === null || !existsSync(rollback.backupProfile)) {
-      this.#rollback = null
+    // Guard matrix admits undo only from the applied-with-undo phase.
+    const rollback = this.#tx.rollback
+    if (rollback === null) throw new Error(phaseRejection('undo', this.#tx.phase))
+    if (!existsSync(rollback.backupProfile)) {
+      this.#tx.rollback = null
+      clearJournal(this.#rollbackStatePath)
+      this.#settle()
       throw new Error('There is no previous plugin profile to restore.')
     }
-    await this.#options.runtime.stopLive()
+    this.#transition('undoing')
     const rollbackRoot = dirname(rollback.backupProfile)
     const replacedProfile = join(rollbackRoot, `replaced-${Date.now().toString(36)}`)
+    // Intent-before-rename for the undo direction (U1..U3 windows). The
+    // original appliedAt rides along so an interrupted-undo reconcile can
+    // re-terminalize the journal without rebasing the recovery point.
+    const priorJournal = readRawJournal(this.#rollbackStatePath)
+    writeJournal(this.#rollbackStatePath, journalIntentRecord('undoing', {
+      appliedAt: rollback.appliedAt,
+      backupProfile: rollback.backupProfile,
+      pluginId: rollback.pluginId,
+      transactionId: rollback.transactionId,
+    }))
+    await this.#options.runtime.stopLive()
     let restored = false
     try {
       renameSync(this.#profileDir, replacedProfile)
@@ -1032,46 +1276,26 @@ export class PluginMarketplaceManager {
       if (restored && existsSync(this.#profileDir)) renameSync(this.#profileDir, rollback.backupProfile)
       if (existsSync(replacedProfile)) renameSync(replacedProfile, this.#profileDir)
       await this.#options.runtime.startLive().catch(() => {})
+      // The restore failed on disk; put the applied journal back verbatim so
+      // the recovery point survives.
+      restoreJournal(this.#rollbackStatePath, priorJournal)
+      // The recovery point stays (leaf-3.2 owns the reconcile of that
+      // crashed undo).
+      this.#transition('applied-with-undo')
       throw new Error(`failed to restore the previous plugin profile: ${message(error)}`)
     }
     removeWithin(this.#rollbacksRoot, replacedProfile, this.#warn)
-    rmSync(this.#rollbackStatePath, { force: true })
+    clearJournal(this.#rollbackStatePath)
     removeWithin(this.#rollbacksRoot, rollbackRoot, this.#warn)
-    this.#rollback = null
-    this.#candidate = null
+    this.#tx.rollback = null
+    this.#tx.candidate = null
     this.#lastAction = `Restored the profile from before ${rollback.pluginId} was applied.`
     this.remapCatalogInstalled()
+    this.#settle()
   }
 
   private remapCatalogInstalled(): void {
     const installed = new Set(readMarketplaceState(this.#profileDir).entries.map(entry => entry.pluginId))
     this.#catalog = this.#catalog.map(plugin => ({ ...plugin, installed: installed.has(plugin.id) }))
-  }
-
-  private readRollback(): RollbackState | null {
-    if (!existsSync(this.#rollbackStatePath)) return null
-    try {
-      const value = readJson(this.#rollbackStatePath)
-      if (!isRecord(value) || typeof value.backupProfile !== 'string'
-        || typeof value.pluginId !== 'string' || typeof value.transactionId !== 'string') {
-        // D21: a corrupt/partial rollback marker must be surfaced instead of
-        // silently disabling Undo with no explanation.
-        this.#warn?.(`marketplace: ignoring invalid rollback state at ${this.#rollbackStatePath}`)
-        return null
-      }
-      ensureWithin(this.#rollbacksRoot, value.backupProfile)
-      return existsSync(value.backupProfile) ? {
-        appliedAt: typeof value.appliedAt === 'string'
-          ? value.appliedAt
-          : new Date(0).toISOString(),
-        backupProfile: value.backupProfile,
-        pluginId: value.pluginId,
-        transactionId: value.transactionId,
-      } : null
-    } catch (cause) {
-      // D21: a read/corruption failure disables Undo; log rather than hide it.
-      this.#warn?.(`marketplace: cannot read rollback state: ${message(cause)}`)
-      return null
-    }
   }
 }

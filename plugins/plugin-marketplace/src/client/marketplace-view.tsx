@@ -12,6 +12,11 @@ import { useSyncExternalStore } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { DesktopBridge } from '@dsh-studio/shared/desktop-contracts'
 import { ensureStyle } from '@dsh-studio/shared/style-injector'
+import { ensureLayoutDom } from '@dsh-studio/shared/layout-dom'
+import type {
+  LayoutService,
+  WorkspaceEventsService,
+} from '@dsh-studio/shared/workbench-contracts'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
 import { useTranslate } from '@dsh-studio/shared/use-i18n'
 import { IconApps } from '@dsh-studio/shared/tabler-icons'
@@ -46,15 +51,6 @@ export interface ClientContext {
 export interface MarketplaceViewState {
   available: boolean
   open: boolean
-}
-
-interface ObservableSnapshot<T> {
-  getSnapshot(): T
-  subscribe(listener: () => void): () => void
-}
-
-export interface SessionsService {
-  list: ObservableSnapshot<{ current: string | undefined; phase: 'pending' | 'ready' }>
 }
 
 export interface SlotsService {
@@ -141,11 +137,12 @@ export class PluginMarketplaceViewService implements PluginMarketplaceView {
   readonly #bridge: DesktopBridge
   readonly #locale: LocaleService
   readonly #t: Translate<MarketplaceMessage>
-  readonly #sessions: SessionsService
+  readonly #events: WorkspaceEventsService
   readonly #listeners = new Set<() => void>()
   #state: MarketplaceViewState = { available: false, open: false }
   #element: HTMLDivElement | null = null
   #stopStyle: (() => void) | null = null
+  #overlay: (() => void) | null = null
   #root: Root | null = null
   #observer: DomObserverHandle | null = null
   #geometryFrame: number | null = null
@@ -153,19 +150,24 @@ export class PluginMarketplaceViewService implements PluginMarketplaceView {
   #unsubscribeSessions: (() => void) | null = null
   #sessionNavigationState: SessionNavigationState = initialSessionNavigationState()
   #store: MarketplaceStore
+  readonly #dom: ReturnType<typeof ensureLayoutDom>
 
   constructor(
     bridge: DesktopBridge,
     locale: LocaleService,
     t: Translate<MarketplaceMessage>,
-    sessions: SessionsService,
+    events: WorkspaceEventsService,
     store: MarketplaceStore,
+    layout: LayoutService,
   ) {
     this.#bridge = bridge
     this.#locale = locale
     this.#t = t
-    this.#sessions = sessions
+    this.#events = events
     this.#store = store
+    // The marketplace root mounts through the overlay region protocol —
+    // the only body-level entry — stacked by the declarative z-index table.
+    this.#dom = ensureLayoutDom(layout)
   }
 
   getSnapshot = (): MarketplaceViewState => this.#state
@@ -199,7 +201,7 @@ export class PluginMarketplaceViewService implements PluginMarketplaceView {
 
     this.#element = document.createElement('div')
     this.#element.id = 'dsh-studio-plugin-marketplace-root'
-    document.body.append(this.#element)
+    this.#overlay = this.#dom.mountOverlay('plugin-marketplace', this.#element).release
     this.#root = createRoot(this.#element)
     this.#root.render(
       <MarketplaceSurface
@@ -222,16 +224,21 @@ export class PluginMarketplaceViewService implements PluginMarketplaceView {
       this.scheduleGeometry()
     })
     document.addEventListener('click', this.#handleDocumentClick, true)
-    const syncSessionNavigation = (): void => {
+    // Session navigation closes the modal (leaf-1.7): the kernel events
+    // service reports identity switches; the already-active session at mount
+    // is seeded as startup, not navigation.
+    const syncSessionNavigation = (sessionId: string | undefined): void => {
       const transition = transitionSessionNavigation(
         this.#sessionNavigationState,
-        this.#sessions.list.getSnapshot(),
+        { current: sessionId, phase: 'ready' },
       )
       this.#sessionNavigationState = transition.state
       if (transition.close) this.setOpen(false)
     }
-    this.#unsubscribeSessions = this.#sessions.list.subscribe(syncSessionNavigation)
-    syncSessionNavigation()
+    syncSessionNavigation(this.#events.snapshot().sessionId ?? undefined)
+    this.#unsubscribeSessions = this.#events.onSessionChanged(event => {
+      syncSessionNavigation(event.sessionId)
+    })
     this.scheduleGeometry()
   }
 
@@ -244,7 +251,10 @@ export class PluginMarketplaceViewService implements PluginMarketplaceView {
     this.#observer = null
     this.#root?.unmount()
     this.#footerStack = null
-    this.#element?.remove()
+    // Overlay release drops the region claim and removes the root element.
+    this.#overlay?.()
+    this.#overlay = null
+    this.#element = null
     this.#stopStyle?.()
     this.#stopStyle = null
     this.#state = { available: false, open: false }
