@@ -7,13 +7,13 @@
  */
 import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 import {
+  useEffect,
+  useRef,
   useSyncExternalStore,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
-import type { Translate } from '@dsh-studio/shared/i18n'
 import type { SidebarRenderProps } from './contract.ts'
-import type { WorkspaceMessage } from './i18n.ts'
 import {
   AddToolsMenu,
   OrphanedTab,
@@ -25,6 +25,7 @@ import {
   PinnedTabs,
   TabStrip,
 } from './side-tabs.tsx'
+import { LeftRailToggle, useLeftRailOpenState } from './side-rail-toggle.tsx'
 
 export { ToolIcon, type ToolIconKind } from '@dsh-studio/shared/tool-icon'
 
@@ -41,10 +42,23 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
   const rail = activeTab === undefined
     ? undefined
     : props.sidebar.getTab(activeTab.type)?.rail
+  const leftRail = useLeftRailOpenState()
+  const dragCleanup = useRef<(() => void) | undefined>(undefined)
+  useEffect(() => () => {
+    dragCleanup.current?.()
+    dragCleanup.current = undefined
+  }, [])
   const beginResize = (event: ReactPointerEvent<HTMLDivElement>): void => {
     event.preventDefault()
+    dragCleanup.current?.()
     const startX = event.clientX
-    const startWidth = props.width
+    // Use the panel's CURRENT rendered width rather than the persisted value;
+    // this keeps the normal right-panel resize gesture anchored to what the
+    // user is actually holding.
+    const renderedWidth = event.currentTarget.parentElement?.getBoundingClientRect().width
+    const startWidth = renderedWidth !== undefined && Number.isFinite(renderedWidth)
+      ? renderedWidth
+      : props.width
     // Live drags are rAF-coalesced to ONE preview update per frame and the
     // final width is committed only on pointerup/cancel — never per event —
     // keeping every synchronous layout write and React commit off the
@@ -64,7 +78,10 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
       if (next.clientX !== startX) moved = true
       schedulePreview(startWidth + startX - next.clientX)
     }
-    const finish = (): void => {
+    let active = true
+    const cleanup = (): void => {
+      if (!active) return
+      active = false
       if (rafId !== 0) {
         cancelAnimationFrame(rafId)
         rafId = 0
@@ -72,8 +89,14 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', finish)
       window.removeEventListener('pointercancel', finish)
+      if (dragCleanup.current === cleanup) dragCleanup.current = undefined
+    }
+    const finish = (): void => {
+      if (!active) return
+      cleanup()
       if (moved) props.onResize(lastWidth)
     }
+    dragCleanup.current = cleanup
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', finish)
     window.addEventListener('pointercancel', finish)
@@ -110,6 +133,11 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
         />
       )}
       <div className={surfaceCss["dsh-studio-side-top"]}>
+        {props.maximized && (
+          <div className={surfaceCss["dsh-studio-side-rail-toggle"]}>
+            <LeftRailToggle open={leftRail.leftRailOpen} onToggle={leftRail.toggleLeftRail} />
+          </div>
+        )}
         <PinnedTabs sidebar={props.sidebar} t={props.t} cwd={props.cwd} />
         <TabStrip sidebar={props.sidebar} t={props.t} />
         <AddToolsMenu sidebar={props.sidebar} t={props.t} />

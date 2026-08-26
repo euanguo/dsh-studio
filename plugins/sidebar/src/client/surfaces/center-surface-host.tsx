@@ -12,66 +12,28 @@
  * the center column.
  */
 import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
-import { Component, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { Component, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import type { ErrorInfo, ReactNode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { LayoutService } from '@dsh-studio/shared/workbench-contracts'
 import { ensureLayoutDom } from '@dsh-studio/shared/layout-dom'
-import {
-  Button,
-  Menu,
-  type MenuEntry,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import {
-  IconExternalLink,
-  IconFile,
-  IconFileDiff,
-  IconGitBranch,
-  IconGitCommit,
-  IconHistory,
-  IconPlus,
-  IconSidebarLeftFilled,
-  IconSidebarRightFilled,
-  IconTerminal,
-  getIconForFile,
-} from '@dsh-studio/shared/tabler-icons'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconSidebarRightFilled } from '@dsh-studio/shared/tabler-icons'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { EmptyState, ErrorState, ToolbarAction, useMenuAnchor } from '@dsh-studio/shared/ui'
-import { centerColumnElement, leftRailToggleButton, leftSidebarElement, readLeftRailOpen } from './dsh-dom.ts'
+import { EmptyState, ErrorState, ToolbarAction } from '@dsh-studio/shared/ui'
+import { centerColumnElement } from './dsh-dom.ts'
+import { LeftRailToggle, useLeftRailOpenState } from '../side-rail-toggle.tsx'
 import { createOverlayArbiter, OverlayArbiterProvider } from '../selection/overlay-arbiter.tsx'
 import type { SessionsService, WorkspacesService } from '../client-types.ts'
-import { sidebarApi } from '../sidebar-api.ts'
-import {
-  canOpenTerminalInstance,
-  releaseTerminalInstance,
-  touchTerminalInstance,
-} from '../runtimes/terminal-runtime.ts'
 import type { SidebarSnapshot, SidebarTabSeed } from '../contract.ts'
 import {
   persistCenterSurfaces,
   restoreCenterSurfaces,
   useCenterSurfaceStore,
 } from './center-surface-store.ts'
-import {
-  resolveActiveSurface,
-  conversationSurfaceId,
-  type CenterSurface,
-  type CenterSurfaceSlice,
-} from './types.ts'
-import {
-  currentConversationSyncAction,
-  resolveCenterWorkspace,
-  retainConversationSurface,
-  type CenterWorkspace,
-} from './center-surface-sync.ts'
-import {
-  SurfaceTab,
-  SurfaceTabStrip,
-} from '@dsh-studio/shared/ui'
-import {
-  useTabStripDrag,
-} from '../use-tab-strip-drag.ts'
+import { resolveActiveSurface, type CenterSurface } from './types.ts'
+import { resolveCenterWorkspace } from './center-surface-sync.ts'
 import {
   DiffThemeSync,
   DiffWorkerPoolProvider,
@@ -93,28 +55,6 @@ import { EMPTY_CENTER_SLICE } from './center-surface-meta.tsx'
  * Both buttons keep the same glyph and hover states; their position no
  * longer depends on fixed viewport coordinates or hard-coded offsets.
  */
-function LeftRailToggleButton(props: {
-  onToggleLeftRail(): void
-  /** Whether the DSH left rail is currently expanded (null = unknown). */
-  leftRailOpen: boolean | null
-}): JSX.Element {
-  const label = props.leftRailOpen === true ? '收起左栏' : '展开左栏'
-  return (
-    <ToolbarAction
-      variant="ghost"
-      className={surfaceCss["dsh-studio-left-rail-toggle"]}
-      icon={(
-        <span className={surfaceCss["dsh-studio-rail-toggle-glyph"]} aria-hidden="true">
-          <IconSidebarLeftFilled />
-        </span>
-      )}
-      label={label}
-      pressed={props.leftRailOpen === true}
-      onClick={props.onToggleLeftRail}
-    />
-  )
-}
-
 function RightRailReopenButton(props: {
   sidebar: DesktopSidebarServiceLike
 }): JSX.Element {
@@ -131,40 +71,6 @@ function RightRailReopenButton(props: {
       onClick={() => { props.sidebar.setOpen(true) }}
     />
   )
-}
-
-/** Track the DSH left rail open/closed state via its toggle button's
- *  aria-label (flips between 打开侧边栏 / 收起侧边栏). */
-function useLeftRailOpenState(): {
-  leftRailOpen: boolean | null
-  toggleLeftRail(): void
-} {
-  const [leftRailOpen, setLeftRailOpen] = useState<boolean | null>(null)
-  useEffect(() => {
-    const read = (): void => {
-      const next = readLeftRailOpen()
-      if (next !== null) setLeftRailOpen(next)
-    }
-    read()
-    // Observe only the DSH left sidebar subtree (not the whole body):
-    // chat streaming re-renders the conversation constantly, and this
-    // state only depends on the sidebar toggle's aria-label.
-    const observer = new MutationObserver(read)
-    // Reset targets from the dsh-dom probe module so an upstream sidebar-slot
-    // rename is re-pinned in one file (C5).
-    const sidebarSlot = leftSidebarElement()
-    const root = sidebarSlot ?? document.body
-    if (root !== null) {
-      observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-label', 'class'] })
-    }
-    return () => { observer.disconnect() }
-  }, [])
-  return {
-    leftRailOpen,
-    toggleLeftRail: () => {
-      leftRailToggleButton()?.click()
-    },
-  }
 }
 
 export function CenterSurfaceBody({
@@ -413,7 +319,7 @@ function CenterSurfaceHostView({
         <div
           className={`${surfaceCss["dsh-studio-center-tabs-strip"]}${leftRailOpen === false ? ' is-left-collapsed' : ''}${rightOpen ? '' : ' is-right-free'}`}
         >
-          <LeftRailToggleButton onToggleLeftRail={toggleLeftRail} leftRailOpen={leftRailOpen} />
+          <LeftRailToggle onToggle={toggleLeftRail} open={leftRailOpen} />
           <div className={surfaceCss["dsh-studio-center-tabs-scroller"]}>
             <CenterSurfaceTabs sessions={sessions} t={t} />
           </div>

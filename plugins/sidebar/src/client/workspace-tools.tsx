@@ -63,6 +63,13 @@ export class WorkspaceToolsService implements WorkspaceTools {
   private toastElement: HTMLDivElement | undefined
   private toastRoot: Root | undefined
   private stopSidebar: (() => void) | undefined
+  /**
+   * Drag session guard. A pointer drag is one atomic geometry transaction:
+   * while true, store subscriptions skip intermediate layout writes;
+   * {@link commitResizeWidth} publishes the final width and applies it once
+   * at the end.
+   */
+  private resizing = false
   private stopKeymap: (() => void) | undefined
   private stopChromeGeometry: (() => void) | undefined
   private stopMaximizedGeometry: (() => void) | undefined
@@ -247,9 +254,7 @@ export class WorkspaceToolsService implements WorkspaceTools {
       if (panel.open) this.dom.previewPanel('sidebar', 0)
       return
     }
-    const width = clampSidebarWidth(rawWidth, window.innerWidth)
-    const fullWidth = panel.open && panel.maximized
-    const effectiveWidth = fullWidth ? this.maximizedPanelWidth() : width
+    const effectiveWidth = clampSidebarWidth(rawWidth, window.innerWidth)
     this.dom.applyDocumentStyles({ vars: { '--dsh-studio-sidebar-width': `${String(effectiveWidth)}px` } })
     if (this.element !== undefined) {
       this.element.style.width = panel.open ? `${String(effectiveWidth)}px` : '0px'
@@ -262,22 +267,23 @@ export class WorkspaceToolsService implements WorkspaceTools {
     }
   }
 
-  /** End of a live drag: commit the final width through the store (which
-   *  publishes, persists and re-asserts the right-panel claim). */
+  /**
+   * End of a live right-panel drag. The drag is a single atomic geometry
+   * session: store subscriptions are suppressed while the width publishes,
+   * avoiding intermediate paints, then the final layout is applied once.
+   * Dropping below the collapse threshold closes the panel instead.
+   */
   commitResizeWidth(rawWidth: number): void {
     if (rawWidth < SIDEBAR_COLLAPSE_THRESHOLD_PX) {
       this.setOpen(false)
       return
     }
+    this.resizing = true
     const width = clampSidebarWidth(rawWidth, window.innerWidth)
-    if (width !== this.panel.width) {
-      this.sidebar.setWidth(width)
-      // setWidth publishes → the sidebar observer re-runs applyLayout().
-      return
-    }
-    // Same width as the committed store value: the preview DOM writes are
-    // already final, but re-run layout so the committed claim stays
-    // authoritative (the preview only published a pending footprint).
+    if (width !== this.panel.width) this.sidebar.setWidth(width)
+    this.resizing = false
+    // The final publish (or the unchanged-width path) is applied once here;
+    // the pending preview footprint is replaced by the committed claim.
     this.applyLayout()
   }
 
@@ -429,8 +435,11 @@ export class WorkspaceToolsService implements WorkspaceTools {
 
   /** Re-sync the DOM footprint whenever the sidebar snapshot changes (the
    *  service's only subscription; the projection store it used to maintain
-   *  is gone — React surfaces read the sidebar snapshot directly). */
+   *  is gone — React surfaces read the sidebar snapshot directly). Intermediate
+   *  publishes inside one drag session are suppressed — the drag commits the
+   *  final geometry once (see {@link commitResizeWidth}). */
   private onSidebarChanged(): void {
+    if (this.resizing) return
     const panel = this.panel
     if (panel.open) this.claimPanelExclusivity()
     this.applyMaximizedFlag(panel.open && panel.maximized ? true : null)

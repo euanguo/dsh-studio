@@ -67,6 +67,18 @@
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
+/* The left-rail expand/collapse seat shown in the maximized top row. The
+   panel starts exactly at the left rail's right edge, so a toggle placed at
+   the row's left end lands on the same x as the center top rail's toggle —
+   the switch visually stays where the covered center rail would put it. */
+.dsh-studio-side-rail-toggle {
+  display: flex;
+  align-items: center;
+  flex: none;
+  -webkit-app-region: no-drag;
+  padding-right: var(--dsh-studio-space-1);
+}
+
 .dsh-studio-side-pinned {
   display: flex;
   align-items: center;

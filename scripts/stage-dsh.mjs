@@ -29,7 +29,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { DSH_SOURCE_SPEC, resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
 import { dietNodeRuntime, pruneRuntimeDependencies, summarize } from './prune-stage.mjs'
 import { assertRuntimeBudget, loadRuntimeContract } from './runtime-contract.mjs'
-import { applyDshRuntimePatches } from './dsh-runtime-patches.mjs'
+import { applyDshRuntimePatches, PATCH_FILES } from './dsh-runtime-patches.mjs'
 import { verifyStagedLayout } from './verify-staged-layout.mjs'
 import { bakeSkinPalette } from './bake-skin-palette.mjs'
 import { resolveNodeDistributionPlatform } from '../src/node-platform.ts'
@@ -1052,6 +1052,7 @@ function dependencyFingerprint() {
     'runtime-closure-probe.mjs',
     ...(npmRelease ? [] : ['bake-skin-palette.mjs']),
   ].map(name => fileHash(join(root, 'scripts', name)))
+  const patchInputs = PATCH_FILES.map(path => fileHash(join(root, path)))
   const inputs = [
     fileHash(join(root, 'dsh-source.json')),
     fileHash(join(root, 'package.json')),
@@ -1062,6 +1063,7 @@ function dependencyFingerprint() {
     nodeArch,
     pnpm.cliEntry,
     ...stagedScripts,
+    ...patchInputs,
   ]
   return createHash('sha256').update(inputs.join('\n')).digest('hex')
 }
