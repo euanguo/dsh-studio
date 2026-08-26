@@ -317,7 +317,7 @@ function CenterSurfaceHostView({
             all in-flow members of the strip (see the TopRailControls
             section comment above). */}
         <div
-          className={`${surfaceCss["dsh-studio-center-tabs-strip"]}${leftRailOpen === false ? ' is-left-collapsed' : ''}${rightOpen ? '' : ' is-right-free'}`}
+          className={`${surfaceCss["dsh-studio-center-tabs-strip"]} dsh-studio-left-rail-toggle-strip${leftRailOpen === false ? ' is-left-collapsed' : ''}${rightOpen ? '' : ' is-right-free'}`}
         >
           <LeftRailToggle onToggle={toggleLeftRail} open={leftRailOpen} />
           <div className={surfaceCss["dsh-studio-center-tabs-scroller"]}>

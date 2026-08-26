@@ -48,6 +48,21 @@
    `no-drag`: the row is an interactive strip inside the window-drag
    band — it must opt out to stay clickable (the strip and conversation
    header still drag the window). */
+/* Shared left-rail toggle geometry. Both the center strip and the
+   maximized right-panel row consume this one inset; the right row subtracts
+   its own 1px panel border when applying it to its content box. */
+:global(.dsh-studio-left-rail-toggle-strip) {
+  --dsh-studio-left-rail-toggle-inset: var(--dsh-studio-space-2);
+}
+
+:global(.dsh-studio-left-rail-toggle-strip.is-left-collapsed) {
+  /* max() keeps the base padding on platforms without left-side lights. */
+  --dsh-studio-left-rail-toggle-inset: max(
+    var(--dsh-studio-space-2),
+    calc(var(--dsh-studio-traffic-left, 76px) - var(--dsh-studio-rail-offset, 56px) + var(--dsh-studio-space-3))
+  );
+}
+
 .dsh-studio-side-top {
   -webkit-app-region: no-drag;
   display: flex;
@@ -65,6 +80,13 @@
   padding: var(--dsh-studio-space-1) var(--dsh-studio-traffic-right, var(--dsh-studio-space-2)) var(--dsh-studio-space-1) var(--dsh-studio-space-2);
   box-sizing: border-box;
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+/* The maximized panel has a 1px border before its content box. Compensate
+   for that border so the shared left-rail toggle seat has the same absolute
+   x as the center strip's seat. */
+.dsh-studio-side-top:global(.is-maximized) {
+  padding-left: calc(var(--dsh-studio-left-rail-toggle-inset, var(--dsh-studio-space-2)) - 1px);
 }
 
 /* The left-rail expand/collapse seat shown in the maximized top row. The

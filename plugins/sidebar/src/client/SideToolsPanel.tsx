@@ -132,7 +132,9 @@ export function SideToolsPanel(props: SideToolsPanelProps): JSX.Element {
           aria-hidden="true"
         />
       )}
-      <div className={surfaceCss["dsh-studio-side-top"]}>
+      <div
+        className={`${surfaceCss["dsh-studio-side-top"]} dsh-studio-left-rail-toggle-strip${props.maximized ? ' is-maximized' : ''}${leftRail.leftRailOpen === false ? ' is-left-collapsed' : ''}`}
+      >
         {props.maximized && (
           <div className={surfaceCss["dsh-studio-side-rail-toggle"]}>
             <LeftRailToggle open={leftRail.leftRailOpen} onToggle={leftRail.toggleLeftRail} />
