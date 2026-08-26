@@ -12,6 +12,18 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 
 ---
 
+## 2026-08-27（right-rail-dock-refactor DEV 探测）
+
+### 26. 页面主线程被临时 DOM 探测阻塞后，chrome-use daemon 会自动停止
+- **症状**：通过 `eval --stdin` 做临时布局 DOM 写入并立即截图时，chrome-use
+  报 `session unresponsive`，自动停止当前 daemon；后续命令无法复用该 session。
+- **根因**：Electron 页面在 DOM/布局同步与截图期间没有及时响应 CDP 主线程，
+  daemon 将其判定为 stuck；临时写入还可能触发上游布局重绘与连续同步。
+- **修复**：不要把一次性 DOM 改写当作验证依据；先通过只读 DOM 评估确认结构，
+  发生卡死时停止旧 session，重新 `connect`/`tab`，再用源代码实现和真实交互验证。
+  截图只在 session 健康检查通过后执行。
+- **来源**：本次实测。
+
 ## 2026-08-27（kernel-refactor W6 DEV 验证）
 
 ### 25. 带命名 session 的 `tab --url` 可能把 URL glob 当成 tab label
