@@ -21,6 +21,10 @@
     - id: oh-capabilities
       name: '@dsh-studio/capabilities'
 
+    # Workbench kernel services: provided before any consumer plugin mounts.
+    - id: oh-workbench
+      name: '@dsh-studio/workbench'
+
     - id: oh-desktop-skins
       name: '@dsh-studio/desktop-skins'
 

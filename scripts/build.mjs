@@ -4,10 +4,14 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { resolveProductVersion } from '../src/version.ts'
+import { clientBaseExternals, clientExternalsFor, hostExternalsFor, readDependencyFacts } from './sync-dsh-dependencies.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dist = join(root, 'dist')
 const productVersion = resolveProductVersion(root)
+// Dependency facts (pin/inject/externals/typePackages/bundles) have one
+// writable point: config/dsh-dependencies.json (see sync-dsh-dependencies.mjs).
+const dshDependencies = readDependencyFacts(root)
 const versionDefine = {
   __DSH_STUDIO_BUILD_VERSION__: JSON.stringify(productVersion),
 }
@@ -56,6 +60,7 @@ copyFileSync(join(root, 'src', 'update.html'), join(dist, 'update.html'))
 const pluginPackages = [
   { directory: 'capabilities', hostOnly: true },
   { directory: 'tui', hostOnly: true },
+  { directory: 'workbench', id: '@dsh-studio/workbench' },
   { directory: 'desktop-skins', id: '@dsh-studio/desktop-skins' },
   { directory: 'sidebar', id: '@dsh-studio/sidebar' },
   { directory: 'sidebar-desktop', id: '@dsh-studio/sidebar-desktop' },
@@ -179,9 +184,7 @@ for (const plugin of pluginPackages) {
     outfile: join(output, 'index.js'),
     platform: 'node',
     format: 'esm',
-    external: plugin.external ?? (plugin.directory === 'capabilities'
-      ? ['@deepseek-ai/*', 'cordis', 'node-pty', 'schemastery', 'ws', 'zod']
-      : []),
+    external: plugin.external ?? hostExternalsFor(dshDependencies, plugin.directory),
   }))
   if (plugin.hostOnly !== true) {
     builds.push(build({
@@ -197,13 +200,7 @@ for (const plugin of pluginPackages) {
       loader: { '.css': 'text' },
       external: [
         ...(plugin.clientExternal ?? []),
-        'react',
-        'react-dom/client',
-        'react/jsx-runtime',
-        ...(['desktop-skins', 'sidebar', 'desktop-left-rail'].includes(plugin.directory)
-          ? ['@deepseek-ai/dsh-client-runtime/client']
-          : []),
-        '@deepseek-ai/dsh-client-ui-primitives',
+        ...clientExternalsFor(dshDependencies, plugin.directory),
       ],
       banner: {
         js: `window.__ModuleLoader__.load({ id: "${plugin.id}", factory: (require) => { var module = { exports: {} }; var exports = module.exports;`,
@@ -225,7 +222,8 @@ builds.push(build({
   sourcemap: true,
   logLevel: 'info',
   loader: { '.css': 'text' },
-  external: ['react', 'react-dom/client', 'react/jsx-runtime'],
+  // Lazy browser chunk: same client-base externals as the client plugin graph.
+  external: clientBaseExternals(dshDependencies),
 }))
 
 // Pierre highlight worker (module worker). The client bundle is emitted in

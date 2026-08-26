@@ -289,6 +289,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
 
+  plugins/workbench: {}
+
   upstream/dsh-TUI:
     dependencies:
       '@alcalzone/ansi-tokenize':

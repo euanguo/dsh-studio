@@ -814,6 +814,7 @@ function installDesktopPackages() {
     },
     ...[
       'desktop-skins',
+      'workbench',
       'sidebar',
       'sidebar-desktop',
       'desktop-left-rail',
