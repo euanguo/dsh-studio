@@ -187,9 +187,19 @@ export function sanitizeLeftRailViewChrome(value: unknown): LeftRailViewChrome {
 
 /* ── comments table (F1/F2/M7) ───────────────────────────────────────── */
 
+/**
+ * The ONE durable cap for both comment families (Q4 adjudication: the
+ * release sanitizer and every runtime write path share this constant — the
+ * old sanitizer-500 vs runtime-200 split is retired). The most RECENT rows
+ * win, matching the runtime `.slice(-n)` convention.
+ */
+export const COMMENTS_SANITIZE_LIMIT = 200
+
 /** A persisted workbench (file/diff) comment; contentType 'workbench'. */
 export interface PersistedWorkbenchComment {
   id: string
+  /** Workspace cwd; null marks a pre-scope legacy row. */
+  cwd: string | null
   /** Absolute path (Electron surface) or git-relative (diff surface). */
   path: string
   /** 1-based anchor line — the range start. */
@@ -259,6 +269,7 @@ export function sanitizeSidebarComments(value: unknown): SidebarCommentsChrome {
       || !isNonEmptyKey(entry.createdAt)) return undefined
     return {
       id: entry.id,
+      ...(entry.cwd === null || isNonEmptyKey(entry.cwd) ? { cwd: entry.cwd as string | null } : { cwd: null }),
       path: entry.path,
       startLine: entry.startLine as number,
       ...(validIntegerInt(entry.endLine) ? { endLine: entry.endLine as number } : {}),
@@ -291,10 +302,12 @@ export function sanitizeSidebarComments(value: unknown): SidebarCommentsChrome {
     }
   }
   const workbench = Array.isArray(record.workbench)
-    ? record.workbench.map(toWorkbench).slice(0, 500).filter((c): c is PersistedWorkbenchComment => c !== undefined)
+    ? record.workbench.map(toWorkbench).filter((c): c is PersistedWorkbenchComment => c !== undefined)
+      .slice(-COMMENTS_SANITIZE_LIMIT)
     : []
   const review = Array.isArray(record.review)
-    ? record.review.map(toReview).slice(0, 500).filter((c): c is PersistedReviewComment => c !== undefined)
+    ? record.review.map(toReview).filter((c): c is PersistedReviewComment => c !== undefined)
+      .slice(-COMMENTS_SANITIZE_LIMIT)
     : []
   return { workbench, review }
 }

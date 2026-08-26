@@ -116,6 +116,9 @@ export function migrateCommentsFromLegacy(
     if (path === undefined || startLine === undefined || !Number.isInteger(startLine)) continue
     workbench.push({
       id,
+      // Legacy localStorage had no owning workspace; preserve it in the
+      // explicit legacy bucket rather than assigning it to the active cwd.
+      cwd: str(entry.cwd) ?? null,
       path,
       startLine,
       ...(Number.isInteger(entry.endLine) ? { endLine: entry.endLine as number } : {}),

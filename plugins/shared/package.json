@@ -79,13 +79,15 @@
     "./terminal-webgl-atlas": "./terminal/terminal-webgl-atlas.ts",
     "./terminal-wire": "./terminal/terminal-wire.ts",
     "./theme.css": "./theme.css",
+    "./terminal-messages": "./terminal-messages.ts",
     "./toast": "./toast.tsx",
     "./tool-icon": "./tool-icon.tsx",
     "./use-i18n": "./use-i18n.ts",
     "./wire": "./runtime/wire.ts",
     "./panel-geometry": "./panel-geometry.ts",
     "./worktree-preferences": "./worktree-preferences.ts",
-    "./workbench-contracts": "./contracts/workbench-contracts.ts"
+    "./workbench-contracts": "./contracts/workbench-contracts.ts",
+    "./layout-dom": "./layout-dom.ts"
   },
   "devDependencies": {
     "@types/react": "~18.3.1",

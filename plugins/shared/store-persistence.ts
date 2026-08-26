@@ -23,6 +23,7 @@
  */
 import { createUiChromeStorage } from './ui-chrome-storage.ts'
 import type { UiChromeTableName } from './ui-chrome-tables.ts'
+import type { StateSliceDefinition } from './contracts/workbench-contracts.ts'
 
 /** The backing persistence seam: load the stored value, save it, drain it. */
 export interface PersistBackend<V> {
@@ -209,4 +210,114 @@ function newUiChromeBackend<V>(options: PersistViaOptions<V>): PersistBackend<V>
     sanitize: options.sanitize ?? (raw => raw as V),
     ...(options.debounceMs === undefined ? {} : { debounceMs: options.debounceMs }),
   })
+}
+
+/* ── StateStore slice policy over a persistence backend ────────────────── */
+
+/**
+ * A {@linkcode StateSliceDefinition} plus the storage encoding tier.
+ *
+ * - `'envelope'` (default): every write persists a `{ version, data }`
+ *   envelope so the stored generation is explicit and the `migrate` /
+ *   `reset` tiers of `onIncompatible` are decided from the stored version
+ *   (forward versions always reset — they can never migrate into the past).
+ *   This is the kernel `defineStateSlice` wire format.
+ * - `'bare'`: the host table DTO shape is fixed on the wire (no version
+ *   field may be added), so compatibility is expressed by the definition's
+ *   `migrate` normalize hook, which runs on EVERY read AND write. The hook
+ *   must be idempotent; `onIncompatible:'reset'` additionally drops values
+ *   the hook cannot recognize instead of normalizing them.
+ */
+export interface PersistedSliceDefinition<T> extends StateSliceDefinition<T> {
+  encoding?: 'envelope' | 'bare'
+}
+
+interface SliceEnvelope {
+  version: number
+  data: unknown
+}
+
+function isSliceEnvelope(raw: unknown): raw is SliceEnvelope {
+  return (
+    typeof raw === 'object' && raw !== null && !Array.isArray(raw)
+    && typeof (raw as SliceEnvelope).version === 'number'
+    && 'data' in (raw as SliceEnvelope)
+  )
+}
+
+function validatePersistedSlice<T>(definition: PersistedSliceDefinition<T>): void {
+  const { table, version, scope, onIncompatible, migrate, encoding = 'envelope' } = definition
+  if (typeof table !== 'string' || table.trim() === '') {
+    throw new Error('persisted slice requires a non-empty table')
+  }
+  if (!Number.isInteger(version) || version < 1) {
+    throw new Error(`persisted slice ${table} requires a positive integer version`)
+  }
+  if (scope !== 'workspace' && scope !== 'session' && scope !== 'global') {
+    throw new Error(`persisted slice ${table} has an unknown scope: ${String(scope)}`)
+  }
+  if (encoding !== 'envelope' && encoding !== 'bare') {
+    throw new Error(`persisted slice ${table} has an unknown encoding: ${String(encoding)}`)
+  }
+  if (onIncompatible === 'migrate' && migrate === undefined) {
+    throw new Error(`persisted slice ${table} declares onIncompatible:'migrate' without a migrate hook`)
+  }
+}
+
+/**
+ * Route one table's loads and saves through its slice's version policy.
+ * This is the single-writer seam between the shared persistVia facade and
+ * the StateStore slice vocabulary: the owning module declares ONE
+ * definition per table and wraps its storage handle with it, so format
+ * bumps have exactly one place to land (`migrate`) or to drop (`reset`).
+ */
+export function persistedSliceBackend<T>(
+  definition: PersistedSliceDefinition<T>,
+  backend: PersistBackend<unknown>,
+): PersistBackend<T> {
+  validatePersistedSlice(definition)
+  const { version, migrate, encoding = 'envelope' } = definition
+  // Bare tables normalize through the hook when one is declared; envelope
+  // tables decide from the stored generation instead.
+  const normalizeBare = (raw: unknown): T | undefined => {
+    if (raw === undefined || raw === null) return undefined
+    if (migrate === undefined) return raw as T
+    try {
+      return migrate(raw, 0)
+    } catch (error) {
+      // Unrecognizable bare payload: 'reset' drops it to defaults,
+      // 'migrate' keeps the failure loud for the facade's retry path.
+      if ((definition.onIncompatible ?? 'reset') === 'reset') return undefined
+      throw error
+    }
+  }
+
+  const applyPolicy = async (load: () => Promise<unknown>): Promise<T | undefined> => {
+    const raw = await load()
+    if (encoding === 'bare') return normalizeBare(raw)
+    if (raw === undefined || raw === null) return undefined
+    if (!isSliceEnvelope(raw)) {
+      // A pre-envelope record follows the same two-tier policy, addressed
+      // as generation 0 ("before versioning existed").
+      return (definition.onIncompatible ?? 'reset') === 'migrate'
+        ? migrate?.(raw, 0)
+        : undefined
+    }
+    if (raw.version === version) return raw.data as T
+    // Forward generations can never migrate into the past.
+    if (raw.version > version || (definition.onIncompatible ?? 'reset') === 'reset') {
+      return undefined
+    }
+    return migrate?.(raw.data, raw.version)
+  }
+
+  return {
+    load: async () => (await applyPolicy(() => backend.load())) as T,
+    loadStrict: async () => (await applyPolicy(() =>
+      backend.loadStrict !== undefined ? backend.loadStrict() : backend.load())) as T,
+    save(value) {
+      backend.save(encoding === 'bare' ? value : { version, data: value })
+    },
+    flush: () => backend.flush(),
+  }
 }

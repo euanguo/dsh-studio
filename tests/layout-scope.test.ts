@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import {
   DesktopSidebarService,
 } from '../plugins/sidebar/src/client/sidebar-service.ts'
+import { createSurfaceRegistry } from '../plugins/workbench/src/registry.ts'
 import type { SidebarPreferencesStorage } from '../plugins/sidebar/src/client/sidebar-storage.ts'
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
@@ -33,16 +34,22 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
   }
 }
 
-function tab(id: string): Parameters<DesktopSidebarService['registerTab']>[0] {
-  return { id, render: () => null, title: id }
+function tab(kind: string): Parameters<DesktopSidebarService['register']>[0] {
+  return {
+    kind,
+    rail: { render: () => null, title: kind },
+    scopeNeed: null,
+    previewable: false,
+    focusPolicy: 'never',
+  }
 }
 
 async function startedService(
   value?: DesktopSidebarPreferences,
 ): Promise<{ service: DesktopSidebarService; storage: MemorySidebarStorage }> {
   const storage = new MemorySidebarStorage(value)
-  const service = new DesktopSidebarService(storage)
-  service.registerTab(tab('file'))
+  const service = new DesktopSidebarService(storage, undefined, createSurfaceRegistry())
+  service.register(tab('file'))
   await service.start()
   return { service, storage }
 }
