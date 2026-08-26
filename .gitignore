@@ -15,3 +15,6 @@ result-*
 # All tracked documentation lives under docs/ — one fixed directory, no
 # per-file whitelist. Internal research, planning, and handoff docs stay
 # under .agent-workflows/ (git-ignored above).
+
+# Score-uplift execution ledgers are development-only process artifacts.
+/plans/score-uplift/
