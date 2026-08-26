@@ -161,6 +161,10 @@ export type WorkspaceMessage =
   | 'settings.agent-worktree-delegation-tools-description'
   | 'settings.open-files'
   | 'settings.open-files-description'
+  | 'settings.path-open-area'
+  | 'settings.path-open-area-description'
+  | 'settings.path-open-area-center'
+  | 'settings.path-open-area-rail'
   | 'settings.open-links'
   | 'settings.open-links-description'
   | 'settings.open-links-http'
@@ -466,6 +470,10 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.agent-worktree-delegation-tools-description': 'Allow agents to start independent conversations in visible WorkTrees and manage them (delegate, status, wait, stop, result). This is disabled by default.',
     'settings.open-files': 'Open chat files in the side panel',
     'settings.open-files-description': 'Open workspace file links from messages and tool results in the desktop file viewer.',
+    'settings.path-open-area': 'File open location',
+    'settings.path-open-area-description': 'Where captured file links land: the middle workbench tabs or the side panel.',
+    'settings.path-open-area-center': 'Middle workbench',
+    'settings.path-open-area-rail': 'Side panel',
     'settings.open-links': 'Open external links in the side browser',
     'settings.open-links-description': 'Open plain HTTP and HTTPS link clicks in the desktop browser. Cmd/Ctrl-click still opens them externally.',
     'settings.open-links-http': 'Open http links in the side browser',
@@ -768,6 +776,10 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.agent-worktree-delegation-tools-description': '允许 Agent 在可见 WorkTree 中启动独立对话并管理其生命周期（发起、状态、等待、停止、取结果）；默认关闭。',
     'settings.open-files': '聊天文件在侧边栏打开',
     'settings.open-files-description': '消息和工具结果中的工作区文件链接，会在桌面文件预览器中打开。',
+    'settings.path-open-area': '文件打开位置',
+    'settings.path-open-area-description': '被捕获的文件链接打开到哪里：中间工作区标签页或右侧边栏。',
+    'settings.path-open-area-center': '中间工作区',
+    'settings.path-open-area-rail': '右侧边栏',
     'settings.open-links': '外部链接在侧边浏览器打开',
     'settings.open-links-description': '普通 HTTP/HTTPS 链接会在桌面浏览器中打开；Cmd/Ctrl 点击仍使用外部浏览器。',
     'settings.open-links-http': 'http 链接在侧边浏览器打开',

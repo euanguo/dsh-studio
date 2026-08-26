@@ -54,6 +54,13 @@ export interface SidebarPrefs {
    */
   interceptOpenPath: boolean
   /**
+   * Where a captured openPath lands: the CENTER tab strip (the middle
+   * workbench, preview semantics) or the RIGHT side rail file tab (the
+   * historical behavior). Old documents without the key resolve to `'rail'`
+   * via the runtime parser default.
+   */
+  pathOpenArea: 'center' | 'rail'
+  /**
    * Whether the HTML previewer drops its sandboxed iframe. Sandbox ON (the
    * default) renders previewed HTML in an opaque-origin iframe that cannot
    * touch the GUI; turning it OFF runs the previewed page with the GUI's
@@ -131,6 +138,7 @@ export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
   agentWorktreeTools: false,
   agentWorktreeDelegationTools: false,
   interceptOpenPath: true,
+  pathOpenArea: 'rail',
   htmlViewerNoSandbox: false,
   htmlViewerDefaultUnsafe: false,
   browserInterceptLinks: true,

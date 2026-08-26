@@ -223,12 +223,16 @@ export function apply(ctx: ClientContext): void {
         && snapshot.ready
         && desktopSidebar.isTabEnabled('file')
         && pathBelongsToActiveWorkspace(sessions, path))) return false
-      // Short path (interaction-model D2): the link opens a CENTER preview —
-      // replaceable, never stealing focus — instead of a permanent rail tab;
-      // double click / the tab's pin control promotes it. The cwd is the
-      // active workspace the path was just validated against.
       const cwd = activeWorkspace(sessions)
       if (cwd === undefined) return false
+      // Where a captured path lands is a preference: the CENTER tab strip (a
+      // replaceable preview, interaction-model D2) or the RIGHT rail file tab
+      // (historical behavior). Both are real open lives — only the location
+      // differs; the cwd the path was validated against is the active one.
+      if (runtime.pathOpenArea === 'rail') {
+        service.openFile(path)
+        return true
+      }
       workbenchOpen().open({
         kind: 'file',
         target: { cwd, path },
@@ -339,6 +343,7 @@ export function apply(ctx: ClientContext): void {
             tabsEnabled: {},
             viewersEnabled: {},
             interceptOpenPath: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.interceptOpenPath,
+            pathOpenArea: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.pathOpenArea,
             browserInterceptLinks: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptLinks,
             browserInterceptHttp: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttp,
             browserInterceptHttps: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttps,

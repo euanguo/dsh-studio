@@ -78,6 +78,10 @@ export const PrefsSchema: z<SidebarPrefs> = z.object({
   agentWorktreeTools: z.boolean().default(false),
   agentWorktreeDelegationTools: z.boolean().default(false),
   interceptOpenPath: z.boolean().default(true),
+  pathOpenArea: z.union([
+    z.const('center'),
+    z.const('rail'),
+  ]).default('rail'),
   htmlViewerNoSandbox: z.boolean().default(false),
   htmlViewerDefaultUnsafe: z.boolean().default(false),
   browserInterceptLinks: z.boolean().default(true),

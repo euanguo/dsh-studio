@@ -114,6 +114,16 @@ test('sidebar runtime settings default the subagent/jobs auto-open toggles on', 
   assert.equal(parseSidebarRuntimePreferences({ autoOpenJobs: false }).autoOpenJobs, false)
 })
 
+test('sidebar runtime settings default the chat-file open area to the rail', () => {
+  assert.equal(DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.pathOpenArea, 'rail')
+  // Old documents without the key resolve to the historical right-side rail
+  // behavior; explicit values are honored; unknown values fall back.
+  assert.equal(parseSidebarRuntimePreferences({}).pathOpenArea, 'rail')
+  assert.equal(parseSidebarRuntimePreferences({ pathOpenArea: 'center' }).pathOpenArea, 'center')
+  assert.equal(parseSidebarRuntimePreferences({ pathOpenArea: 'rail' }).pathOpenArea, 'rail')
+  assert.equal(parseSidebarRuntimePreferences({ pathOpenArea: 'side-rail' }).pathOpenArea, 'rail')
+})
+
 test('sidebar runtime settings serialize revision-guarded updates', async () => {
   const writes: Array<{
     patch: Record<string, unknown>

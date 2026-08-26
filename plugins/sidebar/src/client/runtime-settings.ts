@@ -103,6 +103,13 @@ export interface SidebarRuntimePreferences {
   /** GPU renderer policy: automatic, forced on, or forced off. */
   terminalGpuAcceleration: 'auto' | 'on' | 'off'
   interceptOpenPath: boolean
+  /**
+   * Where a captured file-path open lands: the CENTER tab strip (middle
+   * workbench, preview semantics) or the RIGHT side rail file tab (the
+   * historical behavior). Old documents without the key resolve to
+   * `'rail'`.
+   */
+  pathOpenArea: 'center' | 'rail'
 }
 
 export const DEFAULT_SIDEBAR_RUNTIME_PREFERENCES:
@@ -130,6 +137,7 @@ Readonly<SidebarRuntimePreferences> = Object.freeze({
   terminalLigatures: false,
   terminalGpuAcceleration: 'auto',
   interceptOpenPath: true,
+  pathOpenArea: 'rail',
 })
 
 export interface SidebarRuntimeSettingsSnapshot {
@@ -188,6 +196,7 @@ const FIELD_SPECS: readonly FieldSpec[] = [
   { key: 'terminalLigatures', kind: 'boolean' },
   { key: 'terminalGpuAcceleration', kind: 'enum', values: ['auto', 'on', 'off'] },
   { key: 'interceptOpenPath', kind: 'boolean' },
+  { key: 'pathOpenArea', kind: 'enum', values: ['center', 'rail'] },
 ]
 
 function booleanMapPreference(record: Record<string, unknown>, key: string): Record<string, boolean> {

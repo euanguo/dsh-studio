@@ -33,7 +33,7 @@ import {
 } from '../sidebar-preferences.ts'
 import { ErrorState, SettingsRow, SettingsSection, Slider, Switch, ToolbarAction } from '@dsh-studio/shared/ui'
 import { FeatureCard, FeatureSettingsPopup } from './settings-feature-card.tsx'
-import { SwitchRow } from './settings-rows.tsx'
+import { SwitchRow, MenuRow } from './settings-rows.tsx'
 
 
 /* ── the settings section ──────────────────────────────────────── */
@@ -165,6 +165,21 @@ export function SidebarSettingsRow(props: SidebarSettingsProps): JSX.Element {
             desc={props.t('settings.open-files-description')}
             checked={runtimeState.preferences.interceptOpenPath}
             onChange={checked => { updateRuntime('interceptOpenPath', checked) }}
+          />
+          <MenuRow
+            title={props.t('settings.path-open-area')}
+            desc={props.t('settings.path-open-area-description')}
+            value={runtimeState.preferences.pathOpenArea}
+            disabled={!runtimeState.preferences.interceptOpenPath}
+            options={[
+              { id: 'rail', label: props.t('settings.path-open-area-rail') },
+              { id: 'center', label: props.t('settings.path-open-area-center') },
+            ]}
+            onChange={id => {
+              void props.runtime.update({
+                pathOpenArea: id as SidebarRuntimePreferences['pathOpenArea'],
+              })
+            }}
           />
           <SwitchRow
             title={props.t('settings.open-links')}

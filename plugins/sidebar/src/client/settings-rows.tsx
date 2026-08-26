@@ -3,10 +3,14 @@
  * rows bound to host prefs or plugin settings blobs (split from
  * settings.tsx).
  */
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
+  Button,
   Input,
+  Menu,
+  type MenuEntry,
 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconChevronDown } from '@dsh-studio/shared/tabler-icons'
 import { SettingsRow, Switch } from '@dsh-studio/shared/ui'
 import type { SidebarSettingToggle } from './contract.ts'
 import { SidebarSurfaceCss as surfaceCss } from './styles.js'
@@ -40,6 +44,63 @@ export function SwitchRow(props: {
           aria-label={props.desc ?? props.title}
           onCheckedChange={props.onChange}
         />
+      )}
+    />
+  )
+}
+
+/** One choice from a fixed set, rendered as an official outline Button that
+ *  opens a portaled Menu (the same span-anchored pattern as the Source
+ *  Control AI model/reasoning rows). The official Button does not forward
+ *  refs, so the span owns the anchor rect. */
+export function MenuRow(props: {
+  title: string
+  desc?: string
+  value: string
+  options: ReadonlyArray<{ id: string; label: string }>
+  disabled?: boolean
+  onChange(id: string): void
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const anchorRef = useRef<HTMLSpanElement | null>(null)
+  const current = props.options.find(option => option.id === props.value)
+  const items: MenuEntry[] = props.options.map(option => ({
+    id: option.id,
+    label: option.label,
+  }))
+  return (
+    <SettingsRow
+      title={props.title}
+      {...(props.desc === undefined ? {} : { description: props.desc })}
+      control={(
+        <span ref={anchorRef} className={surfaceCss["dsh-studio-sidebar-settings-menu-anchor"]}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={props.disabled ?? false}
+            aria-label={props.title}
+            aria-expanded={open}
+            onClick={() => { setOpen(currentOpen => !currentOpen) }}
+          >
+            <span className={surfaceCss["dsh-studio-sidebar-settings-menu-label"]}>
+              {current?.label ?? props.value}
+            </span>
+            <IconChevronDown size={14} />
+          </Button>
+          <Menu
+            open={open && (props.disabled ?? false) === false}
+            anchor={null}
+            portal
+            getAnchorRect={() => anchorRef.current?.getBoundingClientRect() ?? null}
+            items={items}
+            selectedId={props.value}
+            onSelect={id => {
+              setOpen(false)
+              props.onChange(id)
+            }}
+            onClose={() => { setOpen(false) }}
+          />
+        </span>
       )}
     />
   )
