@@ -8,13 +8,13 @@
  * address any absolute path on the host. The registry closes that hole by
  * validating the cwd against an allow-set derived from server-side truth:
  *
+ *   - server bootstrap roots       (trusted launch configuration)
  *   - registered workspace roots   (`ctx.workspaceRegistry.list()` → `.path`)
  *   - live session cwds            (`ctx.sessions.list()` → `header.cwd`)
  *
- * Both sources are synchronous in-memory registry reads on the host, so
- * `assertAllowed` re-reads them on EVERY assertion (zero staleness window,
- * no change-event plumbing needed); `refresh()` stays public for prefetch
- * and tests. A cwd counts as allowed when it IS a known root or lives
+ * All sources are synchronous host facts, so `assertAllowed` re-reads them on
+ * EVERY assertion (zero staleness window, no change-event plumbing needed);
+ * `refresh()` stays public for prefetch and tests. A cwd counts as allowed when it IS a known root or lives
  * INSIDE one (sessions may open subdirectories of a project). Path
  * containment reuses `isWithin` from @dsh-studio/shared/fs-tree — including
  * its case-insensitive Windows branch — rather than reinventing it.
@@ -28,6 +28,8 @@ export interface WorkspaceScopeSource {
   workspaces(): readonly string[]
   /** Live session cwds (`ctx.sessions.list()` → `header.cwd`; blanks ignored). */
   sessions(): readonly (string | undefined)[]
+  /** Server-configured roots for headless launches before registry attachment. */
+  bootstrap?(): readonly (string | undefined)[]
 }
 
 export interface WorkspaceScopeRegistry {
@@ -85,6 +87,8 @@ export function createWorkspaceScopeRegistry(source: WorkspaceScopeSource): Work
       seen.add(key)
       collected.push(normalized)
     }
+    for (const cwd of source.bootstrap?.() ?? []) push(cwd)
+    for (const cwd of source.bootstrap?.() ?? []) push(cwd)
     for (const workspace of source.workspaces()) push(workspace)
     for (const cwd of source.sessions()) push(cwd)
     roots = collected

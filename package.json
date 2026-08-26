@@ -66,7 +66,7 @@
     "start": "pnpm run build && pnpm run stage:dsh && electron .",
     "dev": "node scripts/dev.mjs",
     "check:screenshot": "electron scripts/check-screenshot-corners.cjs assets/dsh-studio-ui.png",
-    "test": "node --test tests/*.test.ts",
+    "test": "node --experimental-test-module-mocks --test tests/*.test.ts",
     "typecheck": "tsc --noEmit && tsc --noEmit -p plugins/capabilities/tsconfig.json",
     "dist:mac": "pnpm run build && pnpm run build:dsh && pnpm run stage:dsh && node scripts/build-mac.mjs",
     "dist:mac:x64": "pnpm run build && pnpm run build:dsh && pnpm run stage:dsh && node scripts/build-mac.mjs x64",

@@ -82,8 +82,10 @@ next launch. There is no second theme loader.
 
 The right-panel workbench converges open semantics and state scoping onto the
 shared kernel contract `@dsh-studio/shared/workbench-contracts`, carried by the
-five kernel services in `plugins/workbench` (all implemented below). The old
-scattered open/layout/state entry points are gone:
+four runtime services in `plugins/workbench` (all implemented below). Persistence
+slice vocabulary remains in shared contracts, but there is no standalone
+`workbench.state` runtime service. The old scattered open/layout/state entry
+points are gone:
 
 - `SurfaceRegistry`: the one surface registry per region (center/left/right);
   registration declares region ownership and lifecycle — consumers never build
@@ -97,11 +99,11 @@ scattered open/layout/state entry points are gone:
   75%); the service only receives final footprints and coordinates regional
   footprint plus overlay mounting through `ensureLayoutDom`
   (`@dsh-studio/shared/layout-dom`).
-- `StateStore`: the single state-bucket decision across
-  `workspace`/`session`/`global`; `global` collapses onto one bucket. The
-  sidebar layout and its remembered width implement the `layoutScope`
-  preference through it; center-surface queues always bucket by cwd because
-  their objects are workspace-bound.
+- Persistence is not exposed as a standalone `workbench.state` service. Shared
+  `StateSliceDefinition` retains the schema/version vocabulary, while actual
+  writes go through `persistVia` onto host-owned backends. Each domain keeps its
+  `workspace`/`session`/`global` bucketing contract; center-surface queues bucket
+  by cwd because their objects are workspace-bound.
 - `WorkspaceEvents`: the workspace/session identity event source.
   `onWorkspaceChanged` / `onSessionChanged` are driven by one identity pump
   (the runtime `currentProvideInfo` projection); workspace fires before

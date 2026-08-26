@@ -1,7 +1,7 @@
 /** WorkspaceScopeRegistry unit behavior: the server-side cwd fence that
  *  every capability route consults before a handler body runs. Covers the
- *  allow-set derivation (registered workspaces ∪ live session cwds), the
- *  traversal/malformation rejections, the case-insensitive Windows branch,
+ *  allow-set derivation (server bootstrap roots ∪ registered workspaces ∪ live
+ *  session cwds), the traversal/malformation rejections, the case-insensitive Windows branch,
  *  and the refresh-on-assertion freshness contract. */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
@@ -11,14 +11,17 @@ import { createWorkspaceScopeRegistry, type WorkspaceScopeSource } from '../plug
 function make(overrides: {
   workspaces?: string[]
   sessions?: (string | undefined)[]
+  bootstrap?: (string | undefined)[]
 } = {}) {
   const state = {
     workspaces: overrides.workspaces ?? ['/repo'],
     sessions: overrides.sessions ?? ([] as (string | undefined)[]),
+    bootstrap: overrides.bootstrap ?? ([] as (string | undefined)[]),
   }
   const source: WorkspaceScopeSource = {
     workspaces: () => state.workspaces,
     sessions: () => state.sessions,
+    bootstrap: () => state.bootstrap,
   }
   return { registry: createWorkspaceScopeRegistry(source), state }
 }
@@ -37,6 +40,12 @@ test('allows a registered workspace root and a subdirectory session inside it', 
   assert.equal(registry.isAllowed('/repo/packages/app'), true)
   registry.assertAllowed('/repo')
   registry.assertAllowed('/repo/packages/app')
+})
+
+test('allows a server-configured bootstrap root before registry attachment', () => {
+  const { registry } = make({ bootstrap: ['/bootstrap/workspace'] })
+  assert.doesNotThrow(() => registry.assertAllowed('/bootstrap/workspace/project'))
+  assert.equal(registry.isAllowed('/client/guess'), false)
 })
 
 test('derives additional roots from live session cwds', () => {

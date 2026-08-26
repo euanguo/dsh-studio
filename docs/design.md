@@ -134,8 +134,9 @@ Web 与 TUI 的 `--data` 只覆盖当前进程。
 ## Workbench 内核契约
 
 右栏工作台的打开语义与状态作用域收敛到共享内核契约
-`@dsh-studio/shared/workbench-contracts`，并由 `plugins/workbench` 的五个内核服务
-承载（均已实现，见下）。旧路径（散落的打开/布局/状态入口）已清零：
+`@dsh-studio/shared/workbench-contracts`，并由 `plugins/workbench` 的四个内核服务
+承载（均已实现，见下）。持久化 slice 的类型词汇仍由 shared contracts 提供，
+但没有独立的 `workbench.state` runtime service。旧路径（散落的打开/布局/状态入口）已清零：
 
 - `SurfaceRegistry`：center/left/right 各区域的 surface 唯一注册表；
   注册即声明区域归属与生命周期，消费方不得自建第二张表。
@@ -145,10 +146,11 @@ Web 与 TUI 的 `--data` 只覆盖当前进程。
 - `LayoutService`：跨插件布局协商。侧栏宽度策略留在 sidebar 域（持久化上限 4096、
   视口 75% 现算），服务只接收最终占位并协调各区域 footprint 与 overlay 挂载
   （经 `@dsh-studio/shared/layout-dom` 的 `ensureLayoutDom`）。
-- `StateStore`：状态分桶唯一决策。`resolveScopeBucket` 按 workspace/session/global
-  三档分桶，仅 global 桶折叠到单一桶；侧栏布局与宽度记忆经此实现 `layoutScope`
-  偏好，center surface 队列恒按 cwd 分桶。
-- `WorkspaceEvents`：工作区/会话身份事件源。`onWorkspaceChanged` /
+- 状态持久化不再由独立的 `workbench.state` 服务暴露。共享
+  `StateSliceDefinition` 保留 schema/version 词汇，实际持久化经 `persistVia`
+  落到 host-owned backend；仍由各域按 workspace/session/global 约定分桶，
+  center surface 队列恒按 cwd 分桶。
+- `WorkspaceEvents`：工作区/会话身份事件源。 `onWorkspaceChanged` /
   `onSessionChanged` 由单一身份泵（runtime `currentProvideInfo` 投影）驱动，
   workspace 先于 session 派发；GitWatch/websocket 新鲜度事件保留在
   source-control 域，不并入本服务。

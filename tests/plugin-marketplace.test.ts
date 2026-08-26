@@ -840,7 +840,7 @@ test('preview strips a stale pnpm store reference from the copied profile', asyn
     assert.equal(snapshot.error, null)
     snapshot = await setup.manager.dispatch({ type: 'inspect', action: 'install', pluginId: 'bundle-demo' })
     assert.equal(snapshot.error, null)
-    snapshot = await setup.manager.dispatch({ type: 'preview', allowBuildScripts: true })
+    snapshot = await setup.manager.dispatch({ type: 'preview', confirmations: ['allow-build-scripts'] })
     assert.equal(snapshot.error, null)
 
     // The copied candidate must not keep the stale tree: the preview's pnpm
@@ -873,11 +873,11 @@ test('bundle preview remains isolated until apply and supports undo', async () =
     snapshot = await setup.manager.dispatch({ type: 'inspect', action: 'install', pluginId: 'bundle-demo' })
     assert.deepEqual(snapshot.plan?.buildScripts, { prepare: 'node build.mjs' })
 
-    snapshot = await setup.manager.dispatch({ type: 'preview', allowBuildScripts: false })
+    snapshot = await setup.manager.dispatch({ type: 'preview', confirmations: [] })
     assert.match(snapshot.error ?? '', /allow-build-scripts/)
     assert.equal(snapshot.preview, null)
 
-    snapshot = await setup.manager.dispatch({ type: 'preview', allowBuildScripts: true })
+    snapshot = await setup.manager.dispatch({ type: 'preview', confirmations: ['allow-build-scripts'] })
     assert.equal(snapshot.error, null)
     assert.equal(snapshot.preview?.pluginId, 'bundle-demo')
     assert.equal(setup.platform.builds.length, 1)
@@ -1191,7 +1191,7 @@ test('installed bundles keep enabled state and update through isolated previews'
       action: 'install',
       pluginId: 'bundle-demo',
     })
-    await setup.manager.dispatch({ type: 'preview', allowBuildScripts: true })
+    await setup.manager.dispatch({ type: 'preview', confirmations: ['allow-build-scripts'] })
     let snapshot = await setup.manager.dispatch({ type: 'apply' })
     let plugin = snapshot.catalog.find(entry => entry.id === 'bundle-demo')
     assert.equal(plugin?.installed, true)
@@ -1218,7 +1218,7 @@ test('installed bundles keep enabled state and update through isolated previews'
       action: 'enable',
       pluginId: 'bundle-demo',
     })
-    await setup.manager.dispatch({ type: 'preview', allowBuildScripts: false })
+    await setup.manager.dispatch({ type: 'preview', confirmations: [] })
     snapshot = await setup.manager.dispatch({ type: 'apply' })
     plugin = snapshot.catalog.find(entry => entry.id === 'bundle-demo')
     assert.equal(plugin?.enabled, true)

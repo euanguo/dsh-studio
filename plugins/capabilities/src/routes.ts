@@ -75,13 +75,18 @@ export function buildCapabilitiesRoutes(
   getWorktreeDefaults: () => WorktreeDefaultsResult,
 ): Record<string, ApiMethod> {
   // Server-side scope fence (workspace-scope.ts): the cwd field is validated
-  // against registered workspace roots ∪ live session cwds on EVERY use —
-  // both sources are synchronous host registries, so there is no staleness
-  // window. Unknown cwds are refused with `forbidden` before any handler
-  // body runs; the same-origin POST fence stays transport hygiene only.
+  // against the server-derived bootstrap cwd, registered workspace roots and
+  // live session cwds on EVERY use. All sources are synchronous host facts, so
+  // there is no staleness window. Unknown cwds are refused with `forbidden`
+  // before any handler body runs; the same-origin POST fence stays transport
+  // hygiene only.
   const workspaceScope = createWorkspaceScopeRegistry({
+    // Registered roots remain the primary source. A headless/Web smoke or
+    // explicitly configured launch may provide one server-side bootstrap root
+    // before an interactive workspace picker attaches it.
     workspaces: () => ctx.workspaceRegistry.list().map(workspace => workspace.path),
     sessions: () => ctx.sessions.list().map(session => session.header.cwd),
+    bootstrap: () => [process.env.DSH_STUDIO_BOOTSTRAP_WORKSPACE],
   })
   const scopedCwd = (payload: unknown): string => {
     const record = payload as { cwd?: unknown } | null

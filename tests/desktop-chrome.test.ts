@@ -6,12 +6,54 @@ import { mock, test } from 'node:test'
 import { channelNames, type DesktopInfo } from '../src/contracts.ts'
 import type { IpcHost } from '../src/ipc.ts'
 import type { MenuHost } from '../src/menu.ts'
+import type { WindowsHost } from '../src/windows.ts'
 
 const menuCalls: unknown[] = []
 const applicationMenus: unknown[] = []
 const externalUrls: string[] = []
 type IpcHandler = (...args: unknown[]) => unknown | Promise<unknown>
 const ipcHandlers = new Map<string, IpcHandler>()
+
+type FakeWebContents = {
+  readonly id: number
+  setZoomFactor(factor: number): void
+  setWindowOpenHandler(handler: (details: { url: string }) => unknown): void
+  once(event: string, listener: (...args: unknown[]) => void): void
+  on(event: string, listener: (...args: unknown[]) => void): void
+}
+
+class FakeBrowserWindow {
+  static readonly instances: FakeBrowserWindow[] = []
+  readonly webContents: FakeWebContents
+  private destroyed = false
+  readonly options: Record<string, unknown>
+  readonly loadedFiles: Array<{ path: string; query: Record<string, string> | undefined }> = []
+
+  constructor(options: Record<string, unknown>) {
+    this.options = options
+    this.webContents = {
+      id: FakeBrowserWindow.instances.length + 1,
+      setZoomFactor: () => {},
+      setWindowOpenHandler: () => {},
+      once: () => {},
+      on: () => {},
+    }
+    FakeBrowserWindow.instances.push(this)
+  }
+
+  static fromWebContents(): undefined { return undefined }
+  isDestroyed(): boolean { return this.destroyed }
+  destroy(): void { this.destroyed = true }
+  close(): void { this.destroyed = true }
+  show(): void {}
+  focus(): void {}
+  once(): void {}
+  on(): void {}
+  async loadFile(path: string, options?: { query?: Record<string, string> }): Promise<void> {
+    this.loadedFiles.push({ path, query: options?.query })
+  }
+  async loadURL(): Promise<void> {}
+}
 
 mock.module('electron', {
   exports: {
@@ -20,9 +62,7 @@ mock.module('electron', {
       quit: () => { menuCalls.push({ type: 'quit' }) },
       getPath: (name: string) => `/tmp/dsh-test-${name}`,
     },
-    BrowserWindow: {
-      fromWebContents: () => undefined,
-    },
+    BrowserWindow: FakeBrowserWindow,
     clipboard: {
       writeText: (text: string) => { menuCalls.push({ type: 'clipboard', text }) },
     },
@@ -50,6 +90,7 @@ mock.module('electron', {
 
 const { createMenuModule } = await import('../src/menu.ts')
 const { createIpcModule, normalizeWorkspacePaths } = await import('../src/ipc.ts')
+const { createWindowsModule } = await import('../src/windows.ts')
 
 function desktopInfo(dshHome: string): DesktopInfo {
   return {
@@ -135,6 +176,39 @@ test('menu factory wires Settings and View actions through desktop commands', ()
   }
 })
 
+test('window factory applies hardened webPreferences and loads the splash', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'dsh-desktop-chrome-window-'))
+  try {
+    const host = {
+      channel: () => 'dev' as const,
+      runtimeOrigin: () => 'http://127.0.0.1:9000',
+      previewOrigin: () => undefined,
+      updateManager: async () => ({}) as never,
+    }
+    const windows = createWindowsModule(host as unknown as WindowsHost, {
+      preloadPath: join(root, 'preload.cjs'),
+      repoRoot: root,
+      splashPath: join(root, 'splash.html'),
+      updateHtmlPath: join(root, 'update.html'),
+      updatePreloadPath: join(root, 'update-preload.cjs'),
+    })
+
+    await windows.showSplash({ message: 'ready' })
+    const created = FakeBrowserWindow.instances.at(-1)
+    assert.ok(created, 'showSplash should create a main window')
+    const prefs = created.options.webPreferences as Record<string, unknown>
+    assert.equal(prefs.contextIsolation, true)
+    assert.equal(prefs.nodeIntegration, false)
+    assert.equal(prefs.sandbox, true)
+    assert.deepEqual(created.loadedFiles.at(-1), {
+      path: join(root, 'splash.html'),
+      query: { message: 'ready' },
+    })
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('normalizeWorkspacePaths accepts existing directories/files and deduplicates roots', () => {
   const root = mkdtempSync(join(tmpdir(), 'dsh-desktop-chrome-paths-'))
   const nested = join(root, 'nested')
@@ -184,7 +258,7 @@ test('IPC module registers allowlisted channels and enforces update sender and U
     ipc.sendCommand({ type: 'toggle-sidebar' })
     assert.deepEqual(sent.at(-1), { channel: channelNames.command, value: { type: 'toggle-sidebar' } })
 
-    const geometry = await handlerFor(channelNames.chromeGeometry)({ sender: mainWebContents })
+    const geometry = await invoke(channelNames.chromeGeometry, { sender: mainWebContents })
     assert.equal((geometry as { trafficLightWidth: number }).trafficLightWidth, 52)
 
     await assert.rejects(
@@ -198,7 +272,7 @@ test('IPC module registers allowlisted channels and enforces update sender and U
       invoke(channelNames.updateGetState, { sender: mainWebContents }),
       /local update window/,
     )
-    assert.deepEqual(await handlerFor(channelNames.updateGetState)({ sender: updateWebContents }), state)
+    assert.deepEqual(await invoke(channelNames.updateGetState, { sender: updateWebContents }), state)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }

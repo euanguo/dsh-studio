@@ -27,9 +27,9 @@
 |---|---|---|---|
 | W1 | S1 · S2 · S3 | F 7→8.5 | VERIFIED（node-security ALL MET） |
 | W2 | P1 · P2 | E 7→8.0 | VERIFIED（node-perf ALL MET；DOM 1764→24 实测） |
-| W3 | M1 · M2 · M3 | A/B 7→7.5 | VERIFIED（node-structure 三连绿；M1 预算经裁决 ≤780/−42%） |
-| W4 | TG（=T1+T2+T3 合并） | D 7.5→8.5 | IN-FLIGHT |
-| W5 | T4 · T5 · T6 | C/H/G 收口 | IN-FLIGHT |
+| W3 | M1 · M2 · M3 | A/B 7→7.5 | VERIFIED（node-structure 全仓三连；M1/M2/M3 全部复验） |
+| W4 | TG（=T1+T2+T3 合并） | D 7.5→8.5 | VERIFIED（biome 0 错误 / 聚合器负控退出码 1 / pin 单源 guard 绿） |
+| W5 | T4 · T5 · T6 | C/H/G 收口 | VERIFIED（T4 4 个 chrome 行为测试；T5/T6 独立复验；node-eng ALL MET） |
 
 > 执行布局：计划与门禁唯一事实源在 plans/score-uplift/**；租约/波次运行态在
 > .unlazy/score-uplift/**（经 .agent-workflows/kernel-refactor-execution/scripts/
@@ -117,7 +117,7 @@ Gates: nightly 手动触发一次全绿留档。
 | G 跨平台 | 8.0 | 8.0~8.5 | T3(T6) |
 | H 文档 | 7.5 | 8.0 | T5 |
 
-**预计综合：≈ 8.05–8.15**（权重同基线：A.18/B.15/C.15/D.12/E.12/F.13/G.07/H.08）。
+**最终复测：8.07（报告值 8.1/10）**（权重同基线：A.18/B.15/C.15/D.12/E.12/F.13/G.07/H.08；保守分项 A7.5/B7.5/C8.5/D8.5/E8.0/F8.5/G8.5/H8.0）。
 
 ## 明确不做
 

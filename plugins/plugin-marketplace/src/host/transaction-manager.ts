@@ -335,8 +335,7 @@ export class PluginMarketplaceManager {
           await this.prepare(command.action, command.pluginId, command.sourceRef)
           break
         case 'preview':
-          await this.preview(command.confirmations
-            ?? (command.allowBuildScripts === true ? ['allow-build-scripts'] : []))
+          await this.preview(command.confirmations ?? [])
           break
         case 'discard':
           await this.discard()
