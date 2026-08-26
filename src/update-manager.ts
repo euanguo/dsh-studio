@@ -6,18 +6,10 @@ import type {
   DesktopUpdatePlatform,
   DesktopUpdateState,
 } from './contracts.ts'
+import { officialReleaseBase } from './desktop-identity.ts'
 import { singleFlight } from './update-lifecycle.ts'
 
-const OFFICIAL_RELEASE_BASE = `https://github.com/${officialRepository()}/releases/tag/`
-
-/**
- * The single source for the GitHub release repository. The desktop package's
- * `build.publish` owner/repo must match this or the app produces 404
- * `releaseUrl`s; `main.ts` asserts that at startup (RD-52).
- */
-export function officialRepository(): string {
-  return 'euanguo/dsh-studio-app'
-}
+const OFFICIAL_RELEASE_BASE = officialReleaseBase()
 
 export interface UpdateEventSource {
   autoDownload: boolean
@@ -28,8 +20,8 @@ export interface UpdateEventSource {
   checkForUpdates(): Promise<{ isUpdateAvailable: boolean; updateInfo: UpdateInfo } | null>
   downloadUpdate(token?: CancellationToken): Promise<string[]>
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
-  on(event: string, listener: (...args: any[]) => void): unknown
-  removeListener?(event: string, listener: (...args: any[]) => void): unknown
+  on(event: string, listener: (...args: unknown[]) => void): unknown
+  removeListener?(event: string, listener: (...args: unknown[]) => void): unknown
 }
 
 export interface UpdateManagerOptions {
@@ -171,7 +163,7 @@ export class DesktopUpdateManager {
   private readonly checkFlight = singleFlight(async (): Promise<DesktopUpdateState> => this.performCheck())
   private installOnQuitRequested = false
   private readonly listeners = new Set<(state: DesktopUpdateState) => void>()
-  private readonly eventListeners: Array<[string, (...args: any[]) => void]> = []
+  private readonly eventListeners: Array<[string, (payload: unknown) => void]> = []
 
   constructor(options: UpdateManagerOptions) {
     this.currentVersion = options.currentVersion
@@ -366,9 +358,12 @@ export class DesktopUpdateManager {
   }
 
   private bindUpdaterEvents(): void {
-    const bind = (event: string, listener: (...args: any[]) => void): void => {
-      this.updater?.on(event, listener)
-      this.eventListeners.push([event, listener])
+    // electron-updater emits untyped event payloads; each binding narrows its
+    // own arg tuple once here so every handler below receives typed values.
+    const bind = <A extends unknown[]>(event: string, listener: (...args: A) => void): void => {
+      const wrapped = (...args: unknown[]): void => { listener(...args as A) }
+      this.updater?.on(event, wrapped)
+      this.eventListeners.push([event, wrapped])
     }
     bind('checking-for-update', () => {
       if (this.state.status !== 'checking' && this.state.status !== 'downloading') this.publish({ status: 'checking', currentVersion: this.currentVersion })

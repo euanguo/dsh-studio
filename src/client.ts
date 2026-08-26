@@ -13,6 +13,13 @@ import {
   DSH_STUDIO_SURFACE_VIEW_SERVICE,
   type DshStudioSurfaceView,
 } from '@dsh-studio/shared/surface'
+// The desktop chrome stylesheet and its installer live in desktop-chrome.ts.
+import { installDesktopChrome } from './desktop-chrome.ts'
+// The desktop shell has no DOM probes of its own; opening upstream Settings
+// goes through the sidebar plugin's single legal probe module
+// (plugins/AGENTS.md "Upstream DOM probes"), the same file that pins the
+// left-rail toggle labels.
+import { settingsTriggerButton } from '../plugins/sidebar/src/client/surfaces/dsh-dom.ts'
 
 interface WorkspaceView {
   workspaceId: string
@@ -35,151 +42,6 @@ declare global {
   }
 }
 
-const DESKTOP_TITLEBAR_HEIGHT = 0
-
-const DESKTOP_CHROME_CSS = `
-html[data-dsh-studio='true'] {
-  /* Titlebar inset token — the renderer equivalent of the reference
-     desktop distribution's --dsh-desktop-titlebar-inset. Plugins read this
-     to keep their surfaces flush with the top edge. */
-  --dsh-studio-titlebar-height: ${DESKTOP_TITLEBAR_HEIGHT}px;
-}
-
-html[data-dsh-studio='true'] body {
-  box-sizing: border-box;
-}
-
-/* No top drag strip: the DSH conversation header is the drag region. It
-   stays pinned at the top of the center column (it lives outside the
-   scrollable conversation body), so the window can always be dragged by it.
-   The header's interactive controls are re-enabled below. */
-html[data-dsh-studio='true'] [data-slot='conversation'] header {
-  -webkit-app-region: drag;
-  user-select: none;
-}
-
-html[data-dsh-studio='true'] [data-slot='conversation'] header button,
-html[data-dsh-studio='true'] [data-slot='conversation'] header a,
-html[data-dsh-studio='true'] [data-slot='conversation'] header input,
-html[data-dsh-studio='true'] [data-slot='conversation'] header select,
-html[data-dsh-studio='true'] [data-slot='conversation'] header textarea,
-html[data-dsh-studio='true'] [data-slot='conversation'] header [role='button'],
-html[data-dsh-studio='true'] [data-slot='conversation'] header [role='link'],
-html[data-dsh-studio='true'] [data-slot='conversation'] header [role='tab'],
-html[data-dsh-studio='true'] [data-slot='conversation'] header [contenteditable='true'] {
-  -webkit-app-region: no-drag;
-  user-select: auto;
-}
-
-/* Menus are portalled to body and can geometrically overlap the conversation
-   header. Electron app regions ignore normal visual stacking there, so every
-   menu hit target must explicitly opt out of native window dragging. */
-html[data-dsh-studio='true'] [role='menu'],
-html[data-dsh-studio='true'] [role='menu'] * {
-  -webkit-app-region: no-drag;
-}
-
-/* Electron drag regions ignore visual stacking: while a modal is mounted,
-   suspend every renderer-owned drag target so the mask and the modal's own
-   controls keep pointer input (same rule as the reference desktop
-   distribution). Restoring the final modal re-enables the regions. */
-html[data-dsh-studio='true']:has([aria-modal='true']) body * {
-  -webkit-app-region: no-drag;
-}
-
-/* The macOS traffic lights live in the window's top-left corner (~28px);
-   keep them clear of the sidebar rail's top button row. The strip itself
-   is not draggable (the header is), which is fine — the traffic lights
-   sit there anyway. */
-html[data-dsh-studio='true'] [data-slot='sidebar'] > div {
-  padding-top: 28px;
-}
-
-/* The sidebar brand row is dead chrome in the desktop shell: its whale mark
-   and "deepseek" wordmark artwork (HARNESS badge drawn into the same SVG)
-   are omitted, and the collapse toggle it hosts is superseded by the center
-   tab strip's left-rail toggle. The row keeps its upstream fixed height
-   (60px wide / 36px collapsed) even when empty, so remove the row itself.
-   The selector anchors on the official slot-contract wrapper the renderer
-   emits inside the row's only buttons, so it survives upstream revisions.
-   Gated on the attribute the desktop shell client actually installs. */
-html[data-dsh-studio-desktop='true'] [data-slot='sidebar'] div:has(
-  > button [data-slot='sidebar.brand.mark']
-) {
-  display: none;
-}
-
-/* Collapsed-rail traffic-light clearance: the upstream collapsed root pins
-   its padding with a two-class selector that out-specifies the center
-   surface's [data-slot='sidebar'] > div clearance rule, so once the brand
-   row is gone the rail's first button slides under the macOS traffic
-   lights. Re-assert the host's --dsh-studio-traffic-top token at
-   desktop-shell specificity for both rail states. */
-html[data-dsh-studio-desktop='true'] [data-slot='sidebar'] > div {
-  padding-top: var(--dsh-studio-traffic-top, 34px);
-}
-html[data-dsh-studio-preview='true'] body::after {
-  content: attr(data-dsh-studio-preview-label);
-  position: fixed;
-  z-index: 2147483647;
-  top: 7px;
-  left: 50%;
-  max-width: 52vw;
-  padding: 4px 11px;
-  overflow: hidden;
-  border: 1px solid #a9c2f5;
-  border-radius: 999px;
-  background: #edf3ff;
-  color: #28549f;
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 16px;
-  pointer-events: none;
-  text-overflow: ellipsis;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-html[data-dsh-studio='true'] #root:has(
-  [role='presentation'] > [role='dialog']
-) {
-  z-index: 1000 !important;
-  overflow: visible !important;
-}
-
-html[data-dsh-studio='true'] #root [role='presentation']:has(
-  > [role='dialog']
-) {
-  z-index: 1000 !important;
-  background: rgb(0 0 0 / 22%) !important;
-  -webkit-backdrop-filter: blur(6px) saturate(0.9);
-  backdrop-filter: blur(6px) saturate(0.9);
-}
-
-
-html[data-dsh-studio='true']:has(
-  [role='presentation'] > [role='dialog']
-) body::after,
-html[data-dsh-studio='true']:has(
-  [role='presentation'] > [role='dialog']
-) .dsh-studio-panel-toolbar,
-html[data-dsh-studio='true']:has(
-  [role='presentation'] > [role='dialog']
-) [data-dsh-studio-pinned-summary],
-html[data-dsh-studio='true']:has(
-  [role='presentation'] > [role='dialog']
-) #dsh-studio-plugin-marketplace-root {
-  z-index: 999 !important;
-}
-
-html[data-dsh-studio='true']:has(
-  [role='presentation'] > [role='dialog']
-) #dsh-studio-plugin-marketplace-root {
-  position: relative;
-}
-
-`
-
 /** Wait for the DSH services used by native menu commands. */
 export const inject = ['locale', 'workspaces', 'desktopPanels', 'pinnedSummary', 'workspaceTools']
 
@@ -194,71 +56,8 @@ const DESKTOP_SHELL_MESSAGES: LocaleMessages<DesktopShellMessage> = {
   },
 }
 
-function installDesktopChrome(): () => void {
-  const originalTitle = document.title
-  const style = document.createElement('style')
-  style.dataset.dshStudioDesktopChrome = 'true'
-  style.textContent = DESKTOP_CHROME_CSS
-  document.head.append(style)
-  document.documentElement.dataset.dshStudioDesktop = 'true'
-  document.title = 'DSH Studio'
-  return () => {
-    style.remove()
-    delete document.documentElement.dataset.dshStudioDesktop
-    document.title = originalTitle
-  }
-}
-
-function installHeroBranding(): () => void {
-  const headlineCopy = new Set(['Into the Unknown', '探索未知之境', '探索未至之境'])
-  const originalHeadlines = new Map<HTMLElement, string>()
-  const synchronize = (): void => {
-    for (const element of document.querySelectorAll<HTMLElement>('span')) {
-      const text = element.textContent?.trim() ?? ''
-      if (!headlineCopy.has(text)) continue
-      if (!originalHeadlines.has(element)) originalHeadlines.set(element, text)
-      element.textContent = 'DSH Studio'
-      element.dataset.dshStudioHeroHeadline = 'true'
-    }
-  }
-  const observer = new MutationObserver(synchronize)
-  observer.observe(document.body, { childList: true, characterData: true, subtree: true })
-  synchronize()
-  return () => {
-    observer.disconnect()
-    for (const [element, original] of originalHeadlines) {
-      if (element.isConnected && element.textContent === 'DSH Studio') element.textContent = original
-      delete element.dataset.dshStudioHeroHeadline
-    }
-  }
-}
-
 function focusComposer(): void {
   document.querySelector<HTMLTextAreaElement>('textarea')?.focus()
-}
-
-function findSettingsButton(): HTMLButtonElement | undefined {
-  // rc.5 wraps the settings trigger content in a stable slot marker; the rail
-  // trigger is the one inside the sidebar (the settings panel may render one).
-  const slotted = [...document.querySelectorAll<HTMLButtonElement>('button')]
-    .find(button => button.querySelector('[data-slot="settings.trigger"]') !== null
-      && button.closest('[data-slot="sidebar"]') !== null)
-  if (slotted !== undefined) return slotted
-  const labeled = [...document.querySelectorAll<HTMLButtonElement>('button')]
-    .find(button => /settings|设置/i.test([
-      button.textContent,
-      button.getAttribute('aria-label'),
-      button.getAttribute('title'),
-    ].filter(Boolean).join(' ')))
-  if (labeled !== undefined) return labeled
-  // rc.5 collapsed rail: the settings trigger is an icon-only dialog opener.
-  return [...document.querySelectorAll<HTMLButtonElement>('button[aria-haspopup="dialog"]')]
-    .filter(button => button.closest('[data-slot="sidebar"]') !== null)
-    .sort((left, right) => right.getBoundingClientRect().bottom - left.getBoundingClientRect().bottom)[0]
-}
-
-function showSettings(): void {
-  findSettingsButton()?.click()
 }
 
 async function openPaths(workspaces: WorkspacesService, paths: readonly string[]): Promise<void> {
@@ -288,7 +87,7 @@ function dispatch(
       })
       return
     case 'show-settings':
-      showSettings()
+      settingsTriggerButton()?.click()
       return
     case 'toggle-sidebar':
       panels.toggleSidebar()
@@ -359,7 +158,6 @@ export function apply(ctx: ClientContext): void {
       })
     }
     const removeDesktopChrome = installDesktopChrome()
-    const removeHeroBranding = installHeroBranding()
     const unsubscribeLocale = locale.subscribe(renderPreviewLabel)
     void bridge.getInfo().then(info => {
       if (disposed || info.preview === null) return
@@ -376,7 +174,6 @@ export function apply(ctx: ClientContext): void {
       disposed = true
       unsubscribe()
       unsubscribeLocale()
-      removeHeroBranding()
       removeDesktopChrome()
       delete document.documentElement.dataset.dshStudioPreview
       delete document.body.dataset.dshStudioPreviewLabel

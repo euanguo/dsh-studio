@@ -2,7 +2,22 @@ import { spawn, type ChildProcessByStdio } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import type { Readable } from 'node:stream'
 
+/**
+ * READY_LINE is only a URL *candidate* provider: a matching stdout line is
+ * not readiness by itself (kernel-refactor leaf-2.4). The supervisor confirms
+ * every candidate over HTTP before declaring the runtime ready, so a stale or
+ * false-positive match fails safe instead of becoming a loadURL target.
+ */
 const READY_LINE = /^dsh web: (https?:\/\/\S+)(?:\s|$)/
+
+/** Delay between HTTP readiness probes of one accepted candidate URL. */
+const READY_PROBE_INTERVAL_MS = 250
+
+/** Per-attempt probe timeout so a hung socket cannot stall the probe loop. */
+const READY_PROBE_TIMEOUT_MS = 2_000
+
+/** Default SIGTERM → SIGKILL window on the start-timeout teardown path. */
+const DEFAULT_KILL_ESCALATION_MS = 5_000
 
 /** How the packaged runtime is launched on this surface. */
 export interface RuntimeLauncher {
@@ -41,6 +56,12 @@ export interface DshRuntimeOptions {
    */
   nodeFlags?: string[]
   readyTimeoutMs?: number
+  /**
+   * Grace period between SIGTERM and SIGKILL when the start-timeout path
+   * tears down a runtime that never became ready. start() awaits the exit
+   * either way; production keeps the default, tests shorten it.
+   */
+  killEscalationMs?: number
   onLog?: (stream: 'stderr' | 'stdout', line: string) => void
 }
 
@@ -129,6 +150,29 @@ function lineReader(consume: (line: string) => void): (chunk: Buffer) => void {
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => { setTimeout(resolve, ms) })
+}
+
+/**
+ * Confirm a READY_LINE URL candidate over HTTP before it may be treated as
+ * readiness. Only a 200 response counts; connection errors, timeouts, and
+ * other statuses keep the probe loop running until the readiness deadline,
+ * so a false-positive candidate can never settle the handshake.
+ */
+async function confirmHttpReady(url: URL, deadline: number): Promise<URL | undefined> {
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(READY_PROBE_TIMEOUT_MS) })
+      if (response.status === 200) return url
+    } catch {
+      // Refused / reset / probe timeout: the candidate is not serving yet.
+    }
+    await sleep(READY_PROBE_INTERVAL_MS)
+  }
+  return undefined
+}
+
 /** Supervise one DSH Host process and expose its loopback readiness URL. */
 export class DshRuntimeSupervisor extends EventEmitter {
   private child: ChildProcessByStdio<null, Readable, Readable> | undefined
@@ -145,7 +189,12 @@ export class DshRuntimeSupervisor extends EventEmitter {
     return this.child !== undefined
   }
 
-  /** Start DSH and resolve only after the bundle's post-settlement URL line. */
+  /**
+   * Start DSH and resolve only after a READY_LINE URL candidate has been
+   * confirmed over HTTP. On the readiness timeout the child is torn down
+   * with SIGTERM escalated to SIGKILL, and start() rejects only after the
+   * process has actually exited.
+   */
   async start(): Promise<URL> {
     if (this.child !== undefined) throw new Error('DSH runtime is already running')
     this.ready = false
@@ -157,21 +206,43 @@ export class DshRuntimeSupervisor extends EventEmitter {
     })
     this.child = child
     const readiness = deferred<URL>()
+    const readyTimeoutMs = this.options.readyTimeoutMs ?? 45_000
+    const deadline = Date.now() + readyTimeoutMs
     let settled = false
+    let timedOut = false
+    const settleSuccess = (url: URL): void => {
+      if (settled) return
+      settled = true
+      this.ready = true
+      readiness.resolve(url)
+    }
     const settleFailure = (error: Error): void => {
       if (settled) return
       settled = true
       readiness.reject(error)
     }
+    // Only the first well-formed candidate is probed; malformed candidates
+    // are ignored (fail safe) and later stdout lines keep being logged.
+    let confirming = false
     const consume = (stream: 'stderr' | 'stdout', line: string): void => {
       this.options.onLog?.(stream, line)
       this.emit('log', stream, line)
-      if (stream !== 'stdout' || settled) return
+      if (stream !== 'stdout' || settled || confirming) return
       const match = READY_LINE.exec(line)
-      if (match?.[1] === undefined) return
-      settled = true
-      this.ready = true
-      readiness.resolve(new URL(match[1]))
+      const raw = match?.[1]
+      if (raw === undefined) return
+      let candidate: URL
+      try {
+        candidate = new URL(raw)
+      } catch {
+        // Malformed candidate: never surface it as readiness; keep waiting.
+        return
+      }
+      confirming = true
+      void confirmHttpReady(candidate, deadline).then(confirmed => {
+        if (confirmed !== undefined) settleSuccess(confirmed)
+        // An unconfirmed candidate leaves settlement to the timeout path.
+      })
     }
     child.stdout.on('data', lineReader(line => { consume('stdout', line) }))
     child.stderr.on('data', lineReader(line => { consume('stderr', line) }))
@@ -180,6 +251,7 @@ export class DshRuntimeSupervisor extends EventEmitter {
     })
     child.once('exit', (code, signal) => {
       if (this.child === child) this.child = undefined
+      if (timedOut) return // the timeout escalation below owns settlement
       if (!this.ready) {
         settleFailure(new Error(`DSH runtime exited before readiness (code=${String(code)}, signal=${String(signal)})`))
       } else {
@@ -188,9 +260,25 @@ export class DshRuntimeSupervisor extends EventEmitter {
       }
     })
     const timeout = setTimeout(() => {
-      settleFailure(new Error(`DSH runtime did not become ready within ${String(this.options.readyTimeoutMs ?? 45_000)} ms`))
-      child.kill('SIGTERM')
-    }, this.options.readyTimeoutMs ?? 45_000)
+      timedOut = true
+      void (async () => {
+        const error = new Error(`DSH runtime did not become ready within ${String(readyTimeoutMs)} ms`)
+        // Escalate SIGTERM → SIGKILL across a bounded grace window and hold
+        // start() open until the process is really gone before rejecting.
+        child.kill('SIGTERM')
+        const exited = new Promise<void>(resolve => { child.once('exit', () => { resolve() }) })
+        const graceMs = this.options.killEscalationMs ?? DEFAULT_KILL_ESCALATION_MS
+        const escalated = await Promise.race([
+          exited.then(() => false),
+          sleep(graceMs).then(() => true),
+        ])
+        if (escalated && child.exitCode === null && child.signalCode === null) {
+          child.kill('SIGKILL')
+        }
+        await exited
+        settleFailure(error)
+      })()
+    }, readyTimeoutMs)
     try {
       return await readiness.promise
     } finally {

@@ -14,6 +14,9 @@ export const TUI_PROFILE = 'tui'
 export const BUNDLED_DESKTOP_CLIENT_PLUGINS = [
   '@dsh-studio/desktop',
 
+  // Workbench kernel services (provided before their consumers).
+  '@dsh-studio/workbench',
+
   '@dsh-studio/desktop-left-rail',
   '@dsh-studio/desktop-skins',
   '@dsh-studio/sidebar',
