@@ -642,9 +642,9 @@ body[data-dsh-studio-skin] .dsh-studio-list-row[data-active] .dsh-studio-list-ro
 }
 
 body[data-dsh-studio-skin] .dsh-studio-surface-tab {
-  height: var(--gw-skin-row-h) !important;
-  border-radius: var(--gw-skin-radius-row) !important;
-  corner-shape: superellipse(1.5) !important;
+  height: var(--gw-skin-row-h);
+  border-radius: var(--gw-skin-radius-row);
+  corner-shape: superellipse(1.5);
 }
 
 /* ================================================================
