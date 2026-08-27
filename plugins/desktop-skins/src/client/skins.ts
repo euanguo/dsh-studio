@@ -620,32 +620,12 @@ body[data-dsh-studio-skin] button[disabled] {
   cursor: not-allowed;
 }
 
-/* 显式支持右栏/通用插件容器的悬浮与选中态（避免纯 CSS token 特异性不够） */
-body[data-dsh-studio-skin] .dsh-studio-list-row:hover,
-body[data-dsh-studio-skin] .dsh-studio-list-row:focus-within,
-body[data-dsh-studio-skin] .dsh-studio-list-row:has([data-popup-open]),
-body[data-dsh-studio-skin] .dsh-studio-list-row[data-active],
-body[data-dsh-studio-skin] .dsh-studio-list-row[data-selected],
-body[data-dsh-studio-skin] .dsh-studio-surface-tab:hover,
-body[data-dsh-studio-skin] .dsh-studio-surface-tab:focus-visible,
-body[data-dsh-studio-skin] .dsh-studio-surface-tab.is-active,
-body[data-dsh-studio-skin] .dsh-studio-review-commit-file:hover,
-body[data-dsh-studio-skin] .dsh-studio-review-commit-dir:hover {
-  background: var(--dsw-alias-interactive-bg-hover, rgba(255, 255, 255, 0.08)) !important;
-}
-
-body[data-dsh-studio-skin] .dsh-studio-list-row:hover .dsh-studio-list-row-main,
-body[data-dsh-studio-skin] .dsh-studio-list-row:focus-within .dsh-studio-list-row-main,
-body[data-dsh-studio-skin] .dsh-studio-list-row[data-selected] .dsh-studio-list-row-main,
-body[data-dsh-studio-skin] .dsh-studio-list-row[data-active] .dsh-studio-list-row-main {
-  background: transparent !important;
-}
-
-body[data-dsh-studio-skin] .dsh-studio-surface-tab {
-  height: var(--gw-skin-row-h);
-  border-radius: var(--gw-skin-radius-row);
-  corner-shape: superellipse(1.5);
-}
+/* 右栏/通用插件容器的悬浮与选中态已由 shared CSS
+   （list-row.css / surface-tab.css / sidebar.module.css）各自拥有：它们的
+   state 规则本就带 !important，且 token 桥（--dsh-studio-list-row-* /
+   --dsh-studio-surface-tab-*）由本皮肤在 body 级统一供值，无需重复。
+   review 行与 list-row-main 的透明化由上游组件自身的 state 规则承担。
+   若某 surface 未接入 shared CSS，则该 surface 本就未消费皮肤形状。 */
 
 /* ================================================================
    2026-08 全量组件审计补充（scripts/audit-skin-styles.mjs + 四组人工

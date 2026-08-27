@@ -12,6 +12,17 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 
 ---
 
+## 2026-08-27（desktop-skins 跨界面 cascade 审计）
+
+### 28. CSSOM 降级审计必须恢复整条规则的 cssText
+- **症状**：逐条临时移除 skin `!important` 后，模型/工作区菜单的实时样式被改成
+  上游的 `6px` 圆角和 `8px 10px` padding，后续测量结果失真。
+- **根因**：审计脚本只恢复了单个 declaration；CSSOM 会把 shorthand 展开成多个
+  longhand，脚本修改其中一个属性时没有完整恢复同一条 CSS rule 的原始状态。
+- **修复**：每次 demotion 前保存 `rule.style.cssText`，比较结束后整体恢复；修复后
+  冷重启 DEV，再重新连接 chrome-use session，确认 live style tag 与源码一致。
+- **来源**：本次实测。
+
 ## 2026-08-27（plugin-marketplace UI odyssey）
 
 ### 27. Client hot reload can invalidate an existing chrome-use daemon

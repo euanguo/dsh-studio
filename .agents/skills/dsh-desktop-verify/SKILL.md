@@ -162,6 +162,7 @@ chrome-use --session $S expect no-errors   # 需要先开 console 捕获，见 P
 | 点击/输入/表单 | `click`（含坐标）、`dblclick`、`fill`、`type`、`press`（<=组合键）、`keyboard type/inserttext`、`select`、`pick`、`check/uncheck`、`upload`、`drag`、`scroll`、`scrollintoview`、`mouse`、`form fill --map` |
 | 读状态/取值 | `get text/value/attr/count/box`、`read`、`extract --schema '{rows,fields}'` |
 | 深层/疑难 DOM | `eval`（MAIN world，IIFE 包裹）、`--observe`（动作后看变更 delta）、`AGENT_BROWSER_CLICK_MODE=dom` |
+| CSSOM cascade 审计 | 只读页面状态下用 `eval --file` 临时 demote；每条 rule 必须先保存并在 finally 中恢复完整 `rule.style.cssText`，审计后冷重启再确认样式未被探针污染 |
 | 等待与断言 | `wait @ref /--text /--url /--load /--fn`；`expect visible/gone/count(text/value/url/request/no-errors)`；`--if-present` 可选步 |
 | 可重跑回归套件 | `chrome-use test <suite>.yaml --session <s>`（套件 = chrome-use 自带动词+断言，见第 4 节） |
 | 证据：静图 | `screenshot [--full|--annotate|--clip]`（annotate 的 `[n]` 对应 `@eN`） |
