@@ -64,6 +64,23 @@ import {
   IconTrash as TbTrash,
   IconTriangle as TbTriangle,
   IconWorld as TbWorld,
+  IconDownload as TbDownload,
+  IconArrowLeft as TbArrowLeft,
+  IconArrowUp as TbArrowUp,
+  IconStar as TbStar,
+  IconTool as TbTool,
+  IconPalette as TbPalette,
+  IconCpu as TbCpu,
+  IconRobot as TbRobot,
+  IconShield as TbShield,
+  IconCode as TbCode,
+  IconLanguage as TbLanguage,
+  IconDatabase as TbDatabase,
+  IconBrowser as TbBrowser,
+  IconDeviceMobile as TbDeviceMobile,
+  IconBox as TbBox,
+  IconPlug as TbPlug,
+  IconFolderCode as TbFolderCode,
   IconX as TbX,
   type Icon as TablerIcon,
   type IconProps,
@@ -138,6 +155,23 @@ export const IconMessagePlus = tabler(TbMessagePlus)
 export const IconMessageCircle = tabler(TbMessageCircle)
 export const IconMessageCircleQuestion = tabler(TbMessageCircleQuestion)
 export const IconSend = tabler(TbSend)
+export const IconDownload = tabler(TbDownload)
+export const IconArrowLeft = tabler(TbArrowLeft)
+export const IconArrowUp = tabler(TbArrowUp)
+export const IconStar = tabler(TbStar)
+export const IconTool = tabler(TbTool)
+export const IconPalette = tabler(TbPalette)
+export const IconCpu = tabler(TbCpu)
+export const IconRobot = tabler(TbRobot)
+export const IconShield = tabler(TbShield)
+export const IconCode = tabler(TbCode)
+export const IconLanguage = tabler(TbLanguage)
+export const IconDatabase = tabler(TbDatabase)
+export const IconBrowser = tabler(TbBrowser)
+export const IconDeviceMobile = tabler(TbDeviceMobile)
+export const IconBox = tabler(TbBox)
+export const IconPlug = tabler(TbPlug)
+export const IconFolderCode = tabler(TbFolderCode)
 
 /**
  * Left-panel toggle glyph: a frame with a filled strip along its LEFT edge.
