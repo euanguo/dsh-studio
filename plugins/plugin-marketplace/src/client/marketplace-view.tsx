@@ -28,6 +28,7 @@ import { MarketplaceModal } from './marketplace-filters.tsx'
 import { useMarketplaceData } from './use-marketplace.ts'
 import {
   applyFooterStackMarker,
+  isSettingsButtonClick,
   marketplaceFooterStack,
   observeMarketplaceDom,
   settingsButton,
@@ -51,6 +52,7 @@ export interface ClientContext {
 export interface MarketplaceViewState {
   available: boolean
   open: boolean
+  selectedPluginId: string | null
 }
 
 export interface SlotsService {
@@ -67,6 +69,7 @@ export interface SlotsService {
 export interface PluginMarketplaceView {
   getSnapshot(): MarketplaceViewState
   setOpen(open: boolean): void
+  openPlugin(pluginId?: string): void
   subscribe(listener: () => void): () => void
   toggle(): void
 }
@@ -115,7 +118,7 @@ function MarketplaceSurface({ bridge, locale, translate, view, store }: {
   store: MarketplaceStore
 }): JSX.Element {
   const t = useTranslate(locale, translate)
-  const open = useSyncExternalStore(view.subscribe, () => view.getSnapshot().open)
+  const viewState = useSyncExternalStore(view.subscribe, view.getSnapshot)
   const { data, run } = useMarketplaceData(bridge, store)
   // C34(resolved): no reset machinery at all — filter selections persist
   // across close/open by design; the old effect-based reset (and the
@@ -124,7 +127,8 @@ function MarketplaceSurface({ bridge, locale, translate, view, store }: {
     <MarketplaceModal
       t={t}
       locale={locale}
-      open={open}
+      open={viewState.open}
+      initialPluginId={viewState.selectedPluginId}
       onClose={() => { view.setOpen(false) }}
       bridge={bridge}
       data={data}
@@ -139,7 +143,7 @@ export class PluginMarketplaceViewService implements PluginMarketplaceView {
   readonly #t: Translate<MarketplaceMessage>
   readonly #events: WorkspaceEventsService
   readonly #listeners = new Set<() => void>()
-  #state: MarketplaceViewState = { available: false, open: false }
+  #state: MarketplaceViewState = { available: false, open: false, selectedPluginId: null }
   #element: HTMLDivElement | null = null
   #stopStyle: (() => void) | null = null
   #overlay: (() => void) | null = null
@@ -188,6 +192,16 @@ export class PluginMarketplaceViewService implements PluginMarketplaceView {
     if (this.#state.open === open) return
     this.#state = { ...this.#state, open }
     setUiChromeFlag('pluginMarketplaceOpen', open)
+    this.#notify()
+  }
+
+  openPlugin(pluginId?: string): void {
+    this.#state = {
+      ...this.#state,
+      open: true,
+      selectedPluginId: pluginId ?? this.#state.selectedPluginId,
+    }
+    setUiChromeFlag('pluginMarketplaceOpen', true)
     this.#notify()
   }
 
@@ -257,7 +271,7 @@ export class PluginMarketplaceViewService implements PluginMarketplaceView {
     this.#element = null
     this.#stopStyle?.()
     this.#stopStyle = null
-    this.#state = { available: false, open: false }
+    this.#state = { available: false, open: false, selectedPluginId: null }
     this.#notify()
   }
 
@@ -266,9 +280,8 @@ export class PluginMarketplaceViewService implements PluginMarketplaceView {
   }
 
   readonly #handleDocumentClick = (event: MouseEvent): void => {
-    if (!this.#state.open || !(event.target instanceof Element)) return
-    const button = event.target.closest('button')
-    if (button !== null && button === settingsButton()) this.setOpen(false)
+    if (!this.#state.open || !isSettingsButtonClick(event.target)) return
+    this.setOpen(false)
   }
 
   private scheduleGeometry(): void {

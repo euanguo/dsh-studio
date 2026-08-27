@@ -293,18 +293,42 @@ choice applies immediately and survives restarts.
 
 ## Plugin marketplace
 
-Recommended flow:
+The marketplace uses one canonical catalog and one transaction owner in DSH Studio.
+The surface is a two-pane workspace: search, status/category filters, sorting, and a
+virtualized catalog on the left; source, compatibility, trust, README summary,
+screenshots, packs, watchlist, self-update, and operation progress on the right.
 
-1. Choose a plugin from Not installed.
-2. Inspect its source, commit, permissions, and risk level.
-3. Prepare a candidate and preview it in an isolated Profile.
-4. Discard it if the result is unsuitable; the current Desktop is unchanged.
-5. Apply it explicitly, then enable it separately when needed.
-6. Recover the previous state if an update fails.
+Installation flow:
 
-An Agent can initiate the same operation through chat, but still passes
-through preview, risk approval, and apply. It cannot directly mutate the
-current Profile.
+1. Select a plugin or enter a public GitHub `owner/repo`. The `plan` step resolves
+   the exact commit or channel, then checks permissions, compatibility, required
+   material, and risk.
+2. A low-risk plan with no pending confirmation or configuration can use `Install`
+   directly. It writes a candidate Profile, verifies it, atomically swaps the live
+   Profile, retains one Undo/recovery point, and restarts DSH when required. It does
+   not start an isolated preview runtime.
+3. Other plans show individual confirmations for build scripts, high-risk trusted
+   code, or source changes. Required keys/tokens are entered in the marketplace;
+   secret values are excluded from snapshots, logs, and Agent results.
+4. Users can explicitly choose `Try preview`. This starts an isolated DSH runtime;
+   discard leaves the live Profile unchanged, while Apply commits the staged result
+   after confirmation.
+5. Progress, ETA, recent logs, and cancellation are visible while an operation runs.
+   Failures clean up the candidate and restore the live Profile. Successful applies
+   can be reversed with Undo.
+
+Accepted source facts are exact: `github:<owner/repo>#<40-hex-commit>`,
+`npm:<package>@<exact-semver>`, or a GitHub release-hosted
+`tarball:<https-url>#<sha256>`. Tarball URLs must be clean HTTPS URLs without
+query/hash components, using `github.com/.../releases/download/...` or an
+approved GitHub release asset host. Legacy registry
+readers and `inspect`/`prepare`/legacy `preview` commands are not part of the
+contract.
+
+The Agent uses the same Host gateway and transaction for `plan`, `execute`, `pack`,
+`provide`, `cancel`, `discard`, `apply`, and `undo`. UI and Agent share source locks,
+risk confirmations, candidate staging, preview, restart, and recovery semantics;
+low-risk Agent operations may use the same direct fast path.
 
 ## Run and package from source
 

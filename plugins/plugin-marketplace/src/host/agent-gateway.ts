@@ -60,11 +60,11 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
   return JSON.parse(text) as unknown
 }
 
-function isDeferred(command: MarketplaceCommand): command is Extract<
-  MarketplaceCommand,
-  { type: 'apply' | 'undo' }
-> {
-  return command.type === 'apply' || command.type === 'undo'
+function isDeferred(command: MarketplaceCommand): boolean {
+  if (command.type === 'apply' || command.type === 'undo') return true
+  if (command.type === 'execute' || command.type === 'pack') return command.mode === 'direct'
+  if (command.type === 'provide') return true
+  return false
 }
 
 /**

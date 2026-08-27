@@ -1,17 +1,11 @@
-/** Marketplace browse surfaces: the category filter menu and the plugin
- *  card grid entry — pure presentational pieces of the marketplace view. */
 import { useState } from 'react'
-import {
-  Menu,
-  type MenuEntry,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+import { Menu, type MenuEntry, Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
-import { IconChevronDown } from '@dsh-studio/shared/tabler-icons'
+import { IconChevronDown, IconFileText } from '@dsh-studio/shared/tabler-icons'
 import type { MarketplacePlugin } from '../protocol.ts'
 import type { MarketplaceMessage } from './i18n.ts'
-import { pluginMeta } from './marketplace-meta.ts'
+import { compatibilityLabel, compatibilityTone, formatMarketplaceCount, localizedDescription, pluginMeta } from './marketplace-meta.ts'
 
-/** Category dropdown: filters the card grid ("all" = no filter). */
 export function CategoryMenu({
   categories,
   value,
@@ -37,10 +31,7 @@ export function CategoryMenu({
       align="end"
       portal
       compact
-      onSelect={(id) => {
-        setOpen(false)
-        onChange(id)
-      }}
+      onSelect={id => { setOpen(false); onChange(id) }}
       anchor={(
         <button
           type="button"
@@ -58,17 +49,63 @@ export function CategoryMenu({
   )
 }
 
-/** One plugin card in the grid; clicking selects it into the detail view. */
+export function SortMenu({
+  value,
+  t,
+  onChange,
+}: {
+  value: 'smart' | 'stars' | 'downloads' | 'updated' | 'name'
+  t: Translate<MarketplaceMessage>
+  onChange(value: 'smart' | 'stars' | 'downloads' | 'updated' | 'name'): void
+}): JSX.Element {
+  const [open, setOpen] = useState(false)
+  const options = [
+    ['smart', 'sort.smart'],
+    ['stars', 'sort.stars'],
+    ['downloads', 'sort.downloads'],
+    ['updated', 'sort.updated'],
+    ['name', 'sort.name'],
+  ] as const
+  const items: MenuEntry[] = options.map(([id, label]) => ({ id, label: t(label) }))
+  return (
+    <Menu
+      open={open}
+      onClose={() => { setOpen(false) }}
+      items={items}
+      selectedId={value}
+      align="end"
+      portal
+      compact
+      onSelect={id => { setOpen(false); onChange(id as 'smart' | 'stars' | 'downloads' | 'updated' | 'name') }}
+      anchor={(
+        <button
+          type="button"
+          className="oh-marketplace-selector"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={t('sort.label')}
+          onClick={() => { setOpen(current => !current) }}
+        >
+          {t(options.find(([id]) => id === value)?.[1] ?? 'sort.smart')}
+          <IconChevronDown size={14} />
+        </button>
+      )}
+    />
+  )
+}
+
 export function PluginCard({
   plugin,
   selected,
   select,
   t,
+  locale,
 }: {
   plugin: MarketplacePlugin
   selected: boolean
   select(): void
   t: Translate<MarketplaceMessage>
+  locale: string
 }): JSX.Element {
   return (
     <button
@@ -77,9 +114,24 @@ export function PluginCard({
       onClick={select}
       type="button"
     >
-      <h2>{plugin.title}</h2>
+      <div className="oh-marketplace-card-heading">
+        <h2>{plugin.title}</h2>
+        {plugin.screenshots.length > 0 && <IconFileText aria-label={t('screenshots')} size={14} />}
+      </div>
       <div className="oh-marketplace-card-meta">{pluginMeta(plugin, t)}</div>
-      <p className="oh-marketplace-card-description">{plugin.description}</p>
+      <div className="oh-marketplace-card-badges">
+        <Pill active={compatibilityTone(plugin.compatibility.status) === 'positive'}>
+          {compatibilityLabel(plugin.compatibility.status, t)}
+        </Pill>
+        <Pill>{t(`trust.${plugin.trust}`)}</Pill>
+        <Pill>{plugin.preferredChannel ?? 'github'}</Pill>
+        {plugin.updateAvailable && <Pill active>{t('update-available')}</Pill>}
+      </div>
+      <div className="oh-marketplace-card-metrics">
+        <span>★ {formatMarketplaceCount(plugin.stars)}</span>
+        <span>↓ {formatMarketplaceCount(plugin.downloads)}</span>
+      </div>
+      <p className="oh-marketplace-card-description">{localizedDescription(plugin, locale)}</p>
     </button>
   )
 }

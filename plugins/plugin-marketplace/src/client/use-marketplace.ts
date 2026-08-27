@@ -13,7 +13,7 @@
  * the live catalog, so the first paint needs a single host roundtrip.
  * (requestId stale-guard still applies inside the store dispatch.)
  */
-import { useCallback, useEffect, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 import type { DesktopBridge } from '@dsh-studio/shared/desktop-contracts'
 import type {
   MarketplaceCommand,
@@ -46,10 +46,16 @@ export function useMarketplaceData(
       runMarketplaceCommand(bridge, store, command),
     [bridge, store],
   )
+  const hydrated = useRef(false)
 
   // Initial load + host change-push subscription (D4/D17). Single roundtrip.
+  // React StrictMode replays effects in development; the store instance still
+  // owns one initial refresh so the host mutex never sees a duplicate request.
   useEffect(() => {
-    void runMarketplaceCommand(bridge, store, { type: 'refresh' })
+    if (!hydrated.current) {
+      hydrated.current = true
+      void runMarketplaceCommand(bridge, store, { type: 'refresh' })
+    }
     return subscribeMarketplaceHost(bridge, store)
   }, [bridge, store])
 

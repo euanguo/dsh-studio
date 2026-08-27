@@ -1,4 +1,5 @@
 import { errorMessage } from '@dsh-studio/shared/errors'
+import { createHash } from 'node:crypto'
 import { spawn } from 'node:child_process'
 import {
   constants,
@@ -22,7 +23,7 @@ import {
   sep,
   win32,
 } from 'node:path'
-import { parseMarketplaceCatalog } from '../catalog.ts'
+import { isMarketplaceArtifactUrl, parseMarketplaceCatalog } from '../catalog.ts'
 import type { MarketplaceAuthStatus } from '../protocol.ts'
 import {
   MARKETPLACE_CATALOG_PATH,
@@ -38,6 +39,7 @@ export interface MarketplaceAuthResult {
 export interface DshCommandInput {
   args: string[]
   dshHome: string
+  environment?: Record<string, string>
   sandboxRoot: string
   /**
    * Set to `false` to run without the write-restricted seatbelt. Used to
@@ -54,11 +56,17 @@ export interface BundleBuildInput {
   scripts: string[]
 }
 
+export interface ArtifactDownloadInput {
+  target: string
+  url: string
+}
+
 /** Privileged operations consumed by the marketplace transaction module. */
 export interface MarketplacePlatform {
   authStatus(): Promise<MarketplaceAuthResult>
   buildBundle(input: BundleBuildInput): Promise<void>
   cloneRepository(repository: string, commit: string, target: string): Promise<void>
+  downloadArtifact?(input: ArtifactDownloadInput): Promise<{ digest: string; target: string }>
   loadCatalog(options?: LoadCatalogOptions): Promise<unknown>
   readRepositoryFile(repository: string, path: string, commit: string): Promise<string | null>
   resolveCommit(repository: string, requestedRef?: string | null): Promise<string>
@@ -635,12 +643,30 @@ export class ProductionMarketplacePlatform implements MarketplacePlatform {
     }
   }
 
+  async downloadArtifact(input: ArtifactDownloadInput): Promise<{ digest: string; target: string }> {
+    const url = new URL(input.url)
+    if (!isMarketplaceArtifactUrl(url.toString())) {
+      throw new Error('marketplace release assets must use a clean HTTPS URL')
+    }
+    const response = await (this.#options.fetch ?? globalThis.fetch)(url, {
+      headers: { accept: 'application/octet-stream', 'user-agent': 'dsh-studio' },
+      signal: AbortSignal.timeout(120_000),
+    })
+    if (!response.ok) throw new Error(`marketplace artifact download failed with HTTP ${String(response.status)}`)
+    const buffer = Buffer.from(await response.arrayBuffer())
+    if (buffer.byteLength > 256 * 1024 * 1024) throw new Error('marketplace artifact is too large')
+    mkdirSync(dirname(input.target), { recursive: true, mode: 0o700 })
+    writeFileSync(input.target, buffer, { mode: 0o600 })
+    return { digest: createHash('sha256').update(buffer).digest('hex'), target: input.target }
+  }
+
   async runDsh(input: DshCommandInput): Promise<void> {
     const sandboxed = input.sandboxed !== false
     const temporary = join(input.sandboxRoot, '.tmp')
     if (sandboxed) mkdirSync(temporary, { recursive: true, mode: 0o700 })
     const env = withGitHubCredentials({
       ...this.#options.env,
+      ...input.environment,
       DSH_STUDIO_DESKTOP_APP_DATA: input.sandboxRoot,
       ...(sandboxed ? { DSH_STUDIO_PREVIEW: '1', TMPDIR: temporary } : {}),
       DSH_HOME: input.dshHome,

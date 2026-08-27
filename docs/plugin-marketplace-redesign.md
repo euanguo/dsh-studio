@@ -1,33 +1,35 @@
 # DSH Studio 插件市场重构设计：交互模型与安装链路简化
 
-> 状态：设计提案（本 worktree `ui-ux-refactor` 的目标基线）。
-> 证据基础：[开源生态调研](./research/dsh-plugin-marketplace-survey.md) + 对
-> `plugins/plugin-marketplace/` 现有实现的逐行核对（行号引用以当前工作树为准）。
+> 状态：W1–W6 已实现的行为契约与验收基线。
+> 证据基础：[开源生态调研](./research/dsh-plugin-marketplace-survey.md) +
+> `plugins/plugin-marketplace/` 的 canonical protocol、Host transaction owner、
+> client surface 与 focused contract tests。
 > 语言：中文单份（沿用 `ui-chrome-storage-plan.md` 的计划文档先例；落地成为产品行为时，
 > `docs/usage.md` 的「插件市场」一节按双语规则同步更新）。
 
 ## 1. 背景与问题
 
-### 1.1 现状事实基线（逐行核对得出）
+### 1.1 实现事实基线
 
-| # | 事实 | 位置 |
+| # | 事实 | 实现位置 |
 |---|---|---|
-| F1 | `prepare` 在**零确认**时也自动进入 preview —— 每次安全安装都会完整拷贝 live profile 并启动一个隔离 DSH runtime | `transaction-manager.ts:446` |
-| F2 | `apply` 只被允许从 `previewing` 阶段发起（守卫矩阵） | `transaction-manager.ts:138` |
-| F3 | apply 的本质是**整个 profile 原子换名**：live→backup、candidate→live，再在 live 内 re-home node_modules；intent-before-rename 日志、失败自动换回 | `transaction-manager.ts:615-692` |
-| F4 | 安装通道只有 git-commit-pin 的 GitHub 仓库：`github:<owner/repo>#<40hex>`；monorepo subpath 直接 blocked；非 `dsh.bundle` manifest 只能 guide-only。没有 npm 通道、没有 Release tarball 通道 | `source-types.ts`、`candidate-validator.ts:375` |
-| F5 | 候选校验已做：manifest/patch 路径约束、entry 目标、peer 兼容（对 pinned DSH 版本）、license/version 必填、build scripts 清点 | `candidate-validator.ts` |
-| F6 | 目录归一化把 dsh-suite 已有的 stars/downloads/compat/evidence/risk/双语描述字段**全部丢弃**，只保留单语 description | `catalog.ts:15-28` |
-| F7 | 启用/禁用/卸载同样走 prepare→preview→apply 整 profile swap | `plugin-detail.tsx:97-124` |
-| F8 | 脚本化预览构建在非 macOS fail-closed（sandbox-exec 不存在即抛错） | `platform.ts:343` |
-| F9 | 更新检查 = refresh 时对每个已装插件做一次 `resolveCommit` | `transaction-manager.ts:411-426` |
-| F10 | 客户端为 960×720 弹层（侧栏底部入口），工具栏含搜索/直连仓库输入/status tabs/分类菜单；卡片网格 + 详情弹层（纯文本 description + facts + plan 审查，流程指示 1 审查/2 预览/3 应用） | `marketplace-filters.tsx`、`plugin-detail.tsx` |
+| F1 | canonical `MarketplaceCommand` 只有 `refresh/plan/execute/pack/apply/discard/cancel/provide/undo`；旧 registry reader 与生命周期别名被拒绝 | `protocol.ts`、`catalog.ts` |
+| F2 | `plan` 是只读 admission；`execute` 先生成 candidate，再选择 direct 或显式 preview | `transaction-manager.ts`、`source-resolver.ts` |
+| F3 | 所有写入先进入 candidate Profile；应用通过 journal、原子 swap、re-home、恢复和 Undo 保证 live Profile 可恢复 | `transaction-manager.ts`、`state-file.ts` |
+| F4 | 来源支持精确 GitHub commit、exact npm semver、HTTPS tarball + SHA-256 digest；source lock 记录 channel/version/artifact | `source-lock.ts`、`state-file.ts`、`platform.ts` |
+| F5 | candidate 校验 manifest、bundle patch、entry、peer 兼容、license/version、脚本和环境材料 | `candidate-validator.ts` |
+| F6 | catalog 透传双语描述、stars/downloads、compat、trust、screenshots、README 摘要、版本与发布资产，并过滤非 GitHub 图床 | `catalog.ts`、`marketplace-meta.ts` |
+| F7 | 低风险无确认计划直接原子安装；高风险/需材料计划先确认或收集；preview 是显式可选路径 | `transaction-manager.ts`、`plugin-detail.tsx` |
+| F8 | 脚本化预览在缺少受限 sandbox 能力的平台上 fail-closed；direct path 不绕过脚本/来源/权限校验 | `platform.ts`、`source-resolver.ts` |
+| F9 | refresh 同步目录、已装版本、更新状态、watchlist、packs 和自更新元数据 | `transaction-manager.ts`、`catalog.ts` |
+| F10 | 市场是 960×720 两栏 surface：左侧虚拟化发现列表，右侧常驻详情；进度、材料、整合包、watchlist 和恢复操作在同一上下文内 | `marketplace-filters.tsx`、`plugin-detail.tsx` |
 
-### 1.2 核心矛盾
+### 1.2 核心设计结论
 
-F1+F2+F7 意味着：**装一个零风险主题插件，用户也要经历「拷贝整个 profile → 启动隔离 runtime → 切回 → 再重启 live」的完整循环**。安全机制本身是对的（F3 的原子换名 + journal 是生态里最强的设计），但它被无差别地铺在了所有操作上。社区头部市场（dsh-market 等）的基准体验是"点一下、数秒、刷新即用"，我们的体验与之差距悬殊。
-
-同时 F4 让我们比所有社区市场都少两条快通道（npm 包、Release tarball），F6 又让目录里现成的质量信号（兼容徽章、star、下载量、截图位）到不了 UI。
+安全边界与快捷体验不再互相冲突：所有模式共享 candidate-first、校验、来源锁、
+journal、atomic swap 和 recovery；direct 与 preview 的差异只在于是否启动隔离 runtime
+以及用户是否主动查看效果。零确认低风险操作可以数秒完成，build script、高风险来源、
+来源变化和缺失材料仍然不能绕过明确确认。
 
 ## 2. 目标与非目标
 
@@ -87,7 +89,7 @@ fastPathEligible ≜
 ∧  requirements === ∅                       // 无任何 confirmation 要求
 ∧  riskLevel === 'low'                      // 无 build scripts、非 untrusted source、无 source change
 ∧  compatibility.compatible !== false       // peer 兼容未被证伪
-∧  catalogSource.trust ∈ { builtin, reviewed }
+∧  source.kind === 'catalog'                         // only catalog-admitted entries
 ```
 
 | 路径 | 触发条件 | 用户经历 | 底层动作 |
@@ -113,9 +115,14 @@ fastPathEligible ≜
   其余转移与 journal 语义（intent-before-rename、W/U 窗口、reconcile）全部保持
 ```
 
-对应改动：`PHASE_TRANSITIONS.planning += ['staging']`；`COMMAND_PHASE_GUARDS.apply = ['staging','previewing']`、`.preview = ['planning','staging']`（staging 后仍可补看预览）、新增 `.stage = ['planning']`。`preview()` 重构为 `stageCandidate()` + `startPreview()` 两段，行为对 C 路径完全向后兼容。
+对应实现：`COMMAND_PHASE_GUARDS` 允许 `execute` 从 catalog-ready/planning 进入共享 staging，
+`apply` 只接受 staging 或 previewing；`discard`、`cancel`、`provide` 分别处理候选、
+取消和材料续装。`execute(mode)` 是唯一执行入口，direct 与 preview 都调用同一
+`stagePlan()`，不会维护第二套安装器。
 
-**崩溃一致性**：staging 引入新的中断窗口（stage 中途崩溃）——journal 增加 `staging` intent 记录，reconcile 规则：发现 staging intent 且 candidate root 存在则丢弃 candidate root 回 planning（与现有 preview 失败清理同型，复用 `removeWithin`）。
+**崩溃一致性**：staging 的中断窗口由 transaction journal 和 constructor reconcile
+处理；候选 root、临时 Profile、live Profile 和 previous Profile 都受路径围栏，失败
+时优先清理候选并恢复 live。用户状态迁移保持非破坏、可重启、幂等。
 
 ### 4.4 新安装通道（npm / Release tarball）
 
@@ -127,11 +134,23 @@ npm:<pkg>@<exact-semver>                  // 新增：不接受 range/latest
 tarball:<https-url>#<sha256-digest>       // 新增：Release 资产预构建包，digest 由 resolver 实算锁定
 ```
 
-- 解析顺序（resolver 内部，用户无感）：catalog 条目若带 `npm` 字段 → 试 npm 通道取 `npm:<pkg>@<exact>`；否则查 GitHub Release 资产（`release` evidence 已在候选里）→ tarball 通道；再退回源码通道。**npm 通道的开放范围采用 dsh-market 同款反 squatting 约束：仅对 trust ∈ {builtin, reviewed} 且条目带已核实 `npm` 字段的插件开放，其余一律回落源码通道**（附录 A.3）。
-- 执行仍然只经官方 DSH/pnpm-forward path（expansion-plan 不变量）：npm 通道在 candidate profile 内执行 `dsh plugin add <pkg>@<exact>`（官方 CLI 接受裸名与 scoped 名，pnpm 转发；可加 `--save-exact`）；tarball 通道下载后校验 sha256，再以**位置参数**交给官方 CLI（`dsh plugin add <file.tgz>` —— 社区常见的 `-w` 旗标未见于官方文档，不作为契约，见附录 A.1）。两通道天然绕开大部分 build scripts（预构建产物），这正是它们能进 fast path 的结构性原因。
+- 解析顺序（resolver 内部，用户无感）：catalog 条目同时具备已核实 `npm` 包名和
+  manifest version 时选 `npm:<pkg>@<exact>`；否则具备已核实 release URL/digest 时选
+  tarball；都没有时回到 GitHub commit 源码。npm/tarball 仍保留仓库、manifest、
+  bundle patch 和 entry 证据，不接受浮动版本。
+- tarball URL 只接受干净 HTTPS GitHub release host：`github.com` 的
+  `/releases/download/` 路径、`objects.githubusercontent.com` 或
+  `github-releases.githubusercontent.com`；digest 必须是 64 位 SHA-256，并绑定在
+  `tarball:<url>#<digest>` 和 source lock 中。下载完成后存进 candidate 的 managed
+  sources，依赖使用 candidate 内相对 `file:` 路径，不能指回临时目录。
+- 执行仍然只经官方 DSH/pnpm-forward path：npm 在 candidate profile 内执行
+  `dsh plugin add <pkg>@<exact>`；tarball 下载并校验后以位置参数执行
+  `dsh plugin add <file.tgz>`。三查全过才进入 applying 或 previewing；不是“跳过安全
+  检查”才获得 fast path。
 - **staging 完成判定（三查，借鉴 AwesomeHou 防 link:-缺依赖回归的做法）**：bundle 已注册进 `dsh.profile.bundles` ∧ entry 目标文件存在 ∧ 运行时依赖可解析。三查全过才允许进入 applying 或 previewing；任何一查失败按 stage 失败处理（丢弃 candidate root 回 planning）。
 - 通道结果记入 source lock 新字段 `channel`（github|npm|tarball），TOFU 锁继续绑定 artifactDigest。
-- ⚠️ 待校准：官方 CLI 对各 spec 形态的支持矩阵以附录 A 的调研结论为准；CLI 不支持 npm/tarball 直装的版本，回退为「pnpm --ignore-scripts 装入 candidate profile + 官方 install 注册」的组合，不阻塞本设计。
+- 实现只接受上述三种 exact spec；npm/tarball 资产下载、digest 校验和 candidate 内注册由
+  Host platform 完成，完成后仍进入统一的三查与原子事务，不存在浮动版本或未校验回退。
 
 ### 4.5 进度事件协议（P1）
 
@@ -170,8 +189,10 @@ repository/.dsh-plugin 类即时生效——见附录 A.1）。
 ### 5.3 详情区（右栏）
 
 1. 头部：标题 + trust/compat 徽章行 + 主按钮组（**安装 / 更新**（路径 A 或 B）/ 先试装（次级）/ 启用·禁用·卸载 / 打开仓库）。
-2. 截图轮播：`screenshots[]` 策展字段优先（零额外请求）；无策展时打开详情时从 README 抽取首图兜底；图片域白名单限定 `*.githubusercontent.com`/`github.com`（对齐 dsh-market 约束），加载失败静默隐藏。
-3. README 摘要：host 侧截断（首 4KB、去 HTML 只留文本与链接清单），客户端折叠展开；明确不做完整 Markdown 渲染（chnjames 同款克制边界）。
+2. 截图轮播：使用 catalog 的 `screenshots[]` 策展字段（零额外请求）；Host 只接受
+   HTTPS GitHub 图床白名单，客户端懒加载并在图片失败时静默隐藏。
+3. README 摘要：Host 去 HTML 并截断到 4KB，客户端按纯文本折叠展示；不做完整
+   Markdown 渲染，也不让远程 README 内容变成可执行 UI。
 4. Facts 区（沿用 dl 结构）追加：⭐/↓、compat status + lastVerified、npm 包名、最新版本号（通道可得时）、通道标识（github/npm/tarball）。
 5. Plan 审查卡（仅路径 B/C 时出现）：现有风险原因/构建脚本/确认勾选结构保留，流程指示从「1 审查 2 预览 3 应用」改为动态三态「检查 ✓ → （试装？）→ 应用」，fast path 下显示「已验证 · 直接安装」徽标而非流程条。
 
@@ -187,43 +208,45 @@ repository/.dsh-plugin 类即时生效——见附录 A.1）。
 
 ### 5.6 Agent 与命令面板入口（P2）
 
-- `desktop_plugin_*` 工具面已与 Human 共用同一 transaction owner（不变量 6 保持）；补一个 bundled skill：何时用 search 而不是凭记忆报插件名、如何解读 compat/trust 徽章、如何向用户转述确认项。
-- 注册 workbench open-intent（`resolveOpenPlan` 语义）：`dsh-studio.plugin-marketplace.open` 支持 `pluginId` 参数，Agent 卡片/聊天链接可直达详情。
+- `desktop_plugin_*` 工具面已与 Human 共用同一 transaction owner（不变量 6 保持）；
+  `desktop_plugin_search` 与 `desktop_plugin_plan` 的工具描述内置教学指引：先检索而不是
+  凭名字推荐，解释 compat/trust/channel，并只传递用户明确接受的 confirmation。
+- View service 暴露 `openPlugin(pluginId?)`，在保持同一 overlay 与布局 owner 的前提下
+  打开市场并直达详情；Agent 工具结果提供稳定 plugin id，后续聊天/命令入口可复用这条
+  service API，不另造一套市场窗口。
 
 ## 6. 数据契约扩展
 
-### 6.1 目录归一化透传（修 F6）
+### 6.1 Canonical catalog 与 metadata
 
-`CatalogRepository` 增加可选字段解析，`MarketplacePlugin` 协议同步扩展（全部 optional，旧目录源不受影响）：
+Catalog reader 只接受 `_meta.schema_version === '1.0'`，并输出一个唯一的
+`MarketplaceCatalog`。每个 `MarketplacePlugin` 都有规范化的双语 description、
+`stars/downloads`、compatibility、trust、screenshots、4KB README 摘要、版本、
+首选 channel、风险/证据和 release asset 字段；不安全的图片 URL 在 Host 丢弃。
+旧 `dsh-external-hub/v0.1` 与 `omdsh-registry/v1` reader 不存在。
 
-```text
-stars?: number; downloads?: number
-description: { zh: string; en: string }   // 归一化为双语对象，UI 按 locale 取
-compat?: { status: 'unknown'|'ok'|'broken'|'unmaintained'; lastVerified?: string; note?: string }
-evidenceLevel?: number; officialBeta?: boolean
-screenshots?: string[]                    // 策展图 URL（域白名单校验后透传）
-readmeSummary?: string                    // host 截断摘要（目录若无则打开详情时拉取）
-homepage?: string; version?: string
-```
-
-### 6.2 命令与事件协议增量
+### 6.2 Canonical command 与 event protocol
 
 ```text
-MarketplaceCommand 增量:
-  { type:'install', … }        // 语义 = inspect+stage+apply（fast path 编排命令；
-                               // 内部仍拆解为既有原子命令序列，审计日志可见）
-  { type:'stage', … }          // 显式暂存（供「先试装」前的预加载）
-  { type:'cancel', transactionId }   // 仅 staging 可取消
-  { type:'provide', answers }  // P1 材料收集续装
-MarketplacePlan 增量:
-  channel: 'github'|'npm'|'tarball'
-  envSpec?: { name, description, secret }[]   // 触发 provide 流
-  fastPathEligible: boolean                   // 服务端判定，UI 不自行推断
-MarketplaceSnapshot 增量:
-  progress?: MarketplaceProgress; selfUpdate?: …
+MarketplaceCommand =
+  refresh { force? }
+  plan { action, pluginId | sourceRef }
+  execute { action, mode: 'direct'|'preview', pluginId | sourceRef, confirmations? }
+  pack { packId, mode: 'direct'|'preview', confirmations? }
+  apply | discard
+  cancel { transactionId }
+  provide { transactionId, answers }
+  undo
+
+MarketplacePlan = exact source/channel facts + risk + confirmations
+                + environmentRequirements + fastPathEligible
+MarketplaceSnapshot = catalog + installed + plan/approval + lifecycle
+                    + progress + inputRequest + packs + selfUpdate + locks
 ```
 
-Human 与 Agent 提交同一命令集（不变量 6）；Agent 无 GUI，`provide` 对 Agent 工具返回结构化的 missing-env 清单由对话层收集。
+Human 与 Agent 提交同一命令集；Agent 无 GUI，但 `provide` 只返回缺失材料状态，
+secret 值不会进入 snapshot、日志或 tool result。Progress 通过现有 marketplace
+changed push 广播，客户端用 store 的 generation guard 防止乱序回拉覆盖新状态。
 
 ### 6.3 topic 快照源的 triage（P2，条件启用）
 
@@ -248,12 +271,12 @@ commit pin（40-hex）/ manifest+patch hash / TOFU source lock（+channel 字段
 
 | 波次 | 内容 | 关键验收 |
 |---|---|---|
-| W1 | §6.1 透传 + §5.2/5.3 展示层（P0 展示项） | 旧目录源回归零 diff；双语切换正确；域白名单拦截测试 |
-| W2 | §4.2/4.3 状态机 + fast path + enable/disable/uninstall 直通（P0 核心） | guards 矩阵测试重写；**fast/preview 等价性断言**（同一 candidate 两条路径的最终 profile 树 hash 相等）；staging 崩溃 reconcile 测试；journal v3 迁移幂等 |
-| W3 | §4.5 进度事件 + 取消 + UI 进度态（P1） | 事件乱序/丢失容忍；取消后 live profile 未被触碰的 fs 断言 |
-| W4 | §4.4 npm/tarball 通道（P1，依赖附录 A 校准） | 三通道 InstallSpec allowlist 单测；digest 不匹配拒装；channel 入 lock 测试 |
-| W5 | §5.5 自更新 + §6.2 provide 材料收集 + 排序增强（P1） | secret 不落日志；awaiting→resume 状态机全覆盖 |
-| W6 | §5.6 + §6.4/6.5 + §6.3（P2） | pack 整体 undo；triage 过滤仅作用于 topic-snapshot 源 |
+| W1 | canonical catalog metadata + 两栏 discovery/detail surface | rich metadata、双语描述、README 截断、HTTPS GitHub 图床白名单、client sort/filter contract |
+| W2 | staging/direct/preview/apply/undo 状态机 | direct 不启动 preview、preview 可显式 apply、失败回滚、恢复 guards、旧命令拒绝 |
+| W3 | 进度事件、取消、材料状态机 | progress push、collect-input→provide、secret 不进入结果、取消不触碰 live Profile |
+| W4 | GitHub/npm/tarball exact channels | 三种 InstallSpec 校验、tarball digest mismatch fail-closed、channel/version/artifact 写入 lock |
+| W5 | 自更新、排序、材料续装、Agent bridge | snapshot 暴露 selfUpdate/progress/inputRequest，Agent 与 UI 共用 gateway |
+| W6 | watchlist、pack、smart sort、命令入口 | pack 一次 swap/一次 Undo；watchlist 折叠；P2 排序预设与 direct/preview action affordance |
 
 每波次遵循仓库门禁：typecheck/test/build + 相关 smoke；契约测试先行（guards/journal/installSpec allowlist 属于 contract tests，非实现词句 grep）。
 
@@ -261,9 +284,12 @@ commit pin（40-hex）/ manifest+patch hash / TOFU source lock（+channel 字段
 
 ## 9. 与既有文档的关系
 
-- `docs/plugin-marketplace-expansion-plan.md`（commit 7d6e69da，本工作树缺失）：本文修订其不变量 5、新增不变量 10，其余不变量 1–4、6–9 全部继承；其 P2 愿景清单中的 compatibility successful runs / packs / freshness / operation history 分别由本文 §6.1、§6.4、§5.2、§4.5+journal 承接。
-- `docs/design.md` L62/L99-100：落地后需把「隔离预览、风险确认」表述更新为「风险分级安装（直接/确认/试装三路径）」，并恢复其对 expansion-plan/handoff 两文档的引用一致性。
-- `docs/usage.md` §插件市场：W2 合入时按双语规则重写用户流程描述。
+- `docs/design.md` / `docs/design.en.md` 冻结跨 surface 边界与单一 Loader；其中的
+  marketplace state machine 已同步为 `plan → staging → direct/preview → apply/undo`。
+- `docs/usage.md` / `docs/usage.en.md` 是用户操作说明，明确 direct fast path、可选
+  preview、配置材料、进度、Undo 和 exact source channels。
+- 本文是实现契约与验收矩阵；代码事实以 `protocol.ts`、Host transaction manager、
+  catalog reader 和 focused tests 为准，不再依赖缺失的旧 expansion/handoff 文档。
 
 ## 附录 A · 外部机制证据（后台代理调研结论）
 

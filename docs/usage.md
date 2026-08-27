@@ -261,17 +261,33 @@ Current、Jade Circuit、Porcelain 和 Ember Dusk；选择立即生效并在重�
 
 ## 插件市场
 
-推荐流程：
+插件市场使用 DSH Studio 的单一 canonical catalog 和单一事务 owner。打开市场后，
+左侧是搜索、状态/分类/排序和虚拟化插件列表，右侧是详情、来源、兼容性、信任、
+README 摘要和截图；整合包、观察区、自更新和进行中的进度也在同一面板中显示。
 
-1. 在未安装分类中选择插件。
-2. 检查来源、commit、权限和风险等级。
-3. 创建 candidate 并在隔离 Profile 中预览。
-4. 效果不合适时选择放弃，当前桌面不发生变化。
-5. 确认后应用；需要时再单独启用。
-6. 更新失败时恢复 previous。
+安装链路：
 
-Agent 可以通过对话发起同样的安装操作，但仍需要经过预览、风险确认和应用，
-不会直接修改当前 Profile。
+1. 选择插件或输入公开 GitHub `owner/repo`，先执行 `plan` 检查来源、精确 commit、
+   channel、权限、兼容性、材料和风险。
+2. 低风险且没有待确认项或配置材料的计划可直接 `Install`：先写 candidate Profile，
+   校验通过后原子替换 live Profile，并保留一次 Undo/recovery；这条路径不会启动预览
+   runtime，但仍会按需要重启 DSH。
+3. 需要确认的计划会显示脚本、高风险、来源变化等逐项确认；需要 Key/token 时在市场
+   内填写，secret 不会进入快照、日志或 Agent 返回值。
+4. 也可以显式选择“先试装”。这会启动隔离 DSH runtime；不满意选择放弃，正式 Profile
+   不变；满意后通过确认对话框应用。
+5. 任何阶段都可以查看进度、ETA 和最近日志，并在可取消阶段取消；失败会回滚 candidate
+   和 live Profile。应用成功后可使用 Undo 恢复之前的 Profile。
+
+来源只接受可验证的精确事实：`github:<owner/repo>#<40 位 commit>`、
+`npm:<package>@<exact semver>`，或 GitHub release host 上的
+`tarball:<https-url>#<sha256>`。tarball URL 必须是无 query/hash 的 HTTPS
+`github.com/.../releases/download/...` 或 GitHub release asset host。旧的 registry reader
+和 `inspect`/`prepare`/旧 `preview` 命令不属于当前契约。
+
+Agent 通过同一个 Host gateway 使用 `plan`、`execute`、`pack`、`provide`、`cancel`、
+`discard`、`apply` 和 `undo`，与 UI 共享 source lock、风险确认、候选 Profile、预览、
+重启和恢复语义；低风险 Agent 操作可以走相同的 direct fast path。
 
 ## 从源码启动与打包
 

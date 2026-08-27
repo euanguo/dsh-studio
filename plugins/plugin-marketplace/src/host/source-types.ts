@@ -1,10 +1,11 @@
 import type {
   MarketplaceAction,
   MarketplaceConfirmation,
+  MarketplaceEnvironmentRequirement,
+  MarketplaceInstallChannel,
   MarketplaceInstalledPlugin,
   MarketplaceRiskLevel,
   MarketplaceRiskReason,
-  MarketplaceSourceReview,
 } from '../protocol.ts'
 
 export type CatalogSourceKind =
@@ -39,6 +40,7 @@ export interface CatalogSnapshot {
   digest: string
   generatedAt: string | null
   plugins: import('../protocol.ts').MarketplacePlugin[]
+  watchlist: import('../protocol.ts').MarketplacePlugin[]
   source: CatalogSource
 }
 
@@ -85,6 +87,7 @@ export interface MarketplaceMetadataEvidence {
 export interface MarketplaceCandidate {
   buildScripts: Record<string, string>
   description: string
+  environmentRequirements: MarketplaceEnvironmentRequirement[]
   diagnostics: string[]
   evidence: {
     compatibility: MarketplaceCompatibilityEvidence | null
@@ -124,6 +127,9 @@ export interface MarketplaceCandidate {
     locator: string
     requestedRef: string | null
     resolvedCommit: string
+    channel: MarketplaceInstallChannel
+    artifactUrl: string | null
+    version: string | null
   }
 }
 
@@ -132,9 +138,7 @@ export interface RepositorySourceAdapter {
   resolveCommit(repository: string, requestedRef?: string | null): Promise<string>
 }
 
-export interface CatalogSourceReader {
-  (source: CatalogSource, options?: { force?: boolean }): Promise<unknown>
-}
+export type CatalogSourceReader = (source: CatalogSource, options?: { force?: boolean }) => Promise<unknown>
 
 export interface MarketplaceSourceResolver {
   makePlan(candidate: MarketplaceCandidate, action: MarketplaceAction): import('../protocol.ts').MarketplacePlan
@@ -148,24 +152,6 @@ export interface MarketplaceSourceResolverOptions {
   findInstalled?(candidate: MarketplaceCandidate): MarketplaceInstalledPlugin | undefined
   findSourceLock?(candidate: MarketplaceCandidate): import('../protocol.ts').MarketplaceSourceLock | undefined
   repository: RepositorySourceAdapter
-}
-
-export interface MarketplaceSourceLockV3 {
-  artifactDigest: string
-  canonicalSource: string
-  catalogSourceId: string | null
-  firstSeenCommit: string
-  installSpec: string
-  manifestHash: string
-  manifestPath: string
-  mechanism: 'bundle' | 'repository'
-  packageName: string
-  patchHash: string | null
-  pluginId: string
-  recordedAt: string
-  requestedRef: string | null
-  resolvedCommit: string
-  subpath: string | null
 }
 
 export const FIXTURE_REPOSITORY = 'JUSTMONIKA2022/dsh-sandbox-escalation-fix'

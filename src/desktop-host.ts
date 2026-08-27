@@ -38,11 +38,11 @@ import {
   type DshStudioChannel,
 } from './data-root.ts'
 import { allowsRuntimeClipboardWrite, originOf } from './permissions.ts'
-import {
+import type {
   AppController,
-  type AppControllerPorts,
-  type RuntimeExitEvent,
-  type RuntimeHandle,
+  AppControllerPorts,
+  RuntimeExitEvent,
+  RuntimeHandle,
 } from './app-controller.ts'
 import { BUNDLED_DESKTOP_PLUGINS, DESKTOP_PROFILE, ensureDesktopProfile } from './profile.ts'
 import {
@@ -297,7 +297,7 @@ export function createDesktopHost(input: DesktopHostInput): DesktopHost {
     return manager
   }
 
-  function createPluginMarketplace(runtimeOptions: RuntimeOptionsModule): PluginMarketplaceManager {
+  function createPluginMarketplace(runtimeOptions: RuntimeOptionsModule, onStateChange: () => void): PluginMarketplaceManager {
     const info = desktopInfo()
     ensureDesktopProfile(info.dshHome)
     const paths = bundledRuntimePaths(resourcesRoot())
@@ -314,6 +314,7 @@ export function createDesktopHost(input: DesktopHostInput): DesktopHost {
     return new PluginMarketplaceManager({
       appDataPath: info.appDataPath,
       dshHome: info.dshHome,
+      onStateChange,
       onWarn: line => { appendLog('desktop', `[marketplace] ${line}`) },
       platform: new ProductionMarketplacePlatform({
         cliEntry: paths.cliEntry,
@@ -337,7 +338,7 @@ export function createDesktopHost(input: DesktopHostInput): DesktopHost {
     runtimeOptions: RuntimeOptionsModule,
     onStateChange: () => void,
   ): Promise<void> {
-    marketplace = createPluginMarketplace(runtimeOptions)
+    marketplace = createPluginMarketplace(runtimeOptions, onStateChange)
     marketplaceAgentGateway = await startMarketplaceAgentGateway(marketplace, {
       onError: error => { appendLog('desktop', `[marketplace-agent] ${String(error)}`) },
       onStateChange,

@@ -8,6 +8,7 @@ import type {
   MarketplaceCompatibilityEvidence,
   RepositorySourceAdapter,
 } from './source-types.ts'
+import type { MarketplaceEnvironmentRequirement } from '../protocol.ts'
 import { validateExactCommit } from './github-source-adapter.ts'
 
 const LIFECYCLE_SCRIPTS = ['preinstall', 'install', 'postinstall', 'prepare', 'prepack'] as const
@@ -149,6 +150,24 @@ function scripts(manifest: PackageManifest): Record<string, string> {
     if (typeof value === 'string' && value.trim() !== '') result[name] = value
   }
   return result
+}
+
+const ENV_NAME = /\b(?:[A-Z][A-Z0-9]{2,}(?:_?(?:API_KEY|KEY|TOKEN|SECRET|PASSWORD))|[a-z][A-Za-z0-9]*(?:ApiKey|Token|Secret|Password))\b/g
+const SENSITIVE_ENV = /(?:TOKEN|KEY|SECRET|PASSWORD|CREDENTIAL|AUTH)/i
+
+function environmentRequirements(contents: readonly string[]): MarketplaceEnvironmentRequirement[] {
+  const names = new Set<string>()
+  for (const content of contents) {
+    for (const match of content.matchAll(ENV_NAME)) {
+      const name = match[0]
+      if (name !== undefined && !/^PATH$|^HOME$|^TMPDIR$/.test(name)) names.add(name)
+    }
+  }
+  return [...names].sort().slice(0, 24).map(name => ({
+    description: SENSITIVE_ENV.test(name) ? `Secret used by the plugin: ${name}` : `Configuration used by the plugin: ${name}`,
+    name,
+    secret: SENSITIVE_ENV.test(name),
+  }))
 }
 
 function invalidScripts(manifest: PackageManifest): string[] {
@@ -394,6 +413,7 @@ function unsupportedCandidate(
     : null
   return {
     buildScripts: scripts(manifest),
+    environmentRequirements: [],
     description: typeof manifest.description === 'string' ? manifest.description : '',
     diagnostics: [diagnostic],
     evidence: {
@@ -434,6 +454,9 @@ function unsupportedCandidate(
       locator: input.source.locator,
       requestedRef: input.source.requestedRef,
       resolvedCommit: input.resolvedCommit,
+      channel: 'github',
+      artifactUrl: null,
+      version,
     },
   }
 }
@@ -537,8 +560,14 @@ export async function validateRepositoryCandidate(
   }
   const artifact = artifactDigest(files)
   const metadata = extractMetadata(manifest)
+  const materialPaths = ['README.md', 'README.zh-CN.md', '.env.example', '.env.example.local', 'install.sh']
+  const materialContents = await Promise.all(materialPaths.map(async path => {
+    const content = await input.readFile(input.source.repository, packageRootPath(input.source, path), input.resolvedCommit)
+    return content ?? ''
+  }))
   const candidate: MarketplaceCandidate = {
     buildScripts: scripts(manifest),
+    environmentRequirements: environmentRequirements(materialContents),
     description: typeof manifest.description === 'string' ? manifest.description : '',
     diagnostics,
     evidence: {
@@ -579,6 +608,9 @@ export async function validateRepositoryCandidate(
       locator: input.source.locator,
       requestedRef: input.source.requestedRef,
       resolvedCommit: input.resolvedCommit,
+      channel: 'github',
+      artifactUrl: null,
+      version,
     },
   }
   if (execution !== 'installable') {

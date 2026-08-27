@@ -164,3 +164,15 @@ export function applyFooterStackMarker(
   footerStack?.setAttribute(FOOTER_STACK_ATTRIBUTE, 'true')
   return footerStack
 }
+
+/** Resolve the bounded viewport used by the official ScrollArea primitive. */
+export function resolveMarketplaceScrollViewport(node: HTMLDivElement | null): HTMLDivElement | null {
+  return node?.closest<HTMLDivElement>('.dsh-studio-ui-scroll-area-viewport')
+    ?? node?.querySelector<HTMLDivElement>('.dsh-studio-ui-scroll-area-viewport')
+    ?? node
+}
+
+/** Identify an upstream settings-button click for the modal auto-close rule. */
+export function isSettingsButtonClick(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest('button') === settingsButton()
+}

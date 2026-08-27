@@ -62,7 +62,7 @@ the smallest supported distribution.
 | `@dsh-studio/sidebar` | Downstream Better Sidebar UI adapter | Reuses the Host while retaining DSH Studio layout, icons, themes, Review, and comments |
 | `@dsh-studio/panel-controls` | Downstream implementation of the `dsh-web-panel` interaction model | Unified Terminal dock without a separate Web Terminal install |
 | `@dsh-studio/pinned-summary` | Native | Session summary, half-height card, and content-gutter management |
-| `@dsh-studio/plugin-marketplace` | Adopts lifecycle ideas from `plugin-registry` and `dsh-hub` | One Loader, isolated preview, risk approval, TOFU source lock, and recovery |
+| `@dsh-studio/plugin-marketplace` | DSH Studio's canonical catalog and transaction implementation | One Loader, candidate staging, low-risk direct install, optional isolated preview, risk approval, TOFU source lock, and recovery |
 | `@dsh-studio/skins` | Downstream implementation of the `dsh-skins` ThemeService model | One skin id set, Host persistence, Web/Desktop CSS, and TUI palette adapters |
 | `@dsh-studio/vision` | Adapts [`dsh-vision`](https://github.com/william-jin-cmu/dsh-vision) | Cross-surface `view_image` Host tool with cloud/local OCR fallback; DeepSeek V4 is admitted at the final image-capability check and its native attachments are described before the pinned text-only adapter, while DSH owns paste, thumbnails, and submission through its native attachment rail; reuses DSH credentials and settings |
 | `dsh-cc-tui` | Pins [`dsh-TUI`](https://github.com/ccch1mneyyy/dsh-TUI) | Upstream owns terminal rendering, session interaction, commands, and terminal compatibility |
@@ -117,39 +117,46 @@ for the sidebar).
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Discovered
-  Discovered --> Prepared: prepare
-  Prepared --> Previewing: preview in isolation
+  [*] --> CatalogReady
+  CatalogReady --> Planned: plan
+  Planned --> Staging: execute
+  Staging --> Applied: direct / atomic swap
+  Staging --> Previewing: explicit preview
   Previewing --> Discarded: discard
-  Previewing --> Applied: approve and apply
-  Applied --> Disabled: disable
-  Disabled --> Applied: enable
-  Applied --> Previous: update
-  Previous --> Applied: recover
-  Discarded --> [*]
+  Previewing --> Applied: apply
+  Staging --> Cancelled: cancel
+  Applied --> Planned: update / enable / disable / uninstall
+  Applied --> Undoable: keep previous profile
+  Undoable --> Applied: undo
+  Planned --> AwaitingInput: provide required material
+  AwaitingInput --> Staging: provide
 ```
 
-`installed` and `enabled` are separate states. Installation and updates pin
-the source and commit before entering an isolated preview. Only explicit
-application changes the current Profile. Agent-initiated installs use the
-same transaction and risk approval and cannot bypass the Loader.
+`installed` and `enabled` are separate states. `plan` only resolves the source,
+pins the commit, and validates the manifest, compatibility, and risk. `execute`
+uses the same candidate-staging implementation for both modes. A low-risk plan
+with no required material or confirmation may atomically replace the live Profile
+directly; other plans can explicitly start an isolated preview before applying.
+The Agent and UI share one Loader, transaction owner, source lock, recovery, and
+Undo path.
 
-## Marketplace extension
+## Marketplace implementation
 
-The marketplace accepts both catalog entries and public GitHub repository
-references. A Host resolver canonicalizes the reference, resolves an exact
-commit, validates `package.json`, `dsh.bundle.patch`, patch and entry files,
-peer compatibility, license, and lifecycle scripts, then emits one
-`MarketplaceCandidate` and normalized `github:owner/repo#<sha>` install spec.
+The complete P0/P1/P2 marketplace behavior is specified in
+[Plugin marketplace redesign](./plugin-marketplace-redesign.md). The runtime
+uses one canonical catalog schema and one `MarketplaceCommand` model:
+`refresh`, `plan`, `execute`, `pack`, `apply`, `discard`, `cancel`, `provide`,
+and `undo`.
 
-Only packages that declare the pinned DSH bundle contract are installable.
-`.dsh-plugin` and repository-plugin metadata remain diagnostic-only and cannot
-produce an apply-capable plan. Catalog and direct repository candidates share
-the existing isolated preview, approval, atomic Profile replacement, rollback,
-and Undo transaction. The UI and Agent consume the same Host approval decision.
-
-The mandatory static fixture is
-`JUSTMONIKA2022/dsh-sandbox-escalation-fix@19f2cb4cecc178313d2f54458badfc1bcb8bc816`.
+Catalog and direct repository candidates are resolved to exact source facts:
+GitHub commit pins, exact npm versions, or HTTPS tarballs with SHA-256 digests.
+The Host validates the manifest, DSH bundle contract, compatibility, license,
+lifecycle scripts, required configuration, and risk before candidate staging.
+Low-risk plans can atomically install directly; preview remains an explicit
+isolated-runtime option. UI and Agent consume the same Host transaction, source
+locks, confirmation decisions, progress, recovery, and Undo path. Removed
+registry readers and `inspect`/`prepare`/legacy `preview` command aliases are
+not part of this contract.
 This repository is verified by source and isolated fixture tests only; this
 checkout does not install or run it.
 

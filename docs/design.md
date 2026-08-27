@@ -59,7 +59,7 @@ Web-only 与 TUI-only 都去掉 Electron；TUI-only 是容量最小的发行形�
 | `@dsh-studio/sidebar` | Better Sidebar 的下游 UI 适配 | 复用 Host，保留 DSH Studio 布局、图标、主题、Review 与评论交互 |
 | `@dsh-studio/panel-controls` | 对 `dsh-web-panel` 交互模型的下游实现 | 提供统一 Terminal dock，不要求单独安装 Web Terminal |
 | `@dsh-studio/pinned-summary` | 自研 | 会话摘要、半高卡片和正文 gutter 管理 |
-| `@dsh-studio/plugin-marketplace` | 吸收 `plugin-registry` 与 `dsh-hub` 的生命周期设计 | 单一 Loader、隔离预览、风险确认、TOFU 来源锁与恢复 |
+| `@dsh-studio/plugin-marketplace` | DSH Studio 的 canonical catalog 与事务实现 | 单一 Loader、candidate staging、低风险直装、可选隔离预览、风险确认、TOFU 来源锁与恢复 |
 | `@dsh-studio/skins` | 对 `dsh-skins` ThemeService 扩展模型的下游实现 | 一套皮肤 ID、Host 持久化，以及 Web/Desktop CSS 与 TUI 调色板适配器 |
 | `@dsh-studio/vision` | 适配 [`dsh-vision`](https://github.com/william-jin-cmu/dsh-vision) | 跨三端的 `view_image` Host 工具和云端/本地 OCR 回退；DeepSeek V4 在最终图片能力校验处放行，并在固定的 text-only 适配器序列化前描述原生附件；图片粘贴、缩略图和提交全部由 DSH 原生 attachment rail 负责；复用 DSH credentials 与 settings |
 | `dsh-cc-tui` | 固定跟踪 [`dsh-TUI`](https://github.com/ccch1mneyyy/dsh-TUI) | 上游拥有终端渲染、会话交互、命令与终端兼容性 |
@@ -77,28 +77,33 @@ TUI 仍使用上游的热切换与选择器，选择会在下一次启动时回�
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Discovered
-  Discovered --> Prepared: prepare
-  Prepared --> Previewing: preview in isolation
+  [*] --> CatalogReady
+  CatalogReady --> Planned: plan
+  Planned --> Staging: execute
+  Staging --> Applied: direct / atomic swap
+  Staging --> Previewing: explicit preview
   Previewing --> Discarded: discard
-  Previewing --> Applied: approve and apply
-  Applied --> Disabled: disable
-  Disabled --> Applied: enable
-  Applied --> Previous: update
-  Previous --> Applied: recover
-  Discarded --> [*]
+  Previewing --> Applied: apply
+  Staging --> Cancelled: cancel
+  Applied --> Planned: update / enable / disable / uninstall
+  Applied --> Undoable: keep previous profile
+  Undoable --> Applied: undo
+  Planned --> AwaitingInput: provide required material
+  AwaitingInput --> Staging: provide
 ```
 
-`installed` 与 `enabled` 分离。安装或更新先固定来源与 commit，再进入隔离预览；
-只有显式应用才会改变当前 Profile。Agent 发起安装时也必须经过相同的事务和
-风险确认，不能绕过 Loader。
+`installed` 与 `enabled` 分离。`plan` 只解析来源、固定 commit、校验 manifest、
+兼容性和风险；`execute` 使用同一 candidate staging 实现。低风险且无需材料或
+确认的计划可以直接原子替换 live Profile，其他计划可显式启动隔离预览后再
+应用。Agent 与 UI 共用同一个 Loader、事务 owner、来源锁、恢复和 Undo。
 
-## Marketplace 扩展交接
+## Marketplace 实现
 
-后续的多来源 catalog、直接公开仓库检查、bundle-only 安装、隔离预览和
-`dsh-sandbox-escalation-fix` 强制验收，见[插件市场扩展实施规划](./plugin-marketplace-expansion-plan.md)
-和[插件市场改造交接文档](./plugin-marketplace-handoff.md)。这两份文档定义
-实现顺序、source/candidate seam、当前 pinned DSH 的死路径和接手验收矩阵。
+插件市场的完整 P0/P1/P2 功能、canonical `MarketplaceCommand`、catalog schema、
+GitHub/npm/tarball 精确来源、candidate staging、风险分级直装、可选隔离预览、
+进度/材料/整合包/watchlist 与恢复语义，统一记录在[插件市场改造设计](./plugin-marketplace-redesign.md)。
+实现必须保持单一 Loader 与单一事务 owner，不得恢复旧的 registry reader 或
+`inspect/prepare/preview` 命令别名。
 
 ## 左栏架构
 
