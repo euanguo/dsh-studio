@@ -1,0 +1,5 @@
+# Bilingual-pair consistency record (docs/i18n/README.md): the git blob hash of each
+# side as of the last confirmed-consistent state. Both languages carry equal authority;
+# after editing either side, bring the other along and re-record with the pairing tool.
+2026-08-27-skin-specificity-gate.md: 193e1f3c1494b8a8bb2f508433ddc5bebb09f58a
+2026-08-27-skin-specificity-gate.zh.md: f7cc67d2b93afaf3a7b58f922dbfb571ce57a237

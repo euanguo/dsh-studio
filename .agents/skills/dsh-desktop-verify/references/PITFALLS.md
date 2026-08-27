@@ -12,6 +12,24 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 
 ---
 
+## 2026-08-27（desktop-skins specificity gate 实测）
+
+### 29. 降级含 var() 的 shorthand 会删除整条声明，得出假"上游会赢"结论
+- **症状**：对 `padding: var(--gw-skin-row-pad) !important` 这类声明做
+  per-property 降级实测时，computed 值变成上游值，据此判断"去掉 force 上游
+  就赢"；实际把 skin 规则改成普通级联后皮肤照样赢，菜单 radius 6px 才是真冲突。
+- **根因**：含 `var()` 的 shorthand 在 CSSOM 里是 pending-substitution 声明，
+  longhand 的 `getPropertyValue` 返回空串；`setProperty(longhand, '', '')`
+  等价于删除该 longhand，进而拆掉整条 shorthand 声明——测的是"删除"而非
+  "降优先级"。另外特异性手算常错在 `:not()`/`:has()`：按规范它们只取参数的
+  特异性，不加 +1；官方菜单行 `body > div[role=menu] [role=menuitem]:not(..):not(..)`
+  实为 (0,4,2)，class 平局后 element 数取胜。
+- **修复**：等价性判断改用 winner 分析（枚举全部匹配规则，按
+  importance→specificity→order 排序，var() shorthand 从 shorthand 槽位读值，
+  `:not/:is/:has` 只计入参数特异性）；结论以真实 computed 值为准。本条直接
+  催生了皮肤 specificity gate（4 次堆叠属性选择器）与 29 条 force 降级。
+- **来源**：本次实测。
+
 ## 2026-08-27（desktop-skins 跨界面 cascade 审计）
 
 ### 28. CSSOM 降级审计必须恢复整条规则的 cssText

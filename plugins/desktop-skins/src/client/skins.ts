@@ -309,17 +309,24 @@ function renderColorCss(selector: string, tokens: Readonly<Record<string, string
   return `${selector} {\n${declarations}\n}\n`
 }
 
-/** 给每个精确类名单独挂皮肤门控：body[data-dsh-studio-skin] .X, body[data-dsh-studio-skin] .Y
- *  —— 每个选择器都必须自带门控，否则特异性退化为 (0,1,0)，会输给通用按钮/
- *  menuitem 等门控规则（实测 .uNlE1G_trigger 圆角被 button 规则盖掉）。 */
+/** 给每个精确类名单独挂皮肤门控：同一属性选择器重复书写 N 次会按 CSS 规范
+ *  逐个累计特异性——4 次即 (0,5,1)。实测上游最高的组件规则是官方菜单行的
+ *  `body > div[role=menu] [role=menuitem]:not(..):not(..)` = (0,4,2)：
+ *  3 次堆叠 (0,4,1) 会在 class 打平后输给 element 数，4 次稳压并留余量，
+ *  使组件几何不依赖 !important。
+ *  逐类挂门控必须保留：不挂门的精确类会退化为 (0,1,0) 输给本样式表内的
+ *  通用按钮/菜单项规则（实测 .uNlE1G_trigger 圆角曾被 button 规则盖掉）。
+ *  上游若改用 !important 或更高特异性，该规则需要有意识重新评估；force
+ *  是最后手段，不是默认。 */
+const SKIN_GATE = 'body[data-dsh-studio-skin][data-dsh-studio-skin][data-dsh-studio-skin][data-dsh-studio-skin]'
 const gate = (classes: readonly string[]): string =>
-  classes.map(selector => `body[data-dsh-studio-skin] ${selector}`).join(',')
+  classes.map(selector => `${SKIN_GATE} ${selector}`).join(',')
 
 /** 同 gate，但把伪类挂到**每个**选择器上。gate() 返回逗号连串后追加
  *  ``:focus-within`` 只会保护组内最后一个元素（其余无条件命中），必须
  *  逐类各自拼接（实测 CARD 全量卡片因此被无条件涂上品牌蓝框）。 */
 const gatePseudo = (classes: readonly string[], pseudo: string): string =>
-  classes.map(selector => `body[data-dsh-studio-skin] ${selector}${pseudo}`).join(',')
+  classes.map(selector => `${SKIN_GATE} ${selector}${pseudo}`).join(',')
 
 /** The settings shell keeps the semantic nav-cell suffix while its CSS-module
  * hash can vary between DSH builds. Keep the generated selector as the primary
@@ -425,11 +432,11 @@ body[data-dsh-studio-skin] [role="menuitem"],
 body[data-dsh-studio-skin] [role="menuitemradio"],
 body[data-dsh-studio-skin] [role="menuitemcheckbox"],
 body[data-dsh-studio-skin] [role="option"] {
-  min-height: var(--gw-skin-row-h) !important;
-  padding: var(--gw-skin-row-pad) !important;
-  font-size: var(--gw-skin-row-fs) !important;
-  line-height: var(--gw-skin-row-lh) !important;
-  border-radius: var(--gw-skin-radius-row) !important;
+  min-height: var(--gw-skin-row-h);
+  padding: var(--gw-skin-row-pad);
+  font-size: var(--gw-skin-row-fs);
+  line-height: var(--gw-skin-row-lh);
+  border-radius: var(--gw-skin-radius-row);
 }
 /* 菜单行角色（menuitem/option 等）：组件显式 height（实测模型选择弹出层
    40px）会盖过 min-height，用 height: auto 覆盖组件钉死值——行高由
@@ -442,13 +449,13 @@ body[data-dsh-studio-skin] [role="option"] {
   /* content-box would add the 5px×2 padding on top of min-height and render
      a 38.59px row instead of the designed 28.59px (measured in Chromium);
      border-box makes min-height the total row height. */
-  box-sizing: border-box !important;
-  height: auto !important;
-  min-height: var(--gw-skin-row-h) !important;
+  box-sizing: border-box;
+  height: auto;
+  min-height: var(--gw-skin-row-h);
 }
 ${gate([...ITEM_WRAP, ...ITEM_LABEL])} {
-  padding: 0 !important;
-  line-height: inherit !important;
+  padding: 0;
+  line-height: inherit;
 }
 
 body[data-dsh-studio-skin] [role="listbox"] [role="option"] + [role="option"],
@@ -457,13 +464,13 @@ body[data-dsh-studio-skin] [role="menu"] [role="menuitem"] + [role="menuitem"] {
 }
 
 ${gate([...NAV_CELL, ...NAV_CELL_STABLE])} {
-  box-sizing: border-box !important;
-  height: auto !important;
-  min-height: var(--gw-skin-row-h) !important;
-  padding: var(--gw-skin-row-pad) !important;
-  font-size: var(--gw-skin-row-fs) !important;
-  line-height: var(--gw-skin-row-lh) !important;
-  border-radius: var(--gw-skin-radius-row) !important;
+  box-sizing: border-box;
+  height: auto;
+  min-height: var(--gw-skin-row-h);
+  padding: var(--gw-skin-row-pad);
+  font-size: var(--gw-skin-row-fs);
+  line-height: var(--gw-skin-row-lh);
+  border-radius: var(--gw-skin-radius-row);
 }
 
 /* 通用按钮主配方（ruleset 2.1 主配方）：所有 button 默认行按钮
@@ -490,10 +497,11 @@ ${gate([...TRIGGER_PILL, ...SEAT, ...WORKSPACE_PILL])} {
 }
 
 /* ui-settings-general settings trigger stays aligned with nav rows. It is a
-   host-owned exception, not a marketplace selector. */
-body[data-dsh-studio-skin] button[aria-haspopup]:has([data-slot='settings.trigger']) {
-  border-radius: var(--gw-skin-radius-row) !important;
-  corner-shape: superellipse(1.5) !important;
+   host-owned exception, not a marketplace selector. :has() 特异性加成 +
+   样式表内靠后位置，稳压上方的 pill 规则与上游 trigger 圆角。 */
+${SKIN_GATE} button[aria-haspopup]:has([data-slot='settings.trigger']) {
+  border-radius: var(--gw-skin-radius-row);
+  corner-shape: superellipse(1.5);
 }
 
 /* 触发器内部图标容器：强制居中（DSH triggerIcon 无 align-items，高度变化后 svg 贴顶） */
@@ -552,8 +560,8 @@ ${gate([...CARD_SHELL, ...DIALOG_SHELL])} {
   border-radius: var(--gw-skin-radius-card);
 }
 ${gate(DIALOG_SHELL)} {
-  border: 0 !important;
-  box-shadow: 0 0 0 .5px var(--gw-skin-hairline), 0 3px 7.5px rgba(0, 0, 0, .06), 0 0 20px rgba(0, 0, 0, .06) !important;
+  border: 0;
+  box-shadow: 0 0 0 .5px var(--gw-skin-hairline), 0 3px 7.5px rgba(0, 0, 0, .06), 0 0 20px rgba(0, 0, 0, .06);
 }
 
 ${gate(RENAME_INPUT)} {
@@ -580,10 +588,11 @@ ${gate([...THEME_CUBE, '.dsh-studio-skins-tile'])} {
 
 /* Button 组件 md 规格（ruleset 2.2 对话框按钮）：32px 高 + 6×16 padding。
    注意：这是 ChatGPT 实测的盒子规格（验收项 3），6px padding + 22px
-   行高的自然高度是 34px，与规格差 2px——规格优先，保留钉死并注明。 */
+   行高的自然高度是 34px，与规格差 2px——规格优先。堆叠门控 (0,5,1)
+   稳压上游 (0,2,0) 组合类，无需 force（rename dialog 实测降级安全）。 */
 ${gate(BUTTON_MD)} {
-  height: 32px !important;
-  padding: 6px 16px !important;
+  height: 32px;
+  padding: 6px 16px;
 }
 
 /* 实心主操作键（发送键等非 Button 组件体系）：全圆 pill。 */
@@ -645,14 +654,15 @@ ${gate([...CLOSE_BUTTON, ...REMOVE_BUTTON, ...ARROW_BUTTON])} {
 }
 
 /* 过滤 pill（Pill 组件 FILTER_PILL）：pill + 行规格（官方 24px/12px 方角）。
-   padding/字号/行高全在配方里，高度自然形成（18.59 + 5×2 = 28.59）。 */
+   padding/字号/行高全在配方里，高度自然形成（18.59 + 5×2 = 28.59）。
+   上游 Pill 为单类选择器，堆叠门控稳赢（skin picker 实测验证）。 */
 ${gate(FILTER_PILL)} {
-  height: auto !important;
-  min-height: var(--gw-skin-row-h) !important;
-  padding: var(--gw-skin-row-pad) !important;
-  font-size: var(--gw-skin-row-fs) !important;
-  line-height: var(--gw-skin-row-lh) !important;
-  border-radius: var(--gw-skin-radius-pill) !important;
+  height: auto;
+  min-height: var(--gw-skin-row-h);
+  padding: var(--gw-skin-row-pad);
+  font-size: var(--gw-skin-row-fs);
+  line-height: var(--gw-skin-row-lh);
+  border-radius: var(--gw-skin-radius-pill);
 }
 
 /* toast：官方用 button-contrast-fill（night 浅底）与语义错配；改用

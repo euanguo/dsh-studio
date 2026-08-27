@@ -142,11 +142,26 @@ test('settings navigation keeps compact geometry across nav-cell hash changes', 
   // `[class*="_navCell"]` fallback and the stable settings.trigger slot
   // selector keep working across builds — both must stay present with their
   // row-geometry overrides after a skin port.
-  assert.match(day.css, /button\[class\*="_navCell"\]/)
-  assert.match(day.css, /button\[class\*="_navCell"\][\s\S]*height: auto !important/)
-  assert.match(day.css, /button\[class\*="_navCell"\][\s\S]*border-radius: var\(--gw-skin-radius-row\) !important/)
-  assert.match(day.css, /button\[aria-haspopup\]:has\(\[data-slot='settings\.trigger'\]\)/)
-  assert.match(day.css, /button\[aria-haspopup\]:has\(\[data-slot='settings\.trigger'\]\)[\s\S]*border-radius: var\(--gw-skin-radius-row\) !important/)
+  //
+  // Cascade contract: the skin gate stacks the `data-dsh-studio-skin`
+  // attribute three times, so component geometry wins on specificity
+  // ((0,4,1)+) without `!important`. The navCell and settings.trigger rules
+  // below must therefore carry their geometry as normal declarations, and
+  // their blocks must stay force-free — if an upstream bump reintroduces a
+  // specificity or importance conflict, the port must consciously choose
+  // between stacking more gate attributes and restoring force.
+  assert.match(day.css, /(\[data-dsh-studio-skin\]){4} button\[class\*="_navCell"\]/)
+  const navBlock = day.css.match(/button\[class\*="_navCell"\]\s*\{([^}]*)\}/)?.[1]
+  assert.ok(navBlock, 'navCell rule block must exist')
+  assert.match(navBlock, /height: auto;/)
+  assert.match(navBlock, /border-radius: var\(--gw-skin-radius-row\);/)
+  assert.ok(!navBlock.includes('!important'), 'navCell geometry must not rely on force')
+  assert.match(day.css, /(\[data-dsh-studio-skin\]){4} button\[aria-haspopup\]:has\(\[data-slot='settings\.trigger'\]\)/)
+  const triggerBlock = day.css.match(/button\[aria-haspopup\]:has\(\[data-slot='settings\.trigger'\]\)\s*\{([^}]*)\}/)?.[1]
+  assert.ok(triggerBlock, 'settings.trigger rule block must exist')
+  assert.match(triggerBlock, /border-radius: var\(--gw-skin-radius-row\);/)
+  assert.match(triggerBlock, /corner-shape: superellipse\(1\.5\);/)
+  assert.ok(!triggerBlock.includes('!important'), 'settings.trigger shape must not rely on force')
 })
 
 test('skins keep the HoverCard pinned dark surface (no light-mode fill override)', () => {
