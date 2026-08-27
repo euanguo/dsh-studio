@@ -498,31 +498,31 @@ body[data-dsh-studio-skin] button[aria-haspopup]:has([data-slot='settings.trigge
 
 /* 触发器内部图标容器：强制居中（DSH triggerIcon 无 align-items，高度变化后 svg 贴顶） */
 ${gate([...TRIGGER_ICON, ...ICON])} {
-  align-items: center !important;
-  justify-content: center !important;
+  align-items: center;
+  justify-content: center;
 }
 /* 触发器/选择器文本 label：block 内文本贴顶 → flex 垂直居中
    （修复文字偏上 4-5px；workspaceLabel 同款问题一并覆盖；
      triggerEffort 是思考强度字样，同标号对待，避免整行拔高）。 */
 ${gate([...TRIGGER_LABEL, ...TRIGGER_EFFORT, ...WORKSPACE_LABEL])} {
-  display: flex !important;
-  align-items: center !important;
-  line-height: var(--gw-skin-row-lh) !important;
+  display: flex;
+  align-items: center;
+  line-height: var(--gw-skin-row-lh);
 }
 /* ui-settings-general 设置触发（xuwxfG_trigger 展开行 / xuwxfG_rail 折叠座）：
    官方折叠态把图标放大到 18px，与全应用 16px 图标不一致——钉回 16px。
    xuwxfG_trigger 经 TRIGGER_PILL 的精确类名引用；rail 经 RAIL 常量。 */
 ${gate([...TRIGGER_PILL.filter(sel => sel.includes('xuwxfG_trigger')), ...RAIL])} svg {
-  width: 16px !important;
-  height: 16px !important;
+  width: 16px;
+  height: 16px;
 }
 
 /* 菜单分组标签（Group by/Order by）：统一 ChatGPT 规范 13px tertiary + 4px 8px */
 ${gate(GROUP_LABEL)} {
-  padding: 4px 8px !important;
-  font-size: 13px !important;
-  line-height: 18.57px !important;
-  color: var(--dsw-alias-label-tertiary) !important;
+  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 18.57px;
+  color: var(--dsw-alias-label-tertiary);
 }
 
 ${gate(SELECTOR)} {
@@ -538,18 +538,18 @@ ${gate(SELECTOR)} {
 
 ${gate(NEW_SESSION)} {
   min-height: var(--gw-skin-row-h);
-  padding: var(--gw-skin-row-pad) !important;
-  font-size: var(--gw-skin-row-fs) !important;
-  border-radius: var(--gw-skin-radius-row) !important;
+  padding: var(--gw-skin-row-pad);
+  font-size: var(--gw-skin-row-fs);
+  border-radius: var(--gw-skin-radius-row);
 }
 
 /* 会话/项目行：尺寸交给 DSH 自身行高（32/34px，content-box 下勿加 padding），仅统一圆角 */
 ${gate([...SESSION_ROW, ...PROJECT_ROW, ...WORKSPACE_ROW])} {
-  border-radius: var(--gw-skin-radius-row) !important;
+  border-radius: var(--gw-skin-radius-row);
 }
 
 ${gate([...CARD_SHELL, ...DIALOG_SHELL])} {
-  border-radius: var(--gw-skin-radius-card) !important;
+  border-radius: var(--gw-skin-radius-card);
 }
 ${gate(DIALOG_SHELL)} {
   border: 0 !important;
@@ -575,7 +575,7 @@ ${gatePseudo(RENAME_INPUT, ':focus')} {
 /* themeCube 是上游 Appearance 的圆角色块；.dsh-studio-skins-tile 是本插件
    皮肤画廊自己的字面类名（非 CSS Modules，无需生成）。 */
 ${gate([...THEME_CUBE, '.dsh-studio-skins-tile'])} {
-  border-radius: var(--gw-skin-radius-menu) !important;
+  border-radius: var(--gw-skin-radius-menu);
 }
 
 /* Button 组件 md 规格（ruleset 2.2 对话框按钮）：32px 高 + 6×16 padding。
@@ -661,7 +661,7 @@ body[data-dsh-studio-skin] .dsh-studio-surface-tab {
 /* 组件自带的圆形按钮：通用 button 12.5px 规则会把它们压成方角
    （实测 28×28 关闭钮被压），恢复 pill。 */
 ${gate([...CLOSE_BUTTON, ...REMOVE_BUTTON, ...ARROW_BUTTON])} {
-  border-radius: var(--gw-skin-radius-pill) !important;
+  border-radius: var(--gw-skin-radius-pill);
 }
 
 /* 过滤 pill（Pill 组件 FILTER_PILL）：pill + 行规格（官方 24px/12px 方角）。
