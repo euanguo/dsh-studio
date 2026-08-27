@@ -227,7 +227,7 @@ annotate 截图即可）。产出结构化报告（见第 6 节）。
 
 | 改动类型 | 触发方式 | 链路变化 | 之后必做 |
 |---|---|---|---|
-| 客户端 bundle（plugins/*/src/client.*） | 改文件 → dev.mjs 增量 rebuild → SSE 热替换 | 页面不刷新，DOM 局部换 | 重新 `snapshot -i` 拿新 `@ref`；重跑套件；`errors` 检查无新错误 |
+| 客户端 bundle（plugins/*/src/client.*） | 改文件 → dev.mjs 增量 rebuild → SSE 热替换 | 页面不刷新，DOM 局部换 | 若旧 session 报 `session unresponsive`，立即重建 `connect`/`tab` 会话；随后重新 `snapshot -i` 拿新 `@ref`，重跑套件并用 `errors` 检查无新错误 |
 | Electron 主进程（src/main.ts 等 → dist/main.js/preload.cjs/splash.html） | dev.mjs 自动停旧起新 | **target.id / runtime URL 端口全变，且存在重启竞态（PITFALLS #9，实测高频）**：新实例可能因旧实例未释放端口/锁而静默退出，CDP 可能不再回来 | 轮询端口 down→up（≤90s）；若 CDP 不回来 → `node <this-skill>/scripts/ensure-dev-desktop.mjs ensure --port <port>` 自愈重建；然后 `connect <port>` → `tab` → `wait --url "**127.0.0.1**"` → 重跑套件。要确定性干净重启态可直接 `stop && ensure`，别 touch dist |
 | DSH Runtime 重启（应用内 "DSH → 重新启动 DSH Runtime"） | 菜单触发或 helper 重启 | 页面导航到新 runtime URL | 同上：重新发现目标 → 重跑套件 |
 

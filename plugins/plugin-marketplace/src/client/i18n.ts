@@ -133,6 +133,26 @@ export type MarketplaceMessage =
   | 'installation-status'
   | 'plugin-category'
   | 'plugin-count'
+  | 'sorted-by'
+  | 'filter'
+  | 'install-from-repository'
+  | 'repository-help'
+  | 'refine-results'
+  | 'clear-filters'
+  | 'plugin-results'
+  | 'more'
+  | 'more-count'
+  | 'updates-help'
+  | 'configuration-help'
+  | 'installed-status'
+  | 'preview-in-progress'
+  | 'overview'
+  | 'review-before-install'
+  | 'restart-required'
+  | 'plan-not-installable'
+  | 'confirm-before-install'
+  | 'back-to-results'
+  | 'more-actions'
   | 'loading-catalog'
   | 'github-auth-required'
   | 'no-match'
@@ -282,6 +302,26 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'installation-status': 'Installation status',
     'plugin-category': 'Plugin category',
     'plugin-count': '{count} plugins',
+     'sorted-by': 'Sorted by {sort}',
+     filter: 'Filter',
+     'install-from-repository': 'Install from repository',
+     'repository-help': 'Use a public GitHub repository when it is not in the catalog.',
+     'refine-results': 'Refine results',
+     'clear-filters': 'Clear filters',
+     'plugin-results': 'Plugin results',
+     more: 'More',
+     'more-count': '{count} items',
+     'updates-help': '{count} plugins have a newer version.',
+     'configuration-help': 'These values are used only to finish this operation.',
+     'installed-status': 'Installed',
+     'preview-in-progress': 'Preview is running',
+     overview: 'Overview',
+     'review-before-install': 'Review what will change before installing.',
+     'restart-required': 'Restart required',
+     'plan-not-installable': 'This entry can be inspected but cannot be installed by DSH Studio.',
+     'confirm-before-install': 'Confirm before continuing',
+     'back-to-results': 'Back to results',
+     'more-actions': 'More actions',
     'loading-catalog': 'Loading the plugin catalog…',
     'github-auth-required': 'GitHub authentication required',
     'no-match': 'No plugins match this view.',
@@ -430,6 +470,26 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'installation-status': '安装状态',
     'plugin-category': '插件分类',
     'plugin-count': '{count} 个插件',
+     'sorted-by': '排序：{sort}',
+     filter: '筛选',
+     'install-from-repository': '从仓库安装',
+     'repository-help': '目录里没有时，可使用公开 GitHub 仓库。',
+     'refine-results': '细化结果',
+     'clear-filters': '清除筛选',
+     'plugin-results': '插件结果',
+     more: '更多',
+     'more-count': '{count} 项',
+     'updates-help': '有 {count} 个插件可以更新。',
+     'configuration-help': '这些值只用于完成这次操作。',
+     'installed-status': '已安装',
+     'preview-in-progress': '预览运行中',
+     overview: '概览',
+     'review-before-install': '安装前先确认会发生什么变化。',
+     'restart-required': '需要重启',
+     'plan-not-installable': '该条目可以查看，但 DSH Studio 无法安装它。',
+     'confirm-before-install': '继续前请确认',
+     'back-to-results': '返回结果',
+     'more-actions': '更多操作',
     'loading-catalog': '正在加载组织插件目录…',
     'github-auth-required': '需要 GitHub 身份验证',
     'no-match': '当前视图中没有匹配的插件。',

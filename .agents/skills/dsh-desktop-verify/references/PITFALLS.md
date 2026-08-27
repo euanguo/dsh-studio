@@ -12,6 +12,16 @@ chrome-use 配套文档，未在本桌面复现但属官方保证行为。
 
 ---
 
+## 2026-08-27（plugin-marketplace UI odyssey）
+
+### 27. Client hot reload can invalidate an existing chrome-use daemon
+- **症状**：修改 marketplace client 后，复用原有命名 session 执行 `wait`/`snapshot` 报
+  `session unresponsive`，daemon 自动停止。
+- **根因**：增量构建触发了页面 target 或 relay 通道变化，旧 session 仍持有失效连接。
+- **修复**：不要继续复用旧 session；重新执行 `connect 9222` → `tab` → 等待 runtime URL，
+  再重新获取 accessibility snapshot。只关闭/重建 chrome-use session，不停止生产版。
+- **来源**：本次实测。
+
 ## 2026-08-27（right-rail-dock-refactor DEV 探测）
 
 ### 26. 页面主线程被临时 DOM 探测阻塞后，chrome-use daemon 会自动停止
