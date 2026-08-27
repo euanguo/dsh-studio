@@ -410,13 +410,14 @@ ${gate(MENU_LIST)},
 ${gate(MENU_SURFACE)},
 body[data-dsh-studio-skin] [role="listbox"],
 body[data-dsh-studio-skin] [role="menu"] {
-  background: var(--gw-skin-menu-bg) !important;
-  backdrop-filter: blur(var(--gw-skin-blur)) !important;
-  -webkit-backdrop-filter: blur(var(--gw-skin-blur)) !important;
-  border: 0 !important;
-  border-radius: var(--gw-skin-radius-menu) !important;
-  padding: var(--gw-skin-menu-pad) !important;
-  box-shadow: 0 0 0 .5px var(--gw-skin-hairline), var(--gw-skin-elevation) !important;
+  background: var(--gw-skin-menu-bg);
+  backdrop-filter: blur(var(--gw-skin-blur));
+  -webkit-backdrop-filter: blur(var(--gw-skin-blur));
+  border: 0;
+  border-radius: var(--gw-skin-radius-row);
+  corner-shape: superellipse(1.5);
+  padding: var(--gw-skin-menu-pad);
+  box-shadow: 0 0 0 .5px var(--gw-skin-hairline), var(--gw-skin-elevation);
 }
 
 ${gate(MENU_ITEM)},
@@ -468,16 +469,12 @@ ${gate([...NAV_CELL, ...NAV_CELL_STABLE])} {
 /* 通用按钮主配方（ruleset 2.1 主配方）：所有 button 默认行按钮
    12.5px superellipse，无需逐个组件特判。 */
 body[data-dsh-studio-skin] button {
-  border-radius: var(--gw-skin-radius-row) !important;
+  border-radius: var(--gw-skin-radius-row);
   corner-shape: superellipse(1.5);
 }
 
-/* 弹出触发/选择器按钮（aria-haspopup、trigger/seat/workspace 类）：
-   ChatGPT 选择器形态 —— pill 胶囊 + 行高。
-   排除菜单项（带 submenu 的 menuitem 也挂 aria-haspopup，但保持行按钮形态）；
-   workspaceLabel/triggerLabel/triggerEffort 等内部文本容器不在
-   TRIGGER_PILL/WORKSPACE_PILL 精确清单里（生成器已按排除规则剔除）。 */
-body[data-dsh-studio-skin] button[aria-haspopup]:not([role="menuitem"]),
+/* 仅经生成器列出的专属 trigger/seat/workspace 控件才采用选择器
+   pill。普通的 Button + Menu 触发器保留行圆角，与 SettingsRow 一致。 */
 ${gate([...TRIGGER_PILL, ...SEAT, ...WORKSPACE_PILL])} {
   height: auto !important;
   min-height: var(--gw-skin-row-h) !important;
@@ -491,10 +488,9 @@ ${gate([...TRIGGER_PILL, ...SEAT, ...WORKSPACE_PILL])} {
   border-radius: var(--gw-skin-radius-pill) !important;
   corner-shape: round;
 }
-/* ui-settings-general 的设置触发会同时命中上方的
-   button[aria-haspopup] 胶囊门控与 TRIGGER_PILL。它是左栏底部的
-   settings.trigger，不是弹窗里的 navCell；用稳定的 slot 标记把它拉回
-   与 navCell 相同的行圆角，避免依赖会随 DSH 构建变化的 CSS-module hash。 */
+
+/* ui-settings-general settings trigger stays aligned with nav rows. It is a
+   host-owned exception, not a marketplace selector. */
 body[data-dsh-studio-skin] button[aria-haspopup]:has([data-slot='settings.trigger']) {
   border-radius: var(--gw-skin-radius-row) !important;
   corner-shape: superellipse(1.5) !important;
