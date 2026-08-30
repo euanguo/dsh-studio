@@ -87,8 +87,10 @@ export function createIpcModule(host: IpcHost): IpcModule {
    */
   function broadcastMarketplaceChanged(): void {
     const channel = channelNames.pluginMarketplaceChanged
-    host.windows.mainWindow()?.webContents.send(channel)
-    host.windows.previewWindow()?.webContents.send(channel)
+    const main = host.windows.mainWindow()
+    if (main !== undefined && !main.isDestroyed()) main.webContents.send(channel)
+    const preview = host.windows.previewWindow()
+    if (preview !== undefined && !preview.isDestroyed()) preview.webContents.send(channel)
   }
 
   async function selectWorkspacePaths(): Promise<string[]> {

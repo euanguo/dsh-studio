@@ -277,3 +277,67 @@ test('IPC module registers allowlisted channels and enforces update sender and U
     rmSync(root, { recursive: true, force: true })
   }
 })
+
+test('broadcastMarketplaceChanged guards against destroyed windows', () => {
+  const sent: unknown[] = []
+  const mainWebContents = { id: 10, send: (channel: string) => { sent.push({ channel, source: 'main' }) } }
+  const previewWebContents = { id: 11, send: (channel: string) => { sent.push({ channel, source: 'preview' }) } }
+
+  /**
+   * Emulate Electron's destroyed-window semantics: once destroyed, the
+   * BrowserWindow is a zombie whose `webContents` access throws
+   * `Object has been destroyed` instead of returning a usable object.
+   */
+  function windowHandle(webContents: { id: number; send(channel: string): void }, destroyed: boolean) {
+    return {
+      get webContents() {
+        if (destroyed) throw new Error('Object has been destroyed')
+        return webContents
+      },
+      isDestroyed: () => destroyed,
+    }
+  }
+
+  function makeHost(overrides: { mainDestroyed?: boolean; previewDestroyed?: boolean }) {
+    return {
+      controller: controllerStub,
+      windows: {
+        mainWindow: () => windowHandle(mainWebContents, overrides.mainDestroyed === true),
+        previewWindow: () => windowHandle(previewWebContents, overrides.previewDestroyed === true),
+        updateWindow: () => undefined,
+      },
+      marketplace: () => undefined,
+      updateManager: () => Promise.resolve({} as never),
+      desktopInfo: () => ({} as never),
+      runtimeSnapshot: () => ({ bundledPlugins: [], logTail: [], profile: 'desktop', runtimeUrl: null }),
+    } as unknown as IpcHost
+  }
+
+  // 1) Both windows alive → sends to both
+  sent.length = 0
+  const ipc1 = createIpcModule(makeHost({ mainDestroyed: false, previewDestroyed: false }))
+  ipc1.broadcastMarketplaceChanged()
+  assert.equal(sent.length, 2)
+  assert.equal((sent[0] as { source: string }).source, 'main')
+  assert.equal((sent[1] as { source: string }).source, 'preview')
+
+  // 2) Main window destroyed → sends only to preview
+  sent.length = 0
+  const ipc2 = createIpcModule(makeHost({ mainDestroyed: true, previewDestroyed: false }))
+  ipc2.broadcastMarketplaceChanged()
+  assert.equal(sent.length, 1)
+  assert.equal((sent[0] as { source: string }).source, 'preview')
+
+  // 3) Preview window destroyed → sends only to main
+  sent.length = 0
+  const ipc3 = createIpcModule(makeHost({ mainDestroyed: false, previewDestroyed: true }))
+  ipc3.broadcastMarketplaceChanged()
+  assert.equal(sent.length, 1)
+  assert.equal((sent[0] as { source: string }).source, 'main')
+
+  // 4) Both windows destroyed → sends to neither (no throw)
+  sent.length = 0
+  const ipc4 = createIpcModule(makeHost({ mainDestroyed: true, previewDestroyed: true }))
+  assert.doesNotThrow(() => { ipc4.broadcastMarketplaceChanged() })
+  assert.equal(sent.length, 0)
+})
