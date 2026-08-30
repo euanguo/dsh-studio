@@ -20,6 +20,7 @@ import type { LayoutService } from '@dsh-studio/shared/workbench-contracts'
 import { ToastHost } from '@dsh-studio/shared/toast'
 import { DialogHost } from './kit/dialog.tsx'
 import { SideToolsPanel } from './SideToolsPanel.tsx'
+import { createOverlayArbiter, OverlayArbiterProvider } from './selection/overlay-arbiter.tsx'
 import type { WorkspaceMessage } from './i18n.ts'
 import type { DesktopSidebarService } from './contract.ts'
 import {
@@ -527,21 +528,28 @@ function WorkspaceToolsSurface(props: {
   // (leaf-1.7); the roster itself is read fresh at render so the cwd-driven
   // open policy re-derives on session/workspace switches.
   useSyncExternalStore(props.sessions.currentProvideInfo.subscribe, props.sessions.currentProvideInfo.getSnapshot)
+  // The sidebar is its own surface: the file viewer's selection action bar
+  // (and comment rails) require an OverlayArbiterProvider. The center column
+  // surface mounts its own (CenterSurfaceHost); the sidebar must provide its
+  // own so `useOverlayArbiter` never throws outside a provider here.
+  const overlayArbiter = useMemo(() => createOverlayArbiter(), [])
   return (
-    <SideToolsPanel
-      cwd={cwd}
-      open={panelState.open}
-      width={panelState.width}
-      maximized={panelState.maximized}
-      sidebar={props.sidebar}
-      t={t}
-      onClose={() => { props.service.setOpen(false) }}
-      // Drag live-updates the DOM only (preview); pointerup commits the
-      // width through the store so publish/persist/claim happen once.
-      onResizePreview={width => { props.service.previewResizeWidth(width) }}
-      onResize={width => { props.service.commitResizeWidth(width) }}
-      onToggleMaximized={() => { props.service.togglePanelMaximized() }}
-      onToggleSide={() => { props.service.toggleSidePanel() }}
-    />
+    <OverlayArbiterProvider arbiter={overlayArbiter}>
+      <SideToolsPanel
+        cwd={cwd}
+        open={panelState.open}
+        width={panelState.width}
+        maximized={panelState.maximized}
+        sidebar={props.sidebar}
+        t={t}
+        onClose={() => { props.service.setOpen(false) }}
+        // Drag live-updates the DOM only (preview); pointerup commits the
+        // width through the store so publish/persist/claim happen once.
+        onResizePreview={width => { props.service.previewResizeWidth(width) }}
+        onResize={width => { props.service.commitResizeWidth(width) }}
+        onToggleMaximized={() => { props.service.togglePanelMaximized() }}
+        onToggleSide={() => { props.service.toggleSidePanel() }}
+      />
+    </OverlayArbiterProvider>
   )
 }
