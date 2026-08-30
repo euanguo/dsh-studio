@@ -333,6 +333,10 @@ const gatePseudo = (classes: readonly string[], pseudo: string): string =>
  * path and use this narrow fallback for the same navigation button. */
 const NAV_CELL_STABLE = ['button[class*="_navCell"]'] as const
 
+/** The left rail footer publishes this stable slot around its settings trigger.
+ * It survives the host CSS-module hash that names the button itself. */
+const SIDEBAR_SETTINGS_TRIGGER = ["[data-slot='sidebar.settings'] > button"] as const
+
 /** CARD 只含卡片**外壳**容器类：剔除内部内容/修饰子节点。CARD 的 34 个类里
  *  cardBody/cardContent/cardDesc/cardFoot/cardMain/cardHead……全是卡片内部节点，
  *  把它们当外壳套 radius/focus 会误伤——尤其 overflow:hidden 的文案节点会被
@@ -463,7 +467,7 @@ body[data-dsh-studio-skin] [role="menu"] [role="menuitem"] + [role="menuitem"] {
   margin-top: var(--gw-skin-gap-item);
 }
 
-${gate([...NAV_CELL, ...NAV_CELL_STABLE])} {
+${gate([...NAV_CELL, ...NAV_CELL_STABLE, ...SIDEBAR_SETTINGS_TRIGGER])} {
   box-sizing: border-box;
   height: auto;
   min-height: var(--gw-skin-row-h);

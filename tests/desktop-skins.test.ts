@@ -151,11 +151,14 @@ test('settings navigation keeps compact geometry across nav-cell hash changes', 
   // specificity or importance conflict, the port must consciously choose
   // between stacking more gate attributes and restoring force.
   assert.match(day.css, /(\[data-dsh-studio-skin\]){4} button\[class\*="_navCell"\]/)
-  const navBlock = day.css.match(/button\[class\*="_navCell"\]\s*\{([^}]*)\}/)?.[1]
-  assert.ok(navBlock, 'navCell rule block must exist')
-  assert.match(navBlock, /height: auto;/)
-  assert.match(navBlock, /border-radius: var\(--gw-skin-radius-row\);/)
-  assert.ok(!navBlock.includes('!important'), 'navCell geometry must not rely on force')
+  const navigationBlock = day.css.match(/button\[class\*="_navCell"\],[^{]+\{([^}]*)\}/)?.[1]
+  assert.ok(navigationBlock, 'navigation geometry rule block must exist')
+  assert.match(navigationBlock, /height: auto;/)
+  assert.match(navigationBlock, /border-radius: var\(--gw-skin-radius-row\);/)
+  assert.ok(!navigationBlock.includes('!important'), 'navigation geometry must not rely on force')
+  assert.match(day.css, /(\[data-dsh-studio-skin\]){4} \[data-slot='sidebar\.settings'\] > button/)
+  assert.match(navigationBlock, /min-height: var\(--gw-skin-row-h\);/)
+  assert.match(navigationBlock, /padding: var\(--gw-skin-row-pad\);/)
   assert.match(day.css, /(\[data-dsh-studio-skin\]){4} button\[aria-haspopup\]:has\(\[data-slot='settings\.trigger'\]\)/)
   const triggerBlock = day.css.match(/button\[aria-haspopup\]:has\(\[data-slot='settings\.trigger'\]\)\s*\{([^}]*)\}/)?.[1]
   assert.ok(triggerBlock, 'settings.trigger rule block must exist')
