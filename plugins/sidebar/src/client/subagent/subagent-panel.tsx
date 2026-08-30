@@ -93,9 +93,10 @@ export function SubagentPanel({
 
   const current = list.current
   const currentCwd = current === undefined ? undefined : list.byId[current]?.cwd
-  const scope = currentCwd === undefined
-    ? null
-    : { cwd: currentCwd }
+  const scope = useMemo(
+    () => currentCwd === undefined ? null : { cwd: currentCwd },
+    [currentCwd],
+  )
   const trees = buildSubagentTree(list)
   const jobs = jobRowsFor(list.jobsBySession, current ?? '')
   const hasTopology = trees.length > 0

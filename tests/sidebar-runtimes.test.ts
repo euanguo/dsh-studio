@@ -13,6 +13,10 @@ import {
   SourceControlRuntime,
   type SourceControlRuntimeOptions,
 } from '../plugins/sidebar/src/client/runtimes/source-control-runtime.ts'
+import {
+  SubagentJobsRuntime,
+  type JobsRuntimeTransport,
+} from '../plugins/sidebar/src/client/subagent/jobs-runtime.ts'
 
 /* ---------- WorkspaceExplorerRuntime ---------- */
 
@@ -120,6 +124,24 @@ function fakeSourceControlRuntime(): SourceControlRuntimeOptions['transport'] & 
     }),
   }
 }
+
+test('subagent jobs runtime: equal scopes do not reset its snapshot', () => {
+  const transport: JobsRuntimeTransport = {
+    jobOutput: async () => ({ text: '' }),
+    jobKill: async () => undefined,
+  }
+  const runtime = new SubagentJobsRuntime(transport)
+  let notifications = 0
+  const stop = runtime.subscribe(() => { notifications += 1 })
+  runtime.setScope({ cwd: '/ws' }, 'session-1')
+  const afterFirst = runtime.getSnapshot()
+  const firstNotifications = notifications
+  runtime.setScope({ cwd: '/ws' }, 'session-1')
+  assert.strictEqual(runtime.getSnapshot(), afterFirst)
+  assert.equal(notifications, firstNotifications)
+  stop()
+  runtime.dispose()
+})
 
 test('source-control runtime: ready snapshot short-circuits ensureLoaded', async () => {
   const transport = fakeSourceControlRuntime()

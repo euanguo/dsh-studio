@@ -48,7 +48,10 @@ export function CenterSurfaceTabs({
   // identity event classes onto the open set.
   useSyncExternalStore(sessions.currentProvideInfo.subscribe, sessions.currentProvideInfo.getSnapshot)
   const sessionList = sessions.list.getSnapshot()
-  const workspace = resolveCenterWorkspace(sessionList)
+  // Keep the sync effect below keyed to session-list publications, not to a
+  // fresh workspace object created by every render. The effect writes the
+  // center-surface store; store notifications must not re-arm that write loop.
+  const workspace = useMemo(() => resolveCenterWorkspace(sessionList), [sessionList])
   const current = workspace.status === 'ready' ? workspace.sessionId : undefined
   const cwd = workspace.status === 'ready' ? workspace.cwd : undefined
   const slice = useCenterSurfaceStore(state =>

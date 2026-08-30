@@ -175,6 +175,56 @@ test('conversation posture mirrors the left-rail status precedence', () => {
   assert.equal(dotOf({ completed: true }), 'done')
 })
 
+test('center sync effect reaches a fixed point for a new blank session', () => {
+  reset()
+  openConversation('old')
+  const previous = { status: 'ready' as const, cwd: CWD, sessionId: 'old', summary: { cwd: CWD } }
+  const nextList = {
+    current: 'new',
+    byId: {
+      old: { cwd: CWD },
+      new: { cwd: CWD, blank: true },
+    },
+  }
+  let notifications = 0
+  const stop = useCenterSurfaceStore.subscribe(() => { notifications += 1 })
+  const applySyncPass = (
+    prior: typeof previous | undefined,
+  ): Extract<ReturnType<typeof resolveCenterWorkspace>, { status: 'ready' }> => {
+    const workspace = resolveCenterWorkspace(nextList)
+    if (workspace.status !== 'ready') throw new Error('expected a ready workspace')
+    const state = useCenterSurfaceStore.getState()
+    const before = state.getSlice(CWD)
+    const currentId = conversationSurfaceId(workspace.sessionId)
+    const currentTabOpen = before.open.some(surface => surface.id === currentId)
+    const activeSurfaceExists = before.activeId !== null
+      && before.open.some(surface => surface.id === before.activeId)
+    const action = currentConversationSyncAction({
+      current: workspace,
+      previous: prior,
+      queueKnown: state.byCwd[CWD] !== undefined,
+      currentTabOpen,
+      activeSurfaceExists,
+    })
+    state.ensureCwd(CWD)
+    if (action === 'open') {
+      state.openConversation({ cwd: CWD, sessionId: workspace.sessionId, title: 'new', activate: true })
+    } else if (action === 'activate') {
+      state.activate(CWD, currentId)
+    } else if (workspace.summary.blank === true) {
+      state.deactivate(CWD)
+    }
+    return workspace
+  }
+  applySyncPass(previous)
+  const afterFirstPass = useCenterSurfaceStore.getState().getSlice(CWD)
+  const notificationsAfterFirstPass = notifications
+  applySyncPass(previous)
+  assert.strictEqual(useCenterSurfaceStore.getState().getSlice(CWD), afterFirstPass)
+  assert.equal(notifications, notificationsAfterFirstPass)
+  stop()
+})
+
 test('center sync seeds only unknown queues and handles same-project navigation', () => {
   const current = { status: 'ready' as const, cwd: '/ws', sessionId: 's-1', summary: { cwd: '/ws' } }
   assert.equal(currentConversationSyncAction({

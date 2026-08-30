@@ -61,10 +61,10 @@ export class SubagentJobsRuntime {
 
   setScope(scope: CapabilitiesScope | null, sessionId: string | null): void {
     this.assertOpen()
-    if (this.scope === scope
-      && this.scope !== null && this.sessionId === sessionId) {
-      return
-    }
+    const sameScope = this.scope === null
+      ? scope === null
+      : scope !== null && this.scope.cwd === scope.cwd
+    if (sameScope && this.sessionId === sessionId) return
     this.generation.next()
     this.inflightOutput.clear()
     this.scope = scope
