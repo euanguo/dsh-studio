@@ -198,9 +198,7 @@ jobs:
           grep -qx 'latest-mac.yml' local-assets.txt
 
       - name: Publish release
-        run: |
-          mapfile -t assets < <(find artifacts -maxdepth 1 -type f -print | sort)
-          gh release create "${{ github.ref_name }}" "${assets[@]}" --generate-notes
+        run: node scripts/publish-github-release.mjs --dir artifacts --tag "${{ github.ref_name }}"
         env:
           GH_TOKEN: ${{ github.token }}
 

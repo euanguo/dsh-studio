@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { tmpdir } from 'node:os'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { parse } from 'yaml'
+import { publishGitHubRelease, releaseAssets } from '../scripts/publish-github-release.mjs'
 import { validateReleaseTag } from '../scripts/validate-release-tag.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -39,6 +41,62 @@ test('tagged releases build and upload web and desktop distributions', () => {
       step.name === 'Package signed Windows desktop distribution',
   )
   assert.match(signedWindowsStep.env.CSC_LINK, /secrets\.WINDOWS_CSC_LINK/)
+
+  const publishStep = config.jobs.publish.steps.find(
+    (step: { name?: string }) => step.name === 'Publish release',
+  )
+  const releaseTagExpression = ['$', '{{ github.ref_name }}'].join('')
+  assert.equal(
+    publishStep.run,
+    `node scripts/publish-github-release.mjs --dir artifacts --tag "${releaseTagExpression}"`,
+  )
+  assert.match(publishStep.env.GH_TOKEN, /github\.token/)
+})
+
+test('release publishing creates new releases and replaces existing assets', () => {
+  const directory = mkdtempSync(join(tmpdir(), 'dsh-studio-release-assets-'))
+  try {
+    writeFileSync(join(directory, 'b.zip'), 'b')
+    writeFileSync(join(directory, 'a.zip'), 'a')
+    const assets = releaseAssets(directory)
+    assert.deepEqual(assets.map(asset => asset.slice(directory.length + 1)), ['a.zip', 'b.zip'])
+
+    const created: string[][] = []
+    assert.equal(publishGitHubRelease({
+      assets,
+      releaseExists: () => false,
+      run: (_command: string, args: string[]) => created.push(args),
+      tag: 'v0.1.4',
+    }), 'created')
+    assert.deepEqual(created, [[
+      'release',
+      'create',
+      'v0.1.4',
+      ...assets,
+      '--generate-notes',
+    ]])
+
+    const updated: string[][] = []
+    assert.equal(publishGitHubRelease({
+      assets,
+      releaseExists: () => true,
+      run: (_command: string, args: string[]) => updated.push(args),
+      tag: 'v0.1.4',
+    }), 'updated')
+    assert.deepEqual(updated, [[
+      'release',
+      'upload',
+      'v0.1.4',
+      ...assets,
+      '--clobber',
+    ]])
+    assert.throws(
+      () => publishGitHubRelease({ assets: [], releaseExists: () => false, run: () => {}, tag: 'v0.1.4' }),
+      /assets must not be empty/,
+    )
+  } finally {
+    rmSync(directory, { recursive: true, force: true })
+  }
 })
 
 test('dev macOS package builds only when manually dispatched', () => {
