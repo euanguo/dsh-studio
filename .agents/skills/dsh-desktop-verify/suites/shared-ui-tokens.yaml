@@ -1,0 +1,24 @@
+suite: dsh shared-ui token scoping
+description: >
+  Guards the theme.css bridge contract: every --dsh-studio-* custom property
+  that references a --dsw-alias-* token must be declared on body (never
+  :root). Custom properties compute on their declaring element, so a :root
+  bridge resolves before body-scoped DSW aliases exist and falls back to the
+  light literal forever — silently wrong colors in dark themes (seen as a
+  white Select popup with dark text). Bridge value must equal its alias on
+  body in any theme.
+cases:
+  - name: shadcn semantic bridge lives on body and resolves to its alias
+    assert:
+      # html must NOT carry the bridge (a non-empty value here means the
+      # declaration regressed into :root, where body-scoped aliases are
+      # invisible and the light fallback wins permanently).
+      - eval: "getComputedStyle(document.documentElement).getPropertyValue('--dsh-studio-ui-foreground').trim() === ''"
+      - eval: "(() => { const b = getComputedStyle(document.body); return b.getPropertyValue('--dsh-studio-ui-foreground').trim() === b.getPropertyValue('--dsw-alias-label-primary').trim(); })()"
+      - eval: "(() => { const b = getComputedStyle(document.body); return b.getPropertyValue('--dsh-studio-ui-card').trim() === b.getPropertyValue('--dsw-alias-bg-layer-1').trim(); })()"
+      - eval: "(() => { const b = getComputedStyle(document.body); return b.getPropertyValue('--dsh-studio-ui-destructive').trim() === b.getPropertyValue('--dsw-alias-state-error-primary').trim(); })()"
+  - name: surface bridges live on body and resolve to their aliases
+    assert:
+      - eval: "(() => { const b = getComputedStyle(document.body); return b.getPropertyValue('--dsh-studio-surface-tab-bg-hover').trim() === b.getPropertyValue('--dsw-alias-interactive-bg-hover').trim(); })()"
+      - eval: "(() => { const b = getComputedStyle(document.body); return b.getPropertyValue('--dsh-studio-diff-add-fg').trim() === b.getPropertyValue('--dsw-alias-state-success-primary').trim(); })()"
+      - eval: "(() => { const b = getComputedStyle(document.body); return b.getPropertyValue('--dsh-studio-accent').trim() === b.getPropertyValue('--dsw-alias-brand-primary-new-colorprimary-new-color').trim(); })()"
