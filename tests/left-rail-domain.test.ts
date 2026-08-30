@@ -9,7 +9,8 @@ import { createRailController } from '../plugins/desktop-left-rail/src/client/ra
 
 const project: ProjectNode = {
   key: '/repo', repoRoot: '/repo', label: 'repo', isGit: true, mainBranch: 'main',
-  worktrees: [], worktreeCount: 0, expanded: false, containsCurrent: false,
+  worktrees: [], worktreeCount: 0, activity: { waiting: 0, running: 0, completed: 0 },
+  expanded: false, containsCurrent: false,
 }
 
 function session(id: string, running = false): SessionNode {
@@ -22,7 +23,8 @@ function session(id: string, running = false): SessionNode {
 function worktree(overrides: Partial<WorktreeNode> = {}): WorktreeNode {
   return {
     key: '/repo-feature', path: '/repo-feature', label: 'feature', branch: 'feature', main: false,
-    workspaceIds: [], sessions: [], sessionCount: 0, expanded: false, containsCurrent: false,
+    workspaceIds: [], sessions: [], sessionCount: 0,
+    activity: { waiting: 0, running: 0, completed: 0 }, expanded: false, containsCurrent: false,
     ...overrides,
   }
 }

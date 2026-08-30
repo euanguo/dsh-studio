@@ -1,28 +1,24 @@
 /**
- * The workspace-browser viewing bodies: grouped session tree, flat list,
- * search results and the view-options menu, plus their shared order/recency
- * helpers. Split from WorkspaceBrowser.tsx so the browsing region owner keeps
- * only composition, persistence and dialog wiring.
+ * The workspace-browser viewing bodies: flat list, search results and the
+ * view-options menu, plus their shared order/recency helpers. Split from
+ * WorkspaceBrowser.tsx so the browsing region owner keeps only composition,
+ * persistence and dialog wiring.
  */
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { Menu, Tooltip, IconPersonalizationOutline16 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
-  SessionId, SessionSearchResultItem, WorkspaceId, WorkspaceView,
+  SessionId, SessionSearchResultItem, WorkspaceView,
 } from '@deepseek-ai/dsh-client-runtime/client'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 import type { SessionNode, SessionOrderBy } from './tree.ts'
-import { deriveFlat, deriveGroups, deriveSearchResults, groupExpansionKeyOf, UNGROUPED_KEY } from './tree.ts'
-import { nextSessionOrderAccount, reconciledSessionOrder } from './session-order.ts'
-import { ProjectRowItem, SearchResultItem, SessionNodeItem } from './rows/Rows.tsx'
+import { deriveFlat, deriveSearchResults } from './tree.ts'
+import { insertSessionInOrder, nextSessionOrderAccount, reconciledSessionOrder } from './session-order.ts'
+import { SearchResultItem, SessionNodeItem } from './rows/Rows.tsx'
 import { FLAT_SESSION_ORDER_KEY } from './stores.ts'
-import { WorkspaceBrowserCss as css } from './styles.js'
+import { WorkspaceBrowserCss as css } from './styles.ts'
 import { cn } from './shim/cn.ts'
-import { EmptyState, LoadingState, StatusLine } from '@dsh-studio/shared/ui'
-
-/** Immutable membership toggle for the local expand-all array. */
-function toggled(list: readonly string[], key: string): string[] {
-  return list.includes(key) ? list.filter(k => k !== key) : [...list, key]
-}
+import { EmptyState, LoadingState, ScrollArea, StatusLine } from '@dsh-studio/shared/ui'
 
 /**
  * Accept the native drag at document level while a row drag is active: row
@@ -95,409 +91,56 @@ export function ViewOptionsMenu({ groupBy, orderBy, onGroupPick, onOrderPick, t 
   )
 }
 
-/** In-flight root-row drag: source identity plus the current insert marker. */
-interface DragState {
-  /** Workspace id, or {@link UNGROUPED_KEY} for the browser-local loose-session account. */
-  accountKey: string
-  sessionId: SessionNode['id']
-  /** Row the marker sits on and which half (insert above/below it). */
-  over: { id: SessionNode['id']; half: 'before' | 'after' } | null
-}
-
-/** In-flight Workspace-row drag: source identity plus the current marker. */
-interface WorkspaceDragState {
-  workspaceId: WorkspaceId
-  over: { id: WorkspaceId; half: 'before' | 'after' } | null
-}
-
-/** Resolve an insertion side from the full rendered workspace group. */
-function workspaceGroupHalf(e: { clientY: number; currentTarget: HTMLElement }): 'before' | 'after' {
-  const rect = e.currentTarget.getBoundingClientRect()
-  return e.clientY < rect.top + rect.height / 2 ? 'before' : 'after'
-}
-
-export type SessionTreeProps = Pick<
-  WorkspaceBrowserProps,
-  'useSessions' | 'startSession' | 'open' | 'forkSession'
-  | 'insertWorkspaceBefore' | 'insertSessionBefore' | 't'
-> & {
-  workspaces: readonly WorkspaceView[]
-  /** Explicit persisted zero-or-five-session state by Workspace group. */
-  groupExpansion: Readonly<Record<string, boolean>>
-  /** Persist one Workspace group's zero-or-five-session state. */
-  setGroupExpanded: (key: string, expanded: boolean) => void
-  /** Shared editable orders used by Workspace groups and the flat-list account. */
+/** Props shared by the flat-list and search-query viewing bodies. */
+export interface BrowserViewProps {
+  /** Session-list snapshot hook (the visibility authority for these bodies). */
+  useSessions: WorkspaceBrowserProps['useSessions']
+  open: WorkspaceBrowserProps['open']
+  forkSession: WorkspaceBrowserProps['forkSession']
+  /** Open the browser-owned session rename dialog (row menu action). */
+  onSessionRename: (sessionId: SessionId, currentTitle: string) => void
+  /** Archive a session (row menu action; the row disappears on the state echo). */
+  onSessionArchive: (sessionId: SessionId) => void
+  /** Registry-global archive set (hidden rows). */
+  archivedSessionIds: readonly SessionId[]
+  /** Session order behavior: fixed after edits, or additionally promoted by user activity. */
+  orderBy: SessionOrderBy
+  /** Shared editable order for the flat-list account. */
   sessionOrderByAccount: Readonly<Record<string, readonly string[]>>
-  /** Last update timestamps observed for one-time recent-update promotions. */
+  /** Last observed update timestamps per order account for one-time promotion events. */
   sessionUpdatedAtByAccount: Readonly<Record<string, Readonly<Record<string, number>>>>
   /** Replace one shared order and its observed timestamps. */
   syncSessionOrderAccount: (accountKey: string, order: string[], updatedAt: Record<string, number>) => void
   /** Apply a drag to one shared order. */
   setSessionOrder: (accountKey: string, order: string[]) => void
-  /** Registry-global archive set (hidden rows). */
-  archivedSessionIds: readonly SessionNode['id'][]
-  /** Open the browser-owned rename dialog for a real Workspace group. */
-  onRenameRequest: (workspaceId: WorkspaceId, currentTitle: string) => void
-  /** Open the browser-owned delete-confirmation dialog for a real Workspace group. */
-  onDeleteRequest: (workspaceId: WorkspaceId, currentTitle: string) => void
-  /** Open the browser-owned session rename dialog. */
-  onSessionRename: (sessionId: SessionNode['id'], currentTitle: string) => void
-  /** Archive a session (row menu action; the row disappears on the state echo). */
-  onSessionArchive: (sessionId: SessionNode['id']) => void
-  /** Session order behavior: fixed after edits, or additionally promoted by user activity. */
-  orderBy: SessionOrderBy
+  t: WorkspaceBrowserProps['t']
 }
 
-/** The scrolling session tree; unmounting drops the sessions subscription and expand-all state. */
-export function SessionTree({
-  useSessions, startSession, open, forkSession, workspaces, archivedSessionIds,
-  onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive,
-  insertWorkspaceBefore, insertSessionBefore, orderBy,
-  groupExpansion, setGroupExpanded,
-  sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t,
-}: SessionTreeProps) {
-  const list = useSessions(s => s)
-  const current = list.current
-  const [expandedSessionGroups, setExpandedSessionGroups] = useState<string[]>([])
-  // Transient drag marker state; the selected mode owns the resulting order.
-  const [drag, setDrag] = useState<DragState | null>(null)
-  const sessionDropCommitted = useRef(false)
-  const [workspaceDrag, setWorkspaceDrag] = useState<WorkspaceDragState | null>(null)
-  const workspaceDropCommitted = useRef(false)
-  const previousOrderBy = useRef(orderBy)
-  const nativeDragActive = drag !== null || workspaceDrag !== null
-  useNativeDragAcceptance(nativeDragActive)
-  const currentGroup = current === undefined
-    ? undefined
-    : (workspaces.find(w => w.sessionIds.includes(current))?.workspaceId as string | undefined)
-      ?? UNGROUPED_KEY
-  useEffect(() => {
-    if (current === undefined || currentGroup === undefined) return
-    const key = groupExpansionKeyOf(currentGroup)
-    if (Object.hasOwn(groupExpansion, key)) return
-    setGroupExpanded(key, true)
-  }, [current, currentGroup, setGroupExpanded, groupExpansion])
-  const expandedGroups = useMemo(
-    () => Object.entries(groupExpansion).filter(([, expanded]) => expanded).map(([key]) => key),
-    [groupExpansion],
-  )
-  const ungroupedSessionIds = useMemo(() => {
-    const accounted = new Set(workspaces.flatMap(workspace => workspace.sessionIds))
-    return list.ids.filter(id => list.byId[id] !== undefined && !accounted.has(id))
-  }, [list, workspaces])
-  useEffect(() => {
-    if (list.phase !== 'ready') return
-    const switchedToUpdated = previousOrderBy.current !== 'updated' && orderBy === 'updated'
-    previousOrderBy.current = orderBy
-    const accounts = [
-      ...workspaces.map(workspace => ({
-        key: workspace.workspaceId as string,
-        sessionIds: workspace.sessionIds.filter(id => list.byId[id] !== undefined),
-      })),
-      { key: UNGROUPED_KEY, sessionIds: ungroupedSessionIds },
-    ]
-    for (const { key, sessionIds } of accounts) {
-      const previousOrder = sessionOrderByAccount[key]
-      const previousUpdatedAt = sessionUpdatedAtByAccount[key] ?? {}
-      const next = nextSessionOrderAccount({
-        sessionIds,
-        previousOrder,
-        previousUpdatedAt,
-        list,
-        orderBy,
-        sortByRecency: orderBy === 'updated' && (previousOrder === undefined || switchedToUpdated),
-      })
-      if (next.changed) {
-        syncSessionOrderAccount(key, next.order.map(id => id as string), next.updatedAt)
-      }
-    }
-  }, [list, orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, ungroupedSessionIds, workspaces])
-  const orderedWorkspaces = useMemo(() => {
-    return workspaces.map((workspace) => {
-      const stored = sessionOrderByAccount[workspace.workspaceId as string]
-      const sessionIds = reconciledSessionOrder(workspace.sessionIds, stored)
-      return { ...workspace, sessionIds }
-    })
-  }, [sessionOrderByAccount, workspaces])
-  const orderedUngroupedSessionIds = useMemo(
-    () => reconciledSessionOrder(ungroupedSessionIds, sessionOrderByAccount[UNGROUPED_KEY]),
-    [sessionOrderByAccount, ungroupedSessionIds],
-  )
-  const groups = useMemo(
-    () => deriveGroups(list, orderedWorkspaces, archivedSessionIds, {
-      expandedGroups,
-      ...(sessionOrderByAccount[UNGROUPED_KEY] === undefined
-        ? {}
-        : { ungroupedOrder: sessionOrderByAccount[UNGROUPED_KEY] }),
-    }),
-    [list, orderedWorkspaces, archivedSessionIds, expandedGroups, sessionOrderByAccount],
-  )
-  const now = Date.now()
-  const commitSessionDrag = (activeDrag: DragState, over: NonNullable<DragState['over']>): void => {
-    if (sessionDropCommitted.current) return
-    sessionDropCommitted.current = true
-    setDrag(null)
-    const group = groups.find(candidate => candidate.key === activeDrag.accountKey)
-    if (group === undefined) return
-    const targetIndex = group.sessions.findIndex(session => session.id === over.id)
-    if (targetIndex === -1) return
-    const anchor = over.half === 'before' ? over.id : group.sessions[targetIndex + 1]?.id
-    if (anchor === activeDrag.sessionId) return
-    const sourceIndex = group.sessions.findIndex(session => session.id === activeDrag.sessionId)
-    const anchorIndex = anchor === undefined
-      ? group.sessions.length
-      : group.sessions.findIndex(session => session.id === anchor)
-    if (sourceIndex !== -1 && (anchorIndex === sourceIndex || anchorIndex === sourceIndex + 1)) return
-    const accountSessionIds = activeDrag.accountKey === UNGROUPED_KEY
-      ? orderedUngroupedSessionIds
-      : orderedWorkspaces.find(workspace => workspace.workspaceId === activeDrag.accountKey)?.sessionIds
-    if (accountSessionIds === undefined) return
-    const nextOrder = accountSessionIds.filter(id => id !== activeDrag.sessionId)
-    const insertAt = anchor === undefined ? nextOrder.length : nextOrder.indexOf(anchor)
-    nextOrder.splice(insertAt === -1 ? nextOrder.length : insertAt, 0, activeDrag.sessionId)
-    setSessionOrder(activeDrag.accountKey, nextOrder.map(id => id as string))
-    if (orderBy === 'updated' || activeDrag.accountKey === UNGROUPED_KEY) return
-    insertSessionBefore(activeDrag.accountKey as WorkspaceId, activeDrag.sessionId, anchor).catch((reason: unknown) => {
-      console.warn('session reorder rejected:', reason)
-    })
-  }
-  const commitWorkspaceDrag = (
-    activeDrag: WorkspaceDragState,
-    over: NonNullable<WorkspaceDragState['over']>,
-  ): void => {
-    if (workspaceDropCommitted.current) return
-    workspaceDropCommitted.current = true
-    setWorkspaceDrag(null)
-    const rowIndex = workspaces.findIndex(workspace => workspace.workspaceId === over.id)
-    if (rowIndex === -1) return
-    const anchor = over.half === 'before' ? over.id : workspaces[rowIndex + 1]?.workspaceId
-    if (anchor === activeDrag.workspaceId) return
-    const sourceIndex = workspaces.findIndex(workspace => workspace.workspaceId === activeDrag.workspaceId)
-    const anchorIndex = anchor === undefined
-      ? workspaces.length
-      : workspaces.findIndex(workspace => workspace.workspaceId === anchor)
-    if (sourceIndex !== -1 && (anchorIndex === sourceIndex || anchorIndex === sourceIndex + 1)) return
-    insertWorkspaceBefore(activeDrag.workspaceId, anchor).catch((reason: unknown) => {
-      console.warn('workspace reorder rejected:', reason)
-    })
-  }
-  const workspaceDropAtListStart = groups[0]?.workspaceId !== undefined
-    && workspaceDrag?.over?.id === groups[0].workspaceId
-    && workspaceDrag.over.half === 'before'
-
-  // Keyboard reorder twin of session drag: swap one slot up/down in the
-  // account order. Real workspace accounts persist through the host in
-  // manual mode (same posture as drag); ungrouped and updated-order stays
-  // browser-local.
-  const moveSessionInAccount = (
-    accountKey: string,
-    sessionId: SessionNode['id'],
-    verb: 'up' | 'down',
-  ): void => {
-    const account = sessionOrderByAccount[accountKey]
-    if (account === undefined) return
-    const index = account.indexOf(sessionId as string)
-    if (index === -1) return
-    const swap = verb === 'up' ? index - 1 : index + 1
-    if (swap < 0 || swap >= account.length) return
-    const next = [...account]
-    const moving = next[index]
-    const displaced = next[swap]
-    if (moving === undefined || displaced === undefined) return
-    next[index] = displaced
-    next[swap] = moving
-    setSessionOrder(accountKey, next)
-    if (orderBy === 'manual' && accountKey !== UNGROUPED_KEY) {
-      insertSessionBefore(accountKey as WorkspaceId, sessionId, next[swap + 1] as SessionId | undefined)
-        .catch((reason: unknown) => {
-          console.warn('session reorder rejected:', reason)
-        })
-    }
-  }
-
-  return (
-    <div className={cn(css.treeBody, css.wide)}>
-      {workspaceDropAtListStart && <span className={css.listTopDropIndicator} aria-hidden="true" />}
-      <div
-        className={cn(css.list, workspaceDropAtListStart && css.listTopDropActive)}
-        role="tree"
-        aria-label={t('section.sessions')}
-      >
-        {groups.length === 0 && (
-          <EmptyState className={css.empty} title={t('empty.none')} />
-        )}
-        {groups.map((group) => {
-          const workspaceId = group.workspaceId
-          const workspaceMarker = workspaceId !== undefined && workspaceDrag?.over?.id === workspaceId
-            ? workspaceDrag.over.half
-            : null
-          const workspaceDragProps = workspaceId === undefined ? undefined : {
-            start: () => {
-              workspaceDropCommitted.current = false
-              setWorkspaceDrag({ workspaceId, over: null })
-            },
-            end: () => {
-              if (workspaceDrag?.over !== null && workspaceDrag?.over !== undefined) {
-                commitWorkspaceDrag(workspaceDrag, workspaceDrag.over)
-              } else {
-                setWorkspaceDrag(null)
-              }
-              workspaceDropCommitted.current = false
-            },
-          }
-          const hoverWorkspace = workspaceId === undefined
-            ? undefined
-            : (half: 'before' | 'after') => {
-              setWorkspaceDrag(active => active === null
-                ? active
-                : { ...active, over: { id: workspaceId, half } })
-            }
-          const dropWorkspace = workspaceId === undefined
-            ? undefined
-            : (half: 'before' | 'after') => {
-              if (workspaceDrag === null) return
-              commitWorkspaceDrag(workspaceDrag, { id: workspaceId, half })
-            }
-          return (
-          // Group section: header row + expanded top-level session rows. The
-          // inter-group breathing room is the section's own margin
-          // (WorkspaceBrowser.module.css).
-            <div
-              key={group.key}
-              className={cn(
-                css.groupSection,
-                workspaceMarker === 'before' && css.workspaceDropBefore,
-                workspaceMarker === 'after' && css.workspaceDropAfter,
-              )}
-              onDragOver={workspaceDrag === null || hoverWorkspace === undefined
-                ? undefined
-                : (e) => {
-                  e.preventDefault()
-                  e.dataTransfer.dropEffect = 'move'
-                  hoverWorkspace(workspaceGroupHalf(e))
-                }}
-              onDrop={workspaceDrag === null || dropWorkspace === undefined
-                ? undefined
-                : (e) => {
-                  e.preventDefault()
-                  dropWorkspace(workspaceGroupHalf(e))
-                }}
-            >
-              <ProjectRowItem
-                group={group}
-                t={t}
-                onToggle={() => {
-                  if (group.expanded) {
-                    setExpandedSessionGroups(keys => keys.filter(key => key !== group.key))
-                  }
-                  setGroupExpanded(groupExpansionKeyOf(group.key), !group.expanded)
-                }}
-                onCreate={() => {
-                  if (group.workspaceId !== undefined) {
-                    setGroupExpanded(groupExpansionKeyOf(group.key), true)
-                    startSession(group.workspaceId)
-                  }
-                }}
-                drag={workspaceDragProps}
-                actions={group.workspaceId === undefined
-                  ? undefined
-                  : {
-                    rename: () => {
-                    /* v8 ignore next -- narrowing guard: the actions object exists only for real-workspace groups. */
-                      if (group.workspaceId !== undefined) onRenameRequest(group.workspaceId, group.label)
-                    },
-                    delete: () => {
-                    /* v8 ignore next -- narrowing guard: the actions object exists only for real-workspace groups. */
-                      if (group.workspaceId !== undefined) onDeleteRequest(group.workspaceId, group.label)
-                    },
-                  }}
-              />
-              {(expandedSessionGroups.includes(group.key)
-                ? group.sessions
-                : group.sessions.slice(0, COLLAPSED_SESSION_LIMIT)
-              ).map((node) => {
-              // Session drag never leaves its group. Ungrouped writes only the
-              // browser-local account; real Workspaces may also write Host order.
-                const sameGroupDrag = drag !== null && drag.accountKey === group.key
-                const dragProps = {
-                  start: () => {
-                    sessionDropCommitted.current = false
-                    setDrag({ accountKey: group.key, sessionId: node.id, over: null })
-                  },
-                  active: sameGroupDrag,
-                  marker: sameGroupDrag && drag.over?.id === node.id ? drag.over.half : null,
-                  hover: (half: 'before' | 'after') => {
-                  /* v8 ignore next -- narrowing guard: Rows gates hover on `active`, which is false while the drag state is null. */
-                    setDrag(d => (d === null ? d : { ...d, over: { id: node.id, half } }))
-                  },
-                  drop: (half: 'before' | 'after') => {
-                  /* v8 ignore next -- narrowing guard: Rows gates drop on `active`, which is false while the drag state is null. */
-                    if (drag === null) return
-                    commitSessionDrag(drag, { id: node.id, half })
-                  },
-                  end: () => {
-                    if (drag?.over !== null && drag?.over !== undefined) commitSessionDrag(drag, drag.over)
-                    else setDrag(null)
-                    sessionDropCommitted.current = false
-                  },
-                }
-                return (
-                  <SessionNodeItem
-                    key={node.id}
-                    node={node}
-                    currentId={current}
-                    now={now}
-                    onOpen={open}
-                    onRename={onSessionRename}
-                    onFork={forkSession}
-                    onArchive={onSessionArchive}
-                    onMove={verb => { moveSessionInAccount(group.key, node.id, verb) }}
-                    drag={dragProps}
-                    t={t}
-                  />
-                )
-              })}
-              {group.sessions.length > COLLAPSED_SESSION_LIMIT && (
-                <button
-                  type="button"
-                  className={css.sessionOverflowButton}
-                  aria-expanded={expandedSessionGroups.includes(group.key)}
-                  onClick={() => { setExpandedSessionGroups(keys => toggled(keys, group.key)) }}
-                >
-                  {expandedSessionGroups.includes(group.key)
-                    ? t('sessions.collapse')
-                    : t('sessions.expand', { n: group.sessions.length - COLLAPSED_SESSION_LIMIT })}
-                </button>
-              )}
-            </div>
-          )
-        })}
-      </div>
-      <span className={css.fade} />
-    </div>
-  )
+/** In-flight flat-list row drag: source identity plus the current insert marker. */
+interface FlatDragState {
+  sessionId: SessionId
+  /** Row the marker sits on and which half (insert above/below it). */
+  over: { id: SessionId; half: 'before' | 'after' } | null
 }
 
 /** The flat "In one list" body: every session is one draggable top-level row. */
 export function FlatList({
   useSessions, open, forkSession, onSessionRename, onSessionArchive, archivedSessionIds,
   orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t,
-}: Pick<
-  SessionTreeProps,
-  | 'useSessions'
-  | 'open'
-  | 'forkSession'
-  | 'onSessionRename'
-  | 'onSessionArchive'
-  | 'archivedSessionIds'
-  | 'orderBy'
-  | 'sessionOrderByAccount'
-  | 'sessionUpdatedAtByAccount'
-  | 'syncSessionOrderAccount'
-  | 'setSessionOrder'
-  | 't'
->) {
-  const list = useSessions(s => s)
+}: BrowserViewProps) {
+  // Per-field subscriptions: an identity selector would re-render the whole
+  // list on every unrelated store change.
+  const byId = useSessions(s => s.byId)
+  const ids = useSessions(s => s.ids)
+  const current = useSessions(s => s.current)
+  const phase = useSessions(s => s.phase)
+  const subagentsByParent = useSessions(s => s.subagentsByParent)
+  const jobsBySession = useSessions(s => s.jobsBySession)
+  const currentAddress = useSessions(s => s.currentAddress)
+  const list = useMemo(
+    () => ({ byId, ids, current, phase, subagentsByParent, jobsBySession, currentAddress }),
+    [byId, ids, current, phase, subagentsByParent, jobsBySession, currentAddress],
+  )
   const baseRows = useMemo(
     () => deriveFlat(list, archivedSessionIds),
     [list, archivedSessionIds],
@@ -530,10 +173,10 @@ export function FlatList({
         return row === undefined ? [] : [row]
       })
   }, [baseRows, sessionOrderByAccount, sessionIds])
-  const [drag, setDrag] = useState<DragState | null>(null)
+  const [drag, setDrag] = useState<FlatDragState | null>(null)
   const dropCommitted = useRef(false)
   useNativeDragAcceptance(drag !== null)
-  const commitDrag = (activeDrag: DragState, over: NonNullable<DragState['over']>): void => {
+  const commitDrag = (activeDrag: FlatDragState, over: NonNullable<FlatDragState['over']>): void => {
     if (dropCommitted.current) return
     dropCommitted.current = true
     setDrag(null)
@@ -544,9 +187,13 @@ export function FlatList({
     const sourceIndex = rows.findIndex(row => row.id === activeDrag.sessionId)
     const anchorIndex = anchor === undefined ? rows.length : rows.findIndex(row => row.id === anchor)
     if (sourceIndex !== -1 && (anchorIndex === sourceIndex || anchorIndex === sourceIndex + 1)) return
-    const nextOrder = rows.map(row => row.id).filter(id => id !== activeDrag.sessionId)
-    const insertAt = anchor === undefined ? nextOrder.length : nextOrder.indexOf(anchor)
-    nextOrder.splice(insertAt === -1 ? nextOrder.length : insertAt, 0, activeDrag.sessionId)
+    // Same insert-before-anchor semantics as every order surface
+    // (session-order.ts insertSessionInOrder).
+    const nextOrder = insertSessionInOrder(
+      rows.map(row => row.id),
+      activeDrag.sessionId,
+      anchor,
+    )
     setSessionOrder(FLAT_SESSION_ORDER_KEY, nextOrder.map(id => id as string))
   }
   // Keyboard reorder twin of drag in the flat list (browser-local account).
@@ -555,61 +202,94 @@ export function FlatList({
     if (account === undefined) return
     const index = account.indexOf(sessionId as string)
     if (index === -1) return
-    const swap = verb === 'up' ? index - 1 : index + 1
-    if (swap < 0 || swap >= account.length) return
-    const next = [...account]
-    const moving = next[index]
-    const displaced = next[swap]
-    if (moving === undefined || displaced === undefined) return
-    next[index] = displaced
-    next[swap] = moving
-    setSessionOrder(FLAT_SESSION_ORDER_KEY, next)
+    const neighbor = verb === 'up' ? account[index - 1] : account[index + 1]
+    if (neighbor === undefined) return
+    const anchor = verb === 'up' ? neighbor : account[index + 2]
+    const nextOrder = insertSessionInOrder(account as readonly SessionId[], sessionId as SessionId, anchor as SessionId)
+    setSessionOrder(FLAT_SESSION_ORDER_KEY, nextOrder.map(id => id as string))
   }
   const now = Date.now()
+  // The flat list is the unbounded session stream (the group view owns its
+  // per-group overflow crop), so its rows are virtualized
+  // with @tanstack/react-virtual: the ScrollArea ref is the scrolling
+  // viewport, and each row's 2px inter-row rhythm (previously a `.flatList
+  // > * + *` sibling margin) is folded into the fixed item size — absolute
+  // items ignore sibling margins, and the rows are uniform 30px.
+  const scrollRef = useRef<HTMLDivElement | null>(null)
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => SESSION_ROW_ITEM_SIZE,
+    overscan: 12,
+    getItemKey: index => rows[index]?.id ?? index,
+  })
+  const virtualRows = virtualizer.getVirtualItems()
   return (
     <div className={cn(css.treeBody, css.wide)}>
-      <div className={cn(css.list, css.flatList)} role="tree" aria-label={t('section.sessions')}>
+      <ScrollArea
+        ref={scrollRef}
+        className={css.listScroll}
+        viewportClassName={css.list}
+        viewportProps={{ role: 'tree', 'aria-label': t('section.sessions') }}
+      >
         {rows.length === 0 && (
           <EmptyState className={css.empty} title={t('empty.none')} />
         )}
-        {rows.map((node) => {
-          const active = drag !== null
-          return (
-            <SessionNodeItem
-              key={node.id}
-              node={node}
-              currentId={list.current}
-              now={now}
-              onOpen={open}
-              onRename={onSessionRename}
-              onFork={forkSession}
-              onArchive={onSessionArchive}
-              onMove={verb => { moveFlatSession(node.id, verb) }}
-              flat
-              drag={{
-                start: () => {
-                  dropCommitted.current = false
-                  setDrag({ accountKey: FLAT_SESSION_ORDER_KEY, sessionId: node.id, over: null })
-                },
-                active,
-                marker: active && drag.over?.id === node.id ? drag.over.half : null,
-                hover: (half) => {
-                  setDrag(current => current === null ? current : { ...current, over: { id: node.id, half } })
-                },
-                drop: (half) => {
-                  if (drag !== null) commitDrag(drag, { id: node.id, half })
-                },
-                end: () => {
-                  if (drag?.over !== null && drag?.over !== undefined) commitDrag(drag, drag.over)
-                  else setDrag(null)
-                  dropCommitted.current = false
-                },
-              }}
-              t={t}
-            />
-          )
-        })}
-      </div>
+        <div
+          style={{ height: virtualizer.getTotalSize(), position: 'relative', width: '100%' }}
+        >
+          {virtualRows.map((virtualRow) => {
+            const node = rows[virtualRow.index]
+            if (node === undefined) return null
+            return (
+              <div
+                key={virtualRow.key}
+                data-index={virtualRow.index}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: virtualRow.size,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}
+              >
+                <SessionNodeItem
+                  node={node}
+                  currentId={list.current}
+                  now={now}
+                  onOpen={open}
+                  onRename={onSessionRename}
+                  onFork={forkSession}
+                  onArchive={onSessionArchive}
+                  onMove={verb => { moveFlatSession(node.id, verb) }}
+                  flat
+                  drag={{
+                    start: () => {
+                      dropCommitted.current = false
+                      setDrag({ sessionId: node.id, over: null })
+                    },
+                    active: drag !== null,
+                    marker: drag !== null && drag.over?.id === node.id ? drag.over.half : null,
+                    hover: (half) => {
+                      setDrag(current => current === null ? current : { ...current, over: { id: node.id, half } })
+                    },
+                    drop: (half) => {
+                      if (drag !== null) commitDrag(drag, { id: node.id, half })
+                    },
+                    end: () => {
+                      if (drag?.over !== null && drag?.over !== undefined) commitDrag(drag, drag.over)
+                      else setDrag(null)
+                      dropCommitted.current = false
+                    },
+                  }}
+                  t={t}
+                />
+              </div>
+            )
+          })}
+        </div>
+      </ScrollArea>
       <span className={css.fade} />
     </div>
   )
@@ -633,7 +313,7 @@ export function SearchResults({
   resultLimit,
   header,
   t,
-}: Pick<SessionTreeProps, 'useSessions' | 'open' | 't'> & {
+}: Pick<BrowserViewProps, 'useSessions' | 'open' | 't'> & {
   workspaces: readonly WorkspaceView[]
   archivedSessionIds: readonly SessionNode['id'][]
   query: string
@@ -642,10 +322,28 @@ export function SearchResults({
   /** Optional block rendered above the session rows (project matches). */
   header?: ReactNode
 }) {
-  const list = useSessions(s => s)
-  const currentRemote = remote.query === query
-    ? remote
-    : { query, status: 'loading' as const, items: [], hasMore: false }
+  // Per-field subscriptions: an identity selector would re-render the whole
+  // search view on every unrelated store change.
+  const byId = useSessions(s => s.byId)
+  const ids = useSessions(s => s.ids)
+  const current = useSessions(s => s.current)
+  const phase = useSessions(s => s.phase)
+  const subagentsByParent = useSessions(s => s.subagentsByParent)
+  const jobsBySession = useSessions(s => s.jobsBySession)
+  const currentAddress = useSessions(s => s.currentAddress)
+  const list = useMemo(
+    () => ({ byId, ids, current, phase, subagentsByParent, jobsBySession, currentAddress }),
+    [byId, ids, current, phase, subagentsByParent, jobsBySession, currentAddress],
+  )
+  // Stable reference when the remote page still matches the query, so the
+  // derive memo below only re-runs when the query or the page actually moves
+  // (the fallback "loading" projection is memoized once per query mismatch).
+  const currentRemote = useMemo<RemoteSearchState>(
+    () => remote.query === query
+      ? remote
+      : { query, status: 'loading' as const, items: [], hasMore: false },
+    [query, remote],
+  )
   const results = useMemo(
     () => deriveSearchResults(list, workspaces, query, archivedSessionIds, currentRemote, resultLimit),
     [list, workspaces, query, archivedSessionIds, currentRemote, resultLimit],
@@ -655,7 +353,7 @@ export function SearchResults({
 
   return (
     <div className={cn(css.treeBody, css.wide)}>
-      <div className={css.list}>
+      <ScrollArea className={css.listScroll} viewportClassName={css.list}>
         {header}
         <div className={css.searchTree} role="tree" aria-label={t('search.results.aria')}>
           {results.items.map(result => (
@@ -678,11 +376,12 @@ export function SearchResults({
             {t('search.hasMore', { n: resultLimit })}
           </div>
         )}
-      </div>
+      </ScrollArea>
       <span className={css.fade} />
     </div>
   )
 }
 
-/** Session rows visible per group/worktree before the local overflow control. */
-export const COLLAPSED_SESSION_LIMIT = 5
+/** Virtualized flat-list item size: 30px row + 2px inter-row rhythm
+ *  (the rhythm was a sibling margin before virtualization). */
+export const SESSION_ROW_ITEM_SIZE = 32

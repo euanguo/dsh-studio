@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { TerminalResizeHold } from '../plugins/shared/terminal-resize-hold.ts'
+import { TerminalResizeHold } from '../plugins/shared/terminal/terminal-resize-hold.ts'
 
 function scheduler() {
   const callbacks: Array<() => void> = []

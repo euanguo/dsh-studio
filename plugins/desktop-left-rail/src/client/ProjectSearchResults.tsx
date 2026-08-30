@@ -9,7 +9,7 @@ import { useMemo } from 'react'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 import type { LeftRailSnapshot } from './project-tree-model.ts'
 import type { ProjectNode } from './tree.ts'
-import { WorkspaceBrowserCss as css } from './styles.js'
+import { WorkspaceBrowserCss as css } from './styles.ts'
 import { ProjectIconGlyph } from './ProjectIconGlyph.tsx'
 
 /** Whether a project matches the search query (label, root, worktrees, branches). */

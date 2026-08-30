@@ -1,0 +1,165 @@
+/* Split from ui.css — contiguous slice (order-preserving). */
+
+
+.dsh-studio-ui-feedback-state[data-kind='empty'][data-layout='compact'] 
+{
+min-height: 0;
+  flex: none;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--dsh-studio-space-1, 4px);
+  padding: var(--dsh-studio-space-3, 12px);
+  text-align: left;
+}
+
+
+
+.dsh-studio-ui-feedback-state[data-kind='empty'][data-layout='compact'] .dsh-studio-ui-empty-header 
+{
+max-width: none;
+  align-items: stretch;
+  text-align: left;
+}
+
+
+
+/* Compact empty states are inline status copy, matching the previous sidebar
+   status treatment instead of the centered Empty composition. */
+.dsh-studio-ui-feedback-state[data-kind='empty'][data-layout='compact'] .dsh-studio-ui-empty-title 
+{
+color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--dsh-studio-font-md, 12px);
+  font-weight: 400;
+}
+
+
+
+.dsh-studio-ui-feedback-state[data-kind='loading'],
+.dsh-studio-ui-feedback-state[data-kind='error'] 
+{
+flex-wrap: wrap;
+}
+
+
+
+.dsh-studio-ui-feedback-state-title,
+.dsh-studio-ui-feedback-state-description 
+{
+display: block;
+}
+
+
+
+.dsh-studio-ui-feedback-state-title 
+{
+font-weight: 500;
+}
+
+
+
+.dsh-studio-ui-feedback-state-description 
+{
+color: var(--dsh-studio-ui-muted-foreground);
+}
+
+
+
+@keyframes dsh-studio-ui-skeleton-pulse 
+{
+0%,
+  100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+
+
+/* ============================================================
+   ScrollArea — overlay scrollbar with the unified reveal
+   behavior: hidden at rest, shown while the pointer hovers the
+   area (or while scrolling / keyboard-focused), fading out after
+   the pointer leaves. The thumb is a real element, so unlike the
+   native ::-webkit-scrollbar pseudo-elements these transitions
+   actually run. Colors ride the official scrollbar tokens.
+   ============================================================ */
+
+.dsh-studio-ui-scroll-area 
+{
+/* The floating thumb's width band. It is NOT reserved on the viewport by
+     default: canvas surfaces (file/diff/editor) run flush to every edge and
+     the hover-reveal thumb overlays their content, VS-Code style. Surfaces
+     that want a resting band (row lists) opt in via
+     `dsh-studio-ui-scroll-viewport-inset` or their own right padding. */
+  --dsh-studio-scroll-gutter: var(--dsh-studio-space-2, 8px);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+
+
+
+.dsh-studio-ui-scroll-area-viewport 
+{
+flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: scroll;
+  /* Native bars off — Base UI drives the overlay thumb; without this the
+     inline `overflow: scroll` would paint a second, always-visible bar. */
+  scrollbar-width: none;
+  box-sizing: border-box;
+}
+
+
+
+/* Opt-in content inset: there is NO universal padding on scrollables —
+   canvas surfaces (file/diff/editor) run flush to the pane, and content
+   that needs breathing room adds this class to its viewport (or brings its
+   own padding) explicitly. The uniform inset includes the right side, which
+   also reserves the resting band for the floating thumb over list rows. */
+.dsh-studio-ui-scroll-viewport-inset 
+{
+padding: var(--dsh-studio-space-2, 8px);
+}
+
+
+
+.dsh-studio-ui-scroll-area-viewport::-webkit-scrollbar,
+.base-ui-disable-scrollbar::-webkit-scrollbar 
+{
+display: none;
+}
+
+
+
+/* Base UI applies this class to every custom viewport. We disable its inline
+   style element through CSPProvider above, so keep the matching rule in the
+   shared stylesheet instead of leaking a literal <style> into the AX tree. */
+.base-ui-disable-scrollbar 
+{
+scrollbar-width: none;
+}
+
+
+
+.dsh-studio-ui-scroll-area-scrollbar 
+{
+/* Track = the shared scroll-gutter band; the 6px thumb floats inside it
+     over the gutter, never over content (the viewport reserves the same
+     band as right padding). Matches the pre-refactor 6px bar width. */
+  box-sizing: border-box;
+  width: var(--dsh-studio-scroll-gutter);
+  padding: 1px;
+  opacity: 0;
+  transition: opacity 220ms linear;
+  transition-delay: 500ms;
+}
+
+
+
+.dsh-studio-ui-scroll-area-scrollbar-x 
+{
+width: auto;
+  height: var(--dsh-studio-scroll-gutter);
+}

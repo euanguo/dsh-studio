@@ -6,8 +6,8 @@
  * (the package's `sideEffects` list does not cover this file) — the worker
  * chunk build therefore passes `ignoreAnnotations: true` (build-config.mjs).
  *
- * The chunk is bundled into `dist/plugins/sidebar-host/client-pierre-worker.js`
- * (ESM), served through the sidebar-host /sidebar/bundle route and loaded by
+ * The chunk is bundled into `dist/plugins/capabilities/client-pierre-worker.js`
+ * (ESM), served through the capabilities /capabilities/bundle route and loaded by
  * `createPierreDiffWorker` in pierre-adapter.tsx.
  *
  * We cannot use `new URL(..., import.meta.url)` in the client bundle (it is

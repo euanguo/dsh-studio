@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseWorktreeList } from '../plugins/shared/git-core.ts'
+import { parseWorktreeList } from '../plugins/shared/git/git-core.ts'
 
 test('parseWorktreeList: main + linked worktrees', () => {
   const out = [
@@ -69,4 +69,20 @@ test('parseWorktreeList: preserves locked and prunable safety facts', () => {
   ].join('\n'))
   assert.equal(entries[1]?.locked, true)
   assert.equal(entries[1]?.prunable, 'missing directory')
+})
+
+test('worktreeAdd refuses option-shaped refspecs before spawning git', async () => {
+  const { worktreeAdd } = await import('../plugins/shared/git/git-core.ts')
+  await assert.rejects(
+    worktreeAdd('/tmp', '/tmp/wt', '--force', true),
+    /must not start with "-"/,
+  )
+  await assert.rejects(
+    worktreeAdd('/tmp', '/tmp/wt', 'ok-branch', true, '-c core.editor=pwned'),
+    /must not start with "-"/,
+  )
+  await assert.rejects(
+    worktreeAdd('/tmp', '/tmp/wt', '-b', false),
+    /must not start with "-"/,
+  )
 })

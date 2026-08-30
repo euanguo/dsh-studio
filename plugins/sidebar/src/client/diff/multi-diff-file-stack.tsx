@@ -7,12 +7,21 @@
  * band it swaps its rendered diff for a same-height placeholder (holding
  * the outer scroll position) and re-mounts when the user scrolls back.
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
+import { useEffect, useCallback, useMemo, useRef, useState } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { DiffViewer } from './diff-viewer.tsx'
+import { useCommentRails } from '../comments/comment-rails.tsx'
+import { useSelectionActionOverlay, commentAnchorOf } from '../selection/use-selection-action.tsx'
+import type { SessionsService } from '../client-types.ts'
+import { useDiffCommentsStore, commentBelongsToCwd, commentPathMatches, type WorkbenchComment } from './diff-comments-store.ts'
+import { commentsToDiffLineAnnotations } from './comment-annotations.ts'
+import { CommentBubble } from './comment-bubble.tsx'
 import { reviewFileToDiffDocument, type GitReviewFile } from './git-review-diff.ts'
 import type { PierreDiffTheme } from './pierre-adapter.tsx'
+import type { DiffLineAnnotation } from '@pierre/diffs'
 
 const OBSERVER_ROOT_MARGIN = '320px 0px'
 const KEEP_BAND_ROOT_MARGIN = '1600px 0px'
@@ -27,6 +36,8 @@ export function MultiDiffFileStack({
   wordWrap = false,
   layout = 'unified',
   onExpandContext,
+  cwd,
+  sessions,
 }: {
   files: readonly GitReviewFile[]
   renderedKeys: ReadonlySet<string>
@@ -37,9 +48,13 @@ export function MultiDiffFileStack({
   wordWrap?: boolean
   layout?: 'unified' | 'split'
   onExpandContext?(file: GitReviewFile): void
+  /** Workspace cwd for comment anchoring (enables per-file rails). */
+  cwd?: string
+  /** Session roster for the selection action bar (per block). */
+  sessions?: SessionsService
 }): JSX.Element {
   return (
-    <div className="dsh-studio-multi-diff-list" data-testid="multi-diff-list">
+    <div className={surfaceCss["dsh-studio-multi-diff-list"]} data-testid="multi-diff-list">
       {files.map(file => {
         const mounted = renderedKeys.has(file.path)
         if (mounted) {
@@ -51,6 +66,8 @@ export function MultiDiffFileStack({
               t={t}
               layout={layout}
               wordWrap={wordWrap}
+              {...(cwd === undefined ? {} : { cwd })}
+              {...(sessions === undefined ? {} : { sessions })}
               {...(onExpandContext === undefined ? {} : { onExpandContext })}
               {...(onCollapse === undefined ? {} : { onCollapse })}
             />
@@ -89,6 +106,8 @@ function MultiDiffFileBlock({
   wordWrap,
   onExpandContext,
   onCollapse,
+  cwd,
+  sessions,
 }: {
   file: GitReviewFile
   theme: PierreDiffTheme
@@ -97,9 +116,61 @@ function MultiDiffFileBlock({
   wordWrap: boolean
   onExpandContext?(file: GitReviewFile): void
   onCollapse?(path: string): void
+  cwd?: string
+  sessions?: SessionsService
 }): JSX.Element {
   const document = useMemo(() => reviewFileToDiffDocument(file), [file])
+  // Reactive subscription to the store (surfaces subscribe, never copy).
+  const allComments = useDiffCommentsStore(state => state.comments)
+  const fileComments = useMemo(
+    () => (cwd === undefined
+      ? []
+      : allComments.filter(comment =>
+          commentBelongsToCwd(comment, cwd)
+          && commentPathMatches(comment.path, file.path, cwd))),
+    [allComments, cwd, file.path],
+  )
+  const lineAnnotations = useMemo(
+    () => commentsToDiffLineAnnotations(fileComments),
+    [fileComments],
+  )
+  // Stable renderAnnotation for the memoized DiffViewer (C17): an inline
+  // arrow would be a fresh reference every render, defeating the memo when
+  // the block carries line comments. `t` lives at the block's scope.
+  const renderAnnotation = useCallback(
+    (annotation: DiffLineAnnotation<WorkbenchComment>) => <CommentBubble comment={annotation.metadata} t={t} />,
+    [t],
+  )
+  // Hook called unconditionally (Rules of Hooks, C1): `cwd` may be
+  // undefined, but the hook itself stays inert for a surfaceless cwd instead
+  // of being conditionally invoked.
+  const rails = useCommentRails({
+    path: file.path,
+    ...(cwd === undefined ? {} : { cwd }),
+    comments: fileComments,
+    t,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    onAdd: input => {
+      useDiffCommentsStore.getState().addComment({
+         ...input,
+         ...(cwd === undefined ? {} : { cwd }),
+         id: crypto.randomUUID(),
+         createdAt: new Date().toISOString(),
+       })
+    },
+    onResolve: id => { useDiffCommentsStore.getState().resolveComment(id) },
+    onUnresolve: id => { useDiffCommentsStore.getState().unresolveComment(id) },
+  })
   const sectionRef = useRef<HTMLElement | null>(null)
+  const selectionAction = useSelectionActionOverlay({
+    containerRef: sectionRef,
+    path: file.path,
+    cwd,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    sessions: sessions ?? null,
+    onComment: anchor => rails.composeAt(commentAnchorOf(anchor)),
+    t,
+  })
   const latestHeightRef = useRef<number | null>(null)
   const [releasedHeight, setReleasedHeight] = useState<number | null>(null)
 
@@ -147,32 +218,42 @@ function MultiDiffFileBlock({
       data-doc-key={`${file.additions}:${file.deletions}:${file.lines.length}`}
     >
       {releasedHeight === null ? (
-        <div className="dsh-studio-multi-diff-mounted">
-          <div className="dsh-studio-multi-diff-file-header">
+        <div className={`dsh-studio-multi-diff-mounted`}>
+          <div className={surfaceCss["dsh-studio-multi-diff-file-header"]}>
             <span title={file.path}>{file.path}</span>
             <small>
               <b>+{file.additions}</b> −{file.deletions}
             </small>
-            <span className="dsh-studio-multi-diff-actions">
+            <span className={surfaceCss["dsh-studio-multi-diff-actions"]}>
               {onExpandContext !== undefined ? (
-                <button type="button" onClick={() => { onExpandContext(file) }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { onExpandContext(file) }}
+                >
                   {t('diff.expand-context-file')}
-                </button>
+                </Button>
               ) : null}
               {onCollapse !== undefined ? (
-                <button type="button" onClick={() => { onCollapse(file.path) }}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => { onCollapse(file.path) }}
+                >
                   {t('source-control.view-all')}
-                </button>
+                </Button>
               ) : null}
             </span>
           </div>
-          <div className="dsh-studio-multi-diff-lines">
+          <div className={`dsh-studio-multi-diff-lines`}>
             {/*
               Pierre rendering with natural per-file sizing: the outer list
               scrolls the whole stack. Previously deadlocked because buildPatch
               emitted no @@ headers for review-style documents, so Pierre
               parsed 0 hunks and rendered nothing — fixed in file-diff.ts.
             */}
+            {rails.overlay()}
+            {selectionAction.overlay}
             <DiffViewer
               document={document}
               theme={theme}
@@ -182,12 +263,18 @@ function MultiDiffFileBlock({
               wordWrap={wordWrap}
               hideMeta
               cacheBust={`multi:${file.path}`}
+              {...(fileComments.length > 0
+                ? { lineAnnotations, renderAnnotation }
+                : {})}
+              onLineEnter={rails.onLineEnter}
+              onLineLeave={rails.onLineLeave}
+              renderGutterUtility={rails.gutterUtility}
             />
           </div>
         </div>
       ) : (
         <div
-          className="dsh-studio-multi-diff-released"
+          className={`dsh-studio-multi-diff-released`}
           style={{ height: releasedHeight }}
           aria-hidden="true"
         />
@@ -229,15 +316,15 @@ function MultiDiffPlaceholder({
     <button
       type="button"
       ref={rowRef}
-      className="dsh-studio-multi-diff-placeholder"
+      className={surfaceCss["dsh-studio-multi-diff-placeholder"]}
       data-testid="multi-diff-file-placeholder"
       data-path={path}
       onClick={() => { onRequestRender(path) }}
       onFocus={() => { onRequestRender(path) }}
       onMouseEnter={() => { onRequestRender(path) }}
     >
-      <span className="dsh-studio-multi-diff-placeholder-name">{path}</span>
-      <span className="dsh-studio-multi-diff-placeholder-stats">
+      <span className={surfaceCss["dsh-studio-multi-diff-placeholder-name"]}>{path}</span>
+      <span className={surfaceCss["dsh-studio-multi-diff-placeholder-stats"]}>
         {file.additions > 0 ? <b>+{file.additions}</b> : null}
         {file.deletions > 0 ? <b>−{file.deletions}</b> : null}
       </span>

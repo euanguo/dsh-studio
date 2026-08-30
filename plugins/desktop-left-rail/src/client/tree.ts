@@ -26,11 +26,6 @@ export const repoExpansionKey = (repoRoot: string): string => `repo:${repoRoot}`
 /** Expansion key of one worktree row (absolute path). */
 export const worktreeExpansionKey = (path: string): string => `wt:${path}`
 
-/** The expansion-key account of one group key (workspace id or ungrouped). */
-export function groupExpansionKeyOf(groupKey: string): string {
-  return groupKey === UNGROUPED_KEY ? UNGROUPED_EXPANSION_KEY : workspaceExpansionKey(groupKey)
-}
-
 /** Display label for the ungrouped bucket row. */
 export const UNGROUPED_LABEL = 'Ungrouped'
 
@@ -54,25 +49,6 @@ export interface SessionNode {
 /** Session order selected by the Workspace browser. */
 export type SessionOrderBy = 'manual' | 'updated'
 
-/** One workspace group section: header row facts + visible top-level session rows. */
-export interface GroupNode {
-  /** Group key: the workspace id or {@link UNGROUPED_KEY}. */
-  key: string
-  /** Backing Workspace id; absent only for the ungrouped bucket. */
-  workspaceId: WorkspaceId | undefined
-  cwd: string | undefined
-  /** Workspace creation time (epoch ms); absent only for the ungrouped bucket. */
-  createdAt: number | undefined
-  label: string
-  /** Total visible sessions in the group. */
-  sessionCount: number
-  expanded: boolean
-  /** The group contains the selected session (active folder tint; supplied here so the renderer never scans). */
-  containsCurrent: boolean
-  /** Visible session rows (empty while the group is folded). */
-  sessions: readonly SessionNode[]
-}
-
 /** One flat search row combining list metadata with an optional content match. */
 export interface SearchResultNode {
   id: SessionId
@@ -94,11 +70,60 @@ export interface SearchResultSet {
   hasMore: boolean
 }
 
-/** Viewing state consumed by the derivation. */
-export interface TreeView {
-  expandedGroups: readonly string[]
-  /** Browser-local order for Sessions without a backing Workspace account. */
-  ungroupedOrder?: readonly string[]
+/* ------------------------------------------------------------------------- *
+ * Activity aggregation (the collection-row "hidden work" indicator).
+ * One session belongs to exactly one bucket: awaiting user interaction
+ * outranks running, which outranks the finished-unviewed reminder (the same
+ * precedence order the session rows render).
+ * ------------------------------------------------------------------------- */
+
+/** One session's activity bucket, highest-priority first. */
+export type ActivityKind = 'waiting' | 'running' | 'completed'
+
+/** Aggregated counts of the three activity buckets for one collection row. */
+export interface ActivityTotals {
+  /** Sessions awaiting a user interaction (approval / plan review / question). */
+  waiting: number
+  /** Sessions running themselves or through uninterrupted subagent lineage. */
+  running: number
+  /** Sessions finished while unviewed (the green "done" reminder). */
+  completed: number
+}
+
+/** Bucket one session row; idle rows contribute nothing. */
+export function sessionActivityKind(node: SessionNode): ActivityKind | undefined {
+  if (node.pendingInteraction !== undefined) return 'waiting'
+  if (node.running || node.runningSubagentCount > 0) return 'running'
+  if (node.completed) return 'completed'
+  return undefined
+}
+
+/** Totals over a set of session rows (any size, including the collapsed empty set). */
+export function activityOf(nodes: readonly SessionNode[]): ActivityTotals {
+  const totals: ActivityTotals = { waiting: 0, running: 0, completed: 0 }
+  for (const node of nodes) {
+    const kind = sessionActivityKind(node)
+    if (kind !== undefined) totals[kind] += 1
+  }
+  return totals
+}
+
+/** Present buckets in priority order (waiting > running > completed). */
+export function activityKindsOf(totals: ActivityTotals): readonly ActivityKind[] {
+  const kinds: ActivityKind[] = []
+  if (totals.waiting > 0) kinds.push('waiting')
+  if (totals.running > 0) kinds.push('running')
+  if (totals.completed > 0) kinds.push('completed')
+  return kinds
+}
+
+/** Total activity minus the slice already visible to the user (floors at zero). */
+export function subtractActivity(total: ActivityTotals, visible: ActivityTotals): ActivityTotals {
+  return {
+    waiting: Math.max(0, total.waiting - visible.waiting),
+    running: Math.max(0, total.running - visible.running),
+    completed: Math.max(0, total.completed - visible.completed),
+  }
 }
 
 /* ------------------------------------------------------------------------- *
@@ -149,6 +174,8 @@ export interface WorktreeNode {
   sessions: readonly SessionNode[]
   /** Total visible sessions before collapse. */
   sessionCount: number
+  /** Aggregate activity over every session (the renderer subtracts what is already visible). */
+  activity: ActivityTotals
   expanded: boolean
   containsCurrent: boolean
 }
@@ -166,6 +193,8 @@ export interface ProjectNode {
   mainBranch: string | null
   worktrees: readonly WorktreeNode[]
   worktreeCount: number
+  /** Roll-up of every worktree's activity (shown while the project row is folded). */
+  activity: ActivityTotals
   expanded: boolean
   containsCurrent: boolean
 }
@@ -184,8 +213,6 @@ export interface ProjectTree {
 export interface WorktreeLayoutMap {
   /** null = confirmed non-git; undefined = unavailable or not observed. */
   get(cwd: string): GitWorktreeLayout | null | undefined
-  /** Freshness-aware fact when the adapter can provide one. */
-  getFact?(cwd: string): WorktreeFactState | undefined
 }
 
 /** Freshness-aware result of one Host worktree lookup. */
@@ -213,15 +240,6 @@ export interface ProjectTreeView {
   projectAlias: Readonly<Record<string, string>>
   /** worktreePath → user alias (display name overriding the directory basename or branch). */
   worktreeAlias?: Readonly<Record<string, string>>
-}
-
-interface Group {
-  key: string
-  workspaceId: WorkspaceId | undefined
-  cwd: string | undefined
-  createdAt: number | undefined
-  label: string
-  sessions: SessionSummary[]
 }
 
 /**
@@ -263,87 +281,6 @@ function sessionTitle(session: SessionSummary): string {
   return session.blank ? 'New Session' : session.displayTitle
 }
 
-/** Build one group without projecting session lineage into presentation. */
-function buildGroup(
-  key: string,
-  workspaceId: WorkspaceId | undefined,
-  cwd: string | undefined,
-  createdAt: number | undefined,
-  label: string,
-  members: readonly SessionSummary[],
-  order: 'account' | 'recency',
-): Group {
-  const sessions = [...members]
-  // Real Workspace order comes from sessionIds. Ungrouped falls back to
-  // recency until the browser supplies its persisted local order.
-  if (order === 'recency') sessions.sort(byRecency)
-  return { key, workspaceId, cwd, createdAt, label, sessions }
-}
-
-/** Apply a stored Ungrouped order and append newly loose Sessions by recency. */
-function orderedUngrouped(members: readonly SessionSummary[], stored: readonly string[]): SessionSummary[] {
-  const byId = new Map(members.map(session => [session.id as string, session]))
-  const included = new Set<string>()
-  const ordered: SessionSummary[] = []
-  for (const key of stored) {
-    const session = byId.get(key)
-    if (session === undefined || included.has(key)) continue
-    ordered.push(session)
-    included.add(key)
-  }
-  for (const session of [...members].sort(byRecency)) {
-    if (included.has(session.id)) continue
-    ordered.push(session)
-  }
-  return ordered
-}
-
-/**
- * Group Sessions by Host Workspace: one group per entity in stable Host
- * order, with members resolved from sessionIds in their stored order. Sessions
- * outside every Workspace trail in the browser-local Ungrouped order, which
- * falls back to recency before that order is initialized.
- */
-function groupByWorkspace(
-  list: SessionListState,
-  workspaces: readonly WorkspaceView[],
-  archived: ReadonlySet<SessionId>,
-  ungroupedOrder: readonly string[] | undefined,
-): Group[] {
-  const groups: Group[] = []
-  const accounted = new Set<SessionId>()
-  for (const workspace of workspaces) {
-    const members: SessionSummary[] = []
-    for (const id of workspace.sessionIds) {
-      const summary = list.byId[id]
-      if (summary === undefined) continue // account may lead the list pull; the row appears when the summary lands
-      accounted.add(id)
-      if (!sessionVisible(summary, list.current, archived)) continue
-      members.push(summary)
-    }
-    groups.push(buildGroup(
-      workspace.workspaceId, workspace.workspaceId, workspace.path,
-      Date.parse(workspace.createdAt), workspace.title, members, 'account',
-    ))
-  }
-  const stray = list.ids
-    .map(id => list.byId[id])
-    .filter((s): s is SessionSummary =>
-      s !== undefined && !accounted.has(s.id) && sessionVisible(s, list.current, archived))
-  if (stray.length > 0) {
-    groups.push(buildGroup(
-      UNGROUPED_KEY,
-      undefined,
-      undefined,
-      undefined,
-      UNGROUPED_LABEL,
-      ungroupedOrder === undefined ? stray : orderedUngrouped(stray, ungroupedOrder),
-      ungroupedOrder === undefined ? 'recency' : 'account',
-    ))
-  }
-  return groups
-}
-
 function sessionNode(
   s: SessionSummary,
   descendants: ReadonlyMap<SessionId, SubagentDescendantSummary>,
@@ -358,51 +295,6 @@ function sessionNode(
     updatedAt: s.updatedAt,
     ...(s.pendingInteraction === undefined ? {} : { pendingInteraction: s.pendingInteraction }),
   }
-}
-
-/**
- * Derive the workspace browser groups with every session as a top-level row.
- *
- * Every group shows; sessions populate under expanded groups in the selected
- * local order. Blank sessions are excluded except for the selected
- * provisional New Session row; archived sessions are excluded everywhere.
- * Content search lives outside this derivation
- * (see {@link deriveSearchResults}).
- * @param list - sessions list snapshot (`current` feeds containsCurrent).
- * @param workspaces - real workspaces in stable Host order.
- * @param archivedSessionIds - registry-global archive set.
- * @param view - local expansion arrays.
- * @returns group sections in render order.
- */
-export function deriveGroups(
-  list: SessionListState,
-  workspaces: readonly WorkspaceView[],
-  archivedSessionIds: readonly SessionId[],
-  view: TreeView,
-): GroupNode[] {
-  const archived = new Set(archivedSessionIds)
-  const expandedGroups = new Set(view.expandedGroups)
-  const descendants = indexSubagentDescendants(list.byId)
-  const currentGroup = list.current === undefined
-    ? undefined
-    : (workspaces.find(w => w.sessionIds.includes(list.current as SessionId))?.workspaceId as string | undefined)
-        ?? UNGROUPED_KEY
-  const groups: GroupNode[] = []
-  for (const g of groupByWorkspace(list, workspaces, archived, view.ungroupedOrder)) {
-    const expanded = expandedGroups.has(groupExpansionKeyOf(g.key))
-    groups.push({
-      key: g.key,
-      workspaceId: g.workspaceId,
-      cwd: g.cwd,
-      createdAt: g.createdAt,
-      label: g.label,
-      sessionCount: g.sessions.length,
-      expanded,
-      containsCurrent: g.key === currentGroup,
-      sessions: expanded ? g.sessions.map(session => sessionNode(session, descendants)) : [],
-    })
-  }
-  return groups
 }
 
 /**
@@ -529,15 +421,12 @@ export function deriveProjectTree(
       }
     }
     const containsCurrent = wts.some(wt => wt.members.some(m => m.id === current))
-    return {
-      key, repoRoot: proj.repoRoot, label: view.projectAlias[proj.repoRoot] ?? workspaceLabel(proj.repoRoot), isGit: proj.isGit,
-      icon: projectIcons?.get(key) ?? {
-        source: 'fallback',
-        value: proj.isGit ? 'project' : 'directory',
-        fallback: proj.isGit ? 'project' : 'directory',
-      },
-      mainBranch: wts[0]?.branch ?? null,
-      worktrees: wts.map(wt => ({
+    // Session nodes and their activity totals are derived once per worktree
+    // so the project roll-up and the renderer's visible-subset subtraction
+    // share the same facts.
+    const worktreeNodes = wts.map(wt => {
+      const sessions = wt.members.map(m => sessionNode(m, descendants))
+      return {
         key: wt.path,
         path: wt.path,
         // Worktree = workspace: a row carrying exactly one registration is
@@ -552,12 +441,30 @@ export function deriveProjectTree(
         workspaceIds: wt.workspaceIds,
         // Sessions always carry the full member list; the renderer decides
         // the collapsed preview (first five) vs the full expanded run.
-        sessions: wt.members.map(m => sessionNode(m, descendants)),
-        sessionCount: wt.members.length,
+        sessions,
+        sessionCount: sessions.length,
+        activity: activityOf(sessions),
         expanded: expanded.has(worktreeExpansionKey(wt.path)),
-        containsCurrent: wt.members.some(m => m.id === current),
-      })),
-      worktreeCount: wts.length,
+        containsCurrent: sessions.some(m => m.id === current),
+      }
+    })
+    const activity: ActivityTotals = { waiting: 0, running: 0, completed: 0 }
+    for (const worktree of worktreeNodes) {
+      activity.waiting += worktree.activity.waiting
+      activity.running += worktree.activity.running
+      activity.completed += worktree.activity.completed
+    }
+    return {
+      key, repoRoot: proj.repoRoot, label: view.projectAlias[proj.repoRoot] ?? workspaceLabel(proj.repoRoot), isGit: proj.isGit,
+      icon: projectIcons?.get(key) ?? {
+        source: 'fallback',
+        value: proj.isGit ? 'project' : 'directory',
+        fallback: proj.isGit ? 'project' : 'directory',
+      },
+      mainBranch: wts[0]?.branch ?? null,
+      worktrees: worktreeNodes,
+      worktreeCount: worktreeNodes.length,
+      activity,
       expanded: expanded.has(repoExpansionKey(key)),
       containsCurrent,
     }

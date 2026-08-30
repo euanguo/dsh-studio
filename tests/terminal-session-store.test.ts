@@ -7,7 +7,7 @@ import {
   TerminalSessionStore,
   terminalSessionFingerprint,
   terminalSessionKey,
-} from '../plugins/sidebar-host/src/terminal-session-store.ts'
+} from '../plugins/capabilities/src/terminal/terminal-session-store.ts'
 
 test('terminal session store restores history and rotates atomic snapshots', async () => {
   const root = mkdtempSync(join(tmpdir(), 'dsh-studio-terminal-store-'))

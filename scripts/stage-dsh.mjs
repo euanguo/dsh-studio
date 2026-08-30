@@ -29,7 +29,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { DSH_SOURCE_SPEC, resolveDshSource, resolvePinnedPnpm } from './dsh-source.mjs'
 import { dietNodeRuntime, pruneRuntimeDependencies, summarize } from './prune-stage.mjs'
 import { assertRuntimeBudget, loadRuntimeContract } from './runtime-contract.mjs'
-import { applyDshRuntimePatches } from './dsh-runtime-patches.mjs'
+import { applyDshRuntimePatches, PATCH_FILES } from './dsh-runtime-patches.mjs'
 import { verifyStagedLayout } from './verify-staged-layout.mjs'
 import { bakeSkinPalette } from './bake-skin-palette.mjs'
 import { resolveNodeDistributionPlatform } from '../src/node-platform.ts'
@@ -788,32 +788,33 @@ function installDesktopPackages() {
       ],
     },
     {
-      manifest: join(root, 'plugins', 'sidebar-host', 'package.json'),
+      manifest: join(root, 'plugins', 'capabilities', 'package.json'),
       files: [
         [
-          join(root, 'dist', 'plugins', 'sidebar-host', 'index.js'),
+          join(root, 'dist', 'plugins', 'capabilities', 'index.js'),
           'dist/index.js',
         ],
         [
-          join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js'),
+          join(root, 'dist', 'plugins', 'capabilities', 'client-mermaid.js'),
           'dist/client-mermaid.js',
         ],
         [
-          join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js.map'),
+          join(root, 'dist', 'plugins', 'capabilities', 'client-mermaid.js.map'),
           'dist/client-mermaid.js.map',
         ],
         [
-          join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js'),
+          join(root, 'dist', 'plugins', 'capabilities', 'client-pierre-worker.js'),
           'dist/client-pierre-worker.js',
         ],
         [
-          join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js.map'),
+          join(root, 'dist', 'plugins', 'capabilities', 'client-pierre-worker.js.map'),
           'dist/client-pierre-worker.js.map',
         ],
       ],
     },
     ...[
       'desktop-skins',
+      'workbench',
       'sidebar',
       'sidebar-desktop',
       'desktop-left-rail',
@@ -1004,7 +1005,7 @@ for (const required of [
   'web/client.js',
   'web/client.js.map',
   'web/cordis.patch.yml',
-  'plugins/sidebar-host/index.js',
+  'plugins/capabilities/index.js',
   'plugins/desktop-skins/index.js',
   'plugins/desktop-skins/client.js',
   'plugins/sidebar/index.js',
@@ -1051,6 +1052,7 @@ function dependencyFingerprint() {
     'runtime-closure-probe.mjs',
     ...(npmRelease ? [] : ['bake-skin-palette.mjs']),
   ].map(name => fileHash(join(root, 'scripts', name)))
+  const patchInputs = PATCH_FILES.map(path => fileHash(join(root, path)))
   const inputs = [
     fileHash(join(root, 'dsh-source.json')),
     fileHash(join(root, 'package.json')),
@@ -1061,6 +1063,7 @@ function dependencyFingerprint() {
     nodeArch,
     pnpm.cliEntry,
     ...stagedScripts,
+    ...patchInputs,
   ]
   return createHash('sha256').update(inputs.join('\n')).digest('hex')
 }

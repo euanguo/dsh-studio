@@ -5,7 +5,7 @@ import {
   shellSpawnArgs,
   windowsPwshCandidateDirs,
   type ShellResolutionOptions,
-} from '../plugins/sidebar-host/src/shell-resolver.ts'
+} from '../plugins/capabilities/src/shell-resolver.ts'
 
 /** Resolve a shell with an injected platform/env/exists/login triple.
  *  The login shell defaults to '' (unset) so the POSIX chain is

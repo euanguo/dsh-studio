@@ -1,14 +1,21 @@
 /**
  * File surface header: project › …dirs › file breadcrumb + Markdown
- * Source/Preview toggle + auxiliary actions. Ported from Synara
+ * Source/Preview icon toggle + auxiliary actions. Ported from Synara
  * `features/file-viewer/file-viewer-chrome.tsx` and adapted to the DSH
  * CSS-token environment (no Tailwind classes).
+ *
+ * The strip is the shared SurfaceToolbar and stays mounted across the
+ * view ↔ edit swap: ONE icon toggle owns the state (pencil invites
+ * editing, the engaged eye returns to the view), the breadcrumb and meta
+ * never change, and the toolbar owns all typography — this module passes
+ * plain content only.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { Fragment, useMemo } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { basename } from '@dsh-studio/shared/path'
+import { SurfaceToolbar, ToolbarAction } from '@dsh-studio/shared/ui'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { ToolbarAction } from '@dsh-studio/shared/ui'
 import {
   IconChevronRight,
   IconEdit,
@@ -29,6 +36,7 @@ export function FileViewerChrome({
   meta,
   onOpenExternal,
   onEdit,
+  editing,
   t,
 }: {
   cwd: string
@@ -41,6 +49,12 @@ export function FileViewerChrome({
   meta?: string | null
   onOpenExternal?(): void
   onEdit?(): void
+  /** Editing state: the SAME chrome stays mounted; the edit toggle swaps
+   *  to its engaged "view" form and the dirty dot joins the meta slot. */
+  editing?: {
+    dirty: boolean
+    onExit(): void
+  }
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const { prefixSegments, fileSegment } = useMemo(() => {
@@ -60,74 +74,90 @@ export function FileViewerChrome({
     }
   }, [cwd, filePath])
 
-  return (
-    <div className="dsh-studio-file-viewer-chrome" data-testid="file-viewer-chrome">
-      <nav className="dsh-studio-file-viewer-breadcrumb" aria-label="File path" title={filePath}>
-        <span className="dsh-studio-file-viewer-breadcrumb-prefix">
-          {prefixSegments.map(segment => (
-            <Fragment key={segment.key}>
-              <span className="dsh-studio-file-viewer-breadcrumb-segment">{segment.name}</span>
-              <IconChevronRight className="dsh-studio-file-viewer-breadcrumb-chevron" size={12} />
-            </Fragment>
-          ))}
-        </span>
-        <span className="dsh-studio-file-viewer-breadcrumb-file">{fileSegment}</span>
-      </nav>
-
-      {meta !== undefined && meta !== null ? (
-        <span className="dsh-studio-file-viewer-chrome-meta">{meta}</span>
-      ) : null}
-      {truncated ? (
-        <span className="dsh-studio-file-viewer-chrome-meta dsh-studio-file-viewer-chrome-truncated">
-          {t('files.partial')}
-        </span>
-      ) : null}
-
-      {isMarkdown ? (
-        <div className="dsh-studio-file-viewer-mode-switch" role="radiogroup" aria-label="Markdown view">
-          {(
-            [
-              { mode: 'source', label: t('files.viewer.source'), title: t('files.viewer.source'), Icon: IconFileText },
-              { mode: 'preview', label: t('files.viewer.preview'), title: t('files.viewer.preview'), Icon: IconEye },
-            ] as const
-          ).map(segment => {
-            const selected = segment.mode === markdownMode
-            const Icon = segment.Icon
-            return (
-              <button
-                key={segment.mode}
-                type="button"
-                role="radio"
-                aria-checked={selected}
-                title={segment.title}
-                className={`dsh-studio-file-viewer-mode-button${selected ? ' is-selected' : ''}`}
-                onClick={() => { onMarkdownModeChange(segment.mode) }}
-              >
-                <Icon size={14} />
-                <span>{segment.label}</span>
-              </button>
-            )
-          })}
-        </div>
-      ) : null}
-
-      {onEdit !== undefined ? (
+  const breadcrumb = (
+    <nav
+      className={surfaceCss["dsh-studio-file-viewer-breadcrumb"]}
+      aria-label={t('files.file-path')}
+      title={filePath}
+    >
+      <span className={surfaceCss["dsh-studio-file-viewer-breadcrumb-prefix"]}>
+        {prefixSegments.map(segment => (
+          <Fragment key={segment.key}>
+            <span className={surfaceCss["dsh-studio-file-viewer-breadcrumb-segment"]}>{segment.name}</span>
+            <IconChevronRight className={surfaceCss["dsh-studio-file-viewer-breadcrumb-chevron"]} size={12} />
+          </Fragment>
+        ))}
+      </span>
+      <span className={surfaceCss["dsh-studio-file-viewer-breadcrumb-file"]}>{fileSegment}</span>
+    </nav>
+  )
+  const metaContent = (meta !== undefined && meta !== null) || truncated || editing?.dirty === true
+    ? (
+      <>
+        {meta !== undefined && meta !== null && meta}
+        {truncated && (
+          <span className={surfaceCss["dsh-studio-file-viewer-chrome-truncated"]}>
+            {t('files.partial')}
+          </span>
+        )}
+        {editing?.dirty === true && (
+          <small className={surfaceCss["dsh-studio-editor-dirty"]}>●</small>
+        )}
+      </>
+    )
+    : undefined
+  const modeSwitch = isMarkdown && editing === undefined
+    ? (
+      <ToolbarAction
+        icon={markdownMode === 'preview' ? <IconEye size={14} /> : <IconFileText size={14} />}
+        label={markdownMode === 'preview' ? t('files.viewer.source') : t('files.viewer.preview')}
+        pressed={markdownMode === 'preview'}
+        onClick={() => { onMarkdownModeChange(markdownMode === 'preview' ? 'source' : 'preview') }}
+      />
+    )
+    : undefined
+  // One icon toggle owns the view ↔ edit state: pencil invites editing,
+  // the engaged eye returns to the view (exitToView flushes pending
+  // changes — the same write path as autosave and Mod+S).
+  const editToggle = editing !== undefined
+    ? (
+      <ToolbarAction
+        icon={<IconEye size={14} />}
+        label={t('files.view')}
+        pressed
+        onClick={editing.onExit}
+      />
+    )
+    : onEdit !== undefined
+    ? (
+      <ToolbarAction
+        icon={<IconEdit size={14} />}
+        label={t('files.edit')}
+        onClick={onEdit}
+      />
+    )
+    : undefined
+  const actions = (
+    <>
+      {editToggle}
+      {onOpenExternal !== undefined && (
         <ToolbarAction
-          className="dsh-studio-file-viewer-chrome-action"
-          icon={<IconEdit size={14} />}
-          label={t('files.edit')}
-          onClick={onEdit}
-        />
-      ) : null}
-
-      {onOpenExternal !== undefined ? (
-        <ToolbarAction
-          className="dsh-studio-file-viewer-chrome-action"
           icon={<IconExternalLink size={14} />}
           label={t('files.open-externally')}
           onClick={onOpenExternal}
         />
-      ) : null}
-    </div>
+      )}
+    </>
+  )
+
+  return (
+    <SurfaceToolbar
+      className={`dsh-studio-file-viewer-chrome`}
+      data-testid="file-viewer-chrome"
+      leading={breadcrumb}
+      meta={metaContent}
+      modeSwitch={modeSwitch}
+      actions={actions}
+    />
   )
 }

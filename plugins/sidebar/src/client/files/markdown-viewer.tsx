@@ -7,13 +7,19 @@
  * checkboxes report their 0-based checkbox index; the caller maps that to a
  * source line through `findTaskMarkerSourceLines`.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useEffect, useMemo, useState, type Ref } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import 'katex/dist/katex.min.css'
 import { codeToHtml } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { findTaskMarkerSourceLines } from './markdown-task-list.ts'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import type { WorkspaceMessage } from '../i18n.ts'
 
 export interface MarkdownViewerProps {
   content: string
@@ -23,6 +29,7 @@ export interface MarkdownViewerProps {
   taskTogglesEnabled?: boolean
   /** Forwarded to the scroll host (the selection-insert popup host). */
   containerRef?: Ref<HTMLDivElement>
+  t: Translate<WorkspaceMessage>
 }
 
 export function MarkdownViewer({
@@ -30,15 +37,16 @@ export function MarkdownViewer({
   onTaskToggle,
   taskTogglesEnabled = true,
   containerRef,
+  t,
 }: MarkdownViewerProps): JSX.Element {
   const sourceLines = onTaskToggle === undefined ? [] : findTaskMarkerSourceLines(content)
   const headings = useMemo(() => extractHeadings(content), [content])
   let taskCursor = -1
 
   return (
-    <Scrollable ref={containerRef} className="dsh-studio-content-markdown" data-testid="markdown-viewer">
+    <ScrollArea ref={containerRef} className={surfaceCss["dsh-studio-content-markdown"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="markdown-viewer">
       {headings.length > 1 ? (
-        <nav className="dsh-studio-markdown-toc" aria-label="Table of contents">
+        <nav className={surfaceCss["dsh-studio-markdown-toc"]} aria-label={t('files.table-of-contents')}>
           {headings.map(heading => (
             <a key={heading.id} href={`#${heading.id}`} style={{ paddingLeft: `${(heading.level - 1) * 10}px` }}>
               {heading.text}
@@ -47,7 +55,8 @@ export function MarkdownViewer({
         </nav>
       ) : null}
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={{
           h1({ children, ...props }) {
             return <h1 id={slugify(String(children))} {...props}>{children}</h1>
@@ -95,7 +104,7 @@ export function MarkdownViewer({
             return (
               <input
                 type="checkbox"
-                className="dsh-studio-markdown-task-checkbox"
+                className={surfaceCss["dsh-studio-markdown-task-checkbox"]}
                 checked={checked}
                 disabled={!interactive}
                 {...(interactive && sourceLine !== undefined
@@ -113,7 +122,7 @@ export function MarkdownViewer({
       >
         {content}
       </ReactMarkdown>
-    </Scrollable>  
+    </ScrollArea>  
   )
 }
 
@@ -141,7 +150,7 @@ function MarkdownCodeBlock({
 
   if (html === null) {
     return (
-      <pre className="dsh-studio-markdown-code-block">
+      <pre className={`dsh-studio-markdown-code-block`}>
         <code>{text}</code>
       </pre>
     )
@@ -150,7 +159,7 @@ function MarkdownCodeBlock({
   // styling consistent with the pre-highlight placeholder.
   return (
     <div
-      className="dsh-studio-markdown-code-block dsh-studio-markdown-code-shiki"
+      className={`dsh-studio-markdown-code-block ${surfaceCss["dsh-studio-markdown-code-shiki"]}`}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

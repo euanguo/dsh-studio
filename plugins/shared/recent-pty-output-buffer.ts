@@ -79,13 +79,6 @@ export class RecentPtyOutputBuffer {
     return this.chunks[this.headIndex] ?? ''
   }
 
-  retainedChunks(): { chunks: string[]; headChunkIsPartial: boolean } {
-    return {
-      chunks: this.chunks.slice(this.headIndex),
-      headChunkIsPartial: this.headChunkIsPartial,
-    }
-  }
-
   compact(): void {
     this.preserveChunkBoundaries = false
     this.read()

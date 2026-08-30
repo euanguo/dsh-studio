@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import {
   armTerminalFitContinuationRetry,
   clearTerminalFitContinuationRetry,
-} from '../plugins/shared/terminal-fit-retry.ts'
+} from '../plugins/shared/terminal/terminal-fit-retry.ts'
 
 test('armTerminalFitContinuationRetry retries until true or exhausted', async () => {
   const target = {}

@@ -3,6 +3,12 @@
  *
  * Replaces the confusing multi-layer `fullTabDropIndex` + `reorderIndexAfterRemoval`
  * calculations with a single, unambiguous ID-based reordering function.
+ *
+ * Kept hand-written on purpose (ADR): the tab strip reorders with native
+ * HTML5 drag events and a custom Canvas drag image (`tab-drag-image.ts`
+ * exists because DOM snapshots lose the rounded pill); @dnd-kit would
+ * replace the drop model but not the drag-image problem, so a swap buys
+ * nothing.
  */
 
 export type TabDropSide = 'before' | 'after'

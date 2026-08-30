@@ -3,7 +3,7 @@
  * names), single-sourced for BOTH layers:
  *   - the app layer (`src/data-root.ts`) owns the resolution logic and
  *     re-exports these names, and
- *   - the plugin layer (`@dsh-studio/sidebar-host`) consumes them to derive
+ *   - the plugin layer (`@dsh-studio/capabilities`) consumes them to derive
  *     plugin-scoped defaults (e.g. the worktree store root) without
  *     importing app code.
  * Keeping the literals here means `.dsh-studio` / `.dsh-studio-dev` and the

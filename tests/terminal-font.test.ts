@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import {
   DEFAULT_TERMINAL_FONT_FALLBACKS,
   buildTerminalFontFamily,
-} from '../plugins/shared/terminal-font.ts'
+} from '../plugins/shared/terminal/terminal-font.ts'
 
 test('buildTerminalFontFamily generates full fallback list when user font is empty', () => {
   const result = buildTerminalFontFamily('')

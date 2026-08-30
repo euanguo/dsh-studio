@@ -1,7 +1,7 @@
 import type {
-  SidebarGitConflictOperation,
-  SidebarGitUpstreamStatus,
-} from '@dsh-studio/shared/sidebar-api'
+  CapabilitiesGitConflictOperation,
+  CapabilitiesGitUpstreamStatus,
+} from '@dsh-studio/shared/capabilities-api'
 
 /** Every source-control operation exposed by the commit-area controls. */
 export type SourceControlActionKind =
@@ -38,7 +38,7 @@ export interface SourceControlActionInputs {
   hasUnresolvedConflicts: boolean
   hasMessage: boolean
   busy: boolean
-  upstream: SidebarGitUpstreamStatus | undefined
+  upstream: CapabilitiesGitUpstreamStatus | undefined
 }
 
 export interface SourceControlActionState {
@@ -78,7 +78,7 @@ function upstreamAction(
   return enabledWhen ? enabled(kind) : disabled(kind, 'up-to-date')
 }
 
-function abortAction(operation: SidebarGitConflictOperation, inputs: SourceControlActionInputs): SourceControlAction | null {
+function abortAction(operation: CapabilitiesGitConflictOperation, inputs: SourceControlActionInputs): SourceControlAction | null {
   if (operation === null || inputs.upstream?.conflictOperation !== operation) return null
   const kind = operation === 'merge' ? 'abort-merge' : 'abort-rebase'
   return inputs.busy ? disabled(kind, 'busy', true) : enabled(kind, true)

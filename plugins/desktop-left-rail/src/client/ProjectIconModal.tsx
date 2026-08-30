@@ -1,9 +1,12 @@
 import { useRef, type ChangeEvent } from 'react'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { cn } from './shim/cn.ts'
 import { ProjectIconGlyph, projectIconChoices } from './ProjectIconGlyph.tsx'
 import type { ProjectIconBuiltin } from './domain/project-icon.ts'
 import type { ProjectIconNode, ProjectNode } from './tree.ts'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
+import { toast } from '@dsh-studio/shared/toast'
+import { ProjectIconModalCss as css } from './styles.ts'
 
 export interface ProjectIconModalProps {
   open: boolean
@@ -33,10 +36,21 @@ export function ProjectIconModal({
   const onFileChange = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
     const file = event.currentTarget.files?.[0]
     event.currentTarget.value = ''
-    if (file === undefined || file.type !== 'image/png' || file.size > 256 * 1024) return
+    if (file === undefined) return
+    if (file.type !== 'image/png') {
+      toast(t('project.icon.invalidPng'))
+      return
+    }
+    if (file.size > 256 * 1024) {
+      toast(t('project.icon.tooLarge'))
+      return
+    }
     const bytes = new Uint8Array(await file.arrayBuffer())
     const signature = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
-    if (signature.some((value, index) => bytes[index] !== value)) return
+    if (signature.some((value, index) => bytes[index] !== value)) {
+      toast(t('project.icon.invalidPng'))
+      return
+    }
     let binary = ''
     for (const byte of bytes) binary += String.fromCharCode(byte)
     onUploadPng(`data:image/png;base64,${btoa(binary)}`)
@@ -64,35 +78,24 @@ export function ProjectIconModal({
         hidden
         onChange={(event) => { void onFileChange(event) }}
       />
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: '4px 0' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 13, color: 'var(--dsw-alias-label-secondary)' }}>
+      <div className={css.body}>
+        <div className={css.currentRow}>
+          <span className={css.currentLabel}>
             {t('project.icon.current')}:
           </span>
-          <div
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: 32,
-              height: 32,
-              borderRadius: 8,
-              background: 'var(--dsw-alias-interactive-bg-hover)',
-              border: '1px solid var(--dsw-alias-border-l1)',
-            }}
-          >
+          <div className={css.currentTile}>
             <ProjectIconGlyph icon={currentIcon} size={20} />
           </div>
-          <span style={{ fontSize: 13, color: 'var(--dsw-alias-label-primary)', fontWeight: 500 }}>
+          <span className={css.currentName}>
             {project.label}
           </span>
         </div>
 
         <div>
-          <div style={{ fontSize: 12, color: 'var(--dsw-alias-label-tertiary)', marginBottom: 8 }}>
+          <div className={css.chooseLabel}>
             {t('project.icon.chooseBuiltin')}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
+          <div className={css.choices}>
             {projectIconChoices.map(name => {
               const isSelected = currentIcon.value === name
               return (
@@ -103,29 +106,13 @@ export function ProjectIconModal({
                     onSetBuiltin(name as ProjectIconBuiltin)
                     onClose()
                   }}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: 6,
-                    padding: '10px 4px',
-                    borderRadius: 8,
-                    border: isSelected
-                      ? '1px solid var(--dsw-alias-state-business-primary)'
-                      : '1px solid var(--dsw-alias-border-l1)',
-                    background: isSelected
-                      ? 'var(--dsw-alias-interactive-bg-hover)'
-                      : 'transparent',
-                    cursor: 'pointer',
-                    color: 'var(--dsw-alias-label-primary)',
-                  }}
+                  className={cn(css.choice, isSelected && css.choiceSelected)}
                 >
                   <ProjectIconGlyph
                     icon={{ source: 'override', value: name, fallback: 'project' }}
                     size={20}
                   />
-                  <span style={{ fontSize: 11, color: 'var(--dsw-alias-label-secondary)' }}>
+                  <span className={css.choiceName}>
                     {t(`project.icon.${name}` as never)}
                   </span>
                 </button>
@@ -134,7 +121,7 @@ export function ProjectIconModal({
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+        <div className={css.actions}>
           <Button
             variant="outline"
             onClick={() => { fileInputRef.current?.click() }}

@@ -19,16 +19,28 @@ import {
 import { parsePatchFiles } from '@pierre/diffs'
 import type { AnnotationSide, DiffLineAnnotation } from '@pierre/diffs'
 import type { DiffLayoutStyle } from './file-diff.ts'
-import type { DiffComment } from './diff-comments-store.ts'
+import type { WorkbenchComment } from './diff-comments-store.ts'
+import { isDshDarkTheme, subscribeDshDarkTheme } from '../surfaces/dsh-dom.ts'
 
 /** Light/dark theme names Pierre understands. */
 export type PierreDiffTheme = 'github-light' | 'github-dark'
 
-/** Resolve the current theme from the DSH theme attribute. */
+/**
+ * Resolve the current theme from the DSH theme attribute, falling back to
+ * the pane's actual background luminance when the attribute is absent (a
+ * dark-rendered panes can sit under a nominal light skin). The edited
+ * canvas must read like the pane it lives in.
+ */
 export function resolvePierreDiffTheme(): PierreDiffTheme {
-  const dark = typeof document !== 'undefined'
-    && document.body?.dataset.dsDarkTheme !== undefined
-  return dark ? 'github-dark' : 'github-light'
+  if (typeof document === 'undefined') return 'github-light'
+  if (isDshDarkTheme()) return 'github-dark'
+  const bg = getComputedStyle(document.body).backgroundColor
+  const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(bg)
+  if (m !== null) {
+    const luminance = (0.299 * Number(m[1]) + 0.587 * Number(m[2]) + 0.114 * Number(m[3])) / 255
+    if (luminance < 0.5) return 'github-dark'
+  }
+  return 'github-light'
 }
 
 /**
@@ -38,9 +50,9 @@ export function resolvePierreDiffTheme(): PierreDiffTheme {
  * `import.meta.url` is empty — so `new URL(..., import.meta.url)` cannot
  * resolve the worker. The worker is therefore built as its own ESM chunk
  * (`client-pierre-worker.js`, see build-config.mjs + pierre-worker-entry.ts)
- * and served by the sidebar-host /sidebar/bundle route (same origin).
+ * and served by the capabilities /capabilities/bundle route (same origin).
  */
-const PIERRE_WORKER_URL = '/sidebar/bundle/pierre-worker.js'
+const PIERRE_WORKER_URL = '/capabilities/bundle/pierre-worker.js'
 
 export function createPierreDiffWorker(): Worker {
   return new Worker(
@@ -93,10 +105,14 @@ export function renderPierreDiff(
      *  Multi-diff stacked panes: false so content grows and the outer list scrolls. */
     virtualize?: boolean
     /** Line comments rendered as annotation rows on the new-side lines. */
-    lineAnnotations?: DiffLineAnnotation<DiffComment>[]
-    renderAnnotation?: (annotation: DiffLineAnnotation<DiffComment>) => ReactNode
+    lineAnnotations?: DiffLineAnnotation<WorkbenchComment>[]
+    renderAnnotation?: (annotation: DiffLineAnnotation<WorkbenchComment>) => ReactNode
     /** Clicking a line-number gutter reports the line (prefills the comment form). */
     onLineNumberClick?: (input: { lineNumber: number; side: AnnotationSide }) => void
+    /** Hover-comment rails: gutter "+" + hover tracking (see comment-rails). */
+    onLineEnter?: (props: { lineNumber: number; lineElement: HTMLElement }) => void
+    onLineLeave?: () => void
+    renderGutterUtility?: (getHoveredLine?: () => { lineNumber: number } | undefined) => ReactNode
   }>,
 ): ReactNode {
   const parsed = parsePatchFiles(input.patch, input.cacheKey)
@@ -124,7 +140,10 @@ export function renderPierreDiff(
                 input.onLineNumberClick?.({ lineNumber: props.lineNumber, side: props.annotationSide })
               },
             }),
+        ...(input.onLineEnter === undefined ? {} : { onLineEnter: input.onLineEnter }),
+        ...(input.onLineLeave === undefined ? {} : { onLineLeave: input.onLineLeave }),
       }}
+      {...(input.renderGutterUtility === undefined ? {} : { renderGutterUtility: input.renderGutterUtility })}
       {...(hasAnnotations
         ? {
             lineAnnotations: input.lineAnnotations,
@@ -149,13 +168,11 @@ export function renderPierreDiff(
 export function usePierreDiffTheme(): PierreDiffTheme {
   const [theme, setTheme] = useState<PierreDiffTheme>(() => resolvePierreDiffTheme())
   useEffect(() => {
+    // The dsh-dom probe module owns the DSH dark-theme attribute observation
+    // (C6); an upstream rename re-pins there, not here.
     const apply = (): void => setTheme(resolvePierreDiffTheme())
     apply()
-    const observer = new MutationObserver(apply)
-    if (document.body !== null) {
-      observer.observe(document.body, { attributes: true, attributeFilter: ['data-ds-dark-theme'] })
-    }
-    return () => { observer.disconnect() }
+    return subscribeDshDarkTheme(apply)
   }, [])
   return useMemo(() => theme, [theme])
 }

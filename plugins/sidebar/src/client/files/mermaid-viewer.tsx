@@ -3,12 +3,14 @@
  * renders the SVG into a container, and falls back to the raw source on
  * parse/load errors.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useEffect, useRef, useState } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { loadMermaidChunk } from '../chunk-loader.ts'
 import { LoadingState } from '@dsh-studio/shared/ui'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
+import { errorMessage } from '@dsh-studio/shared/errors'
 
 export function MermaidViewer({
   content,
@@ -32,7 +34,7 @@ export function MermaidViewer({
       })
       .catch((cause: unknown) => {
         if (alive) {
-          setError(cause instanceof Error ? cause.message : String(cause))
+          setError(errorMessage(cause))
           setLoading(false)
         }
       })
@@ -40,15 +42,15 @@ export function MermaidViewer({
   }, [content])
 
   return (
-    <Scrollable axis="both" className="dsh-studio-mermaid-viewer" data-testid="mermaid-viewer">
+    <ScrollArea axis="both" className={`dsh-studio-mermaid-viewer`} viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="mermaid-viewer">
       {loading ? <LoadingState label={t('files.rendering-diagram')} /> : null}
       {error !== '' ? (
-        <pre className="dsh-studio-mermaid-source">
+        <pre className={surfaceCss["dsh-studio-mermaid-source"]}>
           <code>{content}</code>
         </pre>
       ) : (
-        <div ref={hostRef} className="dsh-studio-mermaid-svg" />
+        <div ref={hostRef} className={surfaceCss["dsh-studio-mermaid-svg"]} />
       )}
-    </Scrollable>
+    </ScrollArea>
   )
 }

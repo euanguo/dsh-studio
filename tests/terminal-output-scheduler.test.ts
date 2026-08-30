@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
-import { TerminalOutputScheduler } from '../plugins/shared/terminal-output-scheduler.ts'
+import { TerminalOutputScheduler } from '../plugins/shared/terminal/terminal-output-scheduler.ts'
 
 class FakeTerminal {
   writes: Array<{ data: string; callback?: (() => void) | undefined }> = []

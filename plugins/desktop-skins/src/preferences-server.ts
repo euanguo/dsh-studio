@@ -16,6 +16,7 @@ import {
   type DesktopSkinPreferences,
 } from './preferences.ts'
 import type { DshStudioSurface } from '@dsh-studio/shared/surface'
+import { errorMessage } from '@dsh-studio/shared/errors'
 
 export interface DesktopSkinPreferencesHostContext {
   webServer: {
@@ -126,7 +127,7 @@ export function mountDesktopSkinPreferences(
         response.writeHead(405, { allow: 'GET, PUT' })
         response.end()
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = errorMessage(error)
         ctx.logger.warn(`[desktop-skins] ${message}`)
         sendJson(response, 500, { error: message })
       }

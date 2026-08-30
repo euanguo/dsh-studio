@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { computeTerminalImeAnchor } from '../plugins/shared/terminal-ime-anchor.ts'
+import { computeTerminalImeAnchor } from '../plugins/shared/terminal/terminal-ime-anchor.ts'
 
 test('computes a viewport-relative cursor anchor', () => {
   assert.deepEqual(computeTerminalImeAnchor({

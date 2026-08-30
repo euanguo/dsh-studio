@@ -34,6 +34,18 @@ export interface SessionSummary {
   origin?: 'subagent'
   /** Whether the session's agent is currently running. */
   running?: boolean
+  /**
+   * User interaction currently blocking this session (the left rail's amber
+   * StateDot state; mirrors the host runtime SessionSummary).
+   */
+  pendingInteraction?: 'approval' | 'plan-review' | 'question'
+  /**
+   * Finished while not selected and not yet opened (the green "done"
+   * reminder); absent = false.
+   */
+  completed?: boolean
+  /** Last activity wall-clock (ms epoch); the left rail sorts by this. */
+  updatedAt?: number
 }
 
 /** One healthy subagent catalog child row (structural mirror of the host). */
@@ -98,6 +110,13 @@ export interface SessionBinding {
 
 export interface SessionsService extends ReviewSessionsService {
   list: ObservableSnapshot<SessionListState>
+  /**
+   * The runtime's atomic current-session projection (`ISessions
+   * .currentProvideInfo`): session selection AND provider-roster changes
+   * publish through this one observable. React views subscribe here for
+   * identity reactivity and read `list.getSnapshot()` fresh at render.
+   */
+  readonly currentProvideInfo: ObservableSnapshot<{ sessionId: string | undefined }>
   binding(id: string): SessionBinding | undefined
   fork(options: { sessionId: string; increaseTitle?: boolean }): Promise<string>
   open(id: string): void
@@ -135,15 +154,10 @@ export interface SidebarSettingsState {
   pluginSettings: Record<string, Record<string, unknown>>
 }
 
+/** The bound store action the slot injector receives: replace the derived
+ *  settings state with a freshly picked snapshot (see snapshotStoreAdapter). */
 export interface BoundSidebarSettingsActions {
-  sync(
-    openByDefault: boolean,
-    revision: number,
-    tabsEnabled: Record<string, boolean>,
-    viewersEnabled: Record<string, boolean>,
-    width: number,
-    pluginSettings: Record<string, Record<string, unknown>>,
-  ): void
+  sync(next: SidebarSettingsState): void
 }
 
 export interface SidebarSettingsProps {
@@ -189,8 +203,6 @@ export interface WorkspaceToolsState {
 }
 
 export interface WorkspaceTools {
-  getSnapshot(): WorkspaceToolsState
-  subscribe(listener: () => void): () => void
   isOpen(): boolean
   openBrowser(): void
   openBrowserUrl(url: string): void
@@ -211,5 +223,3 @@ export interface WorkspaceTools {
   /** The tab/viewer registry service (open file tabs from list previews). */
   sidebar: DesktopSidebarService
 }
-
-export const EMPTY_CONVERSATION: ConversationSnapshot = { runningCalls: [] }

@@ -1,0 +1,219 @@
+/* ShadCN base-nova Select (installed via the shadcn CLI) with DSW token
+ * chrome — the 1:1 translation of the official utility spec. The component
+ * source in select.tsx is the official registry file; this repo has no
+ * tailwind runtime, so the utility classes are token CSS here.
+ *
+ * Surface mapping: the official popup (bg-popover / shadow-md / ring
+ * foreground/10 / rounded-lg) maps onto the DSH menu card language the
+ * official `Menu` already uses (--dsw-specific-menu / --dsw-shadow-lv3 /
+ * --dsw-alias-border-inverted / r12), so a Select and a Menu read as the
+ * same surface family. The positioner sits at z 1100 like the official
+ * portaled Menu so the popup layers above modal overlays.
+ *
+ * Open/close: the tailwind animate-in/out pair becomes data-starting-style /
+ * data-ending-style transitions (base-ui contract) with the positioner's
+ * --transform-origin; the native item-aligned mode (data-align-trigger) is
+ * not animated, matching the official animate-none rule.
+ */
+
+.dsh-studio-ui-select-trigger {
+  display: flex;
+  box-sizing: border-box;
+  width: fit-content;
+  height: 32px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 8px 8px 8px 10px;
+  border: 1px solid var(--dsh-studio-ui-input, rgb(0 0 0 / 13%));
+  border-radius: var(--dsh-studio-ui-radius, 8px);
+  background: transparent;
+  color: var(--dsh-studio-ui-foreground, #1f2328);
+  font: inherit;
+  font-size: var(--dsh-studio-font-xl, 14px);
+  white-space: nowrap;
+  user-select: none;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.dsh-studio-ui-select-trigger[data-size='sm'] {
+  height: 28px;
+  border-radius: min(var(--dsh-studio-radius-md, 8px), 10px);
+}
+
+.dsh-studio-ui-select-trigger[data-placeholder] {
+  color: var(--dsh-studio-ui-muted-foreground, #8c959f);
+}
+
+.dsh-studio-ui-select-trigger:focus-visible {
+  border-color: var(--dsh-studio-ui-ring, #0969da);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsh-studio-ui-ring, #0969da) 50%, transparent);
+}
+
+.dsh-studio-ui-select-trigger[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.dsh-studio-ui-select-trigger[aria-invalid='true'] {
+  border-color: var(--dsh-studio-ui-destructive, #cf222e);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsh-studio-ui-destructive, #cf222e) 20%, transparent);
+}
+
+.dsh-studio-ui-select-trigger > svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--dsh-studio-ui-muted-foreground, #8c959f);
+  pointer-events: none;
+}
+
+.dsh-studio-ui-select-value {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dsh-studio-ui-select-positioner {
+  z-index: 1100;
+}
+
+.dsh-studio-ui-select-content {
+  position: relative;
+  box-sizing: border-box;
+  z-index: 1100;
+  max-height: calc(var(--available-height, 400) * 1px);
+  width: calc(var(--anchor-width, 0) * 1px);
+  min-width: 144px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border: 1px solid var(--dsw-alias-border-inverted, rgb(255 255 255 / 14%));
+  border-radius: 12px;
+  background: var(--dsw-specific-menu, var(--dsh-studio-ui-card, #fff));
+  color: var(--dsh-studio-ui-foreground, #1f2328);
+  box-shadow: var(--dsw-shadow-lv3, 0 8px 24px rgb(0 0 0 / 18%));
+  transform-origin: var(--transform-origin, top);
+  transition: opacity 100ms ease, transform 100ms ease;
+}
+
+.dsh-studio-ui-select-content[data-align-trigger='true'] {
+  transition: none;
+}
+
+.dsh-studio-ui-select-content[data-starting-style],
+.dsh-studio-ui-select-content[data-ending-style] {
+  opacity: 0;
+  transform: scale(0.95);
+}
+
+.dsh-studio-ui-select-group {
+  padding: 4px;
+  scroll-margin-block: 4px;
+}
+
+.dsh-studio-ui-select-label {
+  padding: 4px 6px;
+  color: var(--dsh-studio-ui-muted-foreground, #8c959f);
+  font-size: var(--dsh-studio-font-md, 12px);
+}
+
+.dsh-studio-ui-select-item {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 32px 4px 6px;
+  border-radius: var(--dsh-studio-radius-sm, 6px);
+  color: inherit;
+  font-size: var(--dsh-studio-font-xl, 14px);
+  cursor: default;
+  user-select: none;
+  outline: none;
+}
+
+.dsh-studio-ui-select-item:focus,
+.dsh-studio-ui-select-item[data-highlighted] {
+  background: var(--dsh-studio-ui-accent, rgb(0 0 0 / 9%));
+  color: var(--dsh-studio-ui-accent-foreground, #1f2328);
+}
+
+.dsh-studio-ui-select-item[data-disabled] {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.dsh-studio-ui-select-item > svg,
+.dsh-studio-ui-select-item .dsh-studio-ui-select-item-indicator svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.dsh-studio-ui-select-item-text {
+  display: flex;
+  flex: 1;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.dsh-studio-ui-select-item-indicator {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  display: flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.dsh-studio-ui-select-separator {
+  height: 1px;
+  margin: 4px -4px;
+  pointer-events: none;
+  background: var(--dsh-studio-ui-border, rgb(0 0 0 / 9%));
+}
+
+.dsh-studio-ui-select-scroll-button {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-block: 4px;
+  background: var(--dsw-specific-menu, var(--dsh-studio-ui-card, #fff));
+  cursor: default;
+}
+
+.dsh-studio-ui-select-scroll-button > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.dsh-studio-ui-select-scroll-up-button {
+  top: 0;
+}
+
+.dsh-studio-ui-select-scroll-down-button {
+  bottom: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dsh-studio-ui-select-content {
+    transition: none;
+  }
+}

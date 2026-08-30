@@ -15,8 +15,8 @@
  * - conversations and terminals are always pinned (`isPreview: false`).
  *
  * Persistence: the store itself is pure memory. A thin subscriber layer
- * (see `persistCenterSurfaces`) mirrors every workspace's queue to
- * localStorage and rebuilds them on startup — deliberately NOT zustand
+ * (see `persistCenterSurfaces`) mirrors every workspace's queue to the
+ * UI storage domain and rebuilds them on startup — deliberately NOT zustand
  * `persist` middleware so the identity store stays pure.
  */
 import { create } from 'zustand'
@@ -232,6 +232,33 @@ function openPreviewableSurface(
   }
 }
 
+/** The previewable (single-open) surface union — excludes conversations and
+ *  terminals, which have their own open rules. */
+type PreviewableCenterSurface = FileCenterSurface | DiffCenterSurface | DiffAllCenterSurface
+  | CommitCenterSurface | CommitFileCenterSurface | CommittedCenterSurface
+  | ConflictCenterSurface | BrowserCenterSurface
+
+/**
+ * F14: the ONE open math for every single-open (previewable) surface — build
+ * the concrete surface, commit it through {@link openPreviewableSurface},
+ * return it. The nine previewable `openXxx` actions below are one-liners over
+ * this factory; `openConversation` and `openTerminal` have their own
+ * activation/instance rules and stay explicit.
+ */
+function openPreviewable<T extends PreviewableCenterSurface>(
+  set: (partial: Partial<CenterSurfaceState> | ((state: CenterSurfaceState) => Partial<CenterSurfaceState> | CenterSurfaceState)) => void,
+  build: () => T,
+): T {
+  const nextSurface = build()
+  set(state => {
+    const slice = readSlice(state.byCwd, nextSurface.cwd)
+    const next = openPreviewableSurface(slice, nextSurface)
+    if (next === slice) return state
+    return { byCwd: writeSlice(state.byCwd, nextSurface.cwd, next) }
+  })
+  return nextSurface
+}
+
 export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
   byCwd: {},
 
@@ -272,177 +299,92 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
     return nextSurface
   },
 
-  openFile: input => {
+  openFile: input => openPreviewable(set, () => {
     const id = fileSurfaceId(input.filePath)
-    const isPreview = input.preview ?? true
-    const nextSurface: FileCenterSurface = {
+    return {
       id,
       kind: 'file',
       cwd: input.cwd,
       filePath: input.filePath,
       title: input.title?.trim() || fileNameFromPath(input.filePath),
       closable: true,
-      isPreview,
+      isPreview: input.preview ?? true,
       ...(input.markdownPreview === undefined ? {} : { markdownPreview: input.markdownPreview }),
-    }
-    set(state => {
-      const slice = readSlice(state.byCwd, input.cwd)
-      const next = openPreviewableSurface(slice, nextSurface)
-      if (next === slice) return state
-      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
-    })
-    return nextSurface
-  },
+    } as FileCenterSurface
+  }),
 
-  openDiff: input => {
-    const id = diffSurfaceId(input.filePath, input.staged)
-    const isPreview = input.preview ?? true
-    const nextSurface: DiffCenterSurface = {
-      id,
-      kind: 'diff',
-      cwd: input.cwd,
-      filePath: input.filePath,
-      staged: input.staged,
-      title: input.title?.trim() || fileNameFromPath(input.filePath),
-      closable: true,
-      isPreview,
-    }
-    set(state => {
-      const slice = readSlice(state.byCwd, input.cwd)
-      const next = openPreviewableSurface(slice, nextSurface)
-      if (next === slice) return state
-      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
-    })
-    return nextSurface
-  },
+  openDiff: input => openPreviewable(set, () => ({
+    id: diffSurfaceId(input.filePath, input.staged),
+    kind: 'diff',
+    cwd: input.cwd,
+    filePath: input.filePath,
+    staged: input.staged,
+    title: input.title?.trim() || fileNameFromPath(input.filePath),
+    closable: true,
+    isPreview: input.preview ?? true,
+  })),
 
-  openCommit: input => {
-    const id = commitSurfaceId(input.hash)
-    const isPreview = input.preview ?? true
-    const nextSurface: CommitCenterSurface = {
-      id,
-      kind: 'commit',
-      cwd: input.cwd,
-      hash: input.hash,
-      title: input.title?.trim() || input.hash.slice(0, 7),
-      closable: true,
-      isPreview,
-    }
-    set(state => {
-      const slice = readSlice(state.byCwd, input.cwd)
-      const next = openPreviewableSurface(slice, nextSurface)
-      if (next === slice) return state
-      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
-    })
-    return nextSurface
-  },
+  openCommit: input => openPreviewable(set, () => ({
+    id: commitSurfaceId(input.hash),
+    kind: 'commit',
+    cwd: input.cwd,
+    hash: input.hash,
+    title: input.title?.trim() || input.hash.slice(0, 7),
+    closable: true,
+    isPreview: input.preview ?? true,
+  })),
 
-  openCommitFile: input => {
-    const id = commitFileSurfaceId(input.hash, input.filePath)
-    const isPreview = input.preview ?? true
-    const nextSurface: CommitFileCenterSurface = {
-      id,
-      kind: 'commit-file',
-      cwd: input.cwd,
-      hash: input.hash,
-      filePath: input.filePath,
-      title: input.title?.trim() || fileNameFromPath(input.filePath),
-      closable: true,
-      isPreview,
-    }
-    set(state => {
-      const slice = readSlice(state.byCwd, input.cwd)
-      const next = openPreviewableSurface(slice, nextSurface)
-      if (next === slice) return state
-      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
-    })
-    return nextSurface
-  },
+  openCommitFile: input => openPreviewable(set, () => ({
+    id: commitFileSurfaceId(input.hash, input.filePath),
+    kind: 'commit-file',
+    cwd: input.cwd,
+    hash: input.hash,
+    filePath: input.filePath,
+    title: input.title?.trim() || fileNameFromPath(input.filePath),
+    closable: true,
+    isPreview: input.preview ?? true,
+  })),
 
-  openCommitted: input => {
-    const id = committedSurfaceId(input.baseRef, input.filePath)
-    const isPreview = input.preview ?? true
-    const nextSurface: CommittedCenterSurface = {
-      id,
-      kind: 'committed',
-      cwd: input.cwd,
-      baseRef: input.baseRef,
-      ...(input.filePath === undefined ? {} : { filePath: input.filePath }),
-      title: input.title?.trim() || (input.filePath === undefined ? 'Committed changes' : fileNameFromPath(input.filePath)),
-      closable: true,
-      isPreview,
-    }
-    set(state => {
-      const slice = readSlice(state.byCwd, input.cwd)
-      const next = openPreviewableSurface(slice, nextSurface)
-      if (next === slice) return state
-      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
-    })
-    return nextSurface
-  },
+  openCommitted: input => openPreviewable(set, () => ({
+    id: committedSurfaceId(input.baseRef, input.filePath),
+    kind: 'committed',
+    cwd: input.cwd,
+    baseRef: input.baseRef,
+    ...(input.filePath === undefined ? {} : { filePath: input.filePath }),
+    title: input.title?.trim() || (input.filePath === undefined ? 'Committed changes' : fileNameFromPath(input.filePath)),
+    closable: true,
+    isPreview: input.preview ?? true,
+  })),
 
-  openConflict: input => {
-    const id = conflictSurfaceId(input.filePath)
-    const isPreview = input.preview ?? true
-    const nextSurface: ConflictCenterSurface = {
-      id,
-      kind: 'conflict',
-      cwd: input.cwd,
-      filePath: input.filePath,
-      title: input.title?.trim() || fileNameFromPath(input.filePath),
-      closable: true,
-      isPreview,
-    }
-    set(state => {
-      const slice = readSlice(state.byCwd, input.cwd)
-      const next = openPreviewableSurface(slice, nextSurface)
-      if (next === slice) return state
-      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
-    })
-    return nextSurface
-  },
+  openConflict: input => openPreviewable(set, () => ({
+    id: conflictSurfaceId(input.filePath),
+    kind: 'conflict',
+    cwd: input.cwd,
+    filePath: input.filePath,
+    title: input.title?.trim() || fileNameFromPath(input.filePath),
+    closable: true,
+    isPreview: input.preview ?? true,
+  })),
 
-  openDiffAll: input => {
-    const id = diffAllSurfaceId(input.staged)
-    const isPreview = input.preview ?? true
-    const nextSurface: DiffAllCenterSurface = {
-      id,
-      kind: 'diff-all',
-      cwd: input.cwd,
-      staged: input.staged,
-      title: input.title?.trim() || (input.staged ? 'Staged changes' : 'Changes'),
-      closable: true,
-      isPreview,
-    }
-    set(state => {
-      const slice = readSlice(state.byCwd, input.cwd)
-      const next = openPreviewableSurface(slice, nextSurface)
-      if (next === slice) return state
-      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
-    })
-    return nextSurface
-  },
+  openDiffAll: input => openPreviewable(set, () => ({
+    id: diffAllSurfaceId(input.staged),
+    kind: 'diff-all',
+    cwd: input.cwd,
+    staged: input.staged,
+    title: input.title?.trim() || (input.staged ? 'Staged changes' : 'Changes'),
+    closable: true,
+    isPreview: input.preview ?? true,
+  })),
 
-  openBrowser: input => {
-    const id = browserSurfaceId(input.resource)
-    const isPreview = input.preview ?? true
-    const nextSurface: BrowserCenterSurface = {
-      id,
-      kind: 'browser',
-      cwd: input.cwd,
-      title: input.title?.trim() || 'Browser',
-      ...(input.resource === undefined ? {} : { resource: input.resource }),
-      closable: true,
-      isPreview,
-    }
-    set(state => {
-      const slice = readSlice(state.byCwd, input.cwd)
-      const next = openPreviewableSurface(slice, nextSurface)
-      if (next === slice) return state
-      return { byCwd: writeSlice(state.byCwd, input.cwd, next) }
-    })
-    return nextSurface
-  },
+  openBrowser: input => openPreviewable(set, () => ({
+    id: browserSurfaceId(input.resource),
+    kind: 'browser',
+    cwd: input.cwd,
+    title: input.title?.trim() || 'Browser',
+    ...(input.resource === undefined ? {} : { resource: input.resource }),
+    closable: true,
+    isPreview: input.preview ?? true,
+  })),
 
   openTerminal: input => {
     // Every terminal tab is its own instance: the id (`terminal:<n>`) is
@@ -586,7 +528,7 @@ export const useCenterSurfaceStore = create<CenterSurfaceState>((set, get) => ({
 }))
 
 
-/* ---------- localStorage persistence (extracted module) ---------- */
+/* ---------- domain persistence (extracted module) ---------- */
 
 export {
   persistCenterSurfaces,

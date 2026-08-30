@@ -2,7 +2,6 @@
  * Sidebar tab category glyphs. Maps each tool kind onto the installed
  * Tabler set so the right rail and desktop add-on share one weight.
  */
-import type { ReactNode } from 'react'
 import {
   IconFile,
   IconFolderOpen,
@@ -32,9 +31,4 @@ export function ToolIcon({ kind }: { kind: ToolIconKind }): JSX.Element {
   if (kind === 'chat') return <IconMessagePlus />
   if (kind === 'subagent') return <IconList />
   return <IconList />
-}
-
-/** Convenience wrapper: an icon node sized by the consumer's CSS. */
-export function toolIconOf(kind: ToolIconKind): ReactNode {
-  return <ToolIcon kind={kind} />
 }

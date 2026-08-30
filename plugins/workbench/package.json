@@ -1,0 +1,27 @@
+{
+  "name": "@dsh-studio/workbench",
+  "version": "0.1.2",
+  "description": "Pure Cordis workbench kernel services for DSH Studio: surface registry, open pipeline, layout, scoped state, workspace events",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./dist/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/index.js",
+    "dist/client.js",
+    "dist/client.js.map"
+  ],
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  }
+}

@@ -64,11 +64,3 @@ export function buildFileRows(input: FileRowsInput): FileRow[] {
   emit(input.currentPath, 0)
   return rows
 }
-
-/** The first directory row's path under a mode (for empty-state hints). */
-export function hasLoadedChildren(
-  entriesByDir: ReadonlyMap<string, readonly WorkspaceFileEntry[]>,
-  path: string,
-): boolean {
-  return entriesByDir.has(path)
-}

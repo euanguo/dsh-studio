@@ -31,6 +31,12 @@ its subtree. Keep this file to durable rules; put explanations in `docs/`.
 - Derive displayed versions from the repository version resolver. Do not
   duplicate versions, platform paths, executable names, or data roots.
 - Make user-state migrations non-destructive, restart-safe, and idempotent.
+- Client data flow: components render from zustand stores and `shared/runtime`
+  caches; RPC caching uses the shared RevisionedStore layer exclusively;
+  persistence goes through the shared `persistVia` facade onto host-owned
+  domains (ui-chrome tables, settings namespaces, or nodeFs). No
+  component-local loading/error/data fetch loops, no direct browser-storage
+  writes. See `.workflow/specs/` and `scripts/guards/`.
 - Preserve macOS arm64/x64, Linux x64, and Windows x64 behavior.
 
 See `docs/design.en.md` and `docs/design.md` for detailed boundaries.
@@ -53,7 +59,11 @@ See `docs/design.en.md` and `docs/design.md` for detailed boundaries.
   removal, or model reduction.
 - Do not edit generated output in `dist/`, `.stage/`, `release/`, or caches.
 - Do not weaken `.npmrc`, lockfile, provenance, or release safety policies.
-- Update both language variants when user-facing documentation changes.
+- Bilingual docs follow a two-tier policy. Tier-EN-required core docs —
+  `design*`, `usage*`, `PLUGIN-DEVELOPMENT*`, `persistence-architecture*`,
+  `workbench-architecture*`, `interaction-model*` — must keep zh/en pairs in
+  sync when changed. All other docs are the zh-only tier (EN counterparts
+  optional; zh is authoritative). State the tier when adding a new doc.
 - Add tests only for reusable, non-trivial contracts or regressions.
 - Run `pnpm run typecheck`, `pnpm test`, and `pnpm run build` when code changes.
   Run the relevant surface smoke or package check for runtime changes.

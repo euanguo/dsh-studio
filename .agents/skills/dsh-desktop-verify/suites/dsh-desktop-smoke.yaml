@@ -1,0 +1,27 @@
+# DSH Studio (Dev) desktop — minimal smoke suite.
+#
+# Run against a connected DEV desktop session (never in a fresh launched
+# browser, which has no CDP link to the app):
+#
+#   chrome-use test .agents/skills/dsh-desktop-verify/suites/dsh-desktop-smoke.yaml \
+#     --session dsh-dev-<task>
+#
+# Every assertion is a chrome-use assert (all compile to one truthy eval), so
+# this suite reuses chrome-use's own engine — it is NOT an app-specific script.
+# The right rail's composer must stay untouched: no case submits a model round.
+suite: dsh-desktop-dev smoke
+cases:
+  - name: app shell renders
+    assert:
+      - url: { contains: 127.0.0.1 }
+      - visible: "#root"
+      - eval: "document.title.endsWith('DeepSeek Harness')"
+  - name: left rail session tree present
+    assert:
+      - eval: "document.querySelectorAll('[role=treeitem]').length >= 1"
+      - eval: "[...document.querySelectorAll('[role=treeitem]')].some(n => (n.textContent||'').trim().length > 0)"
+  - name: composer accepts input without submitting
+    steps:
+      - fill: { sel: "textarea, [contenteditable='true']", text: "hi" }
+    assert:
+      - eval: "[...document.querySelectorAll('textarea,[contenteditable=\\'true\\']')].some(n => (n.value||n.textContent).includes('hi'))"

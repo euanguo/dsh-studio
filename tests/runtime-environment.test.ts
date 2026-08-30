@@ -3,8 +3,11 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
+import { desktopNodeEnv } from '../src/desktop-node-env.ts'
 import { buildDesktopRuntimeEnvironment } from '../src/runtime-environment.ts'
 import { bundledRuntimePaths } from '../src/runtime-paths.ts'
+
+const EXEC_PATH = '/Applications/DSH Studio.app/Contents/MacOS/Electron'
 
 test('user runtime environment preserves the login PATH and removes marketplace override', () => {
   const appDataPath = '/Users/me/.dsh-studio'
@@ -12,7 +15,9 @@ test('user runtime environment preserves the login PATH and removes marketplace 
   const environment = buildDesktopRuntimeEnvironment({
     appDataPath,
     dshHome: appDataPath,
-    nodeEnvironment: { ELECTRON_RUN_AS_NODE: '1' },
+    // The inherited environment carries only namespaced interpreter plumbing;
+    // the run-as-node variable exists solely inside exec boundaries.
+    nodeEnvironment: desktopNodeEnv(paths, EXEC_PATH),
     paths,
     profile: 'desktop',
     userEnvironment: {
@@ -27,7 +32,8 @@ test('user runtime environment preserves the login PATH and removes marketplace 
     version: '0.1.2',
   })
   assert.equal(environment.GIT_CONFIG_GLOBAL, undefined)
-  assert.equal(environment.ELECTRON_RUN_AS_NODE, '1')
+  assert.equal(environment.ELECTRON_RUN_AS_NODE, undefined)
+  assert.equal(environment.DSH_STUDIO_NODE_EXECUTABLE, EXEC_PATH)
   assert.equal(environment.DSH_STUDIO_HOME, appDataPath)
   assert.deepEqual(environment.PATH?.split(':'), [
     '/Users/me/.local/bin',
@@ -52,7 +58,7 @@ test('marketplace runtime environment owns its isolated Git config without chang
     const common = {
       appDataPath: root,
       dshHome: root,
-      nodeEnvironment: { ELECTRON_RUN_AS_NODE: '1' },
+      nodeEnvironment: desktopNodeEnv(paths, EXEC_PATH),
       paths,
       profile: 'desktop',
       userEnvironment,
@@ -76,6 +82,11 @@ test('marketplace runtime environment owns its isolated Git config without chang
     assert.equal(marketplace.GIT_CONFIG_GLOBAL, expected)
     assert.equal(preview.GIT_CONFIG_GLOBAL, expected)
     assert.equal(preview.DSH_STUDIO_PREVIEW, '1')
+    // No composed scope may inherit interpreter variables; the marketplace
+    // call site adds run-as-node explicitly on its own exec boundary.
+    for (const environment of [user, marketplace, preview]) {
+      assert.equal(environment.ELECTRON_RUN_AS_NODE, undefined)
+    }
     assert.match(readFileSync(expected, 'utf8'), /credential "https:\/\/github\.com"/)
     // Marketplace keeps the bundled runtime first so its pnpm/node stay
     // consistent; only the user scope is user-first.

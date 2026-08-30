@@ -1,0 +1,314 @@
+/* surfaces/center-surface.css → module; shared classes/ids are :global escapes. */
+/* ============================================================
+   Center surface tabs + body (middle-area strip).
+   Mounted as a normal-flow flex child of the DSH center column
+   (`:global(.aOBRAa_centerCol)`), above the conversation slot — no fixed
+   overlay, no left-rail measurement. The strip sits at the very
+   top of the center area and doubles as the window drag region
+   (blank strip space drags the window; every interactive chip
+   opts out with no-drag).
+   An active surface body fills the column (pushing the
+   conversation out of view); with a conversation active the body
+   collapses so the conversation shows.
+   ============================================================ */
+
+/* The unified top-rail geometry variables. Only the two raw chrome
+   facts are published live (by chrome-geometry.ts): the macOS content
+   start next to the traffic lights, and the Windows overlay control
+   region. All PADDING decisions are made by app state in CSS — no
+   element measuring, no observers:
+   - strip left:  `:global(.is-left-collapsed)` (left rail collapsed) reserves
+     the traffic lights minus the DSH collapsed rail's own offset;
+   - strip right: `:global(.is-right-free)` (right panel closed — the strip's
+     right edge reaches the window edge) reserves the overlay buttons. */
+:root {
+  --dsh-studio-traffic-left: 74px;
+  /* The DSH collapsed activity rail (55px) plus its 1px border — the
+     strip starts right of it, so it already clears the lights by that
+     much and only the remainder needs reserving. */
+  --dsh-studio-rail-offset: 56px;
+}
+
+:global(#dsh-studio-center-tabs-root) {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-width: 0;
+  min-height: 0;
+  /* No z-index here: the surface body must stay in the normal stacking
+     order so DSH dialog layers (`:global(.aOBRAa_overlayLayer)`, z-index 20)
+     paint ABOVE it. Only the tab strip (below) raises itself to own the
+     window-drag strip at the top of the column. */
+}
+
+/* When a non-conversation surface body is active it takes the whole
+   remaining column height; otherwise the root is only as tall as the
+   strip so the conversation below stays visible.
+   The column's own height is auto (its flex sizing happens before the
+   grid stretches it), so the root is sized from the measured column
+   height (--dsh-studio-center-col-height, maintained by a ResizeObserver in
+   center-surface-host.tsx) instead of a hardcoded viewport height —
+   100vh drifts whenever the column top/height differs from the window. */
+:global(#dsh-studio-center-tabs-root):has(.dsh-studio-center-surface-body:not([data-hidden='true'])) {
+  flex: 0 0 auto;
+  height: var(--dsh-studio-center-col-height, 100vh);
+}
+
+/* While a surface body is active, hide the conversation slot entirely
+   (display:none, not flex-collapse): a 0-height slot keeps its children
+   overflow-visible, so the DSH conversation paints below the body and
+   makes the center column scrollable — the strip then scrolls out of
+   view. With the slot gone the column's scrollHeight equals the root's
+   height and nothing can scroll it away.
+   !important is required: DSH sets `display: contents` inline on the
+   slot, and an author !important beats a plain inline declaration. */
+:global(.aOBRAa_centerCol):has(
+  :global(#dsh-studio-center-tabs-root) .dsh-studio-center-surface-body:not([data-hidden='true'])
+) [data-slot='conversation'] {
+  display: none !important;
+}
+
+/* The unified top rail: the strip owns the left-rail toggle, the tab
+   scroller and the right-rail reopen as in-flow flex members — nothing
+   floats over the tabs, and no fixed viewport coordinates are needed.
+   Blank strip space drags the window (Electron); every interactive chip
+   opts out. No elevated z-index: the strip stays in the normal stacking
+   order so DSH dialogs (overlay layer) paint above it too. */
+.dsh-studio-center-tabs-strip {
+  -webkit-app-region: drag;
+  display: flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-1);
+  min-height: 42px;
+  padding: var(--dsh-studio-space-1) var(--dsh-studio-space-2) var(--dsh-studio-space-1) var(--dsh-studio-left-rail-toggle-inset, var(--dsh-studio-space-2));
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 92%, transparent);
+  backdrop-filter: blur(6px);
+  flex: none;
+}
+
+/* Right panel closed: the strip's right edge reaches the window edge,
+   so reserve the Windows overlay control buttons on the right. While
+   the panel is open the strip ends at the panel's left edge — no
+   reservation needed (the 8px base padding applies). */
+.dsh-studio-center-tabs-strip:global(.is-right-free) {
+  padding-right: var(--dsh-studio-traffic-right, var(--dsh-studio-space-2));
+}
+
+/* The unified top rail's toggle is the SINGLE manager of the DSH left
+   rail: the native sidebar header keeps its own expand/collapse button,
+   which is hidden here. The strip still drives it programmatically —
+   `leftRailToggleButton().click()` dispatches on the hidden node and the
+   aria-label flip that tracks the rail state lives on that same node and
+   is read by `readLeftRailOpen`. Both states are covered ('收起侧边栏'
+   while expanded, '打开侧边栏' as the collapsed whale-mark control). */
+[data-slot='sidebar'] button[aria-label*='侧边栏'] {
+  display: none !important;
+}
+
+/* macOS desktop only (--dsh-studio-traffic-top is 0 elsewhere): pad the
+   left rail column down past the system traffic lights so the whale mark
+   never collides with them. */
+[data-slot='sidebar'] > div {
+  padding-top: var(--dsh-studio-traffic-top, 0px);
+}
+
+/* The tab scroller is the ONLY scrolling member of the strip: the toggle
+   and reopen buttons stay pinned at their ends while the tabs overflow.
+   The inner strip must not shrink (width = its content) so the scroller
+   actually overflows and scrolls. */
+.dsh-studio-center-tabs-scroller {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  flex: 1 1 auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.dsh-studio-center-tabs-scroller :global(.dsh-studio-surface-tab-strip) {
+  /* Only the actual tab hit area opts out. Empty scroller space remains
+     available for dragging the Electron window. */
+  -webkit-app-region: no-drag;
+  flex: none;
+}
+
+.dsh-studio-center-tabs-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+/* In-strip rail controls (the unified top rail) are shared ToolbarActions
+   (ghost variant): hover/engaged washes come from the official Button and the
+   shared toolbar-action state rules. Only geometry and glyph shaping stay:
+   - left rail toggle: always rendered — the single manager of the DSH
+     left rail (the DSH's own header toggle is hidden); sits right of the
+     macOS traffic lights (the strip's `is-left-collapsed` padding);
+   - right rail reopen: rendered only while the panel is closed, pinned to
+     the strip's right end — overflowing tabs scroll under it never (they
+     live in the scroller). Both opt out of the window-drag strip. */
+.dsh-studio-left-rail-toggle,
+.dsh-studio-right-rail-reopen {
+  /* Seat geometry (28×28, radius-sm, ghost, secondary label) is the shared
+     ToolbarAction chrome now; only the window-drag opt-out stays here. */
+  -webkit-app-region: no-drag;
+}
+
+.dsh-studio-right-rail-reopen {
+  /* Opaque card token: the alpha-threshold rule (upstream 3c196ff) — any
+     translucent value below 0.9 falls back to an opaque surface so glyphs
+     never sit on the skin's backdrop pattern. */
+  background: var(--dsw-alias-bg-layer-1, var(--dsw-alias-bg-base, #fff));
+}
+
+/* The center strip's "+" menu button ("add browser / terminal /
+   conversation as a first-class surface"): the same square seat as the rail
+   toggles, pinned right of the tab scroller. */
+.dsh-studio-center-add {
+  -webkit-app-region: no-drag;
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+/* Global portaled Menu styling is defined in ONE place —
+   side-tools.module.css (`body > div[role='menu']`, the canonical shared
+   Menu rewrite + exemption comment). This surface must not re-implement a
+   second copy; the merged stylesheet applies one rule set across the app. */
+
+.dsh-studio-left-rail-toggle svg,
+.dsh-studio-right-rail-reopen svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.6;
+}
+
+/* The rail toggle glyphs are FILLED icons (a frame with a filled strip):
+   override the outline defaults above so the strip renders as a solid bar. */
+.dsh-studio-left-rail-toggle .dsh-studio-rail-toggle-glyph,
+.dsh-studio-right-rail-reopen .dsh-studio-rail-toggle-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dsh-studio-left-rail-toggle .dsh-studio-rail-toggle-glyph svg,
+.dsh-studio-right-rail-reopen .dsh-studio-rail-toggle-glyph svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+/* ---------- Surface body (file / diff / browser render area) ---------- */
+
+.dsh-studio-center-surface-body {
+  pointer-events: auto;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--dsw-alias-bg-base, #fff);
+  overflow: hidden;
+}
+
+.dsh-studio-center-surface-body[data-hidden='true'] {
+  display: none;
+}
+
+.dsh-studio-center-surface-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: var(--dsh-studio-space-2);
+  min-height: 160px;
+  padding: var(--dsh-studio-space-4);
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  text-align: center;
+  font-size: var(--dsh-studio-font-sm);
+}
+
+/* ---------- Diff surface ---------- */
+
+.dsh-studio-diff-surface {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Commit/diff surface headers are the bare shared SurfaceToolbar (no
+   per-surface className hook): geometry AND typography come from the
+   component, so no header rules live here. */
+
+:global(.dsh-studio-diff-surface-body) {
+  flex: 1;
+  /* Insets come from the Scrollable host (default 8px). */
+}
+
+/* ---------- Commit diff surface ---------- */
+
+.dsh-studio-commit-surface {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.dsh-studio-commit-surface-body {
+  flex: 1;
+  /* Insets come from the Scrollable host (default 8px). */
+}
+
+/* Commit / committed multi-file views: left path tree + right file stack
+   (the same tree+diff structure as the diff-all surface). */
+.dsh-studio-commit-tree-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+
+.dsh-studio-commit-tree-body :global(.dsh-studio-diff-tree) {
+  flex: none;
+}
+
+.dsh-studio-commit-surface-body details {
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+.dsh-studio-commit-surface-body summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dsh-studio-space-2);
+  padding: var(--dsh-studio-space-1-5) var(--dsh-studio-space-3);
+  cursor: pointer;
+  font: var(--dsh-studio-font-xs)/1.35 var(--dsh-studio-font-mono);
+}
+
+.dsh-studio-commit-surface-body summary > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsh-studio-commit-surface-body summary small { color: var(--dsw-alias-state-error-primary, #cf222e); }
+.dsh-studio-commit-surface-body summary b { color: var(--dsw-alias-state-success-primary, #2da44e); font-weight: 500; }
+
+.dsh-studio-commit-surface-lines {
+  max-height: 420px;
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+/* The DSH hero glow is a decorative bleed (width:135%) centered on the
+   composer. Whenever the column is narrower than the glow's intrinsic
+   width it produces a one-sided clipped edge, so always clamp it to the
+   column — content must never exceed the window. */
+[class*='heroGlow'] {
+  width: 100%;
+}

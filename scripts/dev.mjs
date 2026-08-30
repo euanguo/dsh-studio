@@ -48,17 +48,17 @@ const SYNC_PAIRS = [
   ['dist/client.js.map', '@dsh-studio/desktop/dist/client.js.map'],
   ['dist/plugin.js', '@dsh-studio/desktop/dist/plugin.js'],
   ['dist/cordis.patch.yml', '@dsh-studio/desktop/dist/cordis.patch.yml'],
-  ...['sidebar-host', 'desktop-skins', 'sidebar', 'desktop-left-rail', 'panel-controls',
+  ...['capabilities', 'desktop-skins', 'sidebar', 'desktop-left-rail', 'panel-controls',
     'pinned-summary', 'plugin-marketplace', 'sidebar-desktop'].flatMap(directory => [
     [`plugins/${directory}/package.json`, `@dsh-studio/${directory}/package.json`],
     [`dist/plugins/${directory}/index.js`, `@dsh-studio/${directory}/dist/index.js`],
     [`dist/plugins/${directory}/client.js`, `@dsh-studio/${directory}/dist/client.js`],
     [`dist/plugins/${directory}/client.js.map`, `@dsh-studio/${directory}/dist/client.js.map`],
   ]),
-  ['dist/plugins/sidebar-host/client-mermaid.js', '@dsh-studio/sidebar-host/dist/client-mermaid.js'],
-  ['dist/plugins/sidebar-host/client-mermaid.js.map', '@dsh-studio/sidebar-host/dist/client-mermaid.js.map'],
-  ['dist/plugins/sidebar-host/client-pierre-worker.js', '@dsh-studio/sidebar-host/dist/client-pierre-worker.js'],
-  ['dist/plugins/sidebar-host/client-pierre-worker.js.map', '@dsh-studio/sidebar-host/dist/client-pierre-worker.js.map'],
+  ['dist/plugins/capabilities/client-mermaid.js', '@dsh-studio/capabilities/dist/client-mermaid.js'],
+  ['dist/plugins/capabilities/client-mermaid.js.map', '@dsh-studio/capabilities/dist/client-mermaid.js.map'],
+  ['dist/plugins/capabilities/client-pierre-worker.js', '@dsh-studio/capabilities/dist/client-pierre-worker.js'],
+  ['dist/plugins/capabilities/client-pierre-worker.js.map', '@dsh-studio/capabilities/dist/client-pierre-worker.js.map'],
 ]
 
 let syncedCount = 0
@@ -147,10 +147,16 @@ function startElectron() {
   // for CDP-based inspection (chrome-use / DevTools).
   const extraArgs = (process.env.DSH_STUDIO_ELECTRON_ARGS ?? '').split(' ').filter(Boolean)
   log(`starting electron . (${electronBinary})${extraArgs.length > 0 ? ` args=${extraArgs.join(' ')}` : ''}`)
+  // This is a GUI launch of our own Electron binary. A stray
+  // ELECTRON_RUN_AS_NODE inherited from a desktop agent session would boot
+  // it as plain Node and die on `import { BrowserWindow }`; interpreter
+  // variables stay bound to their exec boundaries, never to GUI launches.
+  const childEnv = { ...process.env }
+  delete childEnv.ELECTRON_RUN_AS_NODE
   electron = spawn(electronBinary, ['.', ...extraArgs], {
     cwd: root,
     env: {
-      ...process.env,
+      ...childEnv,
       DSH_STUDIO_CHANNEL: process.env.DSH_STUDIO_CHANNEL || 'dev',
     },
     stdio: 'inherit',

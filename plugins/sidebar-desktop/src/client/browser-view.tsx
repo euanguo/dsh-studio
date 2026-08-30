@@ -1,19 +1,67 @@
-import { useEffect, useRef, useState } from 'react'
 import {
-  Button,
   IconChevronLeftOutline14,
   IconRefreshOutline16,
-  Input,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
-import { ErrorState } from '@dsh-studio/shared/ui'
+import { ErrorState, Input, ToolbarAction } from '@dsh-studio/shared/ui'
 import type { SidebarRenderProps } from '@dsh-studio/sidebar/client/contract'
 import type { BrowserCenterSurface } from '@dsh-studio/sidebar/client/surfaces-types'
 import type { WorkspaceMessage } from '@dsh-studio/sidebar/client/i18n'
 import {
-  getLiveBrowserUrl,
-  rememberLiveBrowserUrl,
-} from './browser-runtime.ts'
+  useElectronWebview,
+} from './use-electron-webview.ts'
+
+/**
+ * The address strip both browser surfaces share. The browser is its own
+ * chrome (NOT the shared SurfaceToolbar — that strip is for file/view
+ * surfaces): back/reload ToolbarActions, then the omnibox field owning
+ * every remaining pixel. Enter navigates — no separate Go capsule.
+ */
+function BrowserActionBar({
+  address,
+  canGoBack,
+  t,
+  onAddressChange,
+  onBack,
+  onReload,
+  onSubmit,
+}: {
+  address: string
+  canGoBack: boolean
+  t: Translate<WorkspaceMessage>
+  onAddressChange(next: string): void
+  onBack(): void
+  onReload(): void
+  onSubmit(): void
+}): JSX.Element {
+  return (
+    <form
+      className="dsh-studio-browser-bar"
+      onSubmit={event => { event.preventDefault(); onSubmit() }}
+    >
+      <ToolbarAction
+        type="button"
+        disabled={!canGoBack}
+        label={t('browser.back')}
+        icon={<IconChevronLeftOutline14 size={16} />}
+        onClick={onBack}
+      />
+      <ToolbarAction
+        type="button"
+        label={t('browser.reload')}
+        icon={<IconRefreshOutline16 size={16} />}
+        onClick={onReload}
+      />
+      <Input
+        className="dsh-studio-browser-address"
+        value={address}
+        placeholder={t('browser.enter-url')}
+        aria-label={t('browser.url')}
+        onChange={event => { onAddressChange(event.currentTarget.value) }}
+      />
+    </form>
+  )
+}
 
 /**
  * Electron `<webview>` browser surface. This is a DESKTOP-ONLY capability
@@ -21,29 +69,6 @@ import {
  * depend on it, so this component is the seam that later moves into the
  * desktop add-on plugin.
  */
-export interface ElectronWebviewElement extends HTMLElement {
-  canGoBack(): boolean
-  getURL(): string
-  goBack(): void
-  loadURL(url: string): Promise<void>
-  reload(): void
-}
-
-function normalizeBrowserUrl(
-  raw: string,
-  t: Translate<WorkspaceMessage>,
-): string {
-  const value = raw.trim()
-  if (value === '') throw new Error(t('browser.enter-url'))
-  const url = new URL(/^[a-z][a-z\d+.-]*:/i.test(value)
-    ? value
-    : `https://${value}`)
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-    throw new Error(t('browser.http-only'))
-  }
-  return url.href
-}
-
 export function BrowserView({
   patch,
   t,
@@ -51,107 +76,34 @@ export function BrowserView({
 }: SidebarRenderProps & {
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const container = useRef<HTMLDivElement | null>(null)
-  const webview = useRef<ElectronWebviewElement | null>(null)
-  const [address, setAddress] = useState(tab.resource ?? getLiveBrowserUrl(tab.id) ?? '')
-  const [error, setError] = useState('')
-  const [canGoBack, setCanGoBack] = useState(false)
-
-  useEffect(() => {
-    const host = container.current
-    if (host === null) return
-    const element = document.createElement('webview') as unknown as ElectronWebviewElement
-    element.className = 'dsh-studio-browser-webview'
-    element.setAttribute('partition', 'persist:dsh-studio-browser')
-    element.setAttribute('src', tab.resource ?? getLiveBrowserUrl(tab.id) ?? 'about:blank')
-    const update = (event: Event): void => {
-      const next = 'url' in event && typeof event.url === 'string'
-        ? event.url
-        : element.getURL()
-      if (next !== '' && next !== 'about:blank') {
-        try {
-          const safe = normalizeBrowserUrl(next, t)
-          const url = new URL(safe)
-          setAddress(safe)
-          rememberLiveBrowserUrl(tab.id, safe)
-          patch({ resource: safe, title: url.hostname || t('browser') })
-        } catch (nextError) {
-          setError(nextError instanceof Error ? nextError.message : String(nextError))
-        }
-      }
-      setCanGoBack(element.canGoBack())
-    }
-    const guard = (event: Event): void => {
-      if (!('url' in event) || typeof event.url !== 'string') return
-      try {
-        normalizeBrowserUrl(event.url, t)
-      } catch (nextError) {
-        event.preventDefault()
-        setError(nextError instanceof Error ? nextError.message : String(nextError))
-      }
-    }
-    const failed = (event: Event): void => {
-      const description = 'errorDescription' in event
-        ? String(event.errorDescription)
-        : t('browser.page-failed')
-      setError(description)
-    }
-    element.addEventListener('did-navigate', update)
-    element.addEventListener('did-navigate-in-page', update)
-    element.addEventListener('will-navigate', guard)
-    element.addEventListener('did-fail-load', failed)
-    host.append(element)
-    webview.current = element
-    return () => {
-      webview.current = null
-      element.remove()
-    }
-  }, [tab.id])
-
-  const navigate = async (): Promise<void> => {
-    try {
-      const url = normalizeBrowserUrl(address, t)
-      setAddress(url)
-      setError('')
-      await webview.current?.loadURL(url)
-    } catch (next) {
-      setError(next instanceof Error ? next.message : String(next))
-    }
-  }
+  const {
+    containerRef,
+    webviewRef,
+    address,
+    setAddress,
+    error,
+    canGoBack,
+    navigate,
+  } = useElectronWebview(
+    tab.id,
+    tab.resource,
+    t,
+    (resource, title) => patch({ resource, title }),
+  )
 
   return (
     <div className="dsh-studio-browser-view">
-      <form
-        className="dsh-studio-browser-bar"
-        onSubmit={event => { event.preventDefault(); void navigate() }}
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={!canGoBack}
-          aria-label={t('browser.back')}
-          icon={<IconChevronLeftOutline14 size={16} />}
-          onClick={() => { webview.current?.goBack() }}
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-label={t('browser.reload')}
-          icon={<IconRefreshOutline16 size={16} />}
-          onClick={() => { webview.current?.reload() }}
-        />
-        <Input
-          value={address}
-          placeholder={t('browser.enter-url')}
-          aria-label={t('browser.url')}
-          onChange={event => { setAddress(event.currentTarget.value) }}
-        />
-        <Button type="submit" variant="primary" size="sm">{t('browser.go')}</Button>
-      </form>
+      <BrowserActionBar
+        address={address}
+        canGoBack={canGoBack}
+        t={t}
+        onAddressChange={setAddress}
+        onBack={() => { webviewRef.current?.goBack() }}
+        onReload={() => { webviewRef.current?.reload() }}
+        onSubmit={() => { void navigate() }}
+      />
       {error !== '' && <ErrorState className="dsh-studio-browser-error" message={error} />}
-      <div ref={container} className="dsh-studio-browser-host" />
+      <div ref={containerRef} className="dsh-studio-browser-host" />
     </div>
   )
 }
@@ -168,105 +120,34 @@ export function BrowserSurfaceView({
   surface: BrowserCenterSurface
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
-  const container = useRef<HTMLDivElement | null>(null)
-  const webview = useRef<ElectronWebviewElement | null>(null)
-  const [address, setAddress] = useState(surface.resource ?? getLiveBrowserUrl(surface.id) ?? '')
-  const [error, setError] = useState('')
-  const [canGoBack, setCanGoBack] = useState(false)
-
-  useEffect(() => {
-    const host = container.current
-    if (host === null) return
-    const element = document.createElement('webview') as unknown as ElectronWebviewElement
-    element.className = 'dsh-studio-browser-webview'
-    element.setAttribute('partition', 'persist:dsh-studio-browser')
-    element.setAttribute('src', surface.resource ?? getLiveBrowserUrl(surface.id) ?? 'about:blank')
-    const update = (event: Event): void => {
-      const next = 'url' in event && typeof event.url === 'string'
-        ? event.url
-        : element.getURL()
-      if (next !== '' && next !== 'about:blank') {
-        try {
-          const safe = normalizeBrowserUrl(next, t)
-          setAddress(safe)
-          rememberLiveBrowserUrl(surface.id, safe)
-        } catch (nextError) {
-          setError(nextError instanceof Error ? nextError.message : String(nextError))
-        }
-      }
-      setCanGoBack(element.canGoBack())
-    }
-    const guard = (event: Event): void => {
-      if (!('url' in event) || typeof event.url !== 'string') return
-      try {
-        normalizeBrowserUrl(event.url, t)
-      } catch (nextError) {
-        event.preventDefault()
-        setError(nextError instanceof Error ? nextError.message : String(nextError))
-      }
-    }
-    const failed = (event: Event): void => {
-      const description = 'errorDescription' in event
-        ? String(event.errorDescription)
-        : t('browser.page-failed')
-      setError(description)
-    }
-    element.addEventListener('did-navigate', update)
-    element.addEventListener('did-navigate-in-page', update)
-    element.addEventListener('will-navigate', guard)
-    element.addEventListener('did-fail-load', failed)
-    host.append(element)
-    webview.current = element
-    return () => {
-      webview.current = null
-      element.remove()
-    }
-  }, [surface.resource, t])
-
-  const navigate = async (): Promise<void> => {
-    try {
-      const url = normalizeBrowserUrl(address, t)
-      setAddress(url)
-      setError('')
-      await webview.current?.loadURL(url)
-    } catch (next) {
-      setError(next instanceof Error ? next.message : String(next))
-    }
-  }
+  const {
+    containerRef,
+    webviewRef,
+    address,
+    setAddress,
+    error,
+    canGoBack,
+    navigate,
+  } = useElectronWebview(
+    surface.id,
+    surface.resource,
+    t,
+    () => {},
+  )
 
   return (
     <div className="dsh-studio-browser-view">
-      <form
-        className="dsh-studio-browser-bar"
-        onSubmit={event => { event.preventDefault(); void navigate() }}
-      >
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          disabled={!canGoBack}
-          aria-label={t('browser.back')}
-          icon={<IconChevronLeftOutline14 size={16} />}
-          onClick={() => { webview.current?.goBack() }}
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-label={t('browser.reload')}
-          icon={<IconRefreshOutline16 size={16} />}
-          onClick={() => { webview.current?.reload() }}
-        />
-        <Input
-          value={address}
-          placeholder={t('browser.enter-url')}
-          aria-label={t('browser.url')}
-          onChange={event => { setAddress(event.currentTarget.value) }}
-        />
-        <Button type="submit" variant="primary" size="sm">{t('browser.go')}</Button>
-      </form>
+      <BrowserActionBar
+        address={address}
+        canGoBack={canGoBack}
+        t={t}
+        onAddressChange={setAddress}
+        onBack={() => { webviewRef.current?.goBack() }}
+        onReload={() => { webviewRef.current?.reload() }}
+        onSubmit={() => { void navigate() }}
+      />
       {error !== '' && <ErrorState className="dsh-studio-browser-error" message={error} />}
-      <div ref={container} className="dsh-studio-browser-host" />
+      <div ref={containerRef} className="dsh-studio-browser-host" />
     </div>
   )
 }

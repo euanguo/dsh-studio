@@ -10,45 +10,57 @@
  *   - SideToolsPanel.tsx        — the right panel shell (tabs / menu / files)
  *   - builtins/                 — the built-in tabs / viewers / surfaces
  *   - settings.tsx              — SidebarSettingsRow + sync
- *   - intercept.ts              — openPath + link interception (registry-based)
+ *   - intercept.ts              — the official open hook (openPath takeover
+ *                                 + external-link claims), owned by the open
+ *                                 pipeline
  *   - contract.ts               — the public registry protocol
  */
-import { defineStore } from '@deepseek-ai/dsh-client-runtime/client'
-import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
 import type { PinnedSummary } from '@dsh-studio/pinned-summary/client'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
-import { isUnderRoot } from '@dsh-studio/shared/path'
-import { useCenterSurfaceStore } from './surfaces/center-surface-store.ts'
+import { basename, isUnderRoot } from '@dsh-studio/shared/path'
+import type {
+  LayoutService,
+  OpenPipeline,
+  SurfaceRegistry,
+  WorkspaceEventsService,
+} from '@dsh-studio/shared/workbench-contracts'
+import { forwardSessionIdentity } from '@dsh-studio/shared/workbench-contracts'
+import { connectOpenPipeline, workbenchOpen } from './open/pipeline.ts'
 import { WORKSPACE_MESSAGES, type WorkspaceMessage } from './i18n.ts'
 import { CenterSurfaceHost } from './surfaces/center-surface-host.tsx'
-import { WorkspaceToolsService } from './workspace-tools.tsx'
+import { WorkspaceToolsService, activeWorkspace } from './workspace-tools.tsx'
 import { DesktopSidebarService } from './sidebar-service.ts'
-import { LocalStorageSidebarPreferencesStorage } from './sidebar-storage.ts'
+import { DomainSidebarPreferencesStorage } from './sidebar-storage.ts'
 import { DEFAULT_SIDEBAR_PREFERENCES } from '../sidebar-preferences.ts'
 import {
   ReviewCommentsService,
   type ReviewInputTriggersService,
 } from './review/review-comments.ts'
-import { SidebarRuntimeSettingsService } from './runtime-settings.ts'
+import { createSelectionSlashSource } from './selection/slash-source.ts'
+import { SidebarRuntimeSettingsService, DEFAULT_SIDEBAR_RUNTIME_PREFERENCES } from './runtime-settings.ts'
 import type {
   BoundSidebarSettingsActions,
   ClientContext,
   SessionsService,
-  SidebarSettingsState,
   SlotsService,
   WorkspacesService,
 } from './client-types.ts'
 import { registerBuiltins } from './builtins/index.ts'
-import { TerminalTabContent } from './terminal-tab.tsx'
 import { disposeAllTerminalRuntimeOwners } from '@dsh-studio/shared/terminal-runtime-owner'
-import { SidebarSettingsRow, syncSidebarSettings } from './settings.tsx'
-import { disposeSidebarRuntimes } from './runtimes/registry.ts'
-import { acquireOpenPathPatch, isLinkProtocolIntercepted, registerLinkHandler, registerLinkInterception, registerOpenPathHandler, releaseOpenPathPatch } from './intercept.ts'
+import { SidebarSettingsRow } from './settings.tsx'
+import { AgentCapabilitiesSettingsSection } from './settings-agent.tsx'
+import { disposeSidebarRuntimes, invalidateRetainedRuntimes } from './runtimes/registry.ts'
+import { installOfficialOpenHook, isLinkProtocolIntercepted } from './intercept.ts'
 import { registerImeGuard } from './ime-guard.ts'
 import { registerPierreVisibilityRecovery } from './pierre-visibility.ts'
+import { startSidebarChromePersistence } from './runtimes/chrome-store.ts'
+import { startDiffCommentsPersistence } from './diff/diff-comments-store.ts'
+import { migrateLegacyCommentsIntoDomain } from '@dsh-studio/shared/comments-migration'
+import { snapshotStoreAdapter } from './snapshot-store-adapter.ts'
+import type { SidebarSnapshot } from './contract.ts'
+import type { SidebarSettingsState } from './client-types.ts'
 
 export const inject = [
-  'desktopPanels',
   'locale',
   'pinnedSummary',
   'sessions',
@@ -57,15 +69,8 @@ export const inject = [
   'workspaces',
 ]
 
-function activeWorkspace(sessions: SessionsService): string | undefined {
-  const snapshot = sessions.list.getSnapshot()
-  const current = snapshot.current
-  const currentSummary = current === undefined ? undefined : snapshot.byId[current]
-  if (currentSummary?.cwd && currentSummary.cwd.trim() !== '') {
-    return currentSummary.cwd
-  }
-  return Object.values(snapshot.byId).find(s => s.cwd && s.cwd.trim() !== '' && !s.blank)?.cwd
-}
+// `activeWorkspace` (the cwd derivation single source) is exported from
+// workspace-tools.tsx and reused here (F5: no inline copies).
 
 function pathBelongsToActiveWorkspace(
   sessions: SessionsService,
@@ -76,6 +81,18 @@ function pathBelongsToActiveWorkspace(
   return isUnderRoot(cwd, path)
 }
 
+/** The fields the settings section mirrors from the sidebar snapshot (F6). */
+function pickSidebarSettings(snapshot: SidebarSnapshot): SidebarSettingsState {
+  return {
+    openByDefault: snapshot.openByDefault,
+    revision: snapshot.revision,
+    tabsEnabled: { ...snapshot.tabsEnabled },
+    viewersEnabled: { ...snapshot.viewersEnabled },
+    width: snapshot.width,
+    pluginSettings: snapshot.pluginSettings,
+  }
+}
+
 export function apply(ctx: ClientContext): void {
   const locale = ctx.get('locale') as LocaleService
   const slots = ctx.get('slots') as SlotsService
@@ -84,7 +101,10 @@ export function apply(ctx: ClientContext): void {
     () => locale.register('dsh-studio.sidebar', WORKSPACE_MESSAGES),
     'dsh-studio: workspace tools dictionaries',
   )
-  const panels = ctx.get('desktopPanels') as DesktopPanels
+  // The right panel's footprint negotiates through the workbench kernel's
+  // LayoutService (leaf-1.6): panel consumers no longer need a coordinator.
+  const layout = ctx.get('workbench.layout') as LayoutService
+  const events = ctx.get('workbench.events') as WorkspaceEventsService
   const pinnedSummary = ctx.get('pinnedSummary') as PinnedSummary
   const sessions = ctx.get('sessions') as SessionsService
   const inputTriggers = ctx.get('inputTriggers') as ReviewInputTriggersService
@@ -99,24 +119,37 @@ export function apply(ctx: ClientContext): void {
   const reviewComments = new ReviewCommentsService(
     sessions,
     inputTriggers,
-    window.localStorage,
+    ctx.get('workbench.events') as WorkspaceEventsService,
   )
-  const desktopSidebar = new DesktopSidebarService(
-    new LocalStorageSidebarPreferencesStorage(),
+  // Register the selection slash source so `slash/input-insert-reference`
+  // accepts `dsh-studio-selection` chips (without registration the composer
+  // fails the send with "slash no ...").
+  ctx.effect(
+    () => inputTriggers.registerSource(createSelectionSlashSource()),
+    'dsh-studio: selection slash source',
   )
   const runtimeSettings = new SidebarRuntimeSettingsService()
+  const workbenchRegistry = ctx.get('workbench.registry') as SurfaceRegistry
+  const desktopSidebar = new DesktopSidebarService(
+    new DomainSidebarPreferencesStorage(),
+    featureEnablement => { void runtimeSettings.update(featureEnablement) },
+    workbenchRegistry,
+  )
   const service = new WorkspaceToolsService(
     desktopSidebar,
-    panels,
+    layout,
     locale,
     t,
     pinnedSummary,
     sessions,
     workspaces,
   )
+  // The open pipeline: every sidebar open funnels through the workbench
+  // kernel's `workbench.open` service; built-ins have already projected their
+  // descriptors into the same kernel registry before its dispatcher connects.
+  const kernelOpen = ctx.get('workbench.open') as OpenPipeline
   const unregisterBuiltins = registerBuiltins(desktopSidebar, {
     openExternalPath,
-    panels,
     reviewComments,
     runtimeSettings,
     service,
@@ -125,37 +158,22 @@ export function apply(ctx: ClientContext): void {
     t,
     workspaces,
   })
-  const settingsStore = defineStore({
-    init: (): SidebarSettingsState => ({
-      openByDefault: false,
-      revision: -1,
-      tabsEnabled: {},
-      viewersEnabled: {},
-      pluginSettings: {},
-      width: DEFAULT_SIDEBAR_PREFERENCES.defaultWidth,
-    }),
-    actions: {
-      sync: (
-        draft,
-        openByDefault: boolean,
-        revision: number,
-        tabsEnabled: Record<string, boolean>,
-        viewersEnabled: Record<string, boolean>,
-        width: number,
-        pluginSettings: Record<string, Record<string, unknown>>,
-      ) => {
-        if (revision < draft.revision) return
-        draft.openByDefault = openByDefault
-        draft.revision = revision
-        draft.tabsEnabled = tabsEnabled
-        draft.viewersEnabled = viewersEnabled
-        draft.pluginSettings = pluginSettings
-        draft.width = width
-      },
-    },
+  const disposeOpenPipeline = connectOpenPipeline({
+    open: kernelOpen,
+    sidebar: desktopSidebar,
   })
+  // The settings store is a LIVE derived view of the sidebar snapshot (F6).
+  // snapshotStoreAdapter supplies a `sync` action that replaces the draft
+  // with `pickSidebarSettings(snapshot)`; the sidebar subscription below
+  // fires it (the framework re-delivers the bound action to `inject`).
+  const settingsStore = snapshotStoreAdapter(desktopSidebar, pickSidebarSettings)
   let settingsActions: BoundSidebarSettingsActions | undefined
   ctx.effect(() => {
+    const stopChrome = startSidebarChromePersistence()
+    // Comments: migrate the legacy localStorage keys into the domain table
+    // once, then hydrate both comment families from it (F1/F2/M7).
+    const stopDiffComments = startDiffCommentsPersistence()
+    void migrateLegacyCommentsIntoDomain().then(() => reviewComments.start())
     const syncWorkspace = (): void => {
       // The current project = the active session's cwd, falling back to any
       // valid workspace cwd in the session roster.
@@ -163,37 +181,70 @@ export function apply(ctx: ClientContext): void {
       desktopSidebar.setWorkspace(cwd)
     }
     syncWorkspace()
-    const stopSessions = sessions.list.subscribe(syncWorkspace)
-    const stopSettings = desktopSidebar.subscribe(() => {
-      syncSidebarSettings(settingsActions, desktopSidebar.getSnapshot())
+    // Switching awareness funnels through the kernel events service
+    // (leaf-1.7): ONE identity pump feeds `workbench.events` from the
+    // runtime's current-session projection, and every consumer reacts to the
+    // two identity events instead of subscribing to the roster itself.
+    const stopIdentity = forwardSessionIdentity(
+      events,
+      sessions.currentProvideInfo,
+      () => activeWorkspace(sessions),
+    )
+    const stopWorkspaceEvents = events.onWorkspaceChanged(() => { syncWorkspace() })
+    const stopSessionEvents = events.onSessionChanged(() => { syncWorkspace() })
+    // Retained runtimes key their caches by cwd; a workspace switch evicts
+    // them so returning to a project rebuilds with fresh data (live terminal
+    // instances are session-owned and survive).
+    const stopRuntimeInvalidation = events.onWorkspaceChanged(() => {
+      invalidateRetainedRuntimes()
     })
+    // Push the picked sidebar settings into the slots settings store once the
+    // framework has bound the store's `sync` action to inject().
+    const syncSettings = (): void => {
+      settingsActions?.sync(pickSidebarSettings(desktopSidebar.getSnapshot()))
+    }
+    const stopSettings = desktopSidebar.subscribe(syncSettings)
     const syncRuntime = (): void => {
       const prefs = runtimeSettings.getSnapshot().preferences
-      // CUT (user preference): the bottom-mounted terminal dock no longer
-      // mounts (plugins/panel-controls), so the dock-wide prefs below have
-      // nothing to sync. Restore with the dock.
-      // panels.setAutoOpenTerminal(prefs.bottomPanelAutoTerminal)
-      // panels.setTerminalFontPreferences(prefs.terminalFontFamily, prefs.terminalFontSize)
+      desktopSidebar.setFeatureEnablement(prefs.tabsEnabled, prefs.viewersEnabled)
+      // The bottom-mounted terminal dock no longer mounts
+      // (plugins/panel-controls), so there is nothing to sync; the terminal
+      // prefs are consumed by the terminal tab renderers directly.
     }
     const stopRuntime = runtimeSettings.subscribe(syncRuntime)
-    // openPath interception through the registry: the patch is installed
-    // once (refcounted) and this activation only registers its handler.
-    const stopOpenPath = registerOpenPathHandler(async (path): Promise<boolean> => {
+    // The official open hook (openPath takeover + external-link claims) is
+    // owned by the open pipeline: one refcounted patch per workspaces
+    // service, HMR-idempotent; this activation registers its claims only.
+    const officialOpenHook = installOfficialOpenHook(workspaces)
+    const stopOpenPath = officialOpenHook.onOpenPath(async (path): Promise<boolean> => {
       const runtime = runtimeSettings.getSnapshot().preferences
       const snapshot = desktopSidebar.getSnapshot()
-      if (runtime.interceptOpenPath
+      if (!(runtime.interceptOpenPath
         && snapshot.ready
         && desktopSidebar.isTabEnabled('file')
-        && pathBelongsToActiveWorkspace(sessions, path)) {
+        && pathBelongsToActiveWorkspace(sessions, path))) return false
+      const cwd = activeWorkspace(sessions)
+      if (cwd === undefined) return false
+      // Where a captured path lands is a preference: the CENTER tab strip (a
+      // replaceable preview, interaction-model D2) or the RIGHT rail file tab
+      // (historical behavior). Both are real open lives — only the location
+      // differs; the cwd the path was validated against is the active one.
+      if (runtime.pathOpenArea === 'rail') {
         service.openFile(path)
         return true
       }
-      return false
+      workbenchOpen().open({
+        kind: 'file',
+        target: { cwd, path },
+        intent: 'preview',
+        title: basename(path),
+      })
+      return true
     })
-    // External-link interception through the registry (Ctrl/Cmd+click and
+    // External-link claims through the hook's link table (Ctrl/Cmd+click and
     // same-origin links always bypass). A plugin urlTarget claim wins; the
     // built-in browser tab is the implicit fallback target.
-    const stopLink = registerLinkHandler((url): boolean => {
+    const stopLink = officialOpenHook.onLink((url): boolean => {
       const runtime = runtimeSettings.getSnapshot().preferences
       const snapshot = desktopSidebar.getSnapshot()
       if (!runtime.browserInterceptLinks || !snapshot.ready) return false
@@ -207,11 +258,11 @@ export function apply(ctx: ClientContext): void {
       })) return false
       const claimed = desktopSidebar.resolveUrlTarget(url)
       if (claimed !== undefined) {
-        if (!desktopSidebar.isTabEnabled(claimed.id)) return false
+        if (!desktopSidebar.isTabEnabled(claimed.kind)) return false
         let title: string | undefined
         try { title = url.hostname } catch { /* keep the default title */ }
         desktopSidebar.openTab({
-          type: claimed.id,
+          type: claimed.kind,
           resource: url.href,
           ...(title === undefined ? {} : { title }),
         })
@@ -222,11 +273,6 @@ export function apply(ctx: ClientContext): void {
       service.openBrowserUrl(url.href)
       return true
     })
-    acquireOpenPathPatch(workspaces)
-    const stopLinkDom = registerLinkInterception()
-    // IME-composition guard: document capture phase, before React delegation
-    // and any inlined third-party component (the HTML preview's iframe), so
-    // composition keys keep their IME meaning (see ime-guard.ts).
     const stopImeGuard = registerImeGuard()
     // Pierre's rAF-driven render loop pauses while the window is hidden;
     // re-queue window builds when the app returns to the foreground.
@@ -235,32 +281,16 @@ export function apply(ctx: ClientContext): void {
     void runtimeSettings.start()
     void desktopSidebar.start()
     service.mount()
-    // Center surface module: renders through the service's surface-renderer
-    // registry (built-ins registered by registerBuiltins above).
+    // Center surface module: renders through the unified descriptor table
+    // (built-ins registered by registerBuiltins above).
     const centerSurfaceHost = new CenterSurfaceHost({
       sessions,
       t,
       sidebar: desktopSidebar,
       workspaces,
+      layout,
     })
     centerSurfaceHost.mount()
-    // First-class terminal: the center-surface renderer (a terminal tab
-    // opened through the middle "+" menu). The right-rail terminal tab is a
-    // built-in descriptor (tabs.tsx); both render the same shared TerminalTabContent.
-    const removeTerminalSurface = desktopSidebar.registerSurfaceRenderer('terminal', surface => {
-      if (surface.kind !== 'terminal') return null
-      return (
-        <TerminalTabContent
-          cwd={surface.cwd}
-          tabId={surface.id}
-          onTitleChange={title => {
-            useCenterSurfaceStore.getState().updateSurfaceTitle(surface.cwd, surface.id, title)
-          }}
-          runtime={runtimeSettings}
-          t={t}
-        />
-      )
-    })
     const removeSidebar = ctx.reflect.provide(
       'desktopSidebar',
       desktopSidebar,
@@ -268,24 +298,28 @@ export function apply(ctx: ClientContext): void {
     )
     const removeService = ctx.reflect.provide('workspaceTools', service, undefined)
     return () => {
-      stopSessions()
+      stopIdentity()
+      stopWorkspaceEvents()
+      stopSessionEvents()
+      stopRuntimeInvalidation()
       stopSettings()
       stopRuntime()
       stopOpenPath()
       stopLink()
-      stopLinkDom()
+      officialOpenHook.dispose()
       stopImeGuard()
       stopPierreVisibility()
-      releaseOpenPathPatch(workspaces)
       centerSurfaceHost.dispose()
-      removeTerminalSurface()
       service.dispose()
       unregisterBuiltins()
+      disposeOpenPipeline()
       reviewComments.dispose()
       desktopSidebar.dispose()
       runtimeSettings.dispose()
+      stopChrome()
+      stopDiffComments()
       disposeAllTerminalRuntimeOwners()
-       disposeSidebarRuntimes()
+      disposeSidebarRuntimes()
       void removeSidebar?.()
       void removeService?.()
     }
@@ -295,20 +329,29 @@ export function apply(ctx: ClientContext): void {
     id: 'dsh-studio-sidebar',
     inject: actions => {
       settingsActions = actions
-      syncSidebarSettings(settingsActions, desktopSidebar.getSnapshot())
+      settingsActions.sync(pickSidebarSettings(desktopSidebar.getSnapshot()))
       return {
+        // Page-scoped reset: the Side panel page owns layout and opening
+        // behavior; agent capabilities reset on their own page
+        // (dsh-studio-agent) and feature detail rows keep their values.
         reset: () => {
           desktopSidebar.setOpenByDefault(
             DEFAULT_SIDEBAR_PREFERENCES.openByDefault,
           )
           desktopSidebar.setWidth(DEFAULT_SIDEBAR_PREFERENCES.defaultWidth)
-          for (const descriptor of desktopSidebar.getTabs()) {
-            desktopSidebar.setTabEnabled(descriptor.id, true)
-          }
-          for (const descriptor of desktopSidebar.getViewers()) {
-            desktopSidebar.setViewerEnabled(descriptor.id, true)
-          }
-          void runtimeSettings.reset()
+          void runtimeSettings.update({
+            tabsEnabled: {},
+            viewersEnabled: {},
+            interceptOpenPath: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.interceptOpenPath,
+            pathOpenArea: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.pathOpenArea,
+            browserInterceptLinks: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptLinks,
+            browserInterceptHttp: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttp,
+            browserInterceptHttps: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.browserInterceptHttps,
+            htmlViewerNoSandbox: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.htmlViewerNoSandbox,
+            htmlViewerDefaultUnsafe: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.htmlViewerDefaultUnsafe,
+            autoOpenSubagent: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.autoOpenSubagent,
+            autoOpenJobs: DEFAULT_SIDEBAR_RUNTIME_PREFERENCES.autoOpenJobs,
+          })
         },
         setOpenByDefault: open => { desktopSidebar.setOpenByDefault(open) },
         setTabEnabled: (id, enabled) => {
@@ -331,4 +374,27 @@ export function apply(ctx: ClientContext): void {
     order: 40,
     store: settingsStore,
   }, SidebarSettingsRow))
+
+  // The Agent capabilities page: model-facing capability switches and the
+  // Source Control AI entry, slotted between the official sections (20) and
+  // the Side panel page (40). Its store is trivial (no localStorage-backed
+  // per-section state), so no `store` registration is needed.
+  slots.inject('settings.section', () => slots.register({
+    id: 'dsh-studio-agent',
+    inject: () => ({
+      runtime: runtimeSettings,
+      t,
+      reset: () => {
+        void runtimeSettings.update({
+          agentTerminalTools: false,
+          agentWorktreeTools: false,
+          agentWorktreeDelegationTools: false,
+        })
+      },
+    }),
+    label: () => t('settings.agent-capabilities'),
+    locale: 'dsh-studio.sidebar',
+    name: 'settings.section',
+    order: 30,
+  }, AgentCapabilitiesSettingsSection))
 }

@@ -5,7 +5,7 @@ import {
   consumeOutputBatch,
   shouldFlushOutputBatch,
   TerminalOutputBatcher,
-} from '../plugins/sidebar-host/src/terminal-batcher.ts'
+} from '../plugins/capabilities/src/terminal/terminal-batcher.ts'
 
 test('batch algorithms append chunks and track UTF-8 byte count', () => {
   const b1 = appendOutputChunk([], 0, 'hello')

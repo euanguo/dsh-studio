@@ -1,0 +1,47 @@
+.dsh-studio-skin-settings-row :global(.dsh-studio-ui-settings-row-layout) {
+  align-items: stretch;
+  flex-direction: column;
+  gap: var(--dsh-studio-space-3, 12px);
+}
+
+.dsh-studio-skin-settings-row :global(.dsh-studio-ui-settings-row-control) {
+  align-self: stretch;
+  display: block;
+}
+
+/* C45: 皮肤选项收敛为 General-row/Pill 行（不再使用 3 列 feature tile 卡片）。
+   Pill 芯片在控制区内横向流动换行，保留品牌/模式进度感。 */
+.dsh-studio-skin-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--dsh-studio-space-2, 8px);
+}
+
+.dsh-studio-skin-option {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 6px;
+}
+
+.dsh-studio-skin-option-swatch {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--dsh-studio-skin-accent);
+}
+
+.dsh-studio-skin-option-copy {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dsh-studio-skin-option-name {
+  font-weight: 600;
+}
+
+.dsh-studio-skin-option-mode {
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+}

@@ -11,10 +11,6 @@ export const SIDEBAR_PREFS_NS = 'dsh-better-sidebar'
 
 /** User-facing side card preferences (new-conversation defaults). */
 export interface SidebarPrefs {
-  /** Whether a brand-new conversation opens the side card by default. */
-  openByDefault: boolean
-  /** Default panel width as a percent of the window width (20–60). */
-  defaultWidthPercent: number
   /**
    * Whether the sidebar auto-activates (opens the panel) and expands the
    * Subagent page when the current conversation spawns a new subagent.
@@ -34,12 +30,21 @@ export interface SidebarPrefs {
    */
   agentTerminalTools: boolean
   /**
-   * Whether expanding the bottom panel for the FIRST time in a session tries
-   * to open a fresh terminal tab there (the terminal quota/type still gates
-   * the attempt). On by default; the switch lives under the terminal tab's
-   * row in the Side card settings.
+   * Whether model-facing WorkTree topology and lifecycle tools
+   * (worktree_list / branches / status / create / remove) are injected.
+   * Off by default: the feature stays dormant until the user explicitly
+   * enables it in the side card settings.
    */
-  bottomPanelAutoTerminal: boolean
+  agentWorktreeTools: boolean
+  /**
+   * Whether model-facing WorkTree delegation tools (worktree_delegate /
+   * delegate_status / delegate_wait / delegate_stop / delegate_result) are
+   * injected — the tools that start an independent Agent conversation in a
+   * visible WorkTree and manage its lifecycle. Kept as a SEPARATE switch
+   * from {@link agentWorktreeTools}: topology inspection and cross-project
+   * conversation scheduling are distinct capabilities. Off by default.
+   */
+  agentWorktreeDelegationTools: boolean
   /**
    * Whether chat-side file opens (tool-row path links, the produced-files
    * row, prose file mentions — every path that funnels through the client
@@ -48,6 +53,13 @@ export interface SidebarPrefs {
    * own enable switch gates it too (both must be on for the takeover).
    */
   interceptOpenPath: boolean
+  /**
+   * Where a captured openPath lands: the CENTER tab strip (the middle
+   * workbench, preview semantics) or the RIGHT side rail file tab (the
+   * historical behavior). Old documents without the key resolve to `'rail'`
+   * via the runtime parser default.
+   */
+  pathOpenArea: 'center' | 'rail'
   /**
    * Whether the HTML previewer drops its sandboxed iframe. Sandbox ON (the
    * default) renders previewed HTML in an opaque-origin iframe that cannot
@@ -65,14 +77,6 @@ export interface SidebarPrefs {
    */
   htmlViewerDefaultUnsafe: boolean
   /**
-   * Whether the browser tab drops its sandboxed iframe. Sandbox ON (the
-   * default) keeps browsed sites in an opaque origin with no GUI access;
-   * turning it OFF runs any visited site with the GUI's own origin — it
-   * can read session data and act as the logged-in GUI. Only for trusted
-   * sites; the setting copy warns.
-   */
-  browserNoSandbox: boolean
-  /**
    * Whether clicking an http(s) EXTERNAL link in the GUI (chat messages,
    * tool rows, prose mentions) opens the sidebar browser instead of a new
    * browser tab. On by default; gated on the browser tab's own enable
@@ -85,7 +89,7 @@ export interface SidebarPrefs {
    * model-facing terminal tools). Empty follows the resolution chain
    * (deployment `shell` config → this setting → `DSH_SIDEBAR_SHELL` →
    * platform probe/login-shell chain → fallback); see
-   * `plugins/sidebar-host/src/shell-resolver.ts`. Takes effect for NEW
+   * `plugins/capabilities/src/shell-resolver.ts`. Takes effect for NEW
    * terminals; already-running processes keep their shell.
    */
   terminalShell: string
@@ -126,23 +130,17 @@ export interface SidebarPrefs {
   viewersEnabled: Record<string, boolean>
 }
 
-/** Range contract of {@link SidebarPrefs.defaultWidthPercent}. */
-export const WIDTH_PERCENT_MIN = 20
-export const WIDTH_PERCENT_MAX = 60
-export const WIDTH_PERCENT_DEFAULT = 30
-
 /** Fallback prefs used whenever the settings document is unreachable or malformed. */
 export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
-  openByDefault: true,
-  defaultWidthPercent: WIDTH_PERCENT_DEFAULT,
   autoOpenSubagent: true,
   autoOpenJobs: true,
   agentTerminalTools: false,
-  bottomPanelAutoTerminal: true,
+  agentWorktreeTools: false,
+  agentWorktreeDelegationTools: false,
   interceptOpenPath: true,
+  pathOpenArea: 'rail',
   htmlViewerNoSandbox: false,
   htmlViewerDefaultUnsafe: false,
-  browserNoSandbox: false,
   browserInterceptLinks: true,
   terminalShell: '',
   terminalFontFamily: '',
@@ -156,9 +154,4 @@ export const SIDEBAR_PREFS_DEFAULTS: SidebarPrefs = {
   terminalGpuAcceleration: 'auto',
   tabsEnabled: {},
   viewersEnabled: {},
-}
-
-/** Clamp one width percent into the contract range (shared by schema and client reads). */
-export function clampWidthPercent(value: number): number {
-  return Math.min(WIDTH_PERCENT_MAX, Math.max(WIDTH_PERCENT_MIN, Math.round(value)))
 }

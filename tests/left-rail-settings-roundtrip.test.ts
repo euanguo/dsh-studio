@@ -7,7 +7,7 @@ import {
 import {
   migrateLegacyLeftRailSlice,
   type LeftRailMigrationSeam,
-} from '../plugins/sidebar-host/src/left-rail-settings-migration.ts'
+} from '../plugins/capabilities/src/left-rail-settings-migration.ts'
 import {
   LEFT_RAIL_SETTINGS_NS,
   LEFT_RAIL_SETTINGS_VERSION,
@@ -104,9 +104,9 @@ interface Request {
 }
 
 /**
- * A fake `/sidebar/api` transport backed by the memory seam, wired the way
- * the host routes are (namespace-aware settings.get/replace; default ns falls
- * back to the sidebar prefs namespace).
+ * A fake `/capabilities/api` transport backed by the memory seam, wired the way
+ * the host routes are (namespace-aware settings.get / deletion-capable
+ * settings.mutate; default ns falls back to the sidebar prefs namespace).
  */
 function installFakeSidebarApi(seam: MemorySettingsSeam): void {
   const calls: Request[] = []
@@ -116,14 +116,14 @@ function installFakeSidebarApi(seam: MemorySettingsSeam): void {
     status: number
   }> => {
     calls.push({ url, method: init?.method ?? 'GET', body: init?.body ?? '' })
-    const method = url.slice('/sidebar/api/'.length)
+    const method = url.slice('/capabilities/api/'.length)
     const payload = JSON.parse(init?.body ?? '{}') as Record<string, unknown>
     const rawNs = typeof payload.ns === 'string' && payload.ns !== '' ? payload.ns : SIDEBAR_PREFS_NS
     let value: unknown
     if (method === 'settings.get') {
       value = { value: seam.section(rawNs), revision: seam.revisions.get(rawNs) ?? 0 }
-    } else if (method === 'settings.replace') {
-      seam.replace(rawNs, payload.section as Record<string, unknown>)
+    } else if (method === 'settings.mutate') {
+      seam.mutate(rawNs, payload.ops as ReadonlyArray<{ op: 'set' | 'unset'; path: string[]; value?: unknown }>)
       value = { value: seam.section(rawNs), revision: seam.revisions.get(rawNs) ?? 0 }
     } else {
       throw new Error(`unexpected method ${method}`)
@@ -145,7 +145,7 @@ function sidebarCalls(): Request[] {
 
 const REPO = '/work/repo'
 
-test('left-rail slice written via replace round-trips through a reload, including deletion', async () => {
+test('left-rail slice written via the deletion-capable mutate channel round-trips through a reload, including deletion', async () => {
   const seam = new MemorySettingsSeam()
   installFakeSidebarApi(seam)
 
@@ -170,8 +170,8 @@ test('left-rail slice written via replace round-trips through a reload, includin
   await saveLeftRailSettings({ ...before.value, projectIconOverrides: {} }, before.revision)
 
   // Assert the wire used the deletion-capable channel for the LEFT-RAIL ns.
-  const write = sidebarCalls().find(call => call.url === '/sidebar/api/settings.replace')
-  assert.ok(write !== undefined, 'save used settings.replace, not settings.update')
+  const write = sidebarCalls().find(call => call.url === '/capabilities/api/settings.mutate')
+  assert.ok(write !== undefined, 'save used the deletion-capable settings.mutate channel')
   const writeNs = JSON.parse(write.body).ns
   assert.equal(writeNs, LEFT_RAIL_SETTINGS_NS)
 

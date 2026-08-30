@@ -10,11 +10,11 @@ import type { ActionSelection } from './domain/commands.ts'
 import type { LeftRailSnapshot } from './project-tree-model.ts'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 import type { SessionOrderBy, GroupTab } from './tree.ts'
-import { worktreeVisibleSessions } from './tree.ts'
+import { activityKindsOf, activityOf, subtractActivity, worktreeVisibleSessions } from './tree.ts'
 import { insertSessionInOrder, reconciledSessionOrder } from './session-order.ts'
-import { WorkspaceBrowserCss as css } from './styles.js'
+import { WorkspaceBrowserCss as css } from './styles.ts'
 import { cn } from './shim/cn.ts'
-import { EmptyState, LoadingState } from '@dsh-studio/shared/ui'
+import { EmptyState, LoadingState, ScrollArea } from '@dsh-studio/shared/ui'
 import { SessionNodeItem, type RowDragProps } from './rows/Rows.tsx'
 import { ProjectRowItem, WorktreeRowItem, type WorktreeWorkspace } from './rows/ProjectRows.tsx'
 import { useNativeDragAcceptance } from './workspace-browser-views.tsx'
@@ -98,17 +98,16 @@ export function ProjectTreeBody({
     const account = sessionIdsForAccount(accountKey)
     const index = account.indexOf(sessionId)
     if (index === -1) return
-    const swap = verb === 'up' ? index - 1 : index + 1
-    if (swap < 0 || swap >= account.length) return
-    const next = [...account]
-    const moving = next[index]
-    const displaced = next[swap]
-    if (moving === undefined || displaced === undefined) return
-    next[index] = displaced
-    next[swap] = moving
-    setSessionOrder(accountKey, next.map(id => id as string))
+    // Moving one slot up/down = inserting before the neighbour displaced by
+    // the move (before the first neighbour's slot for "up"; before the slot
+    // after the lower neighbour for "down", appending when it is the tail).
+    const neighbor = verb === 'up' ? account[index - 1] : account[index + 1]
+    if (neighbor === undefined) return
+    const anchor = verb === 'up' ? neighbor : account[index + 2]
+    const nextOrder = insertSessionInOrder(account, sessionId, anchor)
+    setSessionOrder(accountKey, nextOrder.map(id => id as string))
     if (orderBy === 'manual') {
-      insertSessionBefore(accountKey as WorkspaceId, sessionId, next[swap + 1])
+      insertSessionBefore(accountKey as WorkspaceId, sessionId, anchor)
         .catch((reason: unknown) => {
           console.warn('session reorder rejected:', reason)
         })
@@ -176,10 +175,19 @@ export function ProjectTreeBody({
         </span>
       </div>
 
-      <div className={css.list} role="tree" aria-label={t('section.workspaces')}>
+      <ScrollArea
+        className={css.listScroll}
+        viewportClassName={css.list}
+        viewportProps={{ role: 'tree', 'aria-label': t('section.workspaces') }}
+      >
         {loading && tree.projects.length === 0 && <LoadingState className={css.empty} label={t('picker.loading')} />}
         {tree.projects.length === 0 && !loading && <EmptyState className={css.empty} title={t('empty.none')} />}
-        {tree.projects.map(project => (
+        {tree.projects.map(project => {
+          // The project row folds its whole subtree: while collapsed, one
+          // dot carries every hidden bucket (expanded rows speak for
+          // themselves — no duplicate project-level dot).
+          const projectKinds = project.expanded ? [] : activityKindsOf(project.activity)
+          return (
           <div key={project.key} className={css.groupSection}>
             <ProjectRowItem
               project={project}
@@ -187,6 +195,8 @@ export function ProjectTreeBody({
               tabs={tree.tabs}
               onToggle={() => { onToggleProject(project.key, !project.expanded) }}
               onAction={onAction}
+              dot={projectKinds[0]}
+              hiddenKinds={projectKinds}
             />
             {project.expanded && project.worktrees.map(worktree => {
               const wtWorkspaces: WorktreeWorkspace[] = worktree.workspaceIds.map(id => ({
@@ -199,6 +209,12 @@ export function ProjectTreeBody({
                 worktree.expanded,
                 runExpanded,
                 COLLAPSED_SESSION_LIMIT,
+              )
+              // The worktree dot signals activity the session rows cannot
+              // show: a folded row hides everything; an expanded row hides
+              // only the sessions past the preview limit.
+              const hiddenKinds = activityKindsOf(
+                subtractActivity(worktree.activity, activityOf(visibleSessions)),
               )
               const overflow = worktree.sessions.length > COLLAPSED_SESSION_LIMIT
               const toggleRun = (): void => {
@@ -215,6 +231,8 @@ export function ProjectTreeBody({
                     onToggle={() => { onToggleWorktree(worktree.key, !worktree.expanded) }}
                     workspaces={wtWorkspaces}
                     onAction={onAction}
+                    dot={hiddenKinds[0]}
+                    hiddenKinds={hiddenKinds}
                   />
                   {visibleSessions.map(node => {
                     const accountKey = accountBySession.get(node.id)
@@ -281,8 +299,9 @@ export function ProjectTreeBody({
               )
             })}
           </div>
-        ))}
-      </div>
+          )
+        })}
+      </ScrollArea>
       <span className={css.fade} />
     </div>
   )

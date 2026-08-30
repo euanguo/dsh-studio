@@ -4,29 +4,37 @@
  * diff runtime; tree selection / collapsed directories are chrome (shared
  * with the source-control panel).
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { sidebarApi } from '../sidebar-api.ts'
 import { getDiffRuntime, sidebarScopeKey } from '../runtimes/registry.ts'
 import { useSidebarChromeStore } from '../runtimes/chrome-store.ts'
-import { worktreeDocKey, worktreeListKey } from '../runtimes/diff-runtime.ts'
+import { worktreeDocKey, worktreeListKey, worktreeImageKey } from '../runtimes/diff-runtime.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { EmptyState, ErrorState, LoadingState } from '@dsh-studio/shared/ui'
 import { DiffViewer } from '../diff/diff-viewer.tsx'
 import { DiffToolbar } from '../diff/diff-toolbar.tsx'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 import { useDiffViewPreferences } from '../diff/diff-view-preferences.ts'
 import { DiffPathTreeNav, type DiffPathTreeRow } from '../diff/path-tree-nav.tsx'
 import { buildDiffTreeRows } from '../diff/diff-path-tree.ts'
 import { MultiDiffFileStack } from '../diff/multi-diff-file-stack.tsx'
 import { ImageDiffViewer } from '../diff/image-diff-viewer.tsx'
-import { nextDiffCommentId, useDiffCommentsStore, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
+import { useDiffCommentsStore, commentBelongsToCwd, commentPathMatches, type WorkbenchComment } from '../diff/diff-comments-store.ts'
 import { commentsToDiffLineAnnotations } from '../diff/comment-annotations.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 import { buildDiffDocument } from '../diff/file-diff.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
+import { useCommentRails } from '../comments/comment-rails.tsx'
+import { useSelectionActionOverlay, commentAnchorOf } from '../selection/use-selection-action.tsx'
+import { insertReferenceIntoConversation } from '../selection/conversation-targets.ts'
+import { formatSelectionLabel } from '../selection/selection-reference.ts'
+import { buildCommentReference } from '../comments/comment-rails-core.ts'
+import type { SessionsService } from '../client-types.ts'
 import type { GitReviewFile } from '../diff/git-review-diff.ts'
+import type { DiffImageEntry } from '../runtimes/diff-runtime.ts'
 import type { DiffAllCenterSurface, DiffCenterSurface } from './types.ts'
 
 /** Single-file diff render caps (fall back to the too-large notice). */
@@ -42,15 +50,15 @@ const DIFF_ALL_PREMOUNT_COUNT = 6
 export function DiffSurfaceView({
   surface,
   t,
+  sessions,
 }: {
   surface: DiffCenterSurface
   t: Translate<WorkspaceMessage>
+  sessions?: SessionsService
 }): JSX.Element {
   const [context, setContext] = useState(DIFF_CONTEXT_INITIAL)
   const [expanding, setExpanding] = useState(false)
-  const [imageDiff, setImageDiff] = useState<{ oldData: string; newData: string } | null>(null)
-  const [commentLine, setCommentLine] = useState('')
-  const [commentBody, setCommentBody] = useState('')
+  const scrollRef = useRef<HTMLDivElement | null>(null)
   // Cooldown after "Expand context" (the button re-enables when it fires).
   const expandTimerRef = useRef<number | null>(null)
   useEffect(() => () => {
@@ -58,8 +66,8 @@ export function DiffSurfaceView({
   }, [])
   const isImagePath = /\.(png|jpe?g|gif|webp|bmp|ico|svg|avif)$/i.test(surface.filePath)
   const theme = usePierreDiffTheme()
-  const layout = useDiffViewPreferences(state => state.layout)
-  const wordWrap = useDiffViewPreferences(state => state.wordWrap)
+  const layout = useDiffViewPreferences(surface.cwd).layout
+  const wordWrap = useDiffViewPreferences(surface.cwd).wordWrap
 
   // The diff document lives in the retained diff runtime (M1): re-opening
   // this tab renders instantly from the cached entry.
@@ -70,37 +78,103 @@ export function DiffSurfaceView({
   useSyncExternalStore(runtime.subscribe, runtime.fingerprint)
   const docKey = worktreeDocKey(surface.staged, surface.filePath, context)
   const doc = runtime.getDoc(docKey)
+  const imageKey = worktreeImageKey(surface.staged, surface.filePath)
+  // Binary base64 payloads are cached in the runtime too (D8/D9): a failed
+  // fetch renders an error branch with retry, never a permanent spinner.
+  const imageDoc = runtime.get(imageKey) as DiffImageEntry | undefined
   useEffect(() => {
     if (runtime.getDoc(docKey) === undefined) {
       void runtime.ensureWorktreeDoc(surface.staged, surface.filePath, context)
     }
   }, [runtime, docKey, surface.staged, surface.filePath, context])
   const diff = doc !== undefined && doc.phase === 'ready' ? doc.diff : null
+  const isBinaryDiff = diff !== null
+    && isImagePath
+    && diff.includes('Binary files ')
+    && diff.includes(' differ')
+  useEffect(() => {
+    if (!isBinaryDiff) return
+    if (runtime.get(imageKey) === undefined) {
+      void runtime.ensureImageDiff(surface.staged, surface.filePath)
+    }
+  }, [isBinaryDiff, runtime, imageKey, surface.staged, surface.filePath])
 
   // Persisted comments render as Pierre annotation rows on the new-side
   // lines; the store is the single live source (M5 — no local mirror).
   const allComments = useDiffCommentsStore(state => state.comments)
   const comments = useMemo(
     () => allComments.filter(comment =>
-      commentPathMatches(comment.filePath, surface.filePath, surface.cwd)
+      commentBelongsToCwd(comment, surface.cwd)
+      && commentPathMatches(comment.path, surface.filePath, surface.cwd)
       && comment.createdAt.length > 0,
     ),
     [allComments, surface.cwd, surface.filePath],
   )
+  const rails = useCommentRails({
+    path: surface.filePath,
+    cwd: surface.cwd,
+    comments,
+    t,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    onAdd: input => {
+      useDiffCommentsStore.getState().addComment({
+        ...input,
+        cwd: surface.cwd,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+      })
+    },
+    onResolve: id => { useDiffCommentsStore.getState().resolveComment(id) },
+    onUnresolve: id => { useDiffCommentsStore.getState().unresolveComment(id) },
+    ...(sessions === null || sessions === undefined
+      ? {}
+      : {
+          onReference: input => {
+            const snapshot = sessions!.list.getSnapshot()
+            const target = snapshot.current ?? Object.keys(snapshot.byId)[0]
+            if (target === undefined) return 'unavailable'
+            // Send the comment as an inline reference chip into the
+            // conversation draft (issues at submit via the registered
+            // `dsh-studio-selection` slash source).
+            return insertReferenceIntoConversation(sessions!, target, {
+              label: formatSelectionLabel({
+                path: input.path,
+                span: { startLine: input.line, endLine: input.line },
+              }),
+              clipboardText: buildCommentReference(input.path, input.line, input.body),
+            })
+          },
+        }),
+  })
+
   const lineAnnotations = useMemo(
     () => commentsToDiffLineAnnotations(comments),
     [comments],
   )
-  const renderCommentAnnotation = useCallback((annotation: { metadata?: DiffComment }) => (
-    annotation.metadata !== undefined
-      ? <CommentBubble comment={annotation.metadata} />
-      : null
-  ), [])
-  const onLineNumberClick = useCallback((input: { lineNumber: number; side: 'additions' | 'deletions' }) => {
-    // Comments attach to the new side only; ignore old-side gutter clicks.
-    if (input.side !== 'additions') return
-    setCommentLine(String(input.lineNumber))
-  }, [])
+  const renderCommentAnnotation = useCallback((annotation: { metadata?: WorkbenchComment }) => {
+    if (annotation.metadata === undefined) return null
+    return (
+      <CommentBubble
+        comment={annotation.metadata}
+        t={t}
+        onResolve={id => { useDiffCommentsStore.getState().resolveComment(id) }}
+        onUnresolve={id => { useDiffCommentsStore.getState().unresolveComment(id) }}
+        onRemove={id => { useDiffCommentsStore.getState().removeComment(id) }}
+      />
+    )
+  }, [t])
+
+  const selectionAction = useSelectionActionOverlay({
+    containerRef: scrollRef,
+    path: surface.filePath,
+    cwd: surface.cwd,
+    layer: typeof window === 'undefined' ? null : window.document.body,
+    sessions: sessions ?? null,
+    onComment: anchor => {
+      rails.composeAt(commentAnchorOf(anchor))
+    },
+    t,
+  })
 
   const document = useMemo(
     () => (diff === null ? null : buildDiffDocument({
@@ -112,24 +186,11 @@ export function DiffSurfaceView({
     })),
     [diff, surface.filePath],
   )
-  useEffect(() => {
-    if (diff === null || !isImagePath || !(diff.includes('Binary files ') && diff.includes(' differ'))) {
-      setImageDiff(null)
-      return
-    }
-    let alive = true
-    setImageDiff(null)
-    void sidebarApi.gitImageDiff(
-      { cwd: surface.cwd },
-      surface.filePath,
-      surface.staged,
-    ).then(result => {
-      if (alive) setImageDiff(result)
-    }).catch(() => {
-      if (alive) setImageDiff(null)
-    })
-    return () => { alive = false }
-  }, [diff, isImagePath, surface.cwd, surface.filePath, surface.staged])
+  const retryImageDiff = useCallback((): void => {
+    if (!isBinaryDiff) return
+    void runtime.ensureImageDiff(surface.staged, surface.filePath)
+  }, [isBinaryDiff, runtime, surface.staged, surface.filePath])
+
   if (doc !== undefined && doc.phase === 'error') {
     return <ErrorState message={doc.message ?? t('overlay.no-content')} />
   }
@@ -141,17 +202,29 @@ export function DiffSurfaceView({
   }
   if (diff.includes('Binary files ') && diff.includes(' differ')) {
     return (
-      <div className="dsh-studio-diff-surface">
-        <DiffToolbar t={t} />
-        {imageDiff !== null ? (
-          <Scrollable className="dsh-studio-diff-surface-body">
+      <div className={surfaceCss["dsh-studio-diff-surface"]}>
+        <DiffToolbar t={t} cwd={surface.cwd} />
+        {imageDoc !== undefined && imageDoc.phase === 'ready' && imageDoc.data !== null ? (
+          <ScrollArea className="dsh-studio-diff-surface-body">
             <ImageDiffViewer
-              oldData={imageDiff.oldData}
-              newData={imageDiff.newData}
+              oldData={imageDoc.data.oldData}
+              newData={imageDoc.data.newData}
               oldLabel={`Original · ${surface.filePath}`}
               newLabel={`Modified · ${surface.filePath}`}
             />
-          </Scrollable>
+          </ScrollArea>
+        ) : imageDoc?.phase === 'error' ? (
+          <div className="dsh-studio-diff-surface-body">
+            <ErrorState
+              message={t('files.image-load-failed')}
+              description={imageDoc.message ?? ''}
+              action={(
+                <Button variant="outline" size="sm" onClick={retryImageDiff}>
+                  {t('overlay.retry')}
+                </Button>
+              )}
+            />
+          </div>
         ) : (
           <LoadingState label={t('workspace.loading-diff')} />
         )}
@@ -160,24 +233,27 @@ export function DiffSurfaceView({
   }
   if (document.lines.length > DIFF_MAX_RENDER_LINES || diff.length > DIFF_MAX_RENDER_CHARS) {
     return (
-      <div className="dsh-studio-diff-surface">
-        <DiffToolbar t={t} />
+      <div className={surfaceCss["dsh-studio-diff-surface"]}>
+        <DiffToolbar t={t} cwd={surface.cwd} />
         <EmptyState title={t('diff.too-large', { lines: document.lines.length })} />
       </div>
     )
   }
   return (
-    <div className="dsh-studio-diff-surface">
+    <div className={surfaceCss["dsh-studio-diff-surface"]}>
       <DiffToolbar
         leading={(
-          <span className="dsh-studio-diff-toolbar-title">
+          <span className={surfaceCss["dsh-studio-diff-toolbar-title"]}>
             <span title={surface.filePath}>{surface.filePath}</span>
             <small>{surface.staged ? t('source-control.section.staged') : t('source-control.section.unstaged')}</small>
           </span>
         )}
         t={t}
+        cwd={surface.cwd}
       />
-      <Scrollable className="dsh-studio-diff-surface-body">
+      <ScrollArea className="dsh-studio-diff-surface-body" ref={scrollRef}>
+        {rails.overlay()}
+        {selectionAction.overlay}
         <DiffViewer
           document={document}
           theme={theme}
@@ -189,12 +265,15 @@ export function DiffSurfaceView({
           {...(lineAnnotations.length > 0
             ? { lineAnnotations, renderAnnotation: renderCommentAnnotation }
             : {})}
-          onLineNumberClick={onLineNumberClick}
+          onLineEnter={rails.onLineEnter}
+          onLineLeave={rails.onLineLeave}
+          renderGutterUtility={rails.gutterUtility}
         />
-      </Scrollable>
-      <div className="dsh-studio-diff-context-bar">
-        <button
-          type="button"
+      </ScrollArea>
+      <div className={surfaceCss["dsh-studio-diff-context-bar"]}>
+        <Button
+          variant="outline"
+          size="sm"
           disabled={expanding || context >= DIFF_CONTEXT_LIMIT}
           onClick={() => {
             setExpanding(true)
@@ -204,60 +283,7 @@ export function DiffSurfaceView({
           }}
         >
           {expanding ? t('workspace.loading-diff') : t('diff.expand-context', { current: context, next: Math.min(DIFF_CONTEXT_LIMIT, context + DIFF_CONTEXT_STEP) })}
-        </button>
-      </div>
-      <div className="dsh-studio-diff-comments">
-        {comments.length > 0 ? (
-          <div className="dsh-studio-diff-comments-list">
-            {comments.map(comment => (
-              <div key={comment.id} className="dsh-studio-diff-comment">
-                <span className="dsh-studio-diff-comment-line">Line {comment.line}</span>
-                <span className="dsh-studio-diff-comment-body">{comment.body}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    useDiffCommentsStore.getState().removeComment(comment.id)
-                  }}
-                >✕</button>
-              </div>
-            ))}
-          </div>
-        ) : null}
-        <div className="dsh-studio-diff-comment-form">
-          <input
-            type="number"
-            min={1}
-            aria-label={t('workspace.comment-line')}
-            placeholder={t('workspace.comment-line')}
-            value={commentLine}
-            onChange={event => { setCommentLine(event.target.value) }}
-          />
-          <input
-            type="text"
-            aria-label={t('workspace.comment-placeholder')}
-            placeholder={t('workspace.comment-placeholder')}
-            value={commentBody}
-            onChange={event => { setCommentBody(event.target.value) }}
-          />
-          <button
-            type="button"
-            disabled={commentLine === '' || commentBody.trim() === ''}
-            onClick={() => {
-              const line = Number(commentLine)
-              if (!Number.isInteger(line) || line < 1) return
-              const comment: DiffComment = {
-                id: nextDiffCommentId(),
-                filePath: surface.filePath,
-                line,
-                body: commentBody.trim(),
-                createdAt: new Date().toISOString(),
-              }
-              useDiffCommentsStore.getState().addComment(comment)
-              setCommentLine('')
-              setCommentBody('')
-            }}
-          >{t('workspace.add-comment')}</button>
-        </div>
+        </Button>
       </div>
     </div>
   )
@@ -268,9 +294,11 @@ export function DiffSurfaceView({
 export function DiffAllSurfaceView({
   surface,
   t,
+  sessions,
 }: {
   surface: DiffAllCenterSurface
   t: Translate<WorkspaceMessage>
+  sessions?: SessionsService
 }): JSX.Element {
   const [renderedKeys, setRenderedKeys] = useState<ReadonlySet<string>>(new Set())
   const [expanding, setExpanding] = useState<ReadonlySet<string>>(new Set())
@@ -279,8 +307,8 @@ export function DiffAllSurfaceView({
   // F7 navigation cache: block element → its change-row list + doc key.
   const rowsCacheRef = useRef(new WeakMap<Element, { key: string; rows: Element[] }>())
   const theme = usePierreDiffTheme()
-  const layout = useDiffViewPreferences(state => state.layout)
-  const wordWrap = useDiffViewPreferences(state => state.wordWrap)
+  const layout = useDiffViewPreferences(surface.cwd).layout
+  const wordWrap = useDiffViewPreferences(surface.cwd).wordWrap
 
   // The change list lives in the retained diff runtime (M1); selection and
   // collapsed directories are chrome (shared with the source-control panel).
@@ -425,19 +453,20 @@ export function DiffAllSurfaceView({
     return <ErrorState message={t('workspace.no-text-diff')} />
   }
   return (
-    <div className="dsh-studio-diff-all-surface">
+    <div className={surfaceCss["dsh-studio-diff-all-surface"]}>
       <DiffToolbar
         leading={(
-          <span className="dsh-studio-diff-toolbar-title">
+          <span className={surfaceCss["dsh-studio-diff-toolbar-title"]}>
             {surface.title}
             <small>{files.length} files</small>
           </span>
         )}
         t={t}
+        cwd={surface.cwd}
         onPrevChange={() => { navigateChange(-1) }}
         onNextChange={() => { navigateChange(1) }}
       />
-      <div className="dsh-studio-diff-all-body">
+      <div className={surfaceCss["dsh-studio-diff-all-body"]}>
         <DiffPathTreeNav
           rows={rows}
           onToggleDirectory={key => {
@@ -452,7 +481,7 @@ export function DiffAllSurfaceView({
             })
           }}
         />
-        <Scrollable className="dsh-studio-diff-all-stack" ref={listRef}>
+        <ScrollArea className={surfaceCss["dsh-studio-diff-all-stack"]} ref={listRef}>
           <MultiDiffFileStack
             files={files}
             renderedKeys={renderedKeys}
@@ -463,9 +492,11 @@ export function DiffAllSurfaceView({
             layout={layout}
             wordWrap={wordWrap}
             onExpandContext={expandContext}
+            cwd={surface.cwd}
+            {...(sessions === undefined ? {} : { sessions })}
           />
           {expanding.size > 0 ? <LoadingState label={t('workspace.loading-diff')} /> : null}
-        </Scrollable>
+        </ScrollArea>
       </div>
     </div>
   )

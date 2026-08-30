@@ -6,6 +6,7 @@
  * block. The row list is virtualized (uniform 28px rows) so deep trees
  * never render every row.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
 import { useEffect, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
@@ -14,7 +15,7 @@ import {
   IconChevronDown,
   IconChevronRight,
 } from '@dsh-studio/shared/tabler-icons'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 import {
   ListRow,
   ListRowLabel,
@@ -35,12 +36,9 @@ export interface DiffPathTreeRow {
   selected?: boolean
 }
 
-/** Row slot height: shared ListRow row (28px) + its 4px rhythm margin.
-    The margin lives on the slot wrapper (see .dsh-studio-diff-tree-slot), not
-    on the ListRow itself — every virtualized row is the only child of its
-    absolutely-positioned wrapper, so ListRow's own :last-child rule would
-    zero it. The virtualizer must allocate the full footprint or rows cram. */
-const ROW_HEIGHT_PX = 32
+/** Initial virtual-row estimate. The slot itself is measured after mount so
+    its CSS token-driven row height and inter-row gap remain the source of truth. */
+const ROW_HEIGHT_PX = 30
 
 export function DiffPathTreeNav({
   rows,
@@ -86,9 +84,9 @@ export function DiffPathTreeNav({
   }
 
   return (
-    <Scrollable ref={containerRef} className="dsh-studio-diff-tree" data-testid="diff-path-tree">
+    <ScrollArea ref={containerRef} className="dsh-studio-diff-tree" viewportClassName="dsh-studio-ui-scroll-viewport-inset" data-testid="diff-path-tree">
       <div
-        className="dsh-studio-diff-tree-inner"
+        className={`dsh-studio-diff-tree-inner`}
         style={{ height: virtualizer.getTotalSize(), position: 'relative' }}
       >
         {virtualizer.getVirtualItems().map(item => {
@@ -104,9 +102,15 @@ export function DiffPathTreeNav({
           } as CSSProperties
           if (row.kind === 'directory') {
             return (
-              <div key={row.key} className="dsh-studio-diff-tree-slot" style={style}>
+              <div
+                key={row.key}
+                ref={virtualizer.measureElement}
+                className={surfaceCss["dsh-studio-diff-tree-slot"]}
+                data-index={item.index}
+                style={style}
+              >
                 <ListRow
-                  className="dsh-studio-diff-tree-row is-directory"
+                  className={`${surfaceCss["dsh-studio-diff-tree-row"]} is-directory`}
                   data-path={row.path}
                   title={row.path}
                 >
@@ -128,9 +132,15 @@ export function DiffPathTreeNav({
             )
           }
           return (
-            <div key={row.key} className="dsh-studio-diff-tree-slot" style={style}>
+            <div
+              key={row.key}
+              ref={virtualizer.measureElement}
+              className={surfaceCss["dsh-studio-diff-tree-slot"]}
+              data-index={item.index}
+              style={style}
+            >
               <ListRow
-                className="dsh-studio-diff-tree-row is-file"
+                className={`${surfaceCss["dsh-studio-diff-tree-row"]} is-file`}
                 data-path={row.path}
                 title={row.path}
                 selected={row.selected === true}
@@ -147,6 +157,6 @@ export function DiffPathTreeNav({
           )
         })}
       </div>
-    </Scrollable>
+    </ScrollArea>
   )
 }

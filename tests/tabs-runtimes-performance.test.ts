@@ -30,6 +30,8 @@ test('SourceControlRuntime aborts in-flight requests on rapid scope switches', a
     gitStatus: () => Promise.resolve({ isRepo: true, entries: [], stats: [] }),
     gitBranch: () => Promise.resolve({ current: 'main', names: ['main'] }),
     gitLog: () => Promise.resolve([]),
+    gitCommittedFiles: () => Promise.resolve({ baseRef: null, entries: [] }),
+    gitCommitFiles: () => Promise.resolve([]),
   }
 
   const runtime = new SourceControlRuntime({ transport })

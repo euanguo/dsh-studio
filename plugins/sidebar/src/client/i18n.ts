@@ -1,20 +1,20 @@
 import type { LocaleMessages } from '@dsh-studio/shared/i18n'
+import {
+  TERMINAL_SIDEBAR_SHARED_MESSAGES,
+  type TerminalSidebarSharedKey,
+} from '@dsh-studio/shared/terminal-messages'
 
 export type WorkspaceMessage =
   | 'side.expand'
   | 'side.restore'
   | 'summary.title'
-  | 'terminal.toggle'
   | 'terminal.title'
-  | 'terminal.process-exited'
-  | 'terminal.unknown'
-  | 'terminal.error'
+  | TerminalSidebarSharedKey
   | 'add.open'
   | 'add.new-conversation'
   | 'side.toggle'
   | 'side.title'
   | 'review'
-  | 'terminal'
   | 'browser'
   | 'files'
   | 'side-chat'
@@ -37,7 +37,6 @@ export type WorkspaceMessage =
   | 'browser.back'
   | 'browser.reload'
   | 'browser.url'
-  | 'browser.go'
   | 'files.select-workspace'
   | 'files.loading'
   | 'files.empty-directory'
@@ -46,7 +45,11 @@ export type WorkspaceMessage =
   | 'files.not-file'
   | 'files.no-viewer'
   | 'files.empty-file'
+  | 'files.empty-notebook'
+  | 'files.file-path'
+  | 'files.table-of-contents'
   | 'files.search-no-matches'
+  | 'files.search-unavailable'
   | 'files.image-loading'
   | 'files.image-load-failed'
   | 'files.zoom-out'
@@ -92,6 +95,9 @@ export type WorkspaceMessage =
   | 'side.tab-limit'
   | 'side.tool-disabled'
   | 'side.tool-missing'
+  // Bottom-workbench message keys stay in the key type while the workbench
+  // is dormant, keeping the type complete so `bottom-workbench.tsx`
+  // typechecks and re-wires trivially.
   | 'bottom-workbench.title'
   | 'bottom-workbench.tabs'
   | 'bottom-workbench.empty'
@@ -100,20 +106,65 @@ export type WorkspaceMessage =
   | 'settings.reset'
   | 'settings.open-by-default'
   | 'settings.open-by-default-description'
+  | 'settings.center-preview-tabs'
+  | 'settings.center-preview-tabs-description'
+  | 'settings.layout-scope'
+  | 'settings.layout-scope-description'
+  | 'comments.add'
+  | 'comments.add-line'
+  | 'comments.placeholder'
+  | 'comments.reference'
+  | 'comments.comment-on-line'
+  | 'comments.comment-on-lines'
+  | 'comments.delete'
+  | 'selection.title'
+  | 'selection.add-to-chat'
+  | 'selection.pick-conversation'
+  | 'selection.target-current'
+  | 'selection.ask-in-side-chat'
+  | 'selection.comment'
+  | 'selection.edit'
+  | 'selection.edit-input'
+  | 'selection.edit-placeholder'
+  | 'selection.edit-submit'
+  | 'selection.copy-ref'
+  | 'selection.copied'
+  | 'selection.copy-failed'
+  | 'selection.send-unavailable'
+  | 'selection.edit-unavailable'
+  // Relative-time bucket keys (C37): shared with desktop-left-rail's `time.*`
+  // so the selection pill and the left rail render the same localized shapes.
+  | 'time.now'
+  | 'time.minutes'
+  | 'time.hours'
+  | 'time.days'
+  | 'time.months'
+  | 'time.years'
+  | 'time.ago'
   | 'settings.width'
   | 'settings.width-value'
   | 'settings.tools'
   | 'settings.tools-description'
   | 'settings.viewers'
   | 'settings.viewers-description'
-  | 'settings.runtime'
-  | 'settings.runtime-description'
+  | 'settings.layout'
+  | 'settings.layout-description'
+  | 'settings.behavior'
+  | 'settings.behavior-description'
+  | 'settings.agent-capabilities'
+  | 'settings.agent-capabilities-description'
   | 'settings.agent-terminal-tools'
   | 'settings.agent-terminal-tools-description'
-  | 'settings.bottom-terminal'
-  | 'settings.bottom-terminal-description'
+  | 'settings.agent-worktree-tools'
+  | 'settings.agent-worktree-tools-description'
+  | 'settings.agent-worktree-delegation-tools'
+  | 'settings.agent-worktree-delegation-tools-description'
   | 'settings.open-files'
   | 'settings.open-files-description'
+  | 'settings.path-open-area'
+  | 'settings.path-open-area-description'
+  | 'settings.path-open-area-center'
+  | 'settings.path-open-area-rail'
   | 'settings.open-links'
   | 'settings.open-links-description'
   | 'settings.open-links-http'
@@ -167,6 +218,7 @@ export type WorkspaceMessage =
   | 'workspace.current-branch'
   | 'workspace.commit-message'
   | 'workspace.commit-all'
+  | 'workspace.commit-staged-all'
   | 'workspace.commit-publish'
   | 'workspace.commit-force-push'
   | 'workspace.commit-force-push-confirm'
@@ -209,9 +261,6 @@ export type WorkspaceMessage =
   | 'workspace.review-history'
   | 'workspace.no-commits'
   | 'workspace.commit-no-files'
-  | 'workspace.comment-line'
-  | 'workspace.comment-placeholder'
-  | 'workspace.add-comment'
   | 'source-control.section.conflict'
   | 'source-control.section.staged'
   | 'source-control.section.unstaged'
@@ -242,6 +291,12 @@ export type WorkspaceMessage =
   | 'overlay.retry'
   | 'diff.layout.unified'
   | 'diff.layout.split'
+  | 'diff.change-prev'
+  | 'diff.change-next'
+  | 'diff.comment-actions'
+  | 'diff.comment-resolve'
+  | 'diff.comment-reopen'
+  | 'diff.comment-delete'
   | 'diff.wrap'
   | 'diff.too-large'
   | 'diff.truncated'
@@ -265,17 +320,13 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.expand': 'Expand side panel',
     'side.restore': 'Restore side panel',
     'summary.title': 'Pinned summary',
-    'terminal.toggle': 'Toggle terminal panel',
     'terminal.title': 'Terminal',
-    'terminal.process-exited': 'process exited with code {code}',
-    'terminal.unknown': 'unknown',
-    'terminal.error': 'terminal error: {message}',
+    ...TERMINAL_SIDEBAR_SHARED_MESSAGES.en,
     'add.open': 'Add browser, terminal or conversation',
     'add.new-conversation': 'New conversation',
     'side.toggle': 'Toggle side panel',
     'side.title': 'Side panel',
     review: 'Review',
-    terminal: 'Terminal',
     browser: 'Browser',
     files: 'Files',
     'side-chat': 'Side chat',
@@ -298,7 +349,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'browser.back': 'Browser back',
     'browser.reload': 'Reload browser',
     'browser.url': 'Browser URL',
-    'browser.go': 'Go',
     'files.select-workspace': 'Select a workspace to browse files.',
     'files.loading': 'Loading…',
     'files.empty-directory': 'Empty directory',
@@ -307,7 +357,11 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.not-file': 'The selected path is not a regular file.',
     'files.no-viewer': 'No preview is available for this file ({size}).',
     'files.empty-file': 'Empty file',
+    'files.empty-notebook': 'Empty notebook',
+    'files.file-path': 'File path',
+    'files.table-of-contents': 'Table of contents',
     'files.search-no-matches': 'No matches',
+    'files.search-unavailable': 'Search unavailable',
     'files.image-loading': 'Loading image…',
     'files.image-load-failed': 'Could not load image.',
     'files.zoom-out': 'Zoom out',
@@ -361,20 +415,65 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.reset': 'Reset',
     'settings.open-by-default': 'Open at launch',
     'settings.open-by-default-description': 'Restore the side panel automatically when the desktop starts.',
+    'settings.center-preview-tabs': 'Single-click previews',
+    'settings.center-preview-tabs-description':
+      'Open files from clicks as replaceable preview tabs. Turn off to always open permanent tabs.',
+    'comments.add': 'Comment',
+    'comments.add-line': 'Add comment',
+    'comments.placeholder': 'Leave a comment — Enter sends, Shift+Enter for a newline',
+    'comments.reference': 'Reference in chat',
+    'comments.comment-on-line': 'Comment on line {line}',
+    'comments.comment-on-lines': 'Comment on lines {startLine}–{endLine}',
+    'comments.delete': 'Delete',
+    'selection.title': 'Selection actions',
+    'selection.add-to-chat': 'Add to chat',
+    'selection.pick-conversation': 'Send to another conversation',
+    'selection.target-current': 'current',
+    'selection.ask-in-side-chat': 'Ask in side chat',
+    'selection.comment': 'Comment',
+    'selection.edit': 'Edit',
+    'selection.edit-input': 'Edit instruction',
+    'selection.edit-placeholder': 'Describe the edit…',
+    'selection.edit-submit': 'Submit edit instruction',
+    'selection.copy-ref': 'Copy reference',
+    'selection.copied': 'Copied',
+    'selection.copy-failed': 'Copy failed',
+    'selection.send-unavailable': 'No reachable conversation to send to',
+    'selection.edit-unavailable': 'No reachable conversation to apply the edit',
+    'time.now': 'now',
+    'time.minutes': '{n}min',
+    'time.hours': '{n}h',
+    'time.days': '{n}d',
+    'time.months': '{n}mo',
+    'time.years': '{n}y',
+    'time.ago': '{t} ago',
+    'settings.layout-scope': 'Cross-project layout',
+    'settings.layout-scope-description':
+      'Share one side-panel tab layout across every project. Turn off to keep a separate layout per project.',
     'settings.width': 'Default width',
     'settings.width-value': '{width} px',
     'settings.tools': 'Tools',
     'settings.tools-description': 'Disabled tools are removed from the side panel launcher.',
     'settings.viewers': 'File previews',
     'settings.viewers-description': 'Higher-priority enabled previews are selected automatically.',
-    'settings.runtime': 'Agent access',
-    'settings.runtime-description': 'Control the Better Sidebar capabilities exposed by the desktop runtime.',
+    'settings.layout': 'Layout',
+    'settings.layout-description': 'Side panel placement and sizing, shared across conversations.',
+    'settings.behavior': 'Opening behavior',
+    'settings.behavior-description': 'How chat-side files, links, previews, and panels open.',
+    'settings.agent-capabilities': 'Agent capabilities',
+    'settings.agent-capabilities-description': 'Capabilities the agent may use. Each is disabled by default.',
     'settings.agent-terminal-tools': 'Terminal tools for agents',
     'settings.agent-terminal-tools-description': 'Allow agents to create and control desktop terminals. This is disabled by default.',
-    'settings.bottom-terminal': 'Start a shell when the bottom panel opens',
-    'settings.bottom-terminal-description': 'Create a terminal automatically the first time an empty bottom panel is opened.',
+    'settings.agent-worktree-tools': 'WorkTree tools for agents',
+    'settings.agent-worktree-tools-description': 'Allow agents to inspect visible WorkTrees, create branches, and manage linked WorkTrees (list, branches, status, create, remove). This is disabled by default.',
+    'settings.agent-worktree-delegation-tools': 'WorkTree delegation tools for agents',
+    'settings.agent-worktree-delegation-tools-description': 'Allow agents to start independent conversations in visible WorkTrees and manage them (delegate, status, wait, stop, result). This is disabled by default.',
     'settings.open-files': 'Open chat files in the side panel',
     'settings.open-files-description': 'Open workspace file links from messages and tool results in the desktop file viewer.',
+    'settings.path-open-area': 'File open location',
+    'settings.path-open-area-description': 'Where captured file links land: the middle workbench tabs or the side panel.',
+    'settings.path-open-area-center': 'Middle workbench',
+    'settings.path-open-area-rail': 'Side panel',
     'settings.open-links': 'Open external links in the side browser',
     'settings.open-links-description': 'Open plain HTTP and HTTPS link clicks in the desktop browser. Cmd/Ctrl-click still opens them externally.',
     'settings.open-links-http': 'Open http links in the side browser',
@@ -428,6 +527,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.current-branch': 'Current branch',
     'workspace.commit-message': 'Commit message',
     'workspace.commit-all': 'Commit all',
+    'workspace.commit-staged-all': 'No staged changes — staged everything and committed.',
     'workspace.commit-publish': 'Publish branch',
     'workspace.commit-force-push': 'Force push with lease',
     'workspace.commit-force-push-confirm': 'Force push the current branch with lease protection?',
@@ -470,9 +570,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.review-history': 'Commit history',
     'workspace.no-commits': 'No commits on this branch',
     'workspace.commit-no-files': 'No file changes in this commit',
-    'workspace.comment-line': 'Comment on this line',
-    'workspace.comment-placeholder': 'Describe the change you want…',
-    'workspace.add-comment': 'Add comment',
     'source-control.section.conflict': 'Conflicts',
     'source-control.section.staged': 'Staged',
     'source-control.section.unstaged': 'Unstaged',
@@ -503,6 +600,12 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'overlay.retry': 'Retry',
     'diff.layout.unified': 'Unified view',
     'diff.layout.split': 'Side-by-side view',
+    'diff.change-prev': 'Previous change ({hint})',
+    'diff.change-next': 'Next change ({hint})',
+    'diff.comment-actions': 'Comment actions',
+    'diff.comment-resolve': 'Resolve',
+    'diff.comment-reopen': 'Reopen',
+    'diff.comment-delete': 'Delete',
     'diff.wrap': 'Wrap long lines',
     'diff.too-large': 'Diff too large to render inline ({lines} lines).',
     'diff.truncated': 'Diff truncated to {lines} lines.',
@@ -525,17 +628,13 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'side.expand': '展开侧边栏',
     'side.restore': '恢复侧边栏',
     'summary.title': '固定摘要',
-    'terminal.toggle': '切换终端面板',
     'terminal.title': '终端',
-    'terminal.process-exited': '进程已退出，代码 {code}',
-    'terminal.unknown': '未知',
-    'terminal.error': '终端错误：{message}',
+    ...TERMINAL_SIDEBAR_SHARED_MESSAGES.zh,
     'add.open': '添加浏览器、终端或新对话',
     'add.new-conversation': '新对话',
     'side.toggle': '切换侧边栏',
     'side.title': '侧边栏',
     review: '审查',
-    terminal: '终端',
     browser: '浏览器',
     files: '文件',
     'side-chat': '侧边对话',
@@ -558,7 +657,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'browser.back': '浏览器后退',
     'browser.reload': '重新加载浏览器',
     'browser.url': '浏览器 URL',
-    'browser.go': '前往',
     'files.select-workspace': '选择工作区以浏览文件。',
     'files.loading': '加载中…',
     'files.empty-directory': '空目录',
@@ -567,7 +665,11 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'files.not-file': '所选路径不是常规文件。',
     'files.no-viewer': '此文件没有可用的预览（{size}）。',
     'files.empty-file': '空文件',
+    'files.empty-notebook': '空笔记本',
+    'files.file-path': '文件路径',
+    'files.table-of-contents': '目录',
     'files.search-no-matches': '无匹配结果',
+    'files.search-unavailable': '搜索不可用',
     'files.image-loading': '加载图片中…',
     'files.image-load-failed': '图片加载失败。',
     'files.zoom-out': '缩小',
@@ -621,20 +723,63 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'settings.reset': '恢复默认',
     'settings.open-by-default': '启动时打开',
     'settings.open-by-default-description': '桌面端启动时自动恢复侧边栏。',
+    'settings.center-preview-tabs': '单击预览',
+    'settings.center-preview-tabs-description': '单击文件时打开可替换的预览标签；关闭后单击直接打开永久标签。',
+    'comments.add': '评论',
+    'comments.add-line': '添加评论',
+    'comments.placeholder': '输入评论——Enter 发送，Shift+Enter 换行',
+    'comments.reference': '引用到对话',
+    'comments.comment-on-line': '评论第 {line} 行',
+    'comments.comment-on-lines': '评论第 {startLine} 至 {endLine} 行',
+    'comments.delete': '删除',
+    'selection.title': '选中操作',
+    'selection.add-to-chat': '添加到对话',
+    'selection.pick-conversation': '发送到其他对话',
+    'selection.target-current': '当前',
+    'selection.ask-in-side-chat': '在侧边聊天中提问',
+    'selection.comment': '评论',
+    'selection.edit': '编辑',
+    'selection.edit-input': '编辑说明',
+    'selection.edit-placeholder': '描述编辑内容…',
+    'selection.edit-submit': '提交编辑指令',
+    'selection.copy-ref': '复制引用',
+    'selection.copied': '已复制',
+    'selection.copy-failed': '复制失败',
+    'selection.send-unavailable': '没有可接收的会话，无法发送',
+    'selection.edit-unavailable': '没有可接收的会话，无法应用编辑',
+    'time.now': '刚刚',
+    'time.minutes': '{n}分钟',
+    'time.hours': '{n}小时',
+    'time.days': '{n}天',
+    'time.months': '{n}个月',
+    'time.years': '{n}年',
+    'time.ago': '{t}前',
+    'settings.layout-scope': '跨项目共享布局',
+    'settings.layout-scope-description': '所有项目共用同一份侧栏标签布局；关闭后每个项目保留各自的布局。',
     'settings.width': '默认宽度',
     'settings.width-value': '{width} 像素',
     'settings.tools': '工具',
     'settings.tools-description': '禁用的工具会从侧边栏启动器中移除。',
     'settings.viewers': '文件预览',
     'settings.viewers-description': '系统会自动选择优先级更高且已启用的预览器。',
-    'settings.runtime': 'Agent 访问',
-    'settings.runtime-description': '控制桌面运行时向 Agent 开放的 Better Sidebar 能力。',
+    'settings.layout': '布局',
+    'settings.layout-description': '侧边栏位置与尺寸，跨对话共享。',
+    'settings.behavior': '打开行为',
+    'settings.behavior-description': '聊天中的文件、链接、预览与面板的打开方式。',
+    'settings.agent-capabilities': 'Agent 能力',
+    'settings.agent-capabilities-description': '允许 Agent 使用的能力；默认全部关闭。',
     'settings.agent-terminal-tools': '允许 Agent 使用终端工具',
     'settings.agent-terminal-tools-description': '允许 Agent 创建并控制桌面终端；默认关闭。',
-    'settings.bottom-terminal': '底部面板展开时自动新建终端',
-    'settings.bottom-terminal-description': '空的底部面板首次展开时，自动创建一个终端。',
+    'settings.agent-worktree-tools': '允许 Agent 使用 WorkTree 工具',
+    'settings.agent-worktree-tools-description': '允许 Agent 查看可见 WorkTree、创建分支并管理工作树本身（列表、分支、状态、新建、删除）；默认关闭。',
+    'settings.agent-worktree-delegation-tools': '允许 Agent 发起 WorkTree 委托对话',
+    'settings.agent-worktree-delegation-tools-description': '允许 Agent 在可见 WorkTree 中启动独立对话并管理其生命周期（发起、状态、等待、停止、取结果）；默认关闭。',
     'settings.open-files': '聊天文件在侧边栏打开',
     'settings.open-files-description': '消息和工具结果中的工作区文件链接，会在桌面文件预览器中打开。',
+    'settings.path-open-area': '文件打开位置',
+    'settings.path-open-area-description': '被捕获的文件链接打开到哪里：中间工作区标签页或右侧边栏。',
+    'settings.path-open-area-center': '中间工作区',
+    'settings.path-open-area-rail': '右侧边栏',
     'settings.open-links': '外部链接在侧边浏览器打开',
     'settings.open-links-description': '普通 HTTP/HTTPS 链接会在桌面浏览器中打开；Cmd/Ctrl 点击仍使用外部浏览器。',
     'settings.open-links-http': 'http 链接在侧边浏览器打开',
@@ -688,6 +833,7 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.current-branch': '当前分支',
     'workspace.commit-message': '提交信息',
     'workspace.commit-all': '提交全部',
+    'workspace.commit-staged-all': '暂存区为空——已暂存全部变更并提交。',
     'workspace.commit-publish': '发布分支',
     'workspace.commit-force-push': '强制推送（带租约）',
     'workspace.commit-force-push-confirm': '确定使用租约保护强制推送当前分支吗？',
@@ -730,9 +876,6 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'workspace.review-history': '提交历史',
     'workspace.no-commits': '当前分支没有提交',
     'workspace.commit-no-files': '此提交没有文件变更',
-    'workspace.comment-line': '评论此行',
-    'workspace.comment-placeholder': '描述希望修改的内容…',
-    'workspace.add-comment': '添加评论',
     'source-control.section.conflict': '冲突',
     'source-control.section.staged': '已暂存',
     'source-control.section.unstaged': '未暂存',
@@ -763,6 +906,12 @@ export const WORKSPACE_MESSAGES: LocaleMessages<WorkspaceMessage> = {
     'overlay.retry': '重试',
     'diff.layout.unified': '统一视图',
     'diff.layout.split': '分栏视图',
+    'diff.change-prev': '上一处更改（{hint}）',
+    'diff.change-next': '下一处更改（{hint}）',
+    'diff.comment-actions': '评论操作',
+    'diff.comment-resolve': '标记为已解决',
+    'diff.comment-reopen': '重新打开',
+    'diff.comment-delete': '删除',
     'diff.wrap': '自动换行',
     'diff.too-large': '差异过大，无法内联渲染（{lines} 行）。',
     'diff.truncated': '差异已截断（仅显示 {lines} 行）。',

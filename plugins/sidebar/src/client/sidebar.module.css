@@ -1,0 +1,1371 @@
+/* sidebar.css → module; shared classes/ids are :global escapes. */
+html {
+  --dsh-studio-sidebar-width: 300px;
+}
+
+/* The desktop sidebar is a fixed overlay; the app shell root is left
+   untouched (the center-column squeeze derives from the workbench
+   LayoutService right-panel footprint via the shared region host). The
+   container only spans the panel footprint while open on wide viewports
+   (width 0 otherwise) and never intercepts pointer events itself — the
+   panel re-enables pointer-events when visible. */
+:global(#dsh-studio-sidebar-root) {
+  position: fixed;
+  /* Keep the panel above ordinary app content, but below global menus and
+     dialogs. Portalled interactive surfaces own their own higher layers. */
+  z-index: 10;
+  /* Flush to the window's edges — the panel is a flush right column (the
+     macOS traffic lights live in the top-left corner and are never covered
+     by the right-side panel). */
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--dsh-studio-sidebar-width);
+  min-width: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+html[data-dsh-studio-sidebar-open='true'] :global(#dsh-studio-sidebar-root) {
+  overflow: visible;
+}
+
+/* Resize handle follows Synara: only on >=640px viewports. */
+@media (max-width: 639px) {
+  .dsh-studio-workspace-resize {
+    display: none;
+  }
+}
+
+:global(.dsh-studio-workspace-panel) {
+  position: absolute;
+  z-index: 9100;
+  /* The panel runs flush to the window's top edge (the macOS traffic lights
+     sit in the top-LEFT corner, so the right-side panel never covers them).
+     Its top row (tabs + window controls) is part of the panel itself — no
+     floating toolbar, so no safe-area strip is needed. */
+  top: 0;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 9%));
+  border-radius: 22px;
+  /* No fill here: the right-rail surface roots (side-tools.css) own the
+     column background and surface bridges for every rail panel. */
+  color: var(--dsw-alias-label-primary, #1f2328);
+  box-shadow: 0 14px 42px rgb(0 0 0 / 9%);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(calc(100% + 24px));
+  visibility: hidden;
+  transition:
+    opacity 140ms var(--ds-ease-in-out, ease),
+    transform 180ms var(--ds-ease-in-out, ease),
+    visibility 0s linear 180ms;
+  -webkit-app-region: no-drag;
+}
+
+:global(.dsh-studio-workspace-panel)[data-open='true'] {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.dsh-studio-review-view {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.dsh-studio-workspace-resize {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  left: -4px;
+  width: 8px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.dsh-studio-workspace-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  /* Multi-layer host: the scroll viewport itself is flush; every section
+     below owns its own 8px inset on all four sides (the section padding is
+     also the resting band that keeps the floating thumb off the divider
+     and off the textarea/row edges). */
+}
+
+.dsh-studio-workspace-content section {
+  /* Section = the inset owner for its own content: the same 8px on every
+     side. The right padding doubles as the scrollbar seat — the 8px band
+     where the floating thumb lives — so content edges never sit under it
+     (same visual seat the pre-refactor scroll host reserved). */
+  padding: var(--dsh-studio-space-2);
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+/* The last section (the directory footer) has nothing below it in the scroll
+   column — the docked history strip is a sibling with its own border-top, so
+   the footer's own divider would only double up on it. */
+.dsh-studio-workspace-content section:last-child {
+  border-bottom: 0;
+}
+
+/* Branch picker: an official-Menu dropdown trigger styled in the commit
+   area's field language (bordered, layered surface — matches the commit
+   textarea and action buttons below it). */
+/* Branch value-selector trigger: the shared shadcn SelectTrigger owns the
+   field chrome; this class stretches the trigger across the commit row. */
+.dsh-studio-branch-picker {
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.dsh-studio-branch-picker > span { min-width: 0; }
+
+.dsh-studio-workspace-fact-icon {
+  display: grid;
+  place-items: center;
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--dsh-studio-font-2xl);
+}
+
+:global(.dsh-studio-workspace-count) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--dsh-studio-badge-min-width, 17px);
+  height: var(--dsh-studio-badge-height, 17px);
+  padding: 0 var(--dsh-studio-badge-padding-inline, var(--dsh-studio-space-1));
+  box-sizing: border-box;
+  border-radius: var(--dsh-studio-badge-radius, var(--dsh-studio-radius-pill));
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  color: var(--dsw-alias-label-secondary, #57606a);
+  text-align: center;
+  font-size: var(--dsh-studio-font-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.dsh-studio-change-list { padding: 0; }
+
+/* Git history is a sibling of the scroll column (not inside it), so the
+   change-list scrollbar never runs into it. It sits at the bottom of the
+   review view as its own flex-none strip. */
+.dsh-studio-review-history {
+  position: relative;
+  flex: none;
+  /* Top border separates the docked history strip from the change list above
+     (module separator). No inset of its own: the toggle aligns itself and
+     the commit-list scroll host owns all four insets, so row edges line up
+     with the change list above (8px). No fill either — the workspace panel
+     owns the column surface, so the strip follows the right-rail background. */
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+/* Drag the top edge of the expanded history to resize it (96–520px); the
+   bounded height keeps the change list visible above. */
+.dsh-studio-history-resize {
+  position: absolute;
+  top: -4px;
+  left: 0;
+  right: 0;
+  height: 8px;
+  cursor: row-resize;
+  z-index: 1;
+}
+
+/* The history header is the collapse/expand toggle — a plain static row
+   matching the "changes" header (no hover wash), only the chevron hints the
+   expand/collapse interaction. Its own 8px inset on every side aligns it
+   with the change-list rows and keeps it off the strip's top border and
+   the commit list below. */
+.dsh-studio-history-toggle {
+  cursor: pointer;
+  padding: var(--dsh-studio-space-2);
+}
+
+.dsh-studio-history-chevron {
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  transition: transform 120ms ease;
+}
+.dsh-studio-history-chevron:global(.is-collapsed) {
+  transform: rotate(-90deg);
+}
+
+/* Commit history rows ride the shared ListRow family (hover/selected
+   geometry + row spacing lives in list-row.css); only the hash chip is
+   Git-specific. All four insets come from the viewport's
+   `dsh-studio-ui-scroll-viewport-inset` class (8px), so row edges line up
+   with the change list above. */
+.dsh-studio-review-commit-list {
+  display: grid;
+  /* Single auto column would size to the widest row's max-content, so a long
+     subject + author + hash could exceed the panel and force a horizontal
+     scrollbar. Pin the track to the panel width (min 0 keeps it shrinkable
+     when the sidebar is narrow); the subject then ellipsizes instead. */
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.dsh-studio-review-commit-hash {
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font: var(--dsh-studio-font-xs)/1.4 var(--dsh-studio-font-mono);
+}
+
+/* Author rides the trailing slot (right-aligned, before the hash chip) so the
+   subject keeps the full label width instead of sharing a stacked meta row. */
+.dsh-studio-review-commit-author {
+  min-width: 0;
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--dsh-studio-font-xs);
+}
+
+/* Inline file list under an expanded history row (orca parity). Each file is
+   one compact clickable row, indented to sit under the commit subject. */
+.dsh-studio-review-commit-files {
+  display: flex;
+  flex-direction: column;
+  padding-bottom: var(--dsh-studio-list-row-gap, var(--dsh-studio-space-1));
+}
+
+.dsh-studio-review-commit-file {
+  display: flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-1);
+  width: 100%;
+  min-width: 0;
+  height: var(--dsh-studio-list-row-height, var(--dsh-studio-size-row));
+  min-height: var(--dsh-studio-list-row-height, var(--dsh-studio-size-row));
+  margin-bottom: var(--dsh-studio-list-row-gap, var(--dsh-studio-space-1));
+  /* Align with the commit subject (chevron column + depth inset + gap), then
+     indent one more step per directory depth in tree mode — the same ladder
+     the change list uses. */
+  padding: 0 var(--dsh-studio-space-2) 0 calc(
+    var(--dsh-studio-space-1-5) + 16px + var(--dsh-studio-space-2)
+    + var(--dsh-studio-tree-indent) * var(--tree-depth, 0)
+  );
+  border: 0;
+  border-radius: var(--dsh-studio-list-row-radius, var(--dsh-studio-radius-sm));
+  corner-shape: var(--dsh-studio-list-row-corner-shape, round);
+  background: transparent;
+  color: inherit;
+  font: var(--dsh-studio-font-sm) system-ui;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dsh-studio-review-commit-file:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) !important;
+}
+
+.dsh-studio-review-commit-file :global(.dsh-studio-list-row-label) {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dsh-studio-review-commit-file :global(.dsh-studio-sc-mark) {
+  flex: 0 0 auto;
+}
+
+/* Directory row in the inline commit file list (tree mode). */
+.dsh-studio-review-commit-dir {
+  display: flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-1);
+  width: 100%;
+  min-width: 0;
+  height: var(--dsh-studio-list-row-height, var(--dsh-studio-size-row));
+  min-height: var(--dsh-studio-list-row-height, var(--dsh-studio-size-row));
+  margin-bottom: var(--dsh-studio-list-row-gap, var(--dsh-studio-space-1));
+  padding: 0 var(--dsh-studio-space-2) 0 calc(
+    var(--dsh-studio-space-1-5) + 16px + var(--dsh-studio-space-2)
+    + var(--dsh-studio-tree-indent) * var(--tree-depth, 0)
+  );
+  border: 0;
+  border-radius: var(--dsh-studio-list-row-radius, var(--dsh-studio-radius-sm));
+  corner-shape: var(--dsh-studio-list-row-corner-shape, round);
+  background: transparent;
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font: var(--dsh-studio-font-sm) system-ui;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dsh-studio-review-commit-dir:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%)) !important;
+}
+
+.dsh-studio-review-commit-dir-name {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Section-level variant (committed changes): the files are direct children of
+   the section header — no commit-row chevron column to clear — so they align
+   with the change list's 6px base indent. */
+.dsh-studio-review-commit-file:global(.is-section),
+.dsh-studio-review-commit-dir:global(.is-section) {
+  padding-left: calc(var(--dsh-studio-space-1-5) + var(--dsh-studio-tree-indent) * var(--tree-depth, 0));
+}
+
+/* Committed-changes header: collapse/expand toggle + view-all + chevron. */
+.dsh-studio-committed-header { cursor: pointer; }
+
+.dsh-studio-committed-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-0);
+}
+
+.dsh-studio-workspace-chevron {
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+  font-size: var(--dsh-studio-font-lg);
+  flex: none;
+}
+
+.dsh-studio-commit-area textarea {
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
+  border-radius: var(--dsh-studio-radius-sm);
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  color: inherit;
+  font: inherit;
+}
+
+/* Top-of-panel commit area (branch + message + commit/push). */
+.dsh-studio-commit-area {
+  display: grid;
+  /* Explicit single 1fr column: percentage-width children (branch picker,
+     textarea) resolve against the section instead of an auto-sized track. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--dsh-studio-space-1-5);
+}
+
+.dsh-studio-commit-area textarea {
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  padding: var(--dsh-studio-space-1-5);
+  font-size: var(--dsh-studio-font-sm);
+}
+
+.dsh-studio-commit-branch-row,
+.dsh-studio-commit-message-wrap,
+.dsh-studio-commit-actions { display: flex; align-items: center; gap: var(--dsh-studio-space-1-5); }
+.dsh-studio-commit-area-spacer { flex: 1; }
+.dsh-studio-commit-message-wrap textarea { flex: 1; }
+.dsh-studio-commit-cancel-generation { flex: none; }
+.dsh-studio-commit-action-menu-anchor { display: inline-flex; position: relative; }
+.dsh-studio-commit-error { color: var(--dsw-alias-label-error, #b42318); }
+.dsh-studio-commit-area small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--dsh-studio-font-xs); }
+.dsh-studio-sidebar-settings-ai { display: grid; gap: var(--dsh-studio-space-2); }
+.dsh-studio-sidebar-settings-ai-toolbar { display: flex; justify-content: flex-end; margin-bottom: calc(-1 * var(--dsh-studio-space-2)); }
+/* Shared shadcn SelectTrigger seat for settings rows (Select owns the
+   field chrome; this class only bounds its width in the row). */
+.dsh-studio-sidebar-settings-menu-trigger { min-width: 0; max-width: 260px; }
+.dsh-studio-sidebar-settings-menu-trigger > span { min-width: 0; }
+.dsh-studio-sidebar-settings-ai-prompt { display: grid; gap: var(--dsh-studio-space-1); }
+.dsh-studio-sidebar-settings-ai-prompt textarea { box-sizing: border-box; width: 100%; min-height: 136px; padding: var(--dsh-studio-space-1-5); border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%)); border-radius: var(--dsh-studio-radius-sm); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font: inherit; resize: vertical; }
+.dsh-studio-sidebar-settings-ai-prompt small,
+.dsh-studio-sidebar-settings-ai-actions small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--dsh-studio-font-xs); }
+.dsh-studio-sidebar-settings-ai-actions { display: flex; align-items: center; gap: var(--dsh-studio-space-2); }
+
+@media (max-width: 900px) {
+  :global(.dsh-studio-workspace-panel) { box-shadow: -20px 0 48px rgb(0 0 0 / 14%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :global(#dsh-studio-sidebar-root) { transition: none; }
+  :global(.dsh-studio-workspace-panel) { transition: none; }
+}
+
+/* ---------- P1 file viewer chrome + markdown viewer ---------- */
+
+.dsh-studio-file-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Bar geometry AND slot typography are owned by the shared SurfaceToolbar;
+   only the breadcrumb's own hierarchy structure/colors stay here. */
+
+.dsh-studio-file-viewer-breadcrumb {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.dsh-studio-file-viewer-breadcrumb-prefix {
+  display: flex;
+  min-width: 0;
+  flex-shrink: 9999;
+  align-items: center;
+  overflow: hidden;
+}
+
+.dsh-studio-file-viewer-breadcrumb-segment {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* Path hierarchy is content, not strip chrome: lighter than the toolbar's
+     leading title treatment. */
+  font-weight: 400;
+  color: var(--dsw-alias-label-secondary, #57606a);
+}
+
+.dsh-studio-file-viewer-breadcrumb-chevron {
+  flex: none;
+  margin: 0 2px;
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+}
+
+.dsh-studio-file-viewer-breadcrumb-file {
+  min-width: 0;
+  flex: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Semantic warning chip (truncated preview) — the only meta-slot color
+   exception, owned as a state color, not strip typography. */
+.dsh-studio-file-viewer-chrome-truncated {
+  color: var(--dsw-alias-state-warning-primary, #9a6700);
+}
+
+.dsh-studio-file-surface-body {
+  flex: 1;
+}
+
+.dsh-studio-file-surface-body:has(:global(.dsh-studio-pierre-file-host)) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* The ScrollArea viewport is a plain block scroller; immersive Pierre
+   content needs the old flex-fill contract ("the scroll container itself is
+   a flex column"), so re-establish it on the viewport instead of the body. */
+.dsh-studio-file-surface-body:has(:global(.dsh-studio-pierre-file-host)) :global(.dsh-studio-scrollable-viewport) {
+  display: flex;
+  flex-direction: column;
+}
+
+.dsh-studio-file-surface-body:has(:global(.dsh-studio-pierre-file-host)) :global(.dsh-studio-scrollable-viewport) > .dsh-studio-content-root-fill {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+/* ---------- text / markdown-source viewer (Pierre File + plain fallback) ---------- */
+
+.dsh-studio-content-root {
+  min-width: 0;
+}
+
+/* Fills the surface body so the Pierre Virtualizer host gets a definite
+   height (the window measures it; no height → no rows). */
+.dsh-studio-content-root-fill {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.dsh-studio-content-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-2);
+  height: 28px;
+  padding: 0 var(--dsh-studio-space-3);
+  box-sizing: border-box;
+  flex: none;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 7%));
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--dsh-studio-font-xs);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.dsh-studio-content-meta span:first-child {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+:global(.dsh-studio-pierre-file-host) {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+/* The Pierre canvas must read as the pane base: pin the shadow-internal
+   `--diffs-bg` AND the host background (whose rendered-theme layer would
+   otherwise hardcode the editor theme's own fill, e.g. github-dark's
+   #24292e) to the app token. A document rule targeting the custom element
+   outranks the shadow `:host` theme layer; derived fills
+   (--diffs-bg-context/-separator/…) mix from --diffs-bg and follow. */
+:global(.dsh-studio-pierre-file-host) diffs-container,
+.dsh-studio-editor-host diffs-container {
+  --diffs-bg: var(--dsw-alias-bg-base, #ffffff);
+  background: var(--dsw-alias-bg-base, #ffffff);
+}
+
+.dsh-studio-content-markdown {
+  /* Insets come from the Scrollable host (default 8px). */
+  font-size: var(--dsh-studio-font-md);
+  line-height: 1.65;
+}
+
+.dsh-studio-content-markdown pre {
+  margin: var(--dsh-studio-space-2) 0;
+  padding: 10px 12px;
+  border-radius: var(--dsh-studio-radius-sm);
+  background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
+  overflow-x: auto;
+}
+
+.dsh-studio-content-markdown code {
+  font-family: var(--dsh-studio-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--dsh-studio-font-md);
+}
+
+/* Shiki-highlighted fenced blocks: the emitted pre carries its own theme
+   background/padding, so the wrapper only keeps the block framing. */
+.dsh-studio-content-markdown .dsh-studio-markdown-code-shiki {
+  margin: var(--dsh-studio-space-2) 0;
+  border-radius: var(--dsh-studio-radius-sm);
+  overflow-x: auto;
+}
+
+.dsh-studio-content-markdown .dsh-studio-markdown-code-shiki pre {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--dsh-studio-radius-sm);
+  background: transparent;
+}
+
+.dsh-studio-content-markdown table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.dsh-studio-content-markdown th,
+.dsh-studio-content-markdown td {
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  padding: var(--dsh-studio-content-table-cell-padding-block, 6px) var(--dsh-studio-content-table-cell-padding-inline, 10px);
+  text-align: left;
+}
+
+.dsh-studio-markdown-task-checkbox {
+  margin-right: 6px;
+  accent-color: var(--dsw-alias-state-info-primary, #0969da);
+}
+
+/* ---------- image / pdf preview chrome ---------- */
+
+.dsh-studio-content-media {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+.dsh-studio-image-zoom {
+  min-width: 44px;
+  text-align: center;
+  font-size: var(--dsh-studio-font-xs);
+  color: var(--dsw-alias-label-secondary, #57606a);
+}
+
+.dsh-studio-content-media-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  /* Insets come from the Scrollable host (default 8px). */
+}
+
+.dsh-studio-content-media-stage img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  transition: transform 120ms ease;
+  transform-origin: center center;
+}
+
+.dsh-studio-pdf-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--dsh-studio-font-xs);
+  color: var(--dsw-alias-label-secondary, #57606a);
+}
+
+.dsh-studio-pdf-toolbar + iframe {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  width: 100%;
+}
+
+/* Sticky CSV table header (scrolling via the shared Scrollable host,
+   axis both — wide tables scroll horizontally too) */
+.dsh-studio-content-table-wrap {
+  flex: 1;
+  border-radius: var(--dsh-studio-content-table-radius, var(--dsh-studio-radius-md));
+}
+
+.dsh-studio-content-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.dsh-studio-content-table th,
+.dsh-studio-content-table td {
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  padding: var(--dsh-studio-content-table-cell-padding-block, 6px) var(--dsh-studio-content-table-cell-padding-inline, 10px);
+  text-align: left;
+}
+
+.dsh-studio-content-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--dsw-alias-bg-base, #fff);
+  box-shadow: 0 1px 0 var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+}
+
+
+/* ---------- P2 diff toolbar / multi-file diff tree ---------- */
+/* Bar geometry and typography are owned by the shared SurfaceToolbar;
+   only the title cluster's flex structure stays here. */
+
+.dsh-studio-diff-toolbar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-2);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.dsh-studio-diff-context-bar {
+  padding: 6px var(--dsh-studio-space-2);
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: var(--dsw-alias-bg-base, #fff);
+  flex: none;
+}
+
+.dsh-studio-diff-context-bar {
+  display: flex;
+  align-items: center;
+  padding: 6px var(--dsh-studio-space-2);
+  border-top: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: var(--dsw-alias-bg-base, #fff);
+  flex: none;
+}
+
+.dsh-studio-diff-all-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+.dsh-studio-diff-all-body {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+:global(.dsh-studio-diff-tree) {
+  width: 220px;
+  min-width: 180px;
+  border-right: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  /* Insets come from the Scrollable host (default 8px). */
+  flex: none;
+}
+
+/* Rows reuse the shared ListRow shell; only the tree indentation and the
+   compact sizing stay feature-specific. */
+.dsh-studio-diff-tree-row {
+  --tree-indent: 12px;
+  min-width: 0;
+}
+
+/* Virtualized slot wrapper: each row is the only child of its absolutely
+   positioned wrapper, so the shared ListRow :last-child rule zeroes the row
+   margin. Own the full measured footprint here, using the same semantic
+   height and gap tokens as every other ListRow consumer. */
+.dsh-studio-diff-tree-slot {
+  height: calc(var(--dsh-studio-list-row-height) + var(--dsh-studio-list-row-gap));
+}
+
+.dsh-studio-diff-tree-row :global(.dsh-studio-list-row-main) {
+  padding-left: calc(10px + var(--tree-indent) * var(--tree-depth, 0));
+}
+
+.dsh-studio-diff-tree-row :global(.dsh-studio-list-row-leading) {
+  width: 14px;
+  flex: none;
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+}
+
+.dsh-studio-diff-tree-row :global(.dsh-studio-list-row-meta) {
+  color: var(--dsw-alias-label-dimmed, #8c959f);
+  font-size: var(--dsh-studio-font-xs);
+}
+
+.dsh-studio-diff-all-stack {
+  min-width: 0;
+  flex: 1;
+  /* Insets come from the Scrollable host (default 8px). */
+}
+
+.dsh-studio-multi-diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--dsh-studio-space-2);
+}
+
+:global(.dsh-studio-multi-diff-block) {
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--dsh-studio-radius-md);
+  overflow: hidden;
+}
+
+.dsh-studio-multi-diff-file-header {
+  display: flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-2);
+  height: 30px;
+  padding: 0 var(--dsh-studio-space-2);
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: var(--dsw-alias-bg-base, #fff);
+  font-size: var(--dsh-studio-font-xs);
+}
+
+.dsh-studio-multi-diff-file-header > span:first-child {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.dsh-studio-multi-diff-file-header small b:first-child {
+  color: var(--dsw-alias-state-success-primary, #1a7f37);
+}
+
+.dsh-studio-multi-diff-file-header small b:last-child {
+  color: var(--dsw-alias-state-error-primary, #cf222e);
+}
+
+.dsh-studio-multi-diff-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-1);
+}
+
+.dsh-studio-multi-diff-placeholder {
+  display: flex;
+  align-items: center;
+  gap: var(--dsh-studio-space-2);
+  width: 100%;
+  height: 32px;
+  padding: 0 var(--dsh-studio-space-2);
+  border: 0;
+  background: var(--dsw-alias-bg-base, #fff);
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--dsh-studio-font-xs);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dsh-studio-multi-diff-placeholder:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 4%));
+}
+
+.dsh-studio-multi-diff-placeholder-name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dsh-studio-multi-diff-placeholder-stats b:first-child {
+  color: var(--dsw-alias-state-success-primary, #1a7f37);
+}
+
+.dsh-studio-multi-diff-placeholder-stats b:last-child {
+  color: var(--dsw-alias-state-error-primary, #cf222e);
+}
+
+
+/* Image diff viewer (scrolling via the shared Scrollable host, axis both). */
+.dsh-studio-image-diff {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--dsh-studio-space-2);
+  flex: 1;
+  /* Insets come from the Scrollable host (default 8px). */
+}
+
+.dsh-studio-image-diff-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--dsh-studio-radius-md);
+  overflow: hidden;
+}
+
+.dsh-studio-image-diff-label {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: var(--dsw-alias-bg-base, #fff);
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--dsh-studio-font-xs);
+}
+
+.dsh-studio-image-diff-pane img {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  object-fit: contain;
+  background: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 94%, transparent);
+}
+
+
+/* Editor surface (CodeMirror chunk host) */
+.dsh-studio-editor-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Editor bar geometry is the shared SurfaceToolbar and stays mounted across
+   the view ↔ edit swap (FileViewerChrome owns both states); only the dirty
+   dot color stays here. */
+.dsh-studio-editor-dirty {
+  color: var(--dsw-alias-state-warning-primary, #9a6700);
+}
+
+.dsh-studio-editor-host {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+
+.dsh-studio-editor-host :global(.cm-editor) {
+  height: 100%;
+}
+
+.dsh-studio-editor-host :global(.cm-scroller) {
+  overflow: auto;
+}
+
+/* ---------- merge conflict resolver ---------- */
+
+.dsh-studio-conflict-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+.dsh-studio-conflict-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.dsh-studio-conflict-header small {
+  color: var(--dsw-alias-state-warning-primary, #9a6700);
+}
+
+.dsh-studio-conflict-hint {
+  padding: 6px var(--dsh-studio-space-3);
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  color: var(--dsw-alias-label-tertiary, #8c959f);
+  font-size: var(--dsh-studio-font-xs);
+  flex: none;
+}
+
+.dsh-studio-conflict-host {
+  min-height: 0;
+  min-width: 0;
+  flex: 1;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+
+/* File search box + results */
+.dsh-studio-files-search {
+  padding: 6px var(--dsh-studio-space-2) 0;
+  flex: none;
+}
+
+/* The shared shadcn Input owns the field chrome (border, background, height,
+   focus ring) directly on the <input>; our className lands on that element
+   and only stretches it across the panel. */
+.dsh-studio-files-search-input {
+  width: 100%;
+}
+
+.dsh-studio-file-search-results {
+  /* Insets come from the Scrollable host (default 8px). */
+}
+
+.dsh-studio-file-search-hit {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: var(--dsh-studio-radius-sm);
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #1f2328);
+  text-align: left;
+  cursor: pointer;
+}
+
+.dsh-studio-file-search-hit:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 5%));
+}
+
+.dsh-studio-file-search-hit-path {
+  font-size: var(--dsh-studio-font-xs);
+  font-weight: 600;
+}
+
+.dsh-studio-file-search-hit-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--dsh-studio-font-xs);
+}
+
+
+/* ipynb viewer */
+.dsh-studio-ipynb-viewer {
+  padding: var(--dsh-studio-space-2);
+}
+
+.dsh-studio-ipynb-cell {
+  margin-bottom: var(--dsh-studio-space-2);
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--dsh-studio-radius-md);
+  overflow: hidden;
+}
+
+.dsh-studio-ipynb-cell-label {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--dsh-studio-font-xs);
+}
+
+.dsh-studio-ipynb-source {
+  margin: 0;
+  padding: 10px;
+  overflow-x: auto;
+  font-family: var(--dsh-studio-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--dsh-studio-font-md);
+}
+
+.dsh-studio-ipynb-markdown {
+  padding: 4px 10px;
+}
+
+
+/* Markdown TOC */
+.dsh-studio-markdown-toc {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: var(--dsh-studio-space-3);
+  padding: 8px 10px;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--dsh-studio-radius-md);
+  background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 3%));
+}
+
+.dsh-studio-markdown-toc a {
+  color: var(--dsw-alias-label-secondary, #57606a);
+  font-size: var(--dsh-studio-font-xs);
+  text-decoration: none;
+}
+
+.dsh-studio-markdown-toc a:hover {
+  color: var(--dsw-alias-state-info-primary, #0969da);
+}
+
+
+/* Mermaid viewer (scrolling via the shared Scrollable host, axis both). */
+.dsh-studio-mermaid-viewer {
+  /* Insets come from the Scrollable host (default 8px). */
+}
+
+.dsh-studio-mermaid-svg {
+  display: flex;
+  justify-content: center;
+  min-width: fit-content;
+}
+
+.dsh-studio-mermaid-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.dsh-studio-mermaid-source {
+  padding: 12px;
+  border: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
+  border-radius: var(--dsh-studio-radius-sm);
+  background: var(--dsw-alias-interactive-bg-muted, rgb(0 0 0 / 4%));
+  overflow-x: auto;
+  font-family: var(--dsh-studio-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: var(--dsh-studio-font-md);
+}
+
+/* ── Comment rails (R2): shared ToolbarAction gutter affordance + floating
+   composer. Only the compact geometry remains on the action class. ── */
+.dsh-studio-comment-rail-add {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 4px;
+  color: var(--dsw-alias-label-secondary, #57606a);
+}
+.dsh-studio-comment-compose {
+  /* Placement is owned by the base-ui Positioner (floating engine), which
+     needs this element to participate in layout measurement for flip/shift.
+     `position: fixed` here broke that (the engine measured ~0 height and
+     never flipped the card above the anchor → bottom truncation). */
+  position: static;
+  z-index: 60;
+  min-width: 260px;
+  max-width: 420px;
+  background: var(--dsw-alias-bg-overlay, #2d2d2d);
+  border: 1px solid var(--dsw-alias-border-l2, rgb(255 255 255 / 8%));
+  border-radius: var(--dsh-studio-radius-lg, 10px);
+  padding: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+  color: var(--dsw-alias-label-primary, #fff);
+}
+.dsh-studio-comment-compose-head {
+  font-size: var(--dsh-studio-font-sm);
+  color: var(--dsw-alias-label-secondary, #b3b3b3);
+  margin-bottom: 6px;
+}
+.dsh-studio-comment-compose-input {
+  width: 100%;
+  min-height: 56px;
+  resize: vertical;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, inherit);
+  border: 0;
+  outline: none;
+  border-radius: 0;
+  padding: 2px 0;
+  /* Explicit size — `font: inherit` was leaking the page body size into
+     the placeholder (user report: "占位文字字号太大"). */
+  font-size: var(--dsh-studio-font-lg);
+  line-height: 1.5;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.dsh-studio-comment-compose-input::placeholder {
+  font-size: var(--dsh-studio-font-lg);
+  color: var(--dsw-alias-label-tertiary, #808080);
+  opacity: 1;
+}
+.dsh-studio-comment-compose-input:focus {
+  border: 0;
+  outline: none;
+}
+.dsh-studio-comment-compose-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--dsh-studio-space-1);
+  margin-top: var(--dsh-studio-space-1-5);
+}
+
+/* ---------- selection action bar (选词 → 操作条) ---------- */
+
+.dsh-studio-selection-action-host {
+  /* Owned by the base-ui Positioner; `fixed` would defeat flip measurement. */
+  z-index: 70;
+}
+
+/* Minimalist capsule: hairline border + radius, NO shadow, no button chrome.
+   Items are plain spans separated by thin vertical dividers; hover gets a
+   subtle wash. */
+.dsh-studio-selection-action {
+  display: inline-flex;
+  align-items: stretch;
+  width: max-content;
+  max-width: min(32rem, calc(100vw - 16px));
+  /* No padding: item hover washes must reach the container edges (the
+     rounded corners are clipped by overflow:hidden), so there is no
+     background-to-border gap on hover. */
+  padding: 0;
+  border: 1px solid var(--dsw-alias-border-l2, rgb(255 255 255 / 8%));
+  border-radius: var(--dsh-studio-radius-lg, 10px);
+  background: var(--dsw-alias-bg-overlay, #2d2d2d);
+  color: var(--dsw-alias-label-primary, #fff);
+  overflow: hidden;
+}
+
+/* Items: NO own radius, hover wash fills the item's full box (including its
+   horizontal padding) edge-to-edge; the bar's overflow:hidden clips the
+   rounded corners. Horizontal padding gives the icon/text breathing room and
+   the gap keeps items apart — both directions get spacing. */
+.dsh-studio-selection-action-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  padding: 7px 10px;
+  font-size: var(--dsh-studio-font-xs, 12px);
+  line-height: 1;
+  color: var(--dsw-alias-label-primary, inherit);
+  cursor: default;
+  user-select: none;
+  transition: background-color 100ms ease;
+}
+.dsh-studio-selection-action-item + .dsh-studio-selection-action-item,
+.dsh-studio-selection-action-target .dsh-studio-selection-action-item:first-child {
+  margin-left: 0;
+}
+.dsh-studio-selection-action-target .dsh-studio-selection-action-item {
+  padding-left: 10px;
+}
+.dsh-studio-selection-action-item:hover,
+.dsh-studio-selection-action-item:focus-visible {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(255 255 255 / 8%));
+  outline: none;
+}
+.dsh-studio-selection-action-item svg {
+  flex: none;
+}
+
+.dsh-studio-selection-action-label {
+  font-size: inherit;
+  color: inherit;
+  line-height: 1;
+}
+
+/* Full-height divider: reaches the container top & bottom edges, coloured
+   exactly like the item hover wash (they sit on the same surface). */
+.dsh-studio-selection-action-divider {
+  width: 1px;
+  flex: none;
+  align-self: stretch;
+  background: var(--dsw-alias-interactive-bg-hover, rgb(255 255 255 / 8%));
+}
+
+/* The conversation target group (add-to-chat + chevron) sits rightmost. */
+.dsh-studio-selection-action-target {
+  display: inline-flex;
+  align-items: stretch;
+}
+.dsh-studio-selection-action-target .dsh-studio-selection-action-chevron {
+  padding-left: 6px;
+  padding-right: 6px;
+}
+
+/* Edit mode: inline instruction input, borderless. */
+.dsh-studio-selection-action-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 4px 4px 12px;
+  border-radius: var(--dsh-studio-radius-lg, 10px);
+}
+
+.dsh-studio-selection-action-edit-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, inherit);
+  font: inherit;
+  font-size: var(--dsh-studio-font-sm, 13px);
+}
+
+.dsh-studio-selection-action-edit-input::placeholder {
+  color: var(--dsw-alias-label-secondary, #b3b3b3);
+}
+
+.dsh-studio-selection-action-submit {
+  padding: 4px 8px;
+}
+
+.dsh-studio-comment-compose-spacer {
+  flex: 1;
+}
+
+/*
+.dsh-studio-selection-conv-menu {
+  max-height: min(360px, calc(100vh - 48px)) !important;
+}
+.dsh-studio-selection-conv-menu 
+/* base-ui Positioner shell for selection-action floating layers: the
+   floating engine sets position/transform; we only add z-order. */
+.dsh-studio-selection-floating,
+.dsh-studio-comment-floating {
+  z-index: 70;
+}
+
+/* Viewport-safe comment card: never taller than most of the screen, and
+   scrolls internally — the base-ui Positioner can then always flip it into
+   view at the bottom edge. */
+.dsh-studio-comment-compose[data-viewport-safe='true'] {
+  max-height: min(320px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+}
+.dsh-studio-comment-compose[data-viewport-safe='true'] .dsh-studio-comment-compose-input {
+  max-height: 160px;
+}
+
+/* ---------- conversation picker (bounded, scrollable list) ---------- */
+
+.dsh-studio-selection-conv-menu {
+  z-index: 80;
+}
+.dsh-studio-selection-conv-shell {
+  min-width: 200px;
+  max-width: 280px;
+  max-height: min(300px, calc(100vh - 64px));
+  padding: 4px;
+  background: var(--dsw-alias-bg-overlay, #2d2d2d);
+  border: 1px solid var(--dsw-alias-border-l2, rgb(255 255 255 / 8%));
+  border-radius: var(--dsh-studio-radius-md, 8px);
+}
+/* The shared ScrollArea owns height + scrollbar inside the shell. */
+.dsh-studio-selection-conv-scroll {
+  max-height: min(288px, calc(100vh - 72px));
+}
+:global(.dsh-studio-selection-conv-viewport) {
+  max-height: inherit;
+}
+.dsh-studio-selection-conv-item {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-primary, #fff);
+  font: inherit;
+  font-size: var(--dsh-studio-font-md);
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: default;
+}
+.dsh-studio-selection-conv-item:hover,
+.dsh-studio-selection-conv-item[aria-current='true'] {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(255 255 255 / 8%));
+}
+.dsh-studio-selection-conv-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.dsh-studio-selection-conv-current {
+  font-style: normal;
+  font-weight: 500;
+}
+.dsh-studio-selection-conv-time {
+  flex: none;
+  font-size: var(--dsh-studio-font-sm);
+  line-height: 1;
+  color: var(--dsw-alias-label-tertiary, #808080);
+  white-space: nowrap;
+}
+
+/* ---------- line-comment bubble actions (hover) ---------- */
+
+:global(.dsh-studio-line-comment) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.dsh-studio-line-comment-actions {
+  display: none;
+  align-items: center;
+  gap: 2px;
+}
+:global(.dsh-studio-line-comment):hover .dsh-studio-line-comment-actions {
+  display: inline-flex;
+}
+/* Compact fit inside the Pierre annotation row: ToolbarAction geometry is
+   26×26 by default — too tall for a line-height row — so the seat shrinks,
+   while hover wash / radius / tooltip semantics stay project-native. */
+.dsh-studio-line-comment-action {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border-radius: var(--dsh-studio-radius-sm, 6px);
+  color: var(--dsw-alias-label-secondary, #b3b3b3);
+}
+.dsh-studio-line-comment-action:hover {
+  background: var(--dsw-alias-interactive-bg-hover, rgb(255 255 255 / 8%));
+  color: var(--dsw-alias-label-primary, #fff);
+}
+.dsh-studio-line-comment-action-danger:hover {
+  color: var(--dsw-alias-state-error-primary, #ff5d5d);
+}

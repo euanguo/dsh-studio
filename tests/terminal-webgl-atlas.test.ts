@@ -4,7 +4,7 @@ import {
   registerWebglAtlasTarget,
   resetAllTerminalWebglAtlases,
   resetAndRefreshAllTerminalWebglAtlases,
-} from '../plugins/shared/terminal-webgl-atlas.ts'
+} from '../plugins/shared/terminal/terminal-webgl-atlas.ts'
 
 test('WebglAtlasCoordinator tracks live targets and broadcasts reset/refresh across instances', () => {
   let resetCount1 = 0

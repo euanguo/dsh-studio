@@ -3,13 +3,13 @@
  * Rows render semantic action selections; they do not call Workspace, Git,
  * filesystem, or settings capabilities directly.
  */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  HoverCard, Menu,
+  HoverCard, Menu, StateDot,
   IconCopyOutline16, IconEditOutline16, IconEllipsisOutline16, IconFolderOpen16,
   IconFolderOpenOutline16, IconPlusOutline16, IconProjectAddOutline16,
   IconTrashOutline16, IconTriangleRightFill14,
-  type MenuEntry, type MenuItem,
+  type MenuEntry, type MenuItem, type StateDotState,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import { IconGitBranch } from '@dsh-studio/shared/tabler-icons'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
@@ -17,8 +17,9 @@ import type { ActionSelection } from '../domain/commands.ts'
 import { projectActionDescriptors, worktreeActionDescriptors } from '../domain/action-descriptors.ts'
 import { projectIdOf, worktreeIdOf } from '../domain/identities.ts'
 import { ProjectIconGlyph } from '../ProjectIconGlyph.tsx'
-import type { GroupTab, ProjectNode, WorktreeNode } from '../tree.ts'
-import { RowsCss as css } from '../styles.js'
+import type { ActivityKind, GroupTab, ProjectNode, WorktreeNode } from '../tree.ts'
+import { DEFAULT_GROUP_ID } from '../tree.ts'
+import { RowsCss as css } from '../styles.ts'
 import { cn } from '../shim/cn.ts'
 
 type RowTranslate = WorkspaceBrowserProps['t']
@@ -33,12 +34,54 @@ function actionIconSelection(action: ActionSelection['action'], target: ActionSe
   return { action, target, ...extra }
 }
 
+/** One ActivityKind's dot color in the official StateDot semantics. */
+function dotStateOf(kind: ActivityKind): StateDotState {
+  if (kind === 'waiting') return 'warning'
+  if (kind === 'running') return 'ongoing'
+  return 'done'
+}
+
+/**
+ * The hidden-activity indicator for collection rows: the official StateDot —
+ * the same component (and size) the session rows render — paired with
+ * screen-reader copy. No second status-dot kit; only the display rule
+ * ("this row hides activity") is ours.
+ */
+function ActivityDot({ kind, label }: { kind: ActivityKind | undefined; label: string }) {
+  if (kind === undefined) return null
+  return (
+    <>
+      <StateDot state={dotStateOf(kind)} className={css.statusDot} />
+      <span className={css.visuallyHidden}>{label}</span>
+    </>
+  )
+}
+
+/** Hover-card status lines for the hidden-activity buckets present under a row. */
+function ActivityLines({ kinds, t }: { kinds: readonly ActivityKind[]; t: RowTranslate }) {
+  if (kinds.length === 0) return null
+  return (
+    <>
+      {kinds.map(kind => (
+        <div className={css.hoverStatus} key={kind}>
+          <StateDot state={dotStateOf(kind)} />
+          <span>{t(`activity.${kind}`)}</span>
+        </div>
+      ))}
+    </>
+  )
+}
+
 /** Project-level row: repository identity, icon, main-branch badge, and actions. */
-export function ProjectRowItem({ project, onToggle, tabs, onAction, t }: {
+export function ProjectRowItem({ project, onToggle, tabs, onAction, dot, hiddenKinds, t }: {
   project: ProjectNode
   onToggle: () => void
   tabs: readonly GroupTab[]
   onAction: (selection: ActionSelection) => void
+  /** Highest-priority hidden activity while the row is folded (undefined = none). */
+  dot?: ActivityKind | undefined
+  /** Every hidden bucket present, in priority order (hover-card copy). */
+  hiddenKinds?: readonly ActivityKind[] | undefined
   t: RowTranslate
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
@@ -82,12 +125,13 @@ export function ProjectRowItem({ project, onToggle, tabs, onAction, t }: {
         setMenuOpen(true)
       }}
     >
-      <span className={cn(css.slot, css.folder, project.containsCurrent && css.folderActive)}>
+      <span className={cn(css.slot, project.containsCurrent && css.folderActive)}>
         <ProjectIconGlyph icon={project.icon} size={16} />
       </span>
       <span className={css.projectText}>
         <span className={css.title}>{project.label}</span>
       </span>
+      <ActivityDot kind={dot} label={dot === undefined ? '' : t(`activity.${dot}`)} />
       <span className={css.rowActions}>
         <Menu
           open={menuOpen}
@@ -101,7 +145,7 @@ export function ProjectRowItem({ project, onToggle, tabs, onAction, t }: {
             else if (id === 'copy-path') select('project.copy-path')
             else if (id === 'open-folder') select('project.open-directory')
             else if (id === 'remove') select('project.remove-registration')
-            else if (id === 'move-default') select('project.move-group', { groupId: '__default__' })
+            else if (id === 'move-default') select('project.move-group', { groupId: DEFAULT_GROUP_ID })
             else if (id === 'move-new') select('project.move-group', { groupId: '__new__' })
             else if (id.startsWith('move-group:')) select('project.move-group', { groupId: id.slice('move-group:'.length) })
           }}
@@ -128,6 +172,7 @@ export function ProjectRowItem({ project, onToggle, tabs, onAction, t }: {
         <div className={css.hoverContent}>
           <span className={css.hoverTitle}>{project.label}</span>
           <span className={css.hoverPath}>{project.repoRoot}</span>
+          <ActivityLines kinds={hiddenKinds ?? []} t={t} />
         </div>
       )}
       disabled={menuOpen}
@@ -139,57 +184,79 @@ export function ProjectRowItem({ project, onToggle, tabs, onAction, t }: {
 }
 
 /** WorkTree-level row: Git branch identity, Workspace targets, and topology actions. */
-export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAction, t }: {
+export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAction, dot, hiddenKinds, t }: {
   project: ProjectNode
   worktree: WorktreeNode
   onToggle: () => void
   workspaces?: readonly WorktreeWorkspace[] | undefined
   onAction: (selection: ActionSelection) => void
+  /** Highest-priority activity hidden behind this row (undefined = none). */
+  dot?: ActivityKind | undefined
+  /** Every hidden bucket present, in priority order (hover-card copy). */
+  hiddenKinds?: readonly ActivityKind[] | undefined
   t: RowTranslate
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const targets = workspaces ?? []
-  const target = { kind: 'worktree' as const, id: worktreeIdOf(project, worktree) }
-  const descriptors = worktreeActionDescriptors(project, worktree)
-  const descriptor = (id: ActionSelection['action'], workspaceId?: string) => descriptors.find(item => item.id === id && item.workspaceId === workspaceId)
-  // One rename / one remove per row (worktree = workspace). The suffix only
-  // disambiguates when one row genuinely carries several registrations.
+  // Stable deps for the memoized menu below (C41): avoid fresh `[]`/object
+  // identities per render so the menu recomputes only when its inputs move.
+  const targets = useMemo(() => workspaces ?? [], [workspaces])
+  // Stable identity for the menu's target: the id string is pure, so the
+  // object survives re-renders and keeps the memoized menu/selections
+  // effective (C41) instead of recomputing on every parent render.
+  const target = useMemo(
+    () => ({ kind: 'worktree' as const, id: worktreeIdOf(project, worktree) }),
+    [project, worktree],
+  )
+  const descriptors = useMemo(
+    () => worktreeActionDescriptors(project, worktree),
+    [project, worktree],
+  )
+  // Suffix only disambiguates when one row genuinely carries several
+  // registrations (worktree = workspace).
   const multi = targets.length > 1
-  const selections = new Map<string, ActionSelection>()
-  /** Rows for one verb: the explicit Workspace targets, or the single row-level fallback. */
-  const verbRows = (
-    action: 'worktree.create-session' | 'worktree.rename' | 'worktree.remove',
-    label: string,
-    icon: JSX.Element,
-    fallback: boolean,
-    danger?: boolean,
-  ): MenuEntry[] => {
-    if (targets.length > 0) {
-      return targets.map(workspace => {
-        const id = `${action}:${workspace.id}`
-        selections.set(id, actionIconSelection(action, target, { workspaceId: workspace.id }))
-        return { id, label: multi ? `${label} · ${workspace.title}` : label, icon, ...(danger ? { danger: true } : {}) }
-      })
+  // Build the action menu and its id→selection map together (C41): populating
+  // the Map during render is a render-phase side effect that also defeats any
+  // memoization of the menu. Recomputes only when the row's targets/configs
+  // change, not on every parent render.
+  const { menuItems, selections } = useMemo(() => {
+    const selections = new Map<string, ActionSelection>()
+    const descriptor = (id: ActionSelection['action'], workspaceId?: string) => descriptors.find(item => item.id === id && item.workspaceId === workspaceId)
+    /** Rows for one verb: the explicit Workspace targets, or the single row-level fallback. */
+    const verbRows = (
+      action: 'worktree.create-session' | 'worktree.rename' | 'worktree.remove',
+      label: string,
+      icon: JSX.Element,
+      fallback: boolean,
+      danger?: boolean,
+    ): MenuEntry[] => {
+      if (targets.length > 0) {
+        return targets.map(workspace => {
+          const id = `${action}:${workspace.id}`
+          selections.set(id, actionIconSelection(action, target, { workspaceId: workspace.id }))
+          return { id, label: multi ? `${label} · ${workspace.title}` : label, icon, ...(danger ? { danger: true } : {}) }
+        })
+      }
+      if (!fallback) return []
+      selections.set(action, actionIconSelection(action, target))
+      return [{ id: action, label, icon, ...(danger ? { danger: true } : {}) }]
     }
-    if (!fallback) return []
-    selections.set(action, actionIconSelection(action, target))
-    return [{ id: action, label, icon, ...(danger ? { danger: true } : {}) }]
-  }
-  const menuItems: MenuEntry[] = [
-    ...verbRows('worktree.create-session', t('worktree.newSession'), <IconPlusOutline16 />, false),
-    // Registration-less row: rename still offered (display alias).
-    ...verbRows('worktree.rename', t('rename.workspace.title'), <IconEditOutline16 />, true),
-    // Linked Git rows remove physically (registration entries above cover
-    // the main / non-git rows); nothing to remove when neither applies.
-    ...(targets.length > 0
-      ? verbRows('worktree.remove', t('worktree.remove'), <IconTrashOutline16 />, false, true)
-      : (descriptor('worktree.remove')?.enabled === true
-        ? verbRows('worktree.remove', t('worktree.remove'), <IconTrashOutline16 />, true, true)
-        : [])),
-    { type: 'separator', id: 'wt-sep-path' },
-    { id: 'copy-path', label: t('menu.copyPath'), icon: <IconCopyOutline16 /> },
-    { id: 'open-folder', label: t('menu.openFolder'), icon: <IconFolderOpenOutline16 /> },
-  ]
+    const menuItems: MenuEntry[] = [
+      ...verbRows('worktree.create-session', t('worktree.newSession'), <IconPlusOutline16 />, false),
+      // Registration-less row: rename still offered (display alias).
+      ...verbRows('worktree.rename', t('rename.workspace.title'), <IconEditOutline16 />, true),
+      // Linked Git rows remove physically (registration entries above cover
+      // the main / non-git rows); nothing to remove when neither applies.
+      ...(targets.length > 0
+        ? verbRows('worktree.remove', t('worktree.remove'), <IconTrashOutline16 />, false, true)
+        : (descriptor('worktree.remove')?.enabled === true
+          ? verbRows('worktree.remove', t('worktree.remove'), <IconTrashOutline16 />, true, true)
+          : [])),
+      { type: 'separator', id: 'wt-sep-path' },
+      { id: 'copy-path', label: t('menu.copyPath'), icon: <IconCopyOutline16 /> },
+      { id: 'open-folder', label: t('menu.openFolder'), icon: <IconFolderOpenOutline16 /> },
+    ]
+    return { menuItems, selections }
+  }, [targets, target, descriptors, multi, t])
   const handleSelect = (id: string): void => {
     setMenuOpen(false)
     const selection = selections.get(id)
@@ -223,7 +290,7 @@ export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAct
         setMenuOpen(true)
       }}
     >
-      <span className={cn(css.slot, css.folder, worktree.containsCurrent && css.folderActive)}>
+      <span className={cn(css.slot, worktree.containsCurrent && css.folderActive)}>
         {worktree.isGit === true ? <IconGitBranch /> : <ProjectIconGlyph icon={{ source: 'fallback', value: 'directory', fallback: 'directory' }} size={16} />}
       </span>
       <span className={cn(css.slot, css.chevron)}>
@@ -233,6 +300,7 @@ export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAct
         <span className={css.title}>{worktree.label}</span>
         {targets.length > 1 && <span className={css.countBadge} aria-label={t('worktree.workspaceCount', { n: targets.length })}>×{targets.length}</span>}
       </span>
+      <ActivityDot kind={dot} label={dot === undefined ? '' : t(`activity.${dot}`)} />
       <span className={css.rowActions}>
         <Menu
           open={menuOpen}
@@ -275,6 +343,7 @@ export function WorktreeRowItem({ project, worktree, onToggle, workspaces, onAct
             </span>
           )}
           <span className={css.hoverPath}>{worktree.path}</span>
+          <ActivityLines kinds={hiddenKinds ?? []} t={t} />
         </div>
       )}
       disabled={menuOpen}

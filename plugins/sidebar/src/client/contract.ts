@@ -1,18 +1,30 @@
 /**
- * The DSH Studio sidebar public contract: the descriptor vocabulary and service
- * face external plugins use to contribute sidebar tabs, file viewers,
- * center-surface renderers and declarative settings.
+ * The DSH Studio sidebar public contract: the unified surface-descriptor
+ * vocabulary and service face external plugins use to contribute surfaces
+ * (right-rail chips, center renderers, file viewers) and declarative
+ * settings.
  *
  * This module is the single source of truth for the registry protocol — the
  * implementation (`./sidebar-service.ts`), the built-in registrations
- * (`./tabs/*` / `./viewers/*`), the settings seam (`./settings.tsx`) and
- * the desktop enhancement plugin (`plugins/sidebar-desktop`) all import
- * from here. It mirrors the upstream DSH-better-sidebar `ctx.betterSidebar`
- * contract (id/title/icon/order/hidden/available/single/dedupeKey/createTab/
- * urlTarget/settings/badge/onOpen/onActivate/onClose) plus DSH Studio's own
- * extensions (`action` / `chrome` / `requiresWorkspace` / `shortcut` and the
- * center-surface renderer registry), so a consumer written against one host
- * adapts to the other with minimal changes.
+ * (`./builtins/*`), the settings seam (`./settings.tsx`) and the desktop
+ * enhancement plugin (`plugins/sidebar-desktop`) all import from here.
+ *
+ * One surface kind, ONE descriptor. A {@linkcode SidebarSurfaceDescriptor}
+ * mirrors the workbench kernel's SurfaceRegistry model
+ * (`@dsh-studio/shared/workbench-contracts`): `kind` + optional
+ * `rail` / `center` / `viewer` aspects + `scopeNeed` / `previewable` /
+ * `focusPolicy`. The former three parallel registrations (tabs, viewers,
+ * surface renderers) are absorbed: one `DesktopSidebarService.register`
+ * call replaces all of them, and the single descriptor table drives rail
+ * chip rendering, center-surface rendering, file-viewer matching and
+ * external-link claims alike.
+ *
+ * Layering note: the shared kernel contracts stay React-free, so the
+ * adapter-level payload fields (icons, renderers, settings declarations)
+ * live in the spec extensions below while the routing skeleton
+ * (`kind`/aspects/`scopeNeed`/`previewable`/`focusPolicy`) keeps the exact
+ * kernel shape and reuses the kernel's `ScopeNeed` / `FocusPolicy` /
+ * `CenterSpec` / `ViewerSpec` vocabulary.
  *
  * Constraints:
  * - CLIENT-REACHABLE ONLY: no Node.js types (`node:*`, `Buffer`), no DOM
@@ -23,13 +35,19 @@
  *   runtime lives in `sidebar-service.ts`.
  */
 import type { ReactNode } from 'react'
-import type { CenterSurface, CenterSurfaceKind } from './surfaces/types.ts'
+import type {
+  CenterSpec,
+  FocusPolicy,
+  ScopeNeed,
+  ViewerSpec,
+} from '@dsh-studio/shared/workbench-contracts'
+import type { CenterSurface } from './surfaces/types.ts'
+import type { PreviewTabsMode } from '@dsh-studio/shared/workbench-contracts'
+import type { LayoutScopeMode } from '../sidebar-preferences.ts'
 
 /** One workspace scope: the project cwd. The sidebar data model is project
  *  dimension — one layout per project, never per conversation. */
-/** One workspace scope: the project cwd. The sidebar data model is project
- *  dimension — one layout per project, never per conversation. */
-export interface SidebarScope {
+export interface CapabilitiesScope {
   cwd: string
 }
 
@@ -45,35 +63,36 @@ export type SidebarTabAvailability =
 
 /**
  * The ONE availability gate shared by the service (`openTab` refusal) and
- * every UI entry point. Folds the descriptor's `requiresWorkspace` flag and
+ * every UI entry point. Folds the descriptor's `scopeNeed` and its rail
  * `available` predicate into a single truthful answer:
- * - no active project cwd + the descriptor requires one → `no-workspace`;
- * - the descriptor's `available` predicate says no → `unavailable`;
+ * - no active project cwd + the descriptor needs a workspace
+ *   (`scopeNeed: 'workspace'`) → `no-workspace`;
+ * - the rail spec's `available` predicate says no → `unavailable`;
  * - the service is not ready → `not-ready`;
  * - the descriptor id is disabled in prefs → `disabled`.
  */
 export function tabAvailability(
-  descriptor: SidebarTabDescriptor,
-  scope: SidebarScope | null,
+  descriptor: SidebarSurfaceDescriptor,
+  scope: CapabilitiesScope | null,
   state: SidebarSnapshot,
   enabled: boolean,
 ): SidebarTabAvailability {
   if (!enabled) return { ok: false, reason: 'disabled' }
   if (!state.ready) return { ok: false, reason: 'not-ready' }
-  if (descriptor.requiresWorkspace === true
+  if (descriptor.scopeNeed === 'workspace'
     && (scope === null || scope.cwd === undefined || scope.cwd === '')) {
     return { ok: false, reason: 'no-workspace' }
   }
-  if (descriptor.available?.(scope, state) === false) {
+  if (descriptor.rail?.available?.(scope, state) === false) {
     return { ok: false, reason: 'unavailable' }
   }
   return { ok: true }
 }
 
-/** One open sidebar tab instance (persisted per session). */
+/** One open sidebar tab instance (persisted per workspace cwd). */
 export interface SidebarTab {
   id: string
-  /** The tab type — the id of the descriptor that rendered it. */
+  /** The tab type — the kind of the descriptor that rendered it. */
   type: string
   title: string
   /** File path / URL seed the tab was opened with (the `path` analogue). */
@@ -100,6 +119,9 @@ export interface SidebarTabSeed {
 /** The snapshot the service publishes (geometry + open tabs + prefs). */
 export interface SidebarSnapshot {
   activeId: string | null
+  // The BOTTOM workbench snapshot fields are dormant contract — the
+  // workbench is not mounted pending a product decision. The impl must
+  // publish them (null / empty).
   /** The active tab of the BOTTOM workbench (the second pane above the
    *  terminal dock); null when nothing is docked/active there. */
   bottomActiveId: string | null
@@ -114,10 +136,14 @@ export interface SidebarSnapshot {
   /** The project this snapshot belongs to (null before any workspace). */
   cwd: string | null
   /** The scope (project cwd) rendered inside the panel. */
-  scope: SidebarScope | null
+  scope: CapabilitiesScope | null
   tabs: readonly SidebarTab[]
   tabsEnabled: Readonly<Record<string, boolean>>
   viewersEnabled: Readonly<Record<string, boolean>>
+  /** Whether single-click center opens create replaceable preview tabs. */
+  centerPreviewTabs: PreviewTabsMode
+  /** Whether the rail layout follows each workspace or one shared bucket. */
+  layoutScope: LayoutScopeMode
   /** Plugin-owned settings blobs keyed by descriptor id. */
   pluginSettings: Readonly<Record<string, Record<string, unknown>>>
   width: number
@@ -149,14 +175,14 @@ export interface SidebarRenderProps {
   /** Patch the open tab's display fields (title / resource / meta). */
   patch(patch: { resource?: string; title?: string; meta?: unknown }): void
   /** The scope the tab renders against (null before a session is active). */
-  scope: SidebarScope | null
+  scope: CapabilitiesScope | null
   tab: SidebarTab
 }
 
 /** The row control a declarative setting renders as in the settings popup. */
 export type SidebarSettingToggleType = 'switch' | 'text' | 'number'
 
-/** One declarative setting row of a registered tab/viewer. */
+/** One declarative setting row of a registered surface. */
 export interface SidebarSettingToggle {
   /** The prefs field this toggle reads and writes. */
   key: string
@@ -188,13 +214,13 @@ export interface SidebarSettingsRenderProps {
   close(): void
 }
 
-/** Declarative settings of one registered tab or file viewer. */
+/** Declarative settings of one registered surface (any aspect). */
 export interface SidebarSettingsDeclaration {
   /**
    * Extra settings rows rendered under the feature's own row. Keys must be
    * fields of the host preferences (built-ins: 'agentTerminalTools',
-   * 'bottomPanelAutoTerminal', 'browserInterceptLinks', ...); unknown keys
-   * are dropped by the settings seam.
+   * 'browserInterceptLinks', 'terminalFontFamily', ...); unknown keys are
+   * dropped by the settings seam.
    */
   toggles?: readonly SidebarSettingToggle[]
   /**
@@ -210,11 +236,16 @@ export interface SidebarSettingsDeclaration {
   render?: (props: SidebarSettingsRenderProps) => ReactNode
 }
 
-/** Describes one kind of sidebar tab (built-ins register themselves too). */
-export interface SidebarTabDescriptor {
-  /** Unique id; also the `SidebarTab.type` value. */
-  id: string
-  /** Title (i18n friendly). */
+/* ---------- the unified descriptor ---------- */
+
+/**
+ * Right-rail chip declaration of a surface (the kernel `RailSpec`
+ * vocabulary plus the adapter-level presentation and behavior payload).
+ * Rail chips are never previews (`previewable` stays false for rail-only
+ * surfaces).
+ */
+export interface SidebarRailSpec {
+  /** Title (i18n friendly); menu rows and the settings card resolve it. */
   title: string | (() => string)
   /** Icon: ReactNode or (size) => ReactNode. */
   icon?: ReactNode | ((size: number) => ReactNode)
@@ -226,9 +257,9 @@ export interface SidebarTabDescriptor {
    * + menu disabled predicate (e.g. no workspace). Receives the live scope
    * and snapshot. Only gates the menu row — it does not refuse `openTab`.
    */
-  available?: (scope: SidebarScope | null, state: SidebarSnapshot) => boolean
+  available?: (scope: CapabilitiesScope | null, state: SidebarSnapshot) => boolean
   /**
-   * Single-instance sugar: `true` is shorthand for `dedupeKey: () => id`
+   * Single-instance sugar: `true` is shorthand for `dedupeKey: () => kind`
    * (opening the tab focuses an existing one of the same type). An explicit
    * `dedupeKey` always wins when both are given.
    */
@@ -250,15 +281,15 @@ export interface SidebarTabDescriptor {
   ) => { tab: SidebarTab; patch?: { tabs?: readonly SidebarTab[]; activeId?: string | null } } | null
   /**
    * External-link target claim: when a GUI external-link click is taken
-   * over, the first registered tab whose `urlTarget(url)` returns true is
-   * opened with the URL as its resource seed. The built-in browser tab
+   * over, the first registered surface whose `urlTarget(url)` returns true
+   * is opened with the URL as its resource seed. The built-in browser
    * declares NO urlTarget — it stays the implicit fallback target.
    */
   urlTarget?: (url: URL) => boolean
   /**
    * Declarative settings shown in the sidebar settings page: every
-   * registered tab gets an enable/disable switch, and `settings.toggles`
-   * adds nested rows tied to host prefs fields.
+   * registered rail feature gets an enable/disable switch, and
+   * `settings.toggles` adds nested rows tied to host prefs fields.
    */
   settings?: SidebarSettingsDeclaration
   /**
@@ -266,7 +297,7 @@ export interface SidebarTabDescriptor {
    * number renders as a count (99+ capped), a string renders as-is,
    * null/undefined hides the badge. A throw is swallowed (no badge shown).
    */
-  badge?: (scope: SidebarScope | null, state: SidebarSnapshot) => string | number | null | undefined
+  badge?: (scope: CapabilitiesScope | null, state: SidebarSnapshot) => string | number | null | undefined
   /**
    * Lifecycle callbacks. Fired by the SERVICE paths only: `onOpen` when an
    * open actually creates a tab (a dedupe/id-safety-net focus is NOT an
@@ -274,11 +305,11 @@ export interface SidebarTabDescriptor {
    * focused, `onClose` when a tab is closed. A throwing callback is logged
    * and never breaks the open/close/activate flow.
    */
-  onOpen?: (tab: SidebarTab, scope: SidebarScope) => void
-  onActivate?: (tab: SidebarTab, scope: SidebarScope) => void
-  onClose?: (tab: SidebarTab, scope: SidebarScope) => void
+  onOpen?: (tab: SidebarTab, scope: CapabilitiesScope) => void
+  onActivate?: (tab: SidebarTab, scope: CapabilitiesScope) => void
+  onClose?: (tab: SidebarTab, scope: CapabilitiesScope) => void
   /**
-   * The tab body renderer. `action`-only descriptors (no render) are menu
+   * The tab body renderer. `action`-only specs (no render) are menu
    * shortcuts: opening them runs the action instead of opening a tab.
    */
   render?: (props: SidebarRenderProps) => ReactNode
@@ -286,10 +317,39 @@ export interface SidebarTabDescriptor {
   action?: () => void | Promise<void>
   /** 'custom' renders the body with no chrome; 'standard' adds tab chrome. */
   chrome?: 'custom' | 'standard'
-  /** Disable the + menu row while no workspace is active. */
-  requiresWorkspace?: boolean
   /** Keyboard hint shown in the + menu row (display only). */
   shortcut?: string
+}
+
+/**
+ * Center-tab declaration of a surface (the kernel `CenterSpec` identity
+ * plus the renderer): renders one open center surface of this kind in the
+ * middle workbench.
+ */
+export interface SidebarCenterSpec extends CenterSpec {
+  /** Render an open center surface of this kind. */
+  render?: (surface: CenterSurface) => ReactNode
+}
+
+/**
+ * File-class viewer declaration (the kernel `ViewerSpec` extension match
+ * plus the adapter payload): which files this viewer claims and how the
+ * host loads their bytes for it.
+ */
+export interface SidebarViewerSpec extends ViewerSpec {
+  /** How the host loads a file's bytes for this viewer. */
+  fetchStrategy: SidebarFileFetchStrategy
+  /** Content sniff: when `head` bytes are available, `detect` is consulted
+   *  before `exts` (per descriptor, in priority order). */
+  detect?: (path: string, head: Uint8Array) => boolean
+  /** Display name for the settings inventory (falls back to `kind`). */
+  title?: string | (() => string)
+  /** Icon shown in the settings inventory. */
+  icon?: ReactNode | ((size: number) => ReactNode)
+  /** Declarative settings shown in the sidebar settings page. */
+  settings?: SidebarSettingsDeclaration
+  /** The preview renderer. */
+  render?: (input: SidebarViewerRenderInput) => ReactNode
 }
 
 /** How the host loads a file's bytes for one viewer. */
@@ -309,51 +369,71 @@ export interface SidebarViewerRenderInput {
   /** mediaUrl for the path (fetchStrategy='mediaUrl'). */
   resourceUrl?: string
   /** The scope of the owning session (custom viewers). */
-  scope?: SidebarScope
+  scope?: CapabilitiesScope
   title: string
   /** fsRead truncation flag. */
   truncated?: boolean
 }
 
-/** Describes one file previewer (built-ins register themselves too). */
-export interface SidebarViewerDescriptor {
-  /** Unique id ('markdown', 'my-plugin:csv'). */
-  id: string
-  /** Display name for the settings inventory (falls back to `id` when absent). */
-  title?: string | (() => string)
-  /** Icon shown in the settings inventory. */
-  icon?: ReactNode | ((size: number) => ReactNode)
-  /** Lowercase extensions without leading dot; `[]` = catch-all. */
-  exts: readonly string[]
-  /** Higher wins; default 0. Built-ins use 0; the catch-all text viewer uses -100. */
-  priority?: number
-  fetchStrategy: SidebarFileFetchStrategy
-  /** Content sniff: when `head` bytes are available, `detect` is consulted
-   *  before `exts` (per descriptor, in priority order). */
-  detect?: (path: string, head: Uint8Array) => boolean
-  /** Declarative settings shown in the sidebar settings page. */
-  settings?: SidebarSettingsDeclaration
-  /** The preview renderer. */
-  render?: (input: SidebarViewerRenderInput) => ReactNode
+/**
+ * The ONE descriptor registered per surface kind — the sidebar-side form of
+ * the workbench kernel's `SurfaceDescriptor`. Every aspect the surface
+ * provides (rail chip / center renderer / file viewer) hangs off this one
+ * object; there is exactly one registration per kind.
+ */
+export interface SidebarSurfaceDescriptor {
+  /** Unique kind; also the `SidebarTab.type` value and the center-surface kind. */
+  kind: string
+  /** Right-rail chip declaration (menu entry, tab body, lifecycle). */
+  rail?: SidebarRailSpec
+  /** Center-workbench renderer declaration. */
+  center?: SidebarCenterSpec
+  /** File-viewer declaration (extension claims + byte strategy). */
+  viewer?: SidebarViewerSpec
+  /** Whether the surface needs a workspace or session to be meaningful. */
+  scopeNeed: ScopeNeed
+  /** Whether center opens of this surface create replaceable previews. */
+  previewable: boolean
+  /** When the surface may take keyboard focus (see the kernel contracts). */
+  focusPolicy: FocusPolicy
 }
 
-/** One center-surface renderer (DSH Studio extension: the middle workbench). */
-export type SidebarSurfaceRenderer = (surface: CenterSurface) => ReactNode
+/**
+ * Resolve the user-facing label of a descriptor: the rail title wins (menu
+ * rows), then the viewer display name (settings inventory), then the kind.
+ */
+export function sidebarDescriptorTitle(
+  descriptor: SidebarSurfaceDescriptor,
+): string | (() => string) {
+  return descriptor.rail?.title ?? descriptor.viewer?.title ?? descriptor.kind
+}
+
+/** The settings declaration of a descriptor (rail features first). */
+export function sidebarDescriptorSettings(
+  descriptor: SidebarSurfaceDescriptor,
+): SidebarSettingsDeclaration | undefined {
+  return descriptor.rail?.settings ?? descriptor.viewer?.settings
+}
 
 /**
  * The registry service published as `ctx.desktopSidebar`. External plugins
- * contribute tabs / viewers / surface renderers through it; every method is
+ * contribute surfaces through ONE registration; every method is
  * synchronous-snapshot so React reads it via `useSyncExternalStore`.
  */
 export interface DesktopSidebarService {
   /* ── registry ─────────────────────────────────────────────── */
-  registerTab(descriptor: SidebarTabDescriptor): () => void
-  registerViewer(descriptor: SidebarViewerDescriptor): () => void
-  /** Register a center-surface kind renderer (DSH Studio extension). */
-  registerSurfaceRenderer(kind: CenterSurfaceKind, renderer: SidebarSurfaceRenderer): () => void
-  getTabs(): readonly SidebarTabDescriptor[]
-  getViewers(): readonly SidebarViewerDescriptor[]
-  getTab(id: string): SidebarTabDescriptor | undefined
+  /**
+   * Register ONE surface descriptor (rail chip / center renderer / file
+   * viewer aspects combined). Throws on an invalid descriptor or a
+   * duplicate kind (a kind has exactly one owner). Returns the unregister
+   * disposer.
+   */
+  register(descriptor: SidebarSurfaceDescriptor): () => void
+  /** Rail-aspect descriptors in + menu order. */
+  getTabs(): readonly SidebarSurfaceDescriptor[]
+  /** Viewer-aspect descriptors in match order (priority desc). */
+  getViewers(): readonly SidebarSurfaceDescriptor[]
+  getTab(id: string): SidebarSurfaceDescriptor | undefined
   subscribe(listener: () => void): () => void
 
   /* ── enablement ───────────────────────────────────────────── */
@@ -364,11 +444,11 @@ export interface DesktopSidebarService {
 
   /* ── matching ─────────────────────────────────────────────── */
   /** Find a viewer for a path (priority desc; detect first, then exts). */
-  matchViewer(path: string, head?: Uint8Array): SidebarViewerDescriptor | undefined
-  /** The first ENABLED tab whose `urlTarget` claims the URL (registration
-   *  order; a throwing predicate is skipped). */
-  resolveUrlTarget(url: URL): SidebarTabDescriptor | undefined
-  /** Render a center surface through the registered renderers. */
+  matchViewer(path: string, head?: Uint8Array): SidebarSurfaceDescriptor | undefined
+  /** The first ENABLED surface whose rail `urlTarget` claims the URL
+   *  (registration order; a throwing predicate is skipped). */
+  resolveUrlTarget(url: URL): SidebarSurfaceDescriptor | undefined
+  /** Render a center surface through the registered center renderers. */
   renderSurface(surface: CenterSurface): ReactNode
 
   /* ── open / close / activate ──────────────────────────────── */
@@ -377,19 +457,21 @@ export interface DesktopSidebarService {
    * a specific project: the open lands in THAT project's state without
    * switching the UI's active project; absent, the open lands in the
    * currently active project. A disabled tab type is a no-op. A dedupe hit
-   * in the BOTTOM workbench focuses the docked tab there.
+   * focuses the existing tab in the rail.
    */
-  openTab(seed: SidebarTabSeed, scope?: SidebarScope): OpenTabResult
-  /** Close a tab by id (fires descriptor.onClose). Unknown ids are a no-op. */
-  closeTab(tabId: string, scope?: SidebarScope): void
-  /** Activate an open tab (fires descriptor.onActivate). Unknown ids are a no-op. */
-  activateTab(tabId: string | null, scope?: SidebarScope): void
+  openTab(seed: SidebarTabSeed, scope?: CapabilitiesScope): OpenTabResult
+  /** Close a tab by id (fires rail.onClose). Unknown ids are a no-op. */
+  closeTab(tabId: string, scope?: CapabilitiesScope): void
+  /** Activate an open tab (fires rail.onActivate). Unknown ids are a no-op. */
+  activateTab(tabId: string | null, scope?: CapabilitiesScope): void
   /** Patch an open tab's display fields; a missing tab id is a no-op. */
   updateTab(tabId: string, patch: { resource?: string; title?: string; meta?: unknown }): void
   /** Open a file in the sidebar of `scope`'s project (title defaults to the file name). */
-  openFile(scope: SidebarScope, path: string, title?: string): void
+  openFile(scope: CapabilitiesScope, path: string, title?: string): void
 
-  /* ── bottom workbench + tab drag layout (DSH Studio extension) ─── */
+  /* ── tab drag layout (DSH Studio extension) ────────────────── */
+  // Bottom-workbench drag methods are dormant contract — the workbench is
+  // not mounted (product decision pending). Keep signatures stable.
   /** Reorder one right-rail tab to `toIndex` (index in the full tab list). */
   moveTab(tabId: string, toIndex: number): void
   /** Reorder right-rail tabs by placing `sourceId` relative to `targetId`. */
@@ -406,34 +488,38 @@ export interface DesktopSidebarService {
   /** Undock a bottom-workbench tab back into the right rail relative to `targetId`. */
   undockTabToSide(bottomTabId: string, targetId: string | null | undefined, side?: 'before' | 'after'): void
   /** Reorder one bottom-workbench tab to `toIndex` (workbench order). */
-  moveBottomTab(bottomTabId: string, toIndex: number): void
+  moveBottomTab(bottomTabId: string, toIndex?: number): void
   /** Reorder bottom-workbench tabs by placing `sourceId` relative to `targetId`. */
   reorderBottomTabs(sourceId: string, targetId: string | null | undefined, side?: 'before' | 'after'): void
   /** Activate one bottom-workbench tab (null clears the pane). */
   activateBottomTab(bottomTabId: string | null): void
-  /** Close one bottom-workbench tab (fires descriptor.onClose). */
+  /** Close one bottom-workbench tab (fires rail.onClose). */
   closeBottomTab(bottomTabId: string): void
 
   /* ── state ────────────────────────────────────────────────── */
   getSnapshot(): SidebarSnapshot
 
-  /* ── capability contract ──────────────────────────────────── */
+  /* ── capability contract ─────────────────────────────────── */
   /** The plugin version this service instance was built from. */
   readonly version: string
   /** Monotonic capability list (never removed). */
   readonly features: readonly string[]
 
-  /* ── plugin-owned settings ────────────────────────────────── */
+  /* ── plugin-owned settings ───────────────────────────────── */
   /** The persisted settings blob of one descriptor id. */
   getPluginSettings(id: string): Record<string, unknown>
   /** Persist one plugin-owned setting of one descriptor id. */
   updatePluginSetting(id: string, key: string, value: unknown): void
 
-  /* ── panel geometry ───────────────────────────────────────── */
+  /* ── panel geometry ──────────────────────────────────────── */
   setOpen(open: boolean): void
   setMaximized(maximized: boolean): void
   setWidth(width: number): void
   setOpenByDefault(open: boolean): void
+  /** Toggle whether single-click center opens stay replaceable previews. */
+  setCenterPreviewTabs(mode: PreviewTabsMode): void
+  /** Switch the rail-layout scope; publishes the newly scoped layout. */
+  setLayoutScope(mode: LayoutScopeMode): void
   /** Bind the snapshot to a project (its cwd). */
   setWorkspace(cwd: string | null): void
 }
@@ -447,19 +533,24 @@ export const SIDEBAR_SERVICE_VERSION = '0.1.2'
 /**
  * Monotonic capability list consumers use to gate new API usage (features
  * are never removed). Each string names a contract capability:
- * - 'badge': SidebarTabDescriptor.badge
- * - 'tabLifecycle': onOpen/onActivate/onClose
+ * - 'badge': rail badge pill
+ * - 'tabLifecycle': rail onOpen/onActivate/onClose
  * - 'updateTab': DesktopSidebarService.updateTab
  * - 'openFile': DesktopSidebarService.openFile
  * - 'targetedOpen': openTab/closeTab/activateTab with a scope
  * - 'stateSubscription': getSnapshot/subscribe
  * - 'tabMeta': SidebarTab.meta (seeds, createTab, updateTab, persistence)
  * - 'pluginSettings': SidebarSettingsDeclaration.pluginToggles/render
- * - 'urlTarget': SidebarTabDescriptor.urlTarget (external-link claims)
- * - 'surfaceRenderer': registerSurfaceRenderer (DSH Studio extension)
- * - 'bottomWorkbench': bottom workbench + tab drag layout (moveTab /
- *   moveTabToBottom / moveBottomTabToSide / moveBottomTab /
- *   activateBottomTab / closeBottomTab + snapshot bottomTabs/bottomActiveId)
+ * - 'urlTarget': rail urlTarget (external-link claims)
+ * - 'surfaceRenderer': center renderer registration via register()
+ *   (DSH Studio extension)
+ * - 'bottomWorkbench': bottom workbench + tab drag layout — RETAINED BUT
+ *   DEPRECATED (the workbench is not mounted; kept for persisted-layout
+ *   compatibility, see the deprecated service section)
+ * - 'centerPreviewTabs': centerPreviewTabs snapshot + setCenterPreviewTabs
+ *   (single-click center opens honor the replaceable-preview preference)
+ * - 'layoutScope': layoutScope snapshot + setLayoutScope (rail layout follows
+ *   each workspace or one shared bucket)
  */
 export const SIDEBAR_FEATURES = [
   'badge',
@@ -473,6 +564,8 @@ export const SIDEBAR_FEATURES = [
   'urlTarget',
   'surfaceRenderer',
   'bottomWorkbench',
+  'centerPreviewTabs',
+  'layoutScope',
 ] as const
 
 export type SidebarFeature = typeof SIDEBAR_FEATURES[number]

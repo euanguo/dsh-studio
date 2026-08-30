@@ -5,12 +5,13 @@
  * reported as files without probing their target — the explorer shows what
  * dirent says, keeping the read cheap for arbitrarily large levels.
  */
+import { errorMessage } from '@dsh-studio/shared/errors'
 import { opendir } from 'node:fs/promises'
 import { basename, dirname, join, resolve } from 'node:path'
-import { SidebarError } from './wire.ts'
+import { CapabilityError } from './runtime/wire.ts'
 
 /** One explorer row. */
-export interface SidebarFsEntry {
+export interface CapabilitiesFsEntry {
   name: string
   path: string
   isDir: boolean
@@ -18,14 +19,14 @@ export interface SidebarFsEntry {
 }
 
 /** One listed level. */
-export interface SidebarFsListing {
+export interface CapabilitiesFsListing {
   path: string
-  entries: SidebarFsEntry[]
+  entries: CapabilitiesFsEntry[]
   truncated: boolean
 }
 
 /** Directory-first, case-insensitive name ordering (VSCode explorer order). */
-export function compareEntries(a: SidebarFsEntry, b: SidebarFsEntry): number {
+export function compareEntries(a: CapabilitiesFsEntry, b: CapabilitiesFsEntry): number {
   if (a.isDir !== b.isDir) return a.isDir ? -1 : 1
   return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
 }
@@ -35,16 +36,16 @@ export function compareEntries(a: SidebarFsEntry, b: SidebarFsEntry): number {
  * @param path - absolute directory path.
  * @param maxEntries - row bound of one level (extra rows flag `truncated`).
  * @returns the sorted listing.
- * @throws {SidebarError} fs-error when the level is unreadable or not a directory.
+ * @throws {CapabilityError} fs-error when the level is unreadable or not a directory.
  */
-export async function listDirectory(path: string, maxEntries = 1000): Promise<SidebarFsListing> {
+export async function listDirectory(path: string, maxEntries = 1000): Promise<CapabilitiesFsListing> {
   let level
   try {
     level = await opendir(path)
   } catch (error) {
-    throw new SidebarError('fs-error', `cannot list "${path}": ${messageOf(error)}`, 400)
+    throw new CapabilityError('fs-error', `cannot list "${path}": ${messageOf(error)}`, 400)
   }
-  const rows: SidebarFsEntry[] = []
+  const rows: CapabilitiesFsEntry[] = []
   let overflow = 0
   try {
     for await (const dirent of level) {
@@ -62,7 +63,7 @@ export async function listDirectory(path: string, maxEntries = 1000): Promise<Si
       })
     }
   } catch (error) {
-    throw new SidebarError('fs-error', `cannot list "${path}": ${messageOf(error)}`, 400)
+    throw new CapabilityError('fs-error', `cannot list "${path}": ${messageOf(error)}`, 400)
   }
   rows.sort(compareEntries)
   return { path, entries: rows, truncated: overflow > 0 }
@@ -83,7 +84,7 @@ export function parentOf(path: string): string | undefined {
 /** Normalize a caller-supplied path to an absolute, resolved path or throw fs-error. */
 export function requireAbsolute(path: string): string {
   if (!path.startsWith('/') && !/^[A-Za-z]:[\\/]/.test(path)) {
-    throw new SidebarError('fs-error', `"${path}" is not an absolute path`, 400)
+    throw new CapabilityError('fs-error', `"${path}" is not an absolute path`, 400)
   }
   return resolve(path)
 }
@@ -109,7 +110,11 @@ export function isWithin(base: string, target: string, platform: NodeJS.Platform
   return t === b || t.startsWith(`${b}/`)
 }
 
-/** Message text of an unknown thrown value. */
-export function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+/**
+ * Message text of an unknown thrown value. Kept private to this module;
+ * `sidebar/src/client/sidebar-service.ts:98` carries a parallel private copy
+ * of the same helper (RD-23). Keep the two in sync or unify.
+ */
+function messageOf(error: unknown): string {
+  return errorMessage(error)
 }

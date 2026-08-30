@@ -5,7 +5,7 @@ import {
   isTerminalScrollPinned,
   reduceTerminalScrollIntent,
   transitionTerminalScrollIntent,
-} from '../plugins/shared/terminal-scroll-intent.ts'
+} from '../plugins/shared/terminal/terminal-scroll-intent.ts'
 
 test('user scrolling up pauses following and output becomes unseen', () => {
   const paused = transitionTerminalScrollIntent(INITIAL_TERMINAL_SCROLL_INTENT, {

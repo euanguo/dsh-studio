@@ -4,10 +4,14 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build } from 'esbuild'
 import { resolveProductVersion } from '../src/version.ts'
+import { clientBaseExternals, clientExternalsFor, hostExternalsFor, readDependencyFacts } from './sync-dsh-dependencies.mjs'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const dist = join(root, 'dist')
 const productVersion = resolveProductVersion(root)
+// Dependency facts (pin/inject/externals/typePackages/bundles) have one
+// writable point: config/dsh-dependencies.json (see sync-dsh-dependencies.mjs).
+const dshDependencies = readDependencyFacts(root)
 const versionDefine = {
   __DSH_STUDIO_BUILD_VERSION__: JSON.stringify(productVersion),
 }
@@ -23,6 +27,15 @@ const nodeEsmRequireBanner = [
 //      （.cache 未生成）跳过对拍，token 校验的官方键快照依然生效。
 runNode(join('scripts', 'verify-skin-tokens.mjs'))
 runNode(join('scripts', 'generate-skin-selectors.mjs'), ['--check', '--if-present'])
+// Generated CSS-module class maps (desktop-left-rail + sidebar styles.ts)
+// must match the module CSS sources; rebuilds fail loudly when a
+// regeneration is due.
+runNode(join('scripts', 'plugin-styles.mjs'), ['desktop-left-rail', '--check'])
+runNode(join('scripts', 'plugin-styles.mjs'), ['sidebar', '--check'])
+runNode(join('scripts', 'plugin-styles.mjs'), ['plugin-marketplace', '--check'])
+runNode(join('scripts', 'plugin-styles.mjs'), ['desktop-skins', '--check'])
+// The hand-maintained @dsh-studio/shared exports map must not dangle.
+runNode(join('scripts', 'verify-shared-exports.mjs'))
 
 function runNode(script, args = []) {
   const result = spawnSync(process.execPath, [join(root, script), ...args], {
@@ -45,8 +58,9 @@ copyFileSync(join(root, 'src', 'splash.html'), join(dist, 'splash.html'))
 copyFileSync(join(root, 'src', 'update.html'), join(dist, 'update.html'))
 
 const pluginPackages = [
-  { directory: 'sidebar-host', hostOnly: true },
+  { directory: 'capabilities', hostOnly: true },
   { directory: 'tui', hostOnly: true },
+  { directory: 'workbench', id: '@dsh-studio/workbench' },
   { directory: 'desktop-skins', id: '@dsh-studio/desktop-skins' },
   { directory: 'sidebar', id: '@dsh-studio/sidebar' },
   { directory: 'sidebar-desktop', id: '@dsh-studio/sidebar-desktop' },
@@ -170,9 +184,7 @@ for (const plugin of pluginPackages) {
     outfile: join(output, 'index.js'),
     platform: 'node',
     format: 'esm',
-    external: plugin.external ?? (plugin.directory === 'sidebar-host'
-      ? ['@deepseek-ai/*', 'cordis', 'node-pty', 'schemastery', 'ws']
-      : []),
+    external: plugin.external ?? hostExternalsFor(dshDependencies, plugin.directory),
   }))
   if (plugin.hostOnly !== true) {
     builds.push(build({
@@ -188,13 +200,7 @@ for (const plugin of pluginPackages) {
       loader: { '.css': 'text' },
       external: [
         ...(plugin.clientExternal ?? []),
-        'react',
-        'react-dom/client',
-        'react/jsx-runtime',
-        ...(['desktop-skins', 'sidebar', 'desktop-left-rail'].includes(plugin.directory)
-          ? ['@deepseek-ai/dsh-client-runtime/client']
-          : []),
-        '@deepseek-ai/dsh-client-ui-primitives',
+        ...clientExternalsFor(dshDependencies, plugin.directory),
       ],
       banner: {
         js: `window.__ModuleLoader__.load({ id: "${plugin.id}", factory: (require) => { var module = { exports: {} }; var exports = module.exports;`,
@@ -204,19 +210,20 @@ for (const plugin of pluginPackages) {
   }
 }
 
-// Lazy chunks served by the sidebar-host /sidebar/bundle route. The chunk
-// file must live in the host's lib directory (`dist/plugins/sidebar-host`).
+// Lazy chunks served by the capabilities /capabilities/bundle route. The chunk
+// file must live in the host's lib directory (`dist/plugins/capabilities`).
 builds.push(build({
   bundle: true,
   entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'files', 'mermaid-chunk.ts')],
-  outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-mermaid.js'),
+  outfile: join(root, 'dist', 'plugins', 'capabilities', 'client-mermaid.js'),
   platform: 'browser',
   format: 'iife',
   target: 'es2022',
   sourcemap: true,
   logLevel: 'info',
   loader: { '.css': 'text' },
-  external: ['react', 'react-dom/client', 'react/jsx-runtime'],
+  // Lazy browser chunk: same client-base externals as the client plugin graph.
+  external: clientBaseExternals(dshDependencies),
 }))
 
 // Pierre highlight worker (module worker). The client bundle is emitted in
@@ -229,7 +236,7 @@ builds.push(build({
 builds.push(build({
   bundle: true,
   entryPoints: [join(root, 'plugins', 'sidebar', 'src', 'client', 'diff', 'pierre-worker-entry.ts')],
-  outfile: join(root, 'dist', 'plugins', 'sidebar-host', 'client-pierre-worker.js'),
+  outfile: join(root, 'dist', 'plugins', 'capabilities', 'client-pierre-worker.js'),
   platform: 'browser',
   format: 'esm',
   target: 'es2022',
@@ -240,7 +247,7 @@ builds.push(build({
 
 // Chunk scripts build first (serially): esbuild instances can race when
 // many builds write into the same output directory concurrently, and the
-// sidebar-host chunks are required by the running app (diff worker,
+// capabilities chunks are required by the running app (diff worker,
 // mermaid viewer).
 for (const chunkBuild of builds.splice(-2)) {
   await chunkBuild

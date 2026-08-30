@@ -58,11 +58,11 @@ the smallest supported distribution.
 | Plugin | Relationship | DSH Studio boundary |
 | --- | --- | --- |
 | `@dsh-studio/desktop` | Native | Unified entry, window, menu, bridge, and bundled-plugin registration |
-| `@dsh-studio/better-sidebar-runtime` | Pins [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) | Builds the upstream Host for PTY, Files, Git, history, and commit diff |
+| `@dsh-studio/capabilities` | Pins and adapts [`DSH-better-sidebar`](https://github.com/omdsh-dev/DSH-better-sidebar) | DSH Studio Host capability gateway: PTY, Files, Git, WorkTrees, Workspaces, jobs, and Agent tools |
 | `@dsh-studio/sidebar` | Downstream Better Sidebar UI adapter | Reuses the Host while retaining DSH Studio layout, icons, themes, Review, and comments |
 | `@dsh-studio/panel-controls` | Downstream implementation of the `dsh-web-panel` interaction model | Unified Terminal dock without a separate Web Terminal install |
 | `@dsh-studio/pinned-summary` | Native | Session summary, half-height card, and content-gutter management |
-| `@dsh-studio/plugin-marketplace` | Adopts lifecycle ideas from `plugin-registry` and `dsh-hub` | One Loader, isolated preview, risk approval, TOFU source lock, and recovery |
+| `@dsh-studio/plugin-marketplace` | DSH Studio's canonical catalog and transaction implementation | One Loader, candidate staging, low-risk direct install, optional isolated preview, risk approval, TOFU source lock, and recovery |
 | `@dsh-studio/skins` | Downstream implementation of the `dsh-skins` ThemeService model | One skin id set, Host persistence, Web/Desktop CSS, and TUI palette adapters |
 | `@dsh-studio/vision` | Adapts [`dsh-vision`](https://github.com/william-jin-cmu/dsh-vision) | Cross-surface `view_image` Host tool with cloud/local OCR fallback; DeepSeek V4 is admitted at the final image-capability check and its native attachments are described before the pinned text-only adapter, while DSH owns paste, thumbnails, and submission through its native attachment rail; reuses DSH credentials and settings |
 | `dsh-cc-tui` | Pins [`dsh-TUI`](https://github.com/ccch1mneyyy/dsh-TUI) | Upstream owns terminal rendering, session interaction, commands, and terminal compatibility |
@@ -78,43 +78,85 @@ to the upstream native `/theme` palettes. TUI retains upstream hot switching
 and its picker, then mirrors the choice into the shared `skins.json` on the
 next launch. There is no second theme loader.
 
+## Workbench kernel contracts
+
+The right-panel workbench converges open semantics and state scoping onto the
+shared kernel contract `@dsh-studio/shared/workbench-contracts`, carried by the
+four runtime services in `plugins/workbench` (all implemented below). Persistence
+slice vocabulary remains in shared contracts, but there is no standalone
+`workbench.state` runtime service. The old scattered open/layout/state entry
+points are gone:
+
+- `SurfaceRegistry`: the one surface registry per region (center/left/right);
+  registration declares region ownership and lifecycle — consumers never build
+  a second table.
+- `OpenPipeline`: the single open-decision pipeline. intent
+  (`preview`/`pin`/`background`) × `resolveOpenPlan` ⇒ area, replaceable
+  preview, and activation. The focus invariant (an open never moves keyboard
+  focus) is upheld by the pipeline itself, not by each caller.
+- `LayoutService`: cross-plugin layout negotiation. The sidebar width policy
+  stays in the sidebar domain (persisted cap 4096, live viewport capped at
+  75%); the service only receives final footprints and coordinates regional
+  footprint plus overlay mounting through `ensureLayoutDom`
+  (`@dsh-studio/shared/layout-dom`).
+- Persistence is not exposed as a standalone `workbench.state` service. Shared
+  `StateSliceDefinition` retains the schema/version vocabulary, while actual
+  writes go through `persistVia` onto host-owned backends. Each domain keeps its
+  `workspace`/`session`/`global` bucketing contract; center-surface queues bucket
+  by cwd because their objects are workspace-bound.
+- `WorkspaceEvents`: the workspace/session identity event source.
+  `onWorkspaceChanged` / `onSessionChanged` are driven by one identity pump
+  (the runtime `currentProvideInfo` projection); workspace fires before
+  session. GitWatch/websocket freshness events stay in the source-control
+  domain and are deliberately not folded into this service.
+
+Upstream DOM probes still live in exactly one module per plugin (`dsh-dom.ts`
+for the sidebar).
+
 ## Plugin installation transaction
 
 ```mermaid
 stateDiagram-v2
-  [*] --> Discovered
-  Discovered --> Prepared: prepare
-  Prepared --> Previewing: preview in isolation
+  [*] --> CatalogReady
+  CatalogReady --> Planned: plan
+  Planned --> Staging: execute
+  Staging --> Applied: direct / atomic swap
+  Staging --> Previewing: explicit preview
   Previewing --> Discarded: discard
-  Previewing --> Applied: approve and apply
-  Applied --> Disabled: disable
-  Disabled --> Applied: enable
-  Applied --> Previous: update
-  Previous --> Applied: recover
-  Discarded --> [*]
+  Previewing --> Applied: apply
+  Staging --> Cancelled: cancel
+  Applied --> Planned: update / enable / disable / uninstall
+  Applied --> Undoable: keep previous profile
+  Undoable --> Applied: undo
+  Planned --> AwaitingInput: provide required material
+  AwaitingInput --> Staging: provide
 ```
 
-`installed` and `enabled` are separate states. Installation and updates pin
-the source and commit before entering an isolated preview. Only explicit
-application changes the current Profile. Agent-initiated installs use the
-same transaction and risk approval and cannot bypass the Loader.
+`installed` and `enabled` are separate states. `plan` only resolves the source,
+pins the commit, and validates the manifest, compatibility, and risk. `execute`
+uses the same candidate-staging implementation for both modes. A low-risk plan
+with no required material or confirmation may atomically replace the live Profile
+directly; other plans can explicitly start an isolated preview before applying.
+The Agent and UI share one Loader, transaction owner, source lock, recovery, and
+Undo path.
 
-## Marketplace extension
+## Marketplace implementation
 
-The marketplace accepts both catalog entries and public GitHub repository
-references. A Host resolver canonicalizes the reference, resolves an exact
-commit, validates `package.json`, `dsh.bundle.patch`, patch and entry files,
-peer compatibility, license, and lifecycle scripts, then emits one
-`MarketplaceCandidate` and normalized `github:owner/repo#<sha>` install spec.
+The complete P0/P1/P2 marketplace behavior is specified in
+[Plugin marketplace redesign](./plugin-marketplace-redesign.md). The runtime
+uses one canonical catalog schema and one `MarketplaceCommand` model:
+`refresh`, `plan`, `execute`, `pack`, `apply`, `discard`, `cancel`, `provide`,
+and `undo`.
 
-Only packages that declare the pinned DSH bundle contract are installable.
-`.dsh-plugin` and repository-plugin metadata remain diagnostic-only and cannot
-produce an apply-capable plan. Catalog and direct repository candidates share
-the existing isolated preview, approval, atomic Profile replacement, rollback,
-and Undo transaction. The UI and Agent consume the same Host approval decision.
-
-The mandatory static fixture is
-`JUSTMONIKA2022/dsh-sandbox-escalation-fix@19f2cb4cecc178313d2f54458badfc1bcb8bc816`.
+Catalog and direct repository candidates are resolved to exact source facts:
+GitHub commit pins, exact npm versions, or HTTPS tarballs with SHA-256 digests.
+The Host validates the manifest, DSH bundle contract, compatibility, license,
+lifecycle scripts, required configuration, and risk before candidate staging.
+Low-risk plans can atomically install directly; preview remains an explicit
+isolated-runtime option. UI and Agent consume the same Host transaction, source
+locks, confirmation decisions, progress, recovery, and Undo path. Removed
+registry readers and `inspect`/`prepare`/legacy `preview` command aliases are
+not part of this contract.
 This repository is verified by source and isolated fixture tests only; this
 checkout does not install or run it.
 
@@ -126,7 +168,12 @@ The facts, deep-module seam, semantic commands, project-icon resolution, and phy
 ## Security boundaries
 
 - Web binds to loopback by default; LAN exposure requires trusted authorities.
-- Files, PTY, and Git requests are bound to the active Session and Workspace.
+- The cwd of every Files, PTY, and Git request is validated against a
+  server-side workspace scope registry (registered workspace roots ∪ live
+  session cwds; unregistered directories get `forbidden`); paths are then
+  fenced to the session subtree — reads anchor on the server-resolved
+  repository root so subdirectory sessions keep working. The same-origin
+  loopback fence is transport hygiene, not authentication.
 - Local `view_image` reads are bound to the active Session workspace; remote
   vision requests go only to the user-configured endpoint.
 - Desktop/Web image paste, thumbnails, and submission remain owned by DSH's
@@ -150,3 +197,55 @@ credentials, skins, and plugin caches. `DSH_STUDIO_HOME` is the common override.
 instance. The Web and TUI `--data` flags override only the current process.
 
 See [installation, operations, and troubleshooting](./usage.en.md).
+
+## Data flow & persistence
+
+Client components do not own server data; fetching and persistence go through
+the pinned DSH runtime's existing pipes, and components only consume zustand
+stores and runtime caches. The semantics live in `.workflow/specs/` (S1–S3)
+and are enforced by `scripts/guards/*.mjs`:
+
+```text
+  client store / component
+      │  render                 queue subscribe
+      ▼                          ▼
+  zustand store (pure memory)  ──────────►  shared/runtime RevisionedStore / GenerationGate
+      │  persistVia(store,{table,sanitize,merge,debounceMs})
+      ▼
+  shared persistVia facade ──────────────► host-owned backend
+      │                                   ├── ui-chrome table (capabilities ui-chrome.get/put JSON)
+      │                                   ├── settings namespace (replace/mutate)
+      │                                   └── nodeFs (atomic file writes)
+      ▼
+  transport: capabilities JSON / ui-chrome / settings / WS / IPC
+      ▼
+  cordis service (capabilities, terminal, marketplace, …)
+      ▼
+  data-root  ~/.dsh-studio / ~/.dsh-studio-dev  (per DSH_STUDIO_CHANNEL)
+```
+
+- **One fetch shape:** RPC caching uses the shared/runtime RevisionedStore
+  family, keyed by cwd/scope, with soft refresh and precise mutation
+  invalidation; command-style mutations converge on a single lane wrapped in a
+  store action; event pushes (e.g. marketplace changed) are triggered by a host
+  state transition and each store subscription revalidates. No hand-written
+  loading/error/data triplets, no scattered bare `callCapabilitiesApi`.
+- **One persistence path:** everything persists through `persistVia` onto a
+  host-owned backend. `localStorage`/`sessionStorage` are only a legacy
+  migration source (e.g. `comments-migration.ts` reads them once into an
+  ui-chrome table) — never a runtime write channel.
+- **One runtime cache shape:** surfaces in the same workspace share a single
+  ScopedRuntimeRegistry instance; they do not each build their own cache.
+
+
+## Unified hover comments
+
+File viewing and diff views share ONE hover-comment interaction (R2): a
+hovering gutter `+` opens an inline composer (Enter commits / Shift+Enter
+newline / Esc dismisses) that writes to the unified batch store
+(`diff-comments-store` v2; anchor path+startLine/endLine+contentHash, resolve
+lifecycle) or "reference in chat" lightweight composer injection. Interaction
+uses the official `@pierre/diffs` hooks (renderGutterUtility / onLineEnter) —
+no DOM scraping; the legacy diff bottom form is removed. Markdown preview
+keeps selection-references (no stable line numbers); its source view is a
+code view and supports line comments.

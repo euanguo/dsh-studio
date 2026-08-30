@@ -18,6 +18,7 @@ import {
   IconCheck as TbCheck,
   IconChevronDown as TbChevronDown,
   IconChevronRight as TbChevronRight,
+  IconChevronUp as TbChevronUp,
   IconCircleMinus as TbCircleMinus,
   IconCirclePlus as TbCirclePlus,
   IconCircleX as TbCircleX,
@@ -46,12 +47,16 @@ import {
   IconList as TbList,
   IconListTree as TbListTree,
   IconMaximize as TbMaximize,
+  IconMessageCircle as TbMessageCircle,
+  IconMessageCircleQuestion as TbMessageCircleQuestion,
   IconMessagePlus as TbMessagePlus,
   IconMinus as TbMinus,
   IconPlus as TbPlus,
+  IconSend as TbSend,
   IconRefresh as TbRefresh,
   IconRotateClockwise as TbRotateClockwise,
   IconSearch as TbSearch,
+  IconSelector as TbSelector,
   IconSparkles as TbSparkles,
   IconPlayerStop as TbPlayerStop,
   IconSquareMinus as TbSquareMinus,
@@ -61,6 +66,23 @@ import {
   IconTrash as TbTrash,
   IconTriangle as TbTriangle,
   IconWorld as TbWorld,
+  IconDownload as TbDownload,
+  IconArrowLeft as TbArrowLeft,
+  IconArrowUp as TbArrowUp,
+  IconStar as TbStar,
+  IconTool as TbTool,
+  IconPalette as TbPalette,
+  IconCpu as TbCpu,
+  IconRobot as TbRobot,
+  IconShield as TbShield,
+  IconCode as TbCode,
+  IconLanguage as TbLanguage,
+  IconDatabase as TbDatabase,
+  IconBrowser as TbBrowser,
+  IconDeviceMobile as TbDeviceMobile,
+  IconBox as TbBox,
+  IconPlug as TbPlug,
+  IconFolderCode as TbFolderCode,
   IconX as TbX,
   type Icon as TablerIcon,
   type IconProps,
@@ -86,6 +108,8 @@ function tabler(Component: TablerIcon): AppIcon {
 export const IconCheck = tabler(TbCheck)
 export const IconChevronDown = tabler(TbChevronDown)
 export const IconChevronRight = tabler(TbChevronRight)
+export const IconChevronUp = tabler(TbChevronUp)
+export const IconSelector = tabler(TbSelector)
 export const IconPlus = tabler(TbPlus)
 export const IconMinus = tabler(TbMinus)
 export const IconTrash = tabler(TbTrash)
@@ -132,6 +156,26 @@ export const IconFileCode = tabler(TbFileCode)
 export const IconMaximize = tabler(TbMaximize)
 export const IconWorld = tabler(TbWorld)
 export const IconMessagePlus = tabler(TbMessagePlus)
+export const IconMessageCircle = tabler(TbMessageCircle)
+export const IconMessageCircleQuestion = tabler(TbMessageCircleQuestion)
+export const IconSend = tabler(TbSend)
+export const IconDownload = tabler(TbDownload)
+export const IconArrowLeft = tabler(TbArrowLeft)
+export const IconArrowUp = tabler(TbArrowUp)
+export const IconStar = tabler(TbStar)
+export const IconTool = tabler(TbTool)
+export const IconPalette = tabler(TbPalette)
+export const IconCpu = tabler(TbCpu)
+export const IconRobot = tabler(TbRobot)
+export const IconShield = tabler(TbShield)
+export const IconCode = tabler(TbCode)
+export const IconLanguage = tabler(TbLanguage)
+export const IconDatabase = tabler(TbDatabase)
+export const IconBrowser = tabler(TbBrowser)
+export const IconDeviceMobile = tabler(TbDeviceMobile)
+export const IconBox = tabler(TbBox)
+export const IconPlug = tabler(TbPlug)
+export const IconFolderCode = tabler(TbFolderCode)
 
 /**
  * Left-panel toggle glyph: a frame with a filled strip along its LEFT edge.
@@ -153,6 +197,32 @@ export const IconSidebarLeftFilled = ({
     className={className}
   >
     <path d="M18 3a3 3 0 0 1 2.995 2.824l.005 .176v12a3 3 0 0 1 -2.824 2.995l-.176 .005h-12a3 3 0 0 1 -2.995 -2.824l-.005 -.176v-12a3 3 0 0 1 2.824 -2.995l.176 -.005h12zm0 2h-9v14h9a1 1 0 0 0 .993 -.883l.007 -.117v-12a1 1 0 0 0 -.883 -.993l-.117 -.007z" />
+  </svg>
+)
+
+/** Restore from full window (overlapping squares) — a custom glyph Tabler
+ *  does not ship, drawn at the product stroke (16px viewBox, stroke 1.5). */
+export const IconRestore = ({
+  size = DEFAULT_SIZE,
+  className,
+}: {
+  size?: number
+  className?: string
+}): JSX.Element => (
+  <svg
+    width={size}
+    height={size}
+    viewBox="0 0 16 16"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className={className}
+    aria-hidden="true"
+  >
+    <rect x="3.5" y="5.5" width="7" height="7" rx="1" />
+    <path d="M6.5 3.5h6a1 1 0 0 1 1 1v6" />
   </svg>
 )
 

@@ -7,6 +7,7 @@ import type {
 import type { WorkspaceMessage } from '@dsh-studio/sidebar/client/i18n'
 import type { BrowserCenterSurface } from '@dsh-studio/sidebar/client/surfaces-types'
 import { BrowserView, BrowserSurfaceView } from './browser-view.tsx'
+import { clearLiveBrowserUrl } from './browser-runtime.ts'
 
 interface ClientContext {
   effect(effect: () => (() => void) | void, label?: string): void
@@ -16,11 +17,11 @@ interface ClientContext {
 export const inject = ['desktopSidebar', 'locale']
 
 /**
- * Desktop add-on: registers the Electron `<webview>` browser as a sidebar tab
- * and as a center-surface renderer through the registry service's extension
- * points (the same contract external plugins use). The generic sidebar
- * deliberately ships WITHOUT these so it stays Electron-free; this plugin is
- * what a desktop distribution layers on top.
+ * Desktop add-on: registers the Electron `<webview>` browser as ONE unified
+ * sidebar surface — the right-rail tab and the center-workbench renderer
+ * hang off the same descriptor, through the same registration external
+ * plugins use. The generic sidebar deliberately ships WITHOUT this so it
+ * stays Electron-free; this plugin is what a desktop distribution layers on.
  */
 export function apply(ctx: ClientContext): void {
   const sidebar = ctx.get('desktopSidebar') as DesktopSidebarService
@@ -30,38 +31,47 @@ export function apply(ctx: ClientContext): void {
   const t: Translate<WorkspaceMessage> = locale.bind('dsh-studio.sidebar')
 
   ctx.effect(() => {
-    const removeTab = sidebar.registerTab({
-      icon: <ToolIcon kind="browser" />,
-      id: 'browser',
-      order: 30,
-      render: (props: SidebarRenderProps) => <BrowserView {...props} t={t} />,
-      shortcut: '⌘T',
-      // Declarative settings: the link-takeover MASTER switch and the two
-      // per-protocol flags render under this tab's card in the settings page.
-      settings: {
-        toggles: [{
-          key: 'browserInterceptLinks',
-          title: () => t('settings.open-links'),
-          desc: () => t('settings.open-links-description'),
-        }, {
-          key: 'browserInterceptHttp',
-          title: () => t('settings.open-links-http'),
-          desc: () => t('settings.open-links-http-description'),
-        }, {
-          key: 'browserInterceptHttps',
-          title: () => t('settings.open-links-https'),
-          desc: () => t('settings.open-links-https-description'),
-        }],
+    const removeSurface = sidebar.register({
+      kind: 'browser',
+      rail: {
+        icon: <ToolIcon kind="browser" />,
+        order: 30,
+        render: (props: SidebarRenderProps) => <BrowserView {...props} t={t} />,
+        // Frees the retained live URL when the browser tab is closed so the
+        // runtime does not leak per-tab entries (see browser-runtime.ts).
+        onClose: tab => clearLiveBrowserUrl(tab.id),
+        shortcut: '⌘T',
+        // Declarative settings: the link-takeover MASTER switch and the two
+        // per-protocol flags render under this tab's card in the settings page.
+        settings: {
+          toggles: [{
+            key: 'browserInterceptLinks',
+            title: () => t('settings.open-links'),
+            desc: () => t('settings.open-links-description'),
+          }, {
+            key: 'browserInterceptHttp',
+            title: () => t('settings.open-links-http'),
+            desc: () => t('settings.open-links-http-description'),
+          }, {
+            key: 'browserInterceptHttps',
+            title: () => t('settings.open-links-https'),
+            desc: () => t('settings.open-links-https-description'),
+          }],
+        },
+        title: () => t('browser'),
       },
-      title: () => t('browser'),
-    })
-    const removeSurface = sidebar.registerSurfaceRenderer('browser', surface => {
-      if (surface.kind !== 'browser') return null
-      return <BrowserSurfaceView surface={surface as BrowserCenterSurface} t={t} />
+      center: {
+        render: surface => {
+          if (surface.kind !== 'browser') return null
+          return <BrowserSurfaceView surface={surface as BrowserCenterSurface} t={t} />
+        },
+      },
+      scopeNeed: null,
+      previewable: true,
+      focusPolicy: 'never',
     })
     return () => {
-      removeTab()
       removeSurface()
     }
-  }, 'sidebar-desktop: browser tab + surface renderer')
+  }, 'sidebar-desktop: browser surface')
 }

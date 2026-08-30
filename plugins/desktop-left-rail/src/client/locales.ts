@@ -4,7 +4,7 @@
  * messages (wire error strings) pass through untranslated by policy.
  */
 
-/** Simplified Chinese dictionary (the key-set source of truth). */
+/** Simplified Chinese dictionary — the key-set source of truth for both locales. */
 export const zh = {
   'group.ungrouped': '未分组',
   'session.new': '新会话',
@@ -64,6 +64,11 @@ export const zh = {
   'status.planReview': '计划待审',
   'status.waitingAnswer': '等待回答',
   'status.completed': '已完成',
+  // Collection-row (WorkTree/项目) hidden-activity copy: qualitative only —
+  // counts intentionally stay out of the compact rows and their hover cards.
+  'activity.waiting': '有对话等待你处理',
+  'activity.running': '有对话运行中',
+  'activity.completed': '有对话已完成未查看',
   'hover.created': '创建于 {time}',
   'hover.copied': '已复制',
   'date.ymd': '{y}年{m}月{d}日',
@@ -87,6 +92,8 @@ export const zh = {
   'project.icon.current': '当前图标',
   'project.icon.chooseBuiltin': '选择内置图标',
   'project.icon.upload': '上传 PNG 图标',
+  'project.icon.invalidPng': '所选文件不是有效的 PNG 图标，请换一个。',
+  'project.icon.tooLarge': 'PNG 图标不能超过 256 KB，请缩小后重试。',
   'project.icon.refresh': '重新探测项目图标',
   'project.icon.reset': '恢复自动图标',
   'project.icon.folder': '文件夹',
@@ -156,7 +163,14 @@ export const zh = {
 /** The workspace namespace key union. */
 export type WorkspaceKey = keyof typeof zh
 
-/** English dictionary, checked complete against the zh key set. */
+/**
+ * English dictionary, pinned to the zh key set in both directions: the
+ * `Record<WorkspaceKey, string>` side fails when a key is missing here,
+ * and the fresh object literal's excess-property check fails when an extra
+ * key is added — neither table can gain a key the other lacks. The runtime
+ * backstop for this contract is the key-set equality assertion in
+ * tests/i18n-discipline.test.ts.
+ */
 export const en = {
   'group.ungrouped': 'Ungrouped',
   'session.new': 'New Session',
@@ -216,6 +230,9 @@ export const en = {
   'status.planReview': 'Plan awaiting review',
   'status.waitingAnswer': 'Waiting for answer',
   'status.completed': 'Completed',
+  'activity.waiting': 'A conversation needs your input',
+  'activity.running': 'A conversation is running',
+  'activity.completed': 'A conversation finished',
   'hover.created': 'Created {time}',
   'hover.copied': 'Copied',
   'date.ymd': '{y}-{m}-{d}',
@@ -239,6 +256,8 @@ export const en = {
   'project.icon.current': 'Current icon',
   'project.icon.chooseBuiltin': 'Choose built-in icon',
   'project.icon.upload': 'Upload PNG icon',
+  'project.icon.invalidPng': 'The selected file is not a valid PNG icon; pick another.',
+  'project.icon.tooLarge': 'PNG icons must be under 256 KB; resize the image and retry.',
   'project.icon.refresh': 'Re-detect project icon',
   'project.icon.reset': 'Use automatic icon',
   'project.icon.folder': 'Folder',

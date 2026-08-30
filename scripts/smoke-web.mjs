@@ -87,6 +87,9 @@ const runtimeEnvironment = {
   DSH_STUDIO_WEB_DATA: webData,
   DSH_STUDIO_WEB_PROFILE: WEB_PROFILE,
   DSH_STUDIO_WEB_VERSION: 'smoke',
+  // The smoke process owns this temporary repository; pass it to the host as
+  // server-derived bootstrap scope before the UI creates a workspace entry.
+  DSH_STUDIO_BOOTSTRAP_WORKSPACE: smokeRoot,
   PATH: runtimeSearchPath(paths),
 }
 
@@ -100,7 +103,7 @@ const dump = spawnSync(nodeBinary, [cliEntry, '--profile', WEB_PROFILE, '--dump-
 assert.equal(dump.status, 0, dump.stderr || dump.stdout)
 for (const row of [
   'oh-web',
-  'oh-better-sidebar-runtime',
+  'oh-capabilities',
   'oh-desktop-skins',
   'oh-pinned-summary',
   'oh-sidebar',
@@ -207,10 +210,10 @@ try {
     'dsh-runtime',
     'node_modules',
     '@dsh-studio',
-    'sidebar-host',
+    'capabilities',
     'dist',
     'index.js',
-  )), '@dsh-studio/sidebar-host Host bundle is missing')
+  )), '@dsh-studio/capabilities Host bundle is missing')
 
   // Electron-bound surfaces must stay out of the web client graph.
   for (const pluginId of ['@dsh-studio/desktop', '@dsh-studio/plugin-marketplace']) {
@@ -262,7 +265,7 @@ try {
   // The better-sidebar host serves session, Files, Git, and workspace facts
   // through the same /sidebar API the desktop distribution uses.
   const sidebarCall = async (method, payload) => {
-    const response = await fetch(new URL(`/sidebar/api/${method}`, base), {
+    const response = await fetch(new URL(`/capabilities/api/${method}`, base), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
@@ -297,7 +300,7 @@ try {
   assert.equal(actualRoot.ino, expectedRoot.ino)
 
   // The PTY terminal host answers over the same websocket on the web server.
-  const terminalUrl = new URL('/sidebar/ws/terminal', base)
+  const terminalUrl = new URL('/capabilities/ws/terminal', base)
   terminalUrl.protocol = 'ws:'
   terminalUrl.searchParams.set('sessionId', sidebarScope.sessionId)
   terminalUrl.searchParams.set('tab', 'smoke-terminal')
@@ -364,8 +367,8 @@ try {
   }
   console.log('Skins preferences API: ready, persistence verified')
   console.log('Sidebar workspace Git API: ready, repository facts verified')
-  console.log('Better Sidebar Host API: ready, session/files/Git verified on the web surface')
-  console.log('Better Sidebar terminal PTY: ready, command execution verified on the web surface')
+  console.log('Capability gateway API: ready, session/files/Git verified on the web surface')
+  console.log('Capability gateway PTY: ready, command execution verified on the web surface')
   console.log('Web native image attachment: thumbnail, upload and removal verified')
 } finally {
   if (child.exitCode === null) {

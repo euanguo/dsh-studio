@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createTerminalModeReplayTracker } from '../plugins/sidebar-host/src/terminal-mode-replay.ts'
+import { createTerminalModeReplayTracker } from '../plugins/capabilities/src/terminal/terminal-mode-replay.ts'
 
 test('mode replay tracks bracketed paste and alternate screen state', () => {
   const tracker = createTerminalModeReplayTracker(20, 4)

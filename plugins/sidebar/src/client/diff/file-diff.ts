@@ -3,6 +3,12 @@
  * `entities/file-diff.ts`): the unified structured model every diff view
  * consumes. Raw git diff text → DiffDocument (lines + stats), then rendered
  * through the single DiffViewer.
+ *
+ * Model interplay (B5 ADR — see git-review-diff.ts): the primary render path
+ * delegates to the @pierre/diffs library, and this line model backs the
+ * RawDiff fallback + comment flow's buildPatch round-trip. `parsePatchLines`
+ * and `buildPatch` are reciprocal and test-pinned; neither duplicates the
+ * library parser's job.
  */
 
 export type DiffLineKind = 'context' | 'added' | 'removed' | 'hunk'

@@ -4,7 +4,6 @@
  * registrations stay declarative and the assembly (plugin.tsx) only wires
  * the real services in.
  */
-import type { DesktopPanels } from '@dsh-studio/panel-controls/client'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
 import type { SidebarRuntimeSettingsService } from '../runtime-settings.ts'
@@ -18,7 +17,6 @@ import type { DesktopSidebarService } from '../contract.ts'
 
 export interface SidebarBuiltinDeps {
   openExternalPath(path: string): Promise<void>
-  panels: DesktopPanels
   reviewComments: ReviewCommentsService
   /** Live user preferences (the runtime settings service). */
   runtimeSettings: SidebarRuntimeSettingsService

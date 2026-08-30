@@ -1,0 +1,43 @@
+{
+  "name": "@dsh-studio/capabilities",
+  "version": "0.1.2",
+  "description": "DSH Studio host capability gateway: filesystem, git, worktrees, workspace, PTY terminals, settings, jobs, browser probe and model-facing tools",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist/index.js"
+  ],
+  "dependencies": {
+    "@xterm/headless": "6.1.0-beta.301",
+    "node-pty": "1.2.0-beta.15",
+    "schemastery": "^3.18.0",
+    "zod": "^4.4.3",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "@types/react": "~18.3.1",
+    "@types/react-dom": "^18.3.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "dshStudio": {
+    "hostDependencies": [
+      "@deepseek-ai/dsh-settings",
+      "@deepseek-ai/dsh-tools",
+      "@deepseek-ai/dsh-llm",
+      "@deepseek-ai/dsh-agent",
+      "@deepseek-ai/dsh-session",
+      "@deepseek-ai/dsh-workspace",
+      "@deepseek-ai/dsh-storage-domain",
+      "zod"
+    ],
+    "clientDependencies": [
+      "@dsh-studio/shared"
+    ]
+  }
+}

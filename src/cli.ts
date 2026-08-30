@@ -50,8 +50,6 @@ Run "dsh-studio <surface> --help" for surface options.
 `
 }
 
-export const CLI_HELP = cliHelp()
-
 export const DESKTOP_USAGE = `usage: dsh-studio desktop [options]
 
 Options:

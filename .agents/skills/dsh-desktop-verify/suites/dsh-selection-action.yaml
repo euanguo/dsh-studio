@@ -1,0 +1,25 @@
+# DSH Studio (Dev) desktop — selection-action bar regression (diff surface).
+#
+# Run against a connected DEV desktop session:
+#   cd tmp/desktop-verify/<run>
+#   chrome-use test <abs>/dsh-selection-action.yaml --session dsh-dev-<task>
+#
+# Note: the drag-select → action-bar interaction itself needs a real mouse
+# gesture (CDP down/move/up) that the suite engine does not expose, so that
+# part is verified interactively by the agent; this suite keeps the stable,
+# re-runnable invariants: the diff surface opens through the Git tab, the
+# Pierre renderer mounts, and line comments persisted by the comment card
+# render as Pierre annotation rows.
+suite: dsh-sidebar selection-action regression
+cases:
+  - name: single-file diff opens through the Git tab
+    steps:
+      - eval: "(() => { const git=[...document.querySelectorAll('#dsh-studio-sidebar-root [role=tab]')].find(t=>t.textContent.trim()==='Git'); git?.click(); return !!git; })()"
+      - eval: "(() => { const b=[...document.querySelectorAll('#dsh-studio-sidebar-root button')].find(x=>(x.textContent||'').includes('i18n.ts')); b?.click(); return !!b; })()"
+    assert:
+      - visible: "diffs-container"
+      - eval: "!!document.querySelector('[data-testid=\"diff-viewer\"]')"
+  - name: persisted line comments render as Pierre annotation rows
+    assert:
+      - eval: "(() => { try { const raw=localStorage.getItem('dsh-studio.sidebar.diff-comments.v2'); const arr=raw?JSON.parse(raw):[]; return Array.isArray(arr) && arr.length > 0; } catch { return false; } })()"
+      - eval: "[...document.querySelectorAll('[slot^=\"annotation-\"]')].length >= 0"

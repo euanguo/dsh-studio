@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   TerminalRecoveryCoordinator,
-} from '../plugins/shared/terminal-recovery.ts'
+} from '../plugins/shared/terminal/terminal-recovery.ts'
 
 test('TerminalRecoveryCoordinator completes when recover succeeds on first attempt', async () => {
   let calls = 0

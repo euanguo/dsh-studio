@@ -5,7 +5,7 @@
  */
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { parseCommitFilesZ, parsePorcelainV2 } from '../plugins/shared/git-core.ts'
+import { parseCommitFilesZ, parsePorcelainV2 } from '../plugins/shared/git/git-core.ts'
 
 test('parsePorcelainV2: branch/upstream/ahead-behind plus ordinary entries', () => {
   const result = parsePorcelainV2([
@@ -89,4 +89,21 @@ test('parseCommitFilesZ: status + path are separate NUL fields; rename new path 
 
 test('parseCommitFilesZ: empty output yields no entries', () => {
   assert.deepEqual(parseCommitFilesZ(''), [])
+})
+
+test('parsePorcelainV2: absent branch/upstream are omitted, not undefined-valued', () => {
+  // The model-facing tool boundary snapshots results as lossless JSON, which
+  // rejects explicit `undefined` properties (a fresh worktree has no upstream;
+  // a detached HEAD has no branch head). The keys must be absent entirely.
+  const result = parsePorcelainV2([
+    '# branch.oid 47f9438',
+    '# branch.head (detached)',
+    '? lone.ts',
+    '',
+  ].join('\n'))
+  assert.equal('branch' in result, false)
+  assert.equal('upstream' in result, false)
+  assert.deepEqual(result.entries, [{ path: 'lone.ts', xy: '??' }])
+  const tracked = parsePorcelainV2('# branch.head main\n# branch.upstream origin/main\n# branch.ab +1 -0\n')
+  assert.deepEqual(Object.keys(tracked).sort(), ['ahead', 'behind', 'branch', 'entries', 'isRepo', 'upstream'])
 })

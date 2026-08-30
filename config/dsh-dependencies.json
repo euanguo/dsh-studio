@@ -1,0 +1,90 @@
+{
+  "runtime": {
+    "source": "npm",
+    "package": "@deepseek-ai/dsh",
+    "version": "0.1.1-rc.2",
+    "integrity": "sha512-UP1UIh6q3Gme/yXRn/QL2P8IsVlv8Shpg22TRJIZPsCRWLm4CBiA1MUvXmJAfsOEETBMLAl+xWPtFw6ICsN3wg==",
+    "tarball": "https://registry.npmjs.org/@deepseek-ai/dsh/-/dsh-0.1.1-rc.2.tgz",
+    "packageManager": "pnpm@11.20.0"
+  },
+  "inject": [
+    "@deepseek-ai/dsh-client-runtime",
+    "@deepseek-ai/dsh-client-ui-layout",
+    "@dsh-studio/workbench",
+    "@dsh-studio/panel-controls",
+    "@dsh-studio/pinned-summary",
+    "@dsh-studio/sidebar",
+    "@dsh-studio/sidebar-desktop",
+    "@dsh-studio/plugin-marketplace"
+  ],
+  "externals": {
+    "clientBase": [
+      "react",
+      "react-dom/client",
+      "react/jsx-runtime",
+      "@deepseek-ai/dsh-client-ui-primitives"
+    ],
+    "hostCapabilities": [
+      "@deepseek-ai/*",
+      "cordis",
+      "node-pty",
+      "schemastery",
+      "ws",
+      "zod"
+    ],
+    "runtimeClient": {
+      "module": "@deepseek-ai/dsh-client-runtime/client",
+      "plugins": [
+        "desktop-skins",
+        "sidebar",
+        "desktop-left-rail"
+      ]
+    }
+  },
+  "typePackages": {
+    "@deepseek-ai/dsh-client-locale/client": "@deepseek-ai/dsh-client-locale/lib/types/client/index.d.ts",
+    "@deepseek-ai/dsh-client-runtime/client": "@deepseek-ai/dsh-client-runtime/lib/types/client/index.d.ts",
+    "@deepseek-ai/dsh-client-ui-conversation/client": "@deepseek-ai/dsh-client-ui-conversation/lib/types/client/index.d.ts",
+    "@deepseek-ai/dsh-client-ui-sidebar/client": "@deepseek-ai/dsh-client-ui-sidebar/lib/types/client/index.d.ts",
+    "@deepseek-ai/dsh-client-ui-slots": "@deepseek-ai/dsh-client-ui-slots/lib/types/index.d.ts",
+    "@deepseek-ai/dsh-client-connection/client": "@deepseek-ai/dsh-client-connection/lib/types/client/index.d.ts",
+    "@deepseek-ai/dsh-api-remotes/client": "@deepseek-ai/dsh-api-remotes/lib/types/client/index.d.ts",
+    "@deepseek-ai/dsh-typert-protocol": "@deepseek-ai/dsh-typert-protocol/lib/types/index.d.ts",
+    "@deepseek-ai/dsh-session/surface": "@deepseek-ai/dsh-session/lib/types/surface.d.ts",
+    "@deepseek-ai/dsh-host-plugin-inventory/types": "@deepseek-ai/dsh-host-plugin-inventory/lib/types/types.d.ts",
+    "@deepseek-ai/dsh-commands/remote": "@deepseek-ai/dsh-commands/lib/typert.remote-client.d.ts",
+    "@deepseek-ai/dsh-goal/remote": "@deepseek-ai/dsh-goal/lib/typert.remote-client.d.ts",
+    "@deepseek-ai/dsh-host-plugin-inventory/remote": "@deepseek-ai/dsh-host-plugin-inventory/lib/typert.remote-client.d.ts",
+    "@deepseek-ai/dsh-message-feedback/remote": "@deepseek-ai/dsh-message-feedback/lib/typert.remote-client.d.ts",
+    "@deepseek-ai/dsh-commands/types": "@deepseek-ai/dsh-commands/lib/types/types.d.ts",
+    "@deepseek-ai/dsh-cordis-host-runner/types": "@deepseek-ai/dsh-cordis-host-runner/lib/types/types.d.ts",
+    "@deepseek-ai/dsh-credentials/types": "@deepseek-ai/dsh-credentials/lib/types/types.d.ts",
+    "@deepseek-ai/dsh-llm/types": "@deepseek-ai/dsh-llm/lib/types/types.d.ts",
+    "@deepseek-ai/dsh-agent-presets/types": "@deepseek-ai/dsh-agent-presets/lib/types/types.d.ts",
+    "@deepseek-ai/dsh-settings/types": "@deepseek-ai/dsh-settings/lib/types/types.d.ts",
+    "@deepseek-ai/dsh-api-gateway/client": "@deepseek-ai/dsh-api-gateway/lib/types/client/index.d.ts",
+    "@deepseek-ai/dsh-cordis-host-runner/remote": "@deepseek-ai/dsh-cordis-host-runner/lib/typert.remote-client.d.ts",
+    "@deepseek-ai/dsh-session/types": "@deepseek-ai/dsh-session/lib/types/types.d.ts",
+    "@deepseek-ai/dsh-llm": "@deepseek-ai/dsh-llm/lib/types/index.d.ts",
+    "@deepseek-ai/dsh-brand": "@deepseek-ai/dsh-brand/lib/types/index.d.ts",
+    "@deepseek-ai/dsh-goal/client": "@deepseek-ai/dsh-goal/lib/types/client.d.ts",
+    "@deepseek-ai/dsh-message-feedback/types": "@deepseek-ai/dsh-message-feedback/lib/types/types.d.ts",
+    "@deepseek-ai/dsh-attachment": "@deepseek-ai/dsh-attachment/lib/types/index.d.ts",
+    "@deepseek-ai/dsh-llm/brand": "@deepseek-ai/dsh-llm/lib/types/brand.d.ts",
+    "@deepseek-ai/dsh-client-ui-primitives": "@deepseek-ai/dsh-client-ui-primitives/lib/types/index.d.ts"
+  },
+  "bundles": {
+    "desktop": [
+      "@deepseek-ai/dsh-base",
+      "@deepseek-ai/dsh-web-app"
+    ],
+    "web": [
+      "@deepseek-ai/dsh-base",
+      "@deepseek-ai/dsh-web-app"
+    ],
+    "tui": [
+      "@deepseek-ai/dsh-base",
+      "dsh-cc-tui"
+    ]
+  }
+}

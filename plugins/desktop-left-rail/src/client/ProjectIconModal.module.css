@@ -1,0 +1,86 @@
+/* Project-icon picker modal body: token-driven layout (labeled, bordered,
+   hover-filled) mirrors the shared Dialog family — no hardcoded px font or
+   hex palette here. The selected builtin tile is marked by a modifier class
+   instead of an inline conditional style. */
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0;
+}
+
+.currentRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.currentLabel {
+  font-size: var(--dsh-studio-font-lg);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.currentTile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  border: 1px solid var(--dsw-alias-border-l1);
+}
+
+.currentName {
+  font-size: var(--dsh-studio-font-lg);
+  color: var(--dsw-alias-label-primary);
+  font-weight: 500;
+}
+
+.chooseLabel {
+  font-size: var(--dsh-studio-font-md);
+  color: var(--dsw-alias-label-tertiary);
+  margin-bottom: 8px;
+}
+
+.choices {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border-radius: 8px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-primary);
+}
+
+.choice:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.choiceSelected {
+  border-color: var(--dsw-alias-state-business-primary);
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.choiceName {
+  font-size: var(--dsh-studio-font-sm);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}

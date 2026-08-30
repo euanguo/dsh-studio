@@ -8,6 +8,7 @@ import {
   useCenterSurfaceStore,
 } from '../plugins/sidebar/src/client/surfaces/center-surface-store.ts'
 import {
+  conversationPosture,
   currentConversationSyncAction,
   resolveCenterWorkspace,
   retainConversationSurface,
@@ -17,6 +18,10 @@ import {
   isPreviewSurface,
   resolveActiveSurface,
 } from '../plugins/sidebar/src/client/surfaces/types.ts'
+import {
+  mergePayloads,
+  sanitizePersistedCenterSurfaces,
+} from '../plugins/sidebar/src/client/surfaces/center-surface-persistence.ts'
 
 const CWD = '/ws'
 
@@ -137,6 +142,37 @@ test('incomplete session snapshots do not prune an existing conversation tab', (
     list: { byId: { 's-1': { cwd: '/other' } } },
   }), false)
   assert.equal(retainConversationSurface({ cwd: '/ws', sessionId: 's-1', list: { byId: {} } }), false)
+})
+
+test('subagent children are never conversation tabs, even with a matching cwd', () => {
+  // A restored subagent entry drops instead of being retained (left-rail
+  // sessionVisible parity); mainline sessions under the same cwd stay.
+  assert.equal(retainConversationSurface({
+    cwd: '/ws',
+    sessionId: 'sub-1',
+    list: { byId: { 'sub-1': { origin: 'subagent', cwd: '/ws' } } },
+  }), false)
+  assert.equal(retainConversationSurface({
+    cwd: '/ws',
+    sessionId: 's-1',
+    list: { byId: { 's-1': { cwd: '/ws' } } },
+  }), true)
+})
+
+test('conversation posture mirrors the left-rail status precedence', () => {
+  const dotOf = (summary: Parameters<typeof conversationPosture>[0]) => conversationPosture(summary)
+  // Idle: no posture — the tab keeps its dialogue icon.
+  assert.equal(dotOf(undefined), undefined)
+  assert.equal(dotOf({}), undefined)
+  // Pending user interaction outranks running and the done reminder.
+  assert.equal(dotOf({ pendingInteraction: 'approval', running: true, completed: true }), 'warning')
+  assert.equal(dotOf({ pendingInteraction: 'plan-review' }), 'warning')
+  assert.equal(dotOf({ pendingInteraction: 'question' }), 'warning')
+  // Running outranks the finished-but-unviewed reminder.
+  assert.equal(dotOf({ running: true, completed: true }), 'ongoing')
+  assert.equal(dotOf({ running: true }), 'ongoing')
+  // The green reminder only when nothing else is live.
+  assert.equal(dotOf({ completed: true }), 'done')
 })
 
 test('center sync seeds only unknown queues and handles same-project navigation', () => {
@@ -360,4 +396,70 @@ test('moveSurface reorders open surfaces within a workspace queue (drag sort)', 
   // No-op for missing id / out of range
   store.moveSurface(CWD, 'nonexistent', 0)
   assert.deepEqual(slice().open.map(s => s.id), ['file:/ws/c.ts', 'file:/ws/b.ts', 'file:/ws/a.ts'])
+})
+
+/* ── domain persistence (sanitize + hydrate-time merge) ─────────────── */
+
+function persistedFile(id: string, filePath: string, title: string) {
+  return {
+    id,
+    kind: 'file',
+    cwd: CWD,
+    filePath,
+    title,
+    closable: true,
+    isPreview: false,
+  } as const
+}
+
+test('persisted center surfaces drop malformed rows and dangling active ids', () => {
+  const valid = persistedFile('file:/ws/a.ts', '/ws/a.ts', 'a.ts')
+  const sanitized = sanitizePersistedCenterSurfaces({
+    byCwd: {
+      '': { open: [], activeId: null },                       // empty cwd dropped
+      '/ws': {
+        open: [
+          valid,
+          { kind: 'file', id: '', cwd: '/ws' },               // invalid base dropped
+          { kind: 'browser', cwd: '/ws', id: 'b' },            // missing isPreview dropped
+        ],
+        activeId: 'missing',                                   // not in open → null
+      },
+      '/other': { open: 'not-an-array', activeId: 5 },         // whole slice dropped
+    },
+  })
+  assert.deepEqual(sanitized, {
+    byCwd: {
+      '/ws': { open: [valid], activeId: null },
+    },
+  })
+})
+
+test('hydrate-time merge keeps surfaces opened during the domain read', () => {
+  const storedA = persistedFile('file:/ws/a.ts', '/ws/a.ts', 'a.ts')
+  const storedB = persistedFile('file:/ws/b.ts', '/ws/b.ts', 'b.ts')
+  // The user opened c and re-titled b while the read was pending.
+  const pendingC = persistedFile('file:/ws/c.ts', '/ws/c.ts', 'c.ts')
+  const pendingB = { ...storedB, title: 'renamed' }
+
+  const merged = mergePayloads(
+    { byCwd: { '/ws': { open: [storedA, storedB], activeId: 'file:/ws/a.ts' } } },
+    { byCwd: { '/ws': { open: [pendingB, pendingC], activeId: 'file:/ws/c.ts' } } },
+  )
+
+  assert.deepEqual(merged.byCwd['/ws']?.open.map(s => s.title), ['a.ts', 'renamed', 'c.ts'])
+  // The pending selection wins when it survives the merge.
+  assert.equal(merged.byCwd['/ws']?.activeId, 'file:/ws/c.ts')
+  // A cwd known only from the pending side is adopted wholesale.
+  const adopted = mergePayloads(
+    { byCwd: {} },
+    { byCwd: { '/fresh': { open: [pendingC], activeId: 'file:/ws/c.ts' } } },
+  )
+  assert.deepEqual(adopted.byCwd['/fresh']?.open, [pendingC])
+  // A pending activeId that no longer exists falls back to the stored one.
+  const fallback = mergePayloads(
+    { byCwd: { '/ws': { open: [storedA], activeId: 'file:/ws/a.ts' } } },
+    { byCwd: { '/ws': { open: [], activeId: 'file:/ws/gone' } } },
+  )
+  assert.equal(fallback.byCwd['/ws']?.activeId, 'file:/ws/a.ts')
 })

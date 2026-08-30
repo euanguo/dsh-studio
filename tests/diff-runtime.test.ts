@@ -58,6 +58,7 @@ function fakeDiffTransport(): WorkspaceDiffTransport & { calls: string[] } {
       calls.push(`doc:m:${baseRef}:${filePath}`)
       return `committed diff ${filePath}\n`
     },
+    loadImageDiff: async () => ({ oldData: 'a', newData: 'b' }),
   }
 }
 
@@ -113,6 +114,7 @@ test('diff runtime: load failures become error entries (not rejections)', async 
     loadCommitDoc: async () => 'x',
     loadCommittedList: async () => [],
     loadCommittedDoc: async () => 'x',
+    loadImageDiff: async () => ({ oldData: 'a', newData: 'b' }),
   }
   const runtime = new WorkspaceDiffRuntime(transport)
   runtime.setScope('s1:/ws')

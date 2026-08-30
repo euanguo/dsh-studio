@@ -1,0 +1,119 @@
+/* Split from ui.css — contiguous slice (order-preserving). */
+
+
+.dsh-studio-ui-switch 
+{
+position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-start;
+  width: 32px;
+  height: 18px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--dsh-studio-radius-pill);
+  background: var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
+  cursor: pointer;
+  outline: none;
+  transition: background-color 140ms ease, box-shadow 140ms ease;
+}
+
+
+
+.dsh-studio-ui-switch[data-size='sm'] 
+{
+width: 24px;
+  height: 14px;
+}
+
+
+
+.dsh-studio-ui-switch[data-checked] 
+{
+background: var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary, #0969da));
+}
+
+
+
+.dsh-studio-ui-switch:hover:not([data-disabled]) 
+{
+background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 9%));
+}
+
+
+
+.dsh-studio-ui-switch[data-checked]:hover:not([data-disabled]) 
+{
+background: var(--dsw-alias-button-primary-hover, var(--dsw-alias-brand-primary, #0969da));
+}
+
+
+
+.dsh-studio-ui-switch:active:not([data-disabled]) 
+{
+box-shadow: 0 0 0 2px color-mix(in srgb, var(--dsw-alias-brand-primary, #0969da) 18%, transparent);
+}
+
+
+
+.dsh-studio-ui-switch-thumb 
+{
+pointer-events: none;
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--dsw-alias-bg-base, #fff);
+  box-shadow: var(--dsw-shadow-lv1, 0 1px 2px rgb(0 0 0 / 18%));
+  transform: translateX(0);
+  transition: transform 140ms ease, background-color 140ms ease;
+}
+
+
+
+.dsh-studio-ui-switch[data-size='sm'] .dsh-studio-ui-switch-thumb 
+{
+width: 12px;
+  height: 12px;
+}
+
+
+
+.dsh-studio-ui-switch[data-checked] .dsh-studio-ui-switch-thumb 
+{
+transform: translateX(calc(100% - 2px));
+}
+
+
+
+.dsh-studio-ui-switch[data-size='sm'][data-checked] .dsh-studio-ui-switch-thumb 
+{
+transform: translateX(calc(100% - 2px));
+}
+
+
+
+.dsh-studio-ui-switch:focus-visible 
+{
+box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-brand-primary, #0969da) 50%, transparent);
+}
+
+
+
+.dsh-studio-ui-switch[data-disabled] 
+{
+cursor: not-allowed;
+  opacity: 0.5;
+}
+
+
+
+@media (prefers-reduced-motion: reduce) 
+{
+.dsh-studio-ui-switch,
+  .dsh-studio-ui-switch-thumb {
+    transition: none;
+  }
+}

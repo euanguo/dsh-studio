@@ -86,8 +86,10 @@
 }
 
 .dsh-studio-surface-tab.is-active .dsh-studio-surface-tab-badge {
-  background: var(--dsw-alias-accent-bg, rgb(77 107 254 / 14%));
-  color: var(--dsw-alias-accent-fg, #4d6bfe);
+  /* C23: --dsw-alias-accent-bg/fg 在上游 token 目录不存在（Q10 已核对），
+     改为自品牌 token 派生，暗色主题与皮肤自动跟随。 */
+  background: color-mix(in srgb, var(--dsw-alias-brand-primary-new-colorprimary-new-color) 14%, transparent);
+  color: var(--dsw-alias-brand-primary-new-colorprimary-new-color);
 }
 
 .dsh-studio-surface-tab-label {
@@ -152,7 +154,7 @@
   bottom: 4px;
   width: 2px;
   border-radius: 1px;
-  background: var(--dsw-alias-accent-fg, #4d6bfe);
+  background: var(--dsw-alias-brand-primary-new-colorprimary-new-color);
   pointer-events: none;
 }
 

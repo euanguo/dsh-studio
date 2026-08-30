@@ -14,6 +14,9 @@ export const TUI_PROFILE = 'tui'
 export const BUNDLED_DESKTOP_CLIENT_PLUGINS = [
   '@dsh-studio/desktop',
 
+  // Workbench kernel services (provided before their consumers).
+  '@dsh-studio/workbench',
+
   '@dsh-studio/desktop-left-rail',
   '@dsh-studio/desktop-skins',
   '@dsh-studio/sidebar',
@@ -26,7 +29,7 @@ export const BUNDLED_DESKTOP_CLIENT_PLUGINS = [
 
 /** Host-only capability providers shipped inside the desktop runtime. */
 export const BUNDLED_DESKTOP_HOST_PLUGINS = [
-  '@dsh-studio/sidebar-host',
+  '@dsh-studio/capabilities',
 ] as const
 
 /** Every protected plugin shipped inside the desktop distribution. */

@@ -1,5 +1,11 @@
+/** Domain-backed persistence seam for right-sidebar layout chrome. */
+import {
+  UI_CHROME_TABLES,
+} from '@dsh-studio/shared/ui-chrome-tables'
+import { createUiChromeStorage, type UiChromeStorageAvailability } from '@dsh-studio/shared/ui-chrome-storage'
 import {
   DEFAULT_SIDEBAR_PREFERENCES,
+  SIDEBAR_LAYOUTS_VERSION,
   parseSidebarPreferences,
   type DesktopSidebarPreferences,
 } from '../sidebar-preferences.ts'
@@ -7,54 +13,67 @@ import {
 export interface SidebarPreferencesStorage {
   load(): Promise<DesktopSidebarPreferences>
   save(preferences: DesktopSidebarPreferences): Promise<void>
+  /** Transport availability, present when backed by {@link UiChromeStorage}. */
+  availability?(): UiChromeStorageAvailability
 }
 
-const STORAGE_KEY = 'dsh-studio.sidebar-preferences.v2'
+/**
+ * The persisted layout document: the sidebar preferences plus a `version`
+ * header (M2) so a later migration can branch on the stored layout semantics.
+ * The in-memory `DesktopSidebarPreferences` is kept version-free; the version
+ * lives only at the storage boundary.
+ */
+type SidebarLayoutsDocument = DesktopSidebarPreferences & { version: number }
+
+function defaults(): DesktopSidebarPreferences {
+  return {
+    ...DEFAULT_SIDEBAR_PREFERENCES,
+    workspaces: {},
+    pluginSettings: {},
+  }
+}
+
+function defaultDocument(): SidebarLayoutsDocument {
+  return { ...defaults(), version: SIDEBAR_LAYOUTS_VERSION }
+}
+
+const storage = createUiChromeStorage<SidebarLayoutsDocument>({
+  table: UI_CHROME_TABLES.sidebarLayouts,
+  defaults: defaultDocument,
+  sanitize: value => {
+    const parsed = parseSidebarPreferences(value)
+    if (parsed === undefined) return defaultDocument()
+    // Re-stamp the current version on every read so legacy (v1) documents are
+    // normalized to the writer's version and the header is always carried.
+    // `parseSidebarPreferences` is per-entry tolerant (F9): a bad workspace,
+    // oversized tab list, or corrupt plugin blob is dropped/truncated, never
+    // allowed to wipe the whole layout.
+    return { ...parsed, version: SIDEBAR_LAYOUTS_VERSION }
+  },
+  debounceMs: 250,
+})
 
 /**
- * Client-side persistence for the sidebar's UI preferences (width, default
- * open, per-tab/viewer enable switches, per-session tab layouts). Stored in
- * localStorage so the sidebar needs no host file system / appDataPath — this
- * is what lets the sidebar run as a generic DSH plugin outside the desktop.
- *
- * STORE BOUNDARY (deliberate, do not merge with runtime-settings): the
- * sidebar intentionally persists to TWO stores with different ownership —
- *   - HERE (localStorage): per-BROWSER UI session state. Tab layouts are
- *     window-local; two browsers on the same profile keep independent
- *     layouts, and a corrupted layout never touches the host.
- *   - runtime-settings (host settings namespace via /sidebar/api
- *     settings.*): FEATURE preferences (interception switches, terminal
- *     font/shell, agent tools) that must follow the user across browsers
- *     and surfaces.
- * Folding either into the other is a regression: layouts on the host lose
- * browser isolation; feature prefs in localStorage stop syncing.
+ * The right sidebar owns layout state only. Feature enablement belongs to the
+ * settings namespace and is supplied to DesktopSidebarService separately.
  */
-export class LocalStorageSidebarPreferencesStorage
-implements SidebarPreferencesStorage {
+export class DomainSidebarPreferencesStorage implements SidebarPreferencesStorage {
   async load(): Promise<DesktopSidebarPreferences> {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw === null) {
-      return {
-        ...DEFAULT_SIDEBAR_PREFERENCES,
-        workspaces: {},
-        tabsEnabled: {},
-        viewersEnabled: {},
-      }
+    const doc = await storage.load()
+    // Strip the storage-only `version` header before returning the in-memory
+    // preferences object.
+    return {
+      defaultWidth: doc.defaultWidth,
+      openByDefault: doc.openByDefault,
+      workspaces: doc.workspaces,
+      pluginSettings: doc.pluginSettings,
+      centerPreviewTabs: doc.centerPreviewTabs,
+      layoutScope: doc.layoutScope,
     }
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(raw) as unknown
-    } catch {
-      throw new Error('sidebar preferences are invalid JSON')
-    }
-    const preferences = parseSidebarPreferences(parsed)
-    if (preferences === undefined) {
-      throw new Error('sidebar preferences are invalid')
-    }
-    return preferences
   }
 
   async save(preferences: DesktopSidebarPreferences): Promise<void> {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences))
+    storage.save({ ...preferences, version: SIDEBAR_LAYOUTS_VERSION })
+    await storage.flush()
   }
 }

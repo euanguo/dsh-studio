@@ -11,16 +11,20 @@ function read(path: string): string {
 }
 
 test('shared UI source layer avoids duplicate official atoms and styling runtimes', () => {
+  // Covers the shadcn base-nova set (field/slider/switch/textarea + the
+  // CLI-installed input/select/checkbox) and the shared composites: none may
+  // pull the official primitives package, a second styling runtime, or raw
+  // tailwind classes into the token-CSS layer.
   const sources = [
-    read('plugins/shared/ui/card.tsx'),
     read('plugins/shared/ui/field.tsx'),
-    read('plugins/shared/ui/separator.tsx'),
     read('plugins/shared/ui/alert.tsx'),
     read('plugins/shared/ui/empty.tsx'),
-    read('plugins/shared/ui/skeleton.tsx'),
     read('plugins/shared/ui/slider.tsx'),
     read('plugins/shared/ui/switch.tsx'),
     read('plugins/shared/ui/textarea.tsx'),
+    read('plugins/shared/ui/input.tsx'),
+    read('plugins/shared/ui/select.tsx'),
+    read('plugins/shared/ui/checkbox.tsx'),
   ].join('\n')
   assert.doesNotMatch(sources, /@deepseek-ai\/dsh-client-ui-primitives/)
   assert.doesNotMatch(sources, /radix-ui|lucide-react|tailwindcss/)

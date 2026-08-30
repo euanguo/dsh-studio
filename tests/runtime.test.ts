@@ -8,9 +8,15 @@ import { DshRuntimeSupervisor } from '../src/runtime.ts'
 test('runtime supervisor waits for the DSH settlement URL and stops cleanly', async () => {
   const root = mkdtempSync(join(tmpdir(), 'dsh-desktop-runtime-'))
   const entry = join(root, 'fake-runtime.mjs')
+  // The readiness handshake requires HTTP confirmation of the announced
+  // URL (kernel-refactor leaf-2.4), so the fake runtime serves 200 on the
+  // loopback port before printing the settlement line.
   writeFileSync(entry, [
     "console.log('booting')",
-    "setTimeout(() => console.log('dsh web: http://127.0.0.1:43210'), 20)",
+    "import('node:http').then(({ default: http }) => {",
+    '  const server = http.createServer((_req, res) => { res.writeHead(200); res.end() })',
+    "  server.listen(43210, '127.0.0.1', () => console.log('dsh web: http://127.0.0.1:43210'))",
+    '})',
     'setInterval(() => {}, 1000)',
     "process.on('SIGTERM', () => process.exit(0))",
   ].join('\n'))

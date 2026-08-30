@@ -1,9 +1,17 @@
 /**
  * Promise-based confirm / prompt / alert. Presentation is the official
- * Modal + Button + Input atoms. Labels arrive pre-translated from call sites.
+ * Modal + Button atoms plus the shared shadcn Input. Labels arrive
+ * pre-translated from call sites.
+ *
+ * State convention (ADR, B7): single-request listener store where the
+ * "slot" is a QUEUE — `open` appends a request and `close` shifts the head
+ * and resolves it, so concurrent native dialogs never overwrite each other
+ * and the earlier caller's Promise always settles (C3). If more than one
+ * dialog stacks, the next one renders only after the current one closes.
  */
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Input } from '@dsh-studio/shared/ui'
 
 type DialogKind = 'confirm' | 'prompt' | 'alert'
 
@@ -20,11 +28,10 @@ interface DialogRequest {
 }
 
 let nextId = 1
-let request: DialogRequest | null = null
+let dialogQueue: DialogRequest[] = []
 const listeners = new Set<() => void>()
 
-function publish(next: DialogRequest | null): void {
-  request = next
+function emit(): void {
   for (const listener of listeners) listener()
 }
 
@@ -33,13 +40,18 @@ function subscribe(listener: () => void): () => void {
   return () => { listeners.delete(listener) }
 }
 
+/** The currently displayed request (queue head), or null when idle. */
 function getSnapshot(): DialogRequest | null {
-  return request
+  return dialogQueue[0] ?? null
 }
 
 function open(next: DialogRequest): void {
-  publish(next)
+  // Append rather than overwrite: a caller that fires while another dialog
+  // is already up stays pending until its turn is shifted by close() and
+  // resolved — it never hangs silently.
+  dialogQueue.push(next)
   nextId += 1
+  emit()
 }
 
 export interface ConfirmDialogOptions {
@@ -103,9 +115,12 @@ export function alertDialog(options: {
 }
 
 function close(value: boolean | string | null): void {
-  const current = request
-  publish(null)
+  // Shift the head and resolve it (if any), then emit so any stacked request
+  // becomes the new head. Resolving the shifted head settles the originating
+  // Promise instead of leaving it pending forever.
+  const current = dialogQueue.shift()
   current?.resolve(value)
+  emit()
 }
 
 /** Mount once next to the toast host; renders nothing while idle. */

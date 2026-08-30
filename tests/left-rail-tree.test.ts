@@ -12,9 +12,9 @@ import { test } from 'node:test'
 import type { SessionId, SessionListState, SessionSummary, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-client-runtime/client'
 import type { SessionNode } from '../plugins/desktop-left-rail/src/client/tree.ts'
 import {
-  deriveFlat, deriveGroups, deriveProjectTree, deriveSearchResults,
-  relativeTime, repoExpansionKey, UNGROUPED_EXPANSION_KEY, UNGROUPED_KEY,
-  UNGROUPED_LABEL, worktreeExpansionKey, worktreeVisibleSessions, workspaceExpansionKey, workspaceLabel,
+  activityKindsOf, activityOf, deriveFlat, deriveProjectTree,
+  deriveSearchResults, relativeTime, repoExpansionKey, sessionActivityKind,
+  subtractActivity, UNGROUPED_LABEL, worktreeExpansionKey, worktreeVisibleSessions, workspaceLabel,
 } from '../plugins/desktop-left-rail/src/client/tree.ts'
 import { indexSubagentDescendants } from '../plugins/desktop-left-rail/src/client/subagent-lineage.ts'
 import {
@@ -118,78 +118,6 @@ test('lineage: an ordinary fork between subagents breaks the chain', () => {
   // never propagates to a through the fork.
   assert.deepEqual(indexed.get('a' as SessionId), { count: 1, runningCount: 0 })
   assert.deepEqual(indexed.get('b' as SessionId), { count: 1, runningCount: 0 })
-})
-
-/* ------------------------------------------------------------------------- *
- * deriveGroups
- * ------------------------------------------------------------------------- */
-
-test('deriveGroups: empty list yields no groups', () => {
-  assert.deepEqual(deriveGroups(listState({}), [], [], { expandedGroups: [] }), [])
-})
-
-test('deriveGroups: expanded workspace group carries its session rows', () => {
-  const list = listState({ 's1': summary('s1'), 's2': summary('s2') })
-  const ws = [workspace('ws-1', '/repo', ['s1', 's2'])]
-  const groups = deriveGroups(list, ws, [], {
-    expandedGroups: [workspaceExpansionKey('ws-1')],
-  })
-  assert.equal(groups.length, 1)
-  assert.equal(groups[0]!.workspaceId, 'ws-1')
-  assert.equal(groups[0]!.sessionCount, 2)
-  assert.deepEqual(groups[0]!.sessions.map(s => s.id), ['s1', 's2'])
-  assert.equal(groups[0]!.containsCurrent, false)
-})
-
-test('deriveGroups: a collapsed group yields no session rows but keeps its count', () => {
-  const list = listState({ 's1': summary('s1') })
-  const groups = deriveGroups(list, [workspace('ws-1', '/repo', ['s1'])], [], {
-    expandedGroups: [],
-  })
-  assert.equal(groups[0]!.sessionCount, 1)
-  assert.deepEqual(groups[0]!.sessions, [])
-})
-
-test('deriveGroups: expansion keys are namespaced — the raw workspace id does not expand', () => {
-  const list = listState({ 's1': summary('s1') })
-  const groups = deriveGroups(list, [workspace('ws-1', '/repo', ['s1'])], [], {
-    expandedGroups: ['ws-1'],
-  })
-  assert.deepEqual(groups[0]!.sessions, [])
-})
-
-test('deriveGroups: stray sessions trail under the ungrouped bucket', () => {
-  const list = listState({ 's1': summary('s1'), 's2': summary('s2') })
-  const groups = deriveGroups(list, [workspace('ws-1', '/repo', ['s1'])], [], {
-    expandedGroups: [workspaceExpansionKey('ws-1'), UNGROUPED_EXPANSION_KEY],
-  })
-  assert.equal(groups.length, 2)
-  assert.equal(groups[1]!.workspaceId, undefined)
-  assert.equal(groups[1]!.key, UNGROUPED_KEY)
-  assert.deepEqual(groups[1]!.sessions.map(s => s.id), ['s2'])
-})
-
-test('deriveGroups: archived and non-current blank sessions are hidden', () => {
-  const list = listState({
-    's1': summary('s1'),
-    's2': summary('s2'),
-    's3': summary('s3', { blank: true }),
-    's4': summary('s4', { blank: true }),
-  }, 's3')
-  const groups = deriveGroups(list, [workspace('ws-1', '/repo', ['s1', 's2', 's3', 's4'])], ['s2'] as SessionId[], {
-    expandedGroups: [workspaceExpansionKey('ws-1')],
-  })
-  assert.deepEqual(groups[0]!.sessions.map(s => s.id), ['s1', 's3'])
-})
-
-test('deriveGroups: containsCurrent marks the group owning the selected session', () => {
-  const list = listState({ 's1': summary('s1'), 's2': summary('s2') }, 's2')
-  const groups = deriveGroups(list, [workspace('ws-1', '/repo', ['s1'])], [], {
-    expandedGroups: [],
-  })
-  assert.equal(groups[0]!.containsCurrent, false)
-  const owned = deriveGroups(list, [workspace('ws-1', '/repo', ['s2'])], [], { expandedGroups: [] })
-  assert.equal(owned[0]!.containsCurrent, true)
 })
 
 /* ------------------------------------------------------------------------- *
@@ -567,4 +495,80 @@ test('worktreeVisibleSessions: an expanded worktree previews the limit until the
 test('worktreeVisibleSessions: a small run is fully visible when expanded', () => {
   const sessions = [node('s1'), node('s2')]
   assert.deepEqual(worktreeVisibleSessions(sessions, true, false, 5).map(s => s.id), ['s1', 's2'])
+})
+
+/* ------------------------------------------------------------------------- *
+ * Activity aggregation — the collection-row hidden-work indicator
+ * ------------------------------------------------------------------------- */
+
+test('sessionActivityKind: pending outranks running, running outranks the finished reminder', () => {
+  assert.equal(sessionActivityKind(node('idle')), undefined)
+  assert.equal(sessionActivityKind({ ...node('run'), running: true }), 'running')
+  // Descendant subagent activity counts as running for the parent row.
+  assert.equal(sessionActivityKind({ ...node('sub'), runningSubagentCount: 2 }), 'running')
+  assert.equal(sessionActivityKind({ ...node('done'), completed: true }), 'completed')
+  // Running beats the reminder when both are set.
+  assert.equal(sessionActivityKind({ ...node('both'), running: true, completed: true }), 'running')
+  assert.equal(sessionActivityKind({ ...node('wait'), pendingInteraction: 'approval' }), 'waiting')
+  // Any pending interaction beats a running session.
+  assert.equal(sessionActivityKind({ ...node('wait-run'), running: true, pendingInteraction: 'question' }), 'waiting')
+})
+
+test('activityOf and activityKindsOf: buckets aggregate and order by priority', () => {
+  const rows: SessionNode[] = [
+    { ...node('a'), running: true },
+    { ...node('b'), running: true },
+    { ...node('c'), pendingInteraction: 'plan-review' },
+    { ...node('d'), completed: true },
+    node('e'),
+  ]
+  assert.deepEqual(activityOf(rows), { waiting: 1, running: 2, completed: 1 })
+  assert.deepEqual(activityKindsOf({ waiting: 1, running: 2, completed: 1 }), ['waiting', 'running', 'completed'])
+  assert.deepEqual(activityKindsOf({ waiting: 0, running: 2, completed: 1 }), ['running', 'completed'])
+  assert.deepEqual(activityKindsOf({ waiting: 0, running: 0, completed: 0 }), [])
+  assert.deepEqual(activityOf([]), { waiting: 0, running: 0, completed: 0 })
+})
+
+test('subtractActivity: removes the visible slice and floors at zero', () => {
+  assert.deepEqual(
+    subtractActivity({ waiting: 1, running: 2, completed: 1 }, { waiting: 0, running: 1, completed: 1 }),
+    { waiting: 1, running: 1, completed: 0 },
+  )
+  assert.deepEqual(
+    subtractActivity({ waiting: 0, running: 2, completed: 0 }, { waiting: 0, running: 2, completed: 0 }),
+    { waiting: 0, running: 0, completed: 0 },
+  )
+})
+
+test('deriveProjectTree: worktree and project roll up activity across their sessions', () => {
+  layouts.clear()
+  layouts.set('/repo', layout('/repo', [
+    { path: '/repo', branch: 'main', main: true },
+    { path: '/repo-worktrees/feat', branch: 'feat/a', main: false },
+  ]))
+  layouts.set('/repo-worktrees/feat', layout('/repo', [
+    { path: '/repo', branch: 'main', main: true },
+    { path: '/repo-worktrees/feat', branch: 'feat/a', main: false },
+  ]))
+  const list = listState({
+    's1': summary('s1', { running: true }),
+    's2': summary('s2', { completed: true }),
+    's3': summary('s3', { pendingInteraction: 'approval' }),
+    's4': summary('s4'),
+    'sa': summary('sa', { origin: 'subagent', parentId: 's4' as SessionId, running: true }),
+  })
+  const ws = [
+    workspace('ws-main', '/repo', ['s1', 's2']),
+    workspace('ws-feat', '/repo-worktrees/feat', ['s3', 's4']),
+  ]
+  const tree = deriveProjectTree(list, ws, layouts, [], {
+    expanded: [repoExpansionKey('/repo'), worktreeExpansionKey('/repo'), worktreeExpansionKey('/repo-worktrees/feat')],
+    activeTab: '__default__', projectGroup: {}, groupIds: [], groupLabels: {}, projectAlias: {},
+  })
+  const main = tree.projects[0]!.worktrees.find(w => w.path === '/repo')!
+  assert.deepEqual(main.activity, { waiting: 0, running: 1, completed: 1 })
+  const feat = tree.projects[0]!.worktrees.find(w => w.path === '/repo-worktrees/feat')!
+  // s4 itself is idle, but its running subagent counts as running activity.
+  assert.deepEqual(feat.activity, { waiting: 1, running: 1, completed: 0 })
+  assert.deepEqual(tree.projects[0]!.activity, { waiting: 1, running: 2, completed: 1 })
 })

@@ -8,6 +8,7 @@
  * Rows are built on the shared ListRow primitives (plugins/shared/list-row)
  * — the same row geometry as the file browser and every other list.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useState, type CSSProperties } from 'react'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import {
@@ -109,23 +110,23 @@ export function SourceControlPanel(props: SourceControlPanelProps): JSX.Element 
   }
 
   return (
-    <div className="dsh-studio-sc-list">
-      <div className="dsh-studio-sc-toolbar">
-        <span className="dsh-studio-sc-toolbar-title">
+    <div className={surfaceCss["dsh-studio-sc-list"]}>
+      <div className={surfaceCss["dsh-studio-sc-toolbar"]}>
+        <span className={surfaceCss["dsh-studio-sc-toolbar-title"]}>
           <IconFileDiff size={14} />
           {props.t('workspace.changes')}
           <em>{props.count}</em>
         </span>
-        <div className="dsh-studio-sc-toolbar-modes" role="group" aria-label={props.t('source-control.mode.tree')}>
+        <div className={surfaceCss["dsh-studio-sc-toolbar-modes"]} role="group" aria-label={props.t('source-control.mode.tree')}>
           <ToolbarAction
-            className="dsh-studio-sc-toolbar-mode"
+            className={surfaceCss["dsh-studio-sc-toolbar-mode"]}
             icon={<IconLayoutList size={14} />}
             label={props.t('source-control.mode.flat')}
             pressed={props.mode === 'flat'}
             onClick={() => { props.onModeChange('flat') }}
           />
           <ToolbarAction
-            className="dsh-studio-sc-toolbar-mode"
+            className={surfaceCss["dsh-studio-sc-toolbar-mode"]}
             icon={<IconListTree size={14} />}
             label={props.t('source-control.mode.tree')}
             pressed={props.mode === 'tree'}
@@ -226,9 +227,9 @@ function SectionRowView(props: {
   const canViewAll = row.id === 'staged' || row.id === 'unstaged'
   const sectionLabel = props.t(`source-control.section.${row.id}`)
   return (
-    <ListRow className="dsh-studio-sc-section-row" data-section={row.id}>
+    <ListRow className={surfaceCss["dsh-studio-sc-section-row"]} data-section={row.id}>
       <ListRowMain
-        className="dsh-studio-sc-depth-main"
+        className={surfaceCss["dsh-studio-sc-depth-main"]}
         aria-expanded={row.expanded}
         onClick={() => { props.onToggleSection(row.id) }}
       >
@@ -250,7 +251,7 @@ function SectionRowView(props: {
             onClick={() => { props.onViewAll(row.id) }}
           ><IconEye size={14} /></ListRowActionButton>
         )}
-        <span className="dsh-studio-sc-section-bulk">
+        <span className={surfaceCss["dsh-studio-sc-section-bulk"]}>
           {row.stagePaths.length > 0 && (
             <ListRowActionButton
               aria-label={`${props.t('source-control.stage-all')}: ${sectionLabel}`}
@@ -288,9 +289,9 @@ function DirectoryRowView(props: {
 }): JSX.Element {
   const { row } = props
   return (
-    <ListRow className="dsh-studio-sc-directory-row" title={row.path} data-path={row.path}>
+    <ListRow className={surfaceCss["dsh-studio-sc-directory-row"]} title={row.path} data-path={row.path}>
       <ListRowMain
-        className="dsh-studio-sc-depth-main"
+        className={surfaceCss["dsh-studio-sc-depth-main"]}
         style={{ '--tree-depth': row.depth } as CSSProperties}
         aria-expanded={row.expanded}
         onClick={() => { props.onToggleDirectory(row.key) }}
@@ -362,7 +363,7 @@ function FileRowView(props: {
   }
   return (
     <ListRow
-      className="dsh-studio-sc-file-row"
+      className={surfaceCss["dsh-studio-sc-file-row"]}
       selected={row.selected}
       title={row.path}
       data-path={row.path}
@@ -370,7 +371,7 @@ function FileRowView(props: {
       onContextMenu={openMenu}
     >
       <ListRowMain
-        className="dsh-studio-sc-depth-main"
+        className={surfaceCss["dsh-studio-sc-depth-main"]}
         style={{ '--tree-depth': row.depth } as CSSProperties}
         aria-busy={props.pending !== null || undefined}
         onClick={() => { props.onSelectFile(row.path) }}
@@ -382,10 +383,10 @@ function FileRowView(props: {
           <FilenameLabel name={row.name} title={row.path} />
         </ListRowBody>
         {hasStat && (
-          <ListRowTrailing className="dsh-studio-sc-stat-trailing">
-            <span className="dsh-studio-sc-stat" aria-hidden="true">
-              {change.additions > 0 && <em className="dsh-studio-sc-stat-add">+{change.additions}</em>}
-              {change.deletions > 0 && <em className="dsh-studio-sc-stat-del">−{change.deletions}</em>}
+          <ListRowTrailing className={surfaceCss["dsh-studio-sc-stat-trailing"]}>
+            <span className={surfaceCss["dsh-studio-sc-stat"]} aria-hidden="true">
+              {change.additions > 0 && <em className={surfaceCss["dsh-studio-sc-stat-add"]}>+{change.additions}</em>}
+              {change.deletions > 0 && <em className={surfaceCss["dsh-studio-sc-stat-del"]}>−{change.deletions}</em>}
             </span>
           </ListRowTrailing>
         )}

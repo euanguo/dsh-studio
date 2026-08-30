@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { TerminalSocket, type TerminalSocketHandlers } from '../plugins/shared/terminal-socket.ts'
+import { TerminalSocket, type TerminalSocketHandlers } from '../plugins/shared/terminal/terminal-socket.ts'
 
 class FakeWebSocket {
   static OPEN = 1

@@ -14,8 +14,8 @@ releases and features are reviewed regularly.
 - DSH Studio component: `@dsh-studio/panel-controls`
 
 DSH Studio adapts the Terminal dock for its desktop layout, session model, themes,
-and localization. The dock uses the shared Better Sidebar PTY Host, so no
-separate Web Terminal or shell plugin is required.
+and localization. The dock uses the shared DSH Studio capability gateway PTY
+implementation, so no separate Web Terminal or shell plugin is required.
 
 ## DSH-better-sidebar
 
@@ -23,7 +23,7 @@ separate Web Terminal or shell plugin is required.
 - Pinned release: `v0.9.0`
 - Pinned revision: `2e9db44a71bb75c9fa1185330541dce2582deee3`
 - Declared license: MIT
-- DSH Studio components: `@dsh-studio/better-sidebar-runtime` and
+- DSH Studio components: `@dsh-studio/capabilities` and
   `@dsh-studio/sidebar`
 
 DSH Studio compiles the pinned upstream Host for PTY, bounded Files, Git status,

@@ -18,6 +18,7 @@ import {
   SourceControlRuntime,
   sidebarSourceControlTransport,
 } from './source-control-runtime.ts'
+export type { SourceControlRuntime } from './source-control-runtime.ts'
 import {
   WorkspaceFileRuntime,
   type WorkspaceFileTransport,
@@ -27,21 +28,21 @@ import {
   type WorkspaceDiffTransport,
 } from './diff-runtime.ts'
 import { sidebarApi } from '../sidebar-api.ts'
-import { resolveSidebarPath } from '@dsh-studio/shared/path'
+import { resolveCapabilitiesPath } from '@dsh-studio/shared/path'
 import { parseGitReviewDiff, type GitReviewFile } from '../diff/git-review-diff.ts'
 import { terminalInstanceRegistry } from './terminal-runtime.ts'
 
 /**
- * The runtime scope: the project cwd. Unlike the wire `SidebarScope` in the
+ * The runtime scope: the project cwd. Unlike the wire `CapabilitiesScope` in the
  * component contract (a plain `{cwd}`), the retained runtimes key their
  * caches by the concrete cwd — project dimension, so two conversations of the
  * same project share one runtime and switching conversations never refetches.
  */
-export interface SidebarScope {
+export interface CapabilitiesScope {
   cwd: string
 }
 
-export function sidebarScopeKey(scope: SidebarScope): string {
+export function sidebarScopeKey(scope: CapabilitiesScope): string {
   return scope.cwd
 }
 
@@ -59,7 +60,7 @@ export const explorerRuntimeRegistry = new ScopedRuntimeRegistry<ExplorerRuntime
   },
 })
 
-export function getExplorerRuntime(scope: SidebarScope): WorkspaceExplorerRuntime {
+export function getExplorerRuntime(scope: CapabilitiesScope): WorkspaceExplorerRuntime {
   const scopeKey = sidebarScopeKey(scope)
   const existing = explorerRuntimeRegistry.get(scopeKey)
   if (existing !== undefined && existing.cwd === scope.cwd) {
@@ -71,7 +72,7 @@ export function getExplorerRuntime(scope: SidebarScope): WorkspaceExplorerRuntim
   }
   const transport: WorkspaceExplorerTransport = {
     listDirectory: (relativePath, signal) =>
-      sidebarApi.fsTree(scope, resolveSidebarPath(scope.cwd, relativePath), signal)
+      sidebarApi.fsTree(scope, resolveCapabilitiesPath(scope.cwd, relativePath), signal)
         .then(listing => listing.entries.map(entry => ({
           name: entry.name,
           path: entry.path,
@@ -98,7 +99,7 @@ export const sourceControlRuntimeRegistry = new ScopedRuntimeRegistry<SourceCont
   },
 })
 
-export function getSourceControlRuntime(scope: SidebarScope): SourceControlRuntime {
+export function getSourceControlRuntime(scope: CapabilitiesScope): SourceControlRuntime {
   const scopeKey = sidebarScopeKey(scope)
   const existing = sourceControlRuntimeRegistry.get(scopeKey)
   if (existing !== undefined && existing.cwd === scope.cwd) {
@@ -129,7 +130,7 @@ export const fileRuntimeRegistry = new ScopedRuntimeRegistry<FileRuntimeBundle>(
   },
 })
 
-export function getFileRuntime(scope: SidebarScope): WorkspaceFileRuntime {
+export function getFileRuntime(scope: CapabilitiesScope): WorkspaceFileRuntime {
   const scopeKey = sidebarScopeKey(scope)
   const existing = fileRuntimeRegistry.get(scopeKey)
   if (existing !== undefined && existing.cwd === scope.cwd) {
@@ -168,7 +169,7 @@ export const diffRuntimeRegistry = new ScopedRuntimeRegistry<DiffRuntimeBundle>(
   },
 })
 
-export function getDiffRuntime(scope: SidebarScope): WorkspaceDiffRuntime {
+export function getDiffRuntime(scope: CapabilitiesScope): WorkspaceDiffRuntime {
   const scopeKey = sidebarScopeKey(scope)
   const existing = diffRuntimeRegistry.get(scopeKey)
   if (existing !== undefined) {
@@ -183,39 +184,36 @@ export function getDiffRuntime(scope: SidebarScope): WorkspaceDiffRuntime {
         if (staged) return parsed
         // Untracked files produce no git diff output — synthesize added-file
         // diffs from their contents so "view all" shows them too. Reads ride
-        // the file runtime cache (M6: one file-read path).
-        let untrackedFiles: GitReviewFile[] = []
-        try {
-          const status = await sidebarApi.gitStatus(scope, signal)
-          const fileRuntime = getFileRuntime(scope)
-          const synthesized: Array<GitReviewFile | null> = await Promise.all(status.entries
-            .filter(entry => entry.xy === '??')
-            .map(async entry => {
-              const absolute = resolveSidebarPath(scope.cwd, entry.path)
-              const loaded = await fileRuntime.ensureLoaded(absolute)
-              const snapshot = loaded.phase === 'ready' ? loaded.snapshot : null
-              if (snapshot === null || snapshot.kind !== 'text' || snapshot.content === null) return null
-              const lines = snapshot.content.split('\n')
-              return {
-                path: entry.path,
-                oldPath: null,
-                status: 'added' as const,
-                additions: lines.length,
-                deletions: 0,
-                lines: lines.map((content, index) => ({
-                  key: `untracked:${entry.path}:${index}`,
-                  type: 'addition' as const,
-                  content,
-                  oldLine: null,
-                  newLine: index + 1,
-                })),
-              }
-            }))
-          untrackedFiles = synthesized.filter((file): file is GitReviewFile => file !== null)
-        } catch (cause) {
-          console.warn('[sidebar] failed to synthesize untracked-file diffs', cause)
-          untrackedFiles = []
-        }
+        // the file runtime cache (M6: one file-read path). A top-level status
+        // failure propagates so the listing marks error instead of caching an
+        // empty untracked slice as ready forever. Individual unreadable files
+        // still degrade to null gracefully.
+        const status = await sidebarApi.gitStatus(scope, signal)
+        const fileRuntime = getFileRuntime(scope)
+        const synthesized: Array<GitReviewFile | null> = await Promise.all(status.entries
+          .filter(entry => entry.xy === '??')
+          .map(async entry => {
+            const absolute = resolveCapabilitiesPath(scope.cwd, entry.path)
+            const loaded = await fileRuntime.ensureLoaded(absolute)
+            const snapshot = loaded.phase === 'ready' ? loaded.snapshot : null
+            if (snapshot === null || snapshot.kind !== 'text' || snapshot.content === null) return null
+            const lines = snapshot.content.split('\n')
+            return {
+              path: entry.path,
+              oldPath: null,
+              status: 'added' as const,
+              additions: lines.length,
+              deletions: 0,
+              lines: lines.map((content, index) => ({
+                key: `untracked:${entry.path}:${index}`,
+                type: 'addition' as const,
+                content,
+                oldLine: null,
+                newLine: index + 1,
+              })),
+            }
+          }))
+        const untrackedFiles = synthesized.filter((file): file is GitReviewFile => file !== null)
         return [...parsed, ...untrackedFiles]
       }),
     loadWorktreeDoc: (staged, filePath, context, signal) =>
@@ -229,6 +227,8 @@ export function getDiffRuntime(scope: SidebarScope): WorkspaceDiffRuntime {
         .then(result => parseGitReviewDiff(result.diff)),
     loadCommittedDoc: (baseRef, filePath, signal) =>
       sidebarApi.gitCommittedDiff(scope, baseRef, filePath, signal).then(result => result.diff),
+    loadImageDiff: (staged, filePath, signal) =>
+      sidebarApi.gitImageDiff(scope, filePath, staged, signal),
   }
   const runtime = new WorkspaceDiffRuntime(transport)
   runtime.setScope(scopeKey)
@@ -236,11 +236,22 @@ export function getDiffRuntime(scope: SidebarScope): WorkspaceDiffRuntime {
   return runtime
 }
 
-/** Dispose every retained runtime (dependency teardown / test reset). */
-export function disposeSidebarRuntimes(): void {
+/**
+ * Evict every retained cwd-keyed runtime so the next `get*` rebuilds it with
+ * fresh data. Fired on kernel workspace changes (leaf-1.7): without this the
+ * cwd-keyed entries never expire and a project's git/file state could stay
+ * stale forever. Live terminal instances are session-owned state, not cached
+ * RPC data, and deliberately survive.
+ */
+export function invalidateRetainedRuntimes(): void {
   explorerRuntimeRegistry.clear()
   sourceControlRuntimeRegistry.clear()
   fileRuntimeRegistry.clear()
   diffRuntimeRegistry.clear()
+}
+
+/** Dispose every retained runtime (dependency teardown / test reset). */
+export function disposeSidebarRuntimes(): void {
+  invalidateRetainedRuntimes()
   terminalInstanceRegistry.clear()
 }

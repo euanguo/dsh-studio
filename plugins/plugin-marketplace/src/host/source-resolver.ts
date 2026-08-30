@@ -223,6 +223,9 @@ export function makeMarketplaceApprovalDecision(
 ): MarketplaceApprovalDecision {
   return {
     action: plan?.action ?? null,
+    directInstallAllowed: plan?.fastPathEligible ?? false,
+    fastPathEligible: plan?.fastPathEligible ?? false,
+    previewAvailable: plan?.previewAvailable ?? false,
     applyConfirmationRequired: previewActive,
     buildScriptConfirmationRequired: plan !== null && Object.keys(plan.buildScripts).length > 0,
     recoveryConfirmationRequired: undoAvailable,
@@ -276,6 +279,17 @@ export class DefaultMarketplaceSourceResolver implements MarketplaceSourceResolv
       action,
       artifactDigest: candidate.manifest.artifactDigest,
       buildScripts: candidate.buildScripts,
+      channel: candidate.source.channel,
+      artifactUrl: candidate.source.artifactUrl,
+      environmentRequirements: candidate.environmentRequirements,
+      fastPathEligible: risk.level === 'low'
+        && risk.requirements.length === 0
+        && candidate.execution === 'installable'
+        && candidate.mechanism === 'bundle'
+        && candidate.source.kind === 'catalog'
+        && candidate.environmentRequirements.length === 0,
+      previewAvailable: candidate.execution === 'installable' && candidate.mechanism === 'bundle',
+      requiresRestart: candidate.mechanism === 'bundle',
       catalogSourceId: candidate.source.catalogSourceId,
       description: candidate.description || `Manage ${candidate.identity.pluginId} in the desktop profile.`,
       entryTargets: candidate.manifest.entryTargets,

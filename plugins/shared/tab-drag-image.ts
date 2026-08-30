@@ -50,19 +50,26 @@ export function poseRoundedTabDragImage(
       ctx.closePath()
     }
 
-    // Modern glass/pill styling (dark + light theme resilient)
-    const isDark = document.documentElement.getAttribute('data-ds-dark-theme') === 'true' ||
-      window.matchMedia('(prefers-color-scheme: dark)').matches
+    // Modern glass/pill styling (dark + light theme resilient).
+    // C43: resolve hardcoded drag-image colors from the live DSW tokens via
+    // getComputedStyle so theme/skin changes flow through. Canvas fillStyle/
+    // strokeStyle cannot consume CSS custom properties directly, so reading
+    // the computed value of the semantic alias is the sanctioned path.
+    const cs = getComputedStyle(document.body)
+    const pillBg = cs.getPropertyValue('--dsw-alias-bg-layer-1').trim()
+    const pillBorder = cs.getPropertyValue('--dsw-alias-border-l2').trim()
+    const pillText = cs.getPropertyValue('--dsw-alias-label-primary').trim()
 
-    ctx.fillStyle = isDark ? 'rgba(40, 44, 52, 0.88)' : 'rgba(255, 255, 255, 0.92)'
+    ctx.fillStyle = pillBg || 'rgba(255, 255, 255, 0.92)'
     ctx.fill()
     ctx.lineWidth = 1.5
-    ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.18)' : 'rgba(0, 0, 0, 0.15)'
+    ctx.strokeStyle = pillBorder || 'rgba(0, 0, 0, 0.15)'
     ctx.stroke()
 
     // Draw label
-    ctx.font = '500 12px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    ctx.fillStyle = isDark ? '#ffffff' : '#1f2328'
+    const fontFamily = getComputedStyle(document.body).fontFamily
+    ctx.font = `500 12px ${fontFamily || 'system-ui'}`
+    ctx.fillStyle = pillText || '#1f2328'
     ctx.textBaseline = 'middle'
 
     const maxTextWidth = width - 24

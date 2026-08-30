@@ -101,8 +101,11 @@ test('desktop Agent tools share the guarded marketplace transaction owner', asyn
   assert.deepEqual(names, [
     'desktop_plugin_search',
     'desktop_plugin_status',
-    'desktop_plugin_prepare',
-    'desktop_plugin_preview',
+    'desktop_plugin_plan',
+    'desktop_plugin_execute',
+    'desktop_plugin_pack',
+    'desktop_plugin_provide',
+    'desktop_plugin_cancel',
     'desktop_plugin_discard',
     'desktop_plugin_apply',
     'desktop_plugin_recover',
@@ -122,7 +125,7 @@ test('desktop Agent tools share the guarded marketplace transaction owner', asyn
     await policy({ name: 'desktop_plugin_apply' }, async () => ({ kind: 'allow' })),
     {
       kind: 'ask',
-      reason: 'Apply the tested plugin preview to DSH Studio?',
+      reason: 'Apply the staged DSH plugin profile and restart DSH Studio?',
     },
   )
   assert.deepEqual(
@@ -137,6 +140,7 @@ test('desktop Agent tools reject marketplace failures instead of reporting an em
     busy: false,
     catalog: [],
     catalogGeneratedAt: null,
+    catalogWatchlist: [],
     error: 'GitHub returned 404 for the configured catalog',
     installed: [],
     lastAction: null,
@@ -147,6 +151,10 @@ test('desktop Agent tools reject marketplace failures instead of reporting an em
     },
     plan: null,
     preview: null,
+    progress: null,
+    inputRequest: null,
+    packs: [],
+    selfUpdate: null,
     sourceLocks: [],
     undoAvailable: false,
   }), /404/)

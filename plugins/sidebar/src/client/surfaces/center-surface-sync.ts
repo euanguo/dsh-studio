@@ -45,6 +45,8 @@ export function resolveCenterWorkspace(list: SessionListState): CenterWorkspace 
  * Keep an open conversation tab while its session is temporarily incomplete.
  * Once a materialized session moves to another cwd, its old queue entry is
  * stale; an absent session was deleted and must be removed as well.
+ * Subagent children are never tabs (the left rail's sessionVisible rule),
+ * so a restored subagent entry drops instead of being retained.
  */
 export function retainConversationSurface(input: {
   cwd: string
@@ -53,6 +55,7 @@ export function retainConversationSurface(input: {
 }): boolean {
   const summary = input.list.byId[input.sessionId]
   if (summary === undefined) return false
+  if (summary.origin === 'subagent') return false
   if (summary.blank === true) return true
   const cwd = summary.cwd?.trim()
   return cwd === undefined || cwd === '' || cwd === input.cwd
@@ -81,4 +84,21 @@ export function currentConversationSyncAction(input: {
   }
   if (input.previous?.cwd !== input.current.cwd && input.currentTabOpen) return 'activate'
   return 'none'
+}
+
+/**
+ * A conversation tab's live posture, rendered as the official StateDot — the
+ * same indicator and precedence as the left rail's session rows
+ * (desktop-left-rail Rows.tsx sessionStatuses): a pending user interaction
+ * outranks running, which outranks the finished-but-unviewed reminder.
+ * Undefined = idle: no dot, the conversation icon shows instead.
+ */
+export function conversationPosture(
+  summary?: SessionSummary,
+): 'warning' | 'ongoing' | 'done' | undefined {
+  if (summary === undefined) return undefined
+  if (summary.pendingInteraction !== undefined) return 'warning'
+  if (summary.running === true) return 'ongoing'
+  if (summary.completed === true) return 'done'
+  return undefined
 }

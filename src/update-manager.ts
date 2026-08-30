@@ -6,9 +6,10 @@ import type {
   DesktopUpdatePlatform,
   DesktopUpdateState,
 } from './contracts.ts'
+import { officialReleaseBase } from './desktop-identity.ts'
+import { singleFlight } from './update-lifecycle.ts'
 
-const OFFICIAL_REPOSITORY = 'euanguo/dsh-studio-app'
-const OFFICIAL_RELEASE_BASE = `https://github.com/${OFFICIAL_REPOSITORY}/releases/tag/`
+const OFFICIAL_RELEASE_BASE = officialReleaseBase()
 
 export interface UpdateEventSource {
   autoDownload: boolean
@@ -19,8 +20,8 @@ export interface UpdateEventSource {
   checkForUpdates(): Promise<{ isUpdateAvailable: boolean; updateInfo: UpdateInfo } | null>
   downloadUpdate(token?: CancellationToken): Promise<string[]>
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
-  on(event: string, listener: (...args: any[]) => void): unknown
-  removeListener?(event: string, listener: (...args: any[]) => void): unknown
+  on(event: string, listener: (...args: unknown[]) => void): unknown
+  removeListener?(event: string, listener: (...args: unknown[]) => void): unknown
 }
 
 export interface UpdateManagerOptions {
@@ -158,10 +159,11 @@ export class DesktopUpdateManager {
   private metadata: UpdateMetadata | undefined
   private token: CancellationToken | undefined
   private operation: Operation = 'check'
-  private lastCheck: Promise<DesktopUpdateState> | undefined
+  /** Single-flight wrapper so concurrent check() callers share one run. */
+  private readonly checkFlight = singleFlight(async (): Promise<DesktopUpdateState> => this.performCheck())
   private installOnQuitRequested = false
   private readonly listeners = new Set<(state: DesktopUpdateState) => void>()
-  private readonly eventListeners: Array<[string, (...args: any[]) => void]> = []
+  private readonly eventListeners: Array<[string, (payload: unknown) => void]> = []
 
   constructor(options: UpdateManagerOptions) {
     this.currentVersion = options.currentVersion
@@ -207,9 +209,7 @@ export class DesktopUpdateManager {
   }
 
   async check(): Promise<DesktopUpdateState> {
-    if (this.lastCheck !== undefined) return await this.lastCheck
-    this.lastCheck = this.performCheck().finally(() => { this.lastCheck = undefined })
-    return await this.lastCheck
+    return await this.checkFlight()
   }
 
   private async performCheck(): Promise<DesktopUpdateState> {
@@ -263,16 +263,7 @@ export class DesktopUpdateManager {
         releaseUrl: officialReleaseUrl(normalized),
         installerPath: null,
       }
-      return this.publish({
-        status: 'available',
-        currentVersion: this.currentVersion,
-        latestVersion: normalized,
-        releaseName: info.releaseName ?? null,
-        releaseNotes: releaseNotesText(info.releaseNotes),
-        size: file.size ?? null,
-        platform: this.platform,
-        releaseUrl: officialReleaseUrl(normalized),
-      })
+      return this.publishFromMetadata('available')
     } catch (error) {
       const code = errorCode(error)
       if (code === 'UPDATE_ASSET_MISSING' || code === 'UPDATE_ASSET_AMBIGUOUS') {
@@ -352,33 +343,27 @@ export class DesktopUpdateManager {
   }
 
   private publishDownloaded(): void {
-    if (this.metadata === undefined) return
-    const { installerPath: _installerPath, ...publicMetadata } = this.metadata
+    const metadata = this.publicMetadata()
+    if (metadata === undefined) return
     this.publish({
       status: 'downloaded',
-      ...publicMetadata,
+      ...metadata,
       installOnQuit: false,
     })
   }
 
   private publishScheduled(): DesktopUpdateState {
     if (this.metadata === undefined) return this.state
-    return this.publish({
-      status: 'scheduled',
-      currentVersion: this.metadata.currentVersion,
-      latestVersion: this.metadata.latestVersion,
-      releaseName: this.metadata.releaseName,
-      releaseNotes: this.metadata.releaseNotes,
-      size: this.metadata.size,
-      platform: this.metadata.platform,
-      releaseUrl: this.metadata.releaseUrl,
-    })
+    return this.publishFromMetadata('scheduled')
   }
 
   private bindUpdaterEvents(): void {
-    const bind = (event: string, listener: (...args: any[]) => void): void => {
-      this.updater?.on(event, listener)
-      this.eventListeners.push([event, listener])
+    // electron-updater emits untyped event payloads; each binding narrows its
+    // own arg tuple once here so every handler below receives typed values.
+    const bind = <A extends unknown[]>(event: string, listener: (...args: A) => void): void => {
+      const wrapped = (...args: unknown[]): void => { listener(...args as A) }
+      this.updater?.on(event, wrapped)
+      this.eventListeners.push([event, wrapped])
     }
     bind('checking-for-update', () => {
       if (this.state.status !== 'checking' && this.state.status !== 'downloading') this.publish({ status: 'checking', currentVersion: this.currentVersion })
@@ -388,19 +373,12 @@ export class DesktopUpdateManager {
       this.publish({ status: 'not-available', currentVersion: this.currentVersion, checkedVersion: info.version })
     })
     bind('download-progress', (progress: ProgressInfo) => {
-      if (this.metadata === undefined) return
-      const total = progress.total || this.metadata.size || 0
+      const metadata = this.publicMetadata()
+      if (metadata === undefined) return
+      const total = progress.total || metadata.size || 0
       const transferred = progress.transferred || 0
       const bytesPerSecond = progress.bytesPerSecond || 0
-      this.publish({
-        status: 'downloading',
-        currentVersion: this.metadata.currentVersion,
-        latestVersion: this.metadata.latestVersion,
-        releaseName: this.metadata.releaseName,
-        releaseNotes: this.metadata.releaseNotes,
-        size: this.metadata.size,
-        platform: this.metadata.platform,
-        releaseUrl: this.metadata.releaseUrl,
+      this.publishFromMetadata('downloading', {
         percent: progress.percent || 0,
         transferred,
         total,
@@ -445,6 +423,26 @@ export class DesktopUpdateManager {
     this.state = state
     for (const listener of this.listeners) listener(state)
     return state
+  }
+
+  /** The public metadata fields, dropping the private installer path. */
+  private publicMetadata(): Omit<UpdateMetadata, 'installerPath'> | undefined {
+    if (this.metadata === undefined) return undefined
+    const { installerPath: _installerPath, ...publicMetadata } = this.metadata
+    return publicMetadata
+  }
+
+  /**
+   * Publish a full-field update state from the current metadata, avoiding the
+   * eight-field expansion that used to be repeated at every publish site.
+   */
+  private publishFromMetadata(
+    status: 'available' | 'downloading' | 'downloaded' | 'scheduled',
+    extra: Record<string, unknown> = {},
+  ): DesktopUpdateState {
+    const metadata = this.publicMetadata()
+    if (metadata === undefined) return this.state
+    return this.publish({ status, ...metadata, ...extra } as DesktopUpdateState)
   }
 
   dispose(): void {

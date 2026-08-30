@@ -1,3 +1,4 @@
+import { errorMessage } from '@dsh-studio/shared/errors'
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -19,10 +20,13 @@ export interface MarketplaceAgentGateway {
 export interface MarketplaceAgentGatewayOptions {
   deferMs?: number
   onError?(error: unknown): void
+  /** Called after any completed transaction dispatch so the host can push a
+   *  "marketplace changed" notification to open surfaces (D4). */
+  onStateChange?(): void
 }
 
 function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  return errorMessage(error)
 }
 
 function json(response: ServerResponse, status: number, value: unknown): void {
@@ -56,11 +60,11 @@ async function readBody(request: IncomingMessage): Promise<unknown> {
   return JSON.parse(text) as unknown
 }
 
-function isDeferred(command: MarketplaceCommand): command is Extract<
-  MarketplaceCommand,
-  { type: 'apply' | 'undo' }
-> {
-  return command.type === 'apply' || command.type === 'undo'
+function isDeferred(command: MarketplaceCommand): boolean {
+  if (command.type === 'apply' || command.type === 'undo') return true
+  if (command.type === 'execute' || command.type === 'pack') return command.mode === 'direct'
+  if (command.type === 'provide') return true
+  return false
 }
 
 /**
@@ -99,6 +103,7 @@ export async function startMarketplaceAgentGateway(
       const command = parseMarketplaceCommand(record.command)
       if (!isDeferred(command)) {
         const snapshot = await manager.dispatch(command)
+        options.onStateChange?.()
         json(response, 200, { accepted: true, deferred: false, snapshot })
         return
       }
@@ -118,7 +123,10 @@ export async function startMarketplaceAgentGateway(
             if (result.error !== null) options.onError?.(new Error(result.error))
           })
           .catch(options.onError ?? (() => {}))
-          .finally(() => { deferredPending = false })
+          .finally(() => {
+            deferredPending = false
+            options.onStateChange?.()
+          })
       }, options.deferMs ?? DEFAULT_DEFER_MS)
     })().catch(error => {
       if (!response.headersSent) json(response, 400, { error: message(error) })

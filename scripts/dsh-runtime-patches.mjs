@@ -5,7 +5,7 @@ import { DSH_SOURCE_SPEC } from './dsh-source.mjs'
 
 const PATCH_DIRECTORY = 'patches/dsh-runtime/'
 const RUNTIME_PACKAGE_PREFIX = 'node_modules/@deepseek-ai/dsh-client-ui-layout/'
-const PATCH_FILES = Object.freeze([
+export const PATCH_FILES = Object.freeze([
   'patches/dsh-runtime/ui-layout-independent-columns.patch',
 ])
 const FORBIDDEN_PATCH_OPERATIONS = /^(?:new file mode|deleted file mode|rename (?:from|to)|copy (?:from|to)|GIT binary patch|Binary files )/mu
@@ -18,7 +18,7 @@ function resolveInside(root, relativePath, label) {
   return absolute
 }
 
-function validatePatchPath(path) {
+export function validatePatchPath(path) {
   if (
     path === ''
     || isAbsolute(path)
@@ -34,7 +34,7 @@ function validatePatchPath(path) {
   }
 }
 
-function validatePatchSource(source, patchPath) {
+export function validatePatchSource(source, patchPath) {
   if (source === '' || !source.endsWith('\n')) {
     throw new Error(`DSH runtime patch ${patchPath} must end with a newline`)
   }
@@ -89,6 +89,20 @@ function runGitApply(packageRoot, patchPath, check, reverse = false) {
   if (result.status !== 0) {
     throw new Error(`DSH runtime patch ${reverse ? 'verification' : 'application'} failed${result.detail === '' ? '' : `:\n${result.detail}`}`)
   }
+}
+
+/**
+ * Read-only forward/reverse applicability probe for one committed runtime
+ * patch against one staged layout package root (scripts/bump-dsh.mjs's
+ * planner). Runs `git apply --check` in each direction and applies nothing:
+ * `forward.status === 0` means the patch would apply cleanly; otherwise
+ * `reverse.status === 0` means it is already applied. Both failing is a
+ * re-pin conflict.
+ */
+export function checkRuntimePatch(packageRoot, patchPath) {
+  const forward = gitApply(packageRoot, patchPath, true)
+  if (forward.status === 0) return { forward, reverse: null }
+  return { forward, reverse: gitApply(packageRoot, patchPath, true, true) }
 }
 
 /** Apply the committed npm-runtime patches to one freshly staged runtime. */

@@ -63,9 +63,9 @@ diff --git a/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js b/node
 -			}, [actions]);
 +				const raw = sidebarBase.current + dx;
 +				if (raw < 160) { actions.setSidebar(0); onDragEnd(); return; }
-+				const max = Math.min(400, viewport - colsRef.current.details);
++				const max = Math.min(400, window.innerWidth - colsRef.current.details);
 +				actions.setSidebar(Math.min(raw, max));
-+			}, [actions, viewport, onDragEnd]);
++			}, [actions, onDragEnd]);
  			const onDetailsDrag = (0, react.useCallback)((dx) => {
 -				actions.setDetails(detailsBase.current - dx);
 -			}, [actions]);
@@ -108,7 +108,7 @@ diff --git a/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js b/node
  				actions: {
  					setSidebar: (d, px) => {
 -						d.sidebar = clampWidth(px, 264, 420);
-+						d.sidebar = px < 160 ? 0 : clampWidth(px, 200, 480);
++						d.sidebar = px < 160 ? 0 : clampWidth(px, 200, 400);
  					},
  					setDetails: (d, px) => {
 -						d.details = clampWidth(px, 300, 520);

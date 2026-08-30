@@ -1,4 +1,4 @@
-import { callSidebarGlobalApi } from '@dsh-studio/shared/sidebar-api'
+import { callCapabilitiesGlobalApi } from '@dsh-studio/shared/capabilities-api'
 
 export type ProjectIconDetection = {
   repoRoot: string
@@ -9,5 +9,5 @@ export type ProjectIconDetection = {
 
 /** Detect a project icon through the Host's bounded filesystem/Git probe. */
 export function detectProjectIcon(cwd: string, signal?: AbortSignal): Promise<ProjectIconDetection> {
-  return callSidebarGlobalApi<ProjectIconDetection>('project.icon-detect', { cwd }, signal)
+  return callCapabilitiesGlobalApi<ProjectIconDetection>('project.icon-detect', { cwd }, signal)
 }

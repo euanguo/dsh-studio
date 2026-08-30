@@ -7,7 +7,21 @@ export type MarketplaceMessage =
   | 'enabled'
   | 'disabled'
   | 'updates'
+  | 'sort.label'
+  | 'sort.smart'
+  | 'sort.stars'
+  | 'sort.downloads'
+  | 'sort.updated'
+  | 'sort.name'
+  | 'screenshots'
+  | 'stars'
+  | 'downloads'
+  | 'compatibility'
   | 'update-available'
+  | 'compatibility.unknown'
+  | 'compatibility.ok'
+  | 'compatibility.broken'
+  | 'compatibility.unmaintained'
   | 'not-installed'
   | 'managed'
   | 'all'
@@ -17,6 +31,37 @@ export type MarketplaceMessage =
   | 'mechanism.discover'
   | 'mechanism.unsupported'
   | 'details'
+  | 'install-direct'
+  | 'try-preview'
+  | 'enable'
+  | 'disable'
+  | 'uninstall'
+  | 'readme-summary'
+  | 'channel'
+  | 'version'
+  | 'plan-title'
+  | 'fast-path-ready'
+  | 'configuration-required'
+  | 'continue-install'
+  | 'progress.copy'
+  | 'progress.fetch'
+  | 'progress.install'
+  | 'progress.verify'
+  | 'progress.rehoming'
+  | 'progress.swap'
+  | 'progress.restart'
+  | 'progress.collect-input'
+  | 'progress.in-progress'
+  | 'progress.eta'
+  | 'watchlist'
+  | 'watchlist-review'
+  | 'update-all'
+  | 'self-update'
+  | 'update-now'
+  | 'packs'
+  | 'install-pack'
+  | 'select-plugin'
+  | 'select-plugin-description'
   | 'updated'
   | 'unknown'
   | 'repository'
@@ -46,12 +91,12 @@ export type MarketplaceMessage =
   | 'source-review.changed'
   | 'current-commit'
   | 'latest-commit'
-  | 'prepared-plan'
   | 'action.install'
   | 'action.update'
   | 'action.enable'
   | 'action.disable'
   | 'action.uninstall'
+  | 'action.pack'
   | 'package'
   | 'allow-scripts'
   | 'accept-high-risk'
@@ -88,6 +133,26 @@ export type MarketplaceMessage =
   | 'installation-status'
   | 'plugin-category'
   | 'plugin-count'
+  | 'sorted-by'
+  | 'filter'
+  | 'install-from-repository'
+  | 'repository-help'
+  | 'refine-results'
+  | 'clear-filters'
+  | 'plugin-results'
+  | 'more'
+  | 'more-count'
+  | 'updates-help'
+  | 'configuration-help'
+  | 'installed-status'
+  | 'preview-in-progress'
+  | 'overview'
+  | 'review-before-install'
+  | 'restart-required'
+  | 'plan-not-installable'
+  | 'confirm-before-install'
+  | 'back-to-results'
+  | 'more-actions'
   | 'loading-catalog'
   | 'github-auth-required'
   | 'no-match'
@@ -98,17 +163,34 @@ export type MarketplaceMessage =
   | 'notice.preview-ready'
   | 'notice.discarded'
   | 'notice.applied'
+  | 'notice.direct'
+  | 'notice.staged'
+  | 'notice.cancelled'
   | 'notice.restored'
 
 export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
   en: {
     plugins: 'Plugins',
-    subtitle: 'Public DSH catalog · isolated preview before every change',
+    subtitle: 'Public DSH catalog · direct install when safe · preview when you choose',
     installed: 'Installed',
     enabled: 'Enabled',
     disabled: 'Disabled',
     updates: 'Updates',
+    'sort.label': 'Sort',
+    'sort.smart': 'Recommended',
+    'sort.stars': 'Most starred',
+    'sort.downloads': 'Most downloaded',
+    'sort.updated': 'Recently updated',
+    'sort.name': 'Name',
+    screenshots: 'Screenshots',
+    stars: 'Stars',
+    downloads: 'Downloads',
+    compatibility: 'Compatibility',
     'update-available': 'Update available',
+    'compatibility.unknown': 'Compatibility unknown',
+    'compatibility.ok': 'Compatible',
+    'compatibility.broken': 'Incompatible',
+    'compatibility.unmaintained': 'Unmaintained',
     'not-installed': 'Not installed',
     managed: 'Desktop managed',
     all: 'All',
@@ -118,6 +200,37 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'mechanism.discover': 'Auto-detect',
     'mechanism.unsupported': 'Browse only',
     details: '{plugin} details',
+    'install-direct': 'Install',
+    'try-preview': 'Try preview',
+    enable: 'Enable',
+    disable: 'Disable',
+    uninstall: 'Uninstall',
+    'readme-summary': 'README summary',
+    channel: 'Install channel',
+    version: 'Version',
+    'plan-title': '{action} plan',
+    'fast-path-ready': 'Verified fast path',
+    'configuration-required': 'Configuration required',
+    'continue-install': 'Continue installation',
+    'progress.copy': 'Preparing profile',
+    'progress.fetch': 'Fetching artifact',
+    'progress.install': 'Installing package',
+    'progress.verify': 'Verifying installation',
+    'progress.rehoming': 'Preparing live profile',
+    'progress.swap': 'Switching profile',
+    'progress.restart': 'Restarting DSH',
+    'progress.collect-input': 'Waiting for configuration',
+    'progress.in-progress': 'In progress',
+    'progress.eta': '{seconds}s remaining',
+    watchlist: 'Watchlist ({count})',
+    'watchlist-review': 'awaiting review',
+    'update-all': 'Update all',
+    'self-update': 'Marketplace update available: {version}',
+    'update-now': 'Update now',
+    packs: 'Packs',
+    'install-pack': 'Install pack',
+    'select-plugin': 'Select a plugin',
+    'select-plugin-description': 'Choose a plugin to inspect and install.',
     updated: 'Updated',
     unknown: 'Unknown',
     repository: 'Repository',
@@ -147,12 +260,12 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'source-review.changed': 'Changed · explicit approval required',
     'current-commit': 'Installed commit',
     'latest-commit': 'Latest commit',
-    'prepared-plan': 'Prepared {action} plan',
     'action.install': 'install',
     'action.update': 'update',
     'action.enable': 'enable',
     'action.disable': 'disable',
     'action.uninstall': 'uninstall',
+    'action.pack': 'pack',
     package: 'package {package}',
     'allow-scripts': 'Allow these scripts only inside the write-restricted preview.',
     'accept-high-risk': 'I understand that this plugin runs as trusted host code after apply.',
@@ -182,13 +295,33 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'reset-and-reload': 'Reset and reload',
     'direct-source.label': 'Public GitHub repository',
      'direct-source.placeholder': 'owner/repo or https://github.com/owner/repo',
-     'direct-source.submit': 'Preview install',
+     'direct-source.submit': 'Inspect source',
      'search.label': 'Search plugins',
     'search.placeholder': 'Search plugins, skills, and tags…',
     'search.clear': 'Clear plugin search',
     'installation-status': 'Installation status',
     'plugin-category': 'Plugin category',
     'plugin-count': '{count} plugins',
+     'sorted-by': 'Sorted by {sort}',
+     filter: 'Filter',
+     'install-from-repository': 'Install from repository',
+     'repository-help': 'Use a public GitHub repository when it is not in the catalog.',
+     'refine-results': 'Refine results',
+     'clear-filters': 'Clear filters',
+     'plugin-results': 'Plugin results',
+     more: 'More',
+     'more-count': '{count} items',
+     'updates-help': '{count} plugins have a newer version.',
+     'configuration-help': 'These values are used only to finish this operation.',
+     'installed-status': 'Installed',
+     'preview-in-progress': 'Preview is running',
+     overview: 'Overview',
+     'review-before-install': 'Review what will change before installing.',
+     'restart-required': 'Restart required',
+     'plan-not-installable': 'This entry can be inspected but cannot be installed by DSH Studio.',
+     'confirm-before-install': 'Confirm before continuing',
+     'back-to-results': 'Back to results',
+     'more-actions': 'More actions',
     'loading-catalog': 'Loading the plugin catalog…',
     'github-auth-required': 'GitHub authentication required',
     'no-match': 'No plugins match this view.',
@@ -199,16 +332,33 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'notice.preview-ready': 'Isolated {action} preview is ready for {plugin}.',
     'notice.discarded': 'Discarded the {plugin} preview without changing the desktop profile.',
     'notice.applied': 'Applied {plugin}; the previous profile remains available for Undo.',
+    'notice.direct': 'Installed {plugin}; restart DSH Studio to activate it. The previous profile remains available for Undo.',
+    'notice.staged': 'Staged {plugin}; choose preview or apply to continue.',
+    'notice.cancelled': 'Cancelled {plugin} without changing the live profile.',
     'notice.restored': 'Restored the profile from before {plugin} was applied.',
   },
   zh: {
     plugins: '插件',
-    subtitle: '公开 DSH 目录 · 每次变更前均进行隔离预览',
+    subtitle: '公开 DSH 目录 · 安全时直接安装 · 需要时再试装预览',
     installed: '已安装',
     enabled: '已启用',
     disabled: '已停用',
     updates: '可更新',
+    'sort.label': '排序',
+    'sort.smart': '推荐',
+    'sort.stars': '星数最多',
+    'sort.downloads': '下载最多',
+    'sort.updated': '最近更新',
+    'sort.name': '名称',
+    screenshots: '截图',
+    stars: '星数',
+    downloads: '下载量',
+    compatibility: '兼容性',
     'update-available': '有可用更新',
+    'compatibility.unknown': '兼容性未知',
+    'compatibility.ok': '兼容',
+    'compatibility.broken': '不兼容',
+    'compatibility.unmaintained': '已停止维护',
     'not-installed': '未安装',
     managed: '由桌面端管理',
     all: '全部',
@@ -218,6 +368,37 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'mechanism.discover': '自动检测',
     'mechanism.unsupported': '仅浏览',
     details: '{plugin} 详情',
+    'install-direct': '安装',
+    'try-preview': '先试装',
+    enable: '启用',
+    disable: '停用',
+    uninstall: '卸载',
+    'readme-summary': 'README 摘要',
+    channel: '安装来源',
+    version: '版本',
+    'plan-title': '{action}方案',
+    'fast-path-ready': '已验证，可直接安装',
+    'configuration-required': '需要配置',
+    'continue-install': '继续安装',
+    'progress.copy': '准备 Profile',
+    'progress.fetch': '下载插件',
+    'progress.install': '安装软件包',
+    'progress.verify': '校验安装结果',
+    'progress.rehoming': '准备正式 Profile',
+    'progress.swap': '切换 Profile',
+    'progress.restart': '重启 DSH',
+    'progress.collect-input': '等待配置',
+    'progress.in-progress': '处理中',
+    'progress.eta': '还需 {seconds} 秒',
+    watchlist: '观察区（{count}）',
+    'watchlist-review': '等待审核',
+    'update-all': '全部更新',
+    'self-update': '插件市场有新版本：{version}',
+    'update-now': '立即更新',
+    packs: '整合包',
+    'install-pack': '安装整合包',
+    'select-plugin': '选择一个插件',
+    'select-plugin-description': '从左侧选择插件查看详情并安装。',
     updated: '更新时间',
     unknown: '未知',
     repository: '仓库',
@@ -247,12 +428,12 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'source-review.changed': '来源有变化 · 需要明确确认',
     'current-commit': '已安装提交',
     'latest-commit': '最新提交',
-    'prepared-plan': '已准备{action}方案',
-    'action.install': '安装',
+        'action.install': '安装',
     'action.update': '更新',
     'action.enable': '启用',
     'action.disable': '停用',
     'action.uninstall': '卸载',
+    'action.pack': '整合包',
     package: '软件包 {package}',
     'allow-scripts': '仅允许在写入受限的预览环境中运行这些脚本。',
     'accept-high-risk': '我了解应用后该插件会作为受信任主机代码运行。',
@@ -282,13 +463,33 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'reset-and-reload': '重置并重新加载',
     'direct-source.label': '公开 GitHub 仓库',
      'direct-source.placeholder': 'owner/repo 或 https://github.com/owner/repo',
-     'direct-source.submit': '预览安装',
+     'direct-source.submit': '检查来源',
      'search.label': '搜索插件',
     'search.placeholder': '搜索插件、技能和标签…',
     'search.clear': '清空插件搜索',
     'installation-status': '安装状态',
     'plugin-category': '插件分类',
     'plugin-count': '{count} 个插件',
+     'sorted-by': '排序：{sort}',
+     filter: '筛选',
+     'install-from-repository': '从仓库安装',
+     'repository-help': '目录里没有时，可使用公开 GitHub 仓库。',
+     'refine-results': '细化结果',
+     'clear-filters': '清除筛选',
+     'plugin-results': '插件结果',
+     more: '更多',
+     'more-count': '{count} 项',
+     'updates-help': '有 {count} 个插件可以更新。',
+     'configuration-help': '这些值只用于完成这次操作。',
+     'installed-status': '已安装',
+     'preview-in-progress': '预览运行中',
+     overview: '概览',
+     'review-before-install': '安装前先确认会发生什么变化。',
+     'restart-required': '需要重启',
+     'plan-not-installable': '该条目可以查看，但 DSH Studio 无法安装它。',
+     'confirm-before-install': '继续前请确认',
+     'back-to-results': '返回结果',
+     'more-actions': '更多操作',
     'loading-catalog': '正在加载组织插件目录…',
     'github-auth-required': '需要 GitHub 身份验证',
     'no-match': '当前视图中没有匹配的插件。',
@@ -299,6 +500,9 @@ export const MARKETPLACE_MESSAGES: LocaleMessages<MarketplaceMessage> = {
     'notice.preview-ready': '{plugin} 的隔离{action}预览已就绪。',
     'notice.discarded': '已放弃 {plugin} 的预览，桌面端配置未发生更改。',
     'notice.applied': '已应用 {plugin}；之前的配置仍可撤销恢复。',
+    'notice.direct': '已安装 {plugin}；重启 DSH Studio 后生效。之前的配置仍可撤销恢复。',
+    'notice.staged': '已暂存 {plugin}；可以继续试装预览或直接应用。',
+    'notice.cancelled': '已取消 {plugin}，正式 Profile 未发生变化。',
     'notice.restored': '已恢复应用 {plugin} 之前的配置。',
   },
 }

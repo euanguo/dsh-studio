@@ -3,27 +3,40 @@
  * `plugins/<dir>/src/client/` into one scoped stylesheet + per-file class
  * maps (`styles.ts`), consumed by the plugin's client bundle.
  *
- * Scoping mirrors the official CSS Modules build: class names are RENAMED per
- * file (`<class>` → `ohlr-<kebab-file-stem>-<class>`), so same-named classes
- * in different files never collide (official: per-file hashes) and no scope
- * attribute is needed — portaled menus/dialogs keep their styles.
- * - Comments are stripped before processing (comment text must never be
- *   treated as selectors); `@media` blocks recurse; `@keyframes` are copied
- *   verbatim (their names are document-global).
- * - `:global(...)` segments are left untouched.
+ * Scoping and modern-syntax expansion are delegated to `lightningcss`
+ * (the Rust CSS engine from the esbuild project) with its CSS Modules mode:
+ * - class names are RENAMED per file (`<class>` → `ohlr-<hash>-<class>`), so
+ *   same-named classes in different files never collide (official per-file
+ *   hashing) and no scope attribute is needed — portaled menus/dialogs keep
+ *   their styles;
+ * - nesting (`&`, nested rules), `@media` blocks, `@keyframes` (renamed
+ *   consistently with their references) and `:global(...)` segments are all
+ *   handled by the engine — the previous hand-rolled regex scoper could not
+ *   process nested rules and silently left outer selectors unscoped.
+ *   Nesting is PRESERVED as native CSS in the output (Chromium 104+ /
+ *   Safari 16.5+ / Firefox 117+ all support it; the Electron and web
+ *   surfaces target those), with every class scoped per file; module
+ *   authors can write nesting freely and the engine keeps it valid;
+ * - custom properties, `corner-shape` and other modern syntax pass through.
  *
- * CLI: node scripts/plugin-styles.mjs <plugin-dir>
+ * CLI: node scripts/plugin-styles.mjs <plugin-dir> [--check]
  * e.g.  node scripts/plugin-styles.mjs desktop-left-rail
+ *       node scripts/plugin-styles.mjs desktop-left-rail --check
  *
  * Output: plugins/<dir>/src/client/styles.ts (committed) exporting one class
  * map per CSS file (`<FileStem>Css`) plus the merged `pluginCss` string.
+ * `--check` regenerates in memory and fails when the committed file drifted
+ * (wired into scripts/build.mjs as a drift gate).
  */
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { transform } from 'lightningcss'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const PREFIX = 'ohlr'
+/** Content-hash scoping (official CSS Modules style, collision-proof). */
+const PATTERN = `${PREFIX}-[hash]-[local]`
 
 /** Recursively find `*.module.css` under a directory. */
 function findModuleCss(dir) {
@@ -36,123 +49,122 @@ function findModuleCss(dir) {
   return out
 }
 
-/** Drop CSS comments: comment text must never be treated as selectors. */
-function stripComments(source) {
-  return source.replace(/\/\*[\s\S]*?\*\//g, '')
-}
-
-/** `WorkspaceBrowser.module.css` → `workspace-browser` */
-function kebabStem(file) {
-  return file
-    .replace(/\.module\.css$/, '')
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .toLowerCase()
-}
-
-/** `WorkspaceBrowser.module.css` → `WorkspaceBrowserCss` */
+/** `WorkspaceBrowser.module.css` → `WorkspaceBrowserCss`, `side-tools.module.css` → `SideToolsCss` */
 function exportName(file) {
   const stem = file.replace(/\.module\.css$/, '')
-  return `${stem}Css`
+  const pascal = stem.replace(/(^|-)([a-z])/g, (_, _sep, ch) => ch.toUpperCase())
+  return `${pascal}Css`
 }
 
-/** Class names declared in one stylesheet (selector positions only). */
-function collectClassNames(source) {
-  const names = new Set()
-  const re = /\.([_a-zA-Z][_a-zA-Z0-9-]*)/g
-  for (const match of source.matchAll(re)) names.add(match[1])
-  return names
+/** Explicit stylesheet join order per plugin (cascade-sensitive global rules
+ *  must keep their historical order). Files not listed keep alphabetical
+ *  order. */
+const PLUGIN_CSS_ORDER = {
+  sidebar: [
+    'sidebar.module.css',
+    'side-tools.module.css',
+    'source-control/source-control.module.css',
+    'surfaces/center-surface.module.css',
+    'diff/diff-viewer.module.css',
+  ],
 }
 
-/** Rename one rule's selectors: every class token in this file's class set
- *  gets the per-file prefix; :global(...) segments are left untouched. */
-function renameSelectors(selectors, classNames, prefix) {
-  return selectors
-    .split(',')
-    .map(segment => {
-      const trimmed = segment.trim()
-      if (trimmed.startsWith(':global(')) return segment
-      return trimmed.replace(/\.([_a-zA-Z][_a-zA-Z0-9-]*)/g, (_, name) =>
-        classNames.has(name) ? `.${prefix}-${name}` : `.${name}`)
+/** Per-plugin aggregate class map, so components import one stable name
+ *  (e.g. `SidebarSurfaceCss`) regardless of how many module files the
+ *  plugin is split into. */
+const PLUGIN_AGGREGATE = {
+  sidebar: 'SidebarSurfaceCss',
+}
+
+/** Transform one module stylesheet into `{ css, mapEntries }`. */
+function transformModuleCss(clientDir, rel) {
+  const source = readFileSync(join(clientDir, rel), 'utf8')
+  const result = transform({
+    filename: rel,
+    code: Buffer.from(source),
+    cssModules: { pattern: PATTERN },
+    minify: false,
+  })
+  const css = result.code.toString('utf8')
+  // Class-only map: CSS Modules also exports dashed idents (keyframe and
+  // custom-property names), which must not appear in the class map. Keep a
+  // local name only when it is an ACTUAL `.class` occurrence in the source
+  // (dashed class names like `dsh-studio-row` stay, keyframe names drop).
+  const classNames = new Set()
+  for (const line of source.split('\n')) {
+    const stripped = line.replace(/\/\*[\s\S]*?\*\//g, '')
+    for (const match of stripped.matchAll(/\.([_a-zA-Z][_a-zA-Z0-9-]*)/g)) classNames.add(match[1])
+  }
+  const entries = Object.entries(result.exports)
+    .filter(([, value]) => typeof value?.name === 'string')
+    .filter(([local]) => classNames.has(local))
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([local, value]) => {
+      const key = /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(local) ? local : JSON.stringify(local)
+      return `  ${key}: '${value.name}',`
     })
-    .join(',')
+  return { css, entries }
 }
 
 /**
- * Scope one stylesheet: ordinary rules get renamed selectors; @media blocks
- * recurse; @keyframes are copied verbatim (their names are document-global
- * and the inner selectors are animation frames, not element selectors).
+ * Generate `styles.ts` for one plugin; returns the written file path.
+ * Pass `{ check: true }` to validate the committed file instead of writing.
  */
-function scopeDocument(source, classNames, prefix) {
-  let out = ''
-  let i = 0
-  while (i < source.length) {
-    if (source[i] === '@') {
-      const open = source.indexOf('{', i)
-      if (open === -1) { out += source.slice(i); break }
-      let depth = 0
-      let j = open
-      for (; j < source.length; j += 1) {
-        if (source[j] === '{') depth += 1
-        else if (source[j] === '}') {
-          depth -= 1
-          if (depth === 0) break
-        }
-      }
-      const header = source.slice(i, open)
-      const body = source.slice(open + 1, j)
-      if (/^@keyframes|^@-webkit-keyframes/.test(header)) {
-        out += `${header}{${body}}\n`
-      } else {
-        out += `${header}{\n${scopeDocument(body, classNames, prefix)}\n}\n`
-      }
-      i = j + 1
-    } else {
-      const next = source.indexOf('@', i)
-      const chunk = next === -1 ? source.slice(i) : source.slice(i, next)
-      out += chunk.replace(
-        /([^{}]+)\{([^{}]*)\}/g,
-        (_, selectors, body) => `${renameSelectors(selectors, classNames, prefix)} {\n${body}\n}`,
-      )
-      i = next === -1 ? source.length : next
-    }
-  }
-  return out
-}
-
-/** Generate `styles.ts` for one plugin; returns the written file path. */
-export function generatePluginStyles(pluginDir) {
+export function generatePluginStyles(pluginDir, { check = false } = {}) {
   const clientDir = join(root, 'plugins', pluginDir, 'src', 'client')
-  const files = findModuleCss(clientDir).sort()
+  let files = findModuleCss(clientDir)
+  const ordered = PLUGIN_CSS_ORDER[pluginDir]
+  if (ordered !== undefined) {
+    files = ordered.map(rel => join(clientDir, rel))
+    const missing = files.find(path => !existsSync(path))
+    if (missing !== undefined) {
+      throw new Error(`plugin-styles ${pluginDir}: ordered file missing: ${missing}`)
+    }
+  } else {
+    files.sort()
+  }
   if (files.length === 0) throw new Error(`plugin-styles: no *.module.css under ${clientDir}`)
 
   let cssText = ''
   const exports = []
   for (const file of files) {
     const rel = relative(clientDir, file)
-    const stem = kebabStem(rel.split('/').pop())
-    const prefix = `${PREFIX}-${stem}`
-    const source = stripComments(readFileSync(file, 'utf8'))
-    const classNames = collectClassNames(source)
-    cssText += `/* ${rel} */\n${scopeDocument(source, classNames, prefix)}\n`
-    const entries = [...classNames].sort()
-      .map(name => `  ${name}: '${prefix}-${name}'`)
-      .join(',\n')
-    exports.push(`export const ${exportName(rel.split('/').pop())}: Record<string, string> = {
-${entries},
-}`)
+    const { css, entries } = transformModuleCss(clientDir, rel)
+    cssText += `/* ${rel} */\n${css}\n`
+    exports.push(`export const ${exportName(rel.split('/').pop())} = {
+${entries.join('\n')}
+} as const`)
   }
+
+  const aggregate = PLUGIN_AGGREGATE[pluginDir]
+  const aggregateExport = aggregate === undefined
+    ? ''
+    : `export const ${aggregate} = {\n${files
+      .map(file => `  ...${exportName(relative(clientDir, file).split('/').pop())},`)
+      .join('\n')}\n} as const\n`
 
   const output = `/**
  * Generated by scripts/plugin-styles.mjs — do not edit by hand.
  * Per-file renamed class maps + merged scoped stylesheet for the forked
- * official CSS (class names carry the per-file prefix, mirroring the
- * official per-file hashing so same-named classes never collide).
+ * official CSS (lightningcss CSS Modules: per-file content-hash scoping so
+ * same-named classes never collide; nesting flattened by the engine).
  */
 ${exports.join('\n')}
-
+${aggregateExport}
 export const pluginCss = ${JSON.stringify(cssText)}
 `
   const outPath = join(clientDir, 'styles.ts')
+  if (check) {
+    const committed = readFileSync(outPath, 'utf8')
+    if (committed !== output) {
+      throw new Error(
+        `plugin-styles ${pluginDir}: styles.ts drifted from the module CSS sources.\n`
+        + `Run \`node scripts/plugin-styles.mjs ${pluginDir}\` and commit the regeneration.`,
+      )
+    }
+    console.log(`plugin-styles ${pluginDir}: up to date (${files.length} files, ${cssText.length} bytes css)`)
+    return outPath
+  }
   writeFileSync(outPath, output)
   console.log(`plugin-styles ${pluginDir}: ${files.length} files, ${cssText.length} bytes css`)
   return outPath
@@ -160,10 +172,15 @@ export const pluginCss = ${JSON.stringify(cssText)}
 
 // CLI mode.
 if (process.argv[1] !== undefined && fileURLToPath(import.meta.url) === process.argv[1]) {
-  const [pluginDir] = process.argv.slice(2)
+  const [pluginDir, flag] = process.argv.slice(2)
   if (pluginDir === undefined) {
-    console.error('usage: node scripts/plugin-styles.mjs <plugin-dir>')
+    console.error('usage: node scripts/plugin-styles.mjs <plugin-dir> [--check]')
     process.exit(2)
   }
-  generatePluginStyles(pluginDir)
+  try {
+    generatePluginStyles(pluginDir, { check: flag === '--check' })
+  } catch (error) {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exit(1)
+  }
 }

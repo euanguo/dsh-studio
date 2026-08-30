@@ -7,13 +7,18 @@
  * and external consumer plugins). This module implements it.
  *
  * Design notes:
- * - The registry is synchronous-snapshot (Map + listener set) so React can
- *   read it through `useSyncExternalStore` without tearing.
+ * - One sidebar descriptor table (`Map<kind, SidebarSurfaceDescriptor>`): the
+ *   former tab / viewer / surface-renderer registrations are aspects of a
+ *   single descriptor, registered through `register()` alone. Each accepted
+ *   registration projects its routing metadata into the injected kernel
+ *   `workbench.registry`; no caller maintains a second routing list.
+ * - The sidebar view is a synchronous snapshot (Map + listener set) so React
+ *   can read it through `useSyncExternalStore` without tearing.
  * - `dedupeKey` unifies the open-tab strategies: single-instance
- *   (`single: true` ≡ `() => id`), per-resource (`tab => tab.resource`) and
+ *   (`single: true` ≡ `() => kind`), per-resource (`tab => tab.resource`) and
  *   per-id. `createTab` lets a descriptor own tab instantiation and state
  *   patching.
- * - `matchViewer` walks descriptors in priority order (desc, stable): per
+ * - `matchViewer` walks viewer specs in priority order (desc, stable): per
  *   descriptor it tries `detect` first (when `head` bytes are given), then
  *   `exts`; `exts: []` is a catch-all.
  * - Lifecycle callbacks (onOpen/onActivate/onClose) fire from the SERVICE
@@ -23,8 +28,16 @@
  */
 import type { ReactNode } from 'react'
 import { basename } from '@dsh-studio/shared/path'
-import type { CenterSurface, CenterSurfaceKind } from './surfaces/types.ts'
+import type { CenterSurface } from './surfaces/types.ts'
+import type {
+  PreviewTabsMode,
+  SurfaceDescriptor,
+  SurfaceRegistry,
+} from '@dsh-studio/shared/workbench-contracts'
+import type { LayoutScopeMode } from '../sidebar-preferences.ts'
+import { GLOBAL_SCOPE_BUCKET } from '@dsh-studio/shared/workbench-contracts'
 import {
+  clampPersistedWidth,
   clampSidebarWidth,
   DEFAULT_SIDEBAR_PREFERENCES,
   SIDEBAR_MAX_TABS,
@@ -34,38 +47,40 @@ import {
   type PersistedWorkspaceLayout,
 } from '../sidebar-preferences.ts'
 import type { SidebarPreferencesStorage } from './sidebar-storage.ts'
+import { persistVia, type PersistViaHandle } from '@dsh-studio/shared/store-persistence'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import {
   SIDEBAR_FEATURES,
   SIDEBAR_SERVICE_VERSION,
   tabAvailability,
   type DesktopSidebarService as DesktopSidebarServiceContract,
   type OpenTabResult,
-  type SidebarScope,
+  type CapabilitiesScope,
   type SidebarSnapshot,
+  type SidebarSurfaceDescriptor,
   type SidebarTab,
-  type SidebarTabDescriptor,
   type SidebarTabSeed,
-  type SidebarViewerDescriptor,
 } from './contract.ts'
 import { reorderById } from './tab-drag.ts'
 
 export type {
   OpenTabResult,
   SidebarFeature,
+  SidebarCenterSpec,
   SidebarFileFetchStrategy,
+  SidebarRailSpec,
   SidebarRenderProps,
-  SidebarScope,
+  CapabilitiesScope,
   SidebarSettingToggle,
   SidebarSettingToggleType,
   SidebarSettingsDeclaration,
   SidebarSettingsRenderProps,
   SidebarSnapshot,
-  SidebarSurfaceRenderer,
+  SidebarSurfaceDescriptor,
   SidebarTab,
-  SidebarTabDescriptor,
   SidebarTabSeed,
-  SidebarViewerDescriptor,
   SidebarViewerRenderInput,
+  SidebarViewerSpec,
 } from './contract.ts'
 
 export { SIDEBAR_FEATURES, SIDEBAR_SERVICE_VERSION } from './contract.ts'
@@ -86,14 +101,61 @@ function extensionOf(path: string): string {
   return dot > separator ? path.slice(dot + 1).toLowerCase() : ''
 }
 
-function titleOf(descriptor: SidebarTabDescriptor): string {
-  return typeof descriptor.title === 'function'
-    ? descriptor.title()
-    : descriptor.title
+function titleOf(descriptor: SidebarSurfaceDescriptor): string {
+  const title = descriptor.rail?.title
+  if (title === undefined) return descriptor.kind
+  return typeof title === 'function' ? title() : title
+}
+
+/**
+ * Project the React-bearing sidebar descriptor into the React-free kernel
+ * vocabulary. The sidebar keeps the presentation payload; the workbench
+ * registry owns the routing facts used by every open request.
+ */
+function toKernelDescriptor(
+  descriptor: SidebarSurfaceDescriptor,
+  kind: string,
+): SurfaceDescriptor {
+  const rail = descriptor.rail === undefined
+    ? undefined
+    : {
+      ...(descriptor.rail.order === undefined ? {} : { order: descriptor.rail.order }),
+      ...(descriptor.rail.single === undefined ? {} : { single: descriptor.rail.single }),
+      ...(descriptor.rail.single === true ? { dedupeKey: kind } : {}),
+    }
+  const center = descriptor.center === undefined
+    ? undefined
+    : {
+      ...(descriptor.center.dedupeKey === undefined
+        ? {}
+        : { dedupeKey: descriptor.center.dedupeKey }),
+    }
+  const viewer = descriptor.viewer === undefined
+    ? undefined
+    : {
+      exts: descriptor.viewer.exts,
+      ...(descriptor.viewer.priority === undefined
+        ? {}
+        : { priority: descriptor.viewer.priority }),
+    }
+  return {
+    kind,
+    ...(rail === undefined ? {} : { rail }),
+    ...(center === undefined ? {} : { center }),
+    ...(viewer === undefined ? {} : { viewer }),
+    scopeNeed: descriptor.scopeNeed,
+    previewable: descriptor.previewable,
+    focusPolicy: descriptor.focusPolicy,
+  }
 }
 
 function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  return errorMessage(error)
+}
+
+/** Window width for the live rail cap; absent in pure / node contexts. */
+function currentViewportWidth(): number | undefined {
+  return typeof window === 'undefined' ? undefined : window.innerWidth
 }
 
 /** Clamp a reorder destination into `0..limit-1` (limit 0 → 0). */
@@ -115,8 +177,6 @@ function freshPreferences(): DesktopSidebarPreferences {
   return {
     ...DEFAULT_SIDEBAR_PREFERENCES,
     workspaces: {},
-    tabsEnabled: {},
-    viewersEnabled: {},
     pluginSettings: {},
   }
 }
@@ -126,18 +186,13 @@ function clonePreferences(
 ): DesktopSidebarPreferences {
   return {
     ...preferences,
-    defaultWidth: clampSidebarWidth(preferences.defaultWidth),
+    // Document-bound defense only: the LIVE viewport cap is applied when a
+    // width is read out (layoutWidth), never at persist time — otherwise a
+    // width saved on a larger display would silently shrink here.
+    defaultWidth: clampPersistedWidth(preferences.defaultWidth),
     workspaces: Object.fromEntries(Object.entries(preferences.workspaces).map(
-      ([cwd, workspace]) => [cwd, {
-        ...workspace,
-        tabs: workspace.tabs.map(tab => ({ ...tab })),
-        ...(workspace.bottomTabs === undefined
-          ? {}
-          : { bottomTabs: workspace.bottomTabs.map(tab => ({ ...tab })) }),
-      }],
+      ([cwd, workspace]) => [cwd, cloneWorkspace(workspace)],
     )),
-    tabsEnabled: { ...preferences.tabsEnabled },
-    viewersEnabled: { ...preferences.viewersEnabled },
     pluginSettings: Object.fromEntries(
       Object.entries(preferences.pluginSettings).map(
         ([id, blob]) => [id, { ...blob }],
@@ -146,19 +201,43 @@ function clonePreferences(
   }
 }
 
+/** Shallow-per-tab clone of a single workspace layout. */
+function cloneWorkspace(workspace: PersistedWorkspaceLayout): PersistedWorkspaceLayout {
+  return {
+    ...workspace,
+    tabs: workspace.tabs.map(tab => ({ ...tab })),
+    ...(workspace.bottomTabs === undefined
+      ? {}
+      : { bottomTabs: workspace.bottomTabs.map(tab => ({ ...tab })) }),
+  }
+}
+
 export class DesktopSidebarService implements DesktopSidebarServiceContract {
   private readonly listeners = new Set<() => void>()
-  private readonly tabDescriptors = new Map<string, SidebarTabDescriptor>()
-  private readonly viewerDescriptors = new Map<string, SidebarViewerDescriptor>()
-  private readonly surfaceRenderers = new Map<CenterSurfaceKind, (surface: CenterSurface) => ReactNode>()
+  /** The sidebar presentation table; registration projects into the kernel table. */
+  private readonly surfaces = new Map<string, SidebarSurfaceDescriptor>()
+  private readonly kernelRegistry: SurfaceRegistry
+  private readonly kernelDisposers = new Map<string, () => void>()
   private preferences = freshPreferences()
-  private dirty = false
   private disposed = false
-  private flushing: Promise<void> | undefined
   private instance = 0
   private readonly storage: SidebarPreferencesStorage
+  /** Template-C persistence pump: hydrate is driven by `start()`; the facade
+   *  owns the single-flight flush and the teardown drain. */
+  private readonly persist: PersistViaHandle
+  /** Serializes saves so `settle()` can drain before host teardown. */
+  private writeQueue: Promise<void> = Promise.resolve()
+  private readonly onFeatureEnablementChange: ((next: {
+    tabsEnabled: Record<string, boolean>
+    viewersEnabled: Record<string, boolean>
+  }) => void) | undefined
+  private tabsEnabled: Record<string, boolean> = {}
+  private viewersEnabled: Record<string, boolean> = {}
   private snapshot: SidebarSnapshot = {
     activeId: null,
+    // BOTTOM workbench snapshot fields are published dormant contract — the
+    // workbench is not mounted pending a product decision, so they stay
+    // null/empty until a dock UI re-wires the bottom methods below.
     bottomActiveId: null,
     bottomTabs: [],
     error: null,
@@ -173,14 +252,48 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     tabsEnabled: {},
     viewersEnabled: {},
     pluginSettings: {},
+    centerPreviewTabs: DEFAULT_SIDEBAR_PREFERENCES.centerPreviewTabs,
+    layoutScope: DEFAULT_SIDEBAR_PREFERENCES.layoutScope,
     width: DEFAULT_SIDEBAR_PREFERENCES.defaultWidth,
   }
 
   readonly version = SIDEBAR_SERVICE_VERSION
   readonly features = SIDEBAR_FEATURES
 
-  constructor(storage: SidebarPreferencesStorage) {
+  constructor(
+    storage: SidebarPreferencesStorage,
+    onFeatureEnablementChange: ((next: {
+      tabsEnabled: Record<string, boolean>
+      viewersEnabled: Record<string, boolean>
+    }) => void) | undefined,
+    kernelRegistry: SurfaceRegistry,
+  ) {
     this.storage = storage
+    this.onFeatureEnablementChange = onFeatureEnablementChange
+    this.kernelRegistry = kernelRegistry
+    this.persist = persistVia<DesktopSidebarPreferences>(
+      {
+        // Pull-driven: schedulePersist() fires at the same mutators that used
+        // to call the hand-written flush pump.
+        subscribe: () => () => {},
+        snapshot: () => clonePreferences(this.preferences),
+        apply: () => {}, // hydration is owned by `start()` (awaited load)
+      },
+      {
+        // `DomainSidebarPreferencesStorage.save` flushes the ui-chrome table
+        // internally; a write queue still gives `settle()` a drain handle so
+        // teardown never returns before the last write lands.
+        backend: {
+          load: () => storage.load(),
+          save: value => {
+            this.writeQueue = this.writeQueue.then(() => storage.save(value))
+          },
+          flush: () => this.writeQueue.catch(() => {}),
+        },
+        merge: (stored, current) => current,
+        hydrate: false,
+      },
+    )
   }
 
   getSnapshot = (): SidebarSnapshot => this.snapshot
@@ -193,7 +306,15 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   async start(): Promise<void> {
     const requestedCwd = this.snapshot.cwd
     try {
-      this.preferences = clonePreferences(await this.storage.load())
+      let storedPreferences = await this.storage.load()
+      // A transport hiccup resolves to defaults; retry briefly before
+      // adopting them, so a short outage cannot later persist defaults over
+      // the intact host record.
+      for (let attempt = 0; attempt < 5 && this.storage.availability?.() === 'unavailable'; attempt += 1) {
+        await new Promise(resolve => setTimeout(resolve, 600 * (attempt + 1)))
+        storedPreferences = await this.storage.load()
+      }
+      this.preferences = clonePreferences(storedPreferences)
       this.publish({
         ...this.workspaceSnapshot(requestedCwd),
         error: null,
@@ -206,10 +327,12 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
         scope: requestedCwd === null
           ? null
           : { cwd: requestedCwd },
-        tabsEnabled: { ...this.preferences.tabsEnabled },
-        viewersEnabled: { ...this.preferences.viewersEnabled },
+        tabsEnabled: { ...this.tabsEnabled },
+        viewersEnabled: { ...this.viewersEnabled },
         pluginSettings: this.pluginSettingsSnapshot(),
-        width: this.preferences.defaultWidth,
+        centerPreviewTabs: this.preferences.centerPreviewTabs,
+        layoutScope: this.preferences.layoutScope,
+        width: this.layoutWidth(requestedCwd),
       })
     } catch (error) {
       this.publish({
@@ -223,117 +346,125 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
 
   dispose(): void {
     this.disposed = true
+    for (const dispose of this.kernelDisposers.values()) dispose()
+    this.kernelDisposers.clear()
+    this.surfaces.clear()
     this.listeners.clear()
   }
 
-  registerTab(descriptor: SidebarTabDescriptor): () => void {
-    if (this.tabDescriptors.has(descriptor.id)) {
-      throw new Error(`sidebar: duplicate tab "${descriptor.id}"`)
+  register(descriptor: SidebarSurfaceDescriptor): () => void {
+    const kind = typeof descriptor.kind === 'string' ? descriptor.kind.trim() : ''
+    if (kind === '') {
+      throw new Error('sidebar: surface descriptor requires a non-empty kind')
     }
-    this.tabDescriptors.set(descriptor.id, descriptor)
+    if (descriptor.rail === undefined
+      && descriptor.center === undefined
+      && descriptor.viewer === undefined) {
+      throw new Error(`surface ${kind} must declare a rail, center or viewer spec`)
+    }
+    // Kernel parity: only center-class surfaces can be replaceable previews.
+    if (descriptor.previewable && descriptor.center === undefined) {
+      throw new Error(`surface ${kind} is previewable but declares no center spec`)
+    }
+    if (this.surfaces.has(kind)) {
+      throw new Error(`sidebar: duplicate surface "${kind}"`)
+    }
+    const disposeKernel = this.kernelRegistry.register(toKernelDescriptor(descriptor, kind))
+    this.surfaces.set(kind, descriptor)
+    this.kernelDisposers.set(kind, disposeKernel)
     this.touch()
     return () => {
-      if (this.tabDescriptors.get(descriptor.id) === descriptor) {
-        this.tabDescriptors.delete(descriptor.id)
-        this.touch()
-      }
-    }
-  }
-
-  registerViewer(descriptor: SidebarViewerDescriptor): () => void {
-    if (this.viewerDescriptors.has(descriptor.id)) {
-      throw new Error(`sidebar: duplicate viewer "${descriptor.id}"`)
-    }
-    this.viewerDescriptors.set(descriptor.id, descriptor)
-    this.touch()
-    return () => {
-      if (this.viewerDescriptors.get(descriptor.id) === descriptor) {
-        this.viewerDescriptors.delete(descriptor.id)
-        this.touch()
-      }
-    }
-  }
-
-  registerSurfaceRenderer(
-    kind: CenterSurfaceKind,
-    renderer: (surface: CenterSurface) => ReactNode,
-  ): () => void {
-    if (this.surfaceRenderers.has(kind)) {
-      throw new Error(`sidebar: duplicate surface renderer "${kind}"`)
-    }
-    this.surfaceRenderers.set(kind, renderer)
-    this.touch()
-    return () => {
-      if (this.surfaceRenderers.get(kind) === renderer) {
-        this.surfaceRenderers.delete(kind)
+      if (this.surfaces.get(kind) === descriptor) {
+        this.surfaces.delete(kind)
+        this.kernelDisposers.get(kind)?.()
+        this.kernelDisposers.delete(kind)
         this.touch()
       }
     }
   }
 
   renderSurface(surface: CenterSurface): ReactNode {
-    const renderer = this.surfaceRenderers.get(surface.kind)
+    const renderer = this.surfaces.get(surface.kind)?.center?.render
     return renderer === undefined ? null : renderer(surface)
   }
 
-  getTabs(): readonly SidebarTabDescriptor[] {
-    return [...this.tabDescriptors.values()].sort(
-      (left, right) => (left.order ?? 100) - (right.order ?? 100),
-    )
+  getTabs(): readonly SidebarSurfaceDescriptor[] {
+    return [...this.surfaces.values()]
+      .filter(descriptor => descriptor.rail !== undefined)
+      .sort(
+        (left, right) => (left.rail!.order ?? 100) - (right.rail!.order ?? 100),
+      )
   }
 
-  getViewers(): readonly SidebarViewerDescriptor[] {
-    return [...this.viewerDescriptors.values()].sort(
-      (left, right) => (right.priority ?? 0) - (left.priority ?? 0),
-    )
+  getViewers(): readonly SidebarSurfaceDescriptor[] {
+    return [...this.surfaces.values()]
+      .filter(descriptor => descriptor.viewer !== undefined)
+      .sort(
+        (left, right) => (right.viewer!.priority ?? 0) - (left.viewer!.priority ?? 0),
+      )
   }
 
-  getTab(id: string): SidebarTabDescriptor | undefined {
-    return this.tabDescriptors.get(id)
+  getTab(id: string): SidebarSurfaceDescriptor | undefined {
+    return this.surfaces.get(id)
   }
 
   isTabEnabled(id: string): boolean {
-    return this.preferences.tabsEnabled[id] !== false
+    return this.tabsEnabled[id] !== false
   }
 
   isViewerEnabled(id: string): boolean {
-    return this.preferences.viewersEnabled[id] !== false
+    return this.viewersEnabled[id] !== false
+  }
+
+  setFeatureEnablement(
+    tabsEnabled: Readonly<Record<string, boolean>>,
+    viewersEnabled: Readonly<Record<string, boolean>>,
+  ): void {
+    this.tabsEnabled = { ...tabsEnabled }
+    this.viewersEnabled = { ...viewersEnabled }
+    this.publish({
+      ...this.snapshot,
+      revision: this.snapshot.revision + 1,
+      tabsEnabled: { ...this.tabsEnabled },
+      viewersEnabled: { ...this.viewersEnabled },
+    })
   }
 
   matchViewer(
     path: string,
     head?: Uint8Array,
-  ): SidebarViewerDescriptor | undefined {
+  ): SidebarSurfaceDescriptor | undefined {
     const extension = extensionOf(path)
-    for (const viewer of this.getViewers()) {
-      if (!this.isViewerEnabled(viewer.id)) continue
+    for (const descriptor of this.getViewers()) {
+      if (!this.isViewerEnabled(descriptor.kind)) continue
+      const viewer = descriptor.viewer!
       if (head !== undefined && viewer.detect !== undefined) {
-        if (viewer.detect(path, head)) return viewer
+        if (viewer.detect(path, head)) return descriptor
         // A catch-all with detect is SNIFF-ONLY: it must not blind-claim
         // paths it never sniffed.
         if (viewer.exts.length === 0) continue
       } else if (viewer.exts.length === 0) {
         // Blind catch-all (no detect) claims anything; a sniff-only
         // catch-all (detect defined, no head yet) yields this round.
-        if (viewer.detect === undefined) return viewer
+        if (viewer.detect === undefined) return descriptor
         continue
       }
       if (viewer.exts.map(value => value.toLowerCase()).includes(extension)) {
-        return viewer
+        return descriptor
       }
     }
     return undefined
   }
 
-  resolveUrlTarget(url: URL): SidebarTabDescriptor | undefined {
+  resolveUrlTarget(url: URL): SidebarSurfaceDescriptor | undefined {
     // Registration order wins (Map iteration is insertion order); a
     // disabled tab type is skipped; a throwing predicate is swallowed.
-    for (const descriptor of this.tabDescriptors.values()) {
-      if (descriptor.urlTarget === undefined) continue
-      if (!this.isTabEnabled(descriptor.id)) continue
+    for (const descriptor of this.surfaces.values()) {
+      if (descriptor.rail?.urlTarget === undefined) continue
+      if (!this.isTabEnabled(descriptor.kind)) continue
       let claimed = false
       try {
-        claimed = descriptor.urlTarget(url) === true
+        claimed = descriptor.rail.urlTarget(url) === true
       } catch (error) {
         console.error('[sidebar] urlTarget error:', error)
         continue
@@ -372,45 +503,47 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     })
   }
 
-  openTab(seed: SidebarTabSeed, scope?: SidebarScope): OpenTabResult {
+  openTab(seed: SidebarTabSeed, scope?: CapabilitiesScope): OpenTabResult {
     if (!this.snapshot.ready) return { kind: 'not-ready' }
     const target = this.targetOf(scope)
     if (target === null) return { kind: 'not-ready' }
-    const descriptor = this.tabDescriptors.get(seed.type)
-    if (descriptor === undefined) return { kind: 'missing' }
-    // ONE availability gate: folds `requiresWorkspace`, `available` and the
-    // enable map into a single answer, so `openTab` and every UI entry point
-    // agree on whether (and why) a tab can open right now.
+    const descriptor = this.surfaces.get(seed.type)
+    // Only rail-mounted surfaces can host an open tab.
+    const rail = descriptor?.rail
+    if (descriptor === undefined || rail === undefined) return { kind: 'missing' }
+    // ONE availability gate: folds `scopeNeed`, the rail `available`
+    // predicate and the enable map into a single answer, so `openTab` and
+    // every UI entry point agree on whether (and why) a tab can open now.
     const availability = tabAvailability(descriptor, { cwd: target.cwd }, this.snapshot, this.isTabEnabled(seed.type))
     if (!availability.ok) return { kind: 'disabled', reason: availability.reason }
     const tabs = [...this.workspaceOf(target.cwd).tabs]
     // Action-only descriptors run instead of opening a tab.
-    if (descriptor.action !== undefined && descriptor.render === undefined) {
-      void descriptor.action()
+    if (rail.action !== undefined && rail.render === undefined) {
+      void rail.action()
       return { kind: 'focused', tab: {
-        id: descriptor.id,
-        type: descriptor.id,
+        id: descriptor.kind,
+        type: descriptor.kind,
         title: titleOf(descriptor),
       } }
     }
-    const created = descriptor.createTab?.(seed, tabs)
+    const created = rail.createTab?.(seed, tabs)
     if (created === null) return { kind: 'disabled' }
     const tab = created?.tab ?? {
-      id: seed.id ?? (descriptor.single === true
-        ? descriptor.id
-        : `${descriptor.id}:${String(Date.now())}:${String(++this.instance)}`),
-      type: descriptor.id,
+      id: seed.id ?? (rail.single === true
+        ? descriptor.kind
+        : `${descriptor.kind}:${String(Date.now())}:${String(++this.instance)}`),
+      type: descriptor.kind,
       title: seed.title ?? titleOf(descriptor),
       ...(seed.resource !== undefined ? { resource: seed.resource } : {}),
       ...(seed.meta !== undefined ? { meta: seed.meta } : {}),
     }
-    const key = descriptor.dedupeKey?.(tab)
-      ?? (descriptor.single === true ? descriptor.id : undefined)
+    const key = rail.dedupeKey?.(tab)
+      ?? (rail.single === true ? descriptor.kind : undefined)
     const existing = tabs.find(candidate => {
       if (candidate.id === tab.id) return true
       if (candidate.type !== tab.type || key === undefined) return false
-      const candidateKey = descriptor.dedupeKey?.(candidate)
-        ?? (descriptor.single === true ? descriptor.id : undefined)
+      const candidateKey = rail.dedupeKey?.(candidate)
+        ?? (rail.single === true ? descriptor.kind : undefined)
       return candidateKey === key
     })
     if (existing !== undefined) {
@@ -419,28 +552,6 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       // user explicitly asked to open it).
       this.focusExisting(target, existing, scope)
       return { kind: 'focused', tab: existing }
-    }
-    // The bottom workbench holds the same tab vocabulary: a dedupe hit
-    // there focuses the DOCKED tab (the pane shows it without duplicating).
-    const bottomTabs = this.workspaceOf(target.cwd).bottomTabs ?? []
-    const docked = bottomTabs.find(candidate => {
-      if (candidate.id === tab.id) return true
-      if (candidate.type !== tab.type || key === undefined) return false
-      const candidateKey = descriptor.dedupeKey?.(candidate)
-        ?? (descriptor.single === true ? descriptor.id : undefined)
-      return candidateKey === key
-    })
-    if (docked !== undefined) {
-      this.writeTarget(
-        target,
-        tabs,
-        this.workspaceOf(target.cwd).activeId,
-        { activeId: docked.id },
-      )
-      safeCall(() => descriptor.onActivate?.(docked, scope ?? {
-        cwd: target.cwd,
-      }))
-      return { kind: 'focused', tab: docked }
     }
     if (tabs.length >= SIDEBAR_MAX_TABS) return { kind: 'limit' }
     const nextTabs = created?.patch?.tabs !== undefined
@@ -452,12 +563,12 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     this.writeTarget(target, nextTabs, nextActive)
     // The callback scope carries the caller's explicit scope or the target
     // workspace (project cwd).
-    const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
-    safeCall(() => descriptor.onOpen?.(tab, callbackScope))
+    const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
+    safeCall(() => rail.onOpen?.(tab, callbackScope))
     return { kind: 'opened', tab }
   }
 
-  closeTab(tabId: string, scope?: SidebarScope): void {
+  closeTab(tabId: string, scope?: CapabilitiesScope): void {
     const target = this.targetOf(scope)
     if (target === null) return
     const tabs = [...this.workspaceOf(target.cwd).tabs]
@@ -469,12 +580,12 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       ? next[Math.min(index, next.length - 1)]?.id ?? null
       : this.workspaceOf(target.cwd).activeId
     this.writeTarget(target, next, activeId)
-    const descriptor = this.tabDescriptors.get(closed.type)
-    const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
+    const descriptor = this.surfaces.get(closed.type)?.rail
+    const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
     safeCall(() => descriptor?.onClose?.(closed, callbackScope))
   }
 
-  activateTab(tabId: string | null, scope?: SidebarScope): void {
+  activateTab(tabId: string | null, scope?: CapabilitiesScope): void {
     const target = this.targetOf(scope)
     if (target === null) return
     const workspace = this.workspaceOf(target.cwd)
@@ -485,8 +596,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       const activated = workspace.tabs.find(tab => tab.id === tabId)
       const descriptor = activated === undefined
         ? undefined
-        : this.tabDescriptors.get(activated.type)
-      const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
+        : this.surfaces.get(activated.type)?.rail
+      const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
       safeCall(() => descriptor?.onActivate?.(activated!, callbackScope))
     }
   }
@@ -519,7 +630,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     }
   }
 
-  openFile(scope: SidebarScope, path: string, title?: string): void {
+  openFile(scope: CapabilitiesScope, path: string, title?: string): void {
     this.openTab({
       type: 'file',
       resource: path,
@@ -528,7 +639,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     }, scope)
   }
 
-  /* ── bottom workbench + tab drag layout ─────────────────────── */
+  /* ── tab drag layout ─────────────────────────────────────────── */
 
   reorderTabs(sourceId: string, targetId: string | null | undefined, side: 'before' | 'after' = 'after'): void {
     const target = this.targetOf()
@@ -552,6 +663,11 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     this.writeTarget(target, tabs, workspace.activeId)
   }
 
+  // The BOTTOM workbench methods are dormant contract — the workbench is
+  // not mounted pending a product decision, so nothing calls these yet.
+  // The service face matches `DesktopSidebarService`; wiring them up
+  // (dock/drag/close UI) re-enables the capability without a contract
+  // // change. `workspaceOf`/`writeTarget` already persist the bottom bucket.
   dockTabToBottom(tabId: string, targetId: string | null | undefined, side: 'before' | 'after' = 'after'): void {
     const target = this.targetOf()
     if (target === null) return
@@ -706,8 +822,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       const activated = bottomTabs.find(tab => tab.id === bottomTabId)
       const descriptor = activated === undefined
         ? undefined
-        : this.tabDescriptors.get(activated.type)
-      const callbackScope: SidebarScope = { cwd: target.cwd }
+        : this.surfaces.get(activated.type)?.rail
+      const callbackScope: CapabilitiesScope = { cwd: target.cwd }
       safeCall(() => descriptor?.onActivate?.(activated!, callbackScope))
     }
   }
@@ -728,8 +844,8 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
       tabs: next,
       activeId: nextActive ?? null,
     })
-    const descriptor = this.tabDescriptors.get(closed.type)
-    const callbackScope: SidebarScope = { cwd: target.cwd }
+    const descriptor = this.surfaces.get(closed.type)?.rail
+    const callbackScope: CapabilitiesScope = { cwd: target.cwd }
     safeCall(() => descriptor?.onClose?.(closed, callbackScope))
   }
 
@@ -753,11 +869,67 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   }
 
   setWidth(width: number): void {
-    const next = clampSidebarWidth(width)
+    const next = clampSidebarWidth(width, currentViewportWidth())
     if (this.snapshot.width === next) return
-    this.preferences.defaultWidth = next
+    if (this.snapshot.cwd !== null) {
+      // Remember per workspace bucket; `defaultWidth` stays the fallback for
+      // projects (and buckets) without a remembered width. A project whose
+      // bucket does not exist yet gets one — a width-only touch must survive
+      // project switches.
+      const key = this.layoutKey(this.snapshot.cwd)
+      const workspace = this.preferences.workspaces[key]
+      this.preferences.workspaces[key] = {
+        ...(workspace ?? { activeId: null, tabs: [] }),
+        lastUsed: Date.now(),
+        width: next,
+        tabs: (workspace?.tabs ?? []).map(tab => ({ ...tab })),
+      }
+      this.schedulePersist()
+    } else {
+      this.preferences.defaultWidth = next
+    }
     this.publish({ ...this.snapshot, width: next, revision: this.snapshot.revision + 1 })
+  }
+  setCenterPreviewTabs(mode: PreviewTabsMode): void {
+    if (this.preferences.centerPreviewTabs === mode) return
+    this.preferences.centerPreviewTabs = mode
+    this.publish({
+      ...this.snapshot,
+      centerPreviewTabs: mode,
+      revision: this.snapshot.revision + 1,
+    })
     this.schedulePersist()
+  }
+  setLayoutScope(mode: LayoutScopeMode): void {
+    if (this.preferences.layoutScope === mode) return
+    const previousKey = this.layoutKey(this.snapshot.cwd ?? '')
+    this.preferences.layoutScope = mode
+    const nextKey = this.layoutKey(this.snapshot.cwd ?? '')
+    // Adoption on switch: carry the CURRENT layout into the destination
+    // bucket when that bucket is empty, so a user switching scope keeps the
+    // layout they are looking at instead of losing it. An existing
+    // destination always wins — adoption never overwrites.
+    if (
+      this.snapshot.cwd !== null && previousKey !== nextKey
+      && !this.bucketHasLayout(nextKey) && this.bucketHasLayout(previousKey)
+    ) {
+      this.preferences.workspaces[nextKey] = cloneWorkspace(
+        this.preferences.workspaces[previousKey]!,
+      )
+    }
+    this.publish({
+      ...this.snapshot,
+      layoutScope: mode,
+      // Re-scope immediately: the newly selected layout takes over the rail.
+      ...this.workspaceSnapshot(this.snapshot.cwd),
+      revision: this.snapshot.revision + 1,
+    })
+    this.schedulePersist()
+  }
+
+  /** Whether a persisted bucket holds any tab state worth adopting. */
+  private bucketHasLayout(key: string): boolean {
+    return (this.preferences.workspaces[key]?.tabs.length ?? 0) > 0
   }
 
   setOpenByDefault(open: boolean): void {
@@ -772,36 +944,41 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   }
 
   setTabEnabled(id: string, enabled: boolean): void {
-    if (this.isTabEnabled(id) === enabled
-      && Object.hasOwn(this.preferences.tabsEnabled, id)) return
-    this.preferences.tabsEnabled[id] = enabled
+    if (this.isTabEnabled(id) === enabled && Object.hasOwn(this.tabsEnabled, id)) return
+    this.tabsEnabled = { ...this.tabsEnabled, [id]: enabled }
     this.publish({
       ...this.snapshot,
       revision: this.snapshot.revision + 1,
-      tabsEnabled: { ...this.preferences.tabsEnabled },
+      tabsEnabled: { ...this.tabsEnabled },
     })
-    this.schedulePersist()
+    this.publishFeatureEnablement()
   }
 
   setViewerEnabled(id: string, enabled: boolean): void {
-    if (this.isViewerEnabled(id) === enabled
-      && Object.hasOwn(this.preferences.viewersEnabled, id)) return
-    this.preferences.viewersEnabled[id] = enabled
+    if (this.isViewerEnabled(id) === enabled && Object.hasOwn(this.viewersEnabled, id)) return
+    this.viewersEnabled = { ...this.viewersEnabled, [id]: enabled }
     this.publish({
       ...this.snapshot,
       revision: this.snapshot.revision + 1,
-      viewersEnabled: { ...this.preferences.viewersEnabled },
+      viewersEnabled: { ...this.viewersEnabled },
     })
-    this.schedulePersist()
+    this.publishFeatureEnablement()
+  }
+
+  private publishFeatureEnablement(): void {
+    this.onFeatureEnablementChange?.({
+      tabsEnabled: { ...this.tabsEnabled },
+      viewersEnabled: { ...this.viewersEnabled },
+    })
   }
 
   async settle(): Promise<void> {
-    await this.flushing
+    await this.persist.flush()
   }
 
   /** The target workspace of an operation: the explicit scope or the active
    *  project. Null while no project is bound (or the service is not ready). */
-  private targetOf(scope?: SidebarScope): WorkspaceTarget | null {
+  private targetOf(scope?: CapabilitiesScope): WorkspaceTarget | null {
     if (!this.snapshot.ready) return null
     const cwd = scope?.cwd ?? this.snapshot.cwd ?? (process.env.PWD || process.cwd?.() || '/')
     return {
@@ -819,13 +996,36 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     )
   }
 
+  /**
+   * The persisted-bucket key for a workspace's rail layout (A2/D5a):
+   * `workspace` scope buckets by cwd, `global` collapses onto one bucket so
+   * every project shares a single rail layout and remembered width.
+   */
+  private layoutKey(cwd: string): string {
+    return this.preferences.layoutScope === 'global' ? GLOBAL_SCOPE_BUCKET : cwd
+  }
+
+  /**
+   * The rail width for a project (falls back to the default), clamped to the
+   * LIVE viewport cap. The persisted bucket keeps its raw document-bounded
+   * value, so a width saved on a larger display comes back when the window
+   * grows again.
+   */
+  private layoutWidth(cwd: string | null): number {
+    return clampSidebarWidth(
+      cwd === null
+        ? this.preferences.defaultWidth
+        : this.preferences.workspaces[this.layoutKey(cwd)]?.width
+          ?? this.preferences.defaultWidth,
+      currentViewportWidth(),
+    )
+  }
+
   private workspaceOf(cwd: string): PersistedWorkspaceLayout {
-    return this.preferences.workspaces[cwd] ?? {
+    return this.preferences.workspaces[this.layoutKey(cwd)] ?? {
       activeId: null,
       lastUsed: 0,
       tabs: [],
-      bottomTabs: [],
-      bottomActiveId: null,
     }
   }
 
@@ -843,7 +1043,7 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
     const bottomActiveId = bottom?.activeId !== undefined
       ? bottom.activeId
       : workspace.bottomActiveId ?? null
-    this.preferences.workspaces[target.cwd] = {
+    this.preferences.workspaces[this.layoutKey(target.cwd)] = {
       activeId,
       lastUsed: Date.now(),
       tabs: tabs.map(tab => ({ ...tab })),
@@ -870,29 +1070,31 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
   private focusExisting(
     target: WorkspaceTarget,
     tab: SidebarTab,
-    scope?: SidebarScope,
+    scope?: CapabilitiesScope,
   ): void {
     const workspace = this.workspaceOf(target.cwd)
     if (workspace.activeId !== tab.id) {
       this.writeTarget(target, workspace.tabs, tab.id)
     }
-    const descriptor = this.tabDescriptors.get(tab.type)
-    const callbackScope: SidebarScope = scope ?? { cwd: target.cwd }
+    const descriptor = this.surfaces.get(tab.type)?.rail
+    const callbackScope: CapabilitiesScope = scope ?? { cwd: target.cwd }
     safeCall(() => descriptor?.onActivate?.(tab, callbackScope))
   }
 
   private workspaceSnapshot(cwd: string | null): Pick<
     SidebarSnapshot,
-    'activeId' | 'bottomActiveId' | 'bottomTabs' | 'tabs'
+    'activeId' | 'bottomActiveId' | 'bottomTabs' | 'tabs' | 'width'
   > {
     const workspace = cwd === null
       ? undefined
-      : this.preferences.workspaces[cwd]
+      : this.preferences.workspaces[this.layoutKey(cwd)]
     return {
       activeId: workspace?.activeId ?? null,
       bottomActiveId: workspace?.bottomActiveId ?? null,
       bottomTabs: workspace?.bottomTabs?.map(tab => ({ ...tab })) ?? [],
       tabs: workspace?.tabs.map(tab => ({ ...tab })) ?? [],
+      // The rail width is remembered per workspace bucket, live-clamped.
+      width: this.layoutWidth(cwd),
     }
   }
 
@@ -916,24 +1118,6 @@ export class DesktopSidebarService implements DesktopSidebarServiceContract {
 
   private schedulePersist(): void {
     if (!this.snapshot.ready || this.disposed) return
-    this.dirty = true
-    if (this.flushing === undefined) {
-      this.flushing = this.flush().finally(() => { this.flushing = undefined })
-      void this.flushing.catch(error => {
-        this.publish({
-          ...this.snapshot,
-          error: messageOf(error),
-          revision: this.snapshot.revision + 1,
-        })
-      })
-    }
-  }
-
-  private async flush(): Promise<void> {
-    await Promise.resolve()
-    while (this.dirty && !this.disposed) {
-      this.dirty = false
-      await this.storage.save(clonePreferences(this.preferences))
-    }
+    this.persist.fire()
   }
 }

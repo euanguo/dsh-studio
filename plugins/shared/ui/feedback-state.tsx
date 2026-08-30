@@ -26,8 +26,11 @@ export type FeedbackStateProps = Omit<HTMLAttributes<HTMLDivElement>, 'title' | 
  * Shared loading, error, and empty composition. Buttons, icons, and status
  * dots stay in the caller so official DSH primitives remain directly owned by
  * each plugin.
+ *
+ * `FeedbackState` is intentionally private: consumers enter through the
+ * `LoadingState`/`ErrorState`/`EmptyState` wrappers below.
  */
-export function FeedbackState({
+function FeedbackState({
   kind,
   title,
   description,

@@ -1,17 +1,30 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import type { ReactNode } from 'react'
 import {
   DesktopSidebarService,
   SIDEBAR_FEATURES,
   SIDEBAR_SERVICE_VERSION,
-  type SidebarTabDescriptor,
 } from '../plugins/sidebar/src/client/sidebar-service.ts'
+import { sidebarDescriptorSettings, tabAvailability } from '../plugins/sidebar/src/client/contract.ts'
+import type {
+  SidebarRailSpec,
+  SidebarSnapshot,
+  SidebarSurfaceDescriptor,
+} from '../plugins/sidebar/src/client/contract.ts'
+import type { CenterSurface } from '../plugins/sidebar/src/client/surfaces/types.ts'
+import { createSurfaceRegistry } from '../plugins/workbench/src/registry.ts'
 import type { SidebarPreferencesStorage } from '../plugins/sidebar/src/client/sidebar-storage.ts'
 import {
-  clampSidebarWidthForLayout,
+  clampSidebarWidth,
   DEFAULT_SIDEBAR_PREFERENCES,
+  maximizedSidebarWidth,
   parseSidebarPreferences,
   type DesktopSidebarPreferences,
+  SIDEBAR_MAX_TABS,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  sidebarMaxWidth,
 } from '../plugins/sidebar/src/sidebar-preferences.ts'
 
 class MemorySidebarStorage implements SidebarPreferencesStorage {
@@ -22,8 +35,6 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
     this.value = value ?? {
       ...DEFAULT_SIDEBAR_PREFERENCES,
       workspaces: {},
-      tabsEnabled: {},
-      viewersEnabled: {},
       pluginSettings: {},
     }
   }
@@ -38,22 +49,55 @@ class MemorySidebarStorage implements SidebarPreferencesStorage {
   }
 }
 
-test('right sidebar width clamps to its own budget at any window size', () => {
-  assert.equal(clampSidebarWidthForLayout(700), 640)
-  assert.equal(clampSidebarWidthForLayout(200), 220)
-  assert.equal(clampSidebarWidthForLayout(480), 480)
+test('right sidebar width falls back to the static budget without a viewport', () => {
+  assert.equal(clampSidebarWidth(700), SIDEBAR_MAX_WIDTH)
+  assert.equal(clampSidebarWidth(200), SIDEBAR_MIN_WIDTH)
+  assert.equal(clampSidebarWidth(480), 480)
 })
 
-function tab(
-  id: string,
-  input: Partial<SidebarTabDescriptor> = {},
-): SidebarTabDescriptor {
+test('right sidebar live width caps at three quarters of the window', () => {
+  assert.equal(clampSidebarWidth(900, 1000), 750)
+  assert.equal(clampSidebarWidth(480, 1000), 480)
+  assert.equal(clampSidebarWidth(100, 1000), SIDEBAR_MIN_WIDTH)
+  // Tiny windows floor the cap at the minimum instead of collapsing it.
+  assert.equal(sidebarMaxWidth(200), SIDEBAR_MIN_WIDTH)
+  // Without a viewport the static budget stays authoritative.
+  assert.equal(sidebarMaxWidth(), SIDEBAR_MAX_WIDTH)
+})
+
+test('maximized right overlay width preserves the left rail boundary', () => {
+  assert.equal(maximizedSidebarWidth(1280, 300), 980)
+  assert.equal(maximizedSidebarWidth(1280, 56), 1224)
+  assert.equal(maximizedSidebarWidth(300, 360), 0)
+  assert.equal(maximizedSidebarWidth(Number.NaN, 300), 0)
+  assert.equal(maximizedSidebarWidth(1280, Number.POSITIVE_INFINITY), 1280)
+})
+
+function rail(
+  kind: string,
+  input: Partial<SidebarRailSpec> = {},
+): SidebarSurfaceDescriptor {
   return {
-    id,
-    render: () => null,
-    title: id,
-    ...input,
+    kind,
+    rail: { render: () => null, title: kind, ...input },
+    scopeNeed: null,
+    previewable: false,
+    focusPolicy: 'never',
   }
+}
+
+function viewerOf(
+  kind: string,
+  spec: Partial<SidebarSurfaceDescriptor['viewer']> & Pick<NonNullable<SidebarSurfaceDescriptor['viewer']>, 'exts' | 'fetchStrategy'>,
+): SidebarSurfaceDescriptor {
+  return { kind, viewer: spec, scopeNeed: null, previewable: false, focusPolicy: 'never' }
+}
+
+function centerOf(
+  kind: string,
+  render: (surface: CenterSurface) => ReactNode,
+): SidebarSurfaceDescriptor {
+  return { kind, center: { render }, scopeNeed: 'workspace', previewable: true, focusPolicy: 'never' }
 }
 
 test('desktop sidebar validates the durable preference envelope', () => {
@@ -64,47 +108,110 @@ test('desktop sidebar validates the durable preference envelope', () => {
         activeId: 'file:a',
         lastUsed: 42,
         tabs: [{ id: 'file:a', type: 'file', title: 'a', resource: '/a' }],
-        // The bottom workbench is additive: the canonical parsed shape
-        // carries the defaults (legacy documents migrate to them).
+        // The bottom workbench is additive: the restored schema
+        // (leaf-R1 ②) round-trips the second-pane layout, so the canonical
+        // parsed shape carries the defaults (legacy documents migrate to them).
         bottomTabs: [],
         bottomActiveId: null,
       },
     },
-    tabsEnabled: { browser: false },
-    viewersEnabled: { image: true },
     pluginSettings: { 'my-plugin:db': { pageSize: 20 } },
   }
   assert.deepEqual(parseSidebarPreferences(valid), valid)
+  // The restored bottom-workbench schema read-backs `bottomTabs` and
+  // `bottomActiveId` (leaf-R1 ② / leaf-R2 ⑥): a hand-authored or persisted
+  // document keeps its second-pane layout instead of having it stripped.
+  {
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      workspaces: {
+        '/work/repo': {
+          ...valid.workspaces['/work/repo'],
+          bottomTabs: [{
+            id: 'file:b',
+            type: 'file',
+            title: 'b',
+            resource: '/b',
+          }],
+          bottomActiveId: 'file:b',
+        },
+      },
+    })
+    assert.ok(parsed !== undefined)
+    assert.deepEqual(
+      { ...parsed.workspaces['/work/repo'] },
+      {
+        ...valid.workspaces['/work/repo'],
+        bottomTabs: [{ id: 'file:b', type: 'file', title: 'b', resource: '/b' }],
+        bottomActiveId: 'file:b',
+      },
+    )
+  }
+  // F9/M2 field-level tolerance: below-min width still rejects the doc
+  // (top-level scalar contract), but per-entry corruption never wipes other
+  // projects' layouts and over-limit collections truncate instead of reject.
   assert.equal(parseSidebarPreferences({ ...valid, defaultWidth: 100 }), undefined)
+  // Document widths validate against the viewport-independent persisted
+  // ceiling, so a width saved on a larger display parses back unchanged;
+  // the live viewport cap applies at read-out (layoutWidth), not here.
   assert.equal(
     parseSidebarPreferences({ ...valid, defaultWidth: 720 })?.defaultWidth,
-    640,
+    720,
   )
-  assert.equal(parseSidebarPreferences({
-    ...valid,
-    workspaces: {
-      '/work/repo': { ...valid.workspaces['/work/repo'], activeId: 'missing' },
-    },
-  }), undefined)
-  // pluginSettings must stay JSON-safe (functions / NaN rejected).
-  assert.equal(parseSidebarPreferences({
-    ...valid,
-    pluginSettings: { x: { y: () => 1 } },
-  }), undefined)
-  assert.equal(parseSidebarPreferences({
-    ...valid,
-    pluginSettings: { x: { y: Number.NaN } },
-  }), undefined)
-  // tab meta must stay JSON-safe.
-  assert.equal(parseSidebarPreferences({
-    ...valid,
-    workspaces: {
-      '/work/repo': {
-        ...valid.workspaces['/work/repo'],
-        tabs: [{ id: 't', type: 'file', title: 'a', meta: { fn: () => 1 } }],
+  assert.equal(
+    parseSidebarPreferences({ ...valid, defaultWidth: 1200 })?.defaultWidth,
+    1200,
+  )
+  assert.equal(parseSidebarPreferences({ ...valid, defaultWidth: 5000 }), undefined)
+  {
+    const good = valid.workspaces['/work/repo']
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      workspaces: {
+        '/work/good': { ...good },
+        '/work/bad': 'garbage', // non-object entry: dropped
       },
-    },
-  }), undefined)
+    })
+    assert.ok(parsed !== undefined)
+    assert.deepEqual(Object.keys(parsed.workspaces).sort(), ['/work/good'])
+  }
+  // Non-JSON-safe values drop the offending key/entry, not the document.
+  {
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      pluginSettings: { x: { y: () => 1 } },
+    })
+    assert.ok(parsed !== undefined)
+    assert.deepEqual(parsed.pluginSettings.x, {})
+  }
+  {
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      pluginSettings: { x: { y: Number.NaN } },
+    })
+    assert.ok(parsed !== undefined)
+    assert.deepEqual(parsed.pluginSettings.x, {})
+  }
+  {
+    const badTab = [{ id: 't', type: 'file', title: 'a', meta: { fn: () => 1 } }]
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      workspaces: { '/work/repo': { ...valid.workspaces['/work/repo'], tabs: badTab } },
+    })
+    assert.ok(parsed !== undefined)
+    assert.equal(parsed.workspaces['/work/repo']!.tabs.length, 0)
+  }
+  {
+    const many = Array.from({ length: SIDEBAR_MAX_TABS + 5 }, (_, i) => ({
+      id: `t${String(i)}`, type: 'file', title: `t${String(i)}`, resource: `/t${String(i)}`,
+    }))
+    const parsed = parseSidebarPreferences({
+      ...valid,
+      workspaces: { '/work/repo': { ...valid.workspaces['/work/repo'], tabs: many } },
+    })
+    assert.ok(parsed !== undefined)
+    assert.equal(parsed.workspaces['/work/repo']!.tabs.length, SIDEBAR_MAX_TABS)
+  }
 })
 
 test('desktop sidebar restores workspaces and deduplicates registered tabs', async () => {
@@ -122,14 +229,12 @@ test('desktop sidebar restores workspaces and deduplicates registered tabs', asy
         }],
       },
     },
-    tabsEnabled: {},
-    viewersEnabled: {},
     pluginSettings: {},
   })
-  const sidebar = new DesktopSidebarService(storage)
+  const sidebar = new DesktopSidebarService(storage, undefined, createSurfaceRegistry())
   sidebar.setWorkspace('/work/repo')
   await sidebar.start()
-  const removeFile = sidebar.registerTab(tab('file', {
+  const removeFile = sidebar.register(rail('file', {
     dedupeKey: candidate => candidate.resource,
   }))
 
@@ -141,7 +246,7 @@ test('desktop sidebar restores workspaces and deduplicates registered tabs', asy
   }).kind, 'focused')
   assert.equal(sidebar.getSnapshot().tabs.length, 1)
 
-  sidebar.registerTab(tab('review', { single: true }))
+  sidebar.register(rail('review', { single: true }))
   sidebar.openTab({ type: 'review' })
   sidebar.openTab({ id: 'another-review', type: 'review' })
   assert.equal(
@@ -155,50 +260,47 @@ test('desktop sidebar restores workspaces and deduplicates registered tabs', asy
 })
 
 test('desktop sidebar matches viewers by priority, sniffing, and enablement', async () => {
-  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage(), undefined, createSurfaceRegistry())
   await sidebar.start()
-  sidebar.registerViewer({
+  sidebar.register(viewerOf('text', {
     exts: [],
     fetchStrategy: 'fsRead',
-    id: 'text',
     priority: -100,
     title: 'Text',
-  })
-  sidebar.registerViewer({
+  }))
+  sidebar.register(viewerOf('image', {
     exts: ['png'],
     fetchStrategy: 'mediaUrl',
-    id: 'image',
     title: 'Image',
-  })
-  sidebar.registerViewer({
+  }))
+  sidebar.register(viewerOf('binary', {
     detect: (_path, head) => head.includes(0),
     exts: [],
     fetchStrategy: 'binary-download',
-    id: 'binary',
     priority: 100,
     title: 'Binary',
-  })
+  }))
 
-  assert.equal(sidebar.matchViewer('photo.PNG')?.id, 'image')
+  assert.equal(sidebar.matchViewer('photo.PNG')?.kind, 'image')
   assert.equal(
-    sidebar.matchViewer('blob.data', new Uint8Array([1, 0, 2]))?.id,
+    sidebar.matchViewer('blob.data', new Uint8Array([1, 0, 2]))?.kind,
     'binary',
   )
   sidebar.setViewerEnabled('image', false)
-  assert.equal(sidebar.matchViewer('photo.png')?.id, 'text')
+  assert.equal(sidebar.matchViewer('photo.png')?.kind, 'text')
 })
 
-test('desktop sidebar persists bounded per-project state outside Web storage', async () => {
+test('desktop sidebar persists bounded layouts and forwards enablement to settings', async () => {
   const storage = new MemorySidebarStorage()
-  const sidebar = new DesktopSidebarService(storage)
+  const featureUpdates: Array<{ tabsEnabled: Record<string, boolean>; viewersEnabled: Record<string, boolean> }> = []
+  const sidebar = new DesktopSidebarService(storage, update => { featureUpdates.push(update) }, createSurfaceRegistry())
   await sidebar.start()
-  sidebar.registerTab(tab('browser'))
-  sidebar.registerViewer({
+  sidebar.register(rail('browser'))
+  sidebar.register(viewerOf('text', {
     exts: [],
     fetchStrategy: 'fsRead',
-    id: 'text',
     title: 'Text',
-  })
+  }))
   sidebar.setWorkspace('/work/repo')
   sidebar.openTab({
     resource: 'https://example.com',
@@ -211,16 +313,28 @@ test('desktop sidebar persists bounded per-project state outside Web storage', a
   sidebar.setViewerEnabled('text', false)
   await sidebar.settle()
 
-  assert.equal(storage.value.defaultWidth, 512)
+  // Width is remembered PER PROJECT bucket; `defaultWidth` stays the
+  // untouched fallback for projects without a remembered width.
+  assert.equal(storage.value.workspaces['/work/repo']?.width, 512)
+  assert.equal(storage.value.defaultWidth, DEFAULT_SIDEBAR_PREFERENCES.defaultWidth)
   assert.equal(storage.value.openByDefault, true)
-  assert.equal(storage.value.tabsEnabled.browser, false)
-  assert.equal(storage.value.viewersEnabled.text, false)
+  assert.equal('tabsEnabled' in storage.value, false)
+  assert.equal('viewersEnabled' in storage.value, false)
+  assert.deepEqual(featureUpdates.at(-1), {
+    tabsEnabled: { browser: false },
+    viewersEnabled: { text: false },
+  })
   assert.equal(storage.value.workspaces['/work/repo']?.tabs.length, 1)
-  assert.equal(storage.writes.length, 1)
+  // R1 switched persistence to the pull-driven `persistVia` facade: each
+  // mutator that mutates a persisted bucket fires one save (openTab →
+  // writeTarget, setWidth, setOpenByDefault), instead of one debounced
+  // flush pump. So 3 saves land here; the bounded-layout intent (width and
+  // single tab retained under the project bucket) is asserted above.
+  assert.equal(storage.writes.length, 3)
 })
 
 test('sidebar contract reports version and a monotonic feature list', async () => {
-  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage(), undefined, createSurfaceRegistry())
   assert.equal(sidebar.version, SIDEBAR_SERVICE_VERSION)
   assert.equal(sidebar.version, '0.1.2')
   assert.ok(sidebar.features.length >= 9)
@@ -243,11 +357,11 @@ test('sidebar contract reports version and a monotonic feature list', async () =
 })
 
 test('sidebar lifecycle callbacks fire from the service paths only', async () => {
-  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage(), undefined, createSurfaceRegistry())
   await sidebar.start()
   sidebar.setWorkspace('/work/repo')
   const events: string[] = []
-  sidebar.registerTab(tab('life', {
+  sidebar.register(rail('life', {
     single: true,
     onOpen: () => { events.push('open') },
     onActivate: () => { events.push('activate') },
@@ -269,14 +383,14 @@ test('sidebar lifecycle callbacks fire from the service paths only', async () =>
 })
 
 test('sidebar lifecycle callbacks survive a throwing callback', async () => {
-  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage(), undefined, createSurfaceRegistry())
   await sidebar.start()
   sidebar.setWorkspace('/work/repo')
   const events: string[] = []
   const originalError = console.error
   console.error = () => {}
   try {
-    sidebar.registerTab(tab('boom', {
+    sidebar.register(rail('boom', {
       onOpen: () => { throw new Error('boom') },
       onClose: () => { events.push('close') },
     }))
@@ -289,17 +403,17 @@ test('sidebar lifecycle callbacks survive a throwing callback', async () => {
 })
 
 test('sidebar badge is exposed to the tab strip and a throw is swallowed', async () => {
-  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage(), undefined, createSurfaceRegistry())
   await sidebar.start()
   sidebar.setWorkspace('/work/repo')
   sidebar.openTab({ type: 'count' }) // unknown: no-op
   const originalError = console.error
   console.error = () => {}
   try {
-    sidebar.registerTab(tab('count', {
+    sidebar.register(rail('count', {
       badge: () => 150,
     }))
-    sidebar.registerTab(tab('broken', {
+    sidebar.register(rail('broken', {
       badge: () => { throw new Error('badge boom') },
     }))
   } finally {
@@ -308,16 +422,16 @@ test('sidebar badge is exposed to the tab strip and a throw is swallowed', async
   // The service itself does not evaluate badges (the strip does) — the
   // contract only requires the field to be declared and the descriptor
   // readable through the registry.
-  assert.equal(sidebar.getTab('count')?.badge?.({ cwd: '/work/repo' }, sidebar.getSnapshot()), 150)
-  assert.throws(() => sidebar.getTab('broken')?.badge?.({ cwd: '/work/repo' }, sidebar.getSnapshot()))
+  assert.equal(sidebar.getTab('count')?.rail?.badge?.({ cwd: '/work/repo' }, sidebar.getSnapshot()), 150)
+  assert.throws(() => sidebar.getTab('broken')?.rail?.badge?.({ cwd: '/work/repo' }, sidebar.getSnapshot()))
 })
 
 test('sidebar targeted opens land in another project without switching the UI', async () => {
   const storage = new MemorySidebarStorage()
-  const sidebar = new DesktopSidebarService(storage)
+  const sidebar = new DesktopSidebarService(storage, undefined, createSurfaceRegistry())
   await sidebar.start()
   sidebar.setWorkspace('/work/repo')
-  sidebar.registerTab(tab('note'))
+  sidebar.register(rail('note'))
   const result = sidebar.openTab(
     { type: 'note', title: 'Note A' },
     { cwd: '/work/other' },
@@ -339,10 +453,10 @@ test('sidebar targeted opens land in another project without switching the UI', 
 
 test('sidebar updateTab patches display fields and meta', async () => {
   const storage = new MemorySidebarStorage()
-  const sidebar = new DesktopSidebarService(storage)
+  const sidebar = new DesktopSidebarService(storage, undefined, createSurfaceRegistry())
   await sidebar.start()
   sidebar.setWorkspace('/work/repo')
-  sidebar.registerTab(tab('file'))
+  sidebar.register(rail('file'))
   sidebar.openTab({ type: 'file', resource: '/a.txt', title: 'a.txt' })
   const tabId = sidebar.getSnapshot().tabs[0]!.id
   sidebar.updateTab(tabId, { title: 'renamed.txt', meta: { page: 3 } })
@@ -354,10 +468,10 @@ test('sidebar updateTab patches display fields and meta', async () => {
 })
 
 test('sidebar openFile opens the file tab with a path-derived id', async () => {
-  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage(), undefined, createSurfaceRegistry())
   await sidebar.start()
   sidebar.setWorkspace('/w')
-  sidebar.registerTab(tab('file'))
+  sidebar.register(rail('file'))
   sidebar.openFile({ cwd: '/w' }, '/w/src/main.ts')
   assert.equal(sidebar.getSnapshot().tabs.length, 1)
   assert.equal(sidebar.getSnapshot().tabs[0]?.resource, '/w/src/main.ts')
@@ -365,35 +479,35 @@ test('sidebar openFile opens the file tab with a path-derived id', async () => {
 })
 
 test('sidebar urlTarget resolution honors registration order and enablement', async () => {
-  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage(), undefined, createSurfaceRegistry())
   await sidebar.start()
-  sidebar.registerTab(tab('docs', {
+  sidebar.register(rail('docs', {
     urlTarget: url => url.hostname === 'docs.example.com',
   }))
-  sidebar.registerTab(tab('other', {
+  sidebar.register(rail('other', {
     urlTarget: url => url.hostname.endsWith('example.com'),
   }))
   const url = new URL('https://docs.example.com/a')
-  assert.equal(sidebar.resolveUrlTarget(url)?.id, 'docs')
+  assert.equal(sidebar.resolveUrlTarget(url)?.kind, 'docs')
   // A disabled claim is skipped.
   sidebar.setTabEnabled('docs', false)
-  assert.equal(sidebar.resolveUrlTarget(url)?.id, 'other')
+  assert.equal(sidebar.resolveUrlTarget(url)?.kind, 'other')
   // A throwing predicate is skipped.
   const originalError = console.error
   console.error = () => {}
   try {
-    sidebar.registerTab(tab('broken', {
+    sidebar.register(rail('broken', {
       urlTarget: () => { throw new Error('url boom') },
     }))
   } finally {
     console.error = originalError
   }
-  assert.equal(sidebar.resolveUrlTarget(new URL('https://broken.example.com'))?.id, 'other')
+  assert.equal(sidebar.resolveUrlTarget(new URL('https://broken.example.com'))?.kind, 'other')
 })
 
 test('sidebar pluginSettings persist per descriptor id', async () => {
   const storage = new MemorySidebarStorage()
-  const sidebar = new DesktopSidebarService(storage)
+  const sidebar = new DesktopSidebarService(storage, undefined, createSurfaceRegistry())
   await sidebar.start()
   assert.deepEqual(sidebar.getPluginSettings('my:tab'), {})
   sidebar.updatePluginSetting('my:tab', 'pageSize', 50)
@@ -403,18 +517,18 @@ test('sidebar pluginSettings persist per descriptor id', async () => {
   assert.equal(storage.value.pluginSettings['my:tab']?.pageSize, 50)
   assert.equal(storage.value.pluginSettings['my:tab']?.compact, true)
   // A second service instance restores the blob.
-  const restored = new DesktopSidebarService(storage)
+  const restored = new DesktopSidebarService(storage, undefined, createSurfaceRegistry())
   await restored.start()
   assert.deepEqual(restored.getPluginSettings('my:tab'), { pageSize: 50, compact: true })
 })
 
-test('sidebar surface renderers register, render and dispose', async () => {
-  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+test('center renderer descriptors register, render and dispose', async () => {
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage(), undefined, createSurfaceRegistry())
   await sidebar.start()
-  const remove = sidebar.registerSurfaceRenderer('file', surface => {
+  const remove = sidebar.register(centerOf('file', surface => {
     if (surface.kind !== 'file') return null
     return `file:${surface.filePath}`
-  })
+  }))
   assert.equal(
     sidebar.renderSurface({
       id: 'file:a',
@@ -448,19 +562,19 @@ test('sidebar surface renderers register, render and dispose', async () => {
     closable: true,
     isPreview: true,
   }), null)
-  // Duplicate kind registration throws.
-  sidebar.registerSurfaceRenderer('file', () => null)
+  // Duplicate kind registration throws — a kind has exactly one owner.
+  sidebar.register(centerOf('diff', () => null))
   assert.throws(
-    () => sidebar.registerSurfaceRenderer('file', () => null),
-    /duplicate surface renderer/,
+    () => sidebar.register(centerOf('diff', () => null)),
+    /duplicate surface/,
   )
 })
 
 test('sidebar createTab may patch the landing tabs and active id', async () => {
-  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage(), undefined, createSurfaceRegistry())
   await sidebar.start()
   sidebar.setWorkspace('/work/repo')
-  sidebar.registerTab(tab('terminal', {
+  sidebar.register(rail('terminal', {
     createTab: (seed, tabs) => {
       const index = tabs.filter(candidate => candidate.type === 'terminal').length
       return {
@@ -476,11 +590,11 @@ test('sidebar createTab may patch the landing tabs and active id', async () => {
   assert.equal(sidebar.getSnapshot().activeId, 'terminal:1')
 })
 
-test('tabAvailability gate folds requiresWorkspace and available into one reason', async () => {
-  const sidebar = new DesktopSidebarService(new MemorySidebarStorage())
+test('tabAvailability gate folds scopeNeed and the available predicate into one reason', async () => {
+  const sidebar = new DesktopSidebarService(new MemorySidebarStorage(), undefined, createSurfaceRegistry())
   await sidebar.start()
-  sidebar.registerTab(tab('files', { requiresWorkspace: true }))
-  sidebar.registerTab(tab('chat', {}))
+  sidebar.register({ ...rail('files'), scopeNeed: 'workspace' })
+  sidebar.register(rail('chat'))
 
   // Without a workspace cwd: files refuses with 'no-workspace', chat succeeds
   const withoutCwd = sidebar.openTab({ type: 'files' }, { cwd: '' })

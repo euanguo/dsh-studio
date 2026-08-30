@@ -1,7 +1,11 @@
 import type { LocaleMessages } from '@dsh-studio/shared/i18n'
+import {
+  TERMINAL_SIDEBAR_SHARED_MESSAGES,
+  type TerminalSidebarSharedKey,
+} from '@dsh-studio/shared/terminal-messages'
 
 export type TerminalMessage =
-  | 'terminal'
+  | TerminalSidebarSharedKey
   | 'terminal.resize'
   | 'terminal.tabs'
   | 'terminal.status.exited'
@@ -19,13 +23,10 @@ export type TerminalMessage =
   | 'terminal.reset'
   | 'terminal.empty'
   | 'terminal.toggle'
-  | 'terminal.process-exited'
-  | 'terminal.error'
-  | 'terminal.unknown'
 
 export const TERMINAL_MESSAGES: LocaleMessages<TerminalMessage> = {
   en: {
-    terminal: 'Terminal',
+    ...TERMINAL_SIDEBAR_SHARED_MESSAGES.en,
     'terminal.resize': 'Resize terminal',
     'terminal.tabs': 'Terminal tabs',
     'terminal.status.exited': 'exited',
@@ -43,12 +44,9 @@ export const TERMINAL_MESSAGES: LocaleMessages<TerminalMessage> = {
     'terminal.reset': 'Reset',
     'terminal.empty': 'No shell is running',
     'terminal.toggle': 'Toggle terminal',
-    'terminal.process-exited': 'process exited with code {code}',
-    'terminal.error': 'terminal error: {message}',
-    'terminal.unknown': 'unknown',
   },
   zh: {
-    terminal: '终端',
+    ...TERMINAL_SIDEBAR_SHARED_MESSAGES.zh,
     'terminal.resize': '调整终端高度',
     'terminal.tabs': '终端标签页',
     'terminal.status.exited': '已退出',
@@ -66,8 +64,5 @@ export const TERMINAL_MESSAGES: LocaleMessages<TerminalMessage> = {
     'terminal.reset': '重置',
     'terminal.empty': '当前没有运行的 Shell',
     'terminal.toggle': '切换终端',
-    'terminal.process-exited': '进程已退出，代码 {code}',
-    'terminal.error': '终端错误：{message}',
-    'terminal.unknown': '未知',
   },
 }

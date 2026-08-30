@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import {
   INITIAL_TERMINAL_ACTIVITY,
   transitionTerminalActivity,
-} from '../plugins/shared/terminal-activity.ts'
+} from '../plugins/shared/terminal/terminal-activity.ts'
 
 test('detached output enters review with unread state', () => {
   assert.deepEqual(transitionTerminalActivity(INITIAL_TERMINAL_ACTIVITY, {

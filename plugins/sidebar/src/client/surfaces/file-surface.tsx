@@ -5,41 +5,47 @@
  * - Viewing state renders through the file runtime cache (truncated
  *   previews allowed) with FileViewerChrome + ContentViewer (Pierre family).
  * - Editing state swaps the body in place for the Pierre editor (full-file
- *   content via useEditableFile) and the editor header; Save writes back,
- *   "View" flushes pending changes and returns to the viewer. The separate
- *   editor surface/tab no longer exists.
+ *   content via useEditableFile); the SAME FileViewerChrome stays mounted
+ *   (breadcrumb + meta), only its actions slot swaps to Save / View. The
+ *   separate editor surface/tab no longer exists.
  *
  * Data flow:
  *   runtime cache (view) ──enterEdit──▶ full fsRead (edit copy)
  *   edit copy ──autosave/Save──▶ fs.write ──▶ runtime.invalidate ──▶ viewer
  *   re-reads the fresh file (other file tabs see the change too).
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { EditorOptions } from '@pierre/diffs/edit'
 import { Editor } from '@pierre/diffs/edit'
 import { EditProvider, File as PierreFile, Virtualizer } from '@pierre/diffs/react'
 import type { FileContents } from '@pierre/diffs'
 import type { Translate } from '@dsh-studio/shared/i18n'
-import { Button, writeClipboard } from '@deepseek-ai/dsh-client-ui-primitives'
-import { basename } from '@dsh-studio/shared/path'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import { toast } from '@dsh-studio/shared/toast'
+import { basename } from '@dsh-studio/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
 import { sidebarApi } from '../sidebar-api.ts'
 import { getFileRuntime } from '../runtimes/registry.ts'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import { binding, registerKeymapAction } from '../kit/keymap.ts'
-import { Scrollable } from '@dsh-studio/shared/ui'
+import { ScrollArea } from '@dsh-studio/shared/ui'
 import { ErrorState, LoadingState } from '@dsh-studio/shared/ui'
+import { errorMessage } from '@dsh-studio/shared/errors'
 import { ContentViewer } from '../files/content-viewer.tsx'
 import { FileViewerChrome, type MarkdownViewMode } from '../files/file-viewer-chrome.tsx'
-import type { ReviewCommentsService } from '../review/review-comments.ts'
+import type { SessionsService } from '../client-types.ts'
 import { toggleMarkdownTaskMarker } from '../files/markdown-task-list.ts'
-import { afterSelectionCommit, formatFileSelectionReference, getLineSelectionWithin } from '../files/file-selection-reference.ts'
 import { useEditableFile } from '../files/use-editable-file.ts'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
-import { useDiffCommentsStore, commentPathMatches, type DiffComment } from '../diff/diff-comments-store.ts'
+import { useDiffCommentsStore, commentBelongsToCwd, commentPathMatches, type WorkbenchComment } from '../diff/diff-comments-store.ts'
 import { commentsToFileLineAnnotations } from '../diff/comment-annotations.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
+import { buildCommentReference } from '../comments/comment-rails-core.ts'
+import { insertReferenceIntoConversation } from '../selection/conversation-targets.ts'
+import { formatSelectionLabel } from '../selection/selection-reference.ts'
+import { commentAnchorOf, useSelectionActionOverlay } from '../selection/use-selection-action.tsx'
+import { useCommentRails } from '../comments/comment-rails.tsx'
 import type { FileCenterSurface } from './types.ts'
 
 function createPierreEditor<LAnnotation>(options: EditorOptions<LAnnotation>): Editor<LAnnotation> {
@@ -49,12 +55,12 @@ function createPierreEditor<LAnnotation>(options: EditorOptions<LAnnotation>): E
 export function FileSurfaceView({
   surface,
   t,
-  reviewComments,
+  sessions,
 }: {
   surface: FileCenterSurface
   t: Translate<WorkspaceMessage>
-  /** Selection → "add to conversation" channel (wired by builtins). */
-  reviewComments?: ReviewCommentsService
+  /** Session roster for the selection action bar's target dropdown. */
+  sessions?: SessionsService | null
 }): JSX.Element {
   const runtime = useMemo(
     () => getFileRuntime({ cwd: surface.cwd }),
@@ -63,12 +69,9 @@ export function FileSurfaceView({
   const [fingerprint, setFingerprint] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
   const [writeError, setWriteError] = useState('')
-  const [selectionAction, setSelectionAction] = useState<{
-    left: number
-    top: number
-    label: string
-  } | null>(null)
   const theme = usePierreDiffTheme()
+  // Editor-state selection host (the editor host element, bound below).
+  const editorHostRef = useRef<HTMLDivElement | null>(null)
 
   const onPersisted = useCallback(() => {
     runtime.invalidate(surface.filePath)
@@ -92,11 +95,47 @@ export function FileSurfaceView({
   const allComments = useDiffCommentsStore(state => state.comments)
   const comments = useMemo(
     () => allComments.filter(comment =>
-      commentPathMatches(comment.filePath, surface.filePath, surface.cwd)
+      commentBelongsToCwd(comment, surface.cwd)
+      && commentPathMatches(comment.path, surface.filePath, surface.cwd)
       && comment.createdAt.length > 0,
     ),
     [allComments, surface.cwd, surface.filePath],
   )
+  const rails = useCommentRails({
+    path: surface.filePath,
+    cwd: surface.cwd,
+    comments,
+    t,
+    layer: typeof document === 'undefined' ? null : document.body,
+    onAdd: input => {
+      useDiffCommentsStore.getState().addComment({
+        ...input,
+        cwd: surface.cwd,
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+      })
+    },
+    onResolve: id => { useDiffCommentsStore.getState().resolveComment(id) },
+    onUnresolve: id => { useDiffCommentsStore.getState().unresolveComment(id) },
+    ...(sessions === null || sessions === undefined
+      ? {}
+      : {
+          onReference: input => {
+            const snapshot = sessions.list.getSnapshot()
+            const target = snapshot.current ?? Object.keys(snapshot.byId)[0]
+            if (target === undefined) return 'unavailable'
+            // Insert as an inline reference chip (styled block), not raw
+            // text — same as the selection action bar's add-to-chat.
+            return insertReferenceIntoConversation(sessions, target, {
+              label: formatSelectionLabel({
+                path: input.path,
+                span: { startLine: input.line, endLine: input.line },
+              }),
+              clipboardText: buildCommentReference(input.path, input.line, input.body),
+            })
+          },
+        }),
+  })
 
   useEffect(() => {
     let alive = true
@@ -156,7 +195,7 @@ export function FileSurfaceView({
       .catch((cause: unknown) => {
         runtime.invalidate(surface.filePath)
         void runtime.ensureLoaded(surface.filePath)
-        const message = cause instanceof Error ? cause.message : String(cause)
+        const message = errorMessage(cause)
         setWriteError(message)
         toast(t('toast.save-failed', { message }))
       })
@@ -167,34 +206,6 @@ export function FileSurfaceView({
       void window.dshDesktop.openExternal(surface.filePath)
     }
   }, [surface.filePath])
-
-  const onSourceMouseUp = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    if (isMarkdown && markdownMode === 'preview') {
-      setSelectionAction(null)
-      return
-    }
-    const { clientX, clientY, currentTarget } = event
-    // The selection is not committed while mouseup runs (shadow-tree rows
-    // commit in the following rendering step) — read it once committed.
-    afterSelectionCommit(() => {
-      const selection = getLineSelectionWithin(currentTarget)
-      if (selection === null) {
-        setSelectionAction(null)
-        return
-      }
-      setSelectionAction({
-        left: clientX,
-        top: clientY,
-        label: formatFileSelectionReference({ path: surface.filePath, selection }),
-      })
-    })
-  }, [isMarkdown, markdownMode, surface.filePath])
-
-  const onCopySelection = useCallback(async (label: string) => {
-    const ok = await writeClipboard(label)
-    toast(ok ? t('toast.copied') : t('toast.copy-failed'))
-    setSelectionAction(null)
-  }, [t])
 
   // All hooks run before the state branches below (React hook order).
   const lineCount = useMemo(
@@ -217,7 +228,7 @@ export function FileSurfaceView({
     cacheKey: `editor:${surface.filePath}`,
   }), [editable.content, surface.filePath])
 
-  const editorOptions = useMemo<EditorOptions<DiffComment>>(() => ({
+  const editorOptions = useMemo<EditorOptions<WorkbenchComment>>(() => ({
     persistState: false,
     onChange: nextFile => {
       editable.handleChange(nextFile.contents)
@@ -229,47 +240,67 @@ export function FileSurfaceView({
     [comments],
   )
 
+  // Editor-state selection action bar (the Pierre editor is selectable
+  // text too). Lives in the drawer region so the listeners are shared.
+  const editSelectionAction = useSelectionActionOverlay({
+    containerRef: editorHostRef,
+    path: surface.filePath,
+    cwd: surface.cwd,
+    content: editable.content,
+    layer: typeof document === 'undefined' ? null : document.body,
+    sessions: sessions ?? null,
+    onComment: anchor => {
+      rails.composeAt(commentAnchorOf(anchor))
+    },
+    t,
+  })
+
   /* ---------- editing state ---------- */
 
   if (editable.editMode) {
     if (editable.error !== '') return <ErrorState message={editable.error} />
     if (editable.content === null) return <LoadingState label={t('overlay.loading')} />
     return (
-      <div className="dsh-studio-editor-surface" data-testid="editor-surface">
-        <div className="dsh-studio-editor-header">
-          <span title={surface.filePath}>{surface.title}</span>
-          {editable.dirty ? <small className="dsh-studio-editor-dirty">●</small> : null}
-          <span className="dsh-studio-editor-actions">
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={editable.saving || !editable.dirty}
-              onClick={() => { void editable.save() }}
-            >
-              {editable.saving ? t('file.saving') : t('file.save')}
-            </Button>
-            <Button variant="outline" size="sm" onClick={editable.exitToView}>
-              {t('files.view')}
-            </Button>
-          </span>
-        </div>
+      <div className={surfaceCss["dsh-studio-editor-surface"]} data-testid="editor-surface">
+        <FileViewerChrome
+          cwd={surface.cwd}
+          filePath={surface.filePath}
+          isMarkdown={isMarkdown}
+          markdownMode={markdownMode}
+          onMarkdownModeChange={onMarkdownModeChange}
+          editing={{
+            dirty: editable.dirty,
+            onExit: editable.exitToView,
+          }}
+          t={t}
+        />
         <EditProvider createEditor={createPierreEditor}>
-          <Virtualizer className="dsh-studio-editor-host">
-            <PierreFile
+          <div ref={editorHostRef} className={`dsh-studio-editor-host-wrap`}>
+            <Virtualizer className={surfaceCss["dsh-studio-editor-host"]}>
+              {rails.overlay()}
+              {editSelectionAction.overlay}
+              <PierreFile
               file={file}
               edit
               editorOptions={editorOptions}
-              options={{ disableFileHeader: true, theme }}
+              options={{
+                disableFileHeader: true,
+                theme,
+                onLineEnter: rails.onLineEnter,
+                onLineLeave: rails.onLineLeave,
+              }}
+              renderGutterUtility={rails.gutterUtility}
               {...(lineAnnotations.length > 0
                 ? {
                     lineAnnotations,
-                    renderAnnotation: (annotation: { metadata: DiffComment }) => (
-                      <CommentBubble comment={annotation.metadata} />
+                    renderAnnotation: (annotation: { metadata: WorkbenchComment }) => (
+                      <CommentBubble comment={annotation.metadata} t={t} />
                     ),
                   }
                 : {})}
-            />
-          </Virtualizer>
+              />
+            </Virtualizer>
+          </div>
         </EditProvider>
       </div>
     )
@@ -306,7 +337,7 @@ export function FileSurfaceView({
   // snapshots keep the Edit affordance hidden.
   const canEdit = content !== null && !snapshot.truncated
   return (
-    <div className="dsh-studio-file-surface" data-testid="file-surface">
+    <div className={surfaceCss["dsh-studio-file-surface"]} data-testid="file-surface">
       <FileViewerChrome
         cwd={surface.cwd}
         filePath={surface.filePath}
@@ -322,7 +353,8 @@ export function FileSurfaceView({
       {writeError !== '' ? (
         <ErrorState message={writeError} />
       ) : null}
-      <Scrollable className="dsh-studio-file-surface-body" onMouseUp={onSourceMouseUp}>
+      <ScrollArea className={surfaceCss["dsh-studio-file-surface-body"]}>
+        {rails.overlay()}
         <ContentViewer
           path={surface.filePath}
           content={content}
@@ -332,24 +364,15 @@ export function FileSurfaceView({
           markdownPreview={markdownMode === 'preview'}
           comments={comments}
           cwd={surface.cwd}
-          {...(reviewComments === undefined ? {} : { reviewComments })}
+          rails={rails}
+          sessions={sessions ?? null}
           onTaskToggle={onTaskToggle}
           onOpenExternal={onOpenExternal}
           {...(snapshot.data === undefined ? {} : { data: snapshot.data })}
           hideMeta
           t={t}
         />
-      </Scrollable>
-      {selectionAction !== null ? (
-        <div
-          className="dsh-studio-file-selection-action"
-          style={{ left: selectionAction.left, top: selectionAction.top }}
-        >
-          <button type="button" onClick={() => { void onCopySelection(selectionAction.label) }}>
-            Copy {selectionAction.label}
-          </button>
-        </div>
-      ) : null}
+      </ScrollArea>
     </div>
   )
 }

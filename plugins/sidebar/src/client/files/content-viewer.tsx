@@ -9,6 +9,7 @@
  * caps), image loading/error/zoom states, PDF toolbar, sticky CSV header,
  * differentiated binary states, and truncated propagation for write-gating.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
@@ -21,16 +22,17 @@ import {
 import type { Translate } from '@dsh-studio/shared/i18n'
 import { basename } from '@dsh-studio/shared/path'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { EmptyState, ErrorState, LoadingState, Scrollable, ToolbarAction } from '@dsh-studio/shared/ui'
+import { EmptyState, ErrorState, LoadingState, ScrollArea, SurfaceToolbar, ToolbarAction } from '@dsh-studio/shared/ui'
 import { isPlainLanguage, languageForPath, MAX_NUMBERED_LINES } from './language.ts'
 import { PierreFileView } from './pierre-file-view.tsx'
+import type { CommentRails } from '../comments/comment-rails.tsx'
 import { detectDelimiter, parseDelimitedRows } from './delimited-text.ts'
 import { MarkdownViewer } from './markdown-viewer.tsx'
 import { IpynbViewer } from './ipynb-viewer.tsx'
 import { MermaidViewer } from './mermaid-viewer.tsx'
-import { SelectionInsertPopup } from './selection-insert-popup.tsx'
-import type { ReviewCommentsService } from '../review/review-comments.ts'
-import type { DiffComment } from '../diff/diff-comments-store.ts'
+import type { SessionsService } from '../client-types.ts'
+import { commentAnchorOf, useSelectionActionOverlay } from '../selection/use-selection-action.tsx'
+import type { WorkbenchComment } from '../diff/diff-comments-store.ts'
 
 type ContentKind = 'text' | 'csv' | 'markdown' | 'html' | 'image' | 'pdf' | 'ipynb' | 'mermaid' | 'binary'
 
@@ -97,18 +99,19 @@ export interface ContentViewerProps {
   /** For Markdown: rendered preview vs source. */
   markdownPreview?: boolean
   /** Line comments shown as annotation rows in Pierre code views. */
-  comments?: readonly DiffComment[]
+  comments?: readonly WorkbenchComment[]
   /** Session cwd (relative "add to conversation" payloads). */
   cwd?: string
-  /** When given, text/markdown selections offer an "add to conversation"
-   *  popup appended into the composer through this service. */
-  reviewComments?: ReviewCommentsService
+  /** Session roster for the "add to chat" target dropdown. */
+  sessions?: SessionsService | null
   onTaskToggle?(input: { sourceLine: number; checked: boolean }): void
   onOpenExternal?(): void
   onShowInFolder?(): void
   /** When true, the internal filename + metadata bar is hidden (used when
    *  an outer chrome like FileViewerChrome already shows the same info). */
   hideMeta?: boolean
+  /** Hover-comment rails forwarded to the Pierre code surfaces. */
+  rails?: CommentRails
   t: Translate<WorkspaceMessage>
 }
 
@@ -122,30 +125,37 @@ export function ContentViewer({
   markdownPreview = true,
   comments,
   cwd,
-  reviewComments,
+  sessions,
   onTaskToggle,
   onOpenExternal,
   onShowInFolder,
   hideMeta = false,
+  rails,
   t,
 }: ContentViewerProps): JSX.Element {
   const kind = detectKind(path, binary)
   const name = basename(path)
-  // The selection-insert popup host: the markdown preview (its Scrollable)
-  // and the Pierre code/plain rows share ONE ref — only one branch renders
-  // at a time. Rendered inline so its document listeners reset when the
-  // opened file changes.
+  // The unified selection action bar host: one container ref shared by the
+  // markdown preview (its ScrollArea) and the Pierre code/plain rows — only
+  // one branch renders at a time. Rendered inline so its document listeners
+  // reset when the opened file changes.
   const textRootRef = useRef<HTMLDivElement | null>(null)
-  const selectionInsert = reviewComments === undefined || content === null ? null : (
-    <SelectionInsertPopup
-      containerRef={textRootRef}
-      path={path}
-      cwd={cwd}
-      content={content}
-      onAddSelection={text => reviewComments.appendToComposer(text)}
-      t={t}
-    />
-  )
+  const selectionAction = useSelectionActionOverlay({
+    containerRef: textRootRef,
+    path,
+    cwd,
+    content: content ?? undefined,
+    layer: typeof document === 'undefined' ? null : document.body,
+    sessions: sessions ?? null,
+    ...(rails === undefined
+      ? {}
+      : {
+          onComment: (anchor) => {
+            rails.composeAt(commentAnchorOf(anchor))
+          },
+        }),
+    t,
+  })
 
   // Heavy per-content derivations, computed once per content change instead
   // of once per render (rail resizes / tab switches re-render this view).
@@ -179,6 +189,7 @@ export function ContentViewer({
       <PdfViewer
         path={path}
         data={data}
+        t={t}
         {...(onOpenExternal === undefined ? {} : { onOpenExternal })}
       />
     )
@@ -186,7 +197,7 @@ export function ContentViewer({
 
   if (kind === 'html' && content !== null) {
     return (
-      <div className="dsh-studio-content-html">
+      <div className={`dsh-studio-content-html`}>
         <iframe title={name} sandbox="" srcDoc={content} />
       </div>
     )
@@ -197,7 +208,7 @@ export function ContentViewer({
     return (
       <EmptyState
         layout="centered"
-        className="dsh-studio-content-empty"
+        className={`dsh-studio-content-empty`}
         title={name}
         description={isEmpty ? t('files.empty-file') : t('files.viewer.binary')}
         indicator={<IconFileText size={20} />}
@@ -212,7 +223,7 @@ export function ContentViewer({
     return (
       <EmptyState
         layout="centered"
-        className="dsh-studio-content-empty"
+        className={`dsh-studio-content-empty`}
         title={name}
         description={t('overlay.no-content')}
         indicator={<IconFileText size={20} />}
@@ -224,7 +235,7 @@ export function ContentViewer({
     return (
       <EmptyState
         layout="centered"
-        className="dsh-studio-content-empty"
+        className={`dsh-studio-content-empty`}
         title={name}
         description={t('files.empty-file')}
         indicator={<IconFileText size={20} />}
@@ -234,15 +245,15 @@ export function ContentViewer({
 
   if (kind === 'ipynb') {
     return (
-      <div className="dsh-studio-content-root">
-        <IpynbViewer content={content} />
+      <div className={surfaceCss["dsh-studio-content-root"]}>
+        <IpynbViewer content={content} t={t} />
       </div>
     )
   }
 
   if (kind === 'mermaid') {
     return (
-      <div className="dsh-studio-content-root">
+      <div className={surfaceCss["dsh-studio-content-root"]}>
         <MermaidViewer content={content} t={t} />
       </div>
     )
@@ -256,17 +267,18 @@ export function ContentViewer({
             containerRef={textRootRef}
             content={content}
             taskTogglesEnabled={!truncated}
+            t={t}
             {...(onTaskToggle === undefined ? {} : { onTaskToggle })}
           />
-          {selectionInsert}
+          {selectionAction.overlay}
         </>
       )
     }
     const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
     return (
-      <div ref={textRootRef} className="dsh-studio-content-root dsh-studio-content-root-fill">
+      <div ref={textRootRef} className={`${surfaceCss["dsh-studio-content-root"]} ${surfaceCss["dsh-studio-content-root-fill"]}`}>
         {!hideMeta && (
-          <div className="dsh-studio-content-meta">
+          <div className={surfaceCss["dsh-studio-content-meta"]}>
             <span>{name}</span>
             <span>{`markdown · ${lineCount} lines`}</span>
             {truncated ? <span>{t('files.preview-truncated')}</span> : null}
@@ -278,18 +290,20 @@ export function ContentViewer({
           language="markdown"
           lineNumbers={showLineNumbers}
           cacheKey={path}
+          t={t}
           {...(comments === undefined ? {} : { comments })}
+          {...(rails === undefined ? {} : { rails })}
         />
-        {selectionInsert}
+        {selectionAction.overlay}
       </div>
     )
   }
 
   if (kind === 'csv') {
     return (
-      <div className="dsh-studio-content-root">
+      <div className={surfaceCss["dsh-studio-content-root"]}>
         {!hideMeta && (
-          <div className="dsh-studio-content-meta">
+          <div className={surfaceCss["dsh-studio-content-meta"]}>
             <span>{csvTable.delimiter === '\t' ? 'tsv' : 'csv'}</span>
             <span>{`${Math.max(csvTable.rows.length - 1, 0)} rows`}</span>
             {size === undefined ? '' : formatBytes(size)}
@@ -308,9 +322,9 @@ export function ContentViewer({
   const language = languageForPath(path)
   const showLineNumbers = lineCount <= MAX_NUMBERED_LINES
   return (
-    <div ref={textRootRef} className="dsh-studio-content-root dsh-studio-content-root-fill">
+    <div ref={textRootRef} className={`${surfaceCss["dsh-studio-content-root"]} ${surfaceCss["dsh-studio-content-root-fill"]}`}>
       {!hideMeta && (
-        <div className="dsh-studio-content-meta">
+        <div className={surfaceCss["dsh-studio-content-meta"]}>
           <span>{name}</span>
           <span>{isPlainLanguage(language) ? `${lineCount} lines` : `${language} · ${lineCount} lines`}</span>
           {truncated ? <span>{t('files.preview-truncated')}</span> : null}
@@ -322,9 +336,11 @@ export function ContentViewer({
         language={language}
         lineNumbers={showLineNumbers}
         cacheKey={path}
+        t={t}
         {...(comments === undefined ? {} : { comments })}
+        {...(rails === undefined ? {} : { rails })}
       />
-      {selectionInsert}
+      {selectionAction.overlay}
     </div>
   )
 }
@@ -343,8 +359,8 @@ function CsvVirtualTable({ rows }: { rows: string[][] }): JSX.Element {
   const topSpacer = items[0]?.start ?? 0
   const bottomSpacer = Math.max(0, virtualizer.getTotalSize() - (items.at(-1)?.end ?? 0))
   return (
-    <Scrollable axis="both" className="dsh-studio-content-table-wrap" ref={parentRef}>
-      <table className="dsh-studio-content-table dsh-studio-content-table-virtual">
+    <ScrollArea axis="both" className={surfaceCss["dsh-studio-content-table-wrap"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset" ref={parentRef}>
+      <table className={`${surfaceCss["dsh-studio-content-table"]} dsh-studio-content-table-virtual`}>
         {header.length > 0 ? (
           <thead>
             <tr>
@@ -365,7 +381,7 @@ function CsvVirtualTable({ rows }: { rows: string[][] }): JSX.Element {
           {bottomSpacer > 0 ? <tr aria-hidden="true"><td style={{ height: bottomSpacer, padding: 0 }} /></tr> : null}
         </tbody>
       </table>
-    </Scrollable>
+    </ScrollArea>
   )
 }
 
@@ -392,10 +408,10 @@ function ImageViewer({
   }, [path, data])
 
   return (
-    <div className="dsh-studio-content-media" data-status={status}>
+    <div className={surfaceCss["dsh-studio-content-media"]} data-status={status}>
       {status === 'error' ? (
         <ErrorState
-          className="dsh-studio-content-empty"
+          className={`dsh-studio-content-empty`}
           message={t('files.image-load-failed')}
           indicator={<IconFileText size={20} />}
           action={onOpenExternal === undefined ? undefined : (
@@ -404,29 +420,33 @@ function ImageViewer({
         />
       ) : (
         <>
-          <div className="dsh-studio-image-toolbar">
-            <ToolbarAction
-              icon={<IconMinus size={14} />}
-              label={t('files.zoom-out')}
-              onClick={() => setZoom(value => Math.max(0.25, value - 0.25))}
-            />
-            <span>{`${Math.round(zoom * 100)}%`}</span>
-            <ToolbarAction
-              icon={<IconPlus size={14} />}
-              label={t('files.zoom-in')}
-              onClick={() => setZoom(value => Math.min(8, value + 0.25))}
-            />
-            <Button variant="ghost" size="sm" onClick={() => setZoom(1)}>{t('files.zoom-reset')}</Button>
-            {onOpenExternal !== undefined ? (
-              <ToolbarAction
-                icon={<IconExternalLink size={14} />}
-                label={t('files.open-externally')}
-                onClick={onOpenExternal}
-              />
-            ) : null}
-          </div>
-          <Scrollable axis="both" className="dsh-studio-content-media-stage">
-            {status === 'loading' ? <LoadingState className="dsh-studio-side-muted" label={t('files.image-loading')} /> : null}
+          <SurfaceToolbar
+            meta={<span className={surfaceCss["dsh-studio-image-zoom"]}>{`${Math.round(zoom * 100)}%`}</span>}
+            actions={(
+              <>
+                <ToolbarAction
+                  icon={<IconMinus size={14} />}
+                  label={t('files.zoom-out')}
+                  onClick={() => setZoom(value => Math.max(0.25, value - 0.25))}
+                />
+                <ToolbarAction
+                  icon={<IconPlus size={14} />}
+                  label={t('files.zoom-in')}
+                  onClick={() => setZoom(value => Math.min(8, value + 0.25))}
+                />
+                <Button variant="ghost" size="sm" onClick={() => setZoom(1)}>{t('files.zoom-reset')}</Button>
+                {onOpenExternal !== undefined ? (
+                  <ToolbarAction
+                    icon={<IconExternalLink size={14} />}
+                    label={t('files.open-externally')}
+                    onClick={onOpenExternal}
+                  />
+                ) : null}
+              </>
+            )}
+          />
+          <ScrollArea axis="both" className={surfaceCss["dsh-studio-content-media-stage"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+            {status === 'loading' ? <LoadingState className={surfaceCss["dsh-studio-side-muted"]} label={t('files.image-loading')} /> : null}
             <img
               src={`data:${mime};base64,${data}`}
               alt={name}
@@ -436,7 +456,7 @@ function ImageViewer({
               onLoad={() => setStatus('ready')}
               onError={() => setStatus('error')}
             />
-          </Scrollable>
+          </ScrollArea>
         </>
       )}
     </div>
@@ -447,24 +467,29 @@ function PdfViewer({
   path,
   data,
   onOpenExternal,
+  t,
 }: {
   path: string
   data: string
   onOpenExternal?(): void
+  t: Translate<WorkspaceMessage>
 }): JSX.Element {
   const name = basename(path)
   return (
-    <div className="dsh-studio-content-media">
-      <div className="dsh-studio-pdf-toolbar">
-        <span title={path}>{name}</span>
-        {onOpenExternal !== undefined ? (
-          <ToolbarAction
-            icon={<IconExternalLink size={14} />}
-            label="Open externally"
-            onClick={onOpenExternal}
-          />
-        ) : null}
-      </div>
+    <div className={surfaceCss["dsh-studio-content-media"]}>
+      <SurfaceToolbar
+        className={surfaceCss["dsh-studio-pdf-toolbar"]}
+        leading={<span className={surfaceCss["dsh-studio-pdf-title"]} title={path}>{name}</span>}
+        actions={onOpenExternal === undefined
+          ? undefined
+          : (
+            <ToolbarAction
+              icon={<IconExternalLink size={14} />}
+              label={t('files.open-externally')}
+              onClick={onOpenExternal}
+            />
+          )}
+      />
       <iframe title={name} src={`data:application/pdf;base64,${data}`} />
     </div>
   )

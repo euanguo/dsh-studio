@@ -293,18 +293,42 @@ choice applies immediately and survives restarts.
 
 ## Plugin marketplace
 
-Recommended flow:
+The marketplace uses one canonical catalog and one transaction owner in DSH Studio.
+The surface is a two-pane workspace: search, status/category filters, sorting, and a
+virtualized catalog on the left; source, compatibility, trust, README summary,
+screenshots, packs, watchlist, self-update, and operation progress on the right.
 
-1. Choose a plugin from Not installed.
-2. Inspect its source, commit, permissions, and risk level.
-3. Prepare a candidate and preview it in an isolated Profile.
-4. Discard it if the result is unsuitable; the current Desktop is unchanged.
-5. Apply it explicitly, then enable it separately when needed.
-6. Recover the previous state if an update fails.
+Installation flow:
 
-An Agent can initiate the same operation through chat, but still passes
-through preview, risk approval, and apply. It cannot directly mutate the
-current Profile.
+1. Select a plugin or enter a public GitHub `owner/repo`. The `plan` step resolves
+   the exact commit or channel, then checks permissions, compatibility, required
+   material, and risk.
+2. A low-risk plan with no pending confirmation or configuration can use `Install`
+   directly. It writes a candidate Profile, verifies it, atomically swaps the live
+   Profile, retains one Undo/recovery point, and restarts DSH when required. It does
+   not start an isolated preview runtime.
+3. Other plans show individual confirmations for build scripts, high-risk trusted
+   code, or source changes. Required keys/tokens are entered in the marketplace;
+   secret values are excluded from snapshots, logs, and Agent results.
+4. Users can explicitly choose `Try preview`. This starts an isolated DSH runtime;
+   discard leaves the live Profile unchanged, while Apply commits the staged result
+   after confirmation.
+5. Progress, ETA, recent logs, and cancellation are visible while an operation runs.
+   Failures clean up the candidate and restore the live Profile. Successful applies
+   can be reversed with Undo.
+
+Accepted source facts are exact: `github:<owner/repo>#<40-hex-commit>`,
+`npm:<package>@<exact-semver>`, or a GitHub release-hosted
+`tarball:<https-url>#<sha256>`. Tarball URLs must be clean HTTPS URLs without
+query/hash components, using `github.com/.../releases/download/...` or an
+approved GitHub release asset host. Legacy registry
+readers and `inspect`/`prepare`/legacy `preview` commands are not part of the
+contract.
+
+The Agent uses the same Host gateway and transaction for `plan`, `execute`, `pack`,
+`provide`, `cancel`, `discard`, `apply`, and `undo`. UI and Agent share source locks,
+risk confirmations, candidate staging, preview, restart, and recovery semantics;
+low-risk Agent operations may use the same direct fast path.
 
 ## Run and package from source
 
@@ -373,6 +397,8 @@ preferences. Migration copies only missing data and leaves legacy directories
 in place for rollback; existing shared state is not replaced.
 
 Desktop environment: when launched from Finder, Launchpad, or `open -a "DSH Studio"`, macOS and Linux do not automatically load the terminal's Shell configuration, so Desktop reads the user's POSIX login-shell environment at startup and invalidates the cached result when rc files such as `~/.zshrc` change. Windows uses the user and system environment already inherited by the GUI process and recognizes `Path`, `PATHEXT`, and `ComSpec`. User-visible processes (embedded terminal, Agent terminals, Git, and user commands) resolve PATH user-first, with the app's bundled Node adapters only as a fallback; Marketplace and plugin previews keep the bundled runtime first so pnpm and plugin builds stay consistent. Commands such as `codex`, `pi`, and `gh`, plus the user's own `node`, are therefore available directly. If a POSIX Shell configuration cannot start or times out, Desktop falls back to its base environment and records only redacted status in diagnostics; set `DSH_STUDIO_DISABLE_ENV_CACHE=1` to disable the environment cache. The marketplace GitHub credential helper is scoped to marketplace processes; normal terminals and project Git continue to use the user's Git configuration and macOS Keychain.
+
+Interpreter variable boundary: the app reuses its own Electron binary as the Node interpreter (no standalone Node ships), so `ELECTRON_RUN_AS_NODE=1` exists only inside launch environments that exec that binary as an interpreter. The runtime process deletes the variable from its own environment through a preload at boot, so agent sessions and their tool shells inherit only the user environment plus `DSH_*`-namespaced variables — every command an agent runs on your behalf, including windowed Electron programs such as this repository's `pnpm run dev`, sees a clean environment. Marketplace builds are the one exec boundary that keeps the variable (their pnpm must run on the shared interpreter).
 
 Troubleshooting order:
 

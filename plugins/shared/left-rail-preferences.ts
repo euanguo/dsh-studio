@@ -1,7 +1,7 @@
 /**
  * Shared left-rail settings vocabulary (namespace + versioned DTO + icon
  * preference + sanitizers), consumed by BOTH halves:
- *   - the host (sidebar-host) registers a schemastery schema over these
+ *   - the host (capabilities) registers a schemastery schema over these
  *     values and migrates legacy state into the namespace;
  *   - the client (desktop-left-rail) reads/writes the slice through the
  *     /sidebar settings routes and sanitizes on hydrate.

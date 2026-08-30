@@ -1,109 +1,130 @@
 /**
- * Center surface localStorage persistence (M3): a thin subscriber layer
- * over the pure-memory center surface store — mirrors every workspace's
- * open set to localStorage (debounced) and rebuilds the queues on
- * startup. Deliberately NOT zustand `persist` middleware so the identity
- * store stays pure.
- *
- * The center surfaces are project-dimension (keyed by cwd), and the open
- * set is a WHITELIST: only conversations the user has open (or files/diffs
- * they pinned) persist. Closing an open tab removes it from the queue and
- * the persisted document — next restart restores exactly what was left
- * open. A conversation is an ordinary center tab: closing it never archives
- * the session; the session stays in the session list and clicking it in the
- * left rail re-opens its tab.
+ * Domain-backed persistence for center-surface queues. The identity store stays
+ * pure memory; this layer restores and saves the complete per-cwd open set.
  */
+import {
+  UI_CHROME_TABLES,
+} from '@dsh-studio/shared/ui-chrome-tables'
+import {
+  persistVia,
+  persistedSliceBackend,
+  type PersistedSliceDefinition,
+  type PersistViaHandle,
+} from '@dsh-studio/shared/store-persistence'
+import { createUiChromeStorage } from '@dsh-studio/shared/ui-chrome-storage'
 import { useCenterSurfaceStore } from './center-surface-store.ts'
 import type { CenterSurface } from './types.ts'
 
-const CENTER_SURFACES_STORAGE_KEY = 'dsh-studio.center-surfaces.v2'
-
 export interface PersistedCenterSurfaces {
-  /** v4: per-workspace (cwd) tab queues, project dimension, no session
-   *  blacklist. */
-  version: 4
   byCwd: Record<string, {
     open: ReadonlyArray<CenterSurface>
     activeId: string | null
   }>
 }
 
-/** Trailing-debounce for persistence: tab bursts (open/close/preview
- *  replacement) write localStorage once, not once per store change. */
-const PERSIST_DEBOUNCE_MS = 250
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
 
-/** Mirror every workspace's open set to localStorage (debounced). */
-export function persistCenterSurfaces(): () => void {
-  let timer: number | null = null
-  const stop = useCenterSurfaceStore.subscribe(() => {
-    if (timer !== null) window.clearTimeout(timer)
-    timer = window.setTimeout(() => {
-      timer = null
-      const state = useCenterSurfaceStore.getState()
-      try {
-        const payload: PersistedCenterSurfaces = {
-          version: 4,
-          byCwd: Object.fromEntries(Object.entries(state.byCwd).map(([cwd, slice]) => [
-            cwd,
-            { open: slice.open, activeId: slice.activeId },
-          ])),
-        }
-        window.localStorage.setItem(CENTER_SURFACES_STORAGE_KEY, JSON.stringify(payload))
-      } catch {
-        // Storage may be unavailable (private mode); persistence is best-effort.
-      }
-    }, PERSIST_DEBOUNCE_MS)
-  })
-  return () => {
-    if (timer !== null) window.clearTimeout(timer)
-    stop()
+function isSurfaceBase(value: unknown): value is Record<string, unknown> {
+  return isRecord(value)
+    && typeof value.id === 'string' && value.id !== ''
+    && typeof value.cwd === 'string' && value.cwd !== ''
+    && typeof value.title === 'string'
+    && value.closable === true
+}
+
+function isCenterSurface(value: unknown): value is CenterSurface {
+  if (!isSurfaceBase(value) || typeof value.kind !== 'string') return false
+  switch (value.kind) {
+    case 'conversation':
+      return typeof value.sessionId === 'string' && value.sessionId !== '' && value.isPreview === false
+    case 'file':
+      return typeof value.filePath === 'string' && typeof value.isPreview === 'boolean'
+        && (value.markdownPreview === undefined || typeof value.markdownPreview === 'boolean')
+    case 'diff':
+      return typeof value.filePath === 'string' && typeof value.staged === 'boolean' && typeof value.isPreview === 'boolean'
+    case 'diff-all':
+      return typeof value.staged === 'boolean' && typeof value.isPreview === 'boolean'
+    case 'commit':
+      return typeof value.hash === 'string' && typeof value.isPreview === 'boolean'
+    case 'commit-file':
+      return typeof value.hash === 'string' && typeof value.filePath === 'string' && typeof value.isPreview === 'boolean'
+    case 'committed':
+      return typeof value.baseRef === 'string' && typeof value.isPreview === 'boolean'
+        && (value.filePath === undefined || typeof value.filePath === 'string')
+    case 'conflict':
+      return typeof value.filePath === 'string' && typeof value.isPreview === 'boolean'
+    case 'browser':
+      return typeof value.isPreview === 'boolean'
+        && (value.resource === undefined || typeof value.resource === 'string')
+    case 'terminal':
+      return value.isPreview === false
+    default:
+      return false
   }
 }
 
-/** Rebuild every workspace's open set from localStorage (startup). */
-export function restoreCenterSurfaces(): void {
-  let payload: PersistedCenterSurfaces | null = null
-  try {
-    const raw = window.localStorage.getItem(CENTER_SURFACES_STORAGE_KEY)
-    if (raw !== null) {
-      const parsed = JSON.parse(raw) as Partial<PersistedCenterSurfaces>
-      if (parsed.version === 4 && parsed.byCwd !== null && typeof parsed.byCwd === 'object') {
-        payload = {
-          version: 4,
-          byCwd: parsed.byCwd as PersistedCenterSurfaces['byCwd'],
-        }
-      }
-    }
-  } catch (cause) {
-    // Corrupt persisted state: log, drop the bad blob and start clean
-    // instead of failing silently and re-persisting it forever.
-    console.warn('[sidebar] clearing corrupt center-surface persistence', cause)
-    try {
-      window.localStorage.removeItem(CENTER_SURFACES_STORAGE_KEY)
-    } catch {
-      // Storage unavailable; nothing to clean.
-    }
-    return
+/** Drop malformed rows so one bad persisted tab never blocks restoration. */
+export function sanitizePersistedCenterSurfaces(value: unknown): PersistedCenterSurfaces {
+  const byCwdValue = isRecord(value) && isRecord(value.byCwd) ? value.byCwd : {}
+  const byCwd: PersistedCenterSurfaces['byCwd'] = {}
+  for (const [cwd, entry] of Object.entries(byCwdValue)) {
+    if (cwd === '' || !isRecord(entry) || !Array.isArray(entry.open)) continue
+    const open = entry.open.filter(isCenterSurface)
+    const activeId = typeof entry.activeId === 'string' && open.some(surface => surface.id === entry.activeId)
+      ? entry.activeId
+      : null
+    byCwd[cwd] = { open, activeId }
   }
-  if (payload === null) return
+  return { byCwd }
+}
+
+function snapshot(): PersistedCenterSurfaces {
+  const state = useCenterSurfaceStore.getState()
+  return {
+    byCwd: Object.fromEntries(Object.entries(state.byCwd).map(([cwd, slice]) => [
+      cwd,
+      { open: slice.open, activeId: slice.activeId },
+    ])),
+  }
+}
+
+/** Preserve surfaces opened while the asynchronous domain read was pending. */
+export function mergePayloads(
+  stored: PersistedCenterSurfaces,
+  current: PersistedCenterSurfaces,
+): PersistedCenterSurfaces {
+  const byCwd: PersistedCenterSurfaces['byCwd'] = { ...stored.byCwd }
+  for (const [cwd, currentSlice] of Object.entries(current.byCwd)) {
+    const storedSlice = byCwd[cwd]
+    if (storedSlice === undefined) {
+      byCwd[cwd] = currentSlice
+      continue
+    }
+    const open = [...storedSlice.open]
+    for (const surface of currentSlice.open) {
+      const index = open.findIndex(candidate => candidate.id === surface.id)
+      if (index < 0) open.push(surface)
+      else open[index] = surface
+    }
+    byCwd[cwd] = {
+      open,
+      activeId: currentSlice.activeId !== null && open.some(surface => surface.id === currentSlice.activeId)
+        ? currentSlice.activeId
+        : storedSlice.activeId,
+    }
+  }
+  return { byCwd }
+}
+
+/** Rebuild every workspace open-set into the identity store (facade `apply`). */
+function restore(payload: PersistedCenterSurfaces): void {
   const state = useCenterSurfaceStore.getState()
   state.clearAll()
   for (const [cwd, entry] of Object.entries(payload.byCwd)) {
-    if (!Array.isArray(entry?.open)) continue
     state.ensureCwd(cwd)
-    const open = entry.open.filter(
-      (surface): surface is CenterSurface =>
-        surface !== null && typeof surface === 'object' && typeof surface.id === 'string'
-        && typeof surface.kind === 'string'
-        && typeof surface.title === 'string'
-        && typeof surface.closable === 'boolean'
-        && typeof surface.isPreview === 'boolean'
-        && typeof surface.cwd === 'string',
-    )
-    // Re-insert through the store so ids/order stay canonical. The open set
-    // is a whitelist: only the surface objects persisted were open — a
-    // closed conversation is simply absent, so it never comes back.
-    for (const surface of open) {
+    for (const surface of entry.open) {
       if (surface.kind === 'conversation') {
         state.openConversation({ cwd, sessionId: surface.sessionId, title: surface.title, activate: false })
       } else if (surface.kind === 'file') {
@@ -140,13 +161,75 @@ export function restoreCenterSurfaces(): void {
           preview: false,
         })
       } else if (surface.kind === 'terminal') {
-        // Re-open the exact instance (the id is the pty's tab identity).
         state.openTerminal({ cwd, title: surface.title, id: surface.id })
       }
     }
-    const activeId = open.some(surface => surface.id === entry.activeId)
+    const activeId = entry.open.some(surface => surface.id === entry.activeId)
       ? entry.activeId
-      : open.at(-1)?.id ?? null
+      : entry.open.at(-1)?.id ?? null
     if (activeId !== null) state.activate(cwd, activeId)
   }
+}
+
+let activeHandle: PersistViaHandle | undefined
+
+/** The single ui-chrome table this module (and only this module) persists. */
+const CENTER_SURFACES_TABLE = UI_CHROME_TABLES.centerSurfaces
+
+/**
+ * THE slice owning the `center_surfaces` table (one table, one writer; the
+ * per-cwd open-sets are the slice's workspace buckets). Wire DTO is fixed,
+ * so the `bare` encoding routes every read and write through the release
+ * sanitizer as the format-compatibility hook.
+ */
+const CENTER_SURFACES_SLICE: PersistedSliceDefinition<PersistedCenterSurfaces> = {
+  table: CENTER_SURFACES_TABLE,
+  scope: 'workspace',
+  version: 1,
+  encoding: 'bare',
+  onIncompatible: 'migrate',
+  migrate: raw => sanitizePersistedCenterSurfaces(raw),
+}
+
+function createHandle(): PersistViaHandle {
+  return persistVia<PersistedCenterSurfaces>(
+    {
+      subscribe: listener => useCenterSurfaceStore.subscribe(listener),
+      snapshot,
+      apply: restore,
+    },
+    {
+      backend: persistedSliceBackend(
+        CENTER_SURFACES_SLICE,
+        createUiChromeStorage<PersistedCenterSurfaces>({
+          table: CENTER_SURFACES_TABLE,
+          defaults: () => ({ byCwd: {} }),
+          sanitize: sanitizePersistedCenterSurfaces,
+          debounceMs: 250,
+        }),
+      ),
+      merge: mergePayloads,
+    },
+  )
+}
+
+/**
+ * Mirror every workspace open-set for THIS mount. A fresh facade per mount
+ * is deliberate: the host's dispose path stops the previous handle (which
+ * permanently deactivates it) before clearing the store, so reusing a cached
+ * handle left remounts with a dead feed — nothing hydrated, nothing saved —
+ * until a full page reload.
+ */
+export function persistCenterSurfaces(): () => void {
+  const handle = createHandle()
+  activeHandle = handle
+  return () => {
+    if (activeHandle === handle) activeHandle = undefined
+    handle.stop()
+  }
+}
+
+/** Rebuild every workspace open-set from the domain store at startup. */
+export async function restoreCenterSurfaces(): Promise<void> {
+  await activeHandle?.ready
 }

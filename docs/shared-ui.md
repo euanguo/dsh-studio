@@ -23,19 +23,14 @@
 - `ListRow` 及其 slots：导航器、树和侧栏行。
 - `SurfaceTab`、`SurfaceTabStrip`：surface host 和标签栏。
 - `Scrollable`：稳定滚动条轨道和可选边缘渐隐。
-- `Card`、`CardHeader`、`CardTitle`、`CardDescription`、`CardAction`、
-  `CardContent`、`CardFooter`。
-- `Field`、`FieldGroup`、`FieldLabel`、`FieldDescription`、`FieldError`、
-  `FieldSet`、`FieldLegend`、`FieldMessage`。
-- `Separator`：水平或垂直分隔线。
-- `Alert`、`AlertTitle`、`AlertDescription`、`AlertAction`。
-- `Empty`、`EmptyHeader`、`EmptyMedia`、`EmptyTitle`、
-  `EmptyDescription`、`EmptyContent`。
-- `Skeleton` 和 `FilenameLabel`。
+- `Field`、`FieldLabel`、`FieldDescription`、`FieldError`：单行输入字段语义。
+- `Alert`、`AlertDescription`、`AlertAction`：提示条。
+- `Empty`：空态容器；更完整的加载/错误/空反馈用 `EmptyState`。
+- `FilenameLabel`。
 - `SettingsSection` 和 `SettingsRow`：符合 General-row 规范的标题、描述、分隔线和右侧控制布局。
 - `ToolbarAction`：使用官方 `Button variant="toolbar"` 的图标操作，并提供 tooltip 与无障碍名称。
 - `StatusLine`：loading、error、warning、neutral、success 的紧凑状态行。
-- `FeedbackState`、`LoadingState`、`ErrorState`、`EmptyState`：统一反馈语义；按钮、图标和 `StateDot` 仍由插件直接传入。`EmptyState` 默认使用紧凑布局，需要内容区居中时传 `layout="centered"`。
+- `LoadingState`、`ErrorState`、`EmptyState`：统一反馈语义；按钮、图标和 `StateDot` 仍由插件直接传入。`EmptyState` 默认使用紧凑布局，需要内容区居中时传 `layout="centered"`。
 
 `SettingsRow` 只管理布局和 Field 语义，不管理 draft、校验、CAS、RPC、Menu 生命周期或业务状态。
 `ToolbarAction` 不替代官方 Button；它只是一个明确的 toolbar 组合。反馈组合也不会创建第二套 Button、Toast 或 StateDot。

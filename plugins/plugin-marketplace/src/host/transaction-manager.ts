@@ -1,79 +1,72 @@
+// Marketplace transaction phase orchestration. State-file semantics live in
+// state-file.ts, allowBuild YAML editing in allowbuild-yaml.ts, and raw
+// filesystem surgery in fs-ops.ts; this module owns phases, guards, and the
+// preview/apply/undo coordination across runtime + journal.
 import { randomUUID } from 'node:crypto'
-import {
-  chmodSync,
-  cpSync,
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  realpathSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
-import { dirname, join, relative, resolve, sep } from 'node:path'
+import { existsSync, mkdirSync, readdirSync, renameSync, rmSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import type {
   MarketplaceAction,
   MarketplaceCandidate,
   MarketplaceCommand,
   MarketplaceConfirmation,
+  MarketplaceInputRequest,
   MarketplaceInstalledPlugin,
+  MarketplacePack,
   MarketplacePlan,
   MarketplacePlugin,
   MarketplacePreview,
-  MarketplaceRiskLevel,
-  MarketplaceRiskReason,
+  MarketplaceProgress,
   MarketplaceSnapshot,
-  MarketplaceSourceLock,
-  MarketplaceSourceReview,
   SourceRef,
-} from '../protocol.ts'
-import {
-  isProtectedMarketplacePlugin,
 } from '../protocol.ts'
 import type { MarketplacePlatform } from './platform.ts'
 import { CatalogSourceManager } from './catalog-source-manager.ts'
+import {
+  clearJournal,
+  journalAppliedRecord,
+  journalIntentRecord,
+  readRawJournal,
+  reconcileJournal,
+  restoreJournal,
+  writeJournal,
+  type MarketplaceRecoveryPoint,
+} from './journal.ts'
 import {
   DefaultMarketplaceSourceResolver,
   makeMarketplaceApprovalDecision,
   platformRepositoryAdapter,
 } from './source-resolver.ts'
+import { PINNED_DSH_VERSION, type MarketplaceSourceResolver } from './source-types.ts'
 import {
-  MARKETPLACE_STATE_VERSION,
-  migrateMarketplaceLocks,
-  sourceLockFromCandidate,
-  validateMarketplaceSourceLock,
-} from './source-lock.ts'
+  MANAGED_DIRECTORY,
+  applyPlanToPreviewProfile,
+  buildManageCandidate,
+  bundleEnabled,
+  bundleInstalled,
+  readMarketplaceState,
+  resolveInstallCandidate,
+} from './state-file.ts'
 import {
-  PINNED_DSH_VERSION,
-  type MarketplaceSourceResolver,
-} from './source-types.ts'
+  copyDirectory,
+  defaultWarn,
+  message,
+  removeWithin,
+} from './fs-ops.ts'
 
-const STATE_VERSION = MARKETPLACE_STATE_VERSION
-const MANAGED_DIRECTORY = '.dsh-studio'
-const STATE_FILE = 'marketplace.json'
-const BUILD_BEGIN = '# >>> DSH Studio allowed plugin builds'
-const BUILD_END = '# <<< DSH Studio allowed plugin builds'
-
-interface MarketplaceStateFile {
-  entries: MarketplaceInstalledPlugin[]
-  locks: MarketplaceSourceLock[]
-  version: 3
-}
-
-interface RollbackState {
-  appliedAt: string
-  backupProfile: string
-  pluginId: string
-  transactionId: string
-}
-
-interface ActivePreview {
+interface ActiveStage {
   candidateHome: string
   candidateProfile: string
-  preview: MarketplacePreview
+  operation: MarketplacePreview
   root: string
+}
+
+interface PendingInput {
+  confirmations: MarketplaceConfirmation[]
+  candidates: MarketplaceCandidate[] | null
+  mode: 'direct' | 'preview'
+  plans: MarketplacePlan[] | null
+  request: MarketplaceInputRequest
 }
 
 export interface MarketplacePreviewRuntimeInput {
@@ -94,311 +87,107 @@ export interface MarketplaceRuntime {
 export interface PluginMarketplaceOptions {
   appDataPath: string
   dshHome: string
-  onWarn?: (message: string) => void
+  onStateChange?: () => void
+  onWarn?: (message_: string) => void
   platform: MarketplacePlatform
   profile: string
   resolver?: MarketplaceSourceResolver
   runtime: MarketplaceRuntime
 }
 
-interface PackageManifest {
-  dependencies?: unknown
-  dsh?: {
-    bundle?: { patch?: unknown }
-    profile?: { bundles?: unknown }
-  }
-  name?: unknown
-  scripts?: unknown
-}
+/**
+ * Explicit marketplace transaction phases. Every command guard and every
+ * state mutation is expressed against this enum; the manager never derives
+ * "what is happening" from scattered null/boolean flags. `applying` and
+ * `undoing` are explicit in-memory phases today and become the persisted
+ * journal phases in the leaf that owns disk timing.
+ */
+export type MarketplacePhase =
+  | 'idle'
+  | 'catalog-ready'
+  | 'planning'
+  | 'staging'
+  | 'previewing'
+  | 'applying'
+  | 'applied-with-undo'
+  | 'undoing'
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object' && !Array.isArray(value)
-}
+const MARKETPLACE_PHASES = [
+  'idle',
+  'catalog-ready',
+  'planning',
+  'staging',
+  'previewing',
+  'applying',
+  'applied-with-undo',
+  'undoing',
+] as const satisfies readonly MarketplacePhase[]
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
-function readJson(path: string): unknown {
-  return JSON.parse(readFileSync(path, 'utf8')) as unknown
-}
-
-function writeJsonAtomic(path: string, value: unknown): void {
-  mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
-  const temporary = `${path}.tmp-${String(process.pid)}-${randomUUID()}`
-  writeFileSync(temporary, JSON.stringify(value, undefined, 2) + '\n', { mode: 0o600 })
-  renameSync(temporary, path)
-}
-
-function validateInstalledEntry(value: unknown): value is MarketplaceInstalledPlugin {
-  if (!isRecord(value)) return false
-  return typeof value.pluginId === 'string'
-    && /^[A-Za-z0-9_.-]{1,100}$/.test(value.pluginId)
-    && (value.mechanism === 'bundle' || value.mechanism === 'repository')
-    && (value.packageName === null || typeof value.packageName === 'string')
-    && typeof value.resolvedCommit === 'string'
-    && /^[0-9a-f]{40}$/.test(value.resolvedCommit)
-    && typeof value.source === 'string'
-    && typeof value.installedAt === 'string'
-}
-
-function readMarketplaceState(profileDir: string): MarketplaceStateFile {
-  const path = join(profileDir, MANAGED_DIRECTORY, STATE_FILE)
-  if (!existsSync(path)) return { entries: [], locks: [], version: STATE_VERSION }
-  try {
-    const parsed = readJson(path)
-    if (!isRecord(parsed) || !Array.isArray(parsed.entries)) {
-      throw new Error('unsupported marketplace state version')
-    }
-    if (parsed.version === 1) {
-      return {
-        entries: parsed.entries.filter(validateInstalledEntry),
-        locks: [],
-        version: STATE_VERSION,
-      }
-    }
-    if ((parsed.version !== 2 && parsed.version !== STATE_VERSION) || !Array.isArray(parsed.locks)) {
-      throw new Error('unsupported marketplace state version')
-    }
-    return {
-      entries: parsed.entries.filter(validateInstalledEntry),
-      locks: migrateMarketplaceLocks(parsed.locks).filter(validateMarketplaceSourceLock),
-      version: STATE_VERSION,
-    }
-  } catch (error) {
-    throw new Error(`failed to read plugin marketplace state at ${path}: ${message(error)}`)
-  }
-}
-
-function writeMarketplaceState(profileDir: string, state: MarketplaceStateFile): void {
-  writeJsonAtomic(join(profileDir, MANAGED_DIRECTORY, STATE_FILE), {
-    entries: state.entries,
-    locks: state.locks,
-    version: STATE_VERSION,
-  } satisfies MarketplaceStateFile)
-}
-
-function profileManifest(profileDir: string): PackageManifest {
-  const path = join(profileDir, 'package.json')
-  const manifest = readJson(path)
-  if (!isRecord(manifest)) throw new Error(`${path} must contain an object`)
-  return manifest as PackageManifest
-}
-
-function profileBundles(manifest: PackageManifest): string[] {
-  const bundles = manifest.dsh?.profile?.bundles
-  return Array.isArray(bundles)
-    ? bundles.filter((entry): entry is string => typeof entry === 'string')
-    : []
-}
-
-function bundleInstalled(profileDir: string, packageNameValue: string | null): boolean {
-  if (packageNameValue === null) return false
-  const dependencies = profileManifest(profileDir).dependencies
-  return isRecord(dependencies) && typeof dependencies[packageNameValue] === 'string'
-}
-
-function bundleEnabled(profileDir: string, packageNameValue: string | null): boolean {
-  return packageNameValue !== null
-    && profileBundles(profileManifest(profileDir)).includes(packageNameValue)
-}
-
-function setBundleEnabled(
-  profileDir: string,
-  packageNameValue: string,
-  enabled: boolean,
-): void {
-  const path = join(profileDir, 'package.json')
-  const manifest = profileManifest(profileDir)
-  if (!isRecord(manifest.dsh)) manifest.dsh = {}
-  if (!isRecord(manifest.dsh.profile)) manifest.dsh.profile = {}
-  const current = profileBundles(manifest)
-  manifest.dsh.profile.bundles = enabled
-    ? current.includes(packageNameValue) ? current : [...current, packageNameValue]
-    : current.filter(entry => entry !== packageNameValue)
-  writeJsonAtomic(path, manifest)
-}
-
-function removeMarkedBlock(text: string, begin: string, end: string): string {
-  const start = text.indexOf(begin)
-  if (start < 0) return text
-  const finish = text.indexOf(end, start)
-  if (finish < 0) throw new Error(`managed configuration block is missing ${end}`)
-  const after = finish + end.length
-  return `${text.slice(0, start).trimEnd()}\n${text.slice(after).trimStart()}`.trimEnd() + '\n'
-}
-
-function repositoryFromSource(source: string): string | null {
-  const match = /^github:([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)#/.exec(source)
-  return match?.[1] ?? null
-}
-
-function installedEntryEnabled(
-  profileDir: string,
-  entry: MarketplaceInstalledPlugin,
-): boolean {
-  return entry.mechanism === 'bundle' ? bundleEnabled(profileDir, entry.packageName) : false
-}
-
-function yamlString(value: string): string {
-  return `'${value.replaceAll("'", "''")}'`
-}
-
-function allowBuild(profileDir: string, packageNameValue: string): void {
-  const path = join(profileDir, 'pnpm-workspace.yaml')
-  const original = existsSync(path) ? readFileSync(path, 'utf8') : 'packages:\n  - .\n'
-  const clean = removeMarkedBlock(original, BUILD_BEGIN, BUILD_END)
-  const escapedName = packageNameValue.replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  if (new RegExp(`^\\s{2,}${escapedName}:\\s*true\\s*$`, 'm').test(clean)
-    || new RegExp(`^\\s{2,}${yamlString(packageNameValue).replaceAll(/[.*+?^${}()|[\]\\]/g, '\\$&')}:\\s*true\\s*$`, 'm').test(clean)) {
-    writeFileSync(path, clean, { mode: 0o600 })
-    return
-  }
-  const lines = clean.trimEnd().split('\n')
-  const allowIndex = lines.findIndex(line => /^allowBuilds:\s*$/.test(line))
-  if (allowIndex >= 0) {
-    let end = allowIndex + 1
-    while (end < lines.length && (lines[end]?.trim() === '' || /^\s/.test(lines[end] ?? ''))) end += 1
-    lines.splice(end, 0,
-      `  ${BUILD_BEGIN}`,
-      `  ${yamlString(packageNameValue)}: true`,
-      `  ${BUILD_END}`,
-    )
-    writeFileSync(path, lines.join('\n') + '\n', { mode: 0o600 })
-    return
-  }
-  lines.push(
-    '',
-    BUILD_BEGIN,
-    'allowBuilds:',
-    `  ${yamlString(packageNameValue)}: true`,
-    BUILD_END,
-  )
-  writeFileSync(path, lines.join('\n') + '\n', { mode: 0o600 })
-}
-
-function ensureWithin(parent: string, candidate: string): void {
-  const root = resolve(parent)
-  const target = resolve(candidate)
-  if (target !== root && !target.startsWith(root + sep)) {
-    throw new Error(`refusing filesystem operation outside ${root}: ${target}`)
-  }
-}
-
-function assertBundleEntryFiles(checkout: string, targets: readonly string[]): void {
-  const canonicalCheckout = realpathSync(checkout)
-  for (const target of targets) {
-    const entry = resolve(checkout, target)
-    ensureWithin(checkout, entry)
-    if (!existsSync(entry)) {
-      throw new Error(`bundle entry ${target} was not materialized in the exact checkout`)
-    }
-    if (!lstatSync(entry).isFile()) {
-      throw new Error(`bundle entry ${target} is not a regular file in the exact checkout`)
-    }
-    ensureWithin(canonicalCheckout, realpathSync(entry))
-  }
-}
-
-function defaultWarn(message: string): void {
-  console.warn(`plugin-marketplace: ${message}`)
+/** Legal phase-to-phase moves; anything else is a programming error. */
+const PHASE_TRANSITIONS: Readonly<Record<MarketplacePhase, readonly MarketplacePhase[]>> = {
+  idle: ['catalog-ready', 'planning'],
+  'catalog-ready': ['planning', 'idle'],
+  planning: ['staging', 'catalog-ready', 'idle', 'applied-with-undo'],
+  staging: ['previewing', 'applying', 'planning', 'catalog-ready', 'idle'],
+  previewing: ['applying', 'planning', 'catalog-ready', 'idle', 'applied-with-undo'],
+  applying: ['applied-with-undo', 'previewing', 'staging'],
+  'applied-with-undo': ['undoing', 'planning', 'catalog-ready', 'idle'],
+  undoing: ['catalog-ready', 'idle', 'applied-with-undo'],
 }
 
 /**
- * Windows maps the read-only attribute to the owner write bit. Git packs and
- * some cloned files are created read-only, so `rmSync` fails with EPERM before
- * it can recurse into the tree. Clear that attribute before the retry while
- * never following symlinks out of the disposable tree.
+ * Command×phase guard matrix: the only phases in which each marketplace
+ * command is accepted. A command issued outside its rows (and not rejected by
+ * the orthogonal busy flag) fails with the same user-visible error wording as
+ * before the matrix existed.
  */
-function clearReadOnlyAttributes(
-  path: string,
-  platform: NodeJS.Platform = process.platform,
-): void {
-  if (platform !== 'win32') return
-  try {
-    const stats = lstatSync(path)
-    if (stats.isDirectory()) {
-      chmodSync(path, stats.mode | 0o200)
-      for (const entry of readdirSync(path)) {
-        clearReadOnlyAttributes(join(path, entry), platform)
-      }
-    } else if (stats.isFile()) {
-      chmodSync(path, stats.mode | 0o200)
-    }
-  } catch {
-    // Best-effort attribute pass; the removal retry below reports the real failure.
+const COMMAND_PHASE_GUARDS: Readonly<Record<MarketplaceCommand['type'], readonly MarketplacePhase[]>> = {
+  refresh: MARKETPLACE_PHASES,
+  plan: ['idle', 'catalog-ready', 'planning', 'applied-with-undo'],
+  execute: ['planning', 'staging', 'catalog-ready', 'idle', 'applied-with-undo'],
+  pack: ['idle', 'catalog-ready', 'applied-with-undo'],
+  cancel: ['staging'],
+  provide: ['planning', 'staging'],
+  discard: MARKETPLACE_PHASES,
+  apply: ['staging', 'previewing'],
+  undo: ['applied-with-undo'],
+}
+
+function operationLabel(operation: MarketplacePreview): string {
+  return operation.packId === null ? operation.pluginId : `pack ${operation.packId}`
+}
+
+function phaseRejection(type: MarketplaceCommand['type'], phase: MarketplacePhase): string {
+  switch (type) {
+    case 'plan':
+    case 'execute':
+      return phase === 'previewing'
+        ? 'Apply or discard the current preview first.'
+        : `Cannot ${type} a plugin while the marketplace transaction is ${phase}.`
+    case 'apply':
+      return 'There is no active staged operation to apply.'
+    case 'undo':
+      return 'There is no previous plugin profile to restore.'
+    default:
+      // refresh and discard accept every phase, so this is unreachable.
+      return `the marketplace cannot accept a ${type} command during the ${phase} phase`
   }
 }
 
-function removeTree(
-  path: string,
-  onWarn: (message: string) => void = defaultWarn,
-  platform: NodeJS.Platform = process.platform,
-): void {
-  try {
-    rmSync(path, { force: true, recursive: true })
-    return
-  } catch {
-    if (platform === 'win32') clearReadOnlyAttributes(path, platform)
-  }
-  try {
-    rmSync(path, { force: true, recursive: true })
-  } catch (error) {
-    onWarn(`failed to clean plugin marketplace tree at ${path}: ${message(error)}`)
-  }
+/** The whole transaction lifecycle as one state value plus its payloads. */
+interface MarketplaceTransaction {
+  active: ActiveStage | null
+  candidate: MarketplaceCandidate | null
+  phase: MarketplacePhase
+  plan: MarketplacePlan | null
+  rollback: MarketplaceRecoveryPoint | null
 }
 
-export function removeWithin(
-  parent: string,
-  candidate: string,
-  onWarn: (message: string) => void = defaultWarn,
-  platform: NodeJS.Platform = process.platform,
-): void {
-  ensureWithin(parent, candidate)
-  removeTree(candidate, onWarn, platform)
-}
-
-function copyDirectory(source: string, target: string): void {
-  if (!existsSync(source)) throw new Error(`source profile does not exist: ${source}`)
-  if (existsSync(target)) throw new Error(`candidate profile already exists: ${target}`)
-  mkdirSync(dirname(target), { recursive: true, mode: 0o700 })
-  cpSync(source, target, {
-    preserveTimestamps: true,
-    recursive: true,
-    verbatimSymlinks: true,
-  })
-}
-
-function normalizeBundleDependency(
-  profileDir: string,
-  packageNameValue: string,
-  checkout: string,
-): void {
-  ensureWithin(profileDir, checkout)
-  const path = join(profileDir, 'package.json')
-  const manifest = readJson(path)
-  if (!isRecord(manifest) || !isRecord(manifest.dependencies)) {
-    throw new Error('DSH profile package.json is missing dependencies')
-  }
-  const source = relative(profileDir, checkout).split(sep).join('/')
-  if (source === '' || source === '..' || source.startsWith('../')) {
-    throw new Error(`bundle checkout is not portable from the profile: ${checkout}`)
-  }
-  manifest.dependencies[packageNameValue] = `link:${source}`
-  writeJsonAtomic(path, manifest)
-}
-
-function assertPortableBundleProfile(profileDir: string, previewRoot: string): void {
-  for (const name of ['package.json', 'pnpm-lock.yaml']) {
-    const path = join(profileDir, name)
-    if (existsSync(path) && readFileSync(path, 'utf8').includes(previewRoot)) {
-      throw new Error(`${name} retained an absolute path into the disposable preview`)
-    }
-  }
-}
-
-function cloneSnapshot(snapshot: MarketplaceSnapshot): MarketplaceSnapshot {
-  return structuredClone(snapshot)
+/** Typed rejection for a concurrent marketplace command while the host is
+ *  busy (D4). The client distinguishes this from a normal failure and shows
+ *  a "busy" notice instead of treating the command as silently dropped. */
+export class MarketplaceBusyError extends Error {
+  readonly kind = 'marketplace-busy' as const
 }
 
 /**
@@ -413,21 +202,25 @@ export class PluginMarketplaceManager {
   readonly #previewsRoot: string
   readonly #rollbacksRoot: string
   readonly #rollbackStatePath: string
-  #active: ActivePreview | null = null
+  readonly #latestCommits = new Map<string, string>()
+  #progress: MarketplaceProgress | null = null
+  #pendingInput: PendingInput | null = null
+  #packs: MarketplacePack[] = []
+  #selfUpdate: MarketplaceSnapshot['selfUpdate'] = null
+  // Orthogonal busy flag: true while a dispatch runs, independent of phase.
   #busy = false
-  #candidate: MarketplaceCandidate | null = null
+  #cancelRequested = false
+  #tx: MarketplaceTransaction
   #catalog: MarketplacePlugin[] = []
+  #watchlist: MarketplacePlugin[] = []
   #catalogGeneratedAt: string | null = null
   #auth: MarketplaceSnapshot['auth'] = {
     detail: 'Plugin catalog has not been refreshed yet.',
     status: 'error',
   }
   #error: string | null = null
-  readonly #latestCommits = new Map<string, string>()
   #lastAction: string | null = null
-  #plan: MarketplacePlan | null = null
-  #rollback: RollbackState | null
-  readonly #warn: (message: string) => void
+  readonly #warn: (message_: string) => void
 
   constructor(options: PluginMarketplaceOptions) {
     this.#options = options
@@ -445,10 +238,36 @@ export class PluginMarketplaceManager {
     this.#previewsRoot = join(this.#root, 'previews')
     this.#rollbacksRoot = join(this.#root, 'rollbacks')
     this.#rollbackStatePath = join(this.#rollbacksRoot, 'current.json')
-    removeTree(this.#previewsRoot, this.#warn)
+    removeWithin(this.#root, this.#previewsRoot, this.#warn)
     mkdirSync(this.#previewsRoot, { recursive: true, mode: 0o700 })
     mkdirSync(this.#rollbacksRoot, { recursive: true, mode: 0o700 })
-    this.#rollback = this.readRollback()
+    // Crash reconciliation (journal v2): settle every W1..W5/U1..U3 leftover
+    // warn-first before the first command runs. Reported problems seed #error
+    // so a fatal loss is never silent; the error persists until the next
+    // successful dispatch (leaf-3.3 retention).
+    const reconciliation = reconcileJournal({
+      profile: options.profile,
+      profileDir: this.#profileDir,
+      rollbacksRoot: this.#rollbacksRoot,
+      statePath: this.#rollbackStatePath,
+      warn: this.#warn,
+    })
+    this.#tx = {
+      active: null,
+      candidate: null,
+      phase: reconciliation.recovery === null ? 'idle' : 'applied-with-undo',
+      plan: null,
+      rollback: reconciliation.recovery,
+    }
+    if (reconciliation.problems.length > 0) {
+      this.#error = reconciliation.problems.join(' ')
+    }
+  }
+
+  /** Current explicit transaction phase. Host-side introspection only; it is
+   *  not part of the wire snapshot DTO. */
+  get phase(): MarketplacePhase {
+    return this.#tx.phase
   }
 
   getSnapshot(): MarketplaceSnapshot {
@@ -457,11 +276,15 @@ export class PluginMarketplaceManager {
     const installed = receipts.filter(entry => entry.mechanism === 'repository'
       || bundleInstalled(this.#profileDir, entry.packageName))
     const installedById = new Map(installed.map(entry => [entry.pluginId, entry]))
-    return cloneSnapshot({
-      approval: makeMarketplaceApprovalDecision(this.#plan, this.#active !== null, this.#rollback !== null),
+    return structuredClone({
+      approval: makeMarketplaceApprovalDecision(
+        this.#tx.plan,
+        this.#tx.active !== null && this.#tx.phase === 'previewing',
+        this.#tx.rollback !== null,
+      ),
       auth: this.#auth,
       busy: this.#busy,
-      candidate: this.#candidate,
+      candidate: this.#tx.candidate,
       catalog: this.#catalog.map(plugin => {
         const receipt = installedById.get(plugin.id)
         const latestCommit = this.#latestCommits.get(plugin.id) ?? null
@@ -482,52 +305,80 @@ export class PluginMarketplaceManager {
         }
       }),
       catalogGeneratedAt: this.#catalogGeneratedAt,
+      catalogWatchlist: this.#watchlist,
+      progress: this.#progress,
+      inputRequest: this.#pendingInput?.request ?? null,
+      packs: this.#packs,
+      selfUpdate: this.#selfUpdate,
       error: this.#error,
       installed,
       lastAction: this.#lastAction,
       lifecycle: {
-        candidate: this.#active?.preview ?? null,
+        candidate: this.#tx.active?.operation ?? null,
         current: {
           profile: this.#options.profile,
           state: 'live',
         },
-        previous: this.#rollback === null ? null : {
-          appliedAt: this.#rollback.appliedAt,
-          pluginId: this.#rollback.pluginId,
-          transactionId: this.#rollback.transactionId,
+        previous: this.#tx.rollback === null ? null : {
+          appliedAt: this.#tx.rollback.appliedAt,
+          pluginId: this.#tx.rollback.pluginId,
+          transactionId: this.#tx.rollback.transactionId,
         },
       },
-      plan: this.#plan,
-      preview: this.#active?.preview ?? null,
+      plan: this.#tx.plan,
+      preview: this.#tx.phase === 'previewing' ? this.#tx.active?.operation ?? null : null,
       sourceLocks: state.locks,
-      undoAvailable: this.#rollback !== null,
+      undoAvailable: this.#tx.rollback !== null,
     })
   }
 
   async dispatch(command: MarketplaceCommand): Promise<MarketplaceSnapshot> {
-    if (this.#busy) return this.getSnapshot()
+    // D4: a busy host must not silently drop a concurrent command. Instead of
+    // short-circuiting to the current snapshot, throw a typed rejection so the
+    // client can surface "a marketplace operation is already running" instead
+    // of implying the command was accepted. This is the single throw site for
+    // MarketplaceBusyError; it also guards commands that would race an
+    // in-flight applying/undoing phase.
+    if (this.#busy && command.type === 'cancel') {
+      this.#cancelRequested = true
+      return this.getSnapshot()
+    }
+    if (this.#busy) {
+      throw new MarketplaceBusyError('the marketplace is busy processing another operation')
+    }
+    this.#cancelRequested = false
     this.#busy = true
-    this.#error = null
+    let succeeded = false
     try {
+      // Command×phase guard matrix: reject before any state mutation.
+      if (!COMMAND_PHASE_GUARDS[command.type].includes(this.#tx.phase)) {
+        throw new Error(phaseRejection(command.type, this.#tx.phase))
+      }
       switch (command.type) {
         case 'refresh':
           await this.refresh(command.force === true)
           break
-        case 'inspect':
-          await this.inspect(command.action, command.pluginId, command.sourceRef)
+        case 'plan':
+          await this.resolvePlan(command.action, command.pluginId, command.sourceRef)
           break
-        case 'prepare':
-          await this.prepare(command.action, command.pluginId, command.sourceRef)
+        case 'execute':
+          await this.resolvePlan(command.action, command.pluginId, command.sourceRef)
+          await this.executePlan(command.mode, command.confirmations ?? [])
           break
-        case 'preview':
-          await this.preview(command.confirmations
-            ?? (command.allowBuildScripts === true ? ['allow-build-scripts'] : []))
+        case 'pack':
+          await this.executePack(command.packId, command.mode, command.confirmations ?? [])
+          break
+        case 'cancel':
+          await this.cancelStage(command.transactionId)
+          break
+        case 'provide':
+          await this.provideInput(command.transactionId, command.answers)
           break
         case 'discard':
           await this.discard()
           break
         case 'apply':
-          await this.applyPreview()
+          await this.applyActive()
           break
         case 'undo':
           await this.undo()
@@ -535,17 +386,40 @@ export class PluginMarketplaceManager {
         default:
           command satisfies never
       }
+      succeeded = true
     } catch (error) {
+      // Error retention (leaf-3.3): the failure message stays in every later
+      // snapshot until the next successful dispatch replaces it.
       this.#error = message(error)
     } finally {
       this.#busy = false
     }
-    const snapshot = this.getSnapshot()
-    // The snapshot above already reports this dispatch's outcome. Clear the
-    // error so later read-only snapshots (search/status polls) do not keep
-    // surfacing a stale failure from a previous dispatch.
-    this.#error = null
-    return snapshot
+    // A successful dispatch supersedes any retained error (including the
+    // constructor's reconcile problems); a failed one leaves it standing so
+    // read-only snapshots keep surfacing the failure.
+    if (succeeded) this.#error = null
+    return this.getSnapshot()
+  }
+
+  /** Move to an explicit phase; any move outside PHASE_TRANSITIONS is a bug. */
+  #transition(phase: MarketplacePhase): void {
+    const current = this.#tx.phase
+    if (phase === current) return
+    if (!PHASE_TRANSITIONS[current].includes(phase)) {
+      throw new Error(`illegal marketplace phase transition: ${current} -> ${phase}`)
+    }
+    this.#tx.phase = phase
+  }
+
+  /** The resting phase implied by the settled transaction data. */
+  #restingPhase(): MarketplacePhase {
+    if (this.#tx.rollback !== null) return 'applied-with-undo'
+    return this.#catalogGeneratedAt !== null ? 'catalog-ready' : 'idle'
+  }
+
+  /** Return to the resting phase once plan/candidate/active data is cleared. */
+  #settle(): void {
+    this.#transition(this.#restingPhase())
   }
 
   private async refresh(force = false): Promise<void> {
@@ -569,7 +443,23 @@ export class PluginMarketplaceManager {
       trust: 'builtin',
     }, { force })
     this.#catalog = snapshot.plugins
+    this.#watchlist = snapshot.watchlist
     this.#catalogGeneratedAt = snapshot.generatedAt
+    this.#packs = [{
+      description: 'A small set of verified plugins for a fresh DSH profile.',
+      entries: this.#catalog.filter(plugin => plugin.officialBeta && !plugin.protected).slice(0, 5).map(plugin => ({ action: 'install' as const, pluginId: plugin.id })),
+      id: 'recommended',
+      tags: ['recommended', 'verified'],
+      title: 'Recommended plugins',
+    }].filter(pack => pack.entries.length > 0)
+    const market = this.#catalog.find(plugin => plugin.id === 'plugin-marketplace')
+    this.#selfUpdate = market === undefined ? null : {
+      channel: 'stable',
+      checkedAt: new Date().toISOString(),
+      installedVersion: readMarketplaceState(this.#profileDir).entries.find(entry => entry.pluginId === market.id)?.version ?? null,
+      latestVersion: market.version,
+      updateAvailable: market.version !== null && market.version !== readMarketplaceState(this.#profileDir).entries.find(entry => entry.pluginId === market.id)?.version,
+    }
     this.#latestCommits.clear()
     const available = new Map(this.#catalog
       .filter(plugin => plugin.mechanism !== 'unsupported' && plugin.mechanism !== 'repository')
@@ -587,329 +477,317 @@ export class PluginMarketplaceManager {
         }
       }))
     this.#lastAction = `Loaded ${String(this.#catalog.length)} catalog plugins.`
+    // A loaded catalog upgrades the resting phase; an active transaction keeps
+    // its phase (refresh never abandons a plan or preview).
+    if (this.#tx.phase === 'idle') this.#transition('catalog-ready')
   }
 
-  private async prepare(
+  private async resolvePlan(
     action: MarketplaceAction,
     pluginId?: string,
     sourceRef?: SourceRef,
   ): Promise<void> {
-    await this.inspect(action, pluginId, sourceRef)
-    if (this.#plan === null) throw new Error('marketplace inspection did not produce a plan')
-    if (this.#plan.execution !== 'installable' || this.#plan.riskLevel === 'blocked') {
-      throw new Error(`${this.#plan.pluginId} is guide-only or blocked by the pinned DSH runtime`)
-    }
-    if (this.#plan.requirements.length === 0) await this.preview([])
-  }
-
-  private async inspect(
-    action: MarketplaceAction,
-    pluginId?: string,
-    sourceRef?: SourceRef,
-  ): Promise<void> {
-    if (this.#active !== null) throw new Error('Apply or discard the current preview first.')
-    this.#candidate = null
-    this.#plan = null
+    // A new inspection abandons the previous plan/candidate first; the phase
+    // falls back to its resting value before the new candidate is resolved.
+    this.#tx.candidate = null
+    this.#tx.plan = null
+    this.#settle()
     const state = readMarketplaceState(this.#profileDir)
     const requestedPluginId = pluginId ?? (sourceRef?.kind === 'catalog' ? sourceRef.pluginId : undefined)
     if (action === 'uninstall' || action === 'enable' || action === 'disable') {
       if (requestedPluginId === undefined) throw new Error(`${action} requires a marketplace plugin id`)
       const current = state.entries.find(entry => entry.pluginId === requestedPluginId)
       if (current === undefined) throw new Error(`${requestedPluginId} was not installed by this marketplace`)
-      const enabled = installedEntryEnabled(this.#profileDir, current)
-      if (action === 'enable' && enabled) throw new Error(`${requestedPluginId} is already enabled`)
-      if (action === 'disable' && !enabled) throw new Error(`${requestedPluginId} is already disabled`)
-      if (current.mechanism !== 'bundle') {
-        this.#candidate = null
-        this.#plan = {
-          action,
-          artifactDigest: '',
-          buildScripts: {},
-          catalogSourceId: null,
-          description: `Manage ${requestedPluginId} in the desktop profile.`,
-          entryTargets: [],
-          execution: 'guide-only',
-          installSpec: current.source,
-          license: null,
-          manifestHash: '',
-          manifestPath: '.dsh-plugin/package.json',
-          mechanism: 'repository',
-          packageName: current.packageName,
-          patchHash: null,
-          pluginId: requestedPluginId,
-          requirements: [],
-          repository: repositoryFromSource(current.source) ?? 'unknown/unknown',
-          resolvedCommit: current.resolvedCommit,
-          riskLevel: 'blocked',
-          riskReasons: ['unsupported-runtime'],
-          source: current.source,
-          sourceReview: 'matched',
-          subpath: null,
-          version: null,
-        }
+      const resolved = await buildManageCandidate({
+        action,
+        requestedPluginId,
+        current,
+        lock: state.locks.find(entry => entry.pluginId === requestedPluginId),
+        profileDir: this.#profileDir,
+        resolver: this.#resolver,
+      })
+      if (resolved.guideOnly) {
+        this.#tx.candidate = null
+        this.#tx.plan = resolved.plan
+        this.#transition('planning')
         return
       }
-      const lock = state.locks.find(entry => entry.pluginId === requestedPluginId)
-      if (isProtectedMarketplacePlugin(requestedPluginId, repositoryFromSource(current.source), current.packageName)) {
-        throw new Error(`${requestedPluginId} is protected by the desktop and cannot be modified by its own marketplace`)
-      }
-      const candidate: MarketplaceCandidate = {
-        buildScripts: {},
-        description: `Manage ${requestedPluginId} in the desktop profile.`,
-        diagnostics: [],
-        evidence: {
-          compatibility: null,
-          filesPresent: lock === undefined ? [] : [lock.manifestPath],
-          license: null,
-          release: null,
-          signature: null,
-        },
-        execution: 'installable',
-        identity: {
-          packageName: current.packageName ?? '',
-          pluginId: requestedPluginId,
-          repository: repositoryFromSource(current.source) ?? 'unknown/unknown',
-          subpath: lock?.subpath ?? null,
-        },
-        manifest: {
-          artifactDigest: lock?.artifactDigest ?? '',
-          bundlePatch: null,
-          entryTargets: [],
-          hash: lock?.manifestHash ?? '',
-          license: null,
-          patchHash: lock?.patchHash ?? null,
-          path: lock?.manifestPath ?? 'package.json',
-          version: null,
-        },
-        mechanism: 'bundle',
-        risk: { level: 'low', reasons: [], requiredConfirmations: [] },
-        source: {
-          catalogSourceId: lock?.catalogSourceId ?? null,
-          installSpec: lock?.installSpec ?? current.source,
-          kind: lock?.catalogSourceId === null ? 'direct-repository' : 'catalog',
-          locator: `https://github.com/${repositoryFromSource(current.source) ?? 'unknown/unknown'}`,
-          requestedRef: lock?.requestedRef ?? null,
-          resolvedCommit: current.resolvedCommit,
-        },
-      }
-      this.#candidate = candidate
-      this.#plan = this.#resolver.makePlan(candidate, action)
+      this.#tx.candidate = resolved.candidate
+      this.#tx.plan = this.#resolver.makePlan(resolved.candidate, action)
+      this.#transition('planning')
       return
     }
 
-    if (requestedPluginId !== undefined) {
-      const current = state.entries.find(entry => entry.pluginId === requestedPluginId)
-      if (action === 'install' && current !== undefined) throw new Error(`${requestedPluginId} is already installed`)
-      if (action === 'update' && current === undefined) throw new Error(`${requestedPluginId} is not installed`)
-    }
-    let repositoryRef: Extract<SourceRef, { kind: 'repository' }>
-    let catalogPlugin: MarketplacePlugin | undefined
-    if (sourceRef?.kind === 'repository') {
-      repositoryRef = sourceRef
-    } else {
-      if (requestedPluginId === undefined) throw new Error('install/update requires a plugin id or repository sourceRef')
-      catalogPlugin = this.#catalog.find(plugin => plugin.id === requestedPluginId)
-      if (catalogPlugin === undefined) throw new Error(`plugin is not present in the loaded catalog: ${requestedPluginId}`)
-      if (catalogPlugin.mechanism === 'unsupported' || catalogPlugin.mechanism === 'repository') {
-        throw new Error(`${requestedPluginId} is guide-only or blocked by the pinned DSH runtime`)
-      }
-      if (catalogPlugin.protected || isProtectedMarketplacePlugin(requestedPluginId, catalogPlugin.repository)) {
-        throw new Error(`${requestedPluginId} is protected by the desktop and cannot be modified by its own marketplace`)
-      }
-      repositoryRef = {
-        catalogSourceId: catalogPlugin.catalogSourceId ?? 'builtin',
-        input: catalogPlugin.repository,
-        kind: 'repository',
-        requestedRef: null,
-        subpath: null,
-      }
-    }
-    const candidate = await this.#resolver.resolveRepository(repositoryRef)
-    if (catalogPlugin !== undefined) candidate.identity.pluginId = catalogPlugin.id
-    if (isProtectedMarketplacePlugin(
-      candidate.identity.pluginId,
-      candidate.identity.repository,
-      candidate.identity.packageName,
-    )) {
-      throw new Error(`${candidate.identity.pluginId} is protected by the desktop and cannot be modified by its own marketplace`)
-    }
-    const current = state.entries.find(entry => entry.pluginId === candidate.identity.pluginId
-      || entry.packageName === candidate.identity.packageName)
-    if (action === 'install' && current !== undefined) throw new Error(`${candidate.identity.pluginId} is already installed`)
-    if (action === 'update' && current === undefined) throw new Error(`${candidate.identity.pluginId} is not installed`)
-    if (action === 'update' && current?.resolvedCommit === candidate.source.resolvedCommit) {
-      throw new Error(`${candidate.identity.pluginId} is already at the latest commit`)
-    }
+    const candidate = await resolveInstallCandidate({
+      resolver: this.#resolver,
+      action: action as 'install' | 'update',
+      pluginId: requestedPluginId,
+      sourceRef: sourceRef !== undefined && sourceRef.kind === 'repository' ? sourceRef : undefined,
+      catalog: this.#catalog,
+      stateEntries: state.entries,
+    })
     this.#latestCommits.set(candidate.identity.pluginId, candidate.source.resolvedCommit)
-    this.#candidate = candidate
-    this.#plan = this.#resolver.makePlan(candidate, action)
+    this.#tx.candidate = candidate
+    this.#tx.plan = this.#resolver.makePlan(candidate, action)
+    this.#transition('planning')
   }
 
-  private async preview(confirmations: readonly MarketplaceConfirmation[]): Promise<void> {
-    const plan = this.#plan
-    if (plan === null) throw new Error('Inspect a plugin before starting its preview.')
-    if (this.#active !== null) throw new Error('A plugin preview is already active.')
+  private async executePlan(mode: 'direct' | 'preview', confirmations: readonly MarketplaceConfirmation[]): Promise<void> {
+    const plan = this.#tx.plan
+    if (plan === null) throw new Error(phaseRejection('execute', this.#tx.phase))
+    if (plan.execution !== 'installable' || (plan.mechanism !== 'bundle' && plan.mechanism !== 'repository')) {
+      throw new Error(`${plan.pluginId} is not executable by the pinned DSH runtime`)
+    }
     const missing = plan.requirements.filter(requirement => !confirmations.includes(requirement))
-    if (missing.length > 0) {
-      throw new Error(`Preview requires explicit confirmation: ${missing.join(', ')}`)
+    if (missing.length > 0) throw new Error(`Marketplace confirmation required: ${missing.join(', ')}`)
+    if (plan.environmentRequirements.length > 0) {
+      const request: MarketplaceInputRequest = {
+        pluginId: plan.pluginId,
+        requirements: plan.environmentRequirements,
+        transactionId: randomUUID(),
+      }
+      this.#pendingInput = { candidates: null, confirmations: [...confirmations], mode, plans: null, request }
+      this.setProgress({ transactionId: request.transactionId, phase: 'staging', stage: 'collect-input', percent: null, cancelable: false, requiresRestart: plan.requiresRestart })
+      this.#lastAction = `Waiting for configuration for ${plan.pluginId}.`
+      return
     }
-    if (plan.execution !== 'installable' || plan.mechanism !== 'bundle') {
-      throw new Error('only installable DSH bundle candidates can enter preview')
+    await this.stagePlan(mode)
+    if (mode === 'direct') await this.applyActive()
+  }
+
+  private async provideInput(transactionId: string, answers: Record<string, string>): Promise<void> {
+    const pending = this.#pendingInput
+    if (pending === null || pending.request.transactionId !== transactionId) {
+      throw new Error('marketplace has no matching configuration request')
     }
-    if (plan.installSpec !== `github:${plan.repository}#${plan.resolvedCommit}`) {
-      throw new Error('bundle preview requires an exact commit-pinned installSpec')
+    for (const requirement of pending.request.requirements) {
+      const answer = answers[requirement.name]
+      if (answer === undefined || answer.trim() === '') {
+        throw new Error(`missing required configuration: ${requirement.name}`)
+      }
     }
+    this.#pendingInput = null
+    if (pending.plans !== null && pending.candidates !== null) {
+      await this.stagePack(pending.mode, pending.request.pluginId, pending.plans, pending.candidates, answers)
+    } else {
+      await this.stagePlan(pending.mode, answers)
+    }
+    if (pending.mode === 'direct') await this.applyActive()
+  }
+
+  private async cancelStage(transactionId: string): Promise<void> {
+    if (this.#tx.active === null || this.#tx.active.operation.transactionId !== transactionId) {
+      throw new Error('marketplace has no matching staged operation')
+    }
+    if (this.#tx.phase !== 'staging') throw new Error('only staging operations can be cancelled')
+    const pluginId = operationLabel(this.#tx.active.operation)
+    await this.discard()
+    this.#lastAction = `Cancelled marketplace operation for ${pluginId}.`
+  }
+
+  private async executePack(
+    packId: string,
+    mode: 'direct' | 'preview',
+    confirmations: readonly MarketplaceConfirmation[],
+  ): Promise<void> {
+    const pack = this.#packs.find(entry => entry.id === packId)
+    if (pack === undefined || pack.entries.length === 0) throw new Error(`marketplace pack is unavailable: ${packId}`)
+    const plans: MarketplacePlan[] = []
+    const candidates: MarketplaceCandidate[] = []
+    for (const entry of pack.entries) {
+      await this.resolvePlan(entry.action, entry.pluginId)
+      if (this.#tx.plan === null || this.#tx.candidate === null) throw new Error(`pack member could not be planned: ${entry.pluginId}`)
+      plans.push(this.#tx.plan)
+      candidates.push(this.#tx.candidate)
+    }
+    const missing = [...new Set(plans.flatMap(plan => plan.requirements))]
+      .filter(requirement => !confirmations.includes(requirement))
+    if (missing.length > 0) throw new Error(`Marketplace confirmation required: ${missing.join(', ')}`)
+    const environmentRequirements = [...new Map(plans
+      .flatMap(plan => plan.environmentRequirements)
+      .map(requirement => [requirement.name, requirement] as const)).values()]
+    if (environmentRequirements.length > 0) {
+      const request: MarketplaceInputRequest = {
+        pluginId: packId,
+        requirements: environmentRequirements,
+        transactionId: randomUUID(),
+      }
+      this.#pendingInput = { candidates, confirmations: [...confirmations], mode, plans, request }
+      this.setProgress({ transactionId: request.transactionId, phase: 'staging', stage: 'collect-input', percent: null, cancelable: false, requiresRestart: plans.some(plan => plan.requiresRestart) })
+      this.#lastAction = `Waiting for configuration for pack ${packId}.`
+      return
+    }
+    await this.stagePack(mode, packId, plans, candidates)
+    if (mode === 'direct') await this.applyActive()
+  }
+
+  private async stagePack(
+    mode: 'direct' | 'preview',
+    packId: string,
+    plans: readonly MarketplacePlan[],
+    candidates: readonly MarketplaceCandidate[],
+    environment: Record<string, string> = {},
+  ): Promise<void> {
     const transactionId = randomUUID()
     const root = join(this.#previewsRoot, transactionId)
     const candidateHome = join(root, 'dsh')
     const candidateProfile = join(candidateHome, 'profiles', this.#options.profile)
-    copyDirectory(this.#profileDir, candidateProfile)
+    const requiresRestart = plans.some(plan => plan.requiresRestart)
+    this.setProgress({ transactionId, phase: 'staging', stage: 'copy', percent: 0, cancelable: true, requiresRestart })
     try {
-      // A live profile can carry a `node_modules` whose `.modules.yaml` points
-      // at a pnpm store that no longer exists: applying a preview deletes the
-      // preview root (and its store) while the applied profile keeps the
-      // store reference, so every later preview copy inherits a tree pnpm
-      // refuses with ERR_PNPM_UNEXPECTED_STORE. Drop the copied tree and
-      // lockfile for actions that run pnpm anyway, so pnpm rebuilds them
-      // against the preview's own store.
+      copyDirectory(this.#profileDir, candidateProfile)
+      removeWithin(candidateProfile, join(candidateProfile, 'node_modules'), this.#warn)
+      rmSync(join(candidateProfile, 'pnpm-lock.yaml'), { force: true })
+      for (let index = 0; index < plans.length; index += 1) {
+        const plan = plans[index]
+        const candidate = candidates[index]
+        if (plan === undefined || candidate === undefined) continue
+        this.#tx.plan = plan
+        this.#tx.candidate = candidate
+        this.setProgress({ transactionId, phase: 'staging', stage: 'install', percent: null, cancelable: false, requiresRestart })
+        await applyPlanToPreviewProfile({
+          platform: this.#options.platform,
+          removeBundle: async installed => { await this.removeBundle(candidateHome, candidateProfile, root, installed) },
+          warn: this.#warn,
+          profileName: this.#options.profile,
+          candidateHome,
+          candidateProfile,
+          root,
+          plan,
+          candidate,
+          environment,
+          isCancelled: () => this.#cancelRequested,
+        })
+      }
+      this.throwIfCancelled()
+      this.setProgress({ transactionId, phase: 'staging', stage: 'verify', percent: 100, cancelable: false, requiresRestart })
+      const operation: MarketplacePreview = {
+        action: 'pack',
+        actions: plans.map(plan => plan.action),
+        packId,
+        pluginId: `pack:${packId}`,
+        requiresRestart,
+        resolvedCommit: plans.at(-1)?.resolvedCommit ?? '',
+        startedAt: new Date().toISOString(),
+        transactionId,
+      }
+      this.#tx.active = { candidateHome, candidateProfile, operation, root }
+      this.#transition('staging')
+      if (mode === 'preview') {
+        this.#transition('previewing')
+        await this.#options.runtime.startPreview({ dshHome: candidateHome, pluginId: operation.pluginId, sandboxRoot: root, transactionId })
+        this.setProgress({ transactionId, phase: 'staging', stage: 'restart', percent: 100, cancelable: false, requiresRestart })
+        this.#lastAction = `Isolated pack preview is ready for ${packId}.`
+      } else {
+        this.#lastAction = `Staged pack ${packId}.`
+      }
+    } catch (error) {
+      this.#tx.active = null
+      this.#tx.plan = null
+      this.#tx.candidate = null
+      this.#progress = null
+      await this.#options.runtime.stopPreview().catch(() => {})
+      removeWithin(this.#previewsRoot, root, this.#warn)
+      this.#settle()
+      throw error
+    }
+  }
+
+  private throwIfCancelled(): void {
+    if (this.#cancelRequested) throw new Error('marketplace operation cancelled')
+  }
+
+  private async stagePlan(mode: 'direct' | 'preview', environment: Record<string, string> = {}): Promise<void> {
+    const plan = this.#tx.plan
+    const candidate = this.#tx.candidate
+    if (plan === null || candidate === null) throw new Error('marketplace plan is missing its candidate')
+    const transactionId = randomUUID()
+    const root = join(this.#previewsRoot, transactionId)
+    const candidateHome = join(root, 'dsh')
+    const candidateProfile = join(candidateHome, 'profiles', this.#options.profile)
+    this.setProgress({ transactionId, phase: 'staging', stage: 'copy', percent: 0, cancelable: true, requiresRestart: plan.requiresRestart })
+    try {
+      copyDirectory(this.#profileDir, candidateProfile)
+      this.throwIfCancelled()
       if (plan.action === 'install' || plan.action === 'update' || plan.action === 'uninstall') {
         removeWithin(candidateProfile, join(candidateProfile, 'node_modules'), this.#warn)
         rmSync(join(candidateProfile, 'pnpm-lock.yaml'), { force: true })
       }
-      const candidateState = readMarketplaceState(candidateProfile)
-      const current = candidateState.entries
-      const remaining = current.filter(entry => entry.pluginId !== plan.pluginId
-        && (plan.packageName === null || entry.packageName !== plan.packageName))
-      const existing = current.find(entry => entry.pluginId === plan.pluginId
-        || (plan.packageName !== null && entry.packageName === plan.packageName))
-      if (plan.action === 'install' || plan.action === 'update') {
-        const preserveEnabled = existing === undefined
-          ? true
-          : installedEntryEnabled(candidateProfile, existing)
-        const installed: MarketplaceInstalledPlugin = {
-          installedAt: new Date().toISOString(),
-          mechanism: plan.mechanism,
-          packageName: plan.packageName,
-          pluginId: plan.pluginId,
-          resolvedCommit: plan.resolvedCommit,
-          source: plan.source,
-        }
-        if (existing?.mechanism === 'bundle'
-          && (plan.mechanism !== 'bundle' || existing.packageName !== plan.packageName)) {
-          await this.removeBundle(candidateHome, candidateProfile, root, existing)
-        }
-        if (plan.mechanism === 'bundle') {
-          if (plan.packageName === null) throw new Error('bundle plan is missing its package name')
-          const sources = join(candidateProfile, MANAGED_DIRECTORY, 'sources')
-          if (existsSync(sources)) {
-            for (const entry of readdirSync(sources)) {
-              if (entry.startsWith(`${plan.pluginId}-`)) {
-                removeWithin(sources, join(sources, entry), this.#warn)
-              }
-            }
-          }
-          mkdirSync(sources, { recursive: true, mode: 0o700 })
-          const sourceName = `${plan.pluginId}-${plan.resolvedCommit.slice(0, 12)}`
-          const checkout = join(sources, sourceName)
-          const scriptNames = Object.keys(plan.buildScripts)
-          const cloneTarget = scriptNames.length > 0
-            ? join(root, 'bundle-builds', sourceName)
-            : checkout
-          await this.#options.platform.cloneRepository(
-            plan.repository,
-            plan.resolvedCommit,
-            cloneTarget,
-          )
-          if (scriptNames.length > 0) {
-            allowBuild(candidateProfile, plan.packageName)
-            await this.#options.platform.buildBundle({
-              checkout: cloneTarget,
-              sandboxRoot: root,
-              scripts: scriptNames,
-            })
-            renameSync(cloneTarget, checkout)
-            assertBundleEntryFiles(checkout, plan.entryTargets)
-          }
-          await this.#options.platform.runDsh({
-            args: ['plugin', '--profile', this.#options.profile, 'add', checkout],
-            dshHome: candidateHome,
-            sandboxRoot: root,
-          })
-          if (scriptNames.length === 0) assertBundleEntryFiles(checkout, plan.entryTargets)
-          const manifest = readJson(join(candidateProfile, 'package.json'))
-          if (!isRecord(manifest) || !isRecord(manifest.dependencies)
-            || typeof manifest.dependencies[plan.packageName] !== 'string') {
-            throw new Error(`DSH did not add ${plan.packageName} to the preview profile`)
-          }
-          normalizeBundleDependency(candidateProfile, plan.packageName, checkout)
-          await this.#options.platform.runDsh({
-            args: ['plugin', '--profile', this.#options.profile, 'install', '--ignore-scripts'],
-            dshHome: candidateHome,
-            sandboxRoot: root,
-          })
-          setBundleEnabled(candidateProfile, plan.packageName, preserveEnabled)
-          assertPortableBundleProfile(candidateProfile, root)
-        }
-        const next = [...remaining, installed]
-        const previousLock = candidateState.locks.find(lock => lock.pluginId === plan.pluginId)
-        const candidate = this.#candidate
-        if (candidate === null) throw new Error('bundle preview is missing its source candidate')
-        const locks = [
-          ...candidateState.locks.filter(lock => lock.pluginId !== plan.pluginId),
-          sourceLockFromCandidate(candidate, previousLock),
-        ]
-        writeMarketplaceState(candidateProfile, {
-          entries: next,
-          locks,
-          version: STATE_VERSION,
-        })
-      } else if (plan.action === 'uninstall') {
-        const installed = existing
-        if (installed === undefined) throw new Error(`${plan.pluginId} is no longer installed`)
-        if (installed.mechanism !== 'bundle') {
-          throw new Error('repository-plugin receipts are guide-only and cannot be changed')
-        }
-        await this.removeBundle(candidateHome, candidateProfile, root, installed)
-        writeMarketplaceState(candidateProfile, {
-          entries: remaining,
-          locks: candidateState.locks,
-          version: STATE_VERSION,
-        })
-      } else {
-        const installed = existing
-        if (installed === undefined) throw new Error(`${plan.pluginId} is no longer installed`)
-        if (installed.mechanism !== 'bundle' || installed.packageName === null) {
-          throw new Error('repository-plugin receipts are guide-only and cannot be changed')
-        }
-        const enabled = plan.action === 'enable'
-        setBundleEnabled(candidateProfile, installed.packageName, enabled)
-        writeMarketplaceState(candidateProfile, {
-          entries: current,
-          locks: candidateState.locks,
-          version: STATE_VERSION,
-        })
-      }
-      const preview: MarketplacePreview = {
+      this.setProgress({ transactionId, phase: 'staging', stage: 'install', percent: null, cancelable: false, requiresRestart: plan.requiresRestart })
+      await applyPlanToPreviewProfile({
+        platform: this.#options.platform,
+        removeBundle: async installed => { await this.removeBundle(candidateHome, candidateProfile, root, installed) },
+        warn: this.#warn,
+        profileName: this.#options.profile,
+        candidateHome,
+        candidateProfile,
+        root,
+        plan,
+        candidate,
+        environment,
+        isCancelled: () => this.#cancelRequested,
+      })
+      this.throwIfCancelled()
+      this.setProgress({ transactionId, phase: 'staging', stage: 'verify', percent: 100, cancelable: false, requiresRestart: plan.requiresRestart })
+      const operation: MarketplacePreview = {
         action: plan.action,
+        actions: [plan.action],
+        packId: null,
         pluginId: plan.pluginId,
+        requiresRestart: plan.requiresRestart,
         resolvedCommit: plan.resolvedCommit,
         startedAt: new Date().toISOString(),
         transactionId,
       }
-      this.#active = { candidateHome, candidateProfile, preview, root }
-      await this.#options.runtime.startPreview({
-        dshHome: candidateHome,
-        pluginId: plan.pluginId,
-        sandboxRoot: root,
-        transactionId,
-      })
-      this.#lastAction = `Isolated ${plan.action} preview is ready for ${plan.pluginId}.`
+      this.#tx.active = { candidateHome, candidateProfile, operation, root }
+      this.#transition('staging')
+      if (mode === 'preview') {
+        this.#transition('previewing')
+        await this.#options.runtime.startPreview({ dshHome: candidateHome, pluginId: plan.pluginId, sandboxRoot: root, transactionId })
+        this.setProgress({ transactionId, phase: 'staging', stage: 'restart', percent: 100, cancelable: false, requiresRestart: plan.requiresRestart })
+        this.#lastAction = `Isolated ${plan.action} preview is ready for ${plan.pluginId}.`
+      } else {
+        this.#lastAction = `Staged ${plan.action} for ${plan.pluginId}.`
+      }
     } catch (error) {
-      this.#active = null
-      await this.#options.runtime.stopPreview().catch(() => {})
+      this.#tx.active = null
+      this.#pendingInput = null
+      this.#progress = null
+      this.#transition('planning')
+      if (mode === 'preview') await this.#options.runtime.stopPreview().catch(() => {})
       removeWithin(this.#previewsRoot, root, this.#warn)
       throw error
     }
+  }
+
+  private setProgress(input: {
+    transactionId: string
+    phase: MarketplaceProgress['phase']
+    stage: MarketplaceProgress['stage']
+    percent?: number | null
+    bytesDone?: number | null
+    bytesTotal?: number | null
+    speedBytesPerSecond?: number | null
+    etaSeconds?: number | null
+    cancelable?: boolean
+    requiresRestart?: boolean
+    logTail?: string[]
+  }): void {
+    const previous = this.#progress
+    this.#progress = {
+      bytesDone: input.bytesDone ?? previous?.bytesDone ?? null,
+      bytesTotal: input.bytesTotal ?? previous?.bytesTotal ?? null,
+      cancelable: input.cancelable ?? false,
+      etaSeconds: input.etaSeconds ?? null,
+      logTail: input.logTail ?? [...(previous?.logTail ?? []), input.stage].slice(-8),
+      percent: input.percent === undefined ? previous?.percent ?? null : input.percent,
+      phase: input.phase,
+      requiresRestart: input.requiresRestart ?? previous?.requiresRestart ?? true,
+      speedBytesPerSecond: input.speedBytesPerSecond ?? null,
+      stage: input.stage,
+      transactionId: input.transactionId,
+    }
+    this.#options.onStateChange?.()
   }
 
   private async removeBundle(
@@ -932,33 +810,55 @@ export class PluginMarketplaceManager {
   }
 
   private async discard(): Promise<void> {
-    const active = this.#active
+    const active = this.#tx.active
     if (active === null) {
-      this.#plan = null
-      this.#candidate = null
+      this.#tx.plan = null
+      this.#tx.candidate = null
+      this.#pendingInput = null
+      this.#progress = null
+      this.#settle()
       return
     }
-    await this.#options.runtime.stopPreview()
+    if (this.#tx.phase === 'previewing') await this.#options.runtime.stopPreview()
     removeWithin(this.#previewsRoot, active.root, this.#warn)
-    this.#active = null
-    this.#plan = null
-    this.#candidate = null
-    this.#lastAction = `Discarded the ${active.preview.pluginId} preview without changing the desktop profile.`
+    this.#tx.active = null
+    this.#tx.plan = null
+    this.#tx.candidate = null
+    this.#pendingInput = null
+    this.#progress = null
+    this.#lastAction = `Discarded the staged ${operationLabel(active.operation)} change without changing the live profile.`
+    this.#settle()
   }
 
-  private async applyPreview(): Promise<void> {
-    const active = this.#active
-    if (active === null) throw new Error('There is no prepared preview to apply.')
-    await this.#options.runtime.stopPreview()
-    await this.#options.runtime.stopLive()
-    const rollbackRoot = join(this.#rollbacksRoot, active.preview.transactionId)
+  private async applyActive(): Promise<void> {
+    const active = this.#tx.active
+    if (active === null || (this.#tx.phase !== 'staging' && this.#tx.phase !== 'previewing')) {
+      throw new Error(phaseRejection('apply', this.#tx.phase))
+    }
+    const wasPreviewing = this.#tx.phase === 'previewing'
+    this.#transition('applying')
+    this.setProgress({ transactionId: active.operation.transactionId, phase: 'applying', stage: 'swap', percent: 0, cancelable: false, requiresRestart: active.operation.requiresRestart })
+    const rollbackRoot = join(this.#rollbacksRoot, active.operation.transactionId)
     const backupProfile = join(rollbackRoot, this.#options.profile)
-    mkdirSync(rollbackRoot, { recursive: true, mode: 0o700 })
+    // Intent-before-rename: durably record the applying intent BEFORE any
+    // profile rename (and before runtime teardown), so a crash in any window
+    // (W1..W5) leaves a reconcilable ledger instead of an unmarked
+    // half-swap.
+    const priorJournal = readRawJournal(this.#rollbackStatePath)
+    writeJournal(this.#rollbackStatePath, journalIntentRecord('applying', {
+      backupProfile,
+      pluginId: operationLabel(active.operation),
+      transactionId: active.operation.transactionId,
+    }))
     let candidateInstalled = false
     try {
+      if (wasPreviewing) await this.#options.runtime.stopPreview()
+      await this.#options.runtime.stopLive()
+      mkdirSync(rollbackRoot, { recursive: true, mode: 0o700 })
       renameSync(this.#profileDir, backupProfile)
       renameSync(active.candidateProfile, this.#profileDir)
       candidateInstalled = true
+      this.setProgress({ transactionId: active.operation.transactionId, phase: 'applying', stage: 'rehoming', percent: 50, cancelable: false, requiresRestart: active.operation.requiresRestart })
       // The applied profile's node_modules was linked from the preview's
       // store, which is deleted with the preview root below. Re-home it
       // against the persistent home store (unsandboxed) so the live profile
@@ -972,6 +872,7 @@ export class PluginMarketplaceManager {
         sandboxRoot: this.#options.appDataPath,
         sandboxed: false,
       })
+      this.setProgress({ transactionId: active.operation.transactionId, phase: 'applying', stage: 'restart', percent: 90, cancelable: false, requiresRestart: active.operation.requiresRestart })
       await this.#options.runtime.startLive()
     } catch (error) {
       await this.#options.runtime.stopLive().catch(() => {})
@@ -981,76 +882,100 @@ export class PluginMarketplaceManager {
       }
       if (existsSync(backupProfile)) renameSync(backupProfile, this.#profileDir)
       await this.#options.runtime.startLive().catch(() => {})
-      throw new Error(`plugin preview failed to apply and was rolled back: ${message(error)}`)
+      // The apply failed and rolled back on disk; the journal returns to its
+      // exact pre-transaction form so a prior recovery point survives
+      // verbatim (a v1 file stays v1 until a successful transaction).
+      restoreJournal(this.#rollbackStatePath, priorJournal)
+      // Keep the staged candidate available for an explicit retry.
+      this.#progress = null
+      this.#transition(wasPreviewing ? 'previewing' : 'staging')
+      throw new Error(`plugin ${wasPreviewing ? 'preview' : 'direct install'} failed to apply and was rolled back: ${message(error)}`)
     }
-    this.#rollback = {
+    this.#tx.rollback = {
       appliedAt: new Date().toISOString(),
       backupProfile,
-      pluginId: active.preview.pluginId,
-      transactionId: active.preview.transactionId,
+      pluginId: operationLabel(active.operation),
+      transactionId: active.operation.transactionId,
     }
-    writeJsonAtomic(this.#rollbackStatePath, this.#rollback)
+    // Terminal journal state: the swap completed and is durably committed;
+    // this write is also where a v1 record lazily upgrades to v2.
+    writeJournal(this.#rollbackStatePath, journalAppliedRecord({
+      appliedAt: this.#tx.rollback.appliedAt,
+      backupProfile,
+      pluginId: operationLabel(active.operation),
+      transactionId: active.operation.transactionId,
+    }))
     removeWithin(this.#previewsRoot, active.root, this.#warn)
-    this.#active = null
-    this.#plan = null
-    this.#candidate = null
-    this.#lastAction = `Applied ${active.preview.pluginId}; the previous profile remains available for Undo.`
+    const requiresRestart = active.operation.requiresRestart
+    this.#tx.active = null
+    this.#tx.plan = null
+    this.#tx.candidate = null
+    this.#pendingInput = null
+    this.#progress = null
+    this.#lastAction = `Applied ${operationLabel(active.operation)}; the previous profile remains available for Undo${requiresRestart ? '; restart required.' : '.'}`
     this.remapCatalogInstalled()
+    this.#transition('applied-with-undo')
   }
 
   private async undo(): Promise<void> {
-    const rollback = this.#rollback
-    if (rollback === null || !existsSync(rollback.backupProfile)) {
-      this.#rollback = null
+    // Guard matrix admits undo only from the applied-with-undo phase.
+    const rollback = this.#tx.rollback
+    if (rollback === null) throw new Error(phaseRejection('undo', this.#tx.phase))
+    if (!existsSync(rollback.backupProfile)) {
+      this.#tx.rollback = null
+      clearJournal(this.#rollbackStatePath)
+      this.#settle()
       throw new Error('There is no previous plugin profile to restore.')
     }
-    await this.#options.runtime.stopLive()
+    this.#transition('undoing')
+    this.setProgress({ transactionId: rollback.transactionId, phase: 'undoing', stage: 'swap', percent: 0, cancelable: false, requiresRestart: true })
     const rollbackRoot = dirname(rollback.backupProfile)
     const replacedProfile = join(rollbackRoot, `replaced-${Date.now().toString(36)}`)
+    // Intent-before-rename for the undo direction (U1..U3 windows). The
+    // original appliedAt rides along so an interrupted-undo reconcile can
+    // re-terminalize the journal without rebasing the recovery point.
+    const priorJournal = readRawJournal(this.#rollbackStatePath)
+    writeJournal(this.#rollbackStatePath, journalIntentRecord('undoing', {
+      appliedAt: rollback.appliedAt,
+      backupProfile: rollback.backupProfile,
+      pluginId: rollback.pluginId,
+      transactionId: rollback.transactionId,
+    }))
     let restored = false
     try {
+      await this.#options.runtime.stopLive()
       renameSync(this.#profileDir, replacedProfile)
       renameSync(rollback.backupProfile, this.#profileDir)
       restored = true
+      this.setProgress({ transactionId: rollback.transactionId, phase: 'undoing', stage: 'restart', percent: 90, cancelable: false, requiresRestart: true })
       await this.#options.runtime.startLive()
     } catch (error) {
       await this.#options.runtime.stopLive().catch(() => {})
       if (restored && existsSync(this.#profileDir)) renameSync(this.#profileDir, rollback.backupProfile)
       if (existsSync(replacedProfile)) renameSync(replacedProfile, this.#profileDir)
       await this.#options.runtime.startLive().catch(() => {})
+      // The restore failed on disk; put the applied journal back verbatim so
+      // the recovery point survives.
+      restoreJournal(this.#rollbackStatePath, priorJournal)
+      // The recovery point stays (the next constructor reconcile handles a
+      // crashed undo).
+      this.#progress = null
+      this.#transition('applied-with-undo')
       throw new Error(`failed to restore the previous plugin profile: ${message(error)}`)
     }
     removeWithin(this.#rollbacksRoot, replacedProfile, this.#warn)
-    rmSync(this.#rollbackStatePath, { force: true })
+    clearJournal(this.#rollbackStatePath)
     removeWithin(this.#rollbacksRoot, rollbackRoot, this.#warn)
-    this.#rollback = null
-    this.#candidate = null
+    this.#tx.rollback = null
+    this.#progress = null
+    this.#tx.candidate = null
     this.#lastAction = `Restored the profile from before ${rollback.pluginId} was applied.`
     this.remapCatalogInstalled()
+    this.#settle()
   }
 
   private remapCatalogInstalled(): void {
     const installed = new Set(readMarketplaceState(this.#profileDir).entries.map(entry => entry.pluginId))
     this.#catalog = this.#catalog.map(plugin => ({ ...plugin, installed: installed.has(plugin.id) }))
-  }
-
-  private readRollback(): RollbackState | null {
-    if (!existsSync(this.#rollbackStatePath)) return null
-    try {
-      const value = readJson(this.#rollbackStatePath)
-      if (!isRecord(value) || typeof value.backupProfile !== 'string'
-        || typeof value.pluginId !== 'string' || typeof value.transactionId !== 'string') return null
-      ensureWithin(this.#rollbacksRoot, value.backupProfile)
-      return existsSync(value.backupProfile) ? {
-        appliedAt: typeof value.appliedAt === 'string'
-          ? value.appliedAt
-          : new Date(0).toISOString(),
-        backupProfile: value.backupProfile,
-        pluginId: value.pluginId,
-        transactionId: value.transactionId,
-      } : null
-    } catch {
-      return null
-    }
   }
 }

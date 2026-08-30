@@ -1,0 +1,132 @@
+/* Split from ui.css — contiguous slice (order-preserving). */
+
+
+.dsh-studio-ui-field 
+{
+display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--dsh-studio-space-1, 4px);
+}
+
+
+
+.dsh-studio-ui-field[data-disabled] 
+{
+opacity: 0.55;
+}
+
+
+
+.dsh-studio-ui-field-label 
+{
+color: var(--dsh-studio-ui-foreground);
+  font-size: var(--dsh-studio-font-xl, 14px);
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+
+
+.dsh-studio-ui-field-description,
+.dsh-studio-ui-field-error 
+{
+margin: 0;
+  font-size: var(--dsh-studio-font-md, 12px);
+  line-height: 1.4;
+}
+
+
+
+.dsh-studio-ui-field-description 
+{
+color: var(--dsh-studio-ui-muted-foreground);
+}
+
+
+
+.dsh-studio-ui-field-error 
+{
+color: var(--dsh-studio-ui-destructive);
+}
+
+
+
+.dsh-studio-ui-field[data-invalid] .dsh-studio-ui-field-label 
+{
+color: var(--dsh-studio-ui-destructive);
+}
+
+
+.dsh-studio-ui-alert 
+{
+position: relative;
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--dsh-studio-space-1, 4px);
+  border: 1px solid var(--dsh-studio-ui-border);
+  border-radius: var(--dsh-studio-radius-md, 8px);
+  padding: var(--dsh-studio-space-3, 12px) var(--dsh-studio-space-4, 16px);
+  background: var(--dsh-studio-ui-card);
+  color: var(--dsh-studio-ui-foreground);
+}
+
+
+
+.dsh-studio-ui-alert:has(> svg) 
+{
+grid-template-columns: 16px minmax(0, 1fr);
+  column-gap: var(--dsh-studio-space-2, 8px);
+}
+
+
+
+.dsh-studio-ui-alert > svg 
+{
+width: 16px;
+  height: 16px;
+  grid-row: 1 / span 2;
+  margin-top: 2px;
+}
+
+
+
+.dsh-studio-ui-alert:has(> svg) .dsh-studio-ui-alert-description,
+.dsh-studio-ui-alert:has(> svg) .dsh-studio-ui-alert-action 
+{
+grid-column: 2;
+}
+
+
+
+.dsh-studio-ui-alert[data-variant='destructive'] 
+{
+border-color: color-mix(in srgb, var(--dsh-studio-ui-destructive) 32%, transparent);
+  background: color-mix(in srgb, var(--dsh-studio-ui-destructive) 8%, transparent);
+}
+
+
+
+.dsh-studio-ui-alert-description 
+{
+min-width: 0;
+  color: var(--dsh-studio-ui-muted-foreground);
+  font-size: var(--dsh-studio-font-md, 12px);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+
+
+.dsh-studio-ui-alert[data-variant='destructive'] .dsh-studio-ui-alert-description 
+{
+color: var(--dsh-studio-ui-destructive);
+}
+
+
+
+.dsh-studio-ui-alert-action 
+{
+margin-top: var(--dsh-studio-space-2, 8px);
+}

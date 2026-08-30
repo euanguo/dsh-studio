@@ -3,11 +3,12 @@
  * Text and markdown render through the unified ContentViewer (Pierre
  * family) — no separate plain-text renderer. Extracted from plugin.tsx.
  */
+import { SidebarSurfaceCss as surfaceCss } from '../styles.js'
 import { useState, useSyncExternalStore } from 'react'
 import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import type { WorkspaceMessage } from '../i18n.ts'
-import { Alert, AlertDescription, EmptyState, Scrollable } from '@dsh-studio/shared/ui'
+import { Alert, AlertDescription, EmptyState, ScrollArea, SurfaceToolbar } from '@dsh-studio/shared/ui'
 import type { SidebarRuntimeSettingsService } from '../runtime-settings.ts'
 import {
   htmlIframeSandboxAttribute,
@@ -27,15 +28,17 @@ export function BinaryFileViewer({
   t: Translate<WorkspaceMessage>
 }): JSX.Element {
   return (
-    <Scrollable className="dsh-studio-file-preview">
-      <div>
-        <strong title={path}>{title}</strong>
-        <Button variant="outline" size="sm" onClick={() => { void onOpen() }}>
-          {t('files.open')}
-        </Button>
-      </div>
+    <ScrollArea className={surfaceCss["dsh-studio-file-preview"]} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+      <SurfaceToolbar
+        leading={<strong title={path}>{title}</strong>}
+        actions={(
+          <Button variant="outline" size="sm" onClick={() => { void onOpen() }}>
+            {t('files.open')}
+          </Button>
+        )}
+      />
       <EmptyState title={t('files.viewer.binary')} />
-    </Scrollable>
+    </ScrollArea>
   )
 }
 
@@ -69,20 +72,22 @@ export function HtmlFileViewer({
     override,
   )
   return (
-    <Scrollable className="dsh-studio-file-preview dsh-studio-html-preview">
-      <div className="dsh-studio-html-toolbar">
-        <strong title={path}>{title}</strong>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => { setOverride(!unsandboxed) }}
-          title={unsandboxed ? t('files.viewer.html-restore') : t('files.viewer.html-unlock')}
-        >
-          {unsandboxed ? t('files.viewer.html-restore') : t('files.viewer.html-unlock')}
-        </Button>
-      </div>
+    <ScrollArea className={`${surfaceCss["dsh-studio-file-preview"]} ${surfaceCss["dsh-studio-html-preview"]}`} viewportClassName="dsh-studio-ui-scroll-viewport-inset">
+      <SurfaceToolbar
+        leading={<strong title={path}>{title}</strong>}
+        actions={(
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => { setOverride(!unsandboxed) }}
+            title={unsandboxed ? t('files.viewer.html-restore') : t('files.viewer.html-unlock')}
+          >
+            {unsandboxed ? t('files.viewer.html-restore') : t('files.viewer.html-unlock')}
+          </Button>
+        )}
+      />
       {unsandboxed && (
-        <Alert variant="destructive" className="dsh-studio-html-warning">
+        <Alert variant="destructive" className={surfaceCss["dsh-studio-html-warning"]}>
           <AlertDescription>{t('files.viewer.html-unsandboxed-warning')}</AlertDescription>
         </Alert>
       )}
@@ -91,6 +96,6 @@ export function HtmlFileViewer({
         sandbox={htmlIframeSandboxAttribute(unsandboxed)}
         srcDoc={content}
       />
-    </Scrollable>
+    </ScrollArea>
   )
 }

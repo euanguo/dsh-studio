@@ -1,8 +1,6 @@
 import type {
-  FieldsetHTMLAttributes,
   HTMLAttributes,
   LabelHTMLAttributes,
-  ReactNode,
 } from 'react'
 import { cn } from './cn.ts'
 
@@ -23,10 +21,6 @@ export function Field({ className, invalid = false, disabled = false, ...props }
   )
 }
 
-export function FieldGroup({ className, ...props }: HTMLAttributes<HTMLDivElement>): JSX.Element {
-  return <div data-slot="field-group" className={cn('dsh-studio-ui-field-group', className)} {...props} />
-}
-
 export function FieldLabel({ className, ...props }: LabelHTMLAttributes<HTMLLabelElement>): JSX.Element {
   return <label data-slot="field-label" className={cn('dsh-studio-ui-field-label', className)} {...props} />
 }
@@ -42,26 +36,4 @@ export function FieldError({ className, children, ...props }: HTMLAttributes<HTM
       {children}
     </p>
   )
-}
-
-export function FieldSet({ className, ...props }: FieldsetHTMLAttributes<HTMLFieldSetElement>): JSX.Element {
-  return <fieldset data-slot="field-set" className={cn('dsh-studio-ui-field-set', className)} {...props} />
-}
-
-export function FieldLegend({ className, ...props }: HTMLAttributes<HTMLLegendElement>): JSX.Element {
-  return <legend data-slot="field-legend" className={cn('dsh-studio-ui-field-legend', className)} {...props} />
-}
-
-export type FieldMessageProps = Readonly<{
-  description?: ReactNode
-  error?: ReactNode
-}>
-
-/** Renders the optional description/error slot below a control. */
-export function FieldMessage({ description, error }: FieldMessageProps): JSX.Element | null {
-  if (error !== undefined && error !== null && error !== '') return <FieldError>{error}</FieldError>
-  if (description !== undefined && description !== null && description !== '') {
-    return <FieldDescription>{description}</FieldDescription>
-  }
-  return null
 }

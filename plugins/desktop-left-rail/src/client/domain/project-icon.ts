@@ -32,7 +32,6 @@ export interface ProjectIconResolution {
   readonly project: ProjectId
   readonly source: ProjectIconSource
   readonly value: string
-  readonly stale: boolean
 }
 
 export interface ProjectIconDescriptor {
@@ -49,7 +48,7 @@ export function resolveProjectIcon(input: ProjectIconDescriptor): ProjectIconRes
       ? input.preference.name
       : input.preference.data
     if (value !== undefined && value !== '') {
-      return { project: input.project, source: 'override', value, stale: false }
+      return { project: input.project, source: 'override', value }
     }
   }
 
@@ -62,13 +61,8 @@ export function resolveProjectIcon(input: ProjectIconDescriptor): ProjectIconRes
   for (const source of precedence) {
     const candidate = input.candidates.find(item => item.source === source && item.value !== '')
     if (candidate !== undefined) {
-      return { project: input.project, source: candidate.source, value: candidate.value, stale: false }
+      return { project: input.project, source: candidate.source, value: candidate.value }
     }
   }
-  return { project: input.project, source: 'fallback', value: input.fallback, stale: false }
-}
-
-/** Mark an automatic resolution stale while retaining its displayed value. */
-export function staleProjectIcon(resolution: ProjectIconResolution): ProjectIconResolution {
-  return resolution.source === 'override' ? resolution : { ...resolution, stale: true }
+  return { project: input.project, source: 'fallback', value: input.fallback }
 }

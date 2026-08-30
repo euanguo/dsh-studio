@@ -11,10 +11,13 @@
  */
 import { useMemo } from 'react'
 import { File as PierreFile, Virtualizer } from '@pierre/diffs/react'
+import type { CommentRails } from '../comments/comment-rails.tsx'
 import type { FileContents, LineAnnotation } from '@pierre/diffs'
 import { usePierreDiffTheme } from '../diff/pierre-adapter.tsx'
 import { basename } from '@dsh-studio/shared/path'
-import type { DiffComment } from '../diff/diff-comments-store.ts'
+import type { WorkbenchComment } from '../diff/diff-comments-store.ts'
+import type { Translate } from '@dsh-studio/shared/i18n'
+import type { WorkspaceMessage } from '../i18n.ts'
 import { CommentBubble } from '../diff/comment-bubble.tsx'
 
 export interface PierreFileViewProps {
@@ -27,7 +30,10 @@ export interface PierreFileViewProps {
   /** Distinguishes otherwise-identical documents for the worker cache. */
   cacheKey: string
   /** Line comments rendered as annotation rows at their file lines. */
-  comments?: readonly DiffComment[]
+  comments?: readonly WorkbenchComment[]
+  /** Hover-comment rails wiring (gutter "+" + composer overlay). */
+  rails?: CommentRails
+  t: Translate<WorkspaceMessage>
 }
 
 export function PierreFileView({
@@ -37,6 +43,8 @@ export function PierreFileView({
   lineNumbers,
   cacheKey,
   comments,
+  rails,
+  t,
 }: PierreFileViewProps): JSX.Element {
   const theme = usePierreDiffTheme()
   const file = useMemo<FileContents>(() => ({
@@ -46,15 +54,16 @@ export function PierreFileView({
     cacheKey: `view:${cacheKey}`,
   }), [cacheKey, content, language, path])
 
-  const lineAnnotations = useMemo<Array<LineAnnotation<DiffComment>> | undefined>(
+  const lineAnnotations = useMemo<Array<LineAnnotation<WorkbenchComment>> | undefined>(
     () => (comments === undefined || comments.length === 0
       ? undefined
-      : comments.map(comment => ({ lineNumber: comment.line, metadata: comment }))),
+      : comments.map(comment => ({ lineNumber: comment.startLine, metadata: comment }))),
     [comments],
   )
 
   return (
     <Virtualizer className="dsh-studio-pierre-file-host" config={{ overscrollSize: 300 }}>
+      {rails?.overlay()}
       <PierreFile
         file={file}
         options={{
@@ -66,10 +75,19 @@ export function PierreFileView({
           ? {}
           : {
               lineAnnotations,
-              renderAnnotation: (annotation: LineAnnotation<DiffComment>) => (
-                <CommentBubble comment={annotation.metadata} />
+              renderAnnotation: (annotation: LineAnnotation<WorkbenchComment>) => (
+                <CommentBubble comment={annotation.metadata} t={t} />
               ),
             })}
+        {...(rails === undefined
+          ? {}
+          : {
+              onLineEnter: rails.onLineEnter,
+              onLineLeave: rails.onLineLeave,
+            })}
+        {...(rails === undefined
+          ? {}
+          : { renderGutterUtility: rails.gutterUtility })}
       />
     </Virtualizer>
   )

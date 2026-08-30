@@ -107,6 +107,8 @@ function fakeSourceControlRuntime(): SourceControlRuntimeOptions['transport'] & 
     },
     gitBranch: async () => ({ current: 'main', names: ['main'] }),
     gitLog: async () => [],
+    gitCommittedFiles: async () => ({ baseRef: 'origin/main', entries: [] }),
+    gitCommitFiles: async () => [],
     workspaceFacts: async cwd => ({
       kind: 'repository',
       cwd,
@@ -165,4 +167,86 @@ test('source-control runtime: reportError surfaces mutation failures', async () 
   assert.equal(snapshot.phase, 'error')
   assert.equal(snapshot.message, 'stage failed')
   assert.ok(snapshot.snapshot !== null, 'keeps the last ready snapshot for display')
+})
+
+/* ---------- commit history retention (D20b/D21 regression) ---------- */
+
+const LOG_ENTRY = {
+  hash: 'abc1234',
+  hashFull: 'abc1234567890abcdef',
+  subject: 'init',
+  author: 'tester',
+  date: '2026-08-25',
+  refs: '',
+}
+
+function historyTransport(): SourceControlRuntimeOptions['transport'] & {
+  readonly logCalls: number
+  setFailNextLog(value: boolean): void
+} {
+  const base = fakeSourceControlRuntime()
+  let logCalls = 0
+  let failLog = false
+  return {
+    gitStatus: path => base.gitStatus(path),
+    gitBranch: scope => base.gitBranch(scope),
+    gitCommittedFiles: scope => base.gitCommittedFiles(scope),
+    gitCommitFiles: (scope, hash) => base.gitCommitFiles(scope, hash),
+    workspaceFacts: cwd => base.workspaceFacts(cwd),
+    gitLog: async () => {
+      logCalls += 1
+      if (failLog) throw new Error('boom')
+      return [LOG_ENTRY]
+    },
+    get logCalls() { return logCalls },
+    setFailNextLog(value: boolean) { failLog = value },
+  }
+}
+
+test('source-control runtime: unchanged polls keep commit history', async () => {
+  // The D20b skip path used to pass a fresh `history: []` into the
+  // snapshot, so every unchanged soft-refresh wiped the visible rows.
+  const transport = historyTransport()
+  const runtime = new SourceControlRuntime({ transport })
+  runtime.setScope({ cwd: '/ws' })
+  await runtime.ensureLoaded()
+  assert.equal(runtime.getSnapshot().snapshot?.history.length, 1)
+  await runtime.refresh()
+  await runtime.refresh()
+  assert.equal(transport.logCalls, 1, 'unchanged status must not refetch the log')
+  assert.equal(runtime.getSnapshot().snapshot?.history.length, 1, 'unchanged poll keeps previous rows')
+})
+
+test('source-control runtime: git.log failure keeps previous history', async () => {
+  const transport = historyTransport()
+  const runtime = new SourceControlRuntime({ transport })
+  runtime.setScope({ cwd: '/ws' })
+  await runtime.ensureLoaded()
+
+  // A real change forces the heavyweight branch+log refetch; make it fail.
+  transport.setFailNextLog(true)
+  transport.gitStatus = async () => ({
+    isRepo: true,
+    branch: 'main',
+    entries: [{ xy: 'M ', path: 'a.txt' }],
+    stats: [],
+  })
+  await runtime.refresh()
+  assert.equal(transport.logCalls, 2, 'changed status does refetch the log')
+  assert.equal(runtime.getSnapshot().snapshot?.history.length, 1, 'failed fetch falls back to previous rows')
+
+  // Recovered: the next changed poll shows fresh data again.
+  transport.setFailNextLog(false)
+  transport.gitStatus = async () => ({
+    isRepo: true,
+    branch: 'main',
+    entries: [
+      { xy: 'M ', path: 'a.txt' },
+      { xy: 'A ', path: 'b.txt' },
+    ],
+    stats: [],
+  })
+  await runtime.refresh()
+  assert.equal(transport.logCalls, 3)
+  assert.equal(runtime.getSnapshot().snapshot?.history.length, 1)
 })

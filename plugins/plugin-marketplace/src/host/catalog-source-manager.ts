@@ -45,6 +45,7 @@ export class CatalogSourceManager {
       digest: digest(document),
       generatedAt: catalog.generatedAt,
       plugins: catalog.plugins.map(plugin => withSource(plugin, source)),
+       watchlist: catalog.watchlist.map(plugin => withSource(plugin, source)),
       source,
     }
   }

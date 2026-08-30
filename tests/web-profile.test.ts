@@ -27,9 +27,9 @@ import {
   main,
   normalizeWebArgs,
   parseLaunchArgs,
-  resolveWebVersion,
   UsageError,
 } from '../src/web.ts'
+import { resolveProductVersion } from '../src/version.ts'
 
 test('web profile initializes required bundles and preserves user plugins', () => {
   const root = mkdtempSync(join(tmpdir(), 'dsh-web-profile-'))
@@ -60,7 +60,7 @@ test('full and web-only distributions expose the same release version', () => {
   const root = mkdtempSync(join(tmpdir(), 'dsh-studio-web-version-'))
   try {
     writeFileSync(join(root, 'package.json'), '{"version":"1.2.3"}\n')
-    assert.equal(resolveWebVersion(root), '1.2.3')
+    assert.equal(resolveProductVersion(root), '1.2.3')
     rmSync(join(root, 'package.json'))
 
     mkdirSync(join(root, 'lib', 'dsh-studio'), { recursive: true })
@@ -68,7 +68,7 @@ test('full and web-only distributions expose the same release version', () => {
       join(root, 'lib', 'dsh-studio', 'package.json'),
       '{"version":"4.5.6"}\n',
     )
-    assert.equal(resolveWebVersion(root), '4.5.6')
+    assert.equal(resolveProductVersion(root), '4.5.6')
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
@@ -88,7 +88,7 @@ test('web bundle patch mounts the web-capable DSH Studio plugins', () => {
   const patch = readFileSync(join(root, 'web', 'cordis.patch.yml'), 'utf8')
   for (const row of [
     'oh-web',
-    'oh-better-sidebar-runtime',
+    'oh-capabilities',
     'oh-desktop-skins',
     'oh-pinned-summary',
     'oh-sidebar',

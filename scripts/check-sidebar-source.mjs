@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Verify the vendored DSH-better-sidebar Host the build compiles from:
- *  - plugins/sidebar-host/src must exist (otherwise the esbuild
+ *  - plugins/capabilities/src must exist (otherwise the esbuild
  *    host entry fails with a cryptic error);
  *  - its baseline revision is read from VENDOR.md, and a warning is printed
  *    when the fork delta files no longer match the recorded modification
@@ -16,7 +16,7 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const vendor = join(root, 'plugins', 'sidebar-host')
+const vendor = join(root, 'plugins', 'capabilities')
 
 if (!existsSync(join(vendor, 'src', 'index.ts'))) {
   console.error(`[check-sidebar-source] vendored Better Sidebar Host not found at ${vendor}/src`)

@@ -9,6 +9,7 @@ import {
   type DshStudioSurface,
 } from '@dsh-studio/shared/surface'
 import { humanApprovalGuidance } from '@dsh-studio/shared/guardrails'
+import { UNKNOWN_VERSION } from './version.ts'
 
 interface SystemPromptService {
   section(entry: {
@@ -58,7 +59,7 @@ function environmentCapability(): DesktopHostCapability {
     kind: 'electron',
     platform: process.platform,
     profile: process.env.DSH_STUDIO_DESKTOP_PROFILE ?? 'desktop',
-    version: process.env.DSH_STUDIO_DESKTOP_VERSION ?? '0.0.0',
+    version: process.env.DSH_STUDIO_DESKTOP_VERSION ?? UNKNOWN_VERSION,
   })
 }
 

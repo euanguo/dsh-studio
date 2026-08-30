@@ -4,7 +4,7 @@ import {
   collectDescendantProcesses,
   parseProcessChildrenMap,
   parseProcessCommandMap,
-} from '../plugins/sidebar-host/src/process-tree-killer.ts'
+} from '../plugins/capabilities/src/process-tree-killer.ts'
 
 test('parseProcessChildrenMap builds parent-to-children hierarchy', () => {
   const ps = `

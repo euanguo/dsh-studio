@@ -1,14 +1,40 @@
 import {
   INSPECTOR_PANEL_BUDGET,
 } from '@dsh-studio/shared/panel-geometry'
+import type { PreviewTabsMode } from '@dsh-studio/shared/workbench-contracts'
+
+/** Whether the right-rail layout follows each project or one shared layout. */
+export type LayoutScopeMode = 'workspace' | 'global'
 
 export const SIDEBAR_MIN_WIDTH = INSPECTOR_PANEL_BUDGET.minSizePx
 export const SIDEBAR_MAX_WIDTH = INSPECTOR_PANEL_BUDGET.maxSizePx
 export const SIDEBAR_DEFAULT_WIDTH = INSPECTOR_PANEL_BUDGET.defaultSizePx
 export const SIDEBAR_COLLAPSE_THRESHOLD_PX = INSPECTOR_PANEL_BUDGET.collapseThresholdPx
-const SIDEBAR_LEGACY_MAX_WIDTH = 720
+/**
+ * Live-cap policy: the rail may occupy at most this fraction of the window
+ * width ({@link sidebarMaxWidth}). {@link SIDEBAR_MAX_WIDTH} remains as the
+ * fallback cap for contexts without a viewport, so pure parsers and tests
+ * keep a bounded range.
+ */
+export const SIDEBAR_MAX_VIEWPORT_RATIO = 0.75
+/**
+ * Viewport-independent sanity bound for PERSISTED widths. Document
+ * validation must not depend on the current window: a width saved against a
+ * larger display has to survive a later session on a smaller one
+ * (non-destructive migration), so documents accept anything sane and the
+ * live viewport cap applies when the width is read out instead.
+ */
+export const SIDEBAR_PERSISTED_MAX_WIDTH = 4096
 export const SIDEBAR_MAX_WORKSPACES = 50
 export const SIDEBAR_MAX_TABS = 30
+
+/**
+ * Version of the persisted right-sidebar layout document. Written as a
+ * top-level `version` header on save and carried through read/write so a
+ * future migration can branch on the stored layout semantics instead of
+ * inferring them. Missing on legacy documents ⇒ treated as v1 (back-compat).
+ */
+export const SIDEBAR_LAYOUTS_VERSION = 2
 
 export interface PersistedSidebarTab {
   id: string
@@ -22,10 +48,17 @@ export interface PersistedSidebarTab {
 /** One project (workspace cwd) layout: the right rail + bottom workbench
  *  open-tab state. Keyed by the project cwd in `DesktopSidebarPreferences` —
  *  the sidebar is project-dimension, so two conversations of the same project
- *  share one layout and switching conversations never resets the panel. */
+ *  share one layout and switching conversations never resets the panel.
+ *
+ *  The BOTTOM workbench fields are RESTORED as dormant schema: the workbench
+ *  is not mounted (product decision pending); the parser round-trips the
+ *  persisted bottomTabs keys so legacy/manual documents keep their data until
+ *  re-wiring lands. */
 export interface PersistedWorkspaceLayout {
   activeId: string | null
   lastUsed: number
+  /** This project's remembered rail width; falls back to `defaultWidth`. */
+  width?: number
   tabs: PersistedSidebarTab[]
   /**
    * Tabs docked into the BOTTOM workbench (the second pane above the
@@ -42,11 +75,20 @@ export interface DesktopSidebarPreferences {
   openByDefault: boolean
   /** Per-project open-tab layouts keyed by the workspace cwd. */
   workspaces: Record<string, PersistedWorkspaceLayout>
-  tabsEnabled: Record<string, boolean>
-  viewersEnabled: Record<string, boolean>
   /** Plugin-owned settings blobs keyed by descriptor id (open map). */
   pluginSettings: Record<string, Record<string, unknown>>
-  version: 2
+  /**
+   * Whether single-click center-surface opens create replaceable preview
+   * tabs (`default`) or upgrade straight to permanent tabs (`disabled`).
+   * Missing on legacy documents ⇒ parse falls back to `'default'`.
+   */
+  centerPreviewTabs: PreviewTabsMode
+  /**
+   * Whether the right-rail tab layout (and its remembered width) follows
+   * each workspace cwd (`workspace`) or one shared bucket (`global`).
+   * Missing on legacy documents ⇒ `'workspace'`.
+   */
+  layoutScope: LayoutScopeMode
 }
 
 export const DEFAULT_SIDEBAR_PREFERENCES: DesktopSidebarPreferences =
@@ -54,10 +96,9 @@ export const DEFAULT_SIDEBAR_PREFERENCES: DesktopSidebarPreferences =
     defaultWidth: SIDEBAR_DEFAULT_WIDTH,
     openByDefault: false,
     workspaces: Object.freeze({}),
-    tabsEnabled: Object.freeze({}),
-    viewersEnabled: Object.freeze({}),
     pluginSettings: Object.freeze({}),
-    version: 2,
+    centerPreviewTabs: 'default',
+    layoutScope: 'workspace',
   }) as DesktopSidebarPreferences
 
 function validKey(value: unknown, max = 160): value is string {
@@ -65,20 +106,6 @@ function validKey(value: unknown, max = 160): value is string {
     && value.length > 0
     && value.length <= max
     && !value.includes('\0')
-}
-
-function parseEnabledMap(value: unknown): Record<string, boolean> | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
-    return undefined
-  }
-  const entries = Object.entries(value as Record<string, unknown>)
-  if (entries.length > 120) return undefined
-  const output: Record<string, boolean> = {}
-  for (const [key, enabled] of entries) {
-    if (!validKey(key, 120) || typeof enabled !== 'boolean') return undefined
-    output[key] = enabled
-  }
-  return output
 }
 
 /** JSON-serializable values only: primitives, finite numbers, arrays and
@@ -140,43 +167,61 @@ function parseWorkspace(value: unknown): PersistedWorkspaceLayout | undefined {
     return undefined
   }
   const input = value as Record<string, unknown>
-  if (input.activeId !== null && !validKey(input.activeId)) return undefined
-  if (!Number.isFinite(input.lastUsed) || Number(input.lastUsed) < 0) return undefined
-  if (!Array.isArray(input.tabs) || input.tabs.length > SIDEBAR_MAX_TABS) {
-    return undefined
-  }
+  // Per-entry tolerant parsing (F9): a single bad value never aborts the
+  // whole workspace — bad tabs are dropped, a missing/invalid lastUsed and
+  // activeId fall back instead of rejecting.
+  const lastUsed = Number.isFinite(input.lastUsed) && Number(input.lastUsed) >= 0
+    ? Number(input.lastUsed)
+    : 0
   const tabs: PersistedSidebarTab[] = []
   const ids = new Set<string>()
-  for (const candidate of input.tabs) {
-    const tab = parseTab(candidate)
-    if (tab === undefined || ids.has(tab.id)) return undefined
-    ids.add(tab.id)
-    tabs.push(tab)
+  if (Array.isArray(input.tabs)) {
+    // Truncate to the cap rather than reject a legacy over-limit document
+    // (M2): keep the first SIDEBAR_MAX_TABS well-formed tabs so a 30+ tab
+    // history never wipes the whole layout.
+    for (const candidate of input.tabs.slice(0, SIDEBAR_MAX_TABS)) {
+      if (tabs.length >= SIDEBAR_MAX_TABS) break
+      const tab = parseTab(candidate)
+      if (tab === undefined || ids.has(tab.id)) continue
+      ids.add(tab.id)
+      tabs.push(tab)
+    }
   }
-  const activeId = input.activeId as string | null
-  if (activeId !== null && !ids.has(activeId)) return undefined
-  // The bottom workbench is additive and optional: legacy sessions (or
-  // malformed extras) resolve to an empty workbench — never a parse error,
-  // so old documents migrate non-destructively.
+  const activeId = input.activeId as string | null | undefined
+  const activeTabId = (activeId !== null && activeId !== undefined && ids.has(activeId))
+    ? activeId
+    : null
+  // bottomTabs/bottomActiveId round-trip as dormant schema so persisted (or
+  // hand-authored) documents keep the second-pane layout until the workbench
+  // re-wires.
   const bottomTabs: PersistedSidebarTab[] = []
   const bottomIds = new Set<string>()
-  if (Array.isArray(input.bottomTabs) && input.bottomTabs.length <= SIDEBAR_MAX_TABS) {
-    for (const candidate of input.bottomTabs) {
+  if (Array.isArray(input.bottomTabs)) {
+    for (const candidate of input.bottomTabs.slice(0, SIDEBAR_MAX_TABS)) {
+      if (bottomTabs.length >= SIDEBAR_MAX_TABS) break
       const tab = parseTab(candidate)
-      if (tab === undefined || bottomIds.has(tab.id) || ids.has(tab.id)) return undefined
+      if (tab === undefined || bottomIds.has(tab.id) || ids.has(tab.id)) continue
       bottomIds.add(tab.id)
       bottomTabs.push(tab)
     }
   }
   const bottomActiveId = input.bottomActiveId as string | null | undefined
-  if (bottomActiveId !== null && bottomActiveId !== undefined
-    && !bottomIds.has(bottomActiveId)) return undefined
+  const bottomActive = (bottomActiveId !== null && bottomActiveId !== undefined
+    && bottomIds.has(bottomActiveId))
+    ? bottomActiveId
+    : (bottomActiveId === null ? null : undefined)
+  const width = input.width === undefined
+    ? undefined
+    : (typeof input.width === 'number' && Number.isFinite(input.width)
+      ? clampPersistedWidth(input.width)
+      : undefined)
   return {
-    activeId,
-    lastUsed: Number(input.lastUsed),
+    activeId: activeTabId,
+    lastUsed,
     tabs,
     bottomTabs,
-    ...(bottomActiveId === undefined ? { bottomActiveId: null } : { bottomActiveId }),
+    ...(bottomActive === undefined ? {} : { bottomActiveId: bottomActive }),
+    ...(width === undefined ? {} : { width }),
   }
 }
 
@@ -186,23 +231,46 @@ export interface SidebarLayoutGeometry {
   detailsWidth: number
 }
 
-export function clampSidebarWidth(value: number): number {
+/**
+ * Effective live maximum rail width: the viewport ratio when a window width
+ * is known, otherwise the static budget cap (pure / non-DOM contexts).
+ */
+export function sidebarMaxWidth(viewportWidth?: number): number {
+  if (viewportWidth === undefined || !Number.isFinite(viewportWidth)
+    || viewportWidth <= 0) return SIDEBAR_MAX_WIDTH
+  return Math.max(
+    SIDEBAR_MIN_WIDTH,
+    Math.round(viewportWidth * SIDEBAR_MAX_VIEWPORT_RATIO),
+  )
+}
+
+export function clampSidebarWidth(value: number, viewportWidth?: number): number {
   if (!Number.isFinite(value)) return SIDEBAR_DEFAULT_WIDTH
   return Math.min(
-    SIDEBAR_MAX_WIDTH,
+    sidebarMaxWidth(viewportWidth),
     Math.max(SIDEBAR_MIN_WIDTH, Math.round(value)),
   )
 }
 
 /**
- * Clamp the plugin rail to its own budget only.
- *
- * The window minWidth guarantees left max + right max always fit, so the
- * rail never needs a viewport-derived cap: both side panels can open at
- * any window size and the center absorbs whatever remains.
+ * Width available to the maximized right overlay after preserving the left
+ * rail. The live measurement belongs to the surface adapter; this pure helper
+ * keeps the subtraction and malformed-input policy testable in the sidebar
+ * domain.
  */
-export function clampSidebarWidthForLayout(value: number): number {
-  return clampSidebarWidth(value)
+export function maximizedSidebarWidth(viewportWidth: number, leftRailWidth: number): number {
+  const viewport = Number.isFinite(viewportWidth) ? Math.max(0, viewportWidth) : 0
+  const left = Number.isFinite(leftRailWidth) ? Math.max(0, leftRailWidth) : 0
+  return Math.max(0, viewport - left)
+}
+
+/** Persisted-document bound (no viewport): the parse/clone-time defense. */
+export function clampPersistedWidth(value: number): number {
+  if (!Number.isFinite(value)) return SIDEBAR_DEFAULT_WIDTH
+  return Math.min(
+    SIDEBAR_PERSISTED_MAX_WIDTH,
+    Math.max(SIDEBAR_MIN_WIDTH, Math.round(value)),
+  )
 }
 
 function parsePluginSettings(
@@ -212,20 +280,20 @@ function parsePluginSettings(
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     return undefined
   }
-  const entries = Object.entries(value as Record<string, unknown>)
-  if (entries.length > 120) return undefined
+  // Per-entry tolerant: keep well-formed plugin blobs, drop malformed ones and
+  // cap the count — a corrupt blob never rejects the whole preferences doc.
   const output: Record<string, Record<string, unknown>> = {}
+  const entries = Object.entries(value as Record<string, unknown>)
   for (const [id, blob] of entries) {
-    if (!validKey(id, 120)) return undefined
-    if (typeof blob !== 'object' || blob === null || Array.isArray(blob)) {
-      return undefined
-    }
-    const keys = Object.entries(blob as Record<string, unknown>)
-    if (keys.length > 120) return undefined
+    if (Object.keys(output).length >= 120) break
+    if (!validKey(id, 120)) continue
+    if (typeof blob !== 'object' || blob === null || Array.isArray(blob)) continue
     const parsed: Record<string, unknown> = {}
+    const keys = Object.entries(blob as Record<string, unknown>)
     for (const [key, item] of keys) {
-      if (!validKey(key, 120)) return undefined
-      if (!isJsonSafe(item)) return undefined
+      if (Object.keys(parsed).length >= 120) break
+      if (!validKey(key, 120)) continue
+      if (!isJsonSafe(item)) continue
       parsed[key] = item
     }
     output[id] = parsed
@@ -240,36 +308,41 @@ export function parseSidebarPreferences(
     return undefined
   }
   const input = value as Record<string, unknown>
-  if (input.version !== 2 || typeof input.openByDefault !== 'boolean') {
+  if (typeof input.openByDefault !== 'boolean') {
     return undefined
   }
   if (typeof input.defaultWidth !== 'number'
     || !Number.isFinite(input.defaultWidth)
     || input.defaultWidth < SIDEBAR_MIN_WIDTH
-    || input.defaultWidth > SIDEBAR_LEGACY_MAX_WIDTH) return undefined
-  const tabsEnabled = parseEnabledMap(input.tabsEnabled)
-  const viewersEnabled = parseEnabledMap(input.viewersEnabled)
+    || input.defaultWidth > SIDEBAR_PERSISTED_MAX_WIDTH) return undefined
   const pluginSettings = parsePluginSettings(input.pluginSettings)
-  if (tabsEnabled === undefined || viewersEnabled === undefined
-    || pluginSettings === undefined) return undefined
-  if (typeof input.workspaces !== 'object' || input.workspaces === null
-    || Array.isArray(input.workspaces)) return undefined
-  const entries = Object.entries(input.workspaces as Record<string, unknown>)
-  if (entries.length > SIDEBAR_MAX_WORKSPACES) return undefined
+  if (pluginSettings === undefined) return undefined
+  // Per-entry tolerant (F9/M2): parse every well-formed workspace entry and
+  // keep it; drop malformed ones and cap the count. One bad project layout
+  // (or a legacy over-limit document) must never wipe every project's tabs,
+  // widths and commit drafts — migration stays non-destructive. The optional
+  // `version` header is informational and ignored here; the persistence layer
+  // re-stamps the current SIDEBAR_LAYOUTS_VERSION on every read/write.
   const workspaces: Record<string, PersistedWorkspaceLayout> = {}
-  for (const [cwd, rawWorkspace] of entries) {
-    if (!validKey(cwd, 256)) return undefined
-    const workspace = parseWorkspace(rawWorkspace)
-    if (workspace === undefined) return undefined
-    workspaces[cwd] = workspace
+  if (typeof input.workspaces === 'object' && input.workspaces !== null
+    && !Array.isArray(input.workspaces)) {
+    const entries = Object.entries(input.workspaces as Record<string, unknown>)
+    for (const [cwd, rawWorkspace] of entries) {
+      if (Object.keys(workspaces).length >= SIDEBAR_MAX_WORKSPACES) break
+      if (!validKey(cwd, 256)) continue
+      const workspace = parseWorkspace(rawWorkspace)
+      if (workspace === undefined) continue
+      workspaces[cwd] = workspace
+    }
   }
   return {
-    defaultWidth: clampSidebarWidth(input.defaultWidth),
+    defaultWidth: clampPersistedWidth(input.defaultWidth),
     openByDefault: input.openByDefault,
     workspaces,
-    tabsEnabled,
-    viewersEnabled,
     pluginSettings,
-    version: 2,
+    // Tolerant by design: legacy documents lack the fields and unknown
+    // values fall back rather than rejecting the whole document.
+    centerPreviewTabs: input.centerPreviewTabs === 'disabled' ? 'disabled' : 'default',
+    layoutScope: input.layoutScope === 'global' ? 'global' : 'workspace',
   }
 }
