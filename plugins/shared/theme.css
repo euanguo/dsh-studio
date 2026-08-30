@@ -56,8 +56,6 @@
   --dsh-studio-surface-tab-height: 26px;
   --dsh-studio-surface-tab-radius: var(--dsh-studio-radius-sm);
   --dsh-studio-surface-tab-gap: var(--dsh-studio-space-1);
-  --dsh-studio-surface-tab-bg-hover: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
-  --dsh-studio-surface-tab-bg-active: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
   --dsh-studio-surface-tab-corner-shape: round;
   --dsh-studio-surface-tab-badge-height: 16px;
   --dsh-studio-surface-tab-badge-radius: 8px;
@@ -73,19 +71,6 @@
   --dsh-studio-content-table-cell-padding-block: var(--dsh-studio-space-1-5);
   --dsh-studio-content-table-cell-padding-inline: 10px;
 
-  /* diff 语义色桥：从 DSW 官方状态色派生，暗色主题自动跟随
-     （DSW 没有 diff 语义别名，这里只做桥接，不定义新色板） */
-  --dsh-studio-diff-add-bg: color-mix(in srgb, var(--dsw-alias-state-success-primary, #2da44e) 14%, transparent);
-  --dsh-studio-diff-add-fg: var(--dsw-alias-state-success-primary, #2da44e);
-  --dsh-studio-diff-del-bg: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 14%, transparent);
-  --dsh-studio-diff-del-fg: var(--dsw-alias-state-error-primary, #cf222e);
-
-  /* 悬浮层（详情 overlay）表面 */
-  --dsh-studio-overlay-bg: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 97%, transparent);
-  --dsh-studio-overlay-border: var(--dsw-alias-border-l1, rgb(0 0 0 / 9%));
-  --dsh-studio-overlay-shadow: 0 14px 42px rgb(0 0 0 / 16%);
-  --dsh-studio-overlay-blur: 6px;
-
   /* 字号 */
   --dsh-studio-font-xs: 10px;
   --dsh-studio-font-sm: 11px;
@@ -97,6 +82,14 @@
   /* 等宽字体栈：跟随 DSH 的 --ds-font-family-code */
   --dsh-studio-font-mono: var(--ds-font-family-code, ui-monospace, SFMono-Regular, Menlo, monospace);
 
+  }
+
+/* 强调色桥 + shadcn 语义桥：引用 --dsw-alias-* 的桥必须挂在 body 上 ——
+   DSW 的 alias token 只声明在 body / body[data-ds-dark-theme] 上，
+   :root 作用域里引用它们会因「父作用域不可见」在 html 处提前求值，
+   永远落到亮色 fallback（暗色主题下 Select 弹层/Field 文字全部错色）。
+   挂在 body 上，亮/暗主题切换时 var() 都能正确替换。 */
+body {
   /* 强调色桥：DSW 主蓝别名。这是上游 design-platform.css 的真实品牌 token
      （light rgb(65,118,230) / dark var(--dsw-static-deepseek-450)），名字虽
      冗长但非损坏——Q10 已在 dsh-source token 目录核对存在。旧代码误用的
@@ -122,13 +115,24 @@
   --dsh-studio-ui-destructive: var(--dsw-alias-state-error-primary, #cf222e);
   --dsh-studio-ui-radius: var(--dsh-studio-radius-md);
 
-  }
+  /* 表面族语义桥（surface-tab / diff / overlay）。同样依赖 body 作用域的
+     --dsw-alias-*，挂在 :root 会永久落到亮色 fallback（注释见文件头）。 */
+  --dsh-studio-surface-tab-bg-hover: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 6%));
+  --dsh-studio-surface-tab-bg-active: var(--dsw-alias-interactive-bg-active, rgb(0 0 0 / 9%));
 
-/* 表面桥的根默认值必须挂在 body 而不是 :root —— DSW 的 alias token
-   （--dsw-alias-bg-*）只声明在 body / body[data-ds-dark-theme] 上，
-   :root 作用域里引用它们会因「父作用域不可见」而级联失败，永远落到
-   fallback。挂在 body 上，亮/暗主题切换时 var() 都能正确替换。 */
-body {
+  /* diff 语义色桥：从 DSW 官方状态色派生，暗色主题自动跟随
+     （DSW 没有 diff 语义别名，这里只做桥接，不定义新色板） */
+  --dsh-studio-diff-add-bg: color-mix(in srgb, var(--dsw-alias-state-success-primary, #2da44e) 14%, transparent);
+  --dsh-studio-diff-add-fg: var(--dsw-alias-state-success-primary, #2da44e);
+  --dsh-studio-diff-del-bg: color-mix(in srgb, var(--dsw-alias-state-error-primary, #cf222e) 14%, transparent);
+  --dsh-studio-diff-del-fg: var(--dsw-alias-state-error-primary, #cf222e);
+
+  /* 悬浮层（详情 overlay）表面 */
+  --dsh-studio-overlay-bg: color-mix(in srgb, var(--dsw-alias-bg-base, #fff) 97%, transparent);
+  --dsh-studio-overlay-border: var(--dsw-alias-border-l1, rgb(0 0 0 / 9%));
+  --dsh-studio-overlay-shadow: 0 14px 42px rgb(0 0 0 / 16%);
+  --dsh-studio-overlay-blur: 6px;
+
   --dsh-studio-terminal-backdrop: var(--dsw-alias-bg-layer-1, #ffffff);
 
   /* Pierre canvas bridge: the effective canvas fill is `--diffs-bg`, whose
