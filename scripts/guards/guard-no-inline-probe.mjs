@@ -38,6 +38,11 @@ import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 
+/** Keep repository-relative comparisons stable on Windows and POSIX. */
+function repoRelative(file) {
+  return relative(root, file).replaceAll('\\', '/')
+}
+
 // Feature client roots the guard polices (interactive plugins that render into
 // the DSH client). desktop-skins owns its own probe/generated layer.
 const FEATURE_ROOTS = [
@@ -96,7 +101,7 @@ for (const rel of FEATURE_ROOTS) {
   }
   if (!st.isDirectory()) continue
   for (const file of walk(dir, [])) {
-    const r = relative(root, file)
+    const r = repoRelative(file)
     if (ALLOWLIST(r)) continue
     scanned++
     const text = readFileSync(file, 'utf8')

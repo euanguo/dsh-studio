@@ -35,6 +35,11 @@ import { fileURLToPath } from 'node:url'
 const root = join(dirname(fileURLToPath(import.meta.url)), '..', '..')
 const strict = process.argv.includes('--strict')
 
+/** Keep repository-relative comparisons stable on Windows and POSIX. */
+function repoRelative(file, base = root) {
+  return relative(base, file).replaceAll('\\', '/')
+}
+
 const sharedDir = join(root, 'plugins', 'shared')
 const manifest = JSON.parse(readFileSync(join(sharedDir, 'package.json'), 'utf8'))
 const exportsMap = manifest.exports ?? {}
@@ -108,8 +113,8 @@ for (const [sym, info] of exports) {
 }
 
 for (const file of repoFiles) {
-  const rel = relative(root, file)
-  if (rel.startsWith('scripts' + '/guards')) continue
+  const rel = repoRelative(file)
+  if (rel.startsWith('scripts/guards')) continue
   const text = readFileSync(file, 'utf8')
   for (const [sym] of exports) {
     const declSet = declaredIn.get(sym)
@@ -127,9 +132,9 @@ for (const [sym, info] of exports) {
   const ext = external.get(sym).size
   if (ext > 1) continue
   const extFiles = [...external.get(sym)]
-  if (extFiles.some((f) => /(^|\/)tests\//.test(relative(root, f)))) continue
-  const declaring = info.declaring.map((f) => relative(sharedDir, f)).join('/')
-  candidates.push({ sym, declaring, ext, extFiles: extFiles.map((f) => relative(root, f)) })
+  if (extFiles.some((f) => /(^|\/)tests\//.test(repoRelative(f)))) continue
+  const declaring = info.declaring.map((f) => repoRelative(f, sharedDir)).join('/')
+  candidates.push({ sym, declaring, ext, extFiles: extFiles.map(f => repoRelative(f)) })
 }
 candidates.sort((a, b) => a.declaring.localeCompare(b.declaring) || a.sym.localeCompare(b.sym))
 

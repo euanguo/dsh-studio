@@ -39,6 +39,7 @@
 | `panel-geometry.ts`、`stable-pane-id.ts`、`layout-dom.ts`、`column-mount.ts`、`tab-drag-image.ts` | 布局/面板/拖拽几何契约：sidebar 宽度预算、pane id、overlay 挂载（leaf-1.6）与拖拽图像（body-append 例外）的唯一事实源。 |
 | `middle-truncate-text.ts`、`filename-display.ts`、`time.ts`、`i18n.ts` | 共享展示工具及其返回类型；filename-label / selected-text-action 等多表面复用。 |
 | `fs-tree.ts`、`bundle-names.ts` | capabilities fs 树契约与 bundle chunk 名常量。 |
+| `host-atomic-fs.ts`、`runtime/wire.ts` | Host 原子写入选项与 HTTP wire 辅助函数；由能力路由间接消费。 |
 | `ui-chrome-schema.ts:TableSchema`、`ui/menu-anchor.ts`、`ui/styles.ts:sharedUiStyles` | ui-chrome 表 schema、菜单锚定状态与 barrel 再导出的样式入口。 |
 | `worktree-preferences.ts:WorktreeLocationInput`、`prefs-shared.ts`、`left-rail-preferences.ts`、`data-root-names.ts`、`runtime/runtime.ts` | 各持久化/运行时域的既有契约类型（沿用首轮裁决）。 |
 

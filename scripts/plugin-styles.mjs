@@ -78,9 +78,11 @@ const PLUGIN_AGGREGATE = {
 
 /** Transform one module stylesheet into `{ css, mapEntries }`. */
 function transformModuleCss(clientDir, rel) {
-  const source = readFileSync(join(clientDir, rel), 'utf8')
+  // Git may materialize text files as CRLF on Windows. Normalize before
+  // hashing and transforming so CSS-module names are platform-independent.
+  const source = readFileSync(join(clientDir, rel), 'utf8').replace(/\r\n?/g, '\n')
   const result = transform({
-    filename: rel,
+    filename: rel.replaceAll('\\', '/'),
     code: Buffer.from(source),
     cssModules: { pattern: PATTERN },
     minify: false,
@@ -128,7 +130,7 @@ export function generatePluginStyles(pluginDir, { check = false } = {}) {
   let cssText = ''
   const exports = []
   for (const file of files) {
-    const rel = relative(clientDir, file)
+    const rel = relative(clientDir, file).replaceAll('\\', '/')
     const { css, entries } = transformModuleCss(clientDir, rel)
     cssText += `/* ${rel} */\n${css}\n`
     exports.push(`export const ${exportName(rel.split('/').pop())} = {
@@ -140,7 +142,7 @@ ${entries.join('\n')}
   const aggregateExport = aggregate === undefined
     ? ''
     : `export const ${aggregate} = {\n${files
-      .map(file => `  ...${exportName(relative(clientDir, file).split('/').pop())},`)
+      .map(file => `  ...${exportName(relative(clientDir, file).replaceAll('\\', '/').split('/').pop())},`)
       .join('\n')}\n} as const\n`
 
   const output = `/**
@@ -155,7 +157,7 @@ export const pluginCss = ${JSON.stringify(cssText)}
 `
   const outPath = join(clientDir, 'styles.ts')
   if (check) {
-    const committed = readFileSync(outPath, 'utf8')
+    const committed = readFileSync(outPath, 'utf8').replace(/\r\n?/g, '\n')
     if (committed !== output) {
       throw new Error(
         `plugin-styles ${pluginDir}: styles.ts drifted from the module CSS sources.\n`
