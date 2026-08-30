@@ -129,6 +129,7 @@ export function createRuntimeOptionsModule(host: RuntimeOptionsHost): RuntimeOpt
       }),
       nodeEnvironment: desktopNodeEnv(paths, process.execPath),
       paths,
+      platform: process.platform,
       ...(overrides.preview === undefined ? {} : { preview: overrides.preview }),
       profile: info.profile,
       scope,

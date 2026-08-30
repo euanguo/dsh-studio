@@ -62,7 +62,10 @@ test('platform helpers keep GitHub credentials scoped and scripted preview fail-
   const env = withGitHubCredentials({ PATH: '/bin', DSH_STUDIO_DESKTOP_APP_DATA: '/tmp/dsh-test' }, null)
   assert.equal(env.GIT_CONFIG_GLOBAL, undefined)
   assert.ok(previewSandboxPolicy('/tmp/preview').includes('subpath "/tmp/preview"'))
-  assert.throws(() => previewScriptCommand({ platform: 'linux', nodeBinary: 'node', nodeArguments: [], root: '/tmp/preview', pathExists: () => false }), /unavailable on linux/)
+  assert.throws(
+    () => previewScriptCommand({ platform: 'linux', nodeBinary: 'node', nodeArguments: [], root: '/tmp/preview', pathExists: () => false }),
+    /unavailable on linux/,
+  )
 })
 
 test('manager snapshot is healthy after canonical refresh and direct execution', async () => {

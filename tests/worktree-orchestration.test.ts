@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { execFile as execFileCallback } from 'node:child_process'
 import { mkdtemp, mkdir, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { join, relative, sep } from 'node:path'
 import { promisify } from 'node:util'
 import { test } from 'node:test'
 import {
@@ -12,7 +13,7 @@ import {
 const execFile = promisify(execFileCallback)
 
 async function makeRepository(): Promise<{ root: string; cleanup: () => Promise<void> }> {
-  const root = await mkdtemp(`${tmpdir()}/dsh-capabilities-worktree-`)
+  const root = await mkdtemp(join(tmpdir(), 'dsh-capabilities-worktree-'))
   await execFile('git', ['init', '-q', root])
   await execFile('git', ['-C', root, 'config', 'user.email', 'test@example.invalid'])
   await execFile('git', ['-C', root, 'config', 'user.name', 'DSH Test'])
@@ -96,7 +97,7 @@ async function delegationHarness({
   // The harness must be async-friendly: canonicalize via realpath in the test
   // (macOS tmpdir /var/... is a symlink spelling; a non-git dir has no
   // git-reported canonical alias for visibility matching).
-  const repo = await realpath(parentCwd ?? await mkdtemp(`${tmpdir()}/dsh-delegation-harness-`))
+  const repo = await realpath(parentCwd ?? await mkdtemp(join(tmpdir(), 'dsh-delegation-harness-')))
   const createdAgents: { id: string; meta: unknown; followups: unknown[]; disposed: number }[] = []
   const childAgent = (id: string) => {
     const agent = {
@@ -188,7 +189,7 @@ const settle = (ms = 20): Promise<void> => new Promise(resolve => setTimeout(res
 
 test('WorkTree delegation only accepts visible session/workspace paths', async () => {
   const repo = await makeRepository()
-  const unknown = await mkdtemp(`${tmpdir()}/dsh-capabilities-unknown-`)
+  const unknown = await mkdtemp(join(tmpdir(), 'dsh-capabilities-unknown-'))
   try {
     const { context } = fakeContext(repo.root)
     const registry = new WorktreeDelegationRegistry(context as never)
@@ -207,7 +208,7 @@ test('WorkTree delegation only accepts visible session/workspace paths', async (
 test('WorkTree creation adopts the new linked tree as a Workspace', async () => {
   const repo = await makeRepository()
   const previousHome = process.env.DSH_STUDIO_HOME
-  const home = await mkdtemp(`${tmpdir()}/dsh-capabilities-home-`)
+  const home = await mkdtemp(join(tmpdir(), 'dsh-capabilities-home-'))
   process.env.DSH_STUDIO_HOME = home
   try {
     const workspaceRecords: { path: string; sessionIds: readonly string[] }[] = []
@@ -229,7 +230,7 @@ test('WorkTree creation adopts the new linked tree as a Workspace', async () => 
       createBranch: true,
     })
     assert.equal(result.branch, 'feature/capabilities-test')
-    assert.ok(result.path.startsWith(`${home}/worktrees/`))
+    assert.equal(relative(home, result.path).split(sep)[0], 'worktrees')
     assert.equal(workspaceRecords.length, 1)
     assert.equal(workspaceRecords[0]?.path, result.path)
     registry.dispose()
@@ -242,7 +243,7 @@ test('WorkTree creation adopts the new linked tree as a Workspace', async () => 
 })
 
 test('delegated children are normal sessions (no subagent origin, cwd + lineage kept)', async () => {
-  const dir = await mkdtemp(`${tmpdir()}/dsh-delegation-normal-`)
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-delegation-normal-'))
   try {
     const { context, createdAgents, registry } = await delegationHarness({ parentCwd: dir })
     const snapshot = await registry.start('parent-session', dir, 'task')
@@ -262,7 +263,7 @@ test('delegated children are normal sessions (no subagent origin, cwd + lineage 
 })
 
 test('wait returns the settled state promptly instead of burning the timeout', async () => {
-  const dir = await mkdtemp(`${tmpdir()}/dsh-delegation-wait-`)
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-delegation-wait-'))
   try {
     const { registry } = await delegationHarness({ parentCwd: dir })
     const snapshot = await registry.start('parent-session', dir, 'quick task')
@@ -279,7 +280,7 @@ test('wait returns the settled state promptly instead of burning the timeout', a
 })
 
 test('wait honors the timeout when the delegation stays running', async () => {
-  const dir = await mkdtemp(`${tmpdir()}/dsh-delegation-timeout-`)
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-delegation-timeout-'))
   try {
     const { registry } = await delegationHarness({ parentCwd: dir, stuckAgent: true })
     const snapshot = await registry.start('parent-session', dir, 'long task')
@@ -296,7 +297,7 @@ test('wait honors the timeout when the delegation stays running', async () => {
 })
 
 test('start() failure after agent creation disposes the handle', async () => {
-  const dir = await mkdtemp(`${tmpdir()}/dsh-delegation-leak-`)
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-delegation-leak-'))
   try {
     const { createdAgents, registry } = await delegationHarness({ parentCwd: dir, failWorkspaceCreate: true })
     await assert.rejects(
@@ -312,7 +313,7 @@ test('start() failure after agent creation disposes the handle', async () => {
 })
 
 test('stop() before the prompt submission aborts without running the task', async () => {
-  const dir = await mkdtemp(`${tmpdir()}/dsh-delegation-stop-`)
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-delegation-stop-'))
   try {
     const { createdAgents, registry, submitPrompt } = await delegationHarness({ parentCwd: dir, deferPrompt: true })
     const snapshot = await registry.start('parent-session', dir, 'long task')
@@ -329,7 +330,7 @@ test('stop() before the prompt submission aborts without running the task', asyn
 })
 
 test('delegation depth cap refuses runaway chains', async () => {
-  const dir = await mkdtemp(`${tmpdir()}/dsh-delegation-depth-`)
+  const dir = await mkdtemp(join(tmpdir(), 'dsh-delegation-depth-'))
   try {
     const { registry } = await delegationHarness({ parentCwd: dir, parentDepth: 4 })
     await assert.rejects(

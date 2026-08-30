@@ -103,7 +103,7 @@ test('writeFileAtomic: writes content atomically and leaves no temp siblings', a
 
   expect(await readFile(target, 'utf8')).toBe('{"a":1}')
   const mode = (await stat(target)).mode & 0o777
-  expect(mode).toBe(0o600)
+  if (process.platform !== 'win32') expect(mode).toBe(0o600)
   expect(await readdir(dir)).toEqual(['prefs.json'])
 })
 

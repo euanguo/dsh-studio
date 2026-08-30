@@ -100,7 +100,9 @@ process.on('SIGTERM', () => {})
     // child's real exit: SIGTERM is ignored, so progress requires SIGKILL.
     const elapsed = Date.now() - startedAt
     assert.ok(
-      elapsed >= readyTimeoutMs + killEscalationMs - 50,
+      elapsed >= (process.platform === 'win32'
+        ? readyTimeoutMs - 50
+        : readyTimeoutMs + killEscalationMs - 50),
       `start() returned too early (${String(elapsed)} ms): exit was not awaited`,
     )
     assert.equal(supervisor.running, false, 'child must be gone after the escalation chain')

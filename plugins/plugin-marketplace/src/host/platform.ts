@@ -314,10 +314,12 @@ function seatbeltString(value: string): string {
 
 /** Deny writes outside the disposable preview tree while allowing DSH to run. */
 export function previewSandboxPolicy(root: string): string {
-  const writableRoots = new Set([resolve(root)])
-  if (existsSync(root)) writableRoots.add(realpathSync(root))
+  // Seatbelt is a Darwin-only launcher; keep its paths POSIX even when this
+  // pure helper is exercised from a Windows test runner.
+  const writableRoots = new Set([posix.resolve(root)])
+  if (existsSync(root)) writableRoots.add(posix.normalize(realpathSync(root)))
   const writablePaths = [...writableRoots]
-    .flatMap(path => [path, join(path, '.tmp')])
+    .flatMap(path => [path, posix.join(path, '.tmp')])
     .map(path => `(subpath "${seatbeltString(path)}")`)
     .join(' ')
   return [

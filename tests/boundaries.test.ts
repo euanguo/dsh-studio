@@ -53,7 +53,7 @@ test('isWithin normalizes mixed separators on both arguments', () => {
 
 test('isWithin compares case-insensitively only when platform is win32', () => {
   assert.equal(isWithin('/Repo', '/repo/file', 'win32'), true)
-  assert.equal(isWithin('/Repo', '/repo/file'), false)
+  assert.equal(isWithin('/Repo', '/repo/file', 'linux'), false)
 })
 
 test('isWithin rejects targets above or beside the base', () => {

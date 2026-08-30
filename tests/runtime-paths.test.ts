@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { win32 } from 'node:path'
 import {
   bundledRuntimePaths,
   resolveRuntimeResourcesRoot,
@@ -74,7 +75,7 @@ test('user-first PATH keeps the login shell entries on top and bundled entries a
       { Path: 'C:\\Users\\me\\bin;C:\\Windows\\System32' },
       'win32',
       'user-first',
-    ).split(';'),
+    ).split(win32.delimiter),
     [
       'C:\\Users\\me\\bin',
       'C:\\Windows\\System32',

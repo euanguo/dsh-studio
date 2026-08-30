@@ -18,6 +18,8 @@ export interface DesktopRuntimeEnvironmentOptions {
   githubCliPath?: string | null
   nodeEnvironment: NodeJS.ProcessEnv
   paths: BundledRuntimePaths
+  /** Target platform for deterministic environment composition and tests. */
+  platform?: NodeJS.Platform
   preview?: { pluginId: string; transactionId: string }
   profile: string
   scope?: RuntimeEnvironmentScope
@@ -37,6 +39,7 @@ function removeStaleMarketplaceConfig(
 export function buildDesktopRuntimeEnvironment(
   options: DesktopRuntimeEnvironmentOptions,
 ): NodeJS.ProcessEnv {
+  const platform = options.platform ?? process.platform
   const environment: NodeJS.ProcessEnv = {
     ...options.userEnvironment.env,
     ...options.nodeEnvironment,
@@ -51,7 +54,7 @@ export function buildDesktopRuntimeEnvironment(
     PATH: runtimeSearchPath(
       options.paths,
       options.userEnvironment.env,
-      undefined,
+      platform,
       options.scope === 'marketplace' ? 'bundled-first' : 'user-first',
     ),
   }

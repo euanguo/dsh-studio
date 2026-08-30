@@ -77,6 +77,7 @@ test('user environment resolution merges login-shell values without mutating the
 test('user environment resolution falls back when the login shell times out', async () => {
   const result = await resolveUserEnvironment({
     base: { HOME: '/Users/me', PATH: '/usr/bin', SHELL: '/bin/zsh' },
+    platform: 'darwin',
     runLoginShell: async () => ({
       output: Buffer.alloc(0),
       status: null,

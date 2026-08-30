@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, posix, win32 } from 'node:path'
 import { test } from 'node:test'
 import { desktopNodeEnv } from '../src/desktop-node-env.ts'
 import { buildDesktopRuntimeEnvironment } from '../src/runtime-environment.ts'
@@ -11,7 +11,8 @@ const EXEC_PATH = '/Applications/DSH Studio.app/Contents/MacOS/Electron'
 
 test('user runtime environment preserves the login PATH and removes marketplace override', () => {
   const appDataPath = '/Users/me/.dsh-studio'
-  const paths = bundledRuntimePaths('/Applications/DSH Studio.app/Contents/Resources', 'darwin')
+  const targetPlatform: NodeJS.Platform = 'darwin'
+  const paths = bundledRuntimePaths('/Applications/DSH Studio.app/Contents/Resources', targetPlatform)
   const environment = buildDesktopRuntimeEnvironment({
     appDataPath,
     dshHome: appDataPath,
@@ -19,6 +20,7 @@ test('user runtime environment preserves the login PATH and removes marketplace 
     // the run-as-node variable exists solely inside exec boundaries.
     nodeEnvironment: desktopNodeEnv(paths, EXEC_PATH),
     paths,
+    platform: targetPlatform,
     profile: 'desktop',
     userEnvironment: {
       env: {
@@ -35,21 +37,47 @@ test('user runtime environment preserves the login PATH and removes marketplace 
   assert.equal(environment.ELECTRON_RUN_AS_NODE, undefined)
   assert.equal(environment.DSH_STUDIO_NODE_EXECUTABLE, EXEC_PATH)
   assert.equal(environment.DSH_STUDIO_HOME, appDataPath)
-  assert.deepEqual(environment.PATH?.split(':'), [
+  assert.deepEqual(environment.PATH?.split(posix.delimiter), [
     '/Users/me/.local/bin',
     '/Users/me/.n/bin',
     '/usr/bin',
     '/opt/homebrew/bin',
     '/usr/local/bin',
     paths.nodeBinDirectory,
-    join(paths.runtimeRoot, 'node_modules', '.bin'),
+    posix.join(paths.runtimeRoot, 'node_modules', '.bin'),
+  ])
+})
+
+test('Windows runtime environment uses Windows PATH semantics', () => {
+  const targetPlatform: NodeJS.Platform = 'win32'
+  const paths = bundledRuntimePaths('C:\\Program Files\\DSH Studio\\resources', targetPlatform)
+  const environment = buildDesktopRuntimeEnvironment({
+    appDataPath: 'C:\\Users\\me\\AppData\\Local\\DSH Studio',
+    dshHome: 'C:\\Users\\me\\.dsh-studio',
+    nodeEnvironment: desktopNodeEnv(paths, 'C:\\Program Files\\DSH Studio\\DSH Studio.exe'),
+    paths,
+    platform: targetPlatform,
+    profile: 'desktop',
+    userEnvironment: {
+      env: { Path: 'C:\\Users\\me\\bin;C:\\Windows\\System32' },
+      shell: 'C:\\Windows\\System32\\cmd.exe',
+      source: 'process',
+    },
+    version: '0.1.4',
+  })
+  assert.deepEqual(environment.PATH?.split(win32.delimiter), [
+    'C:\\Users\\me\\bin',
+    'C:\\Windows\\System32',
+    paths.nodeBinDirectory,
+    win32.join(paths.runtimeRoot, 'node_modules', '.bin'),
   ])
 })
 
 test('marketplace runtime environment owns its isolated Git config without changing user scope', () => {
   const root = mkdtempSync(join(tmpdir(), 'dsh-studio-runtime-env-'))
+  const targetPlatform: NodeJS.Platform = 'darwin'
   try {
-    const paths = bundledRuntimePaths(join(root, 'Resources'), 'darwin')
+    const paths = bundledRuntimePaths(posix.join('/tmp', 'dsh-studio-runtime-env-fixture', 'Resources'), targetPlatform)
     const userEnvironment = {
       env: { PATH: '/Users/me/.local/bin:/usr/bin', SHELL: '/bin/zsh' },
       shell: '/bin/zsh',
@@ -60,6 +88,7 @@ test('marketplace runtime environment owns its isolated Git config without chang
       dshHome: root,
       nodeEnvironment: desktopNodeEnv(paths, EXEC_PATH),
       paths,
+      platform: targetPlatform,
       profile: 'desktop',
       userEnvironment,
       version: '0.1.2',
@@ -90,9 +119,9 @@ test('marketplace runtime environment owns its isolated Git config without chang
     assert.match(readFileSync(expected, 'utf8'), /credential "https:\/\/github\.com"/)
     // Marketplace keeps the bundled runtime first so its pnpm/node stay
     // consistent; only the user scope is user-first.
-    assert.deepEqual(marketplace.PATH?.split(':'), [
+    assert.deepEqual(marketplace.PATH?.split(posix.delimiter), [
       paths.nodeBinDirectory,
-      join(paths.runtimeRoot, 'node_modules', '.bin'),
+      posix.join(paths.runtimeRoot, 'node_modules', '.bin'),
       '/opt/homebrew/bin',
       '/usr/local/bin',
       '/Users/me/.local/bin',
