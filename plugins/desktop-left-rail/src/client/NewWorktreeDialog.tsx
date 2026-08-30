@@ -4,14 +4,8 @@
  * flow. Split from WorkspaceBrowser.tsx.
  */
 import { useEffect, useState } from 'react'
-import {
-  Button,
-  Menu,
-  Modal,
-  IconChevronDownOutline14,
-  IconFolderClose16,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import { FieldError } from '@dsh-studio/shared/ui'
+import { Button, Modal, IconFolderClose16 } from '@deepseek-ai/dsh-client-ui-primitives'
+import { FieldError, Input, Select, SelectContent, SelectItem, SelectSeparator, SelectTrigger, SelectValue } from '@dsh-studio/shared/ui'
 import { cn } from './shim/cn.ts'
 import { WorkspaceBrowserCss as css } from './styles.ts'
 import { errorMessage } from '@dsh-studio/shared/errors'
@@ -53,13 +47,11 @@ export function NewWorktreeDialog({
 }): JSX.Element {
   /** Host-resolved worktree store root + nesting for the open dialog (null = resolving/unavailable). */
   const [defaults, setDefaults] = useState<WorktreeDefaultsResult | null>(null)
-  const [branchMenuOpen, setBranchMenuOpen] = useState(false)
   const [branches, setBranches] = useState<string[]>([])
   const [pickBranch, setPickBranch] = useState('__new__')
   const [newBranch, setNewBranch] = useState('')
   /** New-branch start point (base branch); only meaningful in new-branch mode. */
   const [base, setBase] = useState('')
-  const [baseMenuOpen, setBaseMenuOpen] = useState(false)
   const [path, setPath] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -202,38 +194,31 @@ export function NewWorktreeDialog({
             (optionally starting from a picked base branch). */}
         <div>
           <div className={css.wtSectionLabel}>{t('wt.branch')}</div>
-          <Menu
-            open={branchMenuOpen}
-            onClose={() => { setBranchMenuOpen(false) }}
-            items={[
-              ...branches.map(b => ({ id: b, label: b })),
-              { type: 'separator' as const, id: 'wt-branch-sep' },
-              { id: '__new__', label: t('wt.newBranch') },
-            ]}
-            selectedId={branchIsNew ? '__new__' : pickBranch}
-            onSelect={(id) => {
-              setBranchMenuOpen(false)
-              setPickBranch(id)
-              const branch = id === '__new__' ? newBranch : id
+          <Select
+            value={branchIsNew ? '__new__' : pickBranch}
+            onValueChange={next => {
+              if (next === null) return
+              setPickBranch(next)
+              const branch = next === '__new__' ? newBranch : next
               if (path.trim() === '') setPath(defaultPath(target.repoRoot, branch))
             }}
-            portal
-            anchor={(
-              <button
-                type="button"
-                className={cn(css.renameInput, css.wtPickerButton)}
-                onClick={() => { setBranchMenuOpen(v => !v) }}
-              >
-                <span className={css.wtPickerButtonText}>
-                  {branchIsNew ? (newBranch === '' ? t('wt.newBranch') : newBranch) : pickBranch}
-                </span>
-                <IconChevronDownOutline14 />
-              </button>
-            )}
-          />
+          >
+            <SelectTrigger size="sm" className={css.wtPickerButton} aria-label={t('wt.branch')}>
+              <SelectValue>
+                {(picked: string | null) => (picked === '__new__'
+                  ? (newBranch === '' ? t('wt.newBranch') : newBranch)
+                  : (picked ?? ''))}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent align="start" alignItemWithTrigger={false}>
+              {branches.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+              <SelectSeparator />
+              <SelectItem value="__new__">{t('wt.newBranch')}</SelectItem>
+            </SelectContent>
+          </Select>
           {branchIsNew && (
             <>
-              <input
+              <Input
                 className={cn(css.renameInput, css.wtNewBranchInput)}
                 value={newBranch}
                 aria-label={t('wt.newBranch')}
@@ -248,26 +233,18 @@ export function NewWorktreeDialog({
                   (default: the repo's main branch) instead of whatever
                   the main worktree's HEAD happens to be. */}
               <div className={css.wtSectionLabel}>{t('wt.base')}</div>
-              <Menu
-                open={baseMenuOpen}
-                onClose={() => { setBaseMenuOpen(false) }}
-                items={branches.map(b => ({ id: b, label: b }))}
-                selectedId={base === '' ? undefined : base}
-                onSelect={(id) => { setBaseMenuOpen(false); setBase(id) }}
-                portal
-                anchor={(
-                  <button
-                    type="button"
-                    className={cn(css.renameInput, css.wtPickerButton)}
-                    onClick={() => { setBaseMenuOpen(v => !v) }}
-                  >
-                    <span className={css.wtPickerButtonText}>
-                      {base === '' ? t('wt.baseHead') : base}
-                    </span>
-                    <IconChevronDownOutline14 />
-                  </button>
-                )}
-              />
+              <Select
+                value={base === '' ? '__head__' : base}
+                onValueChange={next => { if (next !== null) setBase(next === '__head__' ? '' : next) }}
+              >
+                <SelectTrigger size="sm" className={css.wtPickerButton} aria-label={t('wt.base')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="start" alignItemWithTrigger={false}>
+                  <SelectItem value="__head__">{t('wt.baseHead')}</SelectItem>
+                  {branches.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </>
           )}
         </div>
@@ -275,7 +252,7 @@ export function NewWorktreeDialog({
         {/* Location (auto-generated, editable). */}
         <div>
           <div className={css.wtSectionLabel}>{t('wt.path')}</div>
-          <input
+          <Input
             className={cn(css.renameInput, css.wtPathInput)}
             value={path}
             aria-label={t('wt.path')}

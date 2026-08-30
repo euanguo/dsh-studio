@@ -124,43 +124,15 @@ html[data-dsh-studio-sidebar-open='true'] :global(#dsh-studio-sidebar-root) {
 /* Branch picker: an official-Menu dropdown trigger styled in the commit
    area's field language (bordered, layered surface — matches the commit
    textarea and action buttons below it). */
+/* Branch value-selector trigger: the shared shadcn SelectTrigger owns the
+   field chrome; this class stretches the trigger across the commit row. */
 .dsh-studio-branch-picker {
-  display: flex;
-  align-items: center;
-  gap: var(--dsh-studio-space-1);
   width: 100%;
   min-width: 0;
-  height: 32px;
-  padding: 0 var(--dsh-studio-space-1-5);
-  box-sizing: border-box;
-  border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%));
-  border-radius: var(--dsh-studio-radius-sm);
-  background: var(--dsw-alias-bg-layer-1, #fff);
-  color: var(--dsw-alias-label-primary, #1f2328);
-  font: inherit;
-  font-size: var(--dsh-studio-font-lg);
   text-align: left;
-  cursor: pointer;
 }
 
-.dsh-studio-branch-picker:hover,
-.dsh-studio-branch-picker[aria-expanded='true'] {
-  border-color: var(--dsw-alias-border-l2, rgb(0 0 0 / 20%));
-  background: var(--dsw-alias-interactive-bg-hover, rgb(0 0 0 / 4%));
-}
-
-.dsh-studio-branch-picker:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.dsh-studio-branch-picker-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
+.dsh-studio-branch-picker > span { min-width: 0; }
 
 .dsh-studio-workspace-fact-icon {
   display: grid;
@@ -407,9 +379,10 @@ html[data-dsh-studio-sidebar-open='true'] :global(#dsh-studio-sidebar-root) {
 .dsh-studio-commit-area small { color: var(--dsw-alias-label-dimmed, #8c959f); font-size: var(--dsh-studio-font-xs); }
 .dsh-studio-sidebar-settings-ai { display: grid; gap: var(--dsh-studio-space-2); }
 .dsh-studio-sidebar-settings-ai-toolbar { display: flex; justify-content: flex-end; margin-bottom: calc(-1 * var(--dsh-studio-space-2)); }
-.dsh-studio-sidebar-settings-menu-anchor { display: inline-flex; min-width: 0; position: relative; }
-.dsh-studio-sidebar-settings-menu-anchor > button { max-width: 260px; }
-.dsh-studio-sidebar-settings-menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Shared shadcn SelectTrigger seat for settings rows (Select owns the
+   field chrome; this class only bounds its width in the row). */
+.dsh-studio-sidebar-settings-menu-trigger { min-width: 0; max-width: 260px; }
+.dsh-studio-sidebar-settings-menu-trigger > span { min-width: 0; }
 .dsh-studio-sidebar-settings-ai-prompt { display: grid; gap: var(--dsh-studio-space-1); }
 .dsh-studio-sidebar-settings-ai-prompt textarea { box-sizing: border-box; width: 100%; min-height: 136px; padding: var(--dsh-studio-space-1-5); border: 1px solid var(--dsw-alias-border-l2, rgb(0 0 0 / 13%)); border-radius: var(--dsh-studio-radius-sm); background: var(--dsw-alias-bg-layer-1, #fff); color: inherit; font: inherit; resize: vertical; }
 .dsh-studio-sidebar-settings-ai-prompt small,
@@ -975,16 +948,11 @@ html[data-dsh-studio-sidebar-open='true'] :global(#dsh-studio-sidebar-root) {
   flex: none;
 }
 
-/* The official Input owns the field chrome (border, background, height,
-   focus ring) on its wrapper span; our className lands on that wrapper and
-   only stretches it across the panel. Styling the inner <input> again
-   draws a second box inside the official one. box-sizing is required: the
-   wrapper is content-box by default, so width:100% plus its own padding
-   and border would overflow the panel and get clipped. */
+/* The shared shadcn Input owns the field chrome (border, background, height,
+   focus ring) directly on the <input>; our className lands on that element
+   and only stretches it across the panel. */
 .dsh-studio-files-search-input {
-  display: flex;
   width: 100%;
-  box-sizing: border-box;
 }
 
 .dsh-studio-file-search-results {

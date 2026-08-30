@@ -7,7 +7,7 @@
  * override and the data-root default into the root the dialog consumes).
  */
 import { useEffect, useRef, useState } from 'react';
-import { Button, Input } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 import {
   withSettingsCas,
@@ -17,7 +17,7 @@ import {
 } from './left-rail-settings.ts'
 import { fetchWorktreeDefaults } from './worktree-api.ts'
 import { sanitizeWorktreeDir, type WorktreeDefaultsResult } from '@dsh-studio/shared/worktree-preferences'
-import { FieldError, SettingsRow, SettingsSection, Switch } from '@dsh-studio/shared/ui'
+import { FieldError, Input, SettingsRow, SettingsSection, Switch } from '@dsh-studio/shared/ui'
 import { SettingsSectionCss as css } from './styles.ts'
 
 type SectionTranslate = WorkspaceBrowserProps['t']

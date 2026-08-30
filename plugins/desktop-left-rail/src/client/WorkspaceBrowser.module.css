@@ -417,24 +417,12 @@
   font-size: var(--dsh-studio-font-lg);
 }
 
-/* Rename dialog form (same figma dialog family as the create modals). */
+/* Rename dialog form (same figma dialog family as the create modals).
+ * Field chrome is owned by the shared shadcn Input (dsh-studio-ui-input);
+ * this class only places it. */
 .renameInput {
   box-sizing: border-box;
   width: 100%;
-  height: 44px;
-  padding: 7px 14px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 22px;
-  outline: none;
-  background: transparent;
-  font-size: var(--dsh-studio-font-xl);
-  font-weight: 400;
-  line-height: 22px;
-  color: var(--dsw-alias-label-primary);
-}
-
-.renameInput:disabled {
-  color: var(--dsw-alias-label-dimmed);
 }
 
 .renameError {
@@ -466,12 +454,11 @@
   cursor: pointer;
 }
 
-.deletePhysicalRow input {
+/* Shared shadcn Checkbox (dsh-studio-ui-checkbox) owns the control chrome;
+   this rule only seats it on the text baseline. */
+.deletePhysicalRow > [data-slot='checkbox'] {
   flex: none;
-  width: 15px;
-  height: 15px;
   margin: 2px 0 0;
-  accent-color: var(--dsh-studio-accent, #0969da);
 }
 
 .deletePhysicalDirty {
@@ -673,39 +660,16 @@
   opacity: 0.75;
 }
 
+/* Select trigger seat: the shared shadcn SelectTrigger owns the field
+   chrome; this class only stretches it across the dialog column. */
 .wtPickerButton {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   width: 100%;
-  height: 36px;
-  padding: 0 12px;
-  border: 1px solid var(--dsw-alias-border-l2);
-  border-radius: 12.5px;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  font-size: var(--dsh-studio-font-xl);
-  color: var(--dsw-alias-label-primary);
-}
-
-.wtPickerButton:hover {
-  background: var(--dsw-alias-interactive-bg-hover);
-}
-
-.wtPickerButtonText {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .wtNewBranchInput {
-  height: 36px;
   margin-top: 6px;
-  font-size: var(--dsh-studio-font-xl);
 }
 
 .wtPathInput {
-  height: 36px;
   font-size: var(--dsh-studio-font-lg);
 }

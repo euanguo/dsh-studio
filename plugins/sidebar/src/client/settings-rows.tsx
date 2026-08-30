@@ -3,15 +3,8 @@
  * rows bound to host prefs or plugin settings blobs (split from
  * settings.tsx).
  */
-import { useRef, useState } from 'react'
-import {
-  Button,
-  Input,
-  Menu,
-  type MenuEntry,
-} from '@deepseek-ai/dsh-client-ui-primitives'
-import { IconChevronDown } from '@dsh-studio/shared/tabler-icons'
-import { SettingsRow, Switch } from '@dsh-studio/shared/ui'
+import { useState } from 'react'
+import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SettingsRow, Switch } from '@dsh-studio/shared/ui'
 import type { SidebarSettingToggle } from './contract.ts'
 import { SidebarSurfaceCss as surfaceCss } from './styles.js'
 
@@ -49,10 +42,9 @@ export function SwitchRow(props: {
   )
 }
 
-/** One choice from a fixed set, rendered as an official outline Button that
- *  opens a portaled Menu (the same span-anchored pattern as the Source
- *  Control AI model/reasoning rows). The official Button does not forward
- *  refs, so the span owns the anchor rect. */
+/** One choice from a fixed set, rendered as a shared shadcn Select (the
+ *  value-selector seat for settings rows; the Source Control AI
+ *  model/reasoning rows share this component). */
 export function MenuRow(props: {
   title: string
   desc?: string
@@ -61,46 +53,30 @@ export function MenuRow(props: {
   disabled?: boolean
   onChange(id: string): void
 }): JSX.Element {
-  const [open, setOpen] = useState(false)
-  const anchorRef = useRef<HTMLSpanElement | null>(null)
-  const current = props.options.find(option => option.id === props.value)
-  const items: MenuEntry[] = props.options.map(option => ({
-    id: option.id,
-    label: option.label,
-  }))
   return (
     <SettingsRow
       title={props.title}
       {...(props.desc === undefined ? {} : { description: props.desc })}
       control={(
-        <span ref={anchorRef} className={surfaceCss["dsh-studio-sidebar-settings-menu-anchor"]}>
-          <Button
-            variant="outline"
+        <Select
+          disabled={props.disabled ?? false}
+          items={props.options.map(option => ({ value: option.id, label: option.label }))}
+          value={props.value}
+          onValueChange={next => { if (next !== null) props.onChange(next) }}
+        >
+          <SelectTrigger
             size="sm"
-            disabled={props.disabled ?? false}
             aria-label={props.title}
-            aria-expanded={open}
-            onClick={() => { setOpen(currentOpen => !currentOpen) }}
+            className={surfaceCss['dsh-studio-sidebar-settings-menu-trigger']}
           >
-            <span className={surfaceCss["dsh-studio-sidebar-settings-menu-label"]}>
-              {current?.label ?? props.value}
-            </span>
-            <IconChevronDown size={14} />
-          </Button>
-          <Menu
-            open={open && (props.disabled ?? false) === false}
-            anchor={null}
-            portal
-            getAnchorRect={() => anchorRef.current?.getBoundingClientRect() ?? null}
-            items={items}
-            selectedId={props.value}
-            onSelect={id => {
-              setOpen(false)
-              props.onChange(id)
-            }}
-            onClose={() => { setOpen(false) }}
-          />
-        </span>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end" alignItemWithTrigger={false}>
+            {props.options.map(option => (
+              <SelectItem key={option.id} value={option.id}>{option.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       )}
     />
   )

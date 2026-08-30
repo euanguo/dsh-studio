@@ -1,6 +1,7 @@
 /**
  * Promise-based confirm / prompt / alert. Presentation is the official
- * Modal + Button + Input atoms. Labels arrive pre-translated from call sites.
+ * Modal + Button atoms plus the shared shadcn Input. Labels arrive
+ * pre-translated from call sites.
  *
  * State convention (ADR, B7): single-request listener store where the
  * "slot" is a QUEUE — `open` appends a request and `close` shifts the head
@@ -9,7 +10,8 @@
  * dialog stacks, the next one renders only after the current one closes.
  */
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { Button, Input, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Input } from '@dsh-studio/shared/ui'
 
 type DialogKind = 'confirm' | 'prompt' | 'alert'
 

@@ -1,10 +1,9 @@
 import {
   IconChevronLeftOutline14,
   IconRefreshOutline16,
-  Input,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { Translate } from '@dsh-studio/shared/i18n'
-import { ErrorState, ToolbarAction } from '@dsh-studio/shared/ui'
+import { ErrorState, Input, ToolbarAction } from '@dsh-studio/shared/ui'
 import type { SidebarRenderProps } from '@dsh-studio/sidebar/client/contract'
 import type { BrowserCenterSurface } from '@dsh-studio/sidebar/client/surfaces-types'
 import type { WorkspaceMessage } from '@dsh-studio/sidebar/client/i18n'

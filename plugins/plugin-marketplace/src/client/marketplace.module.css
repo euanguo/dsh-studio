@@ -84,10 +84,15 @@
   width: 240px;
   gap: 4px;
 
-  & > span {
+  & > input {
     flex: 1;
     min-width: 0;
   }
+}
+
+.searchGlyph {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
 }
 
 .menuAnchor {
@@ -716,15 +721,11 @@
 
 .confirmLabel {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--dsh-studio-space-1-5, 6px);
   color: var(--dsw-alias-label-secondary);
   font-size: var(--dsh-studio-font-md, 12px);
   line-height: 16px;
-
-  & input {
-    margin-top: 1px;
-  }
 }
 
 /* Input prompt */

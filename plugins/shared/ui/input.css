@@ -1,0 +1,67 @@
+/* ShadCN base-nova Input (installed via the shadcn CLI) with DSW token
+ * chrome. The component source in input.tsx is the official registry file;
+ * this stylesheet is the 1:1 translation of its tailwind utility spec into
+ * the --dsh-studio-ui-* token bridge (this repo has no tailwind runtime, and
+ * every token resolves per active theme, so dark:* variants are unnecessary).
+ *
+ * Official spec: h-8 w-full min-w-0 rounded-lg border border-input
+ * bg-transparent px-2.5 py-1 text-base/md:text-sm outline-none
+ * placeholder:text-muted-foreground focus-visible:border-ring
+ * focus-visible:ring-3 ring-ring/50 disabled:pointer-events-none
+ * disabled:cursor-not-allowed disabled:bg-input/50 disabled:opacity-50
+ * aria-invalid:border-destructive aria-invalid:ring-3 ring-destructive/20
+ * file:* (inline-flex 24px bare button).
+ */
+
+.dsh-studio-ui-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--dsh-studio-ui-input, rgb(0 0 0 / 13%));
+  border-radius: var(--dsh-studio-ui-radius, 8px);
+  background: transparent;
+  color: var(--dsh-studio-ui-foreground, #1f2328);
+  font: inherit;
+  font-size: var(--dsh-studio-font-xl, 14px);
+  line-height: 1.4;
+  outline: none;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.dsh-studio-ui-input::placeholder {
+  color: var(--dsh-studio-ui-muted-foreground, #8c959f);
+}
+
+.dsh-studio-ui-input:focus-visible {
+  border-color: var(--dsh-studio-ui-ring, #0969da);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsh-studio-ui-ring, #0969da) 50%, transparent);
+}
+
+.dsh-studio-ui-input:disabled {
+  pointer-events: none;
+  cursor: not-allowed;
+  opacity: 0.5;
+  background: color-mix(in srgb, var(--dsh-studio-ui-input, rgb(0 0 0 / 13%)) 50%, transparent);
+}
+
+.dsh-studio-ui-input[aria-invalid='true'] {
+  border-color: var(--dsh-studio-ui-destructive, #cf222e);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsh-studio-ui-destructive, #cf222e) 20%, transparent);
+}
+
+.dsh-studio-ui-input::file-selector-button {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  margin-right: 8px;
+  padding: 0 8px;
+  border: none;
+  border-radius: var(--dsh-studio-radius-sm, 6px);
+  background: transparent;
+  color: var(--dsh-studio-ui-foreground, #1f2328);
+  font-size: var(--dsh-studio-font-md, 12px);
+  font-weight: 500;
+  cursor: pointer;
+}

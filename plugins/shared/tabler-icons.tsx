@@ -18,6 +18,7 @@ import {
   IconCheck as TbCheck,
   IconChevronDown as TbChevronDown,
   IconChevronRight as TbChevronRight,
+  IconChevronUp as TbChevronUp,
   IconCircleMinus as TbCircleMinus,
   IconCirclePlus as TbCirclePlus,
   IconCircleX as TbCircleX,
@@ -55,6 +56,7 @@ import {
   IconRefresh as TbRefresh,
   IconRotateClockwise as TbRotateClockwise,
   IconSearch as TbSearch,
+  IconSelector as TbSelector,
   IconSparkles as TbSparkles,
   IconPlayerStop as TbPlayerStop,
   IconSquareMinus as TbSquareMinus,
@@ -106,6 +108,8 @@ function tabler(Component: TablerIcon): AppIcon {
 export const IconCheck = tabler(TbCheck)
 export const IconChevronDown = tabler(TbChevronDown)
 export const IconChevronRight = tabler(TbChevronRight)
+export const IconChevronUp = tabler(TbChevronUp)
+export const IconSelector = tabler(TbSelector)
 export const IconPlus = tabler(TbPlus)
 export const IconMinus = tabler(TbMinus)
 export const IconTrash = tabler(TbTrash)

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Button, Input, Modal, RiskConfirmation } from '@deepseek-ai/dsh-client-ui-primitives'
-import { Alert, AlertAction, AlertDescription, EmptyState, LoadingState, ScrollArea, ToolbarAction } from '@dsh-studio/shared/ui'
+import { Button, Modal, RiskConfirmation } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Alert, AlertAction, AlertDescription, EmptyState, Input, LoadingState, ScrollArea, ToolbarAction } from '@dsh-studio/shared/ui'
 import { toast } from '@dsh-studio/shared/toast'
 import { localeTag, type LocaleService, type Translate } from '@dsh-studio/shared/i18n'
 import {
@@ -16,7 +16,7 @@ import {
 import type { DesktopBridge } from '@dsh-studio/shared/desktop-contracts'
 import type { MarketplaceCommand, MarketplacePlugin, MarketplaceSnapshot, MarketplaceSort } from '../protocol.ts'
 import type { MarketplaceMessage } from './i18n.ts'
-import { getCategoryIcon, PluginCard, SortMenu } from './marketplace-browse.tsx'
+import { getCategoryIcon, PluginCard, SortSelect } from './marketplace-browse.tsx'
 import { PluginDetail } from './plugin-detail.tsx'
 import { resolveMarketplaceScrollViewport } from './marketplace-dom.ts'
 import { localizedHostMessage, marketplaceActionNotice, localizedAuthDetail, marketplaceLoadedNotice } from './marketplace-notices.ts'
@@ -277,8 +277,8 @@ export function MarketplaceModal({
           <header className={css.topbar}>
             <div className={css.topbarLeft}>
               <div className={css.searchBox}>
+                <IconSearch size={14} className={css.searchGlyph} />
                 <Input
-                  icon={<IconSearch size={14} />}
                   aria-label={t('search.label')}
                   onChange={event => { filters.setSearch(event.target.value) }}
                   placeholder={t('search.placeholder')}
@@ -292,7 +292,7 @@ export function MarketplaceModal({
                   />
                 )}
               </div>
-              <SortMenu value={filters.sort} t={t} onChange={filters.setSort} />
+              <SortSelect value={filters.sort} t={t} onChange={filters.setSort} />
             </div>
 
             <div className={css.topbarRight}>

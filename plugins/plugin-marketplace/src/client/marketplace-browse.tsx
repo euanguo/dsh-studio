@@ -1,11 +1,9 @@
-import { useRef, useState, type ReactNode } from 'react'
-import { Button, Menu, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
+import type { ReactNode } from 'react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@dsh-studio/shared/ui'
 import type { Translate } from '@dsh-studio/shared/i18n'
 import {
-  IconApps,
   IconBox,
   IconBrowser,
-  IconChevronDown,
   IconCode,
   IconCpu,
   IconDatabase,
@@ -27,7 +25,6 @@ import type { MarketplacePlugin, MarketplaceSort } from '../protocol.ts'
 import type { MarketplaceMessage } from './i18n.ts'
 import {
   compatibilityLabel,
-  compatibilityTone,
   formatMarketplaceCount,
   localizedDescription,
 } from './marketplace-meta.ts'
@@ -53,7 +50,7 @@ export function getCategoryIcon(category: string, size = 15): ReactNode {
   return <IconSparkles size={size} />
 }
 
-export function SortMenu({
+export function SortSelect({
   value,
   t,
   onChange,
@@ -62,8 +59,6 @@ export function SortMenu({
   t: Translate<MarketplaceMessage>
   onChange(value: MarketplaceSort): void
 }): JSX.Element {
-  const [open, setOpen] = useState(false)
-  const anchorRef = useRef<HTMLSpanElement | null>(null)
   const options = [
     ['smart', 'sort.smart'],
     ['stars', 'sort.stars'],
@@ -71,37 +66,24 @@ export function SortMenu({
     ['updated', 'sort.updated'],
     ['name', 'sort.name'],
   ] as const
-  const currentLabel = t(options.find(([id]) => id === value)?.[1] ?? 'sort.smart')
-  const items: MenuEntry[] = options.map(([id, label]) => ({ id, label: t(label) }))
-
   return (
-    <span ref={anchorRef} className={css.menuAnchor}>
-      <Button
-        aria-expanded={open}
-        aria-haspopup="menu"
+    <Select
+      value={value}
+      onValueChange={next => { onChange(next as MarketplaceSort) }}
+    >
+      <SelectTrigger
+        size="sm"
         aria-label={t('sort.label')}
         className={css.menuTrigger}
-        onClick={() => { setOpen(current => !current) }}
-        size="sm"
-        variant="outline"
       >
-        <span>{currentLabel}</span>
-        <IconChevronDown size={14} />
-      </Button>
-      <Menu
-        open={open}
-        anchor={null}
-        portal
-        getAnchorRect={() => anchorRef.current?.getBoundingClientRect() ?? null}
-        items={items}
-        selectedId={value}
-        onSelect={id => {
-          setOpen(false)
-          onChange(id as MarketplaceSort)
-        }}
-        onClose={() => { setOpen(false) }}
-      />
-    </span>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent align="start" alignItemWithTrigger={false}>
+        {options.map(([id, label]) => (
+          <SelectItem key={id} value={id}>{t(label)}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   )
 }
 

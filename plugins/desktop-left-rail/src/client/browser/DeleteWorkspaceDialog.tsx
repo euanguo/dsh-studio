@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-client-runtime/client'
-import { FieldError, StatusLine } from '@dsh-studio/shared/ui'
+import { Checkbox, FieldError, StatusLine } from '@dsh-studio/shared/ui'
 import { errorMessage } from '@dsh-studio/shared/errors'
 import type { WorkspaceBrowserProps } from '../contract/slots.ts'
 import type { RailController } from '../rail-controller.ts'
@@ -140,12 +140,12 @@ export function DeleteWorkspaceDialog({
       )}
     >
       {target?.physicalAvailable === true && (
-        <label className={css.deletePhysicalRow}>
-          <input
-            type="checkbox"
+        <label className={css.deletePhysicalRow} htmlFor="dsh-studio-delete-physical">
+          <Checkbox
+            id="dsh-studio-delete-physical"
             checked={deletePhysical}
             disabled={deleting}
-            onChange={event => { toggleDeletePhysical(event.currentTarget.checked) }}
+            onCheckedChange={checked => { toggleDeletePhysical(checked) }}
           />
           <span>
             {t('delete.physical')}

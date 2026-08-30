@@ -43,17 +43,29 @@ consumers wire in and never re-implement them:
 `dsh.client` plugin may import it. Client builds must list it in
 `external` so the frozen module table supplies one copy.
 
-Use these atoms for plugin chrome. Import them from the official package.
-Do not re-export them from `@dsh-studio/shared`. Do not add a wrapper that
-preserves a retired DSH Studio name or prop list.
+Plugin chrome has two sanctioned sources. DSH-flavored atoms (button,
+menu, dialog, toast, tooltip, chip, status) import from the official
+package. Generic form controls (single-line field, value selector,
+checkbox) come from the shadcn base-nova set that lives in
+`@dsh-studio/shared/ui` — installed via the shadcn CLI
+(`components.json`, style `base-nova`, base `@base-ui/react`), styled
+with the `--dsh-studio-ui-*` token bridge in `theme.css`. Never
+hand-write a form control: add it through the shadcn CLI so the official
+edge-case handling ships with it.
 
-| Need | Official export |
+Do not re-export official atoms from `@dsh-studio/shared`. Do not add a
+wrapper that preserves a retired DSH Studio name or prop list. Do not
+add a second button, dialog, toast, or icon kit.
+
+| Need | Source and export |
 | --- | --- |
-| Button (labeled actions) | `Button` (`primary` / `ghost` / `outline` / `toolbar`; `sm` / `md`) |
+| Button (labeled actions) | `Button` from the official package (`primary` / `ghost` / `outline` / `toolbar`; `sm` / `md`) |
 | Button (icon-only strip actions) | `ToolbarAction` from `@dsh-studio/shared/ui` — the compact icon form: 28×28 square footprint, ghost, secondary label, skin-rounded corners (the skins layer owns `border-radius`, do not override it). The official `sm` capsule is for labeled actions only; do not use it for pure icon buttons. |
 | Center-surface header strip | `SurfaceToolbar` from `@dsh-studio/shared/ui` — one strip for every center surface (file view/edit, diff, commit). It owns the bar geometry AND the slot typography; consumers pass plain content through `leading` / `meta` / `modeSwitch` / `actions` and must not override its font, color, or layout with per-surface CSS. A state toggle (view↔edit, markdown source↔preview) is one `ToolbarAction` that swaps its icon, never a second control. |
-| Single-line field | `Input` |
-| Dropdown or context menu | `Menu` (`portal` when an ancestor clips) |
+| Single-line field | `Input` from `@dsh-studio/shared/ui` (shadcn base-nova). Never a raw `<input>` styled by feature CSS. |
+| Value selector (choose one of N) | `Select` + `SelectTrigger`/`SelectValue`/`SelectContent`/`SelectItem` from `@dsh-studio/shared/ui` (shadcn base-nova). Action menus and context menus stay on the official `Menu`. Never a raw `<select>` or a restyled trigger button. |
+| Binary check / opt-in confirmation | `Checkbox` from `@dsh-studio/shared/ui` (shadcn base-nova). Never a raw `<input type="checkbox">`. |
+| Dropdown or context menu | `Menu` from the official package (`portal` when an ancestor clips) |
 | Dialog | `Modal` |
 | Confirm a dangerous apply | `RiskConfirmation` |
 | Hover label | `Tooltip` |
@@ -125,6 +137,7 @@ Compose through `ctx.slots`. Cross-plugin value imports are forbidden.
 Settings rows contributed through `settings.section` or
 `settings.general.item` follow the official General-row layout: 14px
 title, 12px tertiary description, 16px vertical padding, hairline
-separator, control on the right. Use official `Button` / `Input` /
-`Modal` for those controls. Do not wrap options in a second card
+separator, control on the right. Use the shared form controls
+(`Input` / `Select` / `Checkbox`) plus official `Button` / `Modal` for
+those controls. Do not wrap options in a second card
 language (accent borders, two-column feature tiles).

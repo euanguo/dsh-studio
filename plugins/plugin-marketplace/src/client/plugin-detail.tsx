@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Input, Menu, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
-import { ToolbarAction } from '@dsh-studio/shared/ui'
+import { Button, Menu, type MenuEntry } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Checkbox, Input, ToolbarAction } from '@dsh-studio/shared/ui'
 import type { LocaleService, Translate } from '@dsh-studio/shared/i18n'
 import { localeTag } from '@dsh-studio/shared/i18n'
 import type { DesktopBridge } from '@dsh-studio/shared/desktop-contracts'
@@ -241,11 +241,15 @@ export function PluginDetail({
               <div className={css.confirms}>
                 <span className={css.confirmTitle}>{t('confirm-before-install')}</span>
                 {requiredConfirmations.map(requirement => (
-                  <label className={css.confirmLabel} key={requirement}>
-                    <input
+                  <label
+                    className={css.confirmLabel}
+                    key={requirement}
+                    htmlFor={`marketplace-confirm-${requirement}`}
+                  >
+                    <Checkbox
+                      id={`marketplace-confirm-${requirement}`}
                       checked={confirmations.includes(requirement)}
-                      onChange={event => { selectConfirmation(requirement, event.target.checked) }}
-                      type="checkbox"
+                      onCheckedChange={checked => { selectConfirmation(requirement, checked) }}
                     />
                     <span>{confirmationLabel(requirement, t)}</span>
                   </label>

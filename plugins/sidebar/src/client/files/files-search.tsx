@@ -6,10 +6,9 @@
  * latest query's results.
  */
 import { useEffect, useState } from 'react'
-import { Input } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { CapabilitiesScope } from '@dsh-studio/shared/capabilities-api'
 import { basename, isUnderRoot, joinPath } from '@dsh-studio/shared/path'
-import { EmptyState, LoadingState, ScrollArea } from '@dsh-studio/shared/ui'
+import { EmptyState, Input, LoadingState, ScrollArea } from '@dsh-studio/shared/ui'
 import { sidebarApi } from '../sidebar-api.ts'
 import { workbenchOpen } from '../open/pipeline.ts'
 import type { Translate } from '@dsh-studio/shared/i18n'

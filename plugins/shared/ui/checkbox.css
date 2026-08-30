@@ -1,0 +1,67 @@
+/* ShadCN base-nova Checkbox (installed via the shadcn CLI) with DSW token
+ * chrome — the 1:1 translation of the official utility spec. The component
+ * source in checkbox.tsx is the official registry file.
+ *
+ * Official spec: size-4 rounded-[4px] border border-input relative flex
+ * items-center justify-center after:(-inset-x-3 -inset-y-2) — the extended
+ * hit area is an edge case the official component carries; keep it.
+ * focus-visible ring-3 ring-ring/50, disabled opacity-50, aria-invalid ring,
+ * data-checked: primary fill + primary-foreground text.
+ *
+ * The tailwind group-has-* rules bind to the shadcn Field group; here the
+ * Field composite already carries disabled/invalid state on its container.
+ */
+
+.dsh-studio-ui-checkbox {
+  position: relative;
+  display: flex;
+  flex: none;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--dsh-studio-ui-input, rgb(0 0 0 / 13%));
+  border-radius: 4px;
+  background: transparent;
+  color: var(--dsh-studio-ui-primary-foreground, #fff);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.dsh-studio-ui-checkbox::after {
+  content: "";
+  position: absolute;
+  inset: -8px -12px;
+}
+
+.dsh-studio-ui-checkbox:focus-visible {
+  border-color: var(--dsh-studio-ui-ring, #0969da);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsh-studio-ui-ring, #0969da) 50%, transparent);
+}
+
+.dsh-studio-ui-checkbox[data-disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.dsh-studio-ui-checkbox[aria-invalid='true'] {
+  border-color: var(--dsh-studio-ui-destructive, #cf222e);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsh-studio-ui-destructive, #cf222e) 20%, transparent);
+}
+
+.dsh-studio-ui-checkbox[aria-invalid='true'][data-checked] {
+  border-color: var(--dsh-studio-ui-primary, #0969da);
+}
+
+.dsh-studio-ui-checkbox[data-checked] {
+  border-color: var(--dsh-studio-ui-primary, #0969da);
+  background: var(--dsh-studio-ui-primary, #0969da);
+}
+
+.dsh-studio-ui-checkbox-indicator {
+  display: grid;
+  place-content: center;
+  color: currentcolor;
+}

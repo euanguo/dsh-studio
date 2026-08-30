@@ -461,14 +461,11 @@
   border-bottom: 1px solid var(--dsw-alias-border-l1, rgb(0 0 0 / 8%));
 }
 
-/* The official Input ships a fixed inner width; the omnibox stretches
-   wrapper AND inner input to the strip's free width. */
+/* The shared shadcn Input carries its chrome on the <input> itself; the
+   omnibox class stretches that element across the strip's free width. */
 .dsh-studio-browser-bar .dsh-studio-browser-address {
   flex: 1;
   min-width: 0;
-}
-
-.dsh-studio-browser-bar .dsh-studio-browser-address input {
   width: 100%;
 }
 
@@ -679,7 +676,7 @@
   align-items: center;
   gap: 6px;
 }
-.dsh-studio-sidebar-settings-input > span {
+.dsh-studio-sidebar-settings-input > input {
   min-width: 0;
   flex: 1;
 }

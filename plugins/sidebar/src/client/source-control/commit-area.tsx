@@ -19,7 +19,7 @@ import type {
   SourceControlActionKind,
   SourceControlActionState,
 } from './source-control-actions.ts'
-import { StatusLine, Textarea } from '@dsh-studio/shared/ui'
+import { StatusLine, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@dsh-studio/shared/ui'
 import type { SourceControlOperationState } from './source-control-action-controller.ts'
 
 export interface CommitAreaProps {
@@ -84,9 +84,7 @@ function menuEntry(action: SourceControlAction, t: Translate<WorkspaceMessage>, 
  * module only renders controls and reports user gestures to its owner.
  */
 export function CommitArea(props: CommitAreaProps): JSX.Element {
-  const [branchMenuOpen, setBranchMenuOpen] = useState(false)
   const [actionMenuOpen, setActionMenuOpen] = useState(false)
-  const branchButtonRef = useRef<HTMLButtonElement | null>(null)
   const actionButtonRef = useRef<HTMLSpanElement | null>(null)
   const primaryReason = actionDisabledReason(props.actions.primary, props.t)
   const busy = props.operation.phase === 'running'
@@ -95,19 +93,30 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
   return (
     <section className={surfaceCss["dsh-studio-commit-area"]}>
       <div className={surfaceCss["dsh-studio-commit-branch-row"]}>
-        <button
-          ref={branchButtonRef}
-          type="button"
-          className={surfaceCss["dsh-studio-branch-picker"]}
-          aria-label={props.t('workspace.current-branch')}
-          aria-expanded={branchMenuOpen}
+        {/* Current-branch value selector; checkout actions report to the
+            owner. The trigger chrome is the shared SelectTrigger seat. */}
+        <Select
           disabled={busy}
-          onClick={() => { setBranchMenuOpen(value => !value) }}
+          items={props.branches.map(branch => ({ value: branch, label: branch }))}
+          value={props.branch ?? null}
+          onValueChange={branch => {
+            if (branch !== null && branch !== props.branch) props.onCheckout(branch)
+          }}
         >
-          <span className={surfaceCss["dsh-studio-workspace-fact-icon"]}><IconGitBranch size={16} /></span>
-          <span className={surfaceCss["dsh-studio-branch-picker-name"]}>{props.branch ?? ''}</span>
-          <IconChevronDown size={14} className={surfaceCss["dsh-studio-workspace-chevron"]} />
-        </button>
+          <SelectTrigger
+            size="sm"
+            aria-label={props.t('workspace.current-branch')}
+            className={surfaceCss["dsh-studio-branch-picker"]}
+          >
+            <span className={surfaceCss["dsh-studio-workspace-fact-icon"]}><IconGitBranch size={16} /></span>
+            <SelectValue>{(branch: string | null) => branch ?? ''}</SelectValue>
+          </SelectTrigger>
+          <SelectContent align="start" alignItemWithTrigger={false}>
+            {props.branches.map(branch => (
+              <SelectItem key={branch} value={branch}>{branch}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <span className={surfaceCss["dsh-studio-commit-area-spacer"]} />
         <Button
           variant="ghost"
@@ -181,19 +190,6 @@ export function CommitArea(props: CommitAreaProps): JSX.Element {
           />
         </span>
       </div>
-      <Menu
-        open={branchMenuOpen}
-        anchor={null}
-        portal
-        getAnchorRect={() => branchButtonRef.current?.getBoundingClientRect() ?? null}
-        items={props.branches.map(branch => ({ id: branch, label: branch }))}
-        selectedId={props.branch ?? undefined}
-        onSelect={branch => {
-          setBranchMenuOpen(false)
-          if (branch !== props.branch) props.onCheckout(branch)
-        }}
-        onClose={() => { setBranchMenuOpen(false) }}
-      />
     </section>
   )
 }

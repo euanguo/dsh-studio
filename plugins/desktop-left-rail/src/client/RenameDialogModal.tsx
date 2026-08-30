@@ -8,6 +8,7 @@
  */
 import { useRef, type ReactNode } from 'react'
 import { Button, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Input } from '@dsh-studio/shared/ui'
 import { WorkspaceBrowserCss as css } from './styles.ts'
 import type { WorkspaceBrowserProps } from './contract/slots.ts'
 
@@ -60,7 +61,7 @@ export function RenameDialogModal({
         </>
       )}
     >
-      <input
+      <Input
         className={css.renameInput}
         value={value}
         aria-label={fieldLabel}
